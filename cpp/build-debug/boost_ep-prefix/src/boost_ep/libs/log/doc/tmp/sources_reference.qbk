@@ -1,0 +1,98 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_sources_basic_logger_hpp[][headerref boost/log/sources/basic_logger.hpp]]
+
+[template class_sources_basic_composite_logger[][classref boost::log::sources::basic_composite_logger basic_composite_logger]]
+
+[template class_sources_basic_logger[][classref boost::log::sources::basic_logger basic_logger]]
+
+[template boost_log_sources_channel_feature_hpp[][headerref boost/log/sources/channel_feature.hpp]]
+
+[template class_sources_basic_channel_logger[][classref boost::log::sources::basic_channel_logger basic_channel_logger]]
+
+[template class_sources_basic_channel_logger_make_default_channel_name[][classref boost::log::sources::basic_channel_logger::make_default_channel_name make_default_channel_name]]
+
+[template class_sources_channel[][classref boost::log::sources::channel channel]]
+
+[template class_sources_channel_apply[][classref boost::log::sources::channel::apply apply]]
+
+[template boost_log_sources_channel_logger_hpp[][headerref boost/log/sources/channel_logger.hpp]]
+
+[template class_sources_channel_logger[][classref boost::log::sources::channel_logger channel_logger]]
+
+[template class_sources_channel_logger_mt[][classref boost::log::sources::channel_logger_mt channel_logger_mt]]
+
+[template class_sources_wchannel_logger[][classref boost::log::sources::wchannel_logger wchannel_logger]]
+
+[template class_sources_wchannel_logger_mt[][classref boost::log::sources::wchannel_logger_mt wchannel_logger_mt]]
+
+[template boost_log_sources_exception_handler_feature_hpp[][headerref boost/log/sources/exception_handler_feature.hpp]]
+
+[template class_sources_basic_exception_handler_logger[][classref boost::log::sources::basic_exception_handler_logger basic_exception_handler_logger]]
+
+[template class_sources_exception_handler[][classref boost::log::sources::exception_handler exception_handler]]
+
+[template class_sources_exception_handler_apply[][classref boost::log::sources::exception_handler::apply apply]]
+
+[template boost_log_sources_features_hpp[][headerref boost/log/sources/features.hpp]]
+
+[template class_sources_features[][classref boost::log::sources::features features]]
+
+[template boost_log_sources_global_logger_storage_hpp[][headerref boost/log/sources/global_logger_storage.hpp]]
+
+[template boost_log_sources_logger_hpp[][headerref boost/log/sources/logger.hpp]]
+
+[template class_sources_logger[][classref boost::log::sources::logger logger]]
+
+[template class_sources_logger_mt[][classref boost::log::sources::logger_mt logger_mt]]
+
+[template class_sources_wlogger[][classref boost::log::sources::wlogger wlogger]]
+
+[template class_sources_wlogger_mt[][classref boost::log::sources::wlogger_mt wlogger_mt]]
+
+[template boost_log_sources_record_ostream_hpp[][headerref boost/log/sources/record_ostream.hpp]]
+
+[template class_log_basic_record_ostream[][classref boost::log::basic_record_ostream basic_record_ostream]]
+
+[template boost_log_sources_severity_channel_logger_hpp[][headerref boost/log/sources/severity_channel_logger.hpp]]
+
+[template class_sources_severity_channel_logger[][classref boost::log::sources::severity_channel_logger severity_channel_logger]]
+
+[template class_sources_severity_channel_logger_mt[][classref boost::log::sources::severity_channel_logger_mt severity_channel_logger_mt]]
+
+[template class_sources_wseverity_channel_logger[][classref boost::log::sources::wseverity_channel_logger wseverity_channel_logger]]
+
+[template class_sources_wseverity_channel_logger_mt[][classref boost::log::sources::wseverity_channel_logger_mt wseverity_channel_logger_mt]]
+
+[template boost_log_sources_severity_feature_hpp[][headerref boost/log/sources/severity_feature.hpp]]
+
+[template class_sources_basic_severity_logger[][classref boost::log::sources::basic_severity_logger basic_severity_logger]]
+
+[template class_sources_severity[][classref boost::log::sources::severity severity]]
+
+[template class_sources_severity_apply[][classref boost::log::sources::severity::apply apply]]
+
+[template boost_log_sources_severity_logger_hpp[][headerref boost/log/sources/severity_logger.hpp]]
+
+[template class_sources_severity_logger[][classref boost::log::sources::severity_logger severity_logger]]
+
+[template class_sources_severity_logger_mt[][classref boost::log::sources::severity_logger_mt severity_logger_mt]]
+
+[template class_sources_wseverity_logger[][classref boost::log::sources::wseverity_logger wseverity_logger]]
+
+[template class_sources_wseverity_logger_mt[][classref boost::log::sources::wseverity_logger_mt wseverity_logger_mt]]
+
+[template boost_log_sources_threading_models_hpp[][headerref boost/log/sources/threading_models.hpp]]
+
+[template class_sources_multi_thread_model[][classref boost::log::sources::multi_thread_model multi_thread_model]]
+
+[template class_sources_single_thread_model[][classref boost::log::sources::single_thread_model single_thread_model]]

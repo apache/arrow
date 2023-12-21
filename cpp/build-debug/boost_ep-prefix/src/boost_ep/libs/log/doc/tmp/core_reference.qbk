@@ -1,0 +1,22 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_core_core_hpp[][headerref boost/log/core/core.hpp]]
+
+[template class_log_core[][classref boost::log::core core]]
+
+[template boost_log_core_record_hpp[][headerref boost/log/core/record.hpp]]
+
+[template class_log_record[][classref boost::log::record record]]
+
+[template boost_log_core_record_view_hpp[][headerref boost/log/core/record_view.hpp]]
+
+[template class_log_record_view[][classref boost::log::record_view record_view]]

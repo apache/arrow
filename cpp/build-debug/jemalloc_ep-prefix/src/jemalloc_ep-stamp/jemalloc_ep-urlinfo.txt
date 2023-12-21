@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/jemalloc_ep-prefix/src/jemalloc_ep-stamp/download-jemalloc_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/jemalloc_ep-prefix/src/jemalloc_ep-stamp/verify-jemalloc_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/jemalloc_ep-prefix/src/jemalloc_ep-stamp/extract-jemalloc_ep.cmake
+source_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/jemalloc_ep-prefix/src/jemalloc_ep
+work_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/jemalloc_ep-prefix/src
+url(s)=https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2;https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/jemalloc-5.3.0.tar.bz2
+hash=SHA256=2db82d1e7119df3e71b7640219b6dfe84789bc0537983c3b7ac4f7189aecfeaa
+no_extract=
+

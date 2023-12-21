@@ -1,0 +1,62 @@
+digraph {
+	compound=true
+	fontname="Inconsolata, Consolas"
+	fontsize=10
+	margin="0,0"
+	ranksep=0.2
+	penwidth=0.5
+
+	node [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+	edge [fontname="Inconsolata, Consolas", fontsize=10, arrowhead=normal]
+
+	subgraph cluster1 {
+		margin="10,10"
+		labeljust="left"
+		label = "Before Copying (Hypothetic)"
+		style=filled
+		fillcolor=gray95
+
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+
+		c1 [label="{contacts:array|}", fillcolor=4]
+		c11 [label="{|}"]
+		c12 [label="{|}"]
+		c13 [shape="none", label="...", style="solid"]
+		o1 [label="{o:object|}", fillcolor=3]
+		ghost [label="{o:object|}", style=invis]
+
+		c1 -> o1 [style="dashed", label="AddMember", constraint=false]
+
+		edge [arrowhead=vee]
+		c1 -> { c11; c12; c13 }
+		o1 -> ghost [style=invis]
+	}
+
+	subgraph cluster2 {
+		margin="10,10"
+		labeljust="left"
+		label = "After Copying (Hypothetic)"
+		style=filled
+		fillcolor=gray95
+
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+
+		c2 [label="{contacts:array|}", fillcolor=4]
+		c3 [label="{array|}", fillcolor=4]
+		c21 [label="{|}"]
+		c22 [label="{|}"]
+		c23 [shape=none, label="...", style="solid"]
+		o2 [label="{o:object|}", fillcolor=3]
+		cs [label="{string|\"contacts\"}", fillcolor=5]
+		c31 [label="{|}"]
+		c32 [label="{|}"]
+		c33 [shape="none", label="...", style="solid"]
+
+		edge [arrowhead=vee]
+		c2 -> { c21; c22; c23 }
+		o2 -> cs
+		cs -> c3 [arrowhead=none]
+		c3 -> { c31; c32; c33 }
+	}
+	ghost -> o2 [style=invis]
+}

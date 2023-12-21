@@ -1,0 +1,62 @@
+digraph {
+    fontname="Inconsolata, Consolas"
+    fontsize=10
+    margin="0,0"
+    penwidth=0.0
+    
+    node [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+    edge [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+
+    node [shape = doublecircle]; Start; Finish;
+    node [shape = box; style = "rounded, filled"; fillcolor=white ];
+
+    Start -> ArrayInitial [label=" ["];
+    Start -> ObjectInitial [label=" {"];
+
+    subgraph clusterArray {
+        margin="10,10"
+        style=filled
+        fillcolor=gray95
+        label = "Array"
+        
+        ArrayInitial; Element; ElementDelimiter; ArrayFinish;
+    }
+
+    subgraph clusterObject {
+        margin="10,10"
+        style=filled
+        fillcolor=gray95
+        label = "Object"
+
+        ObjectInitial; MemberKey; KeyValueDelimiter; MemberValue; MemberDelimiter; ObjectFinish;
+    }
+
+    ArrayInitial -> ArrayInitial [label="["];
+    ArrayInitial -> ArrayFinish [label=" ]"];
+    ArrayInitial -> ObjectInitial [label="{", constraint=false];
+    ArrayInitial -> Element [label="string\nfalse\ntrue\nnull\nnumber"];
+
+    Element -> ArrayFinish [label="]"];
+    Element -> ElementDelimiter [label=","];
+
+    ElementDelimiter -> ArrayInitial [label=" ["];
+    ElementDelimiter -> ObjectInitial [label="{"];
+    ElementDelimiter -> Element [label="string\nfalse\ntrue\nnull\nnumber"];
+
+    ObjectInitial -> ObjectFinish [label=" }"];
+    ObjectInitial -> MemberKey [label=" string "];
+
+    MemberKey -> KeyValueDelimiter [label=":"];
+
+    KeyValueDelimiter -> ArrayInitial [label="["];
+    KeyValueDelimiter -> ObjectInitial [label=" {"];
+    KeyValueDelimiter -> MemberValue [label=" string\n false\n true\n null\n number"];
+
+    MemberValue -> ObjectFinish [label="}"];
+    MemberValue -> MemberDelimiter [label=","];
+
+    MemberDelimiter -> MemberKey [label=" string "];
+
+    ArrayFinish -> Finish;
+    ObjectFinish -> Finish;
+}

@@ -1,0 +1,3139 @@
+<?xml version="1.0" standalone="yes"?>
+<library-reference id="expressions"><title>Expressions</title><header name="boost/log/expressions/attr.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>21.07.2012</para>
+
+The header contains implementation of a generic attribute placeholder in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<function name="attr"><type><classname>attribute_actor</classname>&lt; AttributeValueT &gt;</type><template>
+          <template-type-parameter name="AttributeValueT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will extract the value of the attribute with the specified name and type. </para></description></function>
+<function name="attr"><type><classname>attribute_actor</classname>&lt; AttributeValueT, fallback_to_none, TagT &gt;</type><template>
+          <template-type-parameter name="AttributeValueT"/>
+          <template-type-parameter name="TagT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will extract the value of the attribute with the specified name and type. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/attr_fwd.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>21.07.2012</para>
+
+The header contains forward declaration of a generic attribute placeholder in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="attribute_actor"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="TagT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; attribute_terminal&lt; T, FallbackPolicyT, TagT &gt; &gt;</inherit><description><para>An attribute value extraction terminal actor </para></description><method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><description><para>
+</para></description><returns><para>The attribute name </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+<method name="or_none" cv="const"><type>or_none_result_type</type><purpose>Generates an expression that extracts the attribute value or a default value. </purpose></method>
+<method name="or_throw" cv="const"><type>or_throw_result_type</type><purpose>Generates an expression that extracts the attribute value or throws an exception. </purpose></method>
+<method name="or_default" cv="const"><type><classname>attribute_actor</classname>&lt; value_type, fallback_to_default&lt; DefaultT &gt;, tag_type, ActorT &gt;</type><template>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype></parameter><purpose>Generates an expression that extracts the attribute value or a default value. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="attribute_terminal"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="TagT"/>
+    </template><description><para>An attribute value extraction terminal </para></description><method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><description><para>
+</para></description><returns><para>Attribute value name </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+<method name="operator()"><type><classname>result</classname>&lt; <classname>this_type</classname>(ContextT const  &amp;) &gt;::type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>The operator extracts attribute value </para></description></method>
+<method name="operator()" cv="const"><type><classname>result</classname>&lt; const <classname>this_type</classname>(ContextT const  &amp;) &gt;::type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>The operator extracts attribute value </para></description></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+<constructor><template>
+          <template-type-parameter name="U"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="arg"><paramtype>U const &amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+<constructor cv="= delete"/>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/filter.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.07.2012</para>
+
+The header contains a filter function object definition. </para><namespace name="boost">
+<namespace name="log">
+<class name="filter"><description><para>Log record filter function wrapper. </para></description><struct name="default_filter"><purpose>Default filter, always returns <computeroutput>true</computeroutput>. </purpose><typedef name="result_type"><type>bool</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name=""><paramtype>attribute_value_set const &amp;</paramtype></parameter></method>
+</method-group>
+</struct><typedef name="result_type"><purpose>Result type. </purpose><type>bool</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="values"><paramtype>attribute_value_set const &amp;</paramtype><description><para>Attribute values of the log record. </para></description></parameter><description><para>Filtering operator.</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the log record passes the filter, <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="reset"><type>void</type><description><para>Resets the filter to the default. The default filter always returns <computeroutput>true</computeroutput>. </para></description></method>
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>filter</classname> &amp;</paramtype></parameter><description><para>Swaps two filters </para></description></method>
+</method-group>
+<constructor><description><para>Default constructor. Creates a filter that always returns <computeroutput>true</computeroutput>. </para></description></constructor>
+<constructor><parameter name="that"><paramtype><classname>filter</classname> const &amp;</paramtype></parameter><description><para>Copy constructor </para></description></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>filter</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor. The moved-from filter is left in an unspecified state. </para></description></constructor>
+<constructor><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT &amp;&amp;</paramtype></parameter><description><para>Initializing constructor. Creates a filter which will invoke the specified function object. </para></description></constructor>
+<copy-assignment cv="noexcept"><type><classname>filter</classname> &amp;</type><parameter name="that"><paramtype><classname>filter</classname> &amp;&amp;</paramtype></parameter><description><para>Move assignment. The moved-from filter is left in an unspecified state. </para></description></copy-assignment>
+<copy-assignment><type><classname>filter</classname> &amp;</type><parameter name="that"><paramtype><classname>filter</classname> const &amp;</paramtype></parameter><description><para>Copy assignment. </para></description></copy-assignment>
+<copy-assignment><type><classname>filter</classname> &amp;</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT const &amp;</paramtype></parameter><description><para>Initializing assignment. Sets the specified function object to the filter. </para></description></copy-assignment>
+</class>
+<function name="swap"><type>void</type><parameter name="left"><paramtype><classname>filter</classname> &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>filter</classname> &amp;</paramtype></parameter></function>
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatter.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.07.2012</para>
+
+The header contains a formatter function object definition. </para><namespace name="boost">
+<namespace name="log">
+<class name="basic_formatter"><template>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>Log record formatter function wrapper. </para></description><typedef name="result_type"><purpose>Result type. </purpose><type>void</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="stream_type"><purpose>Output stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record to format. </para></description></parameter><parameter name="strm"><paramtype>stream_type &amp;</paramtype><description><para>A stream to put the formatted characters to. </para></description></parameter><description><para>Formatting operator.</para><para>
+</para></description></method>
+<method name="reset"><type>void</type><description><para>Resets the formatter to the default. The default formatter only outputs message text. </para></description></method>
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>basic_formatter</classname> &amp;</paramtype></parameter><description><para>Swaps two formatters </para></description></method>
+</method-group>
+<constructor><description><para>Default constructor. Creates a formatter that only outputs log message. </para></description></constructor>
+<constructor><parameter name="that"><paramtype><classname>basic_formatter</classname> const &amp;</paramtype></parameter><description><para>Copy constructor </para></description></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>this_type</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor. The moved-from formatter is left in an unspecified state. </para></description></constructor>
+<constructor><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT &amp;&amp;</paramtype></parameter><description><para>Initializing constructor. Creates a formatter which will invoke the specified function object. </para></description></constructor>
+<copy-assignment cv="noexcept"><type><classname>basic_formatter</classname> &amp;</type><parameter name="that"><paramtype><classname>this_type</classname> &amp;&amp;</paramtype></parameter><description><para>Move assignment. The moved-from formatter is left in an unspecified state. </para></description></copy-assignment>
+<copy-assignment><type><classname>basic_formatter</classname> &amp;</type><parameter name="that"><paramtype><classname>this_type</classname> const &amp;</paramtype></parameter><description><para>Copy assignment. </para></description></copy-assignment>
+<copy-assignment><type><classname>basic_formatter</classname> &amp;</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT &amp;&amp;</paramtype></parameter><description><para>Initializing assignment. Sets the specified function object to the formatter. </para></description></copy-assignment>
+</class><namespace name="expressions">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+<typedef name="formatter"><type><classname>basic_formatter</classname>&lt; char &gt;</type></typedef>
+<typedef name="wformatter"><type><classname>basic_formatter</classname>&lt; wchar_t &gt;</type></typedef>
+<function name="swap"><type>void</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="left"><paramtype><classname>basic_formatter</classname>&lt; CharT &gt; &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>basic_formatter</classname>&lt; CharT &gt; &amp;</paramtype></parameter></function>
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>10.11.2012</para>
+
+The header includes all template expression formatters. </para></header>
+<header name="boost/log/expressions/formatters/auto_newline.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>23.06.2019</para>
+
+The header contains implementation of formatter for inserting a newline, unless there is already one inserted. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/c_decorator.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>18.11.2012</para>
+
+The header contains implementation of C-style character decorators. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="c_ascii_pattern_replacer"><template>
+      <template-type-parameter name="CharT"/>
+    </template><inherit access="public">boost::log::expressions::pattern_replacer&lt; CharT &gt;</inherit><description><para>A character decorator implementation that escapes all non-prontable and non-ASCII characters in the output with C-style escape sequences. </para></description><typedef name="result_type"><purpose>Result type. </purpose><type>base_type::result_type</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>base_type::char_type</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>base_type::string_type</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="str"><paramtype>string_type &amp;</paramtype></parameter><parameter name="start_pos"><paramtype>typename string_type::size_type</paramtype><default>0</default></parameter><purpose>Applies string replacements starting from the specified position. </purpose></method>
+</method-group>
+<constructor><purpose>Default constructor. </purpose></constructor>
+</class><data-member name="c_decor"><type><emphasis>unspecified</emphasis></type><description><para>C-style decorator generator object. The decorator replaces characters with specific meaning in C language with the corresponding escape sequences. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator. For example:</para><para><computeroutput> c_decor[ stream &lt;&lt; attr&lt; std::string &gt;("MyAttr") ] </computeroutput></para><para>For wide-character formatting there is the similar <computeroutput>wc_decor</computeroutput> decorator generator object. </para></description></data-member>
+<data-member name="wc_decor"><type><emphasis>unspecified</emphasis></type></data-member>
+<data-member name="c_ascii_decor"><type><emphasis>unspecified</emphasis></type><description><para>C-style decorator generator object. Acts similarly to <computeroutput>c_decor</computeroutput>, except that <computeroutput>c_ascii_decor</computeroutput> also converts all non-ASCII and non-printable ASCII characters, except for space character, into C-style hexadecimal escape sequences. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator. For example:</para><para><computeroutput> c_ascii_decor[ stream &lt;&lt; attr&lt; std::string &gt;("MyAttr") ] </computeroutput></para><para>For wide-character formatting there is the similar <computeroutput>wc_ascii_decor</computeroutput> decorator generator object. </para></description></data-member>
+<data-member name="wc_ascii_decor"><type><emphasis>unspecified</emphasis></type></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="make_c_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><description><para>The function creates a C-style decorator generator for arbitrary character type. </para></description></function>
+<function name="make_c_ascii_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><description><para>The function creates a C-style decorator generator for arbitrary character type. </para></description></function>
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/char_decorator.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>17.11.2012</para>
+
+The header contains implementation of a character decorator. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="char_decorator_actor"><template>
+      <template-type-parameter name="SubactorT"/>
+      <template-type-parameter name="ImplT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; char_decorator_terminal&lt; SubactorT, ImplT &gt; &gt;</inherit><description><para>Character decorator actor </para></description><typedef name="terminal_type"><purpose>Base terminal type. </purpose><type><classname>char_decorator_terminal</classname>&lt; SubactorT, ImplT &gt;</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>terminal_type::char_type</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="get_terminal" cv="const"><type>terminal_type const  &amp;</type><purpose>Returns reference to the terminal. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="char_decorator_terminal"><template>
+      <template-type-parameter name="SubactorT"/>
+      <template-type-parameter name="ImplT"/>
+    </template><description><para>Character decorator terminal class. This formatter allows to modify strings generated by other formatters on character level. The most obvious application of decorators is replacing a certain set of characters with decorated equivalents to satisfy requirements of text-based sinks.</para><para>The <computeroutput><classname alt="boost::log::expressions::char_decorator_terminal">char_decorator_terminal</classname></computeroutput> class aggregates the formatter being decorated, and a set of string pairs that are used as decorations. All decorations are applied sequentially. The <computeroutput><classname alt="boost::log::expressions::char_decorator_terminal">char_decorator_terminal</classname></computeroutput> class is a formatter itself, so it can be used to construct more complex formatters, including nesting decorators. </para></description><typedef name="impl_type"><purpose>Implementation type. </purpose><type>ImplT</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>impl_type::char_type</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>impl_type::string_type</type></typedef>
+<typedef name="stream_type"><purpose>Stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<typedef name="subactor_type"><purpose>Adopted actor type. </purpose><type>SubactorT</type></typedef>
+<typedef name="result_type"><purpose>Result type definition. </purpose><type>string_type</type></typedef>
+<method-group name="public member functions">
+<method name="get_subactor" cv="const"><type>subactor_type const  &amp;</type><description><para>
+</para></description><returns><para>Adopted subactor </para>
+</returns></method>
+<method name="get_impl" cv="const"><type>impl_type const  &amp;</type><description><para>
+</para></description><returns><para>Implementation </para>
+</returns></method>
+<method name="operator()"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>Invokation operator </para></description></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>Invokation operator </para></description></method>
+</method-group>
+<constructor><parameter name="sub"><paramtype>subactor_type const &amp;</paramtype></parameter><parameter name="impl"><paramtype>impl_type const &amp;</paramtype></parameter><description><para>Initializing constructor. </para></description></constructor>
+<constructor><parameter name="that"><paramtype><classname>char_decorator_terminal</classname> const &amp;</paramtype></parameter><description><para>Copy constructor </para></description></constructor>
+<constructor cv="= delete"/>
+</class><class name="pattern_replacer"><template>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>A simple character decorator implementation. This implementation replaces string patterns in the source string with the fixed replacements. Source patterns and replacements can be specified at the object construction. </para></description><struct name="string_lengths"><purpose>Lengths of source pattern and replacement. </purpose><data-member name="from_len"><type>unsigned int</type></data-member>
+<data-member name="to_len"><type>unsigned int</type></data-member>
+</struct><typedef name="result_type"><purpose>Result type. </purpose><type>void</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="str"><paramtype>string_type &amp;</paramtype></parameter><parameter name="start_pos"><paramtype>typename string_type::size_type</paramtype><default>0</default></parameter><purpose>Applies string replacements starting from the specified position. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><template>
+          <template-type-parameter name="RangeT"/>
+        </template><parameter name="decorations"><paramtype>RangeT const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates a pattern replacer with the specified <emphasis>decorations</emphasis>. The provided decorations must be a sequence of <computeroutput>std::pair</computeroutput> of strings. The first element of each pair is the source pattern, and the second one is the corresponding replacement. </para></description></constructor>
+<constructor><template>
+          <template-type-parameter name="FromRangeT"/>
+          <template-type-parameter name="ToRangeT"/>
+        </template><parameter name="from"><paramtype>FromRangeT const &amp;</paramtype></parameter><parameter name="to"><paramtype>ToRangeT const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates a pattern replacer with decorations specified in form of two same-sized string sequences. Each <computeroutput>i</computeroutput>'th decoration will be <computeroutput>from[i]</computeroutput> -&gt; <computeroutput>to[i]</computeroutput>. </para></description></constructor>
+<constructor><parameter name="that"><paramtype><classname>pattern_replacer</classname> const &amp;</paramtype></parameter><purpose>Copy constructor. </purpose></constructor>
+<method-group name="private static functions">
+<method name="string_begin" specifiers="static"><type>char_type *</type><parameter name="p"><paramtype>char_type *</paramtype></parameter></method>
+<method name="string_begin" specifiers="static"><type>const char_type *</type><parameter name="p"><paramtype>const char_type *</paramtype></parameter></method>
+<method name="string_begin" specifiers="static"><type>range_const_iterator&lt; RangeT &gt;::type</type><template>
+          <template-type-parameter name="RangeT"/>
+        </template><parameter name="r"><paramtype>RangeT const &amp;</paramtype></parameter></method>
+<method name="string_end" specifiers="static"><type>char_type *</type><parameter name="p"><paramtype>char_type *</paramtype></parameter></method>
+<method name="string_end" specifiers="static"><type>const char_type *</type><parameter name="p"><paramtype>const char_type *</paramtype></parameter></method>
+<method name="string_end" specifiers="static"><type>range_const_iterator&lt; RangeT &gt;::type</type><template>
+          <template-type-parameter name="RangeT"/>
+        </template><parameter name="r"><paramtype>RangeT const &amp;</paramtype></parameter></method>
+</method-group>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="char_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="RangeT"/>
+        </template><parameter name="decorations"><paramtype>RangeT const &amp;</paramtype><description><para>A sequence of string pairs that will be used as decorations. Every <computeroutput>decorations[i].first</computeroutput> substring occurrence in the output will be replaced with <computeroutput>decorations[i].second</computeroutput>. </para></description></parameter><description><para>The function returns a decorator generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator.</para><para>
+</para></description></function>
+<function name="char_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="FromRangeT"/>
+          <template-type-parameter name="ToRangeT"/>
+        </template><parameter name="from"><paramtype>FromRangeT const &amp;</paramtype><description><para>A sequence of strings that will be sought in the output. </para></description></parameter><parameter name="to"><paramtype>ToRangeT const &amp;</paramtype><description><para>A sequence of strings that will be used as replacements.</para></description></parameter><description><para>The function returns a decorator generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator.</para><para>
+<note><para>The <emphasis>from</emphasis> and <emphasis>to</emphasis> sequences mush be of the same size. Every <computeroutput>from[i]</computeroutput> substring occurrence in the output will be replaced with <computeroutput>to[i]</computeroutput>. </para>
+</note>
+</para></description></function>
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/csv_decorator.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>18.11.2012</para>
+
+The header contains implementation of a CSV-style character decorator. See: <ulink url="http://en.wikipedia.org/wiki/Comma-separated_values">http://en.wikipedia.org/wiki/Comma-separated_values</ulink> </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<data-member name="csv_decor"><type><emphasis>unspecified</emphasis></type><description><para>CSV-style decorator generator object. The decorator doubles double quotes that may be found in the output. See <ulink url="http://en.wikipedia.org/wiki/Comma-separated_values">http://en.wikipedia.org/wiki/Comma-separated_values</ulink> for more information on the CSV format. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator. For example:</para><para><computeroutput> csv_decor[ stream &lt;&lt; attr&lt; std::string &gt;("MyAttr") ] </computeroutput></para><para>For wide-character formatting there is the similar <computeroutput>wcsv_decor</computeroutput> decorator generator object. </para></description></data-member>
+<data-member name="wcsv_decor"><type><emphasis>unspecified</emphasis></type></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="make_csv_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><description><para>The function creates an CSV-style decorator generator for arbitrary character type. </para></description></function>
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/date_time.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>16.09.2012</para>
+
+The header contains a formatter function for date and time attribute values. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="format_date_time_actor"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="CharT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; format_date_time_terminal&lt; T, FallbackPolicyT, CharT &gt; &gt;</inherit><description><para>Date and time formatter actor. </para></description><typedef name="value_type"><purpose>Attribute value type. </purpose><type>T</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="fallback_policy"><purpose>Fallback policy. </purpose><type>FallbackPolicyT</type></typedef>
+<typedef name="terminal_type"><purpose>Base terminal type. </purpose><type><classname>format_date_time_terminal</classname>&lt; value_type, fallback_policy, char_type &gt;</type></typedef>
+<typedef name="formatter_function_type"><purpose>Formatter function. </purpose><type>terminal_type::formatter_function_type</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><description><para>
+</para></description><returns><para>The attribute name </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+<method name="get_formatter_function" cv="const"><type>formatter_function_type const  &amp;</type><description><para>
+</para></description><returns><para>Formatter function </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="format_date_time_terminal"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>Date and time formatter terminal. </para></description><typedef name="value_type"><purpose>Attribute value type. </purpose><type>T</type></typedef>
+<typedef name="fallback_policy"><purpose>Fallback policy. </purpose><type>FallbackPolicyT</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<typedef name="stream_type"><purpose>Formatting stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<typedef name="formatter_function_type"><purpose>Formatter function. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="result_type"><purpose>Function result type. </purpose><type>string_type</type></typedef>
+<method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><purpose>Returns attribute name. </purpose></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><purpose>Returns fallback policy. </purpose></method>
+<method name="get_formatter_function" cv="const"><type>formatter_function_type const  &amp;</type><purpose>Retruns formatter function. </purpose></method>
+<method name="operator()"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+</method-group>
+<constructor><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="fallback"><paramtype>fallback_policy const &amp;</paramtype></parameter><parameter name="format"><paramtype>string_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+<constructor><parameter name="that"><paramtype><classname>format_date_time_terminal</classname> const &amp;</paramtype></parameter><purpose>Copy constructor. </purpose></constructor>
+<constructor cv="= delete"/>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; AttributeValueT, fallback_to_none, CharT &gt;</type><template>
+          <template-type-parameter name="AttributeValueT"/>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="format"><paramtype>const CharT *</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; AttributeValueT, fallback_to_none, CharT &gt;</type><template>
+          <template-type-parameter name="AttributeValueT"/>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; typename DescriptorT::value_type, fallback_to_none, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="keyword"><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>Attribute keyword </para></description></parameter><parameter name="format"><paramtype>const CharT *</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; typename DescriptorT::value_type, fallback_to_none, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="keyword"><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>Attribute keyword </para></description></parameter><parameter name="format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; T, FallbackPolicyT, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="placeholder"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype><description><para>Attribute placeholder </para></description></parameter><parameter name="format"><paramtype>const CharT *</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_date_time"><type><classname>format_date_time_actor</classname>&lt; T, FallbackPolicyT, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="placeholder"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype><description><para>Attribute placeholder </para></description></parameter><parameter name="format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/format.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>15.11.2012</para>
+
+The header contains a generic log record formatter function. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="format_terminal"><template>
+      <template-type-parameter name="CharT"/>
+    </template><purpose>Template expressions terminal node with Boost.Format-like formatter. </purpose><typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="format_type"><purpose>Boost.Format formatter type. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<typedef name="result_type"><purpose>Terminal result type. </purpose><type>format_type::pump</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="format"><paramtype>const char_type *</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+<constructor cv="= delete"/>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="format"><type>phoenix::actor&lt; <classname>format_terminal</classname>&lt; CharT &gt; &gt;</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="fmt"><paramtype>const CharT *</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will perform log record formatting according to the provided format string. </para></description></function>
+<function name="format"><type>phoenix::actor&lt; <classname>format_terminal</classname>&lt; CharT &gt; &gt;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="TraitsT"/>
+          <template-type-parameter name="AllocatorT"/>
+        </template><parameter name="fmt"><paramtype>std::basic_string&lt; CharT, TraitsT, AllocatorT &gt; const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will perform log record formatting according to the provided format string. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/if.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>17.11.2012</para>
+
+The header contains implementation of a conditional formatter. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="if_"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CondT"/>
+        </template><parameter name="cond"><paramtype>CondT const &amp;</paramtype><description><para>A filter expression that will be used as the condition </para></description></parameter><description><para>The function returns a conditional formatter generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual formatter. The formatter must participate in a streaming expression.</para><para>
+</para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/max_size_decorator.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>06.07.2016</para>
+
+The header contains implementation of a string length limiting decorator. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="max_size_decorator_actor"><template>
+      <template-type-parameter name="SubactorT"/>
+      <template-type-parameter name="CharT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; max_size_decorator_terminal&lt; SubactorT, CharT &gt; &gt;</inherit><description><para>Character decorator actor </para></description><typedef name="terminal_type"><purpose>Base terminal type. </purpose><type><classname>max_size_decorator_terminal</classname>&lt; SubactorT, CharT &gt;</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>terminal_type::char_type</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="get_terminal" cv="const"><type>terminal_type const  &amp;</type><purpose>Returns reference to the terminal. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="max_size_decorator_terminal"><template>
+      <template-type-parameter name="SubactorT"/>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>String size limiting decorator terminal class. This formatter allows to limit the maximum total length of the strings generated by other formatters.</para><para>The <computeroutput><classname alt="boost::log::expressions::max_size_decorator_terminal">max_size_decorator_terminal</classname></computeroutput> class aggregates the formatter being decorated, the maximum string length it can produce and an optional truncation marker string, which will be put at the end of the output if the limit is exceeded. Note that the marker length is included in the limit and as such must not exceed it. The <computeroutput><classname alt="boost::log::expressions::max_size_decorator_terminal">max_size_decorator_terminal</classname></computeroutput> class is a formatter itself, so it can be used to construct more complex formatters, including nesting decorators. </para></description><typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<typedef name="size_type"><purpose>String size type. </purpose><type>std::size_t</type></typedef>
+<typedef name="stream_type"><purpose>Stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<typedef name="subactor_type"><purpose>Adopted actor type. </purpose><type>SubactorT</type></typedef>
+<typedef name="result_type"><purpose>Result type definition. </purpose><type>string_type</type></typedef>
+<method-group name="public member functions">
+<method name="get_subactor" cv="const"><type>subactor_type const  &amp;</type><description><para>
+</para></description><returns><para>Adopted subactor </para>
+</returns></method>
+<method name="get_max_size" cv="const"><type>size_type</type><description><para>
+</para></description><returns><para>Max string size limit </para>
+</returns></method>
+<method name="get_overflow_marker" cv="const"><type>string_type const  &amp;</type><description><para>
+</para></description><returns><para>Max string size limit </para>
+</returns></method>
+<method name="operator()"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>Invokation operator </para></description></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><description><para>Invokation operator </para></description></method>
+</method-group>
+<constructor><parameter name="sub"><paramtype>subactor_type const &amp;</paramtype></parameter><parameter name="max_size"><paramtype>size_type</paramtype></parameter><parameter name="overflow_marker"><paramtype>string_type const &amp;</paramtype><default>string_type()</default></parameter><description><para>Initializing constructor. </para></description></constructor>
+<constructor><parameter name="that"><paramtype><classname>max_size_decorator_terminal</classname> const &amp;</paramtype></parameter><description><para>Copy constructor </para></description></constructor>
+<constructor cv="= delete"/>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="max_size_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="max_size"><paramtype>std::size_t</paramtype><description><para>The maximum number of characters (i.e. string element objects) that the decorated formatter can produce. </para></description></parameter><description><para>The function returns a decorator generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator.</para><para>
+</para></description></function>
+<function name="max_size_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="max_size"><paramtype>std::size_t</paramtype><description><para>The maximum number of characters (i.e. string element objects) that the decorated formatter can produce. </para></description></parameter><parameter name="overflow_marker"><paramtype>const CharT *</paramtype><description><para>The marker string which is appended to the output if the <emphasis>max_size</emphasis> limit is exceeded. Must be a non-null pointer to a zero-terminated string.</para></description></parameter><description><para>The function returns a decorator generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator.</para><para>
+
+</para></description><requires><para>The <emphasis>overflow_marker</emphasis> length must not exceed the <emphasis>max_size</emphasis> limit. </para>
+</requires></function>
+<function name="max_size_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="max_size"><paramtype>std::size_t</paramtype><description><para>The maximum number of characters (i.e. string element objects) that the decorated formatter can produce. </para></description></parameter><parameter name="overflow_marker"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>The marker string which is appended to the output if the <emphasis>max_size</emphasis> limit is exceeded.</para></description></parameter><description><para>The function returns a decorator generator object. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator.</para><para>
+
+</para></description><requires><para>The <emphasis>overflow_marker</emphasis> length must not exceed the <emphasis>max_size</emphasis> limit. </para>
+</requires></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/named_scope.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>11.11.2012</para>
+
+The header contains a formatter function for named scope attribute values. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="format_named_scope_actor"><template>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="CharT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; format_named_scope_terminal&lt; FallbackPolicyT, CharT &gt; &gt;</inherit><description><para>Named scope formatter actor. </para></description><typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="fallback_policy"><purpose>Fallback policy. </purpose><type>FallbackPolicyT</type></typedef>
+<typedef name="terminal_type"><purpose>Base terminal type. </purpose><type><classname>format_named_scope_terminal</classname>&lt; fallback_policy, char_type &gt;</type></typedef>
+<typedef name="value_type"><purpose>Attribute value type. </purpose><type>terminal_type::value_type</type></typedef>
+<typedef name="formatter_function_type"><purpose>Formatter function. </purpose><type>terminal_type::formatter_function_type</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><description><para>
+</para></description><returns><para>The attribute name </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+<method name="get_formatter_function" cv="const"><type>formatter_function_type const  &amp;</type><description><para>
+</para></description><returns><para>Formatter function </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="format_named_scope_terminal"><template>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>Named scope formatter terminal. </para></description><typedef name="value_type"><purpose>Attribute value type. </purpose><type>attributes::named_scope::value_type</type></typedef>
+<typedef name="fallback_policy"><purpose>Fallback policy. </purpose><type>FallbackPolicyT</type></typedef>
+<typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<typedef name="stream_type"><purpose>Formatting stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<typedef name="formatter_function_type"><purpose>Formatter function. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="result_type"><purpose>Function result type. </purpose><type>string_type</type></typedef>
+<method-group name="public member functions">
+<method name="get_name" cv="const"><type>attribute_name</type><purpose>Returns attribute name. </purpose></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><purpose>Returns fallback policy. </purpose></method>
+<method name="get_formatter_function" cv="const"><type>formatter_function_type const  &amp;</type><purpose>Retruns formatter function. </purpose></method>
+<method name="operator()"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+</method-group>
+<constructor><template>
+          <template-type-parameter name="FormatT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="fallback"><paramtype>fallback_policy const &amp;</paramtype></parameter><parameter name="element_format"><paramtype>FormatT const &amp;</paramtype></parameter><parameter name="delimiter"><paramtype>string_type const &amp;</paramtype></parameter><parameter name="incomplete_marker"><paramtype>string_type const &amp;</paramtype></parameter><parameter name="empty_marker"><paramtype>string_type const &amp;</paramtype></parameter><parameter name="depth"><paramtype>value_type::size_type</paramtype></parameter><parameter name="direction"><paramtype>scope_iteration_direction</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+<constructor><parameter name="that"><paramtype><classname>format_named_scope_terminal</classname> const &amp;</paramtype></parameter><purpose>Copy constructor. </purpose></constructor>
+<constructor cv="= delete"/>
+</class><enum name="scope_iteration_direction"><enumvalue name="forward"><purpose>Iterate through scopes from outermost to innermost. </purpose></enumvalue><enumvalue name="reverse"><purpose>Iterate through scopes from innermost to outermost. </purpose></enumvalue><purpose>Scope iteration directions. </purpose></enum>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; fallback_to_none, CharT &gt;</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="element_format"><paramtype>const CharT *</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; fallback_to_none, CharT &gt;</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="element_format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; fallback_to_none, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="keyword"><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>Attribute keyword </para></description></parameter><parameter name="element_format"><paramtype>const CharT *</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; fallback_to_none, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="keyword"><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>Attribute keyword </para></description></parameter><parameter name="element_format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; FallbackPolicyT, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="placeholder"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype><description><para>Attribute placeholder </para></description></parameter><parameter name="element_format"><paramtype>const CharT *</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<function name="format_named_scope"><type><classname>format_named_scope_actor</classname>&lt; FallbackPolicyT, CharT, ActorT &gt;</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="placeholder"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype><description><para>Attribute placeholder </para></description></parameter><parameter name="element_format"><paramtype>std::basic_string&lt; CharT &gt; const &amp;</paramtype><description><para>Format string for a single named scope </para></description></parameter><description><para>The function generates a manipulator node in a template expression. The manipulator must participate in a formatting expression (stream output or <computeroutput>format</computeroutput> placeholder filler).</para><para>
+</para></description></function>
+<overloaded-function name="format_named_scope"><signature><type>unspecified</type><template>
+          <template-nontype-parameter name="ArgsT"><type>typename...</type></template-nontype-parameter>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="args"><paramtype>ArgsT... const &amp;</paramtype><description><para>An set of named parameters. Supported parameters: <itemizedlist>
+<listitem><para><computeroutput>format</computeroutput> - A format string for named scopes. The string can contain "%n", "%f" and "%l" placeholders for the scope name, file and line number, respectively. This parameter is mandatory. </para>
+</listitem>
+<listitem><para><computeroutput>delimiter</computeroutput> - A string that is used to delimit the formatted scope names. Default: "-&gt;" or "&lt;-", depending on the iteration direction. </para>
+</listitem>
+<listitem><para><computeroutput>incomplete_marker</computeroutput> - A string that is used to indicate that the list was printed incomplete because of depth limitation. Default: "...". </para>
+</listitem>
+<listitem><para><computeroutput>empty_marker</computeroutput> - A string that is output in case if the scope list is empty. Default: "", i.e. nothing is output. </para>
+</listitem>
+<listitem><para><computeroutput>iteration</computeroutput> - Iteration direction, see <computeroutput>scope_iteration_direction</computeroutput> enumeration. Default: forward. </para>
+</listitem>
+<listitem><para><computeroutput>depth</computeroutput> - Iteration depth. Default: unlimited. </para>
+</listitem>
+</itemizedlist>
+</para></description></parameter></signature><signature><type>unspecified</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-nontype-parameter name="ArgsT"><type>typename...</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="args"><paramtype>ArgsT... const &amp;</paramtype></parameter></signature><signature><type>unspecified</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-nontype-parameter name="ArgsT"><type>typename...</type></template-nontype-parameter>
+        </template><parameter name="placeholder"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="args"><paramtype>ArgsT... const &amp;</paramtype></parameter></signature><description><para>Formatter generator. Construct the named scope formatter with the specified formatting parameters.</para><para>
+</para></description></overloaded-function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/stream.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>24.07.2012</para>
+
+The header contains implementation of a stream placeholder in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="stream_type"><description><para>Stream placeholder type in formatter template expressions. </para></description><type>phoenix::expression::argument&lt; 2 &gt;::type</type></typedef>
+<data-member name="stream"><type>const stream_type</type><description><para>Stream placeholder in formatter template expressions. </para></description></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/wrap_formatter.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>24.11.2012</para>
+
+The header contains a formatter function wrapper that enables third-party functions to participate in formatting expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="wrapped_formatter_actor"><template>
+      <template-type-parameter name="FunT"/>
+      <template-type-parameter name="CharT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; wrapped_formatter_terminal&lt; FunT, CharT &gt; &gt;</inherit><description><para>Wrapped formatter function actor. </para></description><typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="function_type"><purpose>Wrapped function type. </purpose><type>FunT</type></typedef>
+<typedef name="terminal_type"><purpose>Base terminal type. </purpose><type><classname>wrapped_formatter_terminal</classname>&lt; function_type, char_type &gt;</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<method-group name="public member functions">
+<method name="get_function" cv="const"><type>function_type const  &amp;</type><description><para>
+</para></description><returns><para>The wrapped function </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+</class><class name="wrapped_formatter_terminal"><template>
+      <template-type-parameter name="FunT"/>
+      <template-type-parameter name="CharT"/>
+    </template><description><para>Formatter function wrapper terminal. </para></description><typedef name="char_type"><purpose>Character type. </purpose><type>CharT</type></typedef>
+<typedef name="string_type"><purpose>String type. </purpose><type>std::basic_string&lt; char_type &gt;</type></typedef>
+<typedef name="stream_type"><purpose>Formatting stream type. </purpose><type>basic_formatting_ostream&lt; char_type &gt;</type></typedef>
+<typedef name="function_type"><purpose>Wrapped function type. </purpose><type>FunT</type></typedef>
+<typedef name="result_type"><purpose>Formatter result type. </purpose><type>string_type</type></typedef>
+<method-group name="public member functions">
+<method name="get_function" cv="const"><type>function_type const  &amp;</type><purpose>Returns the wrapped function. </purpose></method>
+<method name="operator()"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="fun"><paramtype>function_type const &amp;</paramtype></parameter><purpose>Initializing construction. </purpose></constructor>
+<constructor><parameter name="that"><paramtype><classname>wrapped_formatter_terminal</classname> const &amp;</paramtype></parameter><purpose>Copy constructor. </purpose></constructor>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="wrap_formatter"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT const &amp;</paramtype></parameter><description><para>The function wraps a function object in order it to be able to participate in formatting expressions. The wrapped function object must be compatible with the following signature:</para><programlisting>
+void (record_view const&amp;, basic_formatting_ostream&lt; CharT &gt;&amp;)
+</programlisting><para>where <computeroutput>CharT</computeroutput> is the character type of the formatting expression. </para></description></function>
+<function name="wrap_formatter"><type><classname>wrapped_formatter_actor</classname>&lt; FunT, CharT &gt;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT const &amp;</paramtype></parameter><description><para>The function wraps a function object in order it to be able to participate in formatting expressions. The wrapped function object must be compatible with the following signature:</para><programlisting>
+void (record_view const&amp;, basic_formatting_ostream&lt; CharT &gt;&amp;)
+</programlisting><para>where <computeroutput>CharT</computeroutput> is the character type of the formatting expression. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/formatters/xml_decorator.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>18.11.2012</para>
+
+The header contains implementation of a XML-style character decorator. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<data-member name="xml_decor"><type><emphasis>unspecified</emphasis></type><description><para>XML-style decorator generator object. The decorator replaces characters that have special meaning in XML documents with the corresponding decorated counterparts. The generator provides <computeroutput>operator[]</computeroutput> that can be used to construct the actual decorator. For example:</para><para><computeroutput> xml_decor[ stream &lt;&lt; attr&lt; std::string &gt;("MyAttr") ] </computeroutput></para><para>For wide-character formatting there is the similar <computeroutput>wxml_decor</computeroutput> decorator generator object. </para></description></data-member>
+<data-member name="wxml_decor"><type><emphasis>unspecified</emphasis></type></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="make_xml_decor"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="CharT"/>
+        </template><description><para>The function creates an XML-style decorator generator for arbitrary character type. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/is_keyword_descriptor.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>14.07.2012</para>
+
+The header contains attribute keyword descriptor detection trait. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<struct name="is_keyword_descriptor"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="VoidT"><default>void</default></template-type-parameter>
+    </template><inherit access="public">false_</inherit><description><para>The metafunction detects if the type <computeroutput>T</computeroutput> is a keyword descriptor </para></description></struct><struct name="keyword_descriptor"><description><para>Base class for keyword descriptors. All keyword descriptors must derive from this class to support the <computeroutput><classname alt="boost::log::expressions::is_keyword_descriptor">is_keyword_descriptor</classname></computeroutput> trait. </para></description></struct>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/keyword.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>29.01.2012</para>
+
+The header contains attribute keyword declaration. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+<macro name="BOOST_LOG_ATTRIBUTE_KEYWORD_TYPE" kind="functionlike"><macro-parameter name="keyword_"><description><para>Keyword name </para></description></macro-parameter><macro-parameter name="name_"><description><para>Attribute name string </para></description></macro-parameter><macro-parameter name="value_type_"><description><para>Attribute value type </para></description></macro-parameter><purpose>The macro declares an attribute keyword type. </purpose><description><para>The macro should be used at a namespace scope. It expands into an attribute keyword type definition, including the <computeroutput>tag</computeroutput> namespace and the keyword tag type within which has the following layout:</para><para><programlisting language="c++">namespace tag
+{
+  struct keyword_ :
+    public boost::log::expressions::keyword_descriptor
+  {
+    typedef value_type_ value_type;
+    static boost::log::attribute_name get_name();
+  };
+}
+
+typedef boost::log::expressions::attribute_keyword&lt; tag::keyword_ &gt; keyword_type;
+</programlisting></para><para>The <computeroutput>get_name</computeroutput> method returns the attribute name.</para><para><note><para>This macro only defines the type of the keyword. To also define the keyword object, use the <computeroutput>BOOST_LOG_ATTRIBUTE_KEYWORD</computeroutput> macro instead.</para>
+</note>
+
+</para></description></macro>
+<macro name="BOOST_LOG_ATTRIBUTE_KEYWORD" kind="functionlike"><macro-parameter name="keyword_"><description><para>Keyword name </para></description></macro-parameter><macro-parameter name="name_"><description><para>Attribute name string </para></description></macro-parameter><macro-parameter name="value_type_"><description><para>Attribute value type </para></description></macro-parameter><purpose>The macro declares an attribute keyword. </purpose><description><para>The macro provides definitions similar to <computeroutput>BOOST_LOG_ATTRIBUTE_KEYWORD_TYPE</computeroutput> and additionally defines the keyword object.</para><para>
+</para></description></macro>
+</header>
+<header name="boost/log/expressions/keyword_fwd.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>29.01.2012</para>
+
+The header contains attribute keyword forward declaration. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<struct name="attribute_keyword"><template>
+      <template-type-parameter name="DescriptorT"/>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+    </template><purpose>This class implements an expression template keyword. </purpose><description><para>This class implements an expression template keyword. It is used to start template expressions involving attribute values. </para></description><method-group name="public static functions">
+<method name="get_name" specifiers="static"><type>attribute_name</type><purpose>Returns attribute name. </purpose></method>
+<method name="or_none" specifiers="static"><type>or_none_result_type</type><purpose>Generates an expression that extracts the attribute value or a default value. </purpose></method>
+<method name="or_throw" specifiers="static"><type>or_throw_result_type</type><purpose>Generates an expression that extracts the attribute value or throws an exception. </purpose></method>
+<method name="or_default" specifiers="static"><type><classname>attribute_actor</classname>&lt; value_type, fallback_to_default&lt; DefaultT &gt;, descriptor_type, ActorT &gt;</type><template>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype></parameter><purpose>Generates an expression that extracts the attribute value or a default value. </purpose></method>
+</method-group>
+</struct>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/message.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.07.2012</para>
+
+The header contains log message keyword declaration. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<namespace name="tag">
+<struct name="message"><inherit access="public">keyword_descriptor</inherit><description><para>Generic log message attribute descriptor. </para></description><typedef name="attribute_type"><type>void</type></typedef>
+<typedef name="value_type"><type>mpl::vector2&lt; std::string, std::wstring &gt;</type></typedef>
+<method-group name="public static functions">
+<method name="get_name" specifiers="static"><type>attribute_name</type></method>
+</method-group>
+</struct><struct name="smessage"><inherit access="public">keyword_descriptor</inherit><description><para>Narrow character log message attribute descriptor. </para></description><typedef name="attribute_type"><type>void</type></typedef>
+<typedef name="value_type"><type>std::string</type></typedef>
+<method-group name="public static functions">
+<method name="get_name" specifiers="static"><type>attribute_name</type></method>
+</method-group>
+</struct><struct name="wmessage"><inherit access="public">keyword_descriptor</inherit><description><para>Wide character log message attribute descriptor. </para></description><typedef name="attribute_type"><type>void</type></typedef>
+<typedef name="value_type"><type>std::wstring</type></typedef>
+<method-group name="public static functions">
+<method name="get_name" specifiers="static"><type>attribute_name</type></method>
+</method-group>
+</struct></namespace>
+<typedef name="message_type"><description><para>Generic message keyword type. </para></description><type><classname>attribute_keyword</classname>&lt; <classname>tag::message</classname> &gt;</type></typedef>
+<typedef name="smessage_type"><description><para>Narrow message keyword type. </para></description><type><classname>attribute_keyword</classname>&lt; <classname>tag::smessage</classname> &gt;</type></typedef>
+<typedef name="wmessage_type"><description><para>Wide message keyword type. </para></description><type><classname>attribute_keyword</classname>&lt; <classname>tag::wmessage</classname> &gt;</type></typedef>
+<data-member name="message"><type>const message_type</type><description><para>Generic message keyword. </para></description></data-member>
+<data-member name="smessage"><type>const smessage_type</type><description><para>Narrow message keyword. </para></description></data-member>
+<data-member name="wmessage"><type>const wmessage_type</type><description><para>Wide message keyword. </para></description></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>29.01.2012</para>
+
+The header includes all template expression predicates. </para></header>
+<header name="boost/log/expressions/predicates/begins_with.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.09.2012</para>
+
+The header contains implementation of a <computeroutput>begins_with</computeroutput> predicate in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="attribute_begins_with"><description><para>The predicate checks if the attribute value begins with a substring. The attribute value is assumed to be of a string type. </para></description><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="begins_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, begins with the specified substring. </para></description></function>
+<function name="begins_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, begins with the specified substring. </para></description></function>
+<function name="begins_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, begins with the specified substring. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/channel_severity_filter.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>25.11.2012</para>
+
+The header contains implementation of a minimal severity per channel filter. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="channel_severity_filter_actor"><template>
+      <template-type-parameter name="ChannelT"/>
+      <template-type-parameter name="SeverityT"/>
+      <template-type-parameter name="ChannelFallbackT"><default>fallback_to_none</default></template-type-parameter>
+      <template-type-parameter name="SeverityFallbackT"><default>fallback_to_none</default></template-type-parameter>
+      <template-type-parameter name="ChannelOrderT"><default>less</default></template-type-parameter>
+      <template-type-parameter name="SeverityCompareT"><default>greater_equal</default></template-type-parameter>
+      <template-type-parameter name="AllocatorT"><default>use_std_allocator</default></template-type-parameter>
+      <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type><default>phoenix::actor</default></template-nontype-parameter>
+    </template><inherit access="public">ActorT&lt; channel_severity_filter_terminal&lt; ChannelT, SeverityT, ChannelFallbackT, SeverityFallbackT, ChannelOrderT, SeverityCompareT, AllocatorT &gt; &gt;</inherit><class name="subscript_result"><purpose>An auxiliary pseudo-reference to implement insertion through subscript operator. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><parameter name="owner"><paramtype>channel_severity_filter_actor &amp;</paramtype></parameter><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter></constructor>
+<copy-assignment><type>void</type><parameter name="severity"><paramtype>severity_value_type const &amp;</paramtype></parameter></copy-assignment>
+</class><typedef name="terminal_type"><purpose>Terminal type. </purpose><type>channel_severity_filter_terminal&lt; ChannelT, SeverityT, ChannelFallbackT, SeverityFallbackT, ChannelOrderT, SeverityCompareT, AllocatorT &gt;</type></typedef>
+<typedef name="base_type"><purpose>Base actor type. </purpose><type>ActorT&lt; terminal_type &gt;</type></typedef>
+<typedef name="channel_value_type"><purpose>Channel attribute value type. </purpose><type>terminal_type::channel_value_type</type></typedef>
+<typedef name="channel_fallback_policy"><purpose>Channel fallback policy. </purpose><type>terminal_type::channel_fallback_policy</type></typedef>
+<typedef name="severity_value_type"><purpose>Severity level attribute value type. </purpose><type>terminal_type::severity_value_type</type></typedef>
+<typedef name="severity_fallback_policy"><purpose>Severity level fallback policy. </purpose><type>terminal_type::severity_fallback_policy</type></typedef>
+<method-group name="public member functions">
+<method name="set_default"><type>this_type &amp;</type><parameter name="def"><paramtype>bool</paramtype></parameter><purpose>Sets the default function result. </purpose></method>
+<method name="add"><type>this_type &amp;</type><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter><parameter name="severity"><paramtype>severity_value_type const &amp;</paramtype></parameter><purpose>Adds a new element to the mapping. </purpose></method>
+<method name="operator[]"><type>subscript_result</type><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter><purpose>Alternative interface for adding a new element to the mapping. </purpose></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="act"><paramtype>base_type const &amp;</paramtype></parameter><purpose>Initializing constructor. </purpose></constructor>
+<constructor><parameter name="that"><paramtype>channel_severity_filter_actor const &amp;</paramtype></parameter><purpose>Copy constructor. </purpose></constructor>
+</class><class name="channel_severity_filter_terminal"><template>
+      <template-type-parameter name="ChannelT"/>
+      <template-type-parameter name="SeverityT"/>
+      <template-type-parameter name="ChannelFallbackT"><default>fallback_to_none</default></template-type-parameter>
+      <template-type-parameter name="SeverityFallbackT"><default>fallback_to_none</default></template-type-parameter>
+      <template-type-parameter name="ChannelOrderT"><default>less</default></template-type-parameter>
+      <template-type-parameter name="SeverityCompareT"><default>greater_equal</default></template-type-parameter>
+      <template-type-parameter name="AllocatorT"><default>use_std_allocator</default></template-type-parameter>
+    </template><struct name="channel_visitor"><template>
+      <template-type-parameter name="ArgT"/>
+    </template><purpose>Channel visitor. </purpose><typedef name="result_type"><type>void</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter></method>
+</method-group>
+<constructor><parameter name="self"><paramtype>channel_severity_filter_terminal const &amp;</paramtype></parameter><parameter name="arg"><paramtype>ArgT</paramtype></parameter><parameter name="res"><paramtype>bool &amp;</paramtype></parameter></constructor>
+</struct><struct name="severity_visitor"><purpose>Severity level visitor. </purpose><typedef name="result_type"><type>void</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="severity"><paramtype>severity_value_type const &amp;</paramtype></parameter></method>
+</method-group>
+<constructor><parameter name="self"><paramtype>channel_severity_filter_terminal const &amp;</paramtype></parameter><parameter name="severity"><paramtype>severity_value_type const &amp;</paramtype></parameter><parameter name="res"><paramtype>bool &amp;</paramtype></parameter></constructor>
+</struct><typedef name="result_type"><purpose>Function result type. </purpose><type>bool</type></typedef>
+<typedef name="channel_value_type"><purpose>Channel attribute value type. </purpose><type>ChannelT</type></typedef>
+<typedef name="channel_fallback_policy"><purpose>Channel fallback policy. </purpose><type>ChannelFallbackT</type></typedef>
+<typedef name="severity_value_type"><purpose>Severity level attribute value type. </purpose><type>SeverityT</type></typedef>
+<typedef name="severity_fallback_policy"><purpose>Severity level fallback policy. </purpose><type>SeverityFallbackT</type></typedef>
+<method-group name="public member functions">
+<method name="add"><type>void</type><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter><parameter name="severity"><paramtype>severity_value_type const &amp;</paramtype></parameter><purpose>Adds a new element to the mapping. </purpose></method>
+<method name="set_default"><type>void</type><parameter name="def"><paramtype>bool</paramtype></parameter><purpose>Sets the default result of the predicate. </purpose></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ContextT"/>
+        </template><parameter name="ctx"><paramtype>ContextT const &amp;</paramtype></parameter><purpose>Invokation operator. </purpose></method>
+</method-group>
+<constructor><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="channel_fallback"><paramtype>channel_fallback_policy const &amp;</paramtype><default>channel_fallback_policy()</default></parameter><parameter name="severity_fallback"><paramtype>severity_fallback_policy const &amp;</paramtype><default>severity_fallback_policy()</default></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype><default>ChannelOrderT()</default></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype><default>SeverityCompareT()</default></parameter><purpose>Initializing constructor. </purpose></constructor>
+<method-group name="private member functions">
+<method name="visit_channel" cv="const"><type>void</type><template>
+          <template-type-parameter name="ArgT"/>
+        </template><parameter name="channel"><paramtype>channel_value_type const &amp;</paramtype></parameter><parameter name="arg"><paramtype>ArgT const &amp;</paramtype></parameter><parameter name="res"><paramtype>bool &amp;</paramtype></parameter><purpose>Visits channel name. </purpose></method>
+<method name="visit_severity" cv="const"><type>void</type><parameter name="left"><paramtype>severity_value_type const &amp;</paramtype></parameter><parameter name="right"><paramtype>severity_value_type const &amp;</paramtype></parameter><parameter name="res"><paramtype>bool &amp;</paramtype></parameter><purpose>Visits severity level. </purpose></method>
+</method-group>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<overloaded-function name="channel_severity_filter"><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, SeverityT, fallback_to_none, fallback_to_none, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, fallback_to_none, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, fallback_to_none, SeverityFallbackT, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, SeverityFallbackT, less, greater_equal, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, fallback_to_none, fallback_to_none, less, SeverityCompareT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, SeverityT, fallback_to_none, fallback_to_none, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, fallback_to_none, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, fallback_to_none, SeverityFallbackT, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, SeverityFallbackT, less, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, fallback_to_none, fallback_to_none, ChannelOrderT, SeverityCompareT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, SeverityT, fallback_to_none, fallback_to_none, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; typename ChannelDescriptorT::value_type, typename SeverityDescriptorT::value_type, fallback_to_none, fallback_to_none, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelDescriptorT"/>
+          <template-type-parameter name="SeverityDescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_keyword"><paramtype><classname>attribute_keyword</classname>&lt; ChannelDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_keyword"><paramtype><classname>attribute_keyword</classname>&lt; SeverityDescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, fallback_to_none, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, fallback_to_none, SeverityFallbackT, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><signature><type>channel_severity_filter_actor&lt; ChannelT, SeverityT, ChannelFallbackT, SeverityFallbackT, ChannelOrderT, SeverityCompareT, use_std_allocator, ActorT &gt;</type><template>
+          <template-type-parameter name="ChannelT"/>
+          <template-type-parameter name="ChannelFallbackT"/>
+          <template-type-parameter name="ChannelTagT"/>
+          <template-type-parameter name="SeverityT"/>
+          <template-type-parameter name="SeverityFallbackT"/>
+          <template-type-parameter name="SeverityTagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SeverityCompareT"/>
+          <template-type-parameter name="ChannelOrderT"/>
+        </template><parameter name="channel_placeholder"><paramtype><classname>attribute_actor</classname>&lt; ChannelT, ChannelFallbackT, ChannelTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_placeholder"><paramtype><classname>attribute_actor</classname>&lt; SeverityT, SeverityFallbackT, SeverityTagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="severity_compare"><paramtype>SeverityCompareT const &amp;</paramtype></parameter><parameter name="channel_order"><paramtype>ChannelOrderT const &amp;</paramtype></parameter></signature><description><para>The function generates a filtering predicate that checks the severity levels of log records in different channels. The predicate will return <computeroutput>true</computeroutput> if the record severity level is not less than the threshold for the channel the record belongs to. </para></description></overloaded-function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/contains.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.09.2012</para>
+
+The header contains implementation of a <computeroutput>contains</computeroutput> predicate in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="attribute_contains"><description><para>The predicate checks if the attribute value contains a substring. The attribute value is assumed to be of a string type. </para></description><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="contains"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, contains the specified substring. </para></description></function>
+<function name="contains"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, contains the specified substring. </para></description></function>
+<function name="contains"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, contains the specified substring. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/ends_with.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.09.2012</para>
+
+The header contains implementation of a <computeroutput>ends_with</computeroutput> predicate in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="attribute_ends_with"><description><para>The predicate checks if the attribute value ends with a substring. The attribute value is assumed to be of a string type. </para></description><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+<function name="ends_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, ends with the specified substring. </para></description></function>
+<function name="ends_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, ends with the specified substring. </para></description></function>
+<function name="ends_with"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="SubstringT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="substring"><paramtype>SubstringT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, ends with the specified substring. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/has_attr.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>23.07.2012</para>
+
+The header contains implementation of a generic attribute presence checker in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="has_attribute"><template>
+      <template-type-parameter name="T"/>
+    </template><description><para>An attribute value presence checker. </para></description><typedef name="result_type"><purpose>Function result_type. </purpose><type>bool</type></typedef>
+<typedef name="value_type"><purpose>Expected attribute value type. </purpose><type>T</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="ArgT"/>
+        </template><parameter name="arg"><paramtype>ArgT const &amp;</paramtype><description><para>A set of attribute values or a log record </para></description></parameter><description><para>Checking operator</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the log record contains the sought attribute value, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+</class><class-specialization name="has_attribute"><template>
+    </template><specialization><template-arg>void</template-arg></specialization><description><para>An attribute value presence checker. This specialization does not check the type of the attribute value. </para></description><typedef name="result_type"><purpose>Function result_type. </purpose><type>bool</type></typedef>
+<typedef name="value_type"><purpose>Expected attribute value type. </purpose><type>void</type></typedef>
+<method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="attrs"><paramtype>attribute_value_set const &amp;</paramtype><description><para>A set of attribute values </para></description></parameter><description><para>Checking operator</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the log record contains the sought attribute value, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><parameter name="rec"><paramtype>boost::log::record_view const &amp;</paramtype><description><para>A log record </para></description></parameter><description><para>Checking operator</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the log record contains the sought attribute value, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+</class-specialization>
+
+
+
+
+
+
+
+<function name="has_attr"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="AttributeValueT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check for the attribute value presence in a log record. The node will also check that the attribute value has the specified type, if present.</para><para>The function generates a terminal node in a template expression. The node will check for the attribute value presence in a log record. </para></description></function>
+<function name="has_attr"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check for the attribute value presence in a log record. The node will also check that the attribute value has the specified type, if present. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/is_debugger_present.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>05.12.2012</para>
+
+The header contains implementation of the <computeroutput>is_debugger_present</computeroutput> predicate in template expressions. </para></header>
+<header name="boost/log/expressions/predicates/is_in_range.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.09.2012</para>
+
+The header contains implementation of an <computeroutput>is_in_range</computeroutput> predicate in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="attribute_is_in_range"><description><para>The predicate checks if the attribute value contains a substring. The attribute value is assumed to be of a string type. </para></description><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+<function name="is_in_range"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="BoundaryT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="least"><paramtype>BoundaryT const &amp;</paramtype></parameter><parameter name="most"><paramtype>BoundaryT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value is in the specified range. The range must be half-open, that is the predicate will be equivalent to <computeroutput>least &lt;= attr &lt; most</computeroutput>. </para></description></function>
+<function name="is_in_range"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="BoundaryT"/>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="least"><paramtype>BoundaryT const &amp;</paramtype></parameter><parameter name="most"><paramtype>BoundaryT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value is in the specified range. The range must be half-open, that is the predicate will be equivalent to <computeroutput>least &lt;= attr &lt; most</computeroutput>. </para></description></function>
+<function name="is_in_range"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="BoundaryT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="least"><paramtype>BoundaryT const &amp;</paramtype></parameter><parameter name="most"><paramtype>BoundaryT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value is in the specified range. The range must be half-open, that is the predicate will be equivalent to <computeroutput>least &lt;= attr &lt; most</computeroutput>. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions/predicates/matches.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.09.2012</para>
+
+The header contains implementation of a <computeroutput>matches</computeroutput> predicate in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<class name="attribute_matches"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="RegexT"/>
+      <template-type-parameter name="FallbackPolicyT"><default>fallback_to_none</default></template-type-parameter>
+    </template><description><para>The predicate checks if the attribute value matches a regular expression. The attribute value is assumed to be of a string type. </para></description><method-group name="public member functions">
+</method-group>
+<constructor><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="rex"><paramtype>RegexT const &amp;</paramtype><description><para>The regular expression to match the attribute value against </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+<constructor><template>
+          <template-type-parameter name="U"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="rex"><paramtype>RegexT const &amp;</paramtype><description><para>The regular expression to match the attribute value against </para></description></parameter><parameter name="arg"><paramtype>U const &amp;</paramtype><description><para>Additional parameter for the fallback policy </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+</class>
+
+<function name="matches"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="FallbackPolicyT"/>
+          <template-type-parameter name="TagT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="RegexT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_actor</classname>&lt; T, FallbackPolicyT, TagT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="rex"><paramtype>RegexT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, matches the specified regular expression. </para></description></function>
+<function name="matches"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="RegexT"/>
+        </template><parameter name=""><paramtype><classname>attribute_keyword</classname>&lt; DescriptorT, ActorT &gt; const &amp;</paramtype></parameter><parameter name="rex"><paramtype>RegexT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, matches the specified regular expression. </para></description></function>
+<function name="matches"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="RegexT"/>
+        </template><parameter name="name"><paramtype>attribute_name const &amp;</paramtype></parameter><parameter name="rex"><paramtype>RegexT const &amp;</paramtype></parameter><description><para>The function generates a terminal node in a template expression. The node will check if the attribute value, which is assumed to be a string, matches the specified regular expression. </para></description></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+<macro name="BOOST_LOG_AUX_FORCEINLINE_MSVC_BUG982738"/>
+</header>
+<header name="boost/log/expressions/record.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>25.07.2012</para>
+
+The header contains implementation of a log record placeholder in template expressions. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="expressions">
+<typedef name="record_type"><description><para>Log record placeholder type in formatter template expressions. </para></description><type>phoenix::expression::argument&lt; 1 &gt;::type</type></typedef>
+<data-member name="record"><type>const record_type</type><description><para>Log record placeholder in formatter template expressions. </para></description></data-member>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+
+
+</namespace>
+</namespace>
+</header>
+</library-reference>

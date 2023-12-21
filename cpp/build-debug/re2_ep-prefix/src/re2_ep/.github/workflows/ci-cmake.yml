@@ -1,0 +1,15 @@
+name: CI (CMake)
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - run: .github/cmake.sh
+        shell: bash

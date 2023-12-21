@@ -1,0 +1,73 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Class template invoke_manipulator</title>
+<link rel="stylesheet" href="../../../../../../doc/src/boostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
+<link rel="home" href="../../index.html" title="Chapter 1. Boost.Log v2">
+<link rel="up" href="../../utilities.html#header.boost.log.utility.manipulators.invoke_hpp" title="Header &lt;boost/log/utility/manipulators/invoke.hpp&gt;">
+<link rel="prev" href="dump_elements_idm37425.html" title="Function template dump_elements">
+<link rel="next" href="operator_idm37475.html" title="Function template operator&lt;&lt;">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr><td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../../boost.png"></td></tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="dump_elements_idm37425.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../../utilities.html#header.boost.log.utility.manipulators.invoke_hpp"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../index.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="operator_idm37475.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="refentry">
+<a name="boost.log.invoke_manipulator"></a><div class="titlepage"></div>
+<div class="refnamediv">
+<h2><span class="refentrytitle">Class template invoke_manipulator</span></h2>
+<p>boost::log::invoke_manipulator</p>
+</div>
+<h2 xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="refsynopsisdiv-title">Synopsis</h2>
+<div xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" class="refsynopsisdiv"><pre class="synopsis"><span class="comment">// In header: &lt;<a class="link" href="../../utilities.html#header.boost.log.utility.manipulators.invoke_hpp" title="Header &lt;boost/log/utility/manipulators/invoke.hpp&gt;">boost/log/utility/manipulators/invoke.hpp</a>&gt;
+
+</span><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">typename</span> FunctionT<span class="special">&gt;</span> 
+<span class="keyword">class</span> <a class="link" href="invoke_manipulator.html" title="Class template invoke_manipulator">invoke_manipulator</a> <span class="special">{</span>
+<span class="keyword">public</span><span class="special">:</span>
+  <span class="comment">// <a class="link" href="invoke_manipulator.html#boost.log.invoke_manipulatorconstruct-copy-destruct">construct/copy/destruct</a></span>
+  <span class="keyword">explicit</span> <a class="link" href="invoke_manipulator.html#idm37467-bb"><span class="identifier">invoke_manipulator</span></a><span class="special">(</span><span class="identifier">FunctionT</span> <span class="keyword">const</span> <span class="special">&amp;</span><span class="special">)</span><span class="special">;</span>
+  <span class="keyword">explicit</span> <a class="link" href="invoke_manipulator.html#idm37471-bb"><span class="identifier">invoke_manipulator</span></a><span class="special">(</span><span class="identifier">FunctionT</span> <span class="special">&amp;&amp;</span><span class="special">)</span><span class="special">;</span>
+
+  <span class="comment">// <a class="link" href="invoke_manipulator.html#idm37459-bb">public member functions</a></span>
+  <span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">typename</span> StreamT<span class="special">&gt;</span> <span class="keyword">void</span> <a class="link" href="invoke_manipulator.html#idm37460-bb"><span class="identifier">output</span></a><span class="special">(</span><span class="identifier">StreamT</span> <span class="special">&amp;</span><span class="special">)</span> <span class="keyword">const</span><span class="special">;</span>
+<span class="special">}</span><span class="special">;</span></pre></div>
+<div class="refsect1">
+<a name="idm84352"></a><h2>Description</h2>
+<p>Stream manipulator for invoking a user-defined function as part of stream output. </p>
+<div class="refsect2">
+<a name="idm84355"></a><h3>
+<a name="boost.log.invoke_manipulatorconstruct-copy-destruct"></a><code class="computeroutput">invoke_manipulator</code> 
+        public
+       construct/copy/destruct</h3>
+<div class="orderedlist"><ol class="orderedlist" type="1">
+<li class="listitem">
+<pre class="literallayout"><span class="keyword">explicit</span> <a name="idm37467-bb"></a><span class="identifier">invoke_manipulator</span><span class="special">(</span><span class="identifier">FunctionT</span> <span class="keyword">const</span> <span class="special">&amp;</span> func<span class="special">)</span><span class="special">;</span></pre>Initializing constructor. </li>
+<li class="listitem">
+<pre class="literallayout"><span class="keyword">explicit</span> <a name="idm37471-bb"></a><span class="identifier">invoke_manipulator</span><span class="special">(</span><span class="identifier">FunctionT</span> <span class="special">&amp;&amp;</span> func<span class="special">)</span><span class="special">;</span></pre>Initializing constructor. </li>
+</ol></div>
+</div>
+<div class="refsect2">
+<a name="idm84383"></a><h3>
+<a name="idm37459-bb"></a><code class="computeroutput">invoke_manipulator</code> public member functions</h3>
+<div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem">
+<pre class="literallayout"><span class="keyword">template</span><span class="special">&lt;</span><span class="keyword">typename</span> StreamT<span class="special">&gt;</span> <span class="keyword">void</span> <a name="idm37460-bb"></a><span class="identifier">output</span><span class="special">(</span><span class="identifier">StreamT</span> <span class="special">&amp;</span> stream<span class="special">)</span> <span class="keyword">const</span><span class="special">;</span></pre>The method invokes the saved function with the output stream. </li></ol></div>
+</div>
+</div>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright © 2007-2022 Andrey Semashev<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>).
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="dump_elements_idm37425.html"><img src="../../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../../utilities.html#header.boost.log.utility.manipulators.invoke_hpp"><img src="../../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../../index.html"><img src="../../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="operator_idm37475.html"><img src="../../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

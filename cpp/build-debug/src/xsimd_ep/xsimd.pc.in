@@ -1,0 +1,8 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@libdir_for_pc_file@
+includedir=@includedir_for_pc_file@
+
+Name: xsimd
+Description: xsimd provides a unified means for using SIMD features for library authors..
+Version: @xsimd_VERSION@
+Cflags: -I${includedir}

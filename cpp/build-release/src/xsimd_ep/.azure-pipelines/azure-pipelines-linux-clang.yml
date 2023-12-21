@@ -1,0 +1,64 @@
+jobs:
+  - job: 'Linux_0'
+    strategy:
+      matrix:
+        clang_6_armv7:
+          llvm_version: '6.0'
+          cross_compile: 1
+          arm_arch_dir: 'arm-linux-gnueabi'
+          arm_arch_target: 'armv7-a'
+        clang_6_armv8:
+          llvm_version: '6.0'
+          cross_compile: 1
+          arm_arch_dir: 'arm-linux-gnueabi'
+          arm_arch_target: 'armv8-a'
+        clang_6:
+          llvm_version: '6.0'
+        clang_8:
+          llvm_version: '8'
+        clang_10_avx512:
+          llvm_version: '10'
+          avx512: 1
+        clang_12:
+          llvm_version: '12'
+          avx: 1
+        clang_14:
+          llvm_version: '14'
+          avx: 1
+    pool:
+      vmImage: ubuntu-20.04
+    variables:
+      CC: clang-$(llvm_version)
+      CXX: clang++-$(llvm_version)
+      cross_compile: 0
+      avx: 0
+      avx512: 0
+      i686: 0
+      enable_xtl_complex: 0
+      force_no_instr_set: 0
+
+    timeoutInMinutes: 30
+    steps:
+      - script: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test || exit 1
+          LLVM_VERSION=$(llvm_version)
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add - || exit 1
+          if [[ $LLVM_VERSION -ge 13 ]]; then
+            sudo add-apt-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-$LLVM_VERSION main" || exit 1
+          else
+            sudo add-apt-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal main" || exit 1
+          fi || exit 1
+          sudo apt-get update || exit 1
+          sudo apt-get --no-install-suggests --no-install-recommends install clang-$(llvm_version) || exit 1
+          sudo apt-get --no-install-suggests --no-install-recommends install libc++-dev || exit 1
+          if [[ $(cross_compile) == 1 ]]; then
+            sudo apt-get --no-install-suggests --no-install-recommends install g++-8-arm-linux-gnueabi || exit 1
+            sudo apt-get --no-install-suggests --no-install-recommends install g++-8-multilib gcc-8-multilib || exit 1
+            sudo apt-get --no-install-suggests --no-install-recommends install qemu qemu-system-arm qemu-user || exit 1
+          fi || exit 1
+        displayName: Install build toolchain
+
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        displayName: Add conda to PATH
+
+      - template: unix-build.yml

@@ -1,0 +1,166 @@
+sudo: required
+dist: xenial
+
+language: cpp
+cache:
+  - ccache
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake
+      - valgrind
+      - clang-8
+env:
+  global:
+    - USE_CCACHE=1
+    - CCACHE_SLOPPINESS=pch_defines,time_macros
+    - CCACHE_COMPRESS=1
+    - CCACHE_MAXSIZE=100M
+    - ARCH_FLAGS_x86='-m32'        # #266: don't use SSE on 32-bit
+    - ARCH_FLAGS_x86_64='-msse4.2' #       use SSE4.2 on 64-bit
+    - ARCH_FLAGS_aarch64='-march=armv8-a'
+    - GITHUB_REPO='Tencent/rapidjson'
+    - secure: "HrsaCb+N66EG1HR+LWH1u51SjaJyRwJEDzqJGYMB7LJ/bfqb9mWKF1fLvZGk46W5t7TVaXRDD5KHFx9DPWvKn4gRUVkwTHEy262ah5ORh8M6n/6VVVajeV/AYt2C0sswdkDBDO4Xq+xy5gdw3G8s1A4Inbm73pUh+6vx+7ltBbk="
+
+matrix:
+  include:
+    # gcc
+    - env: CONF=release ARCH=x86     CXX11=ON  CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: amd64
+    - env: CONF=release ARCH=x86_64  CXX11=ON  CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: amd64
+    - env: CONF=release ARCH=x86_64  CXX11=ON  CXX17=OFF MEMBERSMAP=ON
+      compiler: gcc
+      arch: amd64
+    - env: CONF=debug   ARCH=x86     CXX11=OFF CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: amd64
+    - env: CONF=debug   ARCH=x86_64  CXX11=OFF CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: amd64
+    - env: CONF=debug   ARCH=x86     CXX11=OFF CXX17=ON  MEMBERSMAP=ON CXX_FLAGS='-D_GLIBCXX_DEBUG'
+      compiler: gcc
+      arch: amd64
+    - env: CONF=debug   ARCH=x86_64  CXX11=OFF CXX17=ON  MEMBERSMAP=ON CXX_FLAGS='-D_GLIBCXX_DEBUG'
+      compiler: gcc
+      arch: amd64
+    - env: CONF=release ARCH=aarch64 CXX11=ON  CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: arm64
+    - env: CONF=release ARCH=aarch64 CXX11=OFF CXX17=OFF MEMBERSMAP=OFF
+      compiler: gcc
+      arch: arm64
+    - env: CONF=release ARCH=aarch64 CXX11=OFF CXX17=ON  MEMBERSMAP=ON
+      compiler: gcc
+      arch: arm64
+    # clang
+    - env: CONF=release ARCH=x86     CXX11=ON  CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=release ARCH=x86_64  CXX11=ON  CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=release ARCH=x86_64  CXX11=ON  CXX17=OFF MEMBERSMAP=OFF CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=debug   ARCH=x86     CXX11=OFF CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=debug   ARCH=x86_64  CXX11=OFF CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=debug   ARCH=x86     CXX11=OFF CXX17=ON  MEMBERSMAP=OFF CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=debug   ARCH=x86_64  CXX11=OFF CXX17=ON  MEMBERSMAP=OFF CCACHE_CPP2=yes
+      compiler: clang
+      arch: amd64
+    - env: CONF=debug   ARCH=aarch64 CXX11=ON  CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: arm64
+    - env: CONF=debug   ARCH=aarch64 CXX11=OFF CXX17=OFF MEMBERSMAP=ON  CCACHE_CPP2=yes
+      compiler: clang
+      arch: arm64
+    - env: CONF=debug   ARCH=aarch64 CXX11=OFF CXX17=ON  MEMBERSMAP=OFF CCACHE_CPP2=yes
+      compiler: clang
+      arch: arm64
+    # coverage report
+    - env: CONF=debug   ARCH=x86     GCOV_FLAGS='--coverage' CXX_FLAGS='-O0' CXX11=OFF CXX17=OFF
+      compiler: gcc
+      arch: amd64
+      cache:
+        - ccache
+        - pip
+      after_success:
+        - pip install --user cpp-coveralls
+        - coveralls -r .. --gcov-options '\-lp' -e thirdparty -e example -e test -e build/CMakeFiles -e include/rapidjson/msinttypes -e include/rapidjson/internal/meta.h -e include/rapidjson/error/en.h
+    - env: CONF=debug   ARCH=x86_64  GCOV_FLAGS='--coverage' CXX_FLAGS='-O0' CXX11=ON  CXX17=OFF MEMBERSMAP=ON
+      compiler: gcc
+      arch: amd64
+      cache:
+        - ccache
+        - pip
+      after_success:
+        - pip install --user cpp-coveralls
+        - coveralls -r .. --gcov-options '\-lp' -e thirdparty -e example -e test -e build/CMakeFiles -e include/rapidjson/msinttypes -e include/rapidjson/internal/meta.h -e include/rapidjson/error/en.h
+    - env: CONF=debug   ARCH=aarch64 GCOV_FLAGS='--coverage' CXX_FLAGS='-O0' CXX11=OFF CXX17=ON
+      compiler: gcc
+      arch: arm64
+      cache:
+        - ccache
+        - pip
+      after_success:
+        - pip install --user cpp-coveralls
+        - coveralls -r .. --gcov-options '\-lp' -e thirdparty -e example -e test -e build/CMakeFiles -e include/rapidjson/msinttypes -e include/rapidjson/internal/meta.h -e include/rapidjson/error/en.h
+    - script: # Documentation task
+      - cd build
+      - cmake .. -DRAPIDJSON_HAS_STDSTRING=ON -DCMAKE_VERBOSE_MAKEFILE=ON
+      - make travis_doc
+      cache: false
+      addons:
+        apt:
+          packages:
+            - doxygen
+
+before_install:
+  - if [ "x86_64" = "$(arch)" ]; then sudo apt-get install -y g++-multilib libc6-dbg:i386 --allow-unauthenticated; fi
+
+before_script:
+    # travis provides clang-7 for amd64 and clang-3.8 for arm64
+    # here use clang-8 to all architectures as clang-7 is not available for arm64
+  - if [ -f /usr/bin/clang++-8 ]; then
+      sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-8 1000;
+      sudo update-alternatives --config clang++;
+      export PATH=/usr/bin:$PATH;
+    fi
+  - if [ "$CXX" = "clang++" ]; then export CCACHE_CPP2=yes; fi
+  - ccache -s
+    #   hack to avoid Valgrind bug (https://bugs.kde.org/show_bug.cgi?id=326469),
+    #   exposed by merging PR#163 (using -march=native)
+    #   TODO: Since this bug is already fixed. Remove this when valgrind can be upgraded.
+  - sed -i "s/-march=native//" CMakeLists.txt
+  - mkdir build
+
+script:
+  - if [ "$CXX" = "clang++" ]; then export CXXFLAGS="-stdlib=libc++ ${CXXFLAGS}"; fi
+  - >
+      eval "ARCH_FLAGS=\${ARCH_FLAGS_${ARCH}}" ;
+      (cd build && cmake
+      -DRAPIDJSON_HAS_STDSTRING=ON
+      -DRAPIDJSON_USE_MEMBERSMAP=$MEMBERSMAP
+      -DRAPIDJSON_BUILD_CXX11=$CXX11
+      -DRAPIDJSON_BUILD_CXX17=$CXX17
+      -DCMAKE_VERBOSE_MAKEFILE=ON
+      -DCMAKE_BUILD_TYPE=$CONF
+      -DCMAKE_CXX_FLAGS="$ARCH_FLAGS $GCOV_FLAGS $CXX_FLAGS"
+      -DCMAKE_EXE_LINKER_FLAGS=$GCOV_FLAGS
+      ..)
+  - cd build
+  - make tests -j 2
+  - make examples -j 2
+  - ctest -j 2 -V `[ "$CONF" = "release" ] || echo "-E perftest"`

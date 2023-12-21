@@ -1,0 +1,29 @@
+############################################################################
+# Copyright (c) Johan Mabille, Sylvain Corlay, Wolf Vollprecht and         #
+# Martin Renou                                                             #
+# Copyright (c) QuantStack                                                 #
+#                                                                          #
+# Distributed under the terms of the BSD 3-Clause License.                 #
+#                                                                          #
+# The full license is in the file LICENSE, distributed with this software. #
+############################################################################
+
+# xsimd cmake module
+# This module sets the following variables in your project::
+#
+#   xsimd_FOUND - true if xsimd found on the system
+#   xsimd_INCLUDE_DIRS - the directory containing xsimd headers
+#   xsimd_LIBRARY - empty
+
+@PACKAGE_INIT@
+
+if(NOT TARGET @PROJECT_NAME@)
+    set(@PROJECT_NAME@_ENABLE_XTL_COMPLEX @ENABLE_XTL_COMPLEX@)
+    if(@PROJECT_NAME@_ENABLE_XTL_COMPLEX)
+        include(CMakeFindDependencyMacro)
+        find_dependency(xtl)
+    endif()
+
+    include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+    get_target_property(@PROJECT_NAME@_INCLUDE_DIRS @PROJECT_NAME@ INTERFACE_INCLUDE_DIRECTORIES)
+endif()

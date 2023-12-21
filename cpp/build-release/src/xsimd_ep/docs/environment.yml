@@ -1,0 +1,8 @@
+name: xsimd-docs
+
+channels:
+  - conda-forge
+
+dependencies:
+  - breathe
+    #- docutils<0.17

@@ -1,0 +1,2230 @@
+<?xml version="1.0" standalone="yes"?>
+<library-reference id="attributes"><title>Attributes</title><header name="boost/log/attributes/attribute.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>15.04.2007</para>
+
+The header contains attribute interface definition. </para><namespace name="boost">
+<namespace name="log">
+<class name="attribute"><purpose>A base class for an attribute value factory. </purpose><description><para>Every attribute is represented with a factory that is basically an attribute value generator. The sole purpose of an attribute is to return an actual value when requested. A simplest attribute can always return the same value that it stores internally, but more complex ones can perform a considerable amount of work to return a value, and the returned values may differ each time requested.</para><para>A word about thread safety. An attribute should be prepared to be requested a value from multiple threads concurrently. </para></description><struct name="impl"><inherit access="public">boost::intrusive_ref_counter&lt; impl &gt;</inherit><purpose>A base class for an attribute value factory. </purpose><description><para>All attributes must derive their implementation from this class. </para></description><method-group name="public member functions">
+<method name="get_value" cv="= 0" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+</method-group>
+<destructor><purpose>Virtual destructor. </purpose></destructor>
+<method-group name="public static functions">
+<method name="operator new" specifiers="static"><type>void *</type><parameter name="size"><paramtype>std::size_t</paramtype></parameter></method>
+<method name="operator delete" cv="noexcept" specifiers="static"><type>void</type><parameter name="p"><paramtype>void *</paramtype></parameter><parameter name="size"><paramtype>std::size_t</paramtype></parameter></method>
+</method-group>
+</struct><method-group name="public member functions">
+<method name="conversion-operator" cv="const noexcept" specifiers="explicit"><type>bool</type><description><para>Verifies that the factory is not in empty state </para></description></method>
+<method name="operator!" cv="const noexcept"><type>bool</type><description><para>Verifies that the factory is in empty state </para></description></method>
+<method name="get_value" cv="const"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>attribute</classname> &amp;</paramtype></parameter><description><para>The method swaps two factories (i.e. their implementations). </para></description></method>
+</method-group>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute</classname> const &amp;</paramtype></parameter><description><para>Default constructor. Creates an empty attribute value factory, which is not usable until <computeroutput>set_impl</computeroutput> is called.</para><para>Copy constructor </para></description></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor </para></description></constructor>
+<constructor specifiers="explicit" cv="noexcept"><parameter name="p"><paramtype>intrusive_ptr&lt; <classname>impl</classname> &gt;</paramtype><description><para>Pointer to the implementation. Must not be <computeroutput>NULL</computeroutput>. </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+<copy-assignment cv="noexcept"><type><classname>attribute</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute</classname> const &amp;</paramtype></parameter><description><para>Copy assignment </para></description></copy-assignment>
+<copy-assignment cv="noexcept"><type><classname>attribute</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute</classname> &amp;&amp;</paramtype></parameter><description><para>Move assignment </para></description></copy-assignment>
+<method-group name="protected member functions">
+<method name="get_impl" cv="const noexcept"><type><classname>impl</classname> *</type><description><para>
+</para></description><returns><para>The pointer to the implementation </para>
+</returns></method>
+<method name="set_impl" cv="noexcept"><type>void</type><parameter name="p"><paramtype>intrusive_ptr&lt; <classname>impl</classname> &gt;</paramtype><description><para>Pointer to the implementation. Must not be <computeroutput>NULL</computeroutput>. </para></description></parameter><description><para>Sets the pointer to the factory implementation.</para><para>
+</para></description></method>
+</method-group>
+<method-group name="friend functions">
+<method name="attribute_cast"><type>friend T</type><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name=""><paramtype><classname>attribute</classname> const &amp;</paramtype></parameter><description><para>The function casts one attribute factory to another </para></description></method>
+</method-group>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="swap"><type>void</type><parameter name="left"><paramtype><classname>attribute</classname> &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>attribute</classname> &amp;</paramtype></parameter><description><para>The function swaps two attribute value factories </para></description></function>
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_cast.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>06.08.2010</para>
+
+The header contains utilities for casting between attribute factories. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="cast_source"><description><para>The class holds a reference to the attribute factory implementation being casted </para></description><method-group name="public member functions">
+<method name="as" cv="const"><type>T *</type><template>
+          <template-type-parameter name="T"/>
+        </template><description><para>The function attempts to cast the aggregated pointer to the implementation to the specified type.</para><para>
+</para></description><returns><para>The converted pointer or <computeroutput>NULL</computeroutput>, if the conversion fails. </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="p"><paramtype><classname>attribute::impl</classname> *</paramtype></parameter><description><para>Initializing constructor. Creates a source that refers to the specified factory implementation. </para></description></constructor>
+</class>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="attribute_cast"><type>T</type><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name="attr"><paramtype><classname>attribute</classname> const &amp;</paramtype></parameter><description><para>The function casts one attribute factory to another </para></description></function>
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_name.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>28.06.2010</para>
+
+The header contains attribute name interface definition. </para><namespace name="boost">
+<namespace name="log">
+<class name="attribute_name"><purpose>The class represents an attribute name in containers used by the library. </purpose><description><para>The class mostly serves for optimization purposes. Each attribute name that is used with the library is automatically associated with a unique identifier, which is much lighter in terms of memory footprint and operations complexity. This is done transparently by this class, on object construction. Passing objects of this class to other library methods, such as attribute lookup functions, will not require this translation and/or string copying and thus will result in a more efficient code. </para></description><typedef name="string_type"><purpose>String type. </purpose><type>std::string</type></typedef>
+<typedef name="id_type"><purpose>Associated identifier. </purpose><type>unspecified</type></typedef>
+<method-group name="public member functions">
+<method name="operator==" cv="const noexcept"><type>bool</type><parameter name="that"><paramtype><classname>attribute_name</classname> const &amp;</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to the same attribute name, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator!=" cv="const noexcept"><type>bool</type><parameter name="that"><paramtype><classname>attribute_name</classname> const &amp;</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to different attribute names, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator==" cv="const"><type>bool</type><parameter name="that"><paramtype>const char *</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to the same attribute name, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator!=" cv="const"><type>bool</type><parameter name="that"><paramtype>const char *</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to different attribute names, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator==" cv="const"><type>bool</type><parameter name="that"><paramtype>string_type const &amp;</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to the same attribute name, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator!=" cv="const"><type>bool</type><parameter name="that"><paramtype>string_type const &amp;</paramtype></parameter><description><para>Compares the attribute names</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> and <computeroutput>that</computeroutput> refer to different attribute names, and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="conversion-operator" cv="const noexcept" specifiers="explicit"><type>bool</type><description><para>Checks if the object was default-constructed</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> was constructed with an attribute name, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+<method name="operator!" cv="const noexcept"><type>bool</type><description><para>Checks if the object was default-constructed</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if <computeroutput>*this</computeroutput> was default-constructed and does not refer to any attribute name, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+<method name="id" cv="const noexcept"><type>id_type</type><description><para>
+
+</para></description><requires><para><computeroutput>(!*this) == false</computeroutput> </para>
+</requires><returns><para>The associated id value </para>
+</returns></method>
+<method name="string" cv="const"><type>string_type const  &amp;</type><description><para>
+
+</para></description><requires><para><computeroutput>(!*this) == false</computeroutput> </para>
+</requires><returns><para>The attribute name string that was used during the object construction </para>
+</returns></method>
+</method-group>
+<constructor cv="noexcept"><description><para>Default constructor. Creates an object that does not refer to any attribute name. </para></description></constructor>
+<constructor><parameter name="name"><paramtype>const char *</paramtype><description><para>An attribute name </para></description></parameter><description><para>Constructs an attribute name from the specified string</para><para>
+
+</para></description><requires><para><emphasis>name</emphasis> is not NULL and points to a zero-terminated string </para>
+</requires></constructor>
+<constructor><parameter name="name"><paramtype>string_type const &amp;</paramtype><description><para>An attribute name </para></description></parameter><description><para>Constructs an attribute name from the specified string</para><para>
+</para></description></constructor>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="operator&lt;&lt;"><type>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="TraitsT"/>
+        </template><parameter name="strm"><paramtype>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</paramtype></parameter><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype></parameter></function>
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_set.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>08.03.2007</para>
+
+This header contains definition of the attribute set container. </para><namespace name="boost">
+<namespace name="log">
+<class name="attribute_set"><purpose>An attribute set class. </purpose><description><para>An attribute set is an associative container with attribute name as a key and pointer to the attribute as a mapped value. The container allows storing only one element for each distinct key value. In most regards attribute set container provides interface similar to <computeroutput>std::unordered_map</computeroutput>. However, there are differences in <computeroutput>operator</computeroutput>[] semantics and a number of optimizations with regard to iteration. Besides, attribute names are stored as a read-only <computeroutput><classname alt="boost::log::attribute_name">attribute_name</classname></computeroutput>'s instead of <computeroutput>std::string</computeroutput>, which saves memory and CPU time. </para></description><typedef name="key_type"><purpose>Key type. </purpose><type><classname>attribute_name</classname></type></typedef>
+<typedef name="mapped_type"><purpose>Mapped attribute type. </purpose><type><classname>attribute</classname></type></typedef>
+<typedef name="value_type"><purpose>Value type. </purpose><type>std::pair&lt; const key_type, mapped_type &gt;</type></typedef>
+<typedef name="reference"><purpose>Reference type. </purpose><type>value_type &amp;</type></typedef>
+<typedef name="const_reference"><purpose>Const reference type. </purpose><type>value_type const  &amp;</type></typedef>
+<typedef name="pointer"><purpose>Pointer type. </purpose><type>value_type *</type></typedef>
+<typedef name="const_pointer"><purpose>Const pointer type. </purpose><type>value_type const  *</type></typedef>
+<typedef name="size_type"><purpose>Size type. </purpose><type>std::size_t</type></typedef>
+<typedef name="difference_type"><purpose>Difference type. </purpose><type>std::ptrdiff_t</type></typedef>
+<typedef name="iterator"><description><para>Iterator type. The iterator complies to the bidirectional iterator requirements. </para></description><type>implementation_defined</type></typedef>
+<typedef name="const_iterator"><description><para>Constant iterator type. The iterator complies to the bidirectional iterator requirements with read-only capabilities. </para></description><type>implementation_defined</type></typedef>
+<method-group name="public member functions">
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>attribute_set</classname> &amp;</paramtype></parameter><description><para>Swaps two instances of the container.</para><para><emphasis role="bold">Throws:</emphasis> Nothing. </para></description></method>
+<method name="begin" cv="noexcept"><type>iterator</type><description><para>
+</para></description><returns><para>Iterator to the first element of the container. </para>
+</returns></method>
+<method name="end" cv="noexcept"><type>iterator</type><description><para>
+</para></description><returns><para>Iterator to the after-the-last element of the container. </para>
+</returns></method>
+<method name="begin" cv="const noexcept"><type>const_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the first element of the container. </para>
+</returns></method>
+<method name="end" cv="const noexcept"><type>const_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the after-the-last element of the container. </para>
+</returns></method>
+<method name="size" cv="const noexcept"><type>size_type</type><description><para>
+</para></description><returns><para>Number of elements in the container. </para>
+</returns></method>
+<method name="empty" cv="const noexcept"><type>bool</type><description><para>
+</para></description><returns><para>true if there are no elements in the container, false otherwise. </para>
+</returns></method>
+<method name="find" cv="noexcept"><type>iterator</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method finds the attribute by name.</para><para>
+
+</para></description><returns><para>Iterator to the found element or end() if the attribute with such name is not found. </para>
+</returns></method>
+<method name="find" cv="const noexcept"><type>const_iterator</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method finds the attribute by name.</para><para>
+
+</para></description><returns><para>Iterator to the found element or <computeroutput>end()</computeroutput> if the attribute with such name is not found. </para>
+</returns></method>
+<method name="count" cv="const noexcept"><type>size_type</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method counts the number of the attribute occurrences in the container. Since there can be only one attribute with a particular key, the method always return 0 or 1.</para><para>
+
+</para></description><returns><para>The number of times the attribute is found in the container. </para>
+</returns></method>
+<method name="operator[]" cv="noexcept"><type><emphasis>unspecified</emphasis></type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>Combined lookup/insertion operator. The operator semantics depends on the further usage of the returned reference. <itemizedlist>
+<listitem><para>If the reference is used as an assignment target, the assignment expression is equivalent to element insertion, where the element is composed of the second argument of the <computeroutput>operator</computeroutput>[] as a key and the second argument of assignment as a mapped value. </para>
+</listitem>
+<listitem><para>If the returned reference is used in context where a conversion to the mapped type is required, the result of the conversion is equivalent to the mapped value found with the second argument of the <computeroutput>operator</computeroutput>[] as a key, if such an element exists in the container, or a default-constructed mapped value, if an element does not exist in the container.</para>
+</listitem>
+</itemizedlist>
+
+
+</para></description><returns><para>A smart reference object of unspecified type. </para>
+</returns></method>
+<method name="operator[]" cv="const noexcept"><type>mapped_type</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>Lookup operator</para><para>
+
+</para></description><returns><para>If an element with the corresponding attribute name is found in the container, its mapped value is returned. Otherwise a default-constructed mapped value is returned. </para>
+</returns></method>
+<method name="insert"><type>std::pair&lt; iterator, bool &gt;</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><parameter name="data"><paramtype>mapped_type const &amp;</paramtype><description><para>Pointer to the attribute. Must not be NULL. </para></description></parameter><description><para>Insertion method</para><para>
+
+</para></description><returns><para>A pair of values. If second is true, the insertion succeeded and the first component points to the inserted element. Otherwise the first component points to the element that prevents insertion. </para>
+</returns></method>
+<method name="insert"><type>std::pair&lt; iterator, bool &gt;</type><parameter name="value"><paramtype>const_reference</paramtype><description><para>An element to be inserted. </para></description></parameter><description><para>Insertion method</para><para>
+
+</para></description><returns><para>A pair of values. If second is true, the insertion succeeded and the first component points to the inserted element. Otherwise the first component points to the element that prevents insertion. </para>
+</returns></method>
+<method name="insert"><type>void</type><template>
+          <template-type-parameter name="FwdIteratorT"/>
+        </template><parameter name="begin"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the first element to be inserted. </para></description></parameter><parameter name="end"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the after-the-last element to be inserted. </para></description></parameter><description><para>Mass insertion method.</para><para>
+</para></description></method>
+<method name="insert"><type>void</type><template>
+          <template-type-parameter name="FwdIteratorT"/>
+          <template-type-parameter name="OutputIteratorT"/>
+        </template><parameter name="begin"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the first element to be inserted. </para></description></parameter><parameter name="end"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the after-the-last element to be inserted. </para></description></parameter><parameter name="out"><paramtype>OutputIteratorT</paramtype><description><para>An output iterator that receives results of insertion of the elements </para></description></parameter><description><para>Mass insertion method with ability to acquire iterators to the inserted elements.</para><para>
+</para></description></method>
+<method name="erase" cv="noexcept"><type>size_type</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method erases all attributes with the specified name</para><para>
+
+
+</para></description><postconditions><para>All iterators to the erased elements become invalid. </para>
+</postconditions><returns><para>Tne number of erased elements </para>
+</returns></method>
+<method name="erase" cv="noexcept"><type>void</type><parameter name="it"><paramtype>iterator</paramtype><description><para>A valid iterator to the element to be erased. </para></description></parameter><description><para>The method erases the specified attribute</para><para>
+
+
+</para></description><postconditions><para>All iterators to the erased element become invalid. </para>
+</postconditions><returns><para>Tne number of erased elements </para>
+</returns></method>
+<method name="erase" cv="noexcept"><type>void</type><parameter name="begin"><paramtype>iterator</paramtype><description><para>An iterator that points to the first element to be erased. </para></description></parameter><parameter name="end"><paramtype>iterator</paramtype><description><para>An iterator that points to the after-the-last element to be erased. </para></description></parameter><description><para>The method erases all attributes within the specified range</para><para>
+
+
+</para></description><requires><para><emphasis>end</emphasis> is reachable from <emphasis>begin</emphasis> with a finite number of increments. </para>
+</requires><postconditions><para>All iterators to the erased elements become invalid. </para>
+</postconditions></method>
+<method name="clear" cv="noexcept"><type>void</type><description><para>The method removes all elements from the container</para><para>
+</para></description><postconditions><para><computeroutput>empty() == true</computeroutput> </para>
+</postconditions></method>
+</method-group>
+<constructor><description><para>Default constructor.</para><para>
+</para></description><postconditions><para><computeroutput>empty() == true</computeroutput> </para>
+</postconditions></constructor>
+<constructor><parameter name="that"><paramtype><classname>attribute_set</classname> const &amp;</paramtype></parameter><description><para>Copy constructor.</para><para>
+</para></description><postconditions><para><computeroutput>size() == that.size() &amp;&amp; std::equal(begin(), end(), that.begin()) == true</computeroutput> </para>
+</postconditions></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute_set</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor </para></description></constructor>
+<destructor><description><para>Destructor. All stored references to attributes are released. </para></description></destructor>
+<copy-assignment cv="noexcept"><type><classname>attribute_set</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute_set</classname></paramtype></parameter><description><para>Copy assignment operator.</para><para>
+</para></description><postconditions><para><computeroutput>size() == that.size() &amp;&amp; std::equal(begin(), end(), that.begin()) == true</computeroutput> </para>
+</postconditions></copy-assignment>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="swap"><type>void</type><parameter name="left"><paramtype><classname>attribute_set</classname> &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>attribute_set</classname> &amp;</paramtype></parameter><description><para>Free swap overload </para></description></function>
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_value.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>21.05.2010</para>
+
+The header contains <computeroutput>attribute_value</computeroutput> class definition. </para><namespace name="boost">
+<namespace name="log">
+<class name="attribute_value"><purpose>An attribute value class. </purpose><description><para>An attribute value is an object that contains a piece of data that represents an attribute state at the point of the value acquisition. All major operations with log records, such as filtering and formatting, involve attribute values contained in a single view. Most likely an attribute value is implemented as a simple holder of some typed value. This holder implements the <computeroutput>attribute_value::implementation</computeroutput> interface and acts as a pimpl for the <computeroutput><classname alt="boost::log::attribute_value">attribute_value</classname></computeroutput> object. The <computeroutput><classname alt="boost::log::attribute_value">attribute_value</classname></computeroutput> class provides type dispatching support in order to allow to extract the value from the holder.</para><para>Normally, attributes and their values shall be designed in order to exclude as much interference as reasonable. Such approach allows to have more than one attribute value simultaneously, which improves scalability and allows to implement generating attributes.</para><para>However, there are cases when this approach does not help to achieve the required level of independency of attribute values and attribute itself from each other at a reasonable performance tradeoff. For example, an attribute or its values may use thread-specific data, which is global and shared between all the instances of the attribute/value. Passing such an attribute value to another thread would be a disaster. To solve this the library defines an additional method for attribute values, namely <computeroutput>detach_from_thread</computeroutput>. The <computeroutput><classname alt="boost::log::attribute_value">attribute_value</classname></computeroutput> class forwards the call to its pimpl, which is supposed to ensure that it no longer refers to any thread-specific data after the call. The pimpl can create a new holder as a result of this method and return it to the <computeroutput><classname alt="boost::log::attribute_value">attribute_value</classname></computeroutput> wrapper, which will keep the returned reference for any further calls. This method is called for all attribute values that are passed to another thread. </para></description><struct name="impl"><inherit access="public">attribute::impl</inherit><purpose>A base class for an attribute value implementation. </purpose><description><para>All attribute value holders should derive from this interface. </para></description><method-group name="public member functions">
+<method name="dispatch" cv="= 0" specifiers="virtual"><type>bool</type><parameter name="dispatcher"><paramtype>type_dispatcher &amp;</paramtype><description><para>The object that attempts to dispatch the stored value. </para></description></parameter><description><para>The method dispatches the value to the given object.</para><para>
+
+</para></description><returns><para>true if <emphasis>dispatcher</emphasis> was capable to consume the real attribute value type and false otherwise. </para>
+</returns></method>
+<method name="detach_from_thread" specifiers="virtual"><type>intrusive_ptr&lt; <classname>impl</classname> &gt;</type><description><para>The method is called when the attribute value is passed to another thread (e.g. in case of asynchronous logging). The value should ensure it properly owns all thread-specific data.</para><para>
+</para></description><returns><para>An actual pointer to the attribute value. It may either point to this object or another. In the latter case the returned pointer replaces the pointer used by caller to invoke this method and is considered to be a functional equivalent to the previous pointer. </para>
+</returns></method>
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The attribute value that refers to self implementation. </para>
+</returns></method>
+<method name="get_type" cv="const" specifiers="virtual"><type>typeindex::type_index</type><description><para>
+</para></description><returns><para>The attribute value type </para>
+</returns></method>
+</method-group>
+</struct><method-group name="public member functions">
+<method name="conversion-operator" cv="const noexcept" specifiers="explicit"><type>bool</type><description><para>The operator checks if the attribute value is empty </para></description></method>
+<method name="operator!" cv="const noexcept"><type>bool</type><description><para>The operator checks if the attribute value is empty </para></description></method>
+<method name="get_type" cv="const"><type>typeindex::type_index</type><description><para>The method returns the type information of the stored value of the attribute. The returned type info wrapper may be empty if the attribute value is empty or the information cannot be provided. If the returned value is not empty, the type can be used for value extraction. </para></description></method>
+<method name="detach_from_thread"><type>void</type><description><para>The method is called when the attribute value is passed to another thread (e.g. in case of asynchronous logging). The value should ensure it properly owns all thread-specific data.</para><para>
+</para></description><postconditions><para>The attribute value no longer refers to any thread-specific resources. </para>
+</postconditions></method>
+<method name="dispatch" cv="const"><type>bool</type><parameter name="dispatcher"><paramtype>type_dispatcher &amp;</paramtype><description><para>The object that attempts to dispatch the stored value. </para></description></parameter><description><para>The method dispatches the value to the given object. This method is a low level interface for attribute value visitation and extraction. For typical usage these interfaces may be more convenient.</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the value is not empty and the <emphasis>dispatcher</emphasis> was capable to consume the real attribute value type and <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="extract" cv="const"><type><classname>result_of::extract</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><description><para>The method attempts to extract the stored value, assuming the value has the specified type. One can specify either a single type or an MPL type sequence, in which case the stored value is checked against every type in the sequence.</para><para><note><para>Include <computeroutput>value_extraction.hpp</computeroutput> prior to using this method.</para>
+</note>
+
+</para></description><returns><para>The extracted value, if the attribute value is not empty and the value is the same as specified. Otherwise returns an empty value. See description of the <computeroutput><classname alt="boost::log::result_of::extract">result_of::extract</classname></computeroutput> metafunction for information on the nature of the result value. </para>
+</returns></method>
+<method name="extract_or_throw" cv="const"><type><classname>result_of::extract_or_throw</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><description><para>The method attempts to extract the stored value, assuming the value has the specified type. One can specify either a single type or an MPL type sequence, in which case the stored value is checked against every type in the sequence.</para><para><note><para>Include <computeroutput>value_extraction.hpp</computeroutput> prior to using this method.</para>
+</note>
+
+</para></description><returns><para>The extracted value, if the attribute value is not empty and the value is the same as specified. Otherwise an exception is thrown. See description of the <computeroutput><classname alt="boost::log::result_of::extract_or_throw">result_of::extract_or_throw</classname></computeroutput> metafunction for information on the nature of the result value. </para>
+</returns></method>
+<method name="extract_or_default" cv="const"><type><classname>result_of::extract_or_default</classname>&lt; T, T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="def_value"><paramtype>T const &amp;</paramtype><description><para>Default value.</para></description></parameter><description><para>The method attempts to extract the stored value, assuming the value has the specified type. One can specify either a single type or an MPL type sequence, in which case the stored value is checked against every type in the sequence. If extraction fails, the default value is returned.</para><para><note><para>Include <computeroutput>value_extraction.hpp</computeroutput> prior to using this method.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if the attribute value is not empty and the value is the same as specified. Otherwise returns the default value. See description of the <computeroutput><classname alt="boost::log::result_of::extract_or_default">result_of::extract_or_default</classname></computeroutput> metafunction for information on the nature of the result value. </para>
+</returns></method>
+<method name="extract_or_default" cv="const"><type><classname>result_of::extract_or_default</classname>&lt; T, DefaultT, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="def_value"><paramtype>DefaultT const &amp;</paramtype><description><para>Default value.</para></description></parameter><description><para>The method attempts to extract the stored value, assuming the value has the specified type. One can specify either a single type or an MPL type sequence, in which case the stored value is checked against every type in the sequence. If extraction fails, the default value is returned.</para><para><note><para>Include <computeroutput>value_extraction.hpp</computeroutput> prior to using this method.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if the attribute value is not empty and the value is the same as specified. Otherwise returns the default value. See description of the <computeroutput><classname alt="boost::log::result_of::extract_or_default">result_of::extract_or_default</classname></computeroutput> metafunction for information on the nature of the result value. </para>
+</returns></method>
+<method name="visit" cv="const"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A function object that will be invoked on the extracted attribute value. The visitor should be capable to be called with a single argument of any type of the specified types in <computeroutput>T</computeroutput>.</para></description></parameter><description><para>The method attempts to extract the stored value, assuming the value has the specified type, and pass it to the <emphasis>visitor</emphasis> function object. One can specify either a single type or an MPL type sequence, in which case the stored value is checked against every type in the sequence.</para><para><note><para>Include <computeroutput>value_visitation.hpp</computeroutput> prior to using this method.</para>
+</note>
+
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></method>
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>attribute_value</classname> &amp;</paramtype></parameter><description><para>The method swaps two attribute values </para></description></method>
+</method-group>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute_value</classname> const &amp;</paramtype></parameter><description><para>Default constructor. Creates an empty (absent) attribute value.</para><para>Copy constructor </para></description></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute_value</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor </para></description></constructor>
+<constructor specifiers="explicit" cv="noexcept"><parameter name="p"><paramtype>intrusive_ptr&lt; <classname>impl</classname> &gt;</paramtype><description><para>A pointer to the attribute value holder. </para></description></parameter><description><para>Initializing constructor. Creates an attribute value that refers to the specified holder.</para><para>
+</para></description></constructor>
+<copy-assignment cv="noexcept"><type><classname>attribute_value</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute_value</classname> const &amp;</paramtype></parameter><description><para>Copy assignment </para></description></copy-assignment>
+<copy-assignment cv="noexcept"><type><classname>attribute_value</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute_value</classname> &amp;&amp;</paramtype></parameter><description><para>Move assignment </para></description></copy-assignment>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="swap"><type>void</type><parameter name="left"><paramtype><classname>attribute_value</classname> &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>attribute_value</classname> &amp;</paramtype></parameter><description><para>The function swaps two attribute values </para></description></function>
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_value_impl.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>24.06.2007</para>
+
+The header contains an implementation of a basic attribute value implementation class. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="attribute_value_impl"><template>
+      <template-type-parameter name="T"/>
+    </template><inherit access="public">attribute_value::impl</inherit><purpose>Basic attribute value implementation class. </purpose><description><para>This class can be used as a boilerplate for simple attribute values. The class implements all needed interfaces of attribute values and allows to store a single value of the type specified as a template parameter. The stored value can be dispatched with type dispatching mechanism. </para></description><typedef name="value_type"><purpose>Value type. </purpose><type>T</type></typedef>
+<method-group name="public member functions">
+<method name="dispatch" specifiers="virtual"><type>bool</type><parameter name="dispatcher"><paramtype>type_dispatcher &amp;</paramtype><description><para>The dispatcher that receives the stored value</para></description></parameter><description><para>Attribute value dispatching method.</para><para>
+
+</para></description><returns><para><computeroutput>true</computeroutput> if the value has been dispatched, <computeroutput>false</computeroutput> otherwise </para>
+</returns></method>
+<method name="get_type" cv="const" specifiers="virtual"><type>typeindex::type_index</type><description><para>
+</para></description><returns><para>The attribute value type </para>
+</returns></method>
+<method name="get" cv="const"><type>value_type const  &amp;</type><description><para>
+</para></description><returns><para>Reference to the contained value. </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="v"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Constructor with initialization of the stored value </para></description></constructor>
+<constructor specifiers="explicit" cv="noexcept(boost::is_nothrow_move_constructible&lt; value_type &gt;::value))"><parameter name="v"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Constructor with initialization of the stored value </para></description></constructor>
+</class>
+
+
+<function name="make_attribute_value"><type><classname>attribute_value</classname></type><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name="v"><paramtype>T &amp;&amp;</paramtype></parameter><description><para>The function creates an attribute value from the specified object. </para></description></function>
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/attribute_value_set.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>21.04.2007</para>
+
+This header file contains definition of attribute value set. The set is constructed from three attribute sets (global, thread-specific and source-specific) and contains attribute values. </para><namespace name="boost">
+<namespace name="log">
+<class name="attribute_value_set"><purpose>A set of attribute values. </purpose><description><para>The set of attribute values is an associative container with attribute name as a key and a pointer to attribute value object as a mapped type. This is a collection of elements with unique keys, that is, there can be only one attribute value with a given name in the set. With respect to read-only capabilities, the set interface is close to <computeroutput>std::unordered_map</computeroutput>.</para><para>The set is designed to be only capable of adding elements to it. Once added, the attribute value cannot be removed from the set.</para><para>An instance of attribute value set can be constructed from three attribute sets. The constructor attempts to accommodate values of all attributes from the sets. The situation when a same-named attribute is found in more than one attribute set is possible. This problem is solved on construction of the value set: the three attribute sets have different priorities when it comes to solving conflicts.</para><para>From the library perspective the three source attribute sets are global, thread-specific and source-specific attributes, with the latter having the highest priority. This feature allows to override attributes of wider scopes with the more specific ones.</para><para>For sake of performance, the attribute values are not immediately acquired from attribute sets at construction. Instead, on-demand acquisition is performed either on iterator dereferencing or on call to the <computeroutput>freeze</computeroutput> method. Once acquired, the attribute value stays within the set until its destruction. This nuance does not affect other set properties, such as size or lookup ability. The logging core automatically freezes the set at the right point, so users should not be bothered unless they manually create attribute value sets.</para><para><note><para>The attribute sets that were used for the value set construction must not be modified or destroyed until the value set is frozen. Otherwise the behavior is undefined. </para>
+</note>
+</para></description><typedef name="key_type"><purpose>Key type. </purpose><type><classname>attribute_name</classname></type></typedef>
+<typedef name="mapped_type"><purpose>Mapped attribute type. </purpose><type><classname>attribute_value</classname></type></typedef>
+<typedef name="value_type"><purpose>Value type. </purpose><type>std::pair&lt; const key_type, mapped_type &gt;</type></typedef>
+<typedef name="reference"><purpose>Reference type. </purpose><type>value_type &amp;</type></typedef>
+<typedef name="const_reference"><purpose>Const reference type. </purpose><type>value_type const  &amp;</type></typedef>
+<typedef name="pointer"><purpose>Pointer type. </purpose><type>value_type *</type></typedef>
+<typedef name="const_pointer"><purpose>Const pointer type. </purpose><type>value_type const  *</type></typedef>
+<typedef name="size_type"><purpose>Size type. </purpose><type>std::size_t</type></typedef>
+<typedef name="difference_type"><purpose>Pointer difference type. </purpose><type>std::ptrdiff_t</type></typedef>
+<typedef name="const_iterator"><description><para>Constant iterator type with bidirectional capabilities. </para></description><type>implementation_defined</type></typedef>
+<method-group name="public member functions">
+<method name="swap" cv="noexcept"><type>void</type><parameter name="that"><paramtype><classname>attribute_value_set</classname> &amp;</paramtype></parameter><description><para>Swaps two sets</para><para><emphasis role="bold">Throws:</emphasis> Nothing. </para></description></method>
+<method name="begin" cv="const"><type>const_iterator</type><description><para>
+</para></description><returns><para>Iterator to the first element of the set. </para>
+</returns></method>
+<method name="end" cv="const"><type>const_iterator</type><description><para>
+</para></description><returns><para>Iterator to the after-the-last element of the set. </para>
+</returns></method>
+<method name="size" cv="const"><type>size_type</type><description><para>
+</para></description><returns><para>Number of elements in the set. </para>
+</returns></method>
+<method name="empty" cv="const"><type>bool</type><description><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if there are no elements in the container, <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="find" cv="const"><type>const_iterator</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method finds the attribute value by name.</para><para>
+
+</para></description><returns><para>Iterator to the found element or <computeroutput>end()</computeroutput> if the attribute with such name is not found. </para>
+</returns></method>
+<method name="operator[]" cv="const"><type>mapped_type</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>Alternative lookup syntax.</para><para>
+
+</para></description><returns><para>A pointer to the attribute value if it is found with <emphasis>key</emphasis>, default-constructed mapped value otherwise. </para>
+</returns></method>
+<method name="operator[]" cv="const"><type><classname>result_of::extract</classname>&lt; typename expressions::attribute_keyword&lt; DescriptorT, ActorT &gt;::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>Attribute keyword. </para></description></parameter><description><para>Alternative lookup syntax.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> with extracted attribute value if it is found, empty <computeroutput>value_ref</computeroutput> otherwise. </para>
+</returns></method>
+<method name="count" cv="const"><type>size_type</type><parameter name="key"><paramtype>key_type</paramtype><description><para>Attribute name. </para></description></parameter><description><para>The method counts the number of the attribute value occurrences in the set. Since there can be only one attribute value with a particular key, the method always return 0 or 1.</para><para>
+
+</para></description><returns><para>The number of times the attribute value is found in the container. </para>
+</returns></method>
+<method name="freeze"><type>void</type><description><para>The method acquires values of all adopted attributes.</para><para>
+</para></description><postconditions><para>The set is frozen. </para>
+</postconditions></method>
+<method name="insert"><type>std::pair&lt; const_iterator, bool &gt;</type><parameter name="key"><paramtype>key_type</paramtype><description><para>The attribute name. </para></description></parameter><parameter name="mapped"><paramtype>mapped_type const &amp;</paramtype><description><para>The attribute value.</para></description></parameter><description><para>Inserts an element into the set. The complexity of the operation is amortized constant.</para><para>
+
+
+</para></description><requires><para>The set is frozen.</para>
+</requires><returns><para>An iterator to the inserted element and <computeroutput>true</computeroutput> if insertion succeeded. Otherwise, if the set already contains a same-named attribute value, iterator to the existing element and <computeroutput>false</computeroutput>. </para>
+</returns></method>
+<method name="insert"><type>std::pair&lt; const_iterator, bool &gt;</type><parameter name="value"><paramtype>const_reference</paramtype><description><para>The attribute name and value.</para></description></parameter><description><para>Inserts an element into the set. The complexity of the operation is amortized constant.</para><para>
+
+
+</para></description><requires><para>The set is frozen.</para>
+</requires><returns><para>An iterator to the inserted element and <computeroutput>true</computeroutput> if insertion succeeded. Otherwise, if the set already contains a same-named attribute value, iterator to the existing element and <computeroutput>false</computeroutput>. </para>
+</returns></method>
+<method name="insert"><type>void</type><template>
+          <template-type-parameter name="FwdIteratorT"/>
+        </template><parameter name="begin"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the first element to be inserted. </para></description></parameter><parameter name="end"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the after-the-last element to be inserted. </para></description></parameter><description><para>Mass insertion method. The complexity of the operation is linear to the number of elements inserted.</para><para>
+
+</para></description><requires><para>The set is frozen.</para>
+</requires></method>
+<method name="insert"><type>void</type><template>
+          <template-type-parameter name="FwdIteratorT"/>
+          <template-type-parameter name="OutputIteratorT"/>
+        </template><parameter name="begin"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the first element to be inserted. </para></description></parameter><parameter name="end"><paramtype>FwdIteratorT</paramtype><description><para>A forward iterator that points to the after-the-last element to be inserted. </para></description></parameter><parameter name="out"><paramtype>OutputIteratorT</paramtype><description><para>An output iterator that receives results of insertion of the elements. </para></description></parameter><description><para>Mass insertion method with ability to acquire iterators to the inserted elements. The complexity of the operation is linear to the number of elements inserted times the complexity of filling the <emphasis>out</emphasis> iterator.</para><para>
+
+</para></description><requires><para>The set is frozen.</para>
+</requires></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="reserve_count"><paramtype>size_type</paramtype><default>8</default><description><para>Number of elements to reserve space for. </para></description></parameter><description><para>Default constructor</para><para>The constructor creates an empty set which can be filled later by subsequent calls of <computeroutput>insert</computeroutput> method. Optionally, the amount of storage reserved for elements to be inserted may be passed to the constructor. The constructed set is frozen.</para><para>
+</para></description></constructor>
+<constructor cv="noexcept"><parameter name="that"><paramtype><classname>attribute_value_set</classname> &amp;&amp;</paramtype></parameter><description><para>Move constructor </para></description></constructor>
+<constructor><parameter name="source_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of source-specific attributes. </para></description></parameter><parameter name="thread_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of thread-specific attributes. </para></description></parameter><parameter name="global_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of global attributes. </para></description></parameter><parameter name="reserve_count"><paramtype>size_type</paramtype><default>8</default><description><para>Amount of elements to reserve space for, in addition to the elements in the three attribute sets provided. </para></description></parameter><description><para>The constructor adopts three attribute sets into the value set. The <emphasis>source_attrs</emphasis> attributes have the greatest preference when a same-named attribute is found in several sets, <emphasis>global_attrs</emphasis> has the least. The constructed set is not frozen.</para><para>
+</para></description></constructor>
+<constructor><parameter name="source_attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of source-specific attributes. </para></description></parameter><parameter name="thread_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of thread-specific attributes. </para></description></parameter><parameter name="global_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of global attributes. </para></description></parameter><parameter name="reserve_count"><paramtype>size_type</paramtype><default>8</default><description><para>Amount of elements to reserve space for, in addition to the elements in the three attribute sets provided. </para></description></parameter><description><para>The constructor adopts three attribute sets into the value set. The <emphasis>source_attrs</emphasis> attributes have the greatest preference when a same-named attribute is found in several sets, <emphasis>global_attrs</emphasis> has the least. The constructed set is not frozen.</para><para>
+
+</para></description><requires><para>The <emphasis>source_attrs</emphasis> set is frozen.</para>
+</requires></constructor>
+<constructor><parameter name="source_attrs"><paramtype><classname>attribute_value_set</classname> &amp;&amp;</paramtype><description><para>A set of source-specific attributes. </para></description></parameter><parameter name="thread_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of thread-specific attributes. </para></description></parameter><parameter name="global_attrs"><paramtype><classname>attribute_set</classname> const &amp;</paramtype><description><para>A set of global attributes. </para></description></parameter><parameter name="reserve_count"><paramtype>size_type</paramtype><default>8</default><description><para>Amount of elements to reserve space for, in addition to the elements in the three attribute sets provided. </para></description></parameter><description><para>The constructor adopts three attribute sets into the value set. The <emphasis>source_attrs</emphasis> attributes have the greatest preference when a same-named attribute is found in several sets, <emphasis>global_attrs</emphasis> has the least. The constructed set is not frozen.</para><para>
+
+</para></description><requires><para>The <emphasis>source_attrs</emphasis> set is frozen.</para>
+</requires></constructor>
+<constructor><parameter name="that"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype></parameter><description><para>Copy constructor.</para><para>
+
+</para></description><requires><para>The original set is frozen. </para>
+</requires><postconditions><para>The constructed set is frozen, <computeroutput>std::equal(begin(), end(), that.begin()) == true</computeroutput> </para>
+</postconditions></constructor>
+<destructor><description><para>Destructor. Releases all referenced attribute values. </para></description></destructor>
+<copy-assignment cv="noexcept"><type><classname>attribute_value_set</classname> &amp;</type><parameter name="that"><paramtype><classname>attribute_value_set</classname></paramtype></parameter><description><para>Assignment operator </para></description></copy-assignment>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="swap"><type>void</type><parameter name="left"><paramtype><classname>attribute_value_set</classname> &amp;</paramtype></parameter><parameter name="right"><paramtype><classname>attribute_value_set</classname> &amp;</paramtype></parameter><description><para>Free swap overload </para></description></function>
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/clock.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.12.2007</para>
+
+The header contains wall clock attribute implementation and typedefs. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="basic_clock"><template>
+      <template-type-parameter name="TimeTraitsT"/>
+    </template><inherit access="public">attribute</inherit><purpose>A class of an attribute that makes an attribute value of the current date and time. </purpose><description><para>The attribute generates current time stamp as a value. The type of the attribute value is determined with time traits passed to the class template as a template parameter. The time traits provided by the library use <computeroutput>boost::posix_time::ptime</computeroutput> as the time type.</para><para>Time traits also determine the way time is acquired. There are two types of time traits provided by the library: <computeroutput><classname alt="boost::log::attributes::utc_time_traits">utc_time_traits</classname></computeroutput> and <computeroutput><classname alt="boost::log::attributes::local_time_traits">local_time_traits</classname></computeroutput>. The first returns UTC time, the second returns local time. </para></description><struct name="impl"><inherit access="public">attribute::impl</inherit><purpose>Attribute factory implementation. </purpose><method-group name="public member functions">
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+</method-group>
+</struct><typedef name="value_type"><purpose>Generated value type. </purpose><type>TimeTraitsT::time_type</type></typedef>
+<method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class><typedef name="utc_clock"><purpose>Attribute that returns current UTC time. </purpose><type><classname>basic_clock</classname>&lt; <classname>utc_time_traits</classname> &gt;</type></typedef>
+<typedef name="local_clock"><purpose>Attribute that returns current local time. </purpose><type><classname>basic_clock</classname>&lt; <classname>local_time_traits</classname> &gt;</type></typedef>
+
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/constant.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>15.04.2007</para>
+
+The header contains implementation of a constant attribute. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="constant"><template>
+      <template-type-parameter name="T"/>
+    </template><inherit access="public">attribute</inherit><purpose>A class of an attribute that holds a single constant value. </purpose><description><para>The constant is a simplest and one of the most frequently used types of attributes. It stores a constant value, which it eventually returns as its value each time requested. </para></description><class name="impl"><inherit access="public">attribute_value_impl&lt; value_type &gt;</inherit><purpose>Factory implementation. </purpose><method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit" cv="noexcept(boost::is_nothrow_move_constructible&lt; value_type &gt;::value))"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+</class><typedef name="value_type"><purpose>Attribute value type. </purpose><type>T</type></typedef>
+<method-group name="public member functions">
+<method name="get" cv="const"><type>value_type const  &amp;</type><description><para>
+</para></description><returns><para>Reference to the contained value. </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+<function name="make_constant"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name="val"><paramtype>BOOST_FWD_REF(T)</paramtype></parameter><description><para>The function constructs a <computeroutput>constant</computeroutput> attribute containing the provided value. The function automatically converts C string arguments to <computeroutput>std::basic_string</computeroutput> objects. </para></description></function>
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/counter.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.05.2007</para>
+
+The header contains implementation of the counter attribute. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="counter"><template>
+      <template-type-parameter name="T"/>
+    </template><inherit access="public">attribute</inherit><purpose>A class of an attribute that counts an integral value. </purpose><description><para>This attribute acts as a counter - it returns a monotonously changing value each time requested. The attribute value type can be specified as a template parameter. The type must be an integral type. </para></description><class name="impl"><inherit access="public">attribute::impl</inherit><purpose>Factory implementation. </purpose><method-group name="public member functions">
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+</method-group>
+<constructor cv="noexcept"><parameter name="initial"><paramtype>value_type</paramtype></parameter><parameter name="step"><paramtype>value_type</paramtype></parameter></constructor>
+</class><typedef name="value_type"><purpose>A counter value type. </purpose><type>T</type></typedef>
+<method-group name="private member functions">
+<method name="BOOST_STATIC_ASSERT_MSG"><type/><parameter name=""><paramtype>is_integral&lt; T &gt;::value</paramtype></parameter><parameter name=""><paramtype>"Boost.Log: Only integral types are supported by the <classname>counter</classname> <classname>attribute</classname>"</paramtype></parameter></method>
+</method-group>
+<method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><parameter name="initial"><paramtype>value_type</paramtype><default>(value_type) 0</default><description><para>Initial value of the counter </para></description></parameter><parameter name="step"><paramtype>value_type</paramtype><default>(value_type) 1</default><description><para>Changing step of the counter. Each value acquired from the attribute will be greater than the previous one by this amount. </para></description></parameter><description><para>Constructor</para><para>
+</para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/current_process_id.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>12.09.2009</para>
+
+The header contains implementation of a current process id attribute </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="current_process_id"><inherit access="public">constant&lt; process_id &gt;</inherit><purpose>A class of an attribute that holds the current process identifier. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Constructor. Initializes the attribute with the current process identifier. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+
+
+</namespace>
+<typedef name="process_id"><purpose>Process identifier type used by the library. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/current_process_name.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>29.07.2012</para>
+
+The header contains implementation of a current process name attribute </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="current_process_name"><inherit access="public">constant&lt; std::string &gt;</inherit><purpose>A class of an attribute that holds the current process name. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Constructor. Initializes the attribute with the current process name. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/current_thread_id.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>12.09.2009</para>
+
+The header contains implementation of a current thread id attribute </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="current_thread_id"><inherit access="public">attribute</inherit><purpose>A class of an attribute that always returns the current thread identifier. </purpose><description><para><note><para>This attribute can be registered globally, it will still return the correct thread identifier, no matter which thread emits the log record. </para>
+</note>
+</para></description><class name="impl"><inherit access="public">attribute_value::impl</inherit><purpose>Factory implementation. </purpose><method-group name="public member functions">
+<method name="dispatch" specifiers="virtual"><type>bool</type><parameter name="dispatcher"><paramtype>type_dispatcher &amp;</paramtype><description><para>The object that attempts to dispatch the stored value. </para></description></parameter><description><para>The method dispatches the value to the given object.</para><para>
+
+</para></description><returns><para>true if <emphasis>dispatcher</emphasis> was capable to consume the real attribute value type and false otherwise. </para>
+</returns></method>
+<method name="detach_from_thread" specifiers="virtual"><type>intrusive_ptr&lt; <classname>attribute_value::impl</classname> &gt;</type><description><para>The method is called when the attribute value is passed to another thread (e.g. in case of asynchronous logging). The value should ensure it properly owns all thread-specific data.</para><para>
+</para></description><returns><para>An actual pointer to the attribute value. It may either point to this object or another. In the latter case the returned pointer replaces the pointer used by caller to invoke this method and is considered to be a functional equivalent to the previous pointer. </para>
+</returns></method>
+<method name="get_type" cv="const" specifiers="virtual"><type>typeindex::type_index</type><description><para>
+</para></description><returns><para>The attribute value type </para>
+</returns></method>
+</method-group>
+</class><typedef name="value_type"><purpose>A held attribute value type. </purpose><type>thread_id</type></typedef>
+<method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+
+
+</namespace>
+<typedef name="thread_id"><purpose>Thread identifier type. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/fallback_policy.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>18.08.2012</para>
+
+The header contains definition of fallback policies when attribute value visitation or extraction fails. </para><namespace name="boost">
+<namespace name="log">
+<struct name="fallback_to_none"><description><para>The <computeroutput><classname alt="boost::log::fallback_to_none">fallback_to_none</classname></computeroutput> policy results in returning an empty value reference if the attribute value cannot be extracted. </para></description><enum name="@0"><enumvalue name="guaranteed_result"><default>= false</default></enumvalue></enum>
+<method-group name="public static functions">
+<method name="apply_default" specifiers="static"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name=""><paramtype>FunT &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+<method name="apply_default" specifiers="static"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name=""><paramtype>FunT const &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+<method name="on_invalid_type" specifiers="static"><type>void</type><parameter name=""><paramtype>typeindex::type_index const &amp;</paramtype></parameter><description><para>The method is called when value extraction failed because the attribute value has different type than requested. </para></description></method>
+<method name="on_missing_value" specifiers="static"><type>void</type><description><para>The method is called when value extraction failed because the attribute value was not found. </para></description></method>
+</method-group>
+</struct><struct name="fallback_to_throw"><description><para>The <computeroutput><classname alt="boost::log::fallback_to_throw">fallback_to_throw</classname></computeroutput> policy results in throwing an exception if the attribute value cannot be extracted. </para></description><enum name="@1"><enumvalue name="guaranteed_result"><default>= true</default></enumvalue></enum>
+<method-group name="public static functions">
+<method name="apply_default" specifiers="static"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name=""><paramtype>FunT &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+<method name="apply_default" specifiers="static"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name=""><paramtype>FunT const &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+<method name="on_invalid_type" specifiers="static"><type>void</type><parameter name="t"><paramtype>typeindex::type_index const &amp;</paramtype></parameter><description><para>The method is called when value extraction failed because the attribute value has different type than requested. </para></description></method>
+<method name="on_missing_value" specifiers="static"><type>void</type><description><para>The method is called when value extraction failed because the attribute value was not found. </para></description></method>
+</method-group>
+</struct>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/fallback_policy_fwd.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>18.08.2012</para>
+
+The header contains forward declaration of fallback policies when attribute value visitation or extraction fails. </para><namespace name="boost">
+<namespace name="log">
+<struct name="fallback_to_default"><template>
+      <template-type-parameter name="DefaultT"/>
+    </template><description><para>The <computeroutput><classname alt="boost::log::fallback_to_default">fallback_to_default</classname></computeroutput> policy results in a default value if the attribute value cannot be extracted. </para></description><method-group name="public member functions">
+<method name="apply_default" cv="const"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+<method name="apply_default" cv="const"><type>bool</type><template>
+          <template-type-parameter name="FunT"/>
+        </template><parameter name="fun"><paramtype>FunT const &amp;</paramtype></parameter><description><para>The method is called in order to apply a function object to the default value. </para></description></method>
+</method-group>
+<constructor><description><para>Default constructor. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="def_val"><paramtype>default_type const &amp;</paramtype></parameter><description><para>Initializing constructor. </para></description></constructor>
+<method-group name="public static functions">
+<method name="on_invalid_type" specifiers="static"><type>void</type><parameter name=""><paramtype>typeindex::type_index const &amp;</paramtype></parameter><description><para>The method is called when value extraction failed because the attribute value has different type than requested. </para></description></method>
+<method name="on_missing_value" specifiers="static"><type>void</type><description><para>The method is called when value extraction failed because the attribute value was not found. </para></description></method>
+</method-group>
+</struct>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/function.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>24.06.2007</para>
+
+The header contains implementation of an attribute that calls a third-party function on value acquisition. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="function"><template>
+      <template-type-parameter name="R"/>
+    </template><inherit access="public">attribute</inherit><purpose>A class of an attribute that acquires its value from a third-party function object. </purpose><description><para>The attribute calls a stored nullary function object to acquire each value. The result type of the function object is the attribute value type.</para><para>It is not recommended to use this class directly. Use <computeroutput>make_function</computeroutput> convenience functions to construct the attribute instead. </para></description><class name="impl"><inherit access="public">attribute::impl</inherit><purpose>Base class for factory implementation. </purpose></class><class name="impl_template"><template>
+      <template-type-parameter name="T"/>
+    </template><inherit access="public">function&lt; R &gt;::impl</inherit><purpose>Factory implementation. </purpose><method-group name="public member functions">
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="fun"><paramtype>T const &amp;</paramtype></parameter><description><para>Constructor with the stored delegate initialization </para></description></constructor>
+</class><typedef name="value_type"><purpose>The attribute value type. </purpose><type>R</type></typedef>
+<method-group name="private member functions">
+<method name="BOOST_STATIC_ASSERT_MSG"><type/><parameter name=""><paramtype>!is_void&lt; R &gt;::value</paramtype></parameter><parameter name=""><paramtype>"Boost.Log: Function object return type must not be void"</paramtype></parameter></method>
+</method-group>
+<method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name="fun"><paramtype>T const &amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+<function name="make_function"><type><classname>function</classname>&lt; typename remove_cv&lt; typename remove_reference&lt; typename boost::result_of&lt; T() &gt;::type &gt;::type &gt;::type &gt;</type><template>
+          <template-type-parameter name="T"/>
+        </template><parameter name="fun"><paramtype>T const &amp;</paramtype><description><para>Nullary functional object that returns an actual stored value for an attribute value. </para></description></parameter><description><para>The function constructs <computeroutput>function</computeroutput> attribute instance with the provided function object.</para><para>
+
+</para></description><returns><para>Pointer to the attribute instance </para>
+</returns></function>
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/mutable_constant.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>06.11.2007</para>
+
+The header contains implementation of a mutable constant attribute. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="mutable_constant"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="MutexT"><default>void</default></template-type-parameter>
+      <template-type-parameter name="ScopedWriteLockT"><default>auto</default></template-type-parameter>
+      <template-type-parameter name="ScopedReadLockT"><default>auto</default></template-type-parameter>
+    </template><inherit access="public">attribute</inherit><purpose>A class of an attribute that holds a single constant value with ability to change it. </purpose><description><para>The <classname alt="boost::log::attributes::mutable_constant">mutable_constant</classname> attribute stores a single value of type, specified as the first template argument. This value is returned on each attribute value acquisition.</para><para>The attribute also allows to modify the stored value, even if the attribute is registered in an attribute set. In order to ensure thread safety of such modifications the <computeroutput><classname alt="boost::log::attributes::mutable_constant">mutable_constant</classname></computeroutput> class is also parametrized with three additional template arguments: mutex type, scoped write and scoped read lock types. If not specified, the lock types are automatically deduced based on the mutex type.</para><para>The implementation may avoid using these types to actually create and use the mutex, if a more efficient synchronization method is available (such as atomic operations on the value type). By default no synchronization is done. </para></description><class name="impl"><inherit access="public">attribute::impl</inherit><purpose>Factory implementation. </purpose><method-group name="private member functions">
+<method name="BOOST_STATIC_ASSERT_MSG"><type/><parameter name=""><paramtype>!</paramtype></parameter><parameter name=""><paramtype>"Boost.Log: Mutex and both lock types either must not be void or must all be void"</paramtype></parameter></method>
+</method-group>
+<method-group name="public member functions">
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter></method>
+<method name="get" cv="const"><type>value_type</type></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+</class><typedef name="value_type"><purpose>The attribute value type. </purpose><type>T</type></typedef>
+<method-group name="public member functions">
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>The method sets a new attribute value. The implementation exclusively locks the mutex in order to protect the value assignment. </para></description></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>The method sets a new attribute value. </para></description></method>
+<method name="get" cv="const"><type>value_type</type><description><para>The method acquires the current attribute value. The implementation non-exclusively locks the mutex in order to protect the value acquisition. </para></description></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+<method-group name="protected member functions">
+<method name="get_impl" cv="const"><type><classname>impl</classname> *</type><description><para>
+</para></description><returns><para>Pointer to the factory implementation </para>
+</returns></method>
+</method-group>
+</class><class-specialization name="mutable_constant"><template>
+      <template-type-parameter name="T"/>
+    </template><specialization><template-arg>T</template-arg><template-arg>void</template-arg><template-arg>void</template-arg><template-arg>void</template-arg></specialization><inherit access="public">attribute</inherit><purpose>Specialization for unlocked case. </purpose><description><para>This version of attribute does not perform thread synchronization to access the stored value. </para></description><class name="impl"><inherit access="public">attribute::impl</inherit><purpose>Factory implementation. </purpose><method-group name="public member functions">
+<method name="get_value" specifiers="virtual"><type><classname>attribute_value</classname></type><description><para>
+</para></description><returns><para>The actual attribute value. It shall not return empty values (exceptions shall be used to indicate errors). </para>
+</returns></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter></method>
+<method name="get" cv="const"><type>value_type</type></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Initializing constructor </para></description></constructor>
+</class><typedef name="value_type"><purpose>The attribute value type. </purpose><type>T</type></typedef>
+<method-group name="public member functions">
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>The method sets a new attribute value. </para></description></method>
+<method name="set"><type>void</type><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>The method sets a new attribute value. </para></description></method>
+<method name="get" cv="const"><type>value_type</type><description><para>The method acquires the current attribute value. </para></description></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type const &amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="value"><paramtype>value_type &amp;&amp;</paramtype></parameter><description><para>Constructor with the stored value initialization </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+<method-group name="protected member functions">
+<method name="get_impl" cv="const"><type><classname>impl</classname> *</type><description><para>
+</para></description><returns><para>Pointer to the factory implementation </para>
+</returns></method>
+</method-group>
+</class-specialization>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/named_scope.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>24.06.2007</para>
+
+The header contains implementation of named scope container and an attribute that allows to put the named scope to log. A number of convenience macros are also provided. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="named_scope"><inherit access="public">attribute</inherit><purpose>A class of an attribute that holds stack of named scopes of the current thread. </purpose><description><para>The basic_named_scope attribute is essentially a hook to the thread-specific instance of scope list. This means that the attribute will generate different values if get_value is called in different threads. The attribute generates value with stored type <computeroutput>basic_named_scope_list&lt; CharT &gt;</computeroutput>.</para><para>The attribute class can also be used to gain access to the scope stack instance, e.g. to get its copy or to push or pop a scope entry. However, it is highly not recommended to maintain scope list manually. Use <computeroutput>BOOST_LOG_NAMED_SCOPE</computeroutput> or <computeroutput>BOOST_LOG_FUNCTION</computeroutput> macros instead. </para></description><struct name="sentry"><purpose>Sentry object class to automatically push and pop scopes. </purpose><method-group name="public member functions">
+</method-group>
+<constructor cv="noexcept"><parameter name="sn"><paramtype>string_literal const &amp;</paramtype><description><para>Scope name. </para></description></parameter><parameter name="fn"><paramtype>string_literal const &amp;</paramtype><description><para>File name, in which the scope is located. </para></description></parameter><parameter name="ln"><paramtype>unsigned int</paramtype><description><para>Line number in the file. </para></description></parameter><parameter name="t"><paramtype>scope_entry::scope_name_type</paramtype><default>scope_entry::general</default><description><para>Scope name type. </para></description></parameter><description><para>Constructor. Pushes the specified scope to the end of the thread-local list of scopes.</para><para>
+</para></description></constructor>
+<destructor><description><para>Destructor. Removes the last pushed scope from the thread-local list of scopes. </para></description></destructor>
+<constructor cv="= delete"><parameter name=""><paramtype><classname>sentry</classname> const &amp;</paramtype></parameter></constructor>
+<copy-assignment cv="= delete"><type><classname>sentry</classname> &amp;</type><parameter name=""><paramtype><classname>sentry</classname> const &amp;</paramtype></parameter></copy-assignment>
+</struct><typedef name="value_type"><purpose>Scope names stack (the attribute value type) </purpose><type><classname>named_scope_list</classname></type></typedef>
+<typedef name="scope_entry"><purpose>Scope entry. </purpose><type>value_type::value_type</type></typedef>
+<method-group name="public member functions">
+</method-group>
+<constructor><description><para>Constructor. Creates an attribute. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+<method-group name="public static functions">
+<method name="push_scope" cv="noexcept" specifiers="static"><type>void</type><parameter name="entry"><paramtype>scope_entry const &amp;</paramtype></parameter><description><para>The method pushes the scope to the back of the current thread's scope list</para><para><emphasis role="bold">Throws:</emphasis> Nothing. </para></description></method>
+<method name="pop_scope" cv="noexcept" specifiers="static"><type>void</type><description><para>The method pops the last pushed scope from the current thread's scope list</para><para><emphasis role="bold">Throws:</emphasis> Nothing. </para></description></method>
+<method name="get_scopes" specifiers="static"><type>value_type const  &amp;</type><description><para>
+<note><para>The returned reference is only valid until the current thread ends. The scopes in the returned container may change if the execution scope is changed (i.e. either <computeroutput>push_scope</computeroutput> or <computeroutput>pop_scope</computeroutput> is called). User has to copy the stack if he wants to keep it intact regardless of the execution scope. </para>
+</note>
+</para></description><returns><para>The current thread's list of scopes</para>
+</returns></method>
+</method-group>
+</class><struct name="named_scope_entry"><purpose>The structure contains all information about a named scope. </purpose><description><para>The named scope entries are stored as elements of <computeroutput>basic_named_scope_list</computeroutput> container, which in turn can be acquired either from the <computeroutput>basic_named_scope</computeroutput> attribute value or from a thread-local instance. </para></description><enum name="scope_name_type"><enumvalue name="general"><purpose>The scope name contains some unstructured string that should not be interpreted by the library. </purpose></enumvalue><enumvalue name="function"><purpose>The scope name contains a function signature. </purpose></enumvalue><purpose>Scope entry type. </purpose><description><para>Describes scope name specifics </para></description></enum>
+<data-member name="scope_name"><type>string_literal</type><description><para>The scope name (e.g. a function signature) </para></description></data-member>
+<data-member name="file_name"><type>string_literal</type><description><para>The source file name </para></description></data-member>
+<data-member name="line"><type>unsigned int</type><description><para>The line number in the source file </para></description></data-member>
+<data-member name="type"><type>scope_name_type</type><description><para>The scope name type </para></description></data-member>
+<method-group name="public member functions">
+</method-group>
+<constructor cv="noexcept"><parameter name="sn"><paramtype>string_literal const &amp;</paramtype></parameter><parameter name="fn"><paramtype>string_literal const &amp;</paramtype></parameter><parameter name="ln"><paramtype>unsigned int</paramtype></parameter><parameter name="t"><paramtype>scope_name_type</paramtype><default>general</default></parameter><description><para>Initializing constructor</para><para>
+<emphasis role="bold">Throws:</emphasis> Nothing. </para></description><postconditions><para><computeroutput>scope_name == sn &amp;&amp; file_name == fn &amp;&amp; line == ln</computeroutput></para>
+</postconditions></constructor>
+</struct><class name="named_scope_list"><purpose>The class implements the list of scopes. </purpose><description><para>The scope list provides a read-only access to a doubly-linked list of scopes. </para></description><typedef name="allocator_type"><purpose>Allocator type. </purpose><type>std::allocator&lt; <classname>named_scope_entry</classname> &gt;</type></typedef>
+<typedef name="value_type"><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="size_type"><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="difference_type"><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="pointer"><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="const_pointer"><type><emphasis>unspecified</emphasis></type></typedef>
+<typedef name="reference"><type>value_type &amp;</type></typedef>
+<typedef name="const_reference"><type>value_type const  &amp;</type></typedef>
+<typedef name="const_iterator"><description><para>A constant iterator to the sequence of scopes. Complies to bidirectional iterator requirements. </para></description><type>implementation_defined</type></typedef>
+<typedef name="iterator"><description><para>An iterator to the sequence of scopes. Complies to bidirectional iterator requirements. </para></description><type>implementation_defined</type></typedef>
+<typedef name="const_reverse_iterator"><description><para>A constant reverse iterator to the sequence of scopes. Complies to bidirectional iterator requirements. </para></description><type>implementation_defined</type></typedef>
+<typedef name="reverse_iterator"><description><para>A reverse iterator to the sequence of scopes. Complies to bidirectional iterator requirements. </para></description><type>implementation_defined</type></typedef>
+<method-group name="public member functions">
+<method name="begin" cv="const"><type>const_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the first element of the container. </para>
+</returns></method>
+<method name="end" cv="const"><type>const_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the after-the-last element of the container. </para>
+</returns></method>
+<method name="rbegin" cv="const"><type>const_reverse_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the last element of the container. </para>
+</returns></method>
+<method name="rend" cv="const"><type>const_reverse_iterator</type><description><para>
+</para></description><returns><para>Constant iterator to the before-the-first element of the container. </para>
+</returns></method>
+<method name="size" cv="const"><type>size_type</type><description><para>
+</para></description><returns><para>The number of elements in the container </para>
+</returns></method>
+<method name="empty" cv="const"><type>bool</type><description><para>
+</para></description><returns><para>true if the container is empty and false otherwise </para>
+</returns></method>
+<method name="swap"><type>void</type><parameter name="that"><paramtype><classname>named_scope_list</classname> &amp;</paramtype></parameter><description><para>Swaps two instances of the container </para></description></method>
+<method name="back" cv="const"><type>const_reference</type><description><para>
+</para></description><returns><para>Last pushed scope entry </para>
+</returns></method>
+<method name="front" cv="const"><type>const_reference</type><description><para>
+</para></description><returns><para>First pushed scope entry </para>
+</returns></method>
+</method-group>
+<constructor><description><para>Default constructor</para><para>
+</para></description><postconditions><para><computeroutput>empty() == true</computeroutput> </para>
+</postconditions></constructor>
+<constructor><parameter name="that"><paramtype><classname>named_scope_list</classname> const &amp;</paramtype></parameter><description><para>Copy constructor</para><para>
+</para></description><postconditions><para><computeroutput>std::equal(begin(), end(), that.begin()) == true</computeroutput> </para>
+</postconditions></constructor>
+<destructor><description><para>Destructor. Destroys the stored entries. </para></description></destructor>
+<copy-assignment><type><classname>named_scope_list</classname> &amp;</type><parameter name="that"><paramtype><classname>named_scope_list</classname> const &amp;</paramtype></parameter><description><para>Assignment operator</para><para>
+</para></description><postconditions><para><computeroutput>std::equal(begin(), end(), that.begin()) == true</computeroutput> </para>
+</postconditions></copy-assignment>
+</class><function name="operator&lt;&lt;"><type>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="TraitsT"/>
+        </template><parameter name="strm"><paramtype>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</paramtype></parameter><parameter name="sl"><paramtype><classname>named_scope_list</classname> const &amp;</paramtype></parameter><purpose>Stream output operator. </purpose></function>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+<macro name="BOOST_LOG_NAMED_SCOPE" kind="functionlike"><macro-parameter name="name"/><description><para>Macro for scope markup. The specified scope name is pushed to the end of the current thread scope list. </para></description></macro>
+<macro name="BOOST_LOG_FUNCTION" kind="functionlike"><macro-parameter name=""/><description><para>Macro for function scope markup. The scope name is constructed with help of compiler and contains the current function signature. The scope name is pushed to the end of the current thread scope list.</para><para>Not all compilers have support for this macro. The exact form of the scope name may vary from one compiler to another. </para></description></macro>
+<macro name="BOOST_LOG_FUNC" kind="functionlike"><macro-parameter name=""/><description><para>Macro for function scope markup. The scope name is constructed with help of compiler and contains the current function name. It may be shorter than what <computeroutput>BOOST_LOG_FUNCTION</computeroutput> macro produces. The scope name is pushed to the end of the current thread scope list.</para><para>Not all compilers have support for this macro. The exact form of the scope name may vary from one compiler to another. </para></description></macro>
+</header>
+<header name="boost/log/attributes/scoped_attribute.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.05.2007</para>
+
+The header contains definition of facilities to define scoped attributes. </para><namespace name="boost">
+<namespace name="log">
+<typedef name="scoped_attribute"><purpose>Scoped attribute guard type. </purpose><type><emphasis>unspecified</emphasis></type></typedef>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<function name="add_scoped_logger_attribute"><type><emphasis>unspecified</emphasis></type><template>
+          <template-type-parameter name="LoggerT"/>
+        </template><parameter name="l"><paramtype>LoggerT &amp;</paramtype><description><para>Logger to register the attribute in </para></description></parameter><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="attr"><paramtype><classname>attribute</classname> const &amp;</paramtype><description><para>The attribute. Must not be NULL. </para></description></parameter><description><para>Registers an attribute in the logger</para><para>
+
+</para></description><returns><para>An unspecified guard object which may be used to initialize a <computeroutput>scoped_attribute</computeroutput> variable. </para>
+</returns></function>
+<function name="add_scoped_thread_attribute"><type><emphasis>unspecified</emphasis></type><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute name </para></description></parameter><parameter name="attr"><paramtype><classname>attribute</classname> const &amp;</paramtype><description><para>The attribute. Must not be NULL. </para></description></parameter><description><para>Registers a thread-specific attribute</para><para>
+
+</para></description><returns><para>An unspecified guard object which may be used to initialize a <computeroutput>scoped_attribute</computeroutput> variable. </para>
+</returns></function>
+
+
+
+
+
+
+</namespace>
+</namespace>
+<macro name="BOOST_LOG_SCOPED_LOGGER_ATTR" kind="functionlike"><macro-parameter name="logger"/><macro-parameter name="attr_name"/><macro-parameter name="attr"/><purpose>The macro sets a scoped logger-wide attribute in a more compact way. </purpose></macro>
+<macro name="BOOST_LOG_SCOPED_LOGGER_TAG" kind="functionlike"><macro-parameter name="logger"/><macro-parameter name="attr_name"/><macro-parameter name="attr_value"/><purpose>The macro sets a scoped logger-wide tag in a more compact way. </purpose></macro>
+<macro name="BOOST_LOG_SCOPED_THREAD_ATTR" kind="functionlike"><macro-parameter name="attr_name"/><macro-parameter name="attr"/><purpose>The macro sets a scoped thread-wide attribute in a more compact way. </purpose></macro>
+<macro name="BOOST_LOG_SCOPED_THREAD_TAG" kind="functionlike"><macro-parameter name="attr_name"/><macro-parameter name="attr_value"/><purpose>The macro sets a scoped thread-wide tag in a more compact way. </purpose></macro>
+</header>
+<header name="boost/log/attributes/time_traits.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.12.2007</para>
+
+The header contains implementation of time traits that are used in various parts of the library to acquire current time. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<struct name="basic_time_traits"><purpose>Base class for time traits involving Boost.DateTime. </purpose><typedef name="time_type"><purpose>Time type. </purpose><type>posix_time::ptime</type></typedef>
+<typedef name="clock_source"><purpose>Current time source. </purpose><type>posix_time::second_clock</type></typedef>
+</struct><struct name="local_time_traits"><inherit access="public">basic_time_traits</inherit><purpose>Time traits that describes local time acquirement via Boost.DateTime facilities. </purpose><method-group name="public static functions">
+<method name="get_clock" specifiers="static"><type>time_type</type><description><para>
+</para></description><returns><para>Current time stamp </para>
+</returns></method>
+</method-group>
+</struct><struct name="utc_time_traits"><inherit access="public">basic_time_traits</inherit><purpose>Time traits that describes UTC time acquirement via Boost.DateTime facilities. </purpose><method-group name="public static functions">
+<method name="get_clock" specifiers="static"><type>time_type</type><description><para>
+</para></description><returns><para>Current time stamp </para>
+</returns></method>
+</method-group>
+</struct>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/timer.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>02.12.2007</para>
+
+The header contains implementation of a stop watch attribute. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="attributes">
+<class name="timer"><inherit access="public">attribute</inherit><purpose>A class of an attribute that makes an attribute value of the time interval since construction. </purpose><description><para>The timer attribute calculates the time passed since its construction and returns it on value acquisition. The attribute value type is <computeroutput>boost::posix_time::time_duration</computeroutput>.</para><para>On Windows platform there are two implementations of the attribute. The default one is more precise but a bit slower. This version uses <computeroutput>QueryPerformanceFrequence</computeroutput>/<computeroutput>QueryPerformanceCounter</computeroutput> API to calculate elapsed time.</para><para>There are known problems with these functions when used with some CPUs, notably AMD Athlon with Cool'n'Quiet technology enabled. See the following links for more information and possible resolutions:</para><para><ulink url="http://support.microsoft.com/?scid=kb;en-us;895980">http://support.microsoft.com/?scid=kb;en-us;895980</ulink> <ulink url="http://support.microsoft.com/?id=896256">http://support.microsoft.com/?id=896256</ulink></para><para>In case if none of these solutions apply, you are free to define <computeroutput>BOOST_LOG_NO_QUERY_PERFORMANCE_COUNTER</computeroutput> macro to fall back to another implementation based on Boost.DateTime. </para></description><typedef name="value_type"><purpose>Attribute value type. </purpose><type>utc_time_traits::time_type::time_duration_type</type></typedef>
+<method-group name="public member functions">
+</method-group>
+<constructor><description><para>Constructor. Starts time counting. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="source"><paramtype><classname>cast_source</classname> const &amp;</paramtype></parameter><description><para>Constructor for casting support </para></description></constructor>
+</class>
+
+
+
+</namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/value_extraction.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.03.2008</para>
+
+The header contains implementation of tools for extracting an attribute value from the view. </para><namespace name="boost">
+<namespace name="log">
+<namespace name="result_of">
+</namespace>
+
+
+
+
+
+
+
+<function name="extract"><type><classname>result_of::extract</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="value"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>Attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; T, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+        </template><parameter name="value"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>Attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; T, DefaultT, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; T, DefaultT, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; T, DefaultT, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; T, DefaultT, TagT &gt;::type</type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="TagT"><default>void</default></template-type-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="value"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>Attribute value. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract"><type><classname>result_of::extract</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+</para></description><returns><para>A <computeroutput>value_ref</computeroutput> that refers to the extracted value, if found. An empty value otherwise. </para>
+</returns></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_throw"><type><classname>result_of::extract_or_throw</classname>&lt; typename DescriptorT::value_type, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para>
+
+
+</para></description><returns><para>The extracted value or a non-empty <computeroutput>value_ref</computeroutput> that refers to the value. </para>
+</returns><throws><simpara><classname>An</classname> exception is thrown if the requested value cannot be extracted. </simpara></throws></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; typename DescriptorT::value_type, DefaultT, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be extracted.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; typename DescriptorT::value_type, DefaultT, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+<function name="extract_or_default"><type><classname>result_of::extract_or_default</classname>&lt; typename DescriptorT::value_type, DefaultT, DescriptorT &gt;::type</type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="DefaultT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to extract. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="def_val"><paramtype>DefaultT const &amp;</paramtype><description><para>The default value </para></description></parameter><description><para>The function extracts an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para><note><para>Caution must be exercised if the default value is a temporary object. Because the function returns a reference, if the temporary object is destroyed, the reference may become dangling.</para>
+</note>
+
+
+</para></description><returns><para>The extracted value, if found. The default value otherwise. </para>
+</returns></function>
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/value_extraction_fwd.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.03.2008</para>
+
+The header contains forward declaration of tools for extracting attribute values from the view. </para><namespace name="boost">
+<namespace name="log">
+<class name="value_extractor"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+      <template-type-parameter name="TagT"/>
+    </template><inherit access="private">FallbackPolicyT</inherit><purpose>Generic attribute value extractor. </purpose><description><para>Attribute value extractor is a functional object that attempts to find and extract the stored attribute value from the attribute values view or a log record. The extracted value is returned from the extractor. </para></description><method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><parameter name="attr"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>The attribute value to extract from. </para></description></parameter><description><para>Extraction operator. Attempts to acquire the stored value of one of the supported types. If extraction succeeds, the extracted value is returned.</para><para>
+
+</para></description><returns><para>The extracted value, if extraction succeeded, an empty value otherwise. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><description><para>Extraction operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If extraction succeeds, the extracted value is returned.</para><para>
+
+</para></description><returns><para>The extracted value, if extraction succeeded, an empty value otherwise. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>Extraction operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If extraction succeeds, the extracted value is returned.</para><para>
+
+</para></description><returns><para>The extracted value, if extraction succeeded, an empty value otherwise. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><description><para>Extraction operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If extraction succeeds, the extracted value is returned.</para><para>
+
+</para></description><returns><para>The extracted value, if extraction succeeded, an empty value otherwise. </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+</method-group>
+<constructor><parameter name="that"><paramtype><classname>value_extractor</classname> const &amp;</paramtype></parameter><description><para>Default constructor</para><para>Copy constructor </para></description></constructor>
+<constructor specifiers="explicit"><template>
+          <template-type-parameter name="U"/>
+        </template><parameter name="arg"><paramtype>U const &amp;</paramtype><description><para>Fallback policy constructor argument </para></description></parameter><description><para>Constructor</para><para>
+</para></description></constructor>
+</class><namespace name="result_of">
+<struct name="extract"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="TagT"/>
+    </template><purpose>A metafunction that allows to acquire the result of the value extraction. </purpose><description><para>The metafunction results in a type that is in form of <computeroutput>value_ref&lt; T, TagT &gt;</computeroutput>. </para></description></struct><struct name="extract_or_default"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="DefaultT"/>
+      <template-type-parameter name="TagT"/>
+    </template><purpose>A metafunction that allows to acquire the result of the value extraction. </purpose><description><para>The metafunction results in a type that is in form of <computeroutput>T const&amp;</computeroutput>, if <computeroutput>T</computeroutput> is not an MPL type sequence and <computeroutput>DefaultT</computeroutput> is the same as <computeroutput>T</computeroutput>, or <computeroutput>value_ref&lt; TypesT, TagT &gt;</computeroutput> otherwise, with <computeroutput>TypesT</computeroutput> being a type sequence comprising the types from sequence <computeroutput>T</computeroutput> and <computeroutput>DefaultT</computeroutput>, if it is not present in <computeroutput>T</computeroutput> already. </para></description></struct><struct name="extract_or_throw"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="TagT"/>
+    </template><purpose>A metafunction that allows to acquire the result of the value extraction. </purpose><description><para>The metafunction results in a type that is in form of <computeroutput>T const&amp;</computeroutput>, if <computeroutput>T</computeroutput> is not an MPL type sequence, or <computeroutput>value_ref&lt; T, TagT &gt;</computeroutput> otherwise. In the latter case the value reference shall never be empty. </para></description></struct></namespace>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/value_visitation.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.03.2008</para>
+
+The header contains implementation of convenience tools to apply visitors to an attribute value in the view. </para><namespace name="boost">
+<namespace name="log">
+<class name="visitation_result"><purpose>The class represents attribute value visitation result. </purpose><description><para>The main purpose of this class is to provide a convenient interface for checking whether the attribute value visitation succeeded or not. It also allows to discover the actual cause of failure, should the operation fail. </para></description><enum name="error_code"><enumvalue name="ok"><purpose>The attribute value has been visited successfully. </purpose></enumvalue><enumvalue name="value_not_found"><purpose>The attribute value is not present in the view. </purpose></enumvalue><enumvalue name="value_has_invalid_type"><purpose>The attribute value is present in the view, but has an unexpected type. </purpose></enumvalue><purpose>Error codes for attribute value visitation. </purpose></enum>
+<method-group name="public member functions">
+<method name="conversion-operator" cv="const noexcept" specifiers="explicit"><type>bool</type><description><para>Checks if the visitation was successful.</para><para>
+</para></description><returns><para><computeroutput>true</computeroutput> if the value was visited successfully, <computeroutput>false</computeroutput> otherwise. </para>
+</returns></method>
+<method name="operator!" cv="const noexcept"><type>bool</type><description><para>Checks if the visitation was unsuccessful.</para><para>
+</para></description><returns><para><computeroutput>false</computeroutput> if the value was visited successfully, <computeroutput>true</computeroutput> otherwise. </para>
+</returns></method>
+<method name="code" cv="const noexcept"><type>error_code</type><description><para>
+</para></description><returns><para>The actual result code of value visitation </para>
+</returns></method>
+</method-group>
+<constructor cv="noexcept"><parameter name="code"><paramtype>error_code</paramtype><default>ok</default></parameter><description><para>Initializing constructor. Creates the result that is equivalent to the specified error code. </para></description></constructor>
+</class><function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to visit. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to visit. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>The name of the attribute value to visit. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="T"/>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="value"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>The attribute value to visit. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to visit. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to visit. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+<function name="visit"><type><classname>visitation_result</classname></type><template>
+          <template-type-parameter name="DescriptorT"/>
+          <template-nontype-parameter name="ActorT"><type>template&lt; typename &gt; class</type></template-nontype-parameter>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="keyword"><paramtype>expressions::attribute_keyword&lt; DescriptorT, ActorT &gt; const &amp;</paramtype><description><para>The keyword of the attribute value to visit. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>The function applies a visitor to an attribute value from the view. The user has to explicitly specify the type or set of possible types of the attribute value to be visited.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></function>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+<header name="boost/log/attributes/value_visitation_fwd.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>01.03.2008</para>
+
+The header contains forward declaration of convenience tools to apply visitors to an attribute value in the view. </para><namespace name="boost">
+<namespace name="log">
+<class name="value_visitor_invoker"><template>
+      <template-type-parameter name="T"/>
+      <template-type-parameter name="FallbackPolicyT"/>
+    </template><inherit access="private">FallbackPolicyT</inherit><purpose>Generic attribute value visitor invoker. </purpose><description><para>Attribute value invoker is a functional object that attempts to find and extract the stored attribute value from the attribute value view or a log record. The extracted value is passed to a unary function object (the visitor) provided by user.</para><para>The invoker can be specialized on one or several attribute value types that should be specified in the second template argument. </para></description><method-group name="public member functions">
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="attr"><paramtype><classname>attribute_value</classname> const &amp;</paramtype><description><para>An attribute value to apply the visitor to. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>Visitation operator. Attempts to acquire the stored value of one of the supported types. If acquisition succeeds, the value is passed to <emphasis>visitor</emphasis>.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="attrs"><paramtype><classname>attribute_value_set</classname> const &amp;</paramtype><description><para>A set of attribute values in which to look for the specified attribute value. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>Visitation operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If acquisition succeeds, the value is passed to <emphasis>visitor</emphasis>.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="rec"><paramtype>record const &amp;</paramtype><description><para>A log record. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>Visitation operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If acquisition succeeds, the value is passed to <emphasis>visitor</emphasis>.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></method>
+<method name="operator()" cv="const"><type>result_type</type><template>
+          <template-type-parameter name="VisitorT"/>
+        </template><parameter name="name"><paramtype><classname>attribute_name</classname> const &amp;</paramtype><description><para>Attribute value name. </para></description></parameter><parameter name="rec"><paramtype>record_view const &amp;</paramtype><description><para>A log record view. The attribute value will be sought among those associated with the record. </para></description></parameter><parameter name="visitor"><paramtype>VisitorT</paramtype><description><para>A receiving function object to pass the attribute value to. </para></description></parameter><description><para>Visitation operator. Looks for an attribute value with the specified name and tries to acquire the stored value of one of the supported types. If acquisition succeeds, the value is passed to <emphasis>visitor</emphasis>.</para><para>
+
+</para></description><returns><para>The result of visitation. </para>
+</returns></method>
+<method name="get_fallback_policy" cv="const"><type>fallback_policy const  &amp;</type><description><para>
+</para></description><returns><para>Fallback policy </para>
+</returns></method>
+</method-group>
+<constructor><parameter name="that"><paramtype><classname>value_visitor_invoker</classname> const &amp;</paramtype></parameter><description><para>Default constructor</para><para>Copy constructor </para></description></constructor>
+<constructor specifiers="explicit"><template>
+          <template-type-parameter name="U"/>
+        </template><parameter name="arg"><paramtype>U const &amp;</paramtype><description><para>Fallback policy argument </para></description></parameter><description><para>Initializing constructor</para><para>
+</para></description></constructor>
+</class>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</namespace>
+</namespace>
+</header>
+</library-reference>

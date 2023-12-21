@@ -1,0 +1,144 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_attributes_attribute_hpp[][headerref boost/log/attributes/attribute.hpp]]
+
+[template class_log_attribute[][classref boost::log::attribute attribute]]
+
+[template class_log_attribute_impl[][classref boost::log::attribute::impl impl]]
+
+[template boost_log_attributes_attribute_cast_hpp[][headerref boost/log/attributes/attribute_cast.hpp]]
+
+[template class_attributes_cast_source[][classref boost::log::attributes::cast_source cast_source]]
+
+[template boost_log_attributes_attribute_name_hpp[][headerref boost/log/attributes/attribute_name.hpp]]
+
+[template class_log_attribute_name[][classref boost::log::attribute_name attribute_name]]
+
+[template boost_log_attributes_attribute_set_hpp[][headerref boost/log/attributes/attribute_set.hpp]]
+
+[template class_log_attribute_set[][classref boost::log::attribute_set attribute_set]]
+
+[template boost_log_attributes_attribute_value_hpp[][headerref boost/log/attributes/attribute_value.hpp]]
+
+[template class_log_attribute_value[][classref boost::log::attribute_value attribute_value]]
+
+[template class_log_attribute_value_impl[][classref boost::log::attribute_value::impl impl]]
+
+[template boost_log_attributes_attribute_value_impl_hpp[][headerref boost/log/attributes/attribute_value_impl.hpp]]
+
+[template class_attributes_attribute_value_impl[][classref boost::log::attributes::attribute_value_impl attribute_value_impl]]
+
+[template boost_log_attributes_attribute_value_set_hpp[][headerref boost/log/attributes/attribute_value_set.hpp]]
+
+[template class_log_attribute_value_set[][classref boost::log::attribute_value_set attribute_value_set]]
+
+[template boost_log_attributes_clock_hpp[][headerref boost/log/attributes/clock.hpp]]
+
+[template class_attributes_basic_clock[][classref boost::log::attributes::basic_clock basic_clock]]
+
+[template class_attributes_basic_clock_impl[][classref boost::log::attributes::basic_clock::impl impl]]
+
+[template boost_log_attributes_constant_hpp[][headerref boost/log/attributes/constant.hpp]]
+
+[template class_attributes_constant[][classref boost::log::attributes::constant constant]]
+
+[template class_attributes_constant_impl[][classref boost::log::attributes::constant::impl impl]]
+
+[template boost_log_attributes_counter_hpp[][headerref boost/log/attributes/counter.hpp]]
+
+[template class_attributes_counter[][classref boost::log::attributes::counter counter]]
+
+[template class_attributes_counter_impl[][classref boost::log::attributes::counter::impl impl]]
+
+[template boost_log_attributes_current_process_id_hpp[][headerref boost/log/attributes/current_process_id.hpp]]
+
+[template class_attributes_current_process_id[][classref boost::log::attributes::current_process_id current_process_id]]
+
+[template boost_log_attributes_current_process_name_hpp[][headerref boost/log/attributes/current_process_name.hpp]]
+
+[template class_attributes_current_process_name[][classref boost::log::attributes::current_process_name current_process_name]]
+
+[template boost_log_attributes_current_thread_id_hpp[][headerref boost/log/attributes/current_thread_id.hpp]]
+
+[template class_attributes_current_thread_id[][classref boost::log::attributes::current_thread_id current_thread_id]]
+
+[template class_attributes_current_thread_id_impl[][classref boost::log::attributes::current_thread_id::impl impl]]
+
+[template boost_log_attributes_fallback_policy_hpp[][headerref boost/log/attributes/fallback_policy.hpp]]
+
+[template class_log_fallback_to_none[][classref boost::log::fallback_to_none fallback_to_none]]
+
+[template class_log_fallback_to_throw[][classref boost::log::fallback_to_throw fallback_to_throw]]
+
+[template boost_log_attributes_fallback_policy_fwd_hpp[][headerref boost/log/attributes/fallback_policy_fwd.hpp]]
+
+[template class_log_fallback_to_default[][classref boost::log::fallback_to_default fallback_to_default]]
+
+[template boost_log_attributes_function_hpp[][headerref boost/log/attributes/function.hpp]]
+
+[template class_attributes_function[][classref boost::log::attributes::function function]]
+
+[template class_attributes_function_impl[][classref boost::log::attributes::function::impl impl]]
+
+[template class_attributes_function_impl_template[][classref boost::log::attributes::function::impl_template impl_template]]
+
+[template boost_log_attributes_mutable_constant_hpp[][headerref boost/log/attributes/mutable_constant.hpp]]
+
+[template class_attributes_mutable_constant[][classref boost::log::attributes::mutable_constant mutable_constant]]
+
+[template class_attributes_mutable_constant_impl[][classref boost::log::attributes::mutable_constant::impl impl]]
+
+[template class_attributes_impl[][classref boost::log::attributes::impl impl]]
+
+[template boost_log_attributes_named_scope_hpp[][headerref boost/log/attributes/named_scope.hpp]]
+
+[template class_attributes_named_scope[][classref boost::log::attributes::named_scope named_scope]]
+
+[template class_attributes_named_scope_sentry[][classref boost::log::attributes::named_scope::sentry sentry]]
+
+[template class_attributes_named_scope_entry[][classref boost::log::attributes::named_scope_entry named_scope_entry]]
+
+[template class_attributes_named_scope_list[][classref boost::log::attributes::named_scope_list named_scope_list]]
+
+[template boost_log_attributes_scoped_attribute_hpp[][headerref boost/log/attributes/scoped_attribute.hpp]]
+
+[template boost_log_attributes_time_traits_hpp[][headerref boost/log/attributes/time_traits.hpp]]
+
+[template class_attributes_basic_time_traits[][classref boost::log::attributes::basic_time_traits basic_time_traits]]
+
+[template class_attributes_local_time_traits[][classref boost::log::attributes::local_time_traits local_time_traits]]
+
+[template class_attributes_utc_time_traits[][classref boost::log::attributes::utc_time_traits utc_time_traits]]
+
+[template boost_log_attributes_timer_hpp[][headerref boost/log/attributes/timer.hpp]]
+
+[template class_attributes_timer[][classref boost::log::attributes::timer timer]]
+
+[template boost_log_attributes_value_extraction_hpp[][headerref boost/log/attributes/value_extraction.hpp]]
+
+[template boost_log_attributes_value_extraction_fwd_hpp[][headerref boost/log/attributes/value_extraction_fwd.hpp]]
+
+[template class_log_value_extractor[][classref boost::log::value_extractor value_extractor]]
+
+[template class_result_of_extract[][classref boost::log::result_of::extract extract]]
+
+[template class_result_of_extract_or_default[][classref boost::log::result_of::extract_or_default extract_or_default]]
+
+[template class_result_of_extract_or_throw[][classref boost::log::result_of::extract_or_throw extract_or_throw]]
+
+[template boost_log_attributes_value_visitation_hpp[][headerref boost/log/attributes/value_visitation.hpp]]
+
+[template class_log_visitation_result[][classref boost::log::visitation_result visitation_result]]
+
+[template boost_log_attributes_value_visitation_fwd_hpp[][headerref boost/log/attributes/value_visitation_fwd.hpp]]
+
+[template class_log_value_visitor_invoker[][classref boost::log::value_visitor_invoker value_visitor_invoker]]

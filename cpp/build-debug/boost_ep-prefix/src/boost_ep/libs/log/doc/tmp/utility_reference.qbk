@@ -1,0 +1,246 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_utility_exception_handler_hpp[][headerref boost/log/utility/exception_handler.hpp]]
+
+[template class_log_exception_handler[][classref boost::log::exception_handler exception_handler]]
+
+[template class_log_nothrow_exception_handler[][classref boost::log::nothrow_exception_handler nothrow_exception_handler]]
+
+[template boost_log_utility_formatting_ostream_hpp[][headerref boost/log/utility/formatting_ostream.hpp]]
+
+[template boost_log_utility_formatting_ostream_fwd_hpp[][headerref boost/log/utility/formatting_ostream_fwd.hpp]]
+
+[template class_log_basic_formatting_ostream[][classref boost::log::basic_formatting_ostream basic_formatting_ostream]]
+
+[template boost_log_utility_functional_hpp[][headerref boost/log/utility/functional.hpp]]
+
+[template boost_log_utility_functional_as_action_hpp[][headerref boost/log/utility/functional/as_action.hpp]]
+
+[template class_log_as_action_adapter[][classref boost::log::as_action_adapter as_action_adapter]]
+
+[template boost_log_utility_functional_begins_with_hpp[][headerref boost/log/utility/functional/begins_with.hpp]]
+
+[template class_log_begins_with_fun[][classref boost::log::begins_with_fun begins_with_fun]]
+
+[template boost_log_utility_functional_bind_hpp[][headerref boost/log/utility/functional/bind.hpp]]
+
+[template class_log_binder1st[][classref boost::log::binder1st binder1st]]
+
+[template class_log_binder2nd[][classref boost::log::binder2nd binder2nd]]
+
+[template class_log_binder3rd[][classref boost::log::binder3rd binder3rd]]
+
+[template boost_log_utility_functional_bind_assign_hpp[][headerref boost/log/utility/functional/bind_assign.hpp]]
+
+[template class_log_assign_fun[][classref boost::log::assign_fun assign_fun]]
+
+[template boost_log_utility_functional_bind_output_hpp[][headerref boost/log/utility/functional/bind_output.hpp]]
+
+[template class_log_output_fun[][classref boost::log::output_fun output_fun]]
+
+[template boost_log_utility_functional_bind_to_log_hpp[][headerref boost/log/utility/functional/bind_to_log.hpp]]
+
+[template class_log_to_log_fun[][classref boost::log::to_log_fun to_log_fun]]
+
+[template boost_log_utility_functional_contains_hpp[][headerref boost/log/utility/functional/contains.hpp]]
+
+[template class_log_contains_fun[][classref boost::log::contains_fun contains_fun]]
+
+[template boost_log_utility_functional_ends_with_hpp[][headerref boost/log/utility/functional/ends_with.hpp]]
+
+[template class_log_ends_with_fun[][classref boost::log::ends_with_fun ends_with_fun]]
+
+[template boost_log_utility_functional_fun_ref_hpp[][headerref boost/log/utility/functional/fun_ref.hpp]]
+
+[template class_log_function_reference_wrapper[][classref boost::log::function_reference_wrapper function_reference_wrapper]]
+
+[template boost_log_utility_functional_in_range_hpp[][headerref boost/log/utility/functional/in_range.hpp]]
+
+[template class_log_in_range_fun[][classref boost::log::in_range_fun in_range_fun]]
+
+[template boost_log_utility_functional_logical_hpp[][headerref boost/log/utility/functional/logical.hpp]]
+
+[template class_log_equal_to[][classref boost::log::equal_to equal_to]]
+
+[template class_log_greater[][classref boost::log::greater greater]]
+
+[template class_log_greater_equal[][classref boost::log::greater_equal greater_equal]]
+
+[template class_log_less[][classref boost::log::less less]]
+
+[template class_log_less_equal[][classref boost::log::less_equal less_equal]]
+
+[template class_log_not_equal_to[][classref boost::log::not_equal_to not_equal_to]]
+
+[template boost_log_utility_functional_matches_hpp[][headerref boost/log/utility/functional/matches.hpp]]
+
+[template class_log_matches_fun[][classref boost::log::matches_fun matches_fun]]
+
+[template boost_log_utility_functional_nop_hpp[][headerref boost/log/utility/functional/nop.hpp]]
+
+[template class_log_nop[][classref boost::log::nop nop]]
+
+[template boost_log_utility_functional_save_result_hpp[][headerref boost/log/utility/functional/save_result.hpp]]
+
+[template class_log_save_result_wrapper[][classref boost::log::save_result_wrapper save_result_wrapper]]
+
+[template boost_log_utility_ipc_object_name_hpp[][headerref boost/log/utility/ipc/object_name.hpp]]
+
+[template class_ipc_object_name[][classref boost::log::ipc::object_name object_name]]
+
+[template boost_log_utility_ipc_reliable_message_queue_hpp[][headerref boost/log/utility/ipc/reliable_message_queue.hpp]]
+
+[template class_ipc_reliable_message_queue[][classref boost::log::ipc::reliable_message_queue reliable_message_queue]]
+
+[template boost_log_utility_manipulators_hpp[][headerref boost/log/utility/manipulators.hpp]]
+
+[template boost_log_utility_manipulators_add_value_hpp[][headerref boost/log/utility/manipulators/add_value.hpp]]
+
+[template class_log_add_value_manip[][classref boost::log::add_value_manip add_value_manip]]
+
+[template boost_log_utility_manipulators_auto_newline_hpp[][headerref boost/log/utility/manipulators/auto_newline.hpp]]
+
+[template class_log_auto_newline_manip[][classref boost::log::auto_newline_manip auto_newline_manip]]
+
+[template boost_log_utility_manipulators_dump_hpp[][headerref boost/log/utility/manipulators/dump.hpp]]
+
+[template class_log_bounded_dump_manip[][classref boost::log::bounded_dump_manip bounded_dump_manip]]
+
+[template class_log_dump_manip[][classref boost::log::dump_manip dump_manip]]
+
+[template boost_log_utility_manipulators_invoke_hpp[][headerref boost/log/utility/manipulators/invoke.hpp]]
+
+[template class_log_invoke_manipulator[][classref boost::log::invoke_manipulator invoke_manipulator]]
+
+[template boost_log_utility_manipulators_optional_hpp[][headerref boost/log/utility/manipulators/optional.hpp]]
+
+[template class_log_optional_manipulator[][classref boost::log::optional_manipulator optional_manipulator]]
+
+[template boost_log_utility_manipulators_range_hpp[][headerref boost/log/utility/manipulators/range.hpp]]
+
+[template class_log_range_manipulator[][classref boost::log::range_manipulator range_manipulator]]
+
+[template boost_log_utility_manipulators_to_log_hpp[][headerref boost/log/utility/manipulators/to_log.hpp]]
+
+[template class_log_to_log_manip[][classref boost::log::to_log_manip to_log_manip]]
+
+[template boost_log_utility_manipulators_tuple_hpp[][headerref boost/log/utility/manipulators/tuple.hpp]]
+
+[template class_log_tuple_manipulator[][classref boost::log::tuple_manipulator tuple_manipulator]]
+
+[template class_log_tuple_manipulator_output_visitor[][classref boost::log::tuple_manipulator::output_visitor output_visitor]]
+
+[template class_log_output_visitor[][classref boost::log::output_visitor output_visitor]]
+
+[template boost_log_utility_once_block_hpp[][headerref boost/log/utility/once_block.hpp]]
+
+[template class_log_once_block_flag[][classref boost::log::once_block_flag once_block_flag]]
+
+[template boost_log_utility_open_mode_hpp[][headerref boost/log/utility/open_mode.hpp]]
+
+[template class_open_mode_create_only_tag[][classref boost::log::open_mode::create_only_tag create_only_tag]]
+
+[template class_open_mode_open_only_tag[][classref boost::log::open_mode::open_only_tag open_only_tag]]
+
+[template class_open_mode_open_or_create_tag[][classref boost::log::open_mode::open_or_create_tag open_or_create_tag]]
+
+[template boost_log_utility_permissions_hpp[][headerref boost/log/utility/permissions.hpp]]
+
+[template class_log_permissions[][classref boost::log::permissions permissions]]
+
+[template boost_log_utility_record_ordering_hpp[][headerref boost/log/utility/record_ordering.hpp]]
+
+[template class_log_abstract_ordering[][classref boost::log::abstract_ordering abstract_ordering]]
+
+[template class_log_attribute_value_ordering[][classref boost::log::attribute_value_ordering attribute_value_ordering]]
+
+[template class_log_attribute_value_ordering_l1_visitor[][classref boost::log::attribute_value_ordering::l1_visitor l1_visitor]]
+
+[template class_log_attribute_value_ordering_l2_visitor[][classref boost::log::attribute_value_ordering::l2_visitor l2_visitor]]
+
+[template boost_log_utility_setup_hpp[][headerref boost/log/utility/setup.hpp]]
+
+[template boost_log_utility_setup_common_attributes_hpp[][headerref boost/log/utility/setup/common_attributes.hpp]]
+
+[template boost_log_utility_setup_console_hpp[][headerref boost/log/utility/setup/console.hpp]]
+
+[template boost_log_utility_setup_file_hpp[][headerref boost/log/utility/setup/file.hpp]]
+
+[template boost_log_utility_setup_filter_parser_hpp[][headerref boost/log/utility/setup/filter_parser.hpp]]
+
+[template class_log_basic_filter_factory[][classref boost::log::basic_filter_factory basic_filter_factory]]
+
+[template class_log_filter_factory[][classref boost::log::filter_factory filter_factory]]
+
+[template boost_log_utility_setup_formatter_parser_hpp[][headerref boost/log/utility/setup/formatter_parser.hpp]]
+
+[template class_log_basic_formatter_factory[][classref boost::log::basic_formatter_factory basic_formatter_factory]]
+
+[template class_log_formatter_factory[][classref boost::log::formatter_factory formatter_factory]]
+
+[template boost_log_utility_setup_from_settings_hpp[][headerref boost/log/utility/setup/from_settings.hpp]]
+
+[template class_log_sink_factory[][classref boost::log::sink_factory sink_factory]]
+
+[template boost_log_utility_setup_from_stream_hpp[][headerref boost/log/utility/setup/from_stream.hpp]]
+
+[template boost_log_utility_setup_settings_hpp[][headerref boost/log/utility/setup/settings.hpp]]
+
+[template class_log_basic_settings[][classref boost::log::basic_settings basic_settings]]
+
+[template class_log_basic_settings_section[][classref boost::log::basic_settings_section basic_settings_section]]
+
+[template boost_log_utility_setup_settings_parser_hpp[][headerref boost/log/utility/setup/settings_parser.hpp]]
+
+[template boost_log_utility_strictest_lock_hpp[][headerref boost/log/utility/strictest_lock.hpp]]
+
+[template class_log_strictest_lock[][classref boost::log::strictest_lock strictest_lock]]
+
+[template class_log_thread_access_mode_of[][classref boost::log::thread_access_mode_of thread_access_mode_of]]
+
+[template boost_log_utility_string_literal_hpp[][headerref boost/log/utility/string_literal.hpp]]
+
+[template boost_log_utility_string_literal_fwd_hpp[][headerref boost/log/utility/string_literal_fwd.hpp]]
+
+[template class_log_basic_string_literal[][classref boost::log::basic_string_literal basic_string_literal]]
+
+[template boost_log_utility_type_dispatch_date_time_types_hpp[][headerref boost/log/utility/type_dispatch/date_time_types.hpp]]
+
+[template boost_log_utility_type_dispatch_dynamic_type_dispatcher_hpp[][headerref boost/log/utility/type_dispatch/dynamic_type_dispatcher.hpp]]
+
+[template class_log_dynamic_type_dispatcher[][classref boost::log::dynamic_type_dispatcher dynamic_type_dispatcher]]
+
+[template boost_log_utility_type_dispatch_standard_types_hpp[][headerref boost/log/utility/type_dispatch/standard_types.hpp]]
+
+[template boost_log_utility_type_dispatch_static_type_dispatcher_hpp[][headerref boost/log/utility/type_dispatch/static_type_dispatcher.hpp]]
+
+[template class_log_static_type_dispatcher[][classref boost::log::static_type_dispatcher static_type_dispatcher]]
+
+[template boost_log_utility_type_dispatch_type_dispatcher_hpp[][headerref boost/log/utility/type_dispatch/type_dispatcher.hpp]]
+
+[template class_log_type_dispatcher[][classref boost::log::type_dispatcher type_dispatcher]]
+
+[template class_log_type_dispatcher_callback[][classref boost::log::type_dispatcher::callback callback]]
+
+[template boost_log_utility_unique_identifier_name_hpp[][headerref boost/log/utility/unique_identifier_name.hpp]]
+
+[template boost_log_utility_unused_variable_hpp[][headerref boost/log/utility/unused_variable.hpp]]
+
+[template boost_log_utility_use_std_allocator_hpp[][headerref boost/log/utility/use_std_allocator.hpp]]
+
+[template class_log_use_std_allocator[][classref boost::log::use_std_allocator use_std_allocator]]
+
+[template boost_log_utility_value_ref_hpp[][headerref boost/log/utility/value_ref.hpp]]
+
+[template boost_log_utility_value_ref_fwd_hpp[][headerref boost/log/utility/value_ref_fwd.hpp]]
+
+[template class_log_value_ref[][classref boost::log::value_ref value_ref]]

@@ -1,0 +1,175 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Build Time Configuration</title>
+<link rel="stylesheet" href="../../../../../doc/src/boostbook.css" type="text/css">
+<meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
+<link rel="home" href="../index.html" title="Boost.Config">
+<link rel="up" href="../index.html" title="Boost.Config">
+<link rel="prev" href="boost_macro_reference.html" title="Boost Macro Reference">
+<link rel="next" href="cstdint.html" title="Standard Integer Types">
+</head>
+<body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
+<table cellpadding="2" width="100%"><tr>
+<td valign="top"><img alt="Boost C++ Libraries" width="277" height="86" src="../../../../../boost.png"></td>
+<td align="center"><a href="../../../../../index.html">Home</a></td>
+<td align="center"><a href="../../../../../libs/libraries.htm">Libraries</a></td>
+<td align="center"><a href="http://www.boost.org/users/people.html">People</a></td>
+<td align="center"><a href="http://www.boost.org/users/faq.html">FAQ</a></td>
+<td align="center"><a href="../../../../../more/index.htm">More</a></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="boost_macro_reference.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../index.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../index.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="cstdint.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+<div class="section">
+<div class="titlepage"><div><div><h2 class="title" style="clear: both">
+<a name="boost_config.build_config"></a><a class="link" href="build_config.html" title="Build Time Configuration">Build Time Configuration</a>
+</h2></div></div></div>
+<p>
+      There are times when you want to control whether a build target gets built
+      or not, based on what features the compiler supports. For example, suppose
+      you have a test file "test_constexpr_128.cpp" which requires three
+      key features in order to build:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
+<li class="listitem">
+          The <code class="computeroutput"><span class="keyword">constexpr</span></code> keyword as detected
+          by BOOST_NO_CXX11_CONSTEXPR.
+        </li>
+<li class="listitem">
+          User defined literals, as detected by BOOST_NO_CXX11_USER_DEFINED_LITERALS.
+        </li>
+<li class="listitem">
+          The <code class="computeroutput"><span class="identifier">__int128</span></code> data type,
+          as detected by BOOST_HAS_INT128.
+        </li>
+</ul></div>
+<p>
+      Clearly we know that if these features are not supported by the compiler, then
+      there's simply no point in even trying to build the test program. The main
+      advantages being:
+    </p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
+<li class="listitem">
+          Faster compile times - build configuration uses lightweight tests the results
+          of which are also cached.
+        </li>
+<li class="listitem">
+          Less noise in build output - there's no reason to be faced with pages of
+          template instantiation backtrace if we know the file can never compile
+          anyway.
+        </li>
+<li class="listitem">
+          Less noise in the online test results - the test will show up as blank,
+          rather than as a fail in the online test matrix.
+        </li>
+<li class="listitem">
+          A better experience for end users building all of Boost, if those libraries
+          which can not be built for the current target compiler are simply skipped,
+          rather than generating pages of error output.
+        </li>
+</ul></div>
+<p>
+      Returning to our example, the test case is probably executed in it's Jamfile
+      via the "run" rule:
+    </p>
+<pre class="programlisting"><span class="identifier">run</span> <span class="identifier">test_constexpr_128</span><span class="special">.</span><span class="identifier">cpp</span> <span class="special">;</span>
+</pre>
+<p>
+      We now need to make this target conditional on the necessary features. We can
+      do that by first importing the necessary rule at the start of the Jamfile:
+    </p>
+<pre class="programlisting"><span class="identifier">import</span> <span class="identifier">path</span><span class="special">-</span><span class="identifier">to</span><span class="special">-</span><span class="identifier">config</span><span class="special">-</span><span class="identifier">lib</span><span class="special">/</span><span class="identifier">checks</span><span class="special">/</span><span class="identifier">config</span> <span class="special">:</span> <span class="identifier">requires</span> <span class="special">;</span>
+</pre>
+<p>
+      Assuming that the test case is in the usual directory:
+    </p>
+<pre class="programlisting"><span class="identifier">libs</span><span class="special">/</span><span class="identifier">yourlib</span><span class="special">/</span><span class="identifier">test</span>
+</pre>
+<p>
+      then the import rule will actually be:
+    </p>
+<pre class="programlisting"><span class="identifier">import</span> <span class="special">../../</span><span class="identifier">config</span><span class="special">/</span><span class="identifier">checks</span><span class="special">/</span><span class="identifier">config</span> <span class="special">:</span> <span class="identifier">requires</span> <span class="special">;</span>
+</pre>
+<p>
+      Then add a "requires" rule invocation to the requirements section
+      of the target:
+    </p>
+<pre class="programlisting"><span class="identifier">run</span> <span class="identifier">test_constexpr_128</span><span class="special">.</span><span class="identifier">cpp</span>
+   <span class="special">:</span> <span class="special">:</span> <span class="special">:</span> <span class="special">#</span><span class="identifier">requirements</span><span class="special">:</span>
+   <span class="special">[</span> <span class="identifier">requires</span> <span class="identifier">cxx11_constexpr</span> <span class="identifier">cxx11_user_defined_literals</span> <span class="identifier">int128</span> <span class="special">]</span> <span class="special">;</span>
+</pre>
+<p>
+      Notice that multiple arguments can be added to the requires rule, and that
+      these are always the same as the Boost.Config macro name, but in lower case
+      and with the <span class="emphasis"><em>boost_no_</em></span> or <span class="emphasis"><em>boost_has_</em></span>
+      prefix removed. You can also use any C++ standard feature-macro name with the
+      leading underscores removed (see more below).
+    </p>
+<p>
+      When building the above example, you will see at the start of the build process
+      the results of the configuration, for example GCC in C++11 mode gives:
+    </p>
+<pre class="programlisting"><span class="special">-</span> <span class="identifier">Boost</span><span class="special">.</span><span class="identifier">Config</span> <span class="identifier">Feature</span> <span class="identifier">Check</span><span class="special">:</span> <span class="identifier">int128</span> <span class="special">:</span> <span class="identifier">yes</span>
+<span class="special">-</span> <span class="identifier">Boost</span><span class="special">.</span><span class="identifier">Config</span> <span class="identifier">Feature</span> <span class="identifier">Check</span><span class="special">:</span> <span class="identifier">cxx11_constexpr</span> <span class="special">:</span> <span class="identifier">yes</span>
+<span class="special">-</span> <span class="identifier">Boost</span><span class="special">.</span><span class="identifier">Config</span> <span class="identifier">Feature</span> <span class="identifier">Check</span><span class="special">:</span> <span class="identifier">cxx11_user_defined_literals</span> <span class="special">:</span> <span class="identifier">yes</span>
+</pre>
+<p>
+      If you wish to make a build conditional on a C++ standard feature macro then
+      you can specify these too, just remove the leading underscores from the name.
+      For example:
+    </p>
+<pre class="programlisting"><span class="special">[</span> <span class="identifier">requires</span> <span class="identifier">cpp_constexpr</span> <span class="special">]</span>
+</pre>
+<p>
+      To require C++11 style const-expressions. If you want to specify a macro from
+      a particular standard, then you append an underscore followed by the (2 digit)
+      year of the standard, for example:
+    </p>
+<pre class="programlisting"><span class="special">[</span> <span class="identifier">requires</span> <span class="identifier">cpp_constexpr_17</span> <span class="special">]</span>
+</pre>
+<p>
+      For C++17 constepxr. If you don't specify a standard then you get the first
+      version that introduced the macro. In addition there are only standard-specific
+      rules for each version bump of the macro, so:
+    </p>
+<pre class="programlisting"><span class="special">[</span> <span class="identifier">requires</span> <span class="identifier">cpp_if_constexpr_17</span> <span class="special">]</span>
+</pre>
+<p>
+      Is fine since the macro was introduced in C++17 and is the same as the un-versioned
+      name, but:
+    </p>
+<pre class="programlisting"><span class="special">[</span> <span class="identifier">requires</span> <span class="identifier">cpp_if_constexpr_20</span> <span class="special">]</span>
+</pre>
+<p>
+      Will result in a build error since there is no C++20 version bump for <code class="computeroutput"><span class="identifier">__cpp_if_constexpr</span></code>.
+    </p>
+<p>
+      That's all there is to this handy feature, should at any time you be unsure
+      of the feature-test names you can pass to the "requires" rule, then
+      search for the Boost.Config macro of interest in libs/config/checks/Jamfiles.v2,
+      and the name of the feature check will follow it.
+    </p>
+<p>
+      And finally, this feature is built around the Boost.Build built in rule <span class="emphasis"><em>check-target-builds</em></span>
+      which can be used to perform more generalized build-time feature testing. The
+      checks in this library are provided as a convenient shorthand without the need
+      for you to write the test cases yourself.
+    </p>
+</div>
+<table xmlns:rev="http://www.cs.rpi.edu/~gregod/boost/tools/doc/revision" width="100%"><tr>
+<td align="left"></td>
+<td align="right"><div class="copyright-footer">Copyright © 2001-2007 Beman Dawes, Vesa Karvonen, John
+      Maddock<p>
+        Distributed under the Boost Software License, Version 1.0. (See accompanying
+        file LICENSE_1_0.txt or copy at <a href="http://www.boost.org/LICENSE_1_0.txt" target="_top">http://www.boost.org/LICENSE_1_0.txt</a>)
+      </p>
+</div></td>
+</tr></table>
+<hr>
+<div class="spirit-nav">
+<a accesskey="p" href="boost_macro_reference.html"><img src="../../../../../doc/src/images/prev.png" alt="Prev"></a><a accesskey="u" href="../index.html"><img src="../../../../../doc/src/images/up.png" alt="Up"></a><a accesskey="h" href="../index.html"><img src="../../../../../doc/src/images/home.png" alt="Home"></a><a accesskey="n" href="cstdint.html"><img src="../../../../../doc/src/images/next.png" alt="Next"></a>
+</div>
+</body>
+</html>

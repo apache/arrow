@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/src/xsimd_ep-stamp/download-xsimd_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/src/xsimd_ep-stamp/verify-xsimd_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/src/xsimd_ep-stamp/extract-xsimd_ep.cmake
+source_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/src/xsimd_ep
+work_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/src
+url(s)=https://github.com/xtensor-stack/xsimd/archive/9.0.1.tar.gz
+hash=SHA256=b1bb5f92167fd3a4f25749db0be7e61ed37e0a5d943490f3accdcd2cd2918cc0
+no_extract=
+

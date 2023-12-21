@@ -1,0 +1,17 @@
+{
+	Suppress wcslen valgrind report 1
+	Memcheck:Cond
+	fun:__wcslen_sse2
+}
+
+{
+    Suppress wcslen valgrind report 2
+    Memcheck:Addr8
+    fun:__wcslen_sse2
+}
+
+{
+    Suppress wcslen valgrind report 3
+    Memcheck:Value8
+    fun:__wcslen_sse2
+}

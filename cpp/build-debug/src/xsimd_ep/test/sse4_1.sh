@@ -1,0 +1,74 @@
+#!/bin/sh
+exit_code=0
+for instr in `grep -o -E '^_mm_[a-z1Z0-9_]+' $0`
+do
+    if ! grep -q -r $instr ../include-refactoring
+    then
+        echo $instr
+        exit_code=1
+    fi
+done
+exit $exit_code
+
+# Instructions below starting with a # are known to be unused in xsimd
+_mm_blend_epi16
+_mm_blend_pd
+_mm_blend_ps
+_mm_blendv_epi8
+_mm_blendv_pd
+_mm_blendv_ps
+_mm_ceil_pd
+_mm_ceil_ps
+#_mm_ceil_sd
+#_mm_ceil_ss
+_mm_cmpeq_epi64
+#_mm_cvtepi16_epi32
+#_mm_cvtepi16_epi64
+#_mm_cvtepi32_epi64
+#_mm_cvtepi8_epi16
+#_mm_cvtepi8_epi32
+#_mm_cvtepi8_epi64
+#_mm_cvtepu16_epi32
+#_mm_cvtepu16_epi64
+#_mm_cvtepu32_epi64
+#_mm_cvtepu8_epi16
+#_mm_cvtepu8_epi32
+#_mm_cvtepu8_epi64
+#_mm_dp_pd
+#_mm_dp_ps
+#_mm_extract_epi32
+#_mm_extract_epi64
+#_mm_extract_epi8
+#_mm_extract_ps
+_mm_floor_pd
+_mm_floor_ps
+#_mm_floor_sd
+#_mm_floor_ss
+#_mm_insert_epi32
+#_mm_insert_epi64
+#_mm_insert_epi8
+#_mm_insert_ps
+_mm_max_epi32
+_mm_max_epi8
+_mm_max_epu16
+_mm_max_epu32
+_mm_min_epi32
+_mm_min_epi8
+_mm_min_epu16
+_mm_min_epu32
+#_mm_minpos_epu16
+#_mm_mpsadbw_epu8
+#_mm_mul_epi32
+_mm_mullo_epi32
+#_mm_packus_epi32
+_mm_round_pd
+_mm_round_ps
+#_mm_round_sd
+#_mm_round_ss
+#_mm_stream_load_si128
+#_mm_test_all_ones
+#_mm_test_all_zeros
+#_mm_test_mix_ones_zeros
+#_mm_testc_si128
+#_mm_testnzc_si128
+#_mm_testz_si128

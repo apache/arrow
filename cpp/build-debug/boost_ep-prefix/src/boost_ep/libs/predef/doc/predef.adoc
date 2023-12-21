@@ -1,0 +1,1010 @@
+= Boost.Predef
+:author: René Ferdinand Rivera Morell
+:toc: left
+:toclevels: 3
+:sectanchors:
+:sectnums:
+:nofooter:
+:source-highlighter: rouge
+:source-language: cpp
+:caution-caption: ⚑
+:important-caption: ‼
+:note-caption: ℹ
+:tip-caption: ☀
+:warning-caption: ⚠
+:CPP: C++
+:predef_symbol: Symbol
+:predef_version: Version
+:predef_detection: pass:q[*detection*]
+
+== Introduction
+
+This library defines a set of compiler, architecture, operating system,
+library, and other version numbers from the information it can gather of
+C, {CPP}, Objective C, and Objective {CPP} predefined macros or those defined
+in generally available headers. The idea for this library grew out of a
+proposal to extend the Boost Config library to provide more, and consistent,
+information than the feature definitions it supports. What follows is
+an edited version of that brief proposal.
+
+=== Proposal
+
+The idea is to define a set of macros to identify compilers and
+consistently represent their version. This includes:
+
+* A unique BOOST_VERSION_NUMBER(major,minor,patch) macro to specify version
+  numbers (unfortunately, the name BOOST_VERSION is already taken to designate
+  the version number of boost itself).
+* A compiler identification macro, suitable for use in `#if`/`#elif` directives,
+  for each of the supported compilers. All macros would be defined, regardless
+  of the compiler. The one macro corresponding to the compiler being used would
+  be defined, in terms of BOOST_VERSION_NUMBER, to carry the exact compiler
+  version. All other macros would expand to an expression evaluating to false
+  (for instance, the token 0) to indicate that the corresponding compiler is not
+  present.
+* "Null values" could be set, for all macros, in
+  boost/config/select_compiler.hpp; then, for each compiler the corresponding
+  identification macro would be #undef and re-#defined in the corresponding
+  boost/compiler/(cc).hpp; however in the context of the Boost.Config
+  infrastructure using a "prefix" header (to be introduced) or
+  boost/config/suffix.hpp is a better solution.
+
+=== Current Library
+
+The current Predef library is now, both an independent library, and expanded
+in scope. It includes detection and definition of architectures, compilers,
+languages, libraries, operating systems, and endianness. The key benefits are:
+
+* Version numbers that are always defined so that one doesn't have to guard
+  with `#ifdef`.
+* Guard macros that can be used for `#ifdef` checks.
+* All possible definitions are included with the single `#include <boost/predef.h>`
+  so that it's friendly to pre-compiled header usage.
+* Specific definitions can be included, ex. `#include <boost/predef/os/windows.h>`
+  for single checks.
+* Predefs can be directly used in both preprocessor and compiler expressions
+  for comparison to other similarly defined values.
+* The headers are usable from multiple languages, that support the C preprocessor.
+  In particular {CPP}, C, Objective C, and Objective {CPP}.
+
+=== Design choices
+
+An important design choice concerns how to represent compiler versions by means
+of a single integer number suitable for use in preprocessing directives. Let's
+do some calculation. The "basic" signed type for preprocessing
+constant-expressions is long in C90 (and {CPP}, as of 2006) and intmax_t in C99.
+The type long shall at least be able to represent the number `+2 147 483 647`.
+This means the most significant digit can only be 0, 1 or 2; and if we want all
+decimal digits to be able to vary between 0 and 9, the largest range we can
+consider is `[0, 999 999 999\`]. Distributing evenly, this means 3 decimal
+digits for each version number part.
+
+So we can:
+
+. use an uneven distribution or
+. use more bits (a larger type) or
+. use 3/3/3 and have the particular compiler/platform/stdlib deal with setting
+  the numbers within the 3-digit range.
+
+It appears relatively safe to go for the first option and set it at 2/2/5. That
+covers CodeWarrior and others, which are up to and past 10 for the major number.
+Some compilers use the build number in lieu of the patch one; five digits
+(which is already reached by V{CPP} 8) seems a reasonable limit even in this case.
+
+NOTE: A 2/2/6 scheme would allow for bigger patch/build numbers at the cost,
+for instance, of limiting the major version number to 20 (or, with further
+constraints, to 21).
+
+It might reassure the reader that this decision is actually encoded in one place
+in the code; the definition of `BOOST_VERSION_NUMBER`.
+
+=== Future work
+
+Even though the basics of this library are done, there is much work that can be
+done:
+
+* Right now we limit the detection of libraries to known built-in predefined
+  macros, and to guaranteed to exist system and library headers. It might be
+  interesting to add something like auto-configuration predefs. This way we can
+  add definitions for user specific libraries and features.
+* Along with the above, it might be good to add some user control as to which
+  headers are included with the top-level header. Although in the current
+  form of the library this is less of an issue as one can include the
+  specific headers one needs.
+* Additionally, even if there is no auto-configure style option.. It would be
+  good to add optionally included headers so that user can get consistent
+  version number definitions for libraries they use.
+* And obviously there's lots of work to do in reformulating the existing
+  Boost libraries to use the Predef library.
+* And there's the continuing work of adding definitions for present and
+  future compilers, platforms, architectures, languages, and libraries.
+
+
+== Using the predefs
+
+To use the automatically defined predefs one needs to only include the
+single top-level header:
+
+[source]
+----
+#include <boost/predef.h>
+----
+
+This defines [*all] the version macros known to the library. For each
+macro it will be defined to either a`_zero_`valued expression for when
+the particular item is not detected, and to a`_positive_`value if it
+is detected. The predef macros fall onto five categories each with
+macros of a particular prefix:
+
+* `BOOST_ARCH_` for system/CPU architecture one is compiling for.
+* `BOOST_COMP_` for the compiler one is using.
+* `BOOST_LANG_` for language standards one is compiling against.
+* `BOOST_LIB_C_` and `BOOST_LIB_STD_` for the C and {CPP} standard library
+  in use.
+* `BOOST_OS_` for the operating system we are compiling to.
+* `BOOST_PLAT_` for platforms on top of operating system or compilers.
+* `BOOST_ENDIAN_` for endianness of the os and architecture combination.
+* `BOOST_HW_` for hardware specific features.
+* `BOOST_HW_SIMD` for SIMD (Single Instruction Multiple Data) detection.
+
+NOTE: The detected definitions are for the configuration one is targeting
+during the compile. In particular in a cross-compile this means the target
+system, and not the host system.
+
+One uses the individual definitions to compare against specific versions
+by comparing against the `BOOST_VERSION_NUMBER` macro. For example, to make
+a choice based on the version of the GCC {CPP} compiler one would:
+
+[source]
+----
+#include <boost/predef.h>
+#include <iostream>
+
+int main()
+{
+  if (BOOST_COMP_GNUC >= BOOST_VERSION_NUMBER(4,0,0))
+    std::cout << "GCC compiler is at least version 4.0.0" << std::endl;
+  else
+    std::cout << "GCC compiler is at older than version 4.0.0, or not a GCC compiler" << std::endl;
+  return 0;
+}
+----
+
+As you might notice above the `else` clause also covers the case where
+the particular compiler is not detected. But one can make the test
+also test for the detection. All predef definitions are defined
+as a zero (0) expression when not detected. Hence one could use the
+detection with a natural single condition. For example:
+
+[source]
+----
+#include <boost/predef.h>
+#include <iostream>
+
+int main()
+{
+  if (BOOST_COMP_GNUC)
+    std::cout << "This is GNU GCC!" << std::endl;
+  else
+    std::cout << "Not GNU GCC." << std::endl;
+  return 0;
+}
+----
+
+And since the predef's are preprocessor definitions the same is possible
+from the preprocessor:
+
+[source]
+----
+#include <boost/predef.h>
+#include <iostream>
+
+#if BOOST_COMP_GNUC
+  #if BOOST_COMP_GNUC >= BOOST_VERSION_NUMBER(4,0,0)
+    const char * the_compiler = "GNU GCC, of at least version 4."
+  #else
+    const char * the_compiler = "GNU GCC, less than version 4."
+  #endif
+#else
+  const char * the_compiler = "Not GNU GCC."
+#endif
+
+int main()
+{
+  std::cout << the_compiler << std::endl;
+  return 0;
+}
+----
+
+In addition, for each version macro defined there is an
+`*_AVAILABLE` macro defined only when the particular aspect is
+detected. I.e. a definition equivalent to:
+
+[source]
+----
+#if BOOST_PREDEF_ABC
+  #define BOOST_PREDEF_ABC_AVAILABLE
+#endif
+----
+
+Also for each aspect there is a macro defined with a descriptive
+name of what the detection is.
+
+=== The `*_EMULATED` macros
+
+Predef definitions are guaranteed to be uniquely detected within one category.
+But there are contexts under which multiple underlying detections are possible.
+The well known example of this is detection of GCC and MSVC compilers which are
+commonly emulated by other compilers by defining the same base macros. To
+account for this detection headers are allowed to define `*_EMULATED` predefs
+when this situation is detected. The emulated predefs will be set to the
+version number of the detection instead of the regular predef macro for that
+detection. For example MSVC will set `BOOST_COMP_MSVC_EMULATED` but not set `BOOST_COMP_MSVC`, and it will also set `BOOST_COMP_MSVC_AVAILABLE`.
+
+=== Using the `BOOST_VERSION_NUMBER` macro
+
+All the predefs are defined to be a use of the `BOOST_VERSION_NUMBER` macro.
+The macro takes individual major, minor, and patch value expressions:
+
+[source]
+----
+#define BOOST_VERSION_NUMBER( major, minor, patch ) ...
+----
+
+The arguments are:
+
+. Major version number, as a constant value expression in the range [0,99].
+. Minor version number, as a constant value expression in the range [0,99].
+. Patch-level version number, as a constant value expression in the
+  range [0,99999].
+
+The ranges for each are "enforced" by the use of a modulo ("%"), i.e. truncation,
+as opposed to a clamp. And hence this means that the limits are enforced only
+enough to keep from having out-of-range problems. But not enough to prevent
+other kinds of problems. Like exceeding the range and getting false detections,
+or non-detections. It is up to the individual predefs to ensure correct
+usage beyond the range guarantee.
+
+The values for the arguments can be any preprocessor valid constant value expression.
+Only constant value arithmetic is used in the definition of the `BOOST_VERSION_NUMBER`
+macro and in any of the other predef macros. This means that any allowed base is
+possible, i.e. binary, octal, decimal, and hexadecimal. For example:
+
+[source]
+----
+#define MY_APPLICATION_VERSION_NUMBER BOOST_VERSION_NUMBER(2,0xA,015)
+----
+
+Is equivalent to:
+
+[source]
+----
+#define MY_APPLICATION_VERSION_NUMBER BOOST_VERSION_NUMBER(2,10,13)
+----
+
+
+== Adding new predefs
+
+We know that a library like this one will be an eternal work-in-progress. And
+as such we expect, and look forward to, others contributing corrections and
+additions to the predefs. With that in mind we need to keep a consistent way
+of defining the new predefs. Hence all current, and future, predefs follow
+the same structure and requirements.
+
+=== Requirements of the header
+
+All predefs need to follow a set of requirements:
+
+* The headers must use the Boost Software License.
+* The predef must, by default, be defined as `BOOST_VERSION_NUMBER_NOT_AVAILABLE`.
+* The predef must be redefined to a non-zero value once detected.
+* The predef must, by default, be defined to `BOOST_VERSION_NUMBER_AVAILABLE`
+  when the predef is detected.
+* If possible, the predef will be defined as the version number detected.
+* The predef must define `*_AVAILABLE` macros as needed.
+* The predef must define a symbolic constant string name macro.
+* The predef must declare itself, after being defined, for the testing
+  system.
+* The predef must guarantee that it is the only one defined as detected
+  per category.
+* But a predef can define `*_EMULATED` macros to indicate that it was
+  previously detected by another header and is being "emulated" by the
+  system. Note that the `*_AVAILABLE` macros must still be defined in this
+  situation.
+
+And there are some extra guidelines that predef headers should follow:
+
+* The detection should avoid including extra headers that might otherwise
+  not be included by default.
+* If the detection must include a header, prefer guarding it within the
+  detection if possible.
+* If the detection must include headers unconditionally, and has a choice
+  of headers to include, prefer the ones with the least impact. I.e.
+  include the one with the minimal set of definitions and other
+  dependencies.
+
+=== Structure of the header
+
+For general consistency it's suggested that new predef headers follow the
+structure below, as current predef headers do. First we have the copyright
+and license statement, followed by the include guard:
+
+[source]
+----
+/*
+Copyright Jane Doe YYYY
+Distributed under the Boost Software License, Version 1.0.
+(See accompanying file LICENSE_1_0.txt or copy at
+http://www.boost.org/LICENSE_1_0.txt)
+*/
+
+#ifndef BOOST_PREDEF_category_tag_H
+#define BOOST_PREDEF_category_tag_H
+----
+
+If the detection depends on the detection of another predef you should
+include those headers here.
+
+[source]
+----
+#include <boost/predef/CATEGORY_TAG/DEPENDENCY.h>
+----
+
+Depending on how you are defining the predef you will at minimum have
+to include the `version_number.h` header. But you might also want to
+include the `make.h` header for the version number decomposing utility
+macros:
+
+[source]
+----
+#include <boost/predef/version_number.h>
+#include <boost/predef/make.h>
+----
+
+The Predef library uses https://asciidoctor.org/[Asciidoctor] for documentation
+and for the individual predefs to appear in the reference section we add
+in-code documentation followed by the zero-value default definition of the
+predef macro. We strongly recommend this particular placement of the
+documentation and default definition because some development
+environments automatically interpret this and provide in-line help
+for the macro. In particular this works for the popular Eclipse IDE:
+
+[source]
+----
+/* tag::reference[]
+
+= `BOOST_category_tag`
+
+Documentation about what is detected.
+
+*/
+
+#define BOOST_category_tag BOOST_VERSION_NUMBER_NOT_AVAILABLE
+----
+
+Next is the detection and definition of the particular predef. The
+structure for this is to do a single overall check (`condition_a`) and
+place further version detection inside this. The first action inside
+the overall check is to "`#undef BOOST_category_tag`" which removes
+the zero-value default. The rest is up to the you how to do the checks
+for defining the version. But at minimum it must
+"`#define BOOST_category_tag BOOST_VERSION_NUMBER_AVAILABLE`" as
+the fallback to minimally indicate that the predef was detected:
+
+[source]
+----
+#if (condition_a)
+#   undef BOOST_category_tag
+#   if (condition_b)
+#        define BOOST_category_tag BOOST_VERSION_NUMBER(major,minor,patch)
+#    else
+#        define BOOST_category_tag BOOST_VERSION_NUMBER_AVAILABLE
+#    endif
+#endif
+----
+
+We also need to provide the `*_AVAILABLE` versions of the predef.
+
+[source]
+----
+#if BOOST_category_tag
+#   define BOOST_category_tag_AVAILABLE
+#endif
+----
+
+And for convenience we also want to provide a `*_NAME` macro:
+
+[source]
+----
+#define BOOST_category_tag_NAME "Name"
+----
+
+We close out the include guard at this point. We do whis before the test
+declaration as the testing system includes the headers multiple times
+to generate the needed testing code.
+
+[source]
+----
+#endif
+----
+
+The testing of the predef macros is automated to generate checks for all
+the defined predefs, whether detected or not. To do this we need to
+declare the predef to the test system. This declaration is empty for
+regular use. And during the test programs they expand out specially
+to create informational output:
+
+[source]
+----
+#include <boost/predef/detail/test.h>
+BOOST_PREDEF_DECLARE_TEST(BOOST_category_tag,BOOST_category_tag_NAME)
+----
+
+=== Adding exclusive predefs
+
+For headers of predefs that need to be mutually exclusive in the detection
+we need to add checks and definitions to detect when the predef is
+detected by multiple headers.
+
+Internally compiler, operating system, and platforms define
+`BOOST_PREDEF_DETAIL_COMP_DETECTED`, `BOOST_PREDEF_DEFAIL_OS_DETECTED`, and
+`BOOST_PREDEF_DETAIL_PLAT_DETECTED` respectively when the predef is first
+detected. This is used to guard against multiple definition of the detection
+in later included headers. In those cases the detection would instead be
+written as:
+
+[source]
+----
+#if !BOOST_PREDEF_DETAIL_category_DETECTED && (condition_a)
+#   undef BOOST_category_tag
+#   if (condition_b)
+#        define BOOST_category_tag BOOST_VERSION_NUMBER(major,minor,patch)
+#    else
+#        define BOOST_category_tag BOOST_VERSION_NUMBER(0,0,1)
+#    endif
+#endif
+----
+
+And we also include a header that defines the `*_DETECTED` macro when we have
+the detection:
+
+[source]
+----
+#if BOOST_category_tag
+#   define BOOST_category_tag_AVAILABLE
+#   include <boost/predef/detail/CATEGORY_detected.h>
+#endif
+----
+
+Everything else about the header is the same as the basic detection header.
+
+=== Adding an exclusive but emulated predef
+
+Because compilers are frequently emulated by other compilers we both want
+to have exclusive detection of the compiler and also provide information
+that we detected the emulation of the compiler. To accomplish this we define
+a local `*_DETECTION` macro for the compiler detection. And conditionally
+define either the base compiler predef `BOOST_COMP_compiler` or the alternate
+`BOOST_COMP_compiler_EMULATED` predef.
+
+The initial detection would look like:
+
+[source]
+----
+#if (condition_a)
+#   if (condition_b)
+#        define BOOST_COMP_tag_DETECTION BOOST_VERSION_NUMBER(major,minor,patch)
+#    else
+#        define BOOST_COMP_tag_DETECTION BOOST_VERSION_NUMBER_AVAILABLE
+#    endif
+#endif
+----
+
+And then we can conditionally define the base or emulated predefs:
+
+[source]
+----
+#ifdef BOOST_COMP_tag_DETECTION
+#   if defined(BOOST_PREDEF_DETAIL_COMP_DETECTED)
+#       define BOOST_COMP_tag_EMULATED BOOST_COMP_tag_DETECTION
+#   else
+#       undef BOOST_COMP_tag
+#       define BOOST_COMP_tag BOOST_COMP_tag_DETECTION
+#   endif
+#   define BOOST_category_tag_AVAILABLE
+#   include <boost/predef/detail/comp_detected.h>
+#endif
+----
+
+=== Using utility pattern macros
+
+By including:
+
+[source]
+----
+#include <boost/predef/make.h>
+----
+
+One will get a set of utility macros to decompose common version
+macros as defined by compilers. For example the EDG compiler
+uses a simple 3-digit version macro (M,N,P). It can be decomposed
+and defined as:
+
+[source]
+----
+#define BOOST_COMP_EDG BOOST_PREDEF_MAKE_N_N_N(__EDG_VERSION__)
+----
+
+The decomposition macros are split into three types: decimal
+decomposition, hexadecimal decomposition, and date decomposition.
+They follow the format of using "N" for decimal, "F" for hexadecimal,
+and "Y", "M", "D" for dates.
+
+
+
+== Reference
+
+=== `BOOST_ARCH` architecture macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/architecture/alpha.h[tag=reference]
+
+include::../include/boost/predef/architecture/arm.h[tag=reference]
+
+include::../include/boost/predef/architecture/blackfin.h[tag=reference]
+
+include::../include/boost/predef/architecture/convex.h[tag=reference]
+
+include::../include/boost/predef/architecture/e2k.h[tag=reference]
+
+include::../include/boost/predef/architecture/ia64.h[tag=reference]
+
+include::../include/boost/predef/architecture/m68k.h[tag=reference]
+
+include::../include/boost/predef/architecture/mips.h[tag=reference]
+
+include::../include/boost/predef/architecture/parisc.h[tag=reference]
+
+include::../include/boost/predef/architecture/ppc.h[tag=reference]
+
+include::../include/boost/predef/architecture/ptx.h[tag=reference]
+
+include::../include/boost/predef/architecture/pyramid.h[tag=reference]
+
+include::../include/boost/predef/architecture/riscv.h[tag=reference]
+
+include::../include/boost/predef/architecture/rs6k.h[tag=reference]
+
+include::../include/boost/predef/architecture/sparc.h[tag=reference]
+
+include::../include/boost/predef/architecture/superh.h[tag=reference]
+
+include::../include/boost/predef/architecture/sys370.h[tag=reference]
+
+include::../include/boost/predef/architecture/sys390.h[tag=reference]
+
+include::../include/boost/predef/architecture/x86.h[tag=reference]
+
+include::../include/boost/predef/architecture/z.h[tag=reference]
+
+include::../include/boost/predef/architecture/x86/32.h[tag=reference]
+
+include::../include/boost/predef/architecture/x86/64.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_COMP` compiler macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/compiler/borland.h[tag=reference]
+
+include::../include/boost/predef/compiler/clang.h[tag=reference]
+
+include::../include/boost/predef/compiler/comeau.h[tag=reference]
+
+include::../include/boost/predef/compiler/compaq.h[tag=reference]
+
+include::../include/boost/predef/compiler/diab.h[tag=reference]
+
+include::../include/boost/predef/compiler/digitalmars.h[tag=reference]
+
+include::../include/boost/predef/compiler/dignus.h[tag=reference]
+
+include::../include/boost/predef/compiler/edg.h[tag=reference]
+
+include::../include/boost/predef/compiler/ekopath.h[tag=reference]
+
+include::../include/boost/predef/compiler/gcc.h[tag=reference]
+
+include::../include/boost/predef/compiler/gcc_xml.h[tag=reference]
+
+include::../include/boost/predef/compiler/greenhills.h[tag=reference]
+
+include::../include/boost/predef/compiler/hp_acc.h[tag=reference]
+
+include::../include/boost/predef/compiler/iar.h[tag=reference]
+
+include::../include/boost/predef/compiler/ibm.h[tag=reference]
+
+include::../include/boost/predef/compiler/intel.h[tag=reference]
+
+include::../include/boost/predef/compiler/kai.h[tag=reference]
+
+include::../include/boost/predef/compiler/llvm.h[tag=reference]
+
+include::../include/boost/predef/compiler/metaware.h[tag=reference]
+
+include::../include/boost/predef/compiler/metrowerks.h[tag=reference]
+
+include::../include/boost/predef/compiler/microtec.h[tag=reference]
+
+include::../include/boost/predef/compiler/mpw.h[tag=reference]
+
+include::../include/boost/predef/compiler/nvcc.h[tag=reference]
+
+include::../include/boost/predef/compiler/palm.h[tag=reference]
+
+include::../include/boost/predef/compiler/pgi.h[tag=reference]
+
+include::../include/boost/predef/compiler/sgi_mipspro.h[tag=reference]
+
+include::../include/boost/predef/compiler/sunpro.h[tag=reference]
+
+include::../include/boost/predef/compiler/tendra.h[tag=reference]
+
+include::../include/boost/predef/compiler/visualc.h[tag=reference]
+
+include::../include/boost/predef/compiler/watcom.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_LANG` language standards macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/language/cuda.h[tag=reference]
+
+include::../include/boost/predef/language/objc.h[tag=reference]
+
+include::../include/boost/predef/language/stdc.h[tag=reference]
+
+include::../include/boost/predef/language/stdcpp.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_LIB` library macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/library/c/cloudabi.h[tag=reference]
+
+include::../include/boost/predef/library/c/gnu.h[tag=reference]
+
+include::../include/boost/predef/library/c/uc.h[tag=reference]
+
+include::../include/boost/predef/library/c/vms.h[tag=reference]
+
+include::../include/boost/predef/library/c/zos.h[tag=reference]
+
+include::../include/boost/predef/library/std/cxx.h[tag=reference]
+
+include::../include/boost/predef/library/std/dinkumware.h[tag=reference]
+
+include::../include/boost/predef/library/std/libcomo.h[tag=reference]
+
+include::../include/boost/predef/library/std/modena.h[tag=reference]
+
+include::../include/boost/predef/library/std/msl.h[tag=reference]
+
+include::../include/boost/predef/library/std/roguewave.h[tag=reference]
+
+include::../include/boost/predef/library/std/sgi.h[tag=reference]
+
+include::../include/boost/predef/library/std/stdcpp3.h[tag=reference]
+
+include::../include/boost/predef/library/std/stlport.h[tag=reference]
+
+include::../include/boost/predef/library/std/vacpp.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_OS` operating system macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/os/aix.h[tag=reference]
+
+include::../include/boost/predef/os/amigaos.h[tag=reference]
+
+include::../include/boost/predef/os/beos.h[tag=reference]
+
+include::../include/boost/predef/os/bsd.h[tag=reference]
+
+include::../include/boost/predef/os/cygwin.h[tag=reference]
+
+include::../include/boost/predef/os/haiku.h[tag=reference]
+
+include::../include/boost/predef/os/hpux.h[tag=reference]
+
+include::../include/boost/predef/os/ios.h[tag=reference]
+
+include::../include/boost/predef/os/irix.h[tag=reference]
+
+include::../include/boost/predef/os/linux.h[tag=reference]
+
+include::../include/boost/predef/os/macos.h[tag=reference]
+
+include::../include/boost/predef/os/os400.h[tag=reference]
+
+include::../include/boost/predef/os/qnxnto.h[tag=reference]
+
+include::../include/boost/predef/os/solaris.h[tag=reference]
+
+include::../include/boost/predef/os/unix.h[tag=reference]
+
+include::../include/boost/predef/os/vms.h[tag=reference]
+
+include::../include/boost/predef/os/windows.h[tag=reference]
+
+include::../include/boost/predef/os/bsd/bsdi.h[tag=reference]
+
+include::../include/boost/predef/os/bsd/dragonfly.h[tag=reference]
+
+include::../include/boost/predef/os/bsd/free.h[tag=reference]
+
+include::../include/boost/predef/os/bsd/net.h[tag=reference]
+
+include::../include/boost/predef/os/bsd/open.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_PLAT` platform macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/platform/android.h[tag=reference]
+
+include::../include/boost/predef/platform/cloudabi.h[tag=reference]
+
+include::../include/boost/predef/platform/ios.h[tag=reference]
+
+include::../include/boost/predef/platform/mingw.h[tag=reference]
+
+include::../include/boost/predef/platform/mingw32.h[tag=reference]
+
+include::../include/boost/predef/platform/mingw64.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_desktop.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_phone.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_runtime.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_server.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_store.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_system.h[tag=reference]
+
+include::../include/boost/predef/platform/windows_uwp.h[tag=reference]
+
+:leveloffset: -3
+
+=== `BOOST_HW` hardware macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/hardware/simd.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/arm.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/arm/versions.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/ppc.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/ppc/versions.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/x86.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/x86/versions.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/x86_amd.h[tag=reference]
+
+include::../include/boost/predef/hardware/simd/x86_amd/versions.h[tag=reference]
+
+:leveloffset: -3
+
+=== Other macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/other/endian.h[tag=reference]
+
+include::../include/boost/predef/other/wordsize.h[tag=reference]
+
+include::../include/boost/predef/other/workaround.h[tag=reference]
+
+:leveloffset: -3
+
+=== Version definition macros
+
+:leveloffset: +3
+
+include::../include/boost/predef/version_number.h[tag=reference]
+
+include::../include/boost/predef/make.h[tag=reference]
+
+:leveloffset: -3
+
+== Check Utilities
+
+The `predef_check` utility provides a facility for building a
+program that will check a given set of expressions against
+the definitions it detected when it was built.
+
+=== `predef_check` programs
+
+Even though there is only one `predef_check` program, there
+are variations for each of the languages that are detected
+by Predef to match the convention for sources files. For all
+of them one invokes with a list of expression arguments. The
+expressions are evaluated within the context of the particular
+`predef_check` program and if they all are true zero (0) is returned.
+Otherwise the index of the first false expression is returned.
+
+The expression syntax is simple:
+
+[source,jam]
+----
+predef-definition [ relational-operator version-value ]
+----
+
+_predef-definition_ can be any of the Predef definitions. For
+example `BOOST_COMP_GCC`.
+
+_relational-operator_ can be any of: `>`, `<`, `>=`, `<=`,
+`==` and `!=`.
+
+_version-number_ can be a full or partial version triplet value.
+If it's a partial version triple it is completed with zeros. That
+is `x.y` is equivalent to `x.y.0` and `x` is equivalent to
+`x.0.0`.
+
+The _relations-operator_ and _version-number_ can be omitted. In
+which case it is equivalent to:
+
+[source,jam]
+----
+predef-definition > 0.0.0
+----
+
+=== Using with Boost.Build
+
+You can use the `predef_check` programs directly from Boost Build
+to configure target requirements. This is useful for controlling
+what gets built as part of your project based on the detailed
+version information available in Predef. The basic use is simple:
+
+[source,jam]
+----
+import path-to-predef-src/tools/check/predef
+    : check require
+    : predef-check predef-require ;
+
+exe my_windows_program : windows_source.cpp
+    : [ predef-require "BOOST_OS_WINDOWS" ] ;
+----
+
+That simple use case will skip building the `my_windows_program`
+unless one is building for Windows. Like the direct `predef_check`
+you can pass multiple expressions using relational comparisons.
+For example:
+
+[source,jam]
+----
+import path-to-predef-src/tools/check/predef
+    : check require
+    : predef-check predef-require ;
+
+lib my_special_lib : source.cpp
+    : [ predef-require "BOOST_OS_WINDOWS != 0" "BOOST_OS_VMS != 0"] ;
+----
+
+And in that case the `my_special_lib` is built only when the OS is
+not Windows or VMS. The `requires` rule is a special case of the
+`check` rule. And is defined in terms of it:
+
+[source,jam]
+----
+rule require ( expressions + : language ? )
+{
+    return [ check $(expressions) : $(language) : : <build>no ] ;
+}
+----
+
+The expression can also use explicit "and", "or" logical operators
+to for more complex checks:
+
+
+[source,jam]
+----
+import path-to-predef-src/tools/check/predef
+    : check require
+    : predef-check predef-require ;
+
+lib my_special_lib : source.cpp
+    : [ predef-require "BOOST_OS_WINDOWS" or "BOOST_OS_VMS"] ;
+----
+
+You can use the `check` rule for more control and to implement
+something other than control of what gets built. The definition
+for the `check` rule is:
+
+[source,jam]
+----
+rule check ( expressions + : language ? : true-properties * : false-properties * )
+----
+
+When invoked as a requirement of a Boost Build target this rule
+will add the `true-properties` to the target if all the `expressions`
+evaluate to true. Otherwise the `false-properties` get added as
+requirements. For example you could use it to enable or disable
+features in your programs:
+
+[source,jam]
+----
+import path-to-predef-src/tools/check/predef
+    : check require
+    : predef-check predef-require ;
+
+exe my_special_exe : source.cpp
+    : [ predef-check "BOOST_OS_WINDOWS == 0"
+        : : <define>ENABLE_WMF=0
+        : <define>ENABLE_WMF=1 ] ;
+----
+
+For both `check` and `require` the `language` argument controls
+which variant of the `predef_check` program is used to check the
+expressions. It defaults to "c++", but can be any of: "c", "cpp",
+"objc", and "objcpp".
+
+
+:leveloffset: +1
+
+include::history.adoc[]
+
+include::todo.adoc[]
+
+:leveloffset: -1
+
+== Acknowledgements
+
+The comprehensiveness of this library would not be
+possible without the existence of the indispensable
+resource that is the
+http://sourceforge.net/p/predef/[Pre-defined C/{CPP} Compiler Macros]
+Project. It was, and continues to be, the primary source
+of the definitions that make up this library. Thanks
+to Bjorn Reese and all the volunteers that make that
+resource possible.
+
+This library would be an incoherent mess if it weren't for
+Boost community that provided invaluable feedback for the
+eight years that it took to polish into a useable form.
+In particular I would like to thank: Mathias Gaunard,
+Robert Stewart, Joël Lamotte, Lars Viklund, Nathan Ridge,
+Artyom Beilis, Joshua Boyce, Gottlob Frege, Thomas Heller,
+Edward Diener, Dave Abrahams, Iain Denniston, Dan Price,
+Ioannis Papadopoulos, and Robert Ramey. And thanks to
+Joel Falcou for managing the review of this library.
+
+[colophon]
+== Colophon
+
+Distributed under the Boost Software License, Version 1.0.
+(See accompanying file LICENSE_1_0.txt or copy at
+https://www.boost.org/LICENSE_1_0.txt)
+
+Copyright 2005-2021 René Ferdinand Rivera Morell; Copyright 2015 Charly Chevalier; Copyright 2015 Joel Falcou

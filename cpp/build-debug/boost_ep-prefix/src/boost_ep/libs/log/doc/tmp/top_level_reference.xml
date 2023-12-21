@@ -1,0 +1,144 @@
+<?xml version="1.0" standalone="yes"?>
+<library-reference id="top_level_headers"><title>Top level headers</title><header name="boost/log/attributes.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.07.2009</para>
+
+This header includes other Boost.Log headers with all attributes. </para></header>
+<header name="boost/log/common.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>14.03.2009</para>
+
+This header includes other Boost.Log headers that are commonly used in logging applications. Note that the header does not include any headers required to setup the library, as usually they aren't needed in more than one translation unit of the application. </para></header>
+<header name="boost/log/core.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>19.04.2007</para>
+
+This header includes Boost.Log headers related to the logging core. </para></header>
+<header name="boost/log/exceptions.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>31.10.2009</para>
+
+The header contains exception classes declarations. </para><namespace name="boost">
+<namespace name="log">
+<class name="bad_alloc"><inherit access="public">bad_alloc</inherit><purpose>Base class for memory allocation errors. </purpose><description><para>Exceptions derived from this class indicate problems with memory allocation. </para></description><method-group name="public member functions">
+<method name="what" cv="const"><type>const char *</type><description><para>Error message accessor. </para></description></method>
+</method-group>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>const char *</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="capacity_limit_reached"><inherit access="public">bad_alloc</inherit><purpose>The exception is used to indicate reaching a storage capacity limit. </purpose><method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>const char *</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="conversion_error"><inherit access="public">runtime_error</inherit><purpose>Exception class that is used to indicate conversion errors. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="invalid_type"><inherit access="public">runtime_error</inherit><purpose>Exception class that is used to indicate errors of incorrect type of an object. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="invalid_value"><inherit access="public">runtime_error</inherit><purpose>Exception class that is used to indicate errors of incorrect value of an object. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="limitation_error"><inherit access="public">logic_error</inherit><purpose>Exception class that is used to indicate library limitation. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="logic_error"><inherit access="public">logic_error</inherit><purpose>Base class for logic exceptions from the logging library. </purpose><description><para>Exceptions derived from this class usually indicate errors on the user's side, such as incorrect library usage. </para></description><method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="missing_value"><inherit access="public">runtime_error</inherit><purpose>Exception class that is used to indicate errors of missing values. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="odr_violation"><inherit access="public">logic_error</inherit><purpose>Exception class that is used to indicate ODR violation. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="parse_error"><inherit access="public">runtime_error</inherit><purpose>Exception class that is used to indicate parsing errors. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="runtime_error"><inherit access="public">runtime_error</inherit><purpose>Base class for runtime exceptions from the logging library. </purpose><description><para>Exceptions derived from this class indicate a problem that may not directly be caused by the user's code that interacts with the library, such as errors caused by input data. </para></description><method-group name="public member functions">
+</method-group>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="setup_error"><inherit access="public">logic_error</inherit><purpose>Exception class that is used to indicate invalid library setup. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="system_error"><inherit access="public">system_error</inherit><purpose>Exception class that is used to indicate underlying OS API errors. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><parameter name="code"><paramtype>boost::system::error_code</paramtype></parameter><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class><class name="unexpected_call"><inherit access="public">logic_error</inherit><purpose>Exception class that is used to indicate invalid call sequence. </purpose><method-group name="public member functions">
+</method-group>
+<constructor><description><para>Default constructor. Creates an exception with the default error message. </para></description></constructor>
+<constructor specifiers="explicit"><parameter name="descr"><paramtype>std::string const &amp;</paramtype></parameter><description><para>Initializing constructor. Creates an exception with the specified error message. </para></description></constructor>
+<destructor><description><para>Destructor </para></description></destructor>
+</class></namespace>
+</namespace>
+</header>
+<header name="boost/log/expressions.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>10.11.2012</para>
+
+This header includes other Boost.Log headers with all template expression tools. </para></header>
+<header name="boost/log/sinks.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>13.07.2009</para>
+
+This header includes other Boost.Log headers with all sinks. </para></header>
+<header name="boost/log/trivial.hpp">
+<para><para>Andrey Semashev </para>
+
+<para>07.11.2009</para>
+
+This header defines tools for trivial logging support </para><namespace name="boost">
+<namespace name="log">
+<namespace name="trivial">
+<struct name="logger"><purpose>Trivial logger tag. </purpose><description><para>This tag can be used to acquire the logger that is used with trivial logging macros. This may be useful when the logger is used with other macros which require a logger. </para></description><typedef name="logger_type"><purpose>Logger type. </purpose><type>trivial::logger_type</type></typedef>
+<method-group name="public static functions">
+<method name="get" specifiers="static"><type>logger_type &amp;</type><description><para>Returns a reference to the trivial logger instance </para></description></method>
+</method-group>
+</struct><enum name="severity_level"><enumvalue name="trace"/><enumvalue name="debug"/><enumvalue name="info"/><enumvalue name="warning"/><enumvalue name="error"/><enumvalue name="fatal"/><purpose>Trivial severity levels. </purpose></enum>
+<typedef name="logger_type"><purpose>Trivial logger type. </purpose><type>sources::severity_logger_mt&lt; severity_level &gt;</type></typedef>
+<function name="to_string"><type>const CharT *</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="lvl"><paramtype>severity_level</paramtype></parameter><purpose>Returns stringized enumeration value or <computeroutput>NULL</computeroutput>, if the value is not valid. </purpose></function>
+<function name="from_string"><type>bool</type><template>
+          <template-type-parameter name="CharT"/>
+        </template><parameter name="str"><paramtype>const CharT *</paramtype></parameter><parameter name="len"><paramtype>std::size_t</paramtype></parameter><parameter name="lvl"><paramtype>severity_level &amp;</paramtype></parameter><purpose>Parses enumeration value from string and returns <computeroutput>true</computeroutput> on success and <computeroutput>false</computeroutput> otherwise. </purpose></function>
+<function name="operator&lt;&lt;"><type>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="TraitsT"/>
+        </template><parameter name="strm"><paramtype>std::basic_ostream&lt; CharT, TraitsT &gt; &amp;</paramtype></parameter><parameter name="lvl"><paramtype>severity_level</paramtype></parameter><purpose>Outputs stringized representation of the severity level to the stream. </purpose></function>
+<function name="operator&gt;&gt;"><type>std::basic_istream&lt; CharT, TraitsT &gt; &amp;</type><template>
+          <template-type-parameter name="CharT"/>
+          <template-type-parameter name="TraitsT"/>
+        </template><parameter name="strm"><paramtype>std::basic_istream&lt; CharT, TraitsT &gt; &amp;</paramtype></parameter><parameter name="lvl"><paramtype>severity_level &amp;</paramtype></parameter><purpose>Reads stringized representation of the severity level from the stream. </purpose></function>
+</namespace>
+</namespace>
+</namespace>
+<macro name="BOOST_LOG_TRIVIAL" kind="functionlike"><macro-parameter name="lvl"/><description><para>The macro is used to initiate logging. The <computeroutput>lvl</computeroutput> argument of the macro specifies one of the following severity levels: <computeroutput>trace</computeroutput>, <computeroutput>debug</computeroutput>, <computeroutput>info</computeroutput>, <computeroutput>warning</computeroutput>, <computeroutput>error</computeroutput> or <computeroutput>fatal</computeroutput> (see <computeroutput>severity_level</computeroutput> enum). Following the macro, there may be a streaming expression that composes the record message string. For example:</para><para><programlisting language="c++">BOOST_LOG_TRIVIAL(info) &lt;&lt; "Hello, world!";
+</programlisting> </para></description></macro>
+</header>
+</library-reference>

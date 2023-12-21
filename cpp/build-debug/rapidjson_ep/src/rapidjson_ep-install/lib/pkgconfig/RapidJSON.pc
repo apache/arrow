@@ -1,0 +1,7 @@
+includedir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/rapidjson_ep/src/rapidjson_ep-install/include
+
+Name: RapidJSON
+Description: A fast JSON parser/generator for C++ with both SAX/DOM style API
+Version: 1.1.0
+URL: https://github.com/Tencent/rapidjson
+Cflags: -I${includedir}

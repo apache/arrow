@@ -1,0 +1,58 @@
+digraph {
+	compound=true
+	fontname="Inconsolata, Consolas"
+	fontsize=10
+	margin="0,0"
+	ranksep=0.2
+	penwidth=0.5
+	
+	node [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+	edge [fontname="Inconsolata, Consolas", fontsize=10]
+
+	subgraph cluster1 {
+		margin="10,10"
+		labeljust="left"
+		label = "Document"
+		style=filled
+		fillcolor=gray95
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+		
+		root [label="{object|}", fillcolor=3]
+
+		{			
+			hello [label="{string|\"hello\"}", fillcolor=5]
+			t [label="{string|\"t\"}", fillcolor=5]
+			f [label="{string|\"f\"}", fillcolor=5]
+			n [label="{string|\"n\"}", fillcolor=5]
+			i [label="{string|\"i\"}", fillcolor=5]
+			pi [label="{string|\"pi\"}", fillcolor=5]
+			a [label="{string|\"a\"}", fillcolor=5]
+
+			world [label="{string|\"world\"}", fillcolor=5]
+			true [label="{true|}", fillcolor=7]
+			false [label="{false|}", fillcolor=2]
+			null [label="{null|}", fillcolor=1]
+			i1 [label="{number|123}", fillcolor=6]
+			pi1 [label="{number|3.1416}", fillcolor=6]
+			array [label="{array|size=4}", fillcolor=4]
+
+			a1 [label="{number|1}", fillcolor=6]
+			a2 [label="{number|2}", fillcolor=6]
+			a3 [label="{number|3}", fillcolor=6]
+			a4 [label="{number|4}", fillcolor=6]
+		}
+
+		edge [arrowhead=vee]
+		root -> { hello; t; f; n; i; pi; a }		
+		array -> { a1; a2; a3; a4 }
+
+		edge [arrowhead=none]
+		hello -> world
+		t -> true
+		f -> false
+		n -> null
+		i -> i1
+		pi -> pi1
+		a -> array
+	}
+}

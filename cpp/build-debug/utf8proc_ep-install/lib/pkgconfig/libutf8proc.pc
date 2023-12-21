@@ -1,0 +1,10 @@
+prefix=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/utf8proc_ep-install
+exec_prefix=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/utf8proc_ep-install/bin
+libdir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/utf8proc_ep-install/lib
+includedir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/utf8proc_ep-install/include
+
+Name: libutf8proc
+Description: UTF8 processing
+Version: 2.7.0
+Libs: -L${libdir} -lutf8proc
+Cflags: -I${includedir} -DUTF8PROC_EXPORTS

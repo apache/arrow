@@ -1,0 +1,8 @@
+prefix=/Users/simon/Desktop/arrow/arrowSF/cpp/build-release/xsimd_ep/src/xsimd_ep-install
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: xsimd
+Description: xsimd provides a unified means for using SIMD features for library authors..
+Version: 9.0.1
+Cflags: -I${includedir}

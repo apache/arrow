@@ -1,0 +1,145 @@
+////
+Copyright 2014-2021 René Ferdinand Rivera Morell
+Distributed under the Boost Software License, Version 1.0.
+(See accompanying file LICENSE_1_0.txt or copy at
+http://www.boost.org/LICENSE_1_0.txt)
+////
+
+= History
+
+== 1.14.0
+
+* Add detection of LoongArch (from Zhang Na).
+
+== 1.13.1
+
+* Fix spelling of "epoch".
+* Add missing parenthesis in `sparc.h` (from tkoecker).
+* Update documentation to use Rouge code styling and Amber general style.
+
+== 1.13
+
+* Add `ARCH_PPC_64` predef.
+* Fix `ARCH_WORD_BITS*` redefinition warnings/errors.
+* Add `ARCH_E2K`, Elbrus 2000, architecture from Konstantin Ivlev.
+* Fix not handling recent C++ version that go above 10.x version.
+
+== 1.12
+
+* Switch to using the endian.h header on OpenBSD. (Brad Smith)
+* Fix not handling recent versions of stdcxx that go above version 9.
+* Fix including sub-BSD OS headers directly causing redef warnings.
+* Add CI testing of direct inclusion of all headers.
+* Add CI testing on FreeBSD for clang and gcc.
+* Add `WORD_BITS` set of predefs to detect the architecture word size.
+  Initial implementation inspired by submission from Mikhail Komarov.
+* Add CI testing for Cygwin 32 and 64.
+
+== 1.11
+
+* Add `BOOST_ARCH_RISCV`. (from Andreas Schwab)
+* Add RISC-V endian detection. (from Thomas Petazzoni)
+* Convert documentation to AsciiDoctor format.
+* Document correct versions for C++ standard.
+* Fix compile error from not available header when building in WinCE.
+* Remove deprecated `BOOST_OS_ANDROID`.
+* Fix compile for Wine. (Kevin Puetz)
+
+== 1.10
+
+* Fix bad include of sub-BSD os headers from main BSD header.
+* Fix use of deprecated `TARGET_IPHONE_SIMULATOR` instead of newer
+  `TARGET_OS_SIMULATOR`.
+* Add `BOOST_PLAT_ANDROID` to resolve conflict between Linux and Android
+  OS predefs. The `BOOST_OS_ANDROID` predef is now deprecated and will be
+  removed in a future release.
+* Add support for consuming Predef as a CMake project.
+* Add support for consuming Predef as a standalone B2 project.
+
+== 1.9
+
+* Fixes for `BOOST_COMP_NVCC*` predefs. (from Benjamin Worpitz)
+* Add specific version information for Cygwin OS predef. (from James E. King III)
+
+== 1.8
+
+* Add support for __ARM_ARCH macro. (from Tim Blechmann)
+* Add detection for PTX architecture. (from Benjamin Worpitz)
+* Add nvcc compiler detection. (from Benjamin Worpitz)
+* Add support for detecting CUDA. (from Benjamin Worpitz)
+* Remove reference to obsolete BOOST_ARCH_AMD64. (from Peter Kolbus)
+
+== 1.7
+
+* Fix BOOST_ARCH_PARISK/BOOST_ARCH_PARISC typo.
+* Improved Windows Universal Platform detection. (from James E. King, III)
+* Add detection for CloudABI with cloudlibc. (from James E. King, III)
+
+== 1.6
+
+* Fix Intel C/{CPP} version 9999 detection to be 12.1.0.
+* Addition of `BOOST_PREDEF_WORKAROUND` and `BOOST_PREDEF_TESTED_AT` macros
+  for defect workarounds and detection.
+* Add ARM64 MSVC SIMD detection. (from Minmin Gong)
+* Add detection of iOS simulator vs device as a platform choice. (from Ruslan
+  Baratov)
+* Fix MinGW incorrect header guard. (from Ruslan Baratov)
+
+== 1.5
+
+* Fix Intel C/{CPP} compiler version specification.
+* Add `BOOST_VERSION_NUMBER_MAJOR`, `BOOST_VERSION_NUMBER_MINOR`,
+  `BOOST_VERSION_NUMBER_PATCH` macros to extract components from valid version
+  numbers.
+* Change VS version numbering. Version after VS2015 will use the compiler
+  version instead of the varied product versions.
+
+== 1.4.1
+
+* Small fixes for some redefinition errors, and mispelled macros.
+* Slightly rearrangement of structure to comply with current library requirements.
+
+== 1.4
+
+* Add detection of SIMD hardware. With the addition of the `BOOST_HW_*`
+  category (from Charly Chevalier).
+* Add compile only version of check utilities to address cross-compile
+  use cases. And changed the BBv2 check support to use compile only checks.
+* Fix test warnings.
+* Fix typos on `AVAILABLE` macros for Windows Platform. (from Vemund Handeland)
+
+== 1.3
+
+* Fix many problems with `predef_check` functionality.
+* Update SunPro detection to accommodate latest version of compiler from Oracle.
+* Addition of Travis-CI and Appveyor testing.
+* Add `and` and `or` logical operators for `predef_check` expression on the Boost Build side.
+* Fix `BOOST_ARCH_PARISC` to correctly spelled name (from Graham Hanson).
+* Fix `MAKE_YYYYM` macros to correctly limit the month (from rick68).
+
+== 1.2
+
+* Account for skip in Visual Studio product version vs. compiler version.
+  This supports version of VS 2015 an onward.
+* Add detection of Haiku OS (from Jessica Hamilton).
+* Some fixes to endian detection for Android (from mstahl-at-redhat.com).
+* Add missing `BOOST_PREDEF_MAKE_0X_VVRRPP` macro (from Erik Lindahl).
+* Add `predef_check` program and BBv2 integration for build configuration
+  checks.
+
+== 1.1
+
+* Addition of `BOOST_PLAT_*` platform definitions for MinGW and
+  Windows platform variants.
+* Detection of ARM architecture for Windows compilers to target
+  mobile devices of Windows 8.
+* Improved ARM detection for 64 bit ARM.
+* Added detection of iOS an an operating system.
+* Improved detection of endianess on some platforms.
+* Addition of exclusive plus emulated definitions for platform
+  and compiler detection.
+
+WARNING: The big change for this version is the restructuring of the
+definitions to avoid duplicate definitions in one category. That is, only one
+`BOOST_OS_*`, `BOOST_COMP_*`, and `BOOST_PLAT_*` variant will be detected
+(except for sub-categories).

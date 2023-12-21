@@ -1,0 +1,12 @@
+# This is a generated file and its contents are an internal implementation detail.
+# The download step will be re-executed if anything in this file changes.
+# No other meaning or use of this file is supported.
+
+method=url
+command=/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src/gflags_ep-stamp/download-gflags_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src/gflags_ep-stamp/verify-gflags_ep.cmake;COMMAND;/opt/homebrew/Cellar/cmake/3.28.0/bin/cmake;-P;/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src/gflags_ep-stamp/extract-gflags_ep.cmake
+source_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src/gflags_ep
+work_dir=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src
+url(s)=https://github.com/gflags/gflags/archive/v2.2.2.tar.gz;https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/gflags-v2.2.2.tar.gz
+hash=SHA256=34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf
+no_extract=
+

@@ -1,0 +1,50 @@
+#
+#          Copyright Andrey Semashev 2007 - 2015.
+# Distributed under the Boost Software License, Version 1.0.
+#    (See accompanying file LICENSE_1_0.txt or copy at
+#          http://www.boost.org/LICENSE_1_0.txt)
+#
+
+import ../../build/log-platform-config ;
+
+project
+    : requirements
+        <conditional>@log-platform-config.set-platform-defines
+
+        <link>shared:<define>BOOST_ALL_DYN_LINK
+
+        <c++-template-depth>1024
+
+        <toolset>msvc:<cxxflags>/bigobj
+        <toolset>msvc:<cxxflags>/wd4503 # decorated name length exceeded, name was truncated
+        <toolset>msvc:<cxxflags>/wd4456 # declaration of 'A' hides previous local declaration
+        <toolset>msvc:<cxxflags>/wd4459 # declaration of 'A' hides global declaration
+        <toolset>msvc:<cxxflags>/wd4003 # not enough actual parameters for macro 'X' - caused by BOOST_PP_IS_EMPTY and BOOST_PP_IS_BEGIN_PARENS which are used by Fusion
+        <toolset>gcc:<cxxflags>-fno-strict-aliasing  # avoids strict aliasing violations in other Boost components
+
+        # Disable Intel warnings:
+        # warning #177: function "X" was declared but never referenced
+        # warning #780: using-declaration ignored -- it refers to the current namespace
+        # warning #2196: routine is both "inline" and "noinline"
+        # remark #1782: #pragma once is obsolete. Use #ifndef guard instead.
+        # remark #193: zero used for undefined preprocessing identifier "X"
+        # remark #304: access control not specified ("public" by default)
+        # remark #981: operands are evaluated in unspecified order
+        # remark #1418: external function definition with no prior declaration
+        # Mostly comes from Boost.Phoenix: warning #411: class "X" defines no constructor to initialize the following: reference member "Y"...
+        # warning #734: "X" (declared at line N of "file.hpp"), required for copy that was eliminated, is inaccessible
+        # warning #279: controlling expression is constant
+        <toolset>intel-win:<cxxflags>"/Qwd177,780,2196,1782,193,304,981,1418,411,734,279"
+        <toolset>intel-linux:<cxxflags>"-wd177,780,2196,1782,193,304,981,1418,411,734,279"
+        <toolset>intel-darwin:<cxxflags>"-wd177,780,2196,1782,193,304,981,1418,411,734,279"
+
+        <library>/boost/log//boost_log
+        <library>/boost/date_time//boost_date_time
+        <library>/boost/filesystem//boost_filesystem
+        <library>/boost/thread//boost_thread
+        <threading>multi
+    ;
+
+exe bounded_async_log
+    : main.cpp
+    ;

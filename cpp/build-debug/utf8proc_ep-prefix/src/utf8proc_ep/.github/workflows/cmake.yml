@@ -1,0 +1,64 @@
+name: CMake
+
+on:
+  push:
+    branches:
+      - master
+      - 'release-*'
+  pull_request:
+  # run on all pr
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        shared: ["ON", "OFF"]
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} - shared=${{ matrix.shared }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: |
+        mkdir build
+        cmake -S . -B build -DBUILD_SHARED_LIBS=${{ matrix.shared }} -DUTF8PROC_ENABLE_TESTING=ON
+        cmake --build build
+    - name: Run Test
+      run: ctest --test-dir build -V
+    - name: Upload shared lib
+      if: matrix.shared == 'ON'
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.os }}
+        path: |
+          build/libutf8proc.*
+          build/Debug/utf8proc.*
+
+  mingw:
+    strategy:
+      matrix:
+        os: [windows-latest]
+        shared: ["ON", "OFF"]
+    runs-on: ${{ matrix.os }}
+    name: mingw64 - shared=${{ matrix.shared }}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: msys2/setup-msys2@v2
+      with:
+        install: gcc make mingw-w64-x86_64-cmake
+    - name: Build
+      run: |
+        mkdir build
+        cmake -S . -B build -DBUILD_SHARED_LIBS=${{ matrix.shared }} -DUTF8PROC_ENABLE_TESTING=ON -G'MSYS Makefiles'
+        cmake --build build
+    - name: Run Test
+      run: ctest --test-dir build -V
+    - name: Upload shared lib
+      if: matrix.shared == 'ON'
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows-mingw64
+        path: build/libutf8proc.*

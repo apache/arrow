@@ -1,0 +1,56 @@
+digraph {
+	compound=true
+	fontname="Inconsolata, Consolas"
+	fontsize=10
+	margin="0,0"
+	ranksep=0.2
+	penwidth=0.5
+	
+	node [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+	edge [fontname="Inconsolata, Consolas", fontsize=10, arrowhead=normal]
+
+	{
+		node [shape=record, fontsize="8", margin="0.04", height=0.2, color=gray]
+		normaljson [label="\{|\"|m|s|g|\"|:|\"|H|e|l|l|o|\\|n|W|o|r|l|d|!|\"|,|\"|\\|u|0|0|7|3|t|a|r|s\"|:|1|0|\}"]
+
+		{
+			rank = same
+			msgstring  [label="m|s|g|\\0"]
+			helloworldstring  [label="H|e|l|l|o|\\n|W|o|r|l|d|!|\\0"]
+			starsstring [label="s|t|a|r|s\\0"]
+		}
+	}
+
+	subgraph cluster1 {
+		margin="10,10"
+		labeljust="left"
+		label = "Document by Normal Parsing"
+		style=filled
+		fillcolor=gray95
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+		
+		root [label="{object|}", fillcolor=3]
+
+		{			
+			msg [label="{string|<a>}", fillcolor=5]
+			helloworld [label="{string|<a>}", fillcolor=5]
+			stars [label="{string|<a>}", fillcolor=5]
+			ten [label="{number|10}", fillcolor=6]
+		}
+	}
+
+	normaljson -> root [label=" Parse()" lhead="cluster1"]
+	edge [arrowhead=vee]
+	root -> { msg; stars }
+
+	edge [arrowhead="none"]
+	msg  -> helloworld
+	stars -> ten
+
+	edge [arrowhead=vee, arrowtail=dot, arrowsize=0.5, dir=both, tailclip=false]
+	msg:a:c -> msgstring:w
+	helloworld:a:c -> helloworldstring:w
+	stars:a:c -> starsstring:w
+
+	msgstring -> helloworldstring -> starsstring [style=invis]
+}

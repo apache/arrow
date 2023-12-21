@@ -1,0 +1,24 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_support_date_time_hpp[][headerref boost/log/support/date_time.hpp]]
+
+[template boost_log_support_exception_hpp[][headerref boost/log/support/exception.hpp]]
+
+[template boost_log_support_regex_hpp[][headerref boost/log/support/regex.hpp]]
+
+[template boost_log_support_spirit_classic_hpp[][headerref boost/log/support/spirit_classic.hpp]]
+
+[template boost_log_support_spirit_qi_hpp[][headerref boost/log/support/spirit_qi.hpp]]
+
+[template boost_log_support_std_regex_hpp[][headerref boost/log/support/std_regex.hpp]]
+
+[template boost_log_support_xpressive_hpp[][headerref boost/log/support/xpressive.hpp]]

@@ -1,0 +1,25 @@
+#
+#          Copyright Andrey Semashev 2007 - 2014.
+# Distributed under the Boost Software License, Version 1.0.
+#    (See accompanying file LICENSE_1_0.txt or copy at
+#          http://www.boost.org/LICENSE_1_0.txt)
+#
+
+[Core]
+
+Filter="%Severity% >= debug"
+
+
+[Sinks.1]
+
+Destination=Console
+Format="%TimeStamp% [%Severity%] *** %Message%"
+Filter="%Tag% | %Severity% > info"
+
+
+[Sinks.2]
+
+Destination=TextFile
+FileName=test.log
+AutoFlush=true
+Format="[%TimeStamp%] [%Severity%] [%Tag%] %Message%"

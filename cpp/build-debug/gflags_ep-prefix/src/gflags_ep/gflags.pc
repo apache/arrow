@@ -1,0 +1,14 @@
+prefix=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/gflags_ep-prefix/src/gflags_ep
+exec_prefix=${prefix}
+bindir=${prefix}/bin
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: gflags
+Version: 2.2.2
+Description: A commandline flags library that allows for distributed flags.
+URL: http://gflags.github.io/gflags
+Requires:
+Libs: -L${libdir} -lgflags
+Libs.private: -lpthread 
+Cflags: -I${includedir}

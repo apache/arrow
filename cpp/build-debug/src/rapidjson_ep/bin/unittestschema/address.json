@@ -1,0 +1,139 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "$ref": "#/definitions/decimal_type"
+    },
+    "address": {
+      "$ref": "#/definitions/address_type"
+    },
+    "phones": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/phone_type"
+      }
+    },
+    "names": {
+      "type": "array",
+      "items": [
+        { "type": "string" },
+        { "type": "string" }
+      ],
+      "additionalItems": false
+    },
+    "extra": {
+      "type": "object",
+      "patternProperties": {
+        "^S_": { "type": "string" }
+      }
+    },
+    "gender": {
+      "type": "string",
+      "enum": ["M", "F"]
+    }
+  },
+  "additionalProperties": false,
+  "dependencies": {
+    "address": [ "version" ],
+    "names": {
+      "properties": {
+        "version": { "$ref": "#/definitions/decimal_type" }
+      },
+      "required": ["version"]
+    }
+  },
+  "definitions": {
+    "address_type": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "$ref": "#/definitions/positiveInt_type"
+        },
+        "street1": {
+          "type": "string"
+        },
+        "street2": {
+          "type": ["string", "null"]
+        },
+        "street3": {
+          "not": { "type": ["boolean", "number", ",integer", "object", "null"] }
+        },
+        "city": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 4
+        },
+        "area": {
+          "oneOf": [
+            { "$ref": "#/definitions/county_type" },
+            { "$ref": "#/definitions/province_type" }
+          ]
+        },
+        "country": {
+          "allOf": [
+            { "$ref": "#/definitions/country_type" }
+          ]
+        },
+        "postcode": {
+          "anyOf": [
+            { "type": "string", "pattern": "^[A-Z]{2}[0-9]{1,2} [0-9][A-Z]{2}$" },
+            { "type": "string", "pattern": "^[0-9]{5}$" }
+          ]
+        }
+      },
+      "minProperties": 7,
+      "required": [
+        "number",
+        "street1",
+        "city"
+      ]
+    },
+    "country_type": {
+      "type": "string",
+      "enum": ["UK", "Canada"]
+    },
+    "county_type": {
+      "type": "string",
+      "enum": ["Sussex", "Surrey", "Kent"]
+    },
+    "province_type": {
+      "type": "string",
+      "enum": ["Quebec", "BC", "Alberta"]
+    },
+    "date_type": {
+      "pattern": "^([0-9]([0-9]([0-9][1-9]|[1-9]0)|[1-9]00)|[1-9]000)(-(0[1-9]|1[0-2])(-(0[1-9]|[1-2][0-9]|3[0-1]))?)?$",
+      "type": "string"
+    },
+    "positiveInt_type": {
+      "minimum": 0,
+      "exclusiveMinimum": true,
+      "maximum": 100,
+      "exclusiveMaximum": true,
+      "type": "integer"
+    },
+    "decimal_type": {
+      "multipleOf": 1.0,
+      "type": "number"
+    },
+    "time_type": {
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)(\\.[0-9]+)?$",
+      "type": "string"
+    },
+    "unsignedInt_type": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99999
+    },
+    "phone_type": {
+      "pattern": "^[0-9]*-[0-9]*",
+      "type": "string"
+    },
+    "url_type": {
+      "pattern": "^\\S*$",
+      "type": "string"
+    }
+  }
+}

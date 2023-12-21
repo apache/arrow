@@ -1,0 +1,158 @@
+[/
+              Copyright Andrey Semashev 2007 - 2020.
+     Distributed under the Boost Software License, Version 1.0.
+        (See accompanying file LICENSE_1_0.txt or copy at
+              http://www.boost.org/LICENSE_1_0.txt)
+
+    This document is a part of Boost.Log library documentation.
+
+     This document was automatically generated,  DO NOT EDIT!
+/]
+
+[template boost_log_sinks_async_frontend_hpp[][headerref boost/log/sinks/async_frontend.hpp]]
+
+[template class_sinks_asynchronous_sink[][classref boost::log::sinks::asynchronous_sink asynchronous_sink]]
+
+[template class_sinks_asynchronous_sink_run_func[][classref boost::log::sinks::asynchronous_sink::run_func run_func]]
+
+[template class_sinks_asynchronous_sink_scoped_feeding_opereation[][classref boost::log::sinks::asynchronous_sink::scoped_feeding_opereation scoped_feeding_opereation]]
+
+[template class_sinks_asynchronous_sink_scoped_flag[][classref boost::log::sinks::asynchronous_sink::scoped_flag scoped_flag]]
+
+[template boost_log_sinks_attribute_mapping_hpp[][headerref boost/log/sinks/attribute_mapping.hpp]]
+
+[template class_sinks_basic_custom_mapping[][classref boost::log::sinks::basic_custom_mapping basic_custom_mapping]]
+
+[template class_sinks_basic_direct_mapping[][classref boost::log::sinks::basic_direct_mapping basic_direct_mapping]]
+
+[template class_sinks_basic_mapping[][classref boost::log::sinks::basic_mapping basic_mapping]]
+
+[template boost_log_sinks_auto_newline_mode_hpp[][headerref boost/log/sinks/auto_newline_mode.hpp]]
+
+[template boost_log_sinks_basic_sink_backend_hpp[][headerref boost/log/sinks/basic_sink_backend.hpp]]
+
+[template class_sinks_basic_formatted_sink_backend[][classref boost::log::sinks::basic_formatted_sink_backend basic_formatted_sink_backend]]
+
+[template class_sinks_basic_sink_backend[][classref boost::log::sinks::basic_sink_backend basic_sink_backend]]
+
+[template boost_log_sinks_basic_sink_frontend_hpp[][headerref boost/log/sinks/basic_sink_frontend.hpp]]
+
+[template class_sinks_basic_formatting_sink_frontend[][classref boost::log::sinks::basic_formatting_sink_frontend basic_formatting_sink_frontend]]
+
+[template class_sinks_basic_formatting_sink_frontend_formatting_context[][classref boost::log::sinks::basic_formatting_sink_frontend::formatting_context formatting_context]]
+
+[template class_sinks_basic_formatting_sink_frontend_formatting_context_cleanup_guard[][classref boost::log::sinks::basic_formatting_sink_frontend::formatting_context::cleanup_guard cleanup_guard]]
+
+[template class_sinks_basic_sink_frontend[][classref boost::log::sinks::basic_sink_frontend basic_sink_frontend]]
+
+[template boost_log_sinks_block_on_overflow_hpp[][headerref boost/log/sinks/block_on_overflow.hpp]]
+
+[template class_sinks_block_on_overflow[][classref boost::log::sinks::block_on_overflow block_on_overflow]]
+
+[template boost_log_sinks_bounded_fifo_queue_hpp[][headerref boost/log/sinks/bounded_fifo_queue.hpp]]
+
+[template class_sinks_bounded_fifo_queue[][classref boost::log::sinks::bounded_fifo_queue bounded_fifo_queue]]
+
+[template boost_log_sinks_bounded_ordering_queue_hpp[][headerref boost/log/sinks/bounded_ordering_queue.hpp]]
+
+[template class_sinks_bounded_ordering_queue[][classref boost::log::sinks::bounded_ordering_queue bounded_ordering_queue]]
+
+[template boost_log_sinks_debug_output_backend_hpp[][headerref boost/log/sinks/debug_output_backend.hpp]]
+
+[template class_sinks_basic_debug_output_backend[][classref boost::log::sinks::basic_debug_output_backend basic_debug_output_backend]]
+
+[template boost_log_sinks_drop_on_overflow_hpp[][headerref boost/log/sinks/drop_on_overflow.hpp]]
+
+[template class_sinks_drop_on_overflow[][classref boost::log::sinks::drop_on_overflow drop_on_overflow]]
+
+[template boost_log_sinks_event_log_backend_hpp[][headerref boost/log/sinks/event_log_backend.hpp]]
+
+[template class_sinks_basic_event_log_backend[][classref boost::log::sinks::basic_event_log_backend basic_event_log_backend]]
+
+[template class_sinks_basic_simple_event_log_backend[][classref boost::log::sinks::basic_simple_event_log_backend basic_simple_event_log_backend]]
+
+[template class_event_log_basic_event_composer[][classref boost::log::sinks::event_log::basic_event_composer basic_event_composer]]
+
+[template class_event_log_custom_event_category_mapping[][classref boost::log::sinks::event_log::custom_event_category_mapping custom_event_category_mapping]]
+
+[template class_event_log_custom_event_id_mapping[][classref boost::log::sinks::event_log::custom_event_id_mapping custom_event_id_mapping]]
+
+[template class_event_log_custom_event_type_mapping[][classref boost::log::sinks::event_log::custom_event_type_mapping custom_event_type_mapping]]
+
+[template class_event_log_direct_event_category_mapping[][classref boost::log::sinks::event_log::direct_event_category_mapping direct_event_category_mapping]]
+
+[template class_event_log_direct_event_id_mapping[][classref boost::log::sinks::event_log::direct_event_id_mapping direct_event_id_mapping]]
+
+[template class_event_log_direct_event_type_mapping[][classref boost::log::sinks::event_log::direct_event_type_mapping direct_event_type_mapping]]
+
+[template boost_log_sinks_event_log_constants_hpp[][headerref boost/log/sinks/event_log_constants.hpp]]
+
+[template boost_log_sinks_frontend_requirements_hpp[][headerref boost/log/sinks/frontend_requirements.hpp]]
+
+[template class_sinks_combine_requirements[][classref boost::log::sinks::combine_requirements combine_requirements]]
+
+[template class_sinks_concurrent_feeding[][classref boost::log::sinks::concurrent_feeding concurrent_feeding]]
+
+[template class_sinks_flushing[][classref boost::log::sinks::flushing flushing]]
+
+[template class_sinks_formatted_records[][classref boost::log::sinks::formatted_records formatted_records]]
+
+[template class_sinks_has_requirement[][classref boost::log::sinks::has_requirement has_requirement]]
+
+[template class_sinks_synchronized_feeding[][classref boost::log::sinks::synchronized_feeding synchronized_feeding]]
+
+[template boost_log_sinks_sink_hpp[][headerref boost/log/sinks/sink.hpp]]
+
+[template class_sinks_sink[][classref boost::log::sinks::sink sink]]
+
+[template boost_log_sinks_sync_frontend_hpp[][headerref boost/log/sinks/sync_frontend.hpp]]
+
+[template class_sinks_synchronous_sink[][classref boost::log::sinks::synchronous_sink synchronous_sink]]
+
+[template boost_log_sinks_syslog_backend_hpp[][headerref boost/log/sinks/syslog_backend.hpp]]
+
+[template class_sinks_syslog_backend[][classref boost::log::sinks::syslog_backend syslog_backend]]
+
+[template class_syslog_custom_severity_mapping[][classref boost::log::sinks::syslog::custom_severity_mapping custom_severity_mapping]]
+
+[template class_syslog_direct_severity_mapping[][classref boost::log::sinks::syslog::direct_severity_mapping direct_severity_mapping]]
+
+[template boost_log_sinks_syslog_constants_hpp[][headerref boost/log/sinks/syslog_constants.hpp]]
+
+[template boost_log_sinks_text_file_backend_hpp[][headerref boost/log/sinks/text_file_backend.hpp]]
+
+[template class_sinks_text_file_backend[][classref boost::log::sinks::text_file_backend text_file_backend]]
+
+[template class_file_collector[][classref boost::log::sinks::file::collector collector]]
+
+[template class_file_rotation_at_time_interval[][classref boost::log::sinks::file::rotation_at_time_interval rotation_at_time_interval]]
+
+[template class_file_rotation_at_time_point[][classref boost::log::sinks::file::rotation_at_time_point rotation_at_time_point]]
+
+[template class_file_scan_result[][classref boost::log::sinks::file::scan_result scan_result]]
+
+[template boost_log_sinks_text_ipc_message_queue_backend_hpp[][headerref boost/log/sinks/text_ipc_message_queue_backend.hpp]]
+
+[template class_sinks_text_ipc_message_queue_backend[][classref boost::log::sinks::text_ipc_message_queue_backend text_ipc_message_queue_backend]]
+
+[template boost_log_sinks_text_multifile_backend_hpp[][headerref boost/log/sinks/text_multifile_backend.hpp]]
+
+[template class_sinks_text_multifile_backend[][classref boost::log::sinks::text_multifile_backend text_multifile_backend]]
+
+[template class_file_file_name_composer_adapter[][classref boost::log::sinks::file::file_name_composer_adapter file_name_composer_adapter]]
+
+[template boost_log_sinks_text_ostream_backend_hpp[][headerref boost/log/sinks/text_ostream_backend.hpp]]
+
+[template class_sinks_basic_text_ostream_backend[][classref boost::log::sinks::basic_text_ostream_backend basic_text_ostream_backend]]
+
+[template boost_log_sinks_unbounded_fifo_queue_hpp[][headerref boost/log/sinks/unbounded_fifo_queue.hpp]]
+
+[template class_sinks_unbounded_fifo_queue[][classref boost::log::sinks::unbounded_fifo_queue unbounded_fifo_queue]]
+
+[template boost_log_sinks_unbounded_ordering_queue_hpp[][headerref boost/log/sinks/unbounded_ordering_queue.hpp]]
+
+[template class_sinks_unbounded_ordering_queue[][classref boost::log::sinks::unbounded_ordering_queue unbounded_ordering_queue]]
+
+[template boost_log_sinks_unlocked_frontend_hpp[][headerref boost/log/sinks/unlocked_frontend.hpp]]
+
+[template class_sinks_unlocked_sink[][classref boost::log::sinks::unlocked_sink unlocked_sink]]

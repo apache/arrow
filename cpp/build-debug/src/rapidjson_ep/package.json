@@ -1,0 +1,24 @@
+{
+  "name": "rapidjson",
+  "version": "1.0.4",
+  "description": "![](doc/logo/rapidjson.png)",
+  "main": "include_dirs.js",
+  "directories": {
+    "doc": "doc",
+    "example": "example",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tencent/rapidjson.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Tencent/rapidjson/issues"
+  },
+  "homepage": "https://github.com/Tencent/rapidjson#readme"
+}

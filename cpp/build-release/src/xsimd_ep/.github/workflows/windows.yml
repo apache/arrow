@@ -1,0 +1,112 @@
+name: Windows build
+on: [push, pull_request]
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.job }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: 'MSVC ${{ matrix.os }}, ${{ matrix.target }} ${{ matrix.sys.set }}'
+    defaults:
+      run:
+        shell: bash {0}
+    strategy:
+      matrix:
+        os:
+         - 2019
+         - 2022
+        target:
+          - x86
+          - x64
+        sys:
+         - { set: SSE, flags: "" }
+         - { set: AVX, flags: "/arch:AVX" }
+         - { set: AVX2, flags: "/arch:AVX2" }
+         - { set: AVX512, flags: "/arch:AVX512" }
+        exclude:
+          # AVX on both platforms has a codegen error
+          # On 2019 in _mm256_rsqrt_ps, on 2022 in _mm256_blend_p*
+          - { sys: { set: AVX } }
+          # On both platforms x86 + AVX512 triggers a compiler crash
+          - { target: x86, sys: { set: AVX512 } } 
+    runs-on: windows-${{ matrix.os }}
+    steps:
+    - name: Setup compiler
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ matrix.target }}
+    - name: Setup Ninja
+      run: |
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install ninja
+    - name: Checkout xsimd
+      uses: actions/checkout@v2
+    - name: Setup
+      run: |
+        mkdir _build
+        cd _build && cmake .. -DDOWNLOAD_GTEST=ON -DBUILD_TESTS=ON -DBUILD_BENCHMARK=ON -DBUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="${{ matrix.sys.flags }}" -G Ninja
+    - name: Build
+      run: |
+        cd _build && cmake --build .
+    - name: Testing xsimd
+      if: ${{ !startsWith(matrix.sys.set, 'AVX512') }}
+      run: |
+        cd _build && ./test/test_xsimd
+
+  build-windows-mingw:
+    name: 'MSYS ${{ matrix.sys.abi }}'
+    runs-on: windows-2019
+    defaults:
+      run:
+        shell: msys2 {0}
+    strategy:
+      matrix:
+        sys:
+          - { abi: mingw32, env: i686,         compiler: gcc }
+          - { abi: mingw64, env: x86_64,       compiler: gcc }
+          - { abi: ucrt64,  env: ucrt-x86_64,  compiler: gcc }
+          - { abi: clang32, env: clang-i686,   compiler: clang }
+          - { abi: clang64, env: clang-x86_64, compiler: clang }
+      fail-fast: false
+    steps:
+      - name: Use MinGW from MSYS
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.sys.abi }}
+          update: true
+          path-type: inherit
+          install: >-
+            mingw-w64-${{ matrix.sys.env }}-toolchain
+            mingw-w64-${{ matrix.sys.env }}-ninja
+      - name: Setup compiler
+        if: startsWith(matrix.sys.abi, 'mingw') || startsWith(matrix.sys.abi, 'ucrt64')
+        run: |
+          CXX=${CC/#gcc/g++}
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+        env:
+          CC: ${{ matrix.sys.compiler }}
+      - name: Setup compiler
+        if: startsWith(matrix.sys.abi, 'clang')
+        run: |
+          CXX=${CC/#clang/clang++}
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+        env:
+          CC: ${{ matrix.sys.compiler }}
+      - name: Checkout xsimd
+        uses: actions/checkout@v2
+      - name: Version tools
+        run: |
+          $CC --version
+          $CXX --version
+          ninja --version
+      - name: Configure
+        run: |
+          mkdir _build
+          cd _build
+          cmake .. -DDOWNLOAD_GTEST=ON -DBUILD_TESTS=ON -DBUILD_BENCHMARK=ON -DBUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -G Ninja
+      - name: Build
+        run: ninja -C _build
+      - name: Test
+        run: |
+          cd _build && ./test/test_xsimd

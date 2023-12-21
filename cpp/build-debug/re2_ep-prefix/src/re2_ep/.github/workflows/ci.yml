@@ -1,0 +1,57 @@
+name: CI
+on:
+  push:
+    branches: [main]
+jobs:
+  build-appleclang:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ver: [11, 14, 17, 20]
+    env:
+      CC: clang
+      CXX: clang++
+      # Unlike GCC and upstream Clang, AppleClang still defaults to `-std=c++98`
+      # for some reason. Also, the macOS image on GitHub Actions provides wildly
+      # numbered Xcode versions. Thus, rather than varying the compiler version,
+      # we set the `-std` flag explicitly in order to vary the language version.
+      # (The other two flags are the default provided for CXXFLAGS in Makefile.)
+      CXXFLAGS: -O3 -g -std=c++${{ matrix.ver }}
+    steps:
+      - uses: actions/checkout@v2
+      - run: make && make test
+        shell: bash
+  build-clang:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ver: [9, 10, 11, 12, 13, 14]
+    env:
+      CC: clang-${{ matrix.ver }}
+      CXX: clang++-${{ matrix.ver }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Clang ${{ matrix.ver }}
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x ./llvm.sh
+          sudo ./llvm.sh ${{ matrix.ver }}
+        shell: bash
+      - run: make && make test
+        shell: bash
+  build-gcc:
+    runs-on: ubuntu-latest
+    container: gcc:${{ matrix.ver }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ver: [6, 7, 8, 9, 10, 11, 12]
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v2
+      - run: make && make test
+        shell: bash

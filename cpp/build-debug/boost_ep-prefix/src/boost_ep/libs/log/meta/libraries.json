@@ -1,0 +1,15 @@
+{
+    "key": "log",
+    "name": "Log",
+    "authors": [
+        "Andrey Semashev"
+    ],
+    "description": "Logging library.",
+    "category": [
+        "Miscellaneous"
+    ],
+    "maintainers": [
+        "Andrey Semashev <andrey.semashev -at- gmail.com>"
+    ],
+    "cxxstd": "03"
+}

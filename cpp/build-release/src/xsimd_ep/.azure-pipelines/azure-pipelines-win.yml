@@ -1,0 +1,70 @@
+jobs:
+
+  # Configure, build, install, and test job
+  - job: 'Windows_clangcl'
+    pool:
+        vmImage: 'windows-latest'
+    timeoutInMinutes: 360
+    steps:
+
+      # Install Chocolatey (https://chocolatey.org/install#install-with-powershellexe)
+      - powershell: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+          Write-Host "##vso[task.setvariable variable=PATH]$env:PATH"
+          choco --version
+        displayName: "Install Chocolatey"
+
+      # Install Miniconda
+      - script: |
+          choco install miniconda3 --yes
+          set PATH=C:\tools\miniconda3\Scripts;C:\tools\miniconda3;C:\tools\miniconda3\Library\bin;%PATH%
+          echo '##vso[task.setvariable variable=PATH]%PATH%'
+          set LIB=C:\tools\miniconda3\Library\lib;%LIB%
+          echo '##vso[task.setvariable variable=LIB]%LIB%'
+          conda --version
+        displayName: "Install Miniconda"
+
+      # Configure Miniconda
+      - script: |
+          conda config --set always_yes yes
+          conda config --append channels conda-forge
+          conda info
+        displayName: "Configure Miniconda"
+
+      # Create conda enviroment
+      # Note: conda activate doesn't work here, because it creates a new shell!
+      - script: |
+          conda install cmake=3.14.0 ^
+                        ninja ^
+                        python=3.6
+          conda list
+        displayName: "Install conda packages"
+
+      # Configure
+      - script: |
+          setlocal EnableDelayedExpansion
+          mkdir build & cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ^
+                -DDOWNLOAD_GTEST=ON ^
+                -DXSIMD_REFACTORING=ON ^
+                -T ClangCL ^
+                $(Build.SourcesDirectory)
+        displayName: "Configure xsimd"
+        workingDirectory: $(Build.BinariesDirectory)
+
+      # Build
+      - script: |
+          cmake --build . ^
+                --config release ^
+                --target test_xsimd
+        displayName: "Build xsimd"
+        workingDirectory: $(Build.BinariesDirectory)/build
+
+      # Test
+      - script: |
+          cmake --build . ^
+                --config Release ^
+                --target xtest
+        displayName: "Test xsimd"
+        workingDirectory: $(Build.BinariesDirectory)/build

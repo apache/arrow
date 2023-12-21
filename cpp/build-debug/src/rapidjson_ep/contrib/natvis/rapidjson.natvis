@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<!-- rapidjson::GenericValue - basic support -->
+	<Type Name="rapidjson::GenericValue&lt;*,*&gt;">
+		<DisplayString Condition="(data_.f.flags &amp; kTypeMask) == rapidjson::kNullType">null</DisplayString>
+		<DisplayString Condition="data_.f.flags == kTrueFlag">true</DisplayString>
+		<DisplayString Condition="data_.f.flags == kFalseFlag">false</DisplayString>
+		<DisplayString Condition="data_.f.flags == kShortStringFlag">{(const Ch*)data_.ss.str,na}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kTypeMask) == rapidjson::kStringType">{(const Ch*)((size_t)data_.s.str &amp; 0x0000FFFFFFFFFFFF),[data_.s.length]na}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kNumberIntFlag) == kNumberIntFlag">{data_.n.i.i}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kNumberUintFlag) == kNumberUintFlag">{data_.n.u.u}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kNumberInt64Flag) == kNumberInt64Flag">{data_.n.i64}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kNumberUint64Flag) == kNumberUint64Flag">{data_.n.u64}</DisplayString>
+		<DisplayString Condition="(data_.f.flags &amp; kNumberDoubleFlag) == kNumberDoubleFlag">{data_.n.d}</DisplayString>
+		<DisplayString Condition="data_.f.flags == rapidjson::kObjectType">Object members={data_.o.size}</DisplayString>
+		<DisplayString Condition="data_.f.flags == rapidjson::kArrayType">Array members={data_.a.size}</DisplayString>
+		<Expand>
+			<Item Condition="data_.f.flags == rapidjson::kObjectType" Name="[size]">data_.o.size</Item>
+			<Item Condition="data_.f.flags == rapidjson::kObjectType" Name="[capacity]">data_.o.capacity</Item>
+			<ArrayItems Condition="data_.f.flags == rapidjson::kObjectType">
+				<Size>data_.o.size</Size>
+				<!-- NOTE: Rapidjson stores some extra data in the high bits of pointers, which is why the mask -->
+				<ValuePointer>(rapidjson::GenericMember&lt;$T1,$T2&gt;*)(((size_t)data_.o.members) &amp; 0x0000FFFFFFFFFFFF)</ValuePointer>
+			</ArrayItems>
+
+			<Item Condition="data_.f.flags == rapidjson::kArrayType" Name="[size]">data_.a.size</Item>
+			<Item Condition="data_.f.flags == rapidjson::kArrayType" Name="[capacity]">data_.a.capacity</Item>
+			<ArrayItems Condition="data_.f.flags == rapidjson::kArrayType">
+				<Size>data_.a.size</Size>
+				<!-- NOTE: Rapidjson stores some extra data in the high bits of pointers, which is why the mask -->
+				<ValuePointer>(rapidjson::GenericValue&lt;$T1,$T2&gt;*)(((size_t)data_.a.elements) &amp; 0x0000FFFFFFFFFFFF)</ValuePointer>
+			</ArrayItems>
+
+		</Expand>
+	</Type>
+
+</AutoVisualizer>
+

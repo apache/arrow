@@ -1,0 +1,7 @@
+{
+  "oneOf": [
+    {
+      "$ref": "http://localhost:1234/address.json#"
+    }
+  ]
+}

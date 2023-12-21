@@ -1,0 +1,47 @@
+digraph {
+	compound=true
+	fontname="Inconsolata, Consolas"
+	fontsize=10
+	margin="0,0"
+	ranksep=0.2
+	penwidth=0.5
+
+	node [fontname="Inconsolata, Consolas", fontsize=10, penwidth=0.5]
+	edge [fontname="Inconsolata, Consolas", fontsize=10, arrowhead=normal]
+
+	subgraph cluster1 {
+		margin="10,10"
+		labeljust="left"
+		label = "Before"
+		style=filled
+		fillcolor=gray95
+
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+
+		{
+			rank = same
+			b1 [label="{b:number|456}", fillcolor=6]
+			a1 [label="{a:number|123}", fillcolor=6]
+		}
+
+		a1 -> b1 [style="dashed", label="Move", dir=back]
+	}
+
+	subgraph cluster2 {
+		margin="10,10"
+		labeljust="left"
+		label = "After"
+		style=filled
+		fillcolor=gray95
+
+		node [shape=Mrecord, style=filled, colorscheme=spectral7]
+
+		{
+			rank = same
+			b2 [label="{b:null|}", fillcolor=1]
+			a2 [label="{a:number|456}", fillcolor=6]
+		}
+		a2 -> b2 [style=invis, dir=back]
+	}
+	b1 -> b2 [style=invis]
+}
