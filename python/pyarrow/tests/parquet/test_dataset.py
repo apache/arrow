@@ -821,7 +821,7 @@ def _make_example_multifile_dataset(base_path, nfiles=10, file_nrows=5):
 
 def _assert_dataset_paths(dataset, paths):
     paths = [str(path.as_posix()) for path in paths]
-    assert set(paths) == set(dataset._dataset.files)
+    assert set(paths) == set(dataset.files)
 
 
 @pytest.mark.pandas
