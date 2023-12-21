@@ -204,7 +204,7 @@ class PARQUET_EXPORT ParquetFileReader {
 
 // Read only Parquet file metadata
 std::shared_ptr<FileMetaData> PARQUET_EXPORT
-ReadMetaData(const std::shared_ptr<::arrow::io::RandomAccessFile>& source);
+ReadMetaData(const std::shared_ptr<::arrow::io::RandomAccessFile>& source, const ReaderProperties& props = default_reader_properties());
 
 /// \brief Scan all values in file. Useful for performance testing
 /// \param[in] columns the column numbers to scan. If empty scans all

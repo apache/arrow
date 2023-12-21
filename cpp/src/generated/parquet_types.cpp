@@ -15,29 +15,30 @@
 namespace parquet { namespace format {
 
 int _kTypeValues[] = {
-  Type::BOOLEAN,
-  Type::INT32,
-  Type::INT64,
-  Type::INT96,
-  Type::FLOAT,
-  Type::DOUBLE,
-  Type::BYTE_ARRAY,
-  Type::FIXED_LEN_BYTE_ARRAY
+        Type::BOOLEAN,
+        Type::INT32,
+        Type::INT64,
+        Type::INT96,
+        Type::FLOAT,
+        Type::DOUBLE,
+        Type::BYTE_ARRAY,
+        Type::FIXED_LEN_BYTE_ARRAY
 };
-const char* _kTypeNames[] = {
-  "BOOLEAN",
-  "INT32",
-  "INT64",
-  "INT96",
-  "FLOAT",
-  "DOUBLE",
-  "BYTE_ARRAY",
-  "FIXED_LEN_BYTE_ARRAY"
+const char *_kTypeNames[] = {
+        "BOOLEAN",
+        "INT32",
+        "INT64",
+        "INT96",
+        "FLOAT",
+        "DOUBLE",
+        "BYTE_ARRAY",
+        "FIXED_LEN_BYTE_ARRAY"
 };
-const std::map<int, const char*> _Type_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(8, _kTypeValues, _kTypeNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _Type_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(8, _kTypeValues, _kTypeNames),
+                                                        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const Type::type& val) {
-  std::map<int, const char*>::const_iterator it = _Type_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const Type::type &val) {
+  std::map<int, const char *>::const_iterator it = _Type_VALUES_TO_NAMES.find(val);
   if (it != _Type_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -46,8 +47,8 @@ std::ostream& operator<<(std::ostream& out, const Type::type& val) {
   return out;
 }
 
-std::string to_string(const Type::type& val) {
-  std::map<int, const char*>::const_iterator it = _Type_VALUES_TO_NAMES.find(val);
+std::string to_string(const Type::type &val) {
+  std::map<int, const char *>::const_iterator it = _Type_VALUES_TO_NAMES.find(val);
   if (it != _Type_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -56,257 +57,259 @@ std::string to_string(const Type::type& val) {
 }
 
 int _kConvertedTypeValues[] = {
-  /**
-   * a BYTE_ARRAY actually contains UTF8 encoded chars
-   */
-  ConvertedType::UTF8,
-  /**
-   * a map is converted as an optional field containing a repeated key/value pair
-   */
-  ConvertedType::MAP,
-  /**
-   * a key/value pair is converted into a group of two fields
-   */
-  ConvertedType::MAP_KEY_VALUE,
-  /**
-   * a list is converted into an optional field containing a repeated field for its
-   * values
-   */
-  ConvertedType::LIST,
-  /**
-   * an enum is converted into a binary field
-   */
-  ConvertedType::ENUM,
-  /**
-   * A decimal value.
-   * 
-   * This may be used to annotate binary or fixed primitive types. The
-   * underlying byte array stores the unscaled value encoded as two's
-   * complement using big-endian byte order (the most significant byte is the
-   * zeroth element). The value of the decimal is the value * 10^{-scale}.
-   * 
-   * This must be accompanied by a (maximum) precision and a scale in the
-   * SchemaElement. The precision specifies the number of digits in the decimal
-   * and the scale stores the location of the decimal point. For example 1.23
-   * would have precision 3 (3 total digits) and scale 2 (the decimal point is
-   * 2 digits over).
-   */
-  ConvertedType::DECIMAL,
-  /**
-   * A Date
-   * 
-   * Stored as days since Unix epoch, encoded as the INT32 physical type.
-   * 
-   */
-  ConvertedType::DATE,
-  /**
-   * A time
-   * 
-   * The total number of milliseconds since midnight.  The value is stored
-   * as an INT32 physical type.
-   */
-  ConvertedType::TIME_MILLIS,
-  /**
-   * A time.
-   * 
-   * The total number of microseconds since midnight.  The value is stored as
-   * an INT64 physical type.
-   */
-  ConvertedType::TIME_MICROS,
-  /**
-   * A date/time combination
-   * 
-   * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
-   * a physical type of INT64.
-   */
-  ConvertedType::TIMESTAMP_MILLIS,
-  /**
-   * A date/time combination
-   * 
-   * Date and time recorded as microseconds since the Unix epoch.  The value is
-   * stored as an INT64 physical type.
-   */
-  ConvertedType::TIMESTAMP_MICROS,
-  /**
-   * An unsigned integer value.
-   * 
-   * The number describes the maximum number of meaningful data bits in
-   * the stored value. 8, 16 and 32 bit values are stored using the
-   * INT32 physical type.  64 bit values are stored using the INT64
-   * physical type.
-   * 
-   */
-  ConvertedType::UINT_8,
-  ConvertedType::UINT_16,
-  ConvertedType::UINT_32,
-  ConvertedType::UINT_64,
-  /**
-   * A signed integer value.
-   * 
-   * The number describes the maximum number of meaningful data bits in
-   * the stored value. 8, 16 and 32 bit values are stored using the
-   * INT32 physical type.  64 bit values are stored using the INT64
-   * physical type.
-   * 
-   */
-  ConvertedType::INT_8,
-  ConvertedType::INT_16,
-  ConvertedType::INT_32,
-  ConvertedType::INT_64,
-  /**
-   * An embedded JSON document
-   * 
-   * A JSON document embedded within a single UTF8 column.
-   */
-  ConvertedType::JSON,
-  /**
-   * An embedded BSON document
-   * 
-   * A BSON document embedded within a single BINARY column.
-   */
-  ConvertedType::BSON,
-  /**
-   * An interval of time
-   * 
-   * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
-   * This data is composed of three separate little endian unsigned
-   * integers.  Each stores a component of a duration of time.  The first
-   * integer identifies the number of months associated with the duration,
-   * the second identifies the number of days associated with the duration
-   * and the third identifies the number of milliseconds associated with
-   * the provided duration.  This duration of time is independent of any
-   * particular timezone or date.
-   */
-  ConvertedType::INTERVAL
+        /**
+         * a BYTE_ARRAY actually contains UTF8 encoded chars
+         */
+        ConvertedType::UTF8,
+        /**
+         * a map is converted as an optional field containing a repeated key/value pair
+         */
+        ConvertedType::MAP,
+        /**
+         * a key/value pair is converted into a group of two fields
+         */
+        ConvertedType::MAP_KEY_VALUE,
+        /**
+         * a list is converted into an optional field containing a repeated field for its
+         * values
+         */
+        ConvertedType::LIST,
+        /**
+         * an enum is converted into a binary field
+         */
+        ConvertedType::ENUM,
+        /**
+         * A decimal value.
+         *
+         * This may be used to annotate binary or fixed primitive types. The
+         * underlying byte array stores the unscaled value encoded as two's
+         * complement using big-endian byte order (the most significant byte is the
+         * zeroth element). The value of the decimal is the value * 10^{-scale}.
+         *
+         * This must be accompanied by a (maximum) precision and a scale in the
+         * SchemaElement. The precision specifies the number of digits in the decimal
+         * and the scale stores the location of the decimal point. For example 1.23
+         * would have precision 3 (3 total digits) and scale 2 (the decimal point is
+         * 2 digits over).
+         */
+        ConvertedType::DECIMAL,
+        /**
+         * A Date
+         *
+         * Stored as days since Unix epoch, encoded as the INT32 physical type.
+         *
+         */
+        ConvertedType::DATE,
+        /**
+         * A time
+         *
+         * The total number of milliseconds since midnight.  The value is stored
+         * as an INT32 physical type.
+         */
+        ConvertedType::TIME_MILLIS,
+        /**
+         * A time.
+         *
+         * The total number of microseconds since midnight.  The value is stored as
+         * an INT64 physical type.
+         */
+        ConvertedType::TIME_MICROS,
+        /**
+         * A date/time combination
+         *
+         * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
+         * a physical type of INT64.
+         */
+        ConvertedType::TIMESTAMP_MILLIS,
+        /**
+         * A date/time combination
+         *
+         * Date and time recorded as microseconds since the Unix epoch.  The value is
+         * stored as an INT64 physical type.
+         */
+        ConvertedType::TIMESTAMP_MICROS,
+        /**
+         * An unsigned integer value.
+         *
+         * The number describes the maximum number of meaningful data bits in
+         * the stored value. 8, 16 and 32 bit values are stored using the
+         * INT32 physical type.  64 bit values are stored using the INT64
+         * physical type.
+         *
+         */
+        ConvertedType::UINT_8,
+        ConvertedType::UINT_16,
+        ConvertedType::UINT_32,
+        ConvertedType::UINT_64,
+        /**
+         * A signed integer value.
+         *
+         * The number describes the maximum number of meaningful data bits in
+         * the stored value. 8, 16 and 32 bit values are stored using the
+         * INT32 physical type.  64 bit values are stored using the INT64
+         * physical type.
+         *
+         */
+        ConvertedType::INT_8,
+        ConvertedType::INT_16,
+        ConvertedType::INT_32,
+        ConvertedType::INT_64,
+        /**
+         * An embedded JSON document
+         *
+         * A JSON document embedded within a single UTF8 column.
+         */
+        ConvertedType::JSON,
+        /**
+         * An embedded BSON document
+         *
+         * A BSON document embedded within a single BINARY column.
+         */
+        ConvertedType::BSON,
+        /**
+         * An interval of time
+         *
+         * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
+         * This data is composed of three separate little endian unsigned
+         * integers.  Each stores a component of a duration of time.  The first
+         * integer identifies the number of months associated with the duration,
+         * the second identifies the number of days associated with the duration
+         * and the third identifies the number of milliseconds associated with
+         * the provided duration.  This duration of time is independent of any
+         * particular timezone or date.
+         */
+        ConvertedType::INTERVAL
 };
-const char* _kConvertedTypeNames[] = {
-  /**
-   * a BYTE_ARRAY actually contains UTF8 encoded chars
-   */
-  "UTF8",
-  /**
-   * a map is converted as an optional field containing a repeated key/value pair
-   */
-  "MAP",
-  /**
-   * a key/value pair is converted into a group of two fields
-   */
-  "MAP_KEY_VALUE",
-  /**
-   * a list is converted into an optional field containing a repeated field for its
-   * values
-   */
-  "LIST",
-  /**
-   * an enum is converted into a binary field
-   */
-  "ENUM",
-  /**
-   * A decimal value.
-   * 
-   * This may be used to annotate binary or fixed primitive types. The
-   * underlying byte array stores the unscaled value encoded as two's
-   * complement using big-endian byte order (the most significant byte is the
-   * zeroth element). The value of the decimal is the value * 10^{-scale}.
-   * 
-   * This must be accompanied by a (maximum) precision and a scale in the
-   * SchemaElement. The precision specifies the number of digits in the decimal
-   * and the scale stores the location of the decimal point. For example 1.23
-   * would have precision 3 (3 total digits) and scale 2 (the decimal point is
-   * 2 digits over).
-   */
-  "DECIMAL",
-  /**
-   * A Date
-   * 
-   * Stored as days since Unix epoch, encoded as the INT32 physical type.
-   * 
-   */
-  "DATE",
-  /**
-   * A time
-   * 
-   * The total number of milliseconds since midnight.  The value is stored
-   * as an INT32 physical type.
-   */
-  "TIME_MILLIS",
-  /**
-   * A time.
-   * 
-   * The total number of microseconds since midnight.  The value is stored as
-   * an INT64 physical type.
-   */
-  "TIME_MICROS",
-  /**
-   * A date/time combination
-   * 
-   * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
-   * a physical type of INT64.
-   */
-  "TIMESTAMP_MILLIS",
-  /**
-   * A date/time combination
-   * 
-   * Date and time recorded as microseconds since the Unix epoch.  The value is
-   * stored as an INT64 physical type.
-   */
-  "TIMESTAMP_MICROS",
-  /**
-   * An unsigned integer value.
-   * 
-   * The number describes the maximum number of meaningful data bits in
-   * the stored value. 8, 16 and 32 bit values are stored using the
-   * INT32 physical type.  64 bit values are stored using the INT64
-   * physical type.
-   * 
-   */
-  "UINT_8",
-  "UINT_16",
-  "UINT_32",
-  "UINT_64",
-  /**
-   * A signed integer value.
-   * 
-   * The number describes the maximum number of meaningful data bits in
-   * the stored value. 8, 16 and 32 bit values are stored using the
-   * INT32 physical type.  64 bit values are stored using the INT64
-   * physical type.
-   * 
-   */
-  "INT_8",
-  "INT_16",
-  "INT_32",
-  "INT_64",
-  /**
-   * An embedded JSON document
-   * 
-   * A JSON document embedded within a single UTF8 column.
-   */
-  "JSON",
-  /**
-   * An embedded BSON document
-   * 
-   * A BSON document embedded within a single BINARY column.
-   */
-  "BSON",
-  /**
-   * An interval of time
-   * 
-   * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
-   * This data is composed of three separate little endian unsigned
-   * integers.  Each stores a component of a duration of time.  The first
-   * integer identifies the number of months associated with the duration,
-   * the second identifies the number of days associated with the duration
-   * and the third identifies the number of milliseconds associated with
-   * the provided duration.  This duration of time is independent of any
-   * particular timezone or date.
-   */
-  "INTERVAL"
+const char *_kConvertedTypeNames[] = {
+        /**
+         * a BYTE_ARRAY actually contains UTF8 encoded chars
+         */
+        "UTF8",
+        /**
+         * a map is converted as an optional field containing a repeated key/value pair
+         */
+        "MAP",
+        /**
+         * a key/value pair is converted into a group of two fields
+         */
+        "MAP_KEY_VALUE",
+        /**
+         * a list is converted into an optional field containing a repeated field for its
+         * values
+         */
+        "LIST",
+        /**
+         * an enum is converted into a binary field
+         */
+        "ENUM",
+        /**
+         * A decimal value.
+         *
+         * This may be used to annotate binary or fixed primitive types. The
+         * underlying byte array stores the unscaled value encoded as two's
+         * complement using big-endian byte order (the most significant byte is the
+         * zeroth element). The value of the decimal is the value * 10^{-scale}.
+         *
+         * This must be accompanied by a (maximum) precision and a scale in the
+         * SchemaElement. The precision specifies the number of digits in the decimal
+         * and the scale stores the location of the decimal point. For example 1.23
+         * would have precision 3 (3 total digits) and scale 2 (the decimal point is
+         * 2 digits over).
+         */
+        "DECIMAL",
+        /**
+         * A Date
+         *
+         * Stored as days since Unix epoch, encoded as the INT32 physical type.
+         *
+         */
+        "DATE",
+        /**
+         * A time
+         *
+         * The total number of milliseconds since midnight.  The value is stored
+         * as an INT32 physical type.
+         */
+        "TIME_MILLIS",
+        /**
+         * A time.
+         *
+         * The total number of microseconds since midnight.  The value is stored as
+         * an INT64 physical type.
+         */
+        "TIME_MICROS",
+        /**
+         * A date/time combination
+         *
+         * Date and time recorded as milliseconds since the Unix epoch.  Recorded as
+         * a physical type of INT64.
+         */
+        "TIMESTAMP_MILLIS",
+        /**
+         * A date/time combination
+         *
+         * Date and time recorded as microseconds since the Unix epoch.  The value is
+         * stored as an INT64 physical type.
+         */
+        "TIMESTAMP_MICROS",
+        /**
+         * An unsigned integer value.
+         *
+         * The number describes the maximum number of meaningful data bits in
+         * the stored value. 8, 16 and 32 bit values are stored using the
+         * INT32 physical type.  64 bit values are stored using the INT64
+         * physical type.
+         *
+         */
+        "UINT_8",
+        "UINT_16",
+        "UINT_32",
+        "UINT_64",
+        /**
+         * A signed integer value.
+         *
+         * The number describes the maximum number of meaningful data bits in
+         * the stored value. 8, 16 and 32 bit values are stored using the
+         * INT32 physical type.  64 bit values are stored using the INT64
+         * physical type.
+         *
+         */
+        "INT_8",
+        "INT_16",
+        "INT_32",
+        "INT_64",
+        /**
+         * An embedded JSON document
+         *
+         * A JSON document embedded within a single UTF8 column.
+         */
+        "JSON",
+        /**
+         * An embedded BSON document
+         *
+         * A BSON document embedded within a single BINARY column.
+         */
+        "BSON",
+        /**
+         * An interval of time
+         *
+         * This type annotates data stored as a FIXED_LEN_BYTE_ARRAY of length 12
+         * This data is composed of three separate little endian unsigned
+         * integers.  Each stores a component of a duration of time.  The first
+         * integer identifies the number of months associated with the duration,
+         * the second identifies the number of days associated with the duration
+         * and the third identifies the number of milliseconds associated with
+         * the provided duration.  This duration of time is independent of any
+         * particular timezone or date.
+         */
+        "INTERVAL"
 };
-const std::map<int, const char*> _ConvertedType_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(22, _kConvertedTypeValues, _kConvertedTypeNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _ConvertedType_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(22, _kConvertedTypeValues, _kConvertedTypeNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const ConvertedType::type& val) {
-  std::map<int, const char*>::const_iterator it = _ConvertedType_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const ConvertedType::type &val) {
+  std::map<int, const char *>::const_iterator it = _ConvertedType_VALUES_TO_NAMES.find(val);
   if (it != _ConvertedType_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -315,8 +318,8 @@ std::ostream& operator<<(std::ostream& out, const ConvertedType::type& val) {
   return out;
 }
 
-std::string to_string(const ConvertedType::type& val) {
-  std::map<int, const char*>::const_iterator it = _ConvertedType_VALUES_TO_NAMES.find(val);
+std::string to_string(const ConvertedType::type &val) {
+  std::map<int, const char *>::const_iterator it = _ConvertedType_VALUES_TO_NAMES.find(val);
   if (it != _ConvertedType_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -325,37 +328,39 @@ std::string to_string(const ConvertedType::type& val) {
 }
 
 int _kFieldRepetitionTypeValues[] = {
-  /**
-   * This field is required (can not be null) and each record has exactly 1 value.
-   */
-  FieldRepetitionType::REQUIRED,
-  /**
-   * The field is optional (can be null) and each record has 0 or 1 values.
-   */
-  FieldRepetitionType::OPTIONAL,
-  /**
-   * The field is repeated and can contain 0 or more values
-   */
-  FieldRepetitionType::REPEATED
+        /**
+         * This field is required (can not be null) and each record has exactly 1 value.
+         */
+        FieldRepetitionType::REQUIRED,
+        /**
+         * The field is optional (can be null) and each record has 0 or 1 values.
+         */
+        FieldRepetitionType::OPTIONAL,
+        /**
+         * The field is repeated and can contain 0 or more values
+         */
+        FieldRepetitionType::REPEATED
 };
-const char* _kFieldRepetitionTypeNames[] = {
-  /**
-   * This field is required (can not be null) and each record has exactly 1 value.
-   */
-  "REQUIRED",
-  /**
-   * The field is optional (can be null) and each record has 0 or 1 values.
-   */
-  "OPTIONAL",
-  /**
-   * The field is repeated and can contain 0 or more values
-   */
-  "REPEATED"
+const char *_kFieldRepetitionTypeNames[] = {
+        /**
+         * This field is required (can not be null) and each record has exactly 1 value.
+         */
+        "REQUIRED",
+        /**
+         * The field is optional (can be null) and each record has 0 or 1 values.
+         */
+        "OPTIONAL",
+        /**
+         * The field is repeated and can contain 0 or more values
+         */
+        "REPEATED"
 };
-const std::map<int, const char*> _FieldRepetitionType_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(3, _kFieldRepetitionTypeValues, _kFieldRepetitionTypeNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _FieldRepetitionType_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(3, _kFieldRepetitionTypeValues, _kFieldRepetitionTypeNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val) {
-  std::map<int, const char*>::const_iterator it = _FieldRepetitionType_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const FieldRepetitionType::type &val) {
+  std::map<int, const char *>::const_iterator it = _FieldRepetitionType_VALUES_TO_NAMES.find(val);
   if (it != _FieldRepetitionType_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -364,8 +369,8 @@ std::ostream& operator<<(std::ostream& out, const FieldRepetitionType::type& val
   return out;
 }
 
-std::string to_string(const FieldRepetitionType::type& val) {
-  std::map<int, const char*>::const_iterator it = _FieldRepetitionType_VALUES_TO_NAMES.find(val);
+std::string to_string(const FieldRepetitionType::type &val) {
+  std::map<int, const char *>::const_iterator it = _FieldRepetitionType_VALUES_TO_NAMES.find(val);
   if (it != _FieldRepetitionType_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -374,125 +379,127 @@ std::string to_string(const FieldRepetitionType::type& val) {
 }
 
 int _kEncodingValues[] = {
-  /**
-   * Default encoding.
-   * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
-   * INT32 - 4 bytes per value.  Stored as little-endian.
-   * INT64 - 8 bytes per value.  Stored as little-endian.
-   * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
-   * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
-   * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
-   * FIXED_LEN_BYTE_ARRAY - Just the bytes.
-   */
-  Encoding::PLAIN,
-  /**
-   * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
-   * plain type.
-   * in a data page use RLE_DICTIONARY instead.
-   * in a Dictionary page use PLAIN instead
-   */
-  Encoding::PLAIN_DICTIONARY,
-  /**
-   * Group packed run length encoding. Usable for definition/repetition levels
-   * encoding and Booleans (on one bit: 0 is false; 1 is true.)
-   */
-  Encoding::RLE,
-  /**
-   * Bit packed encoding.  This can only be used if the data has a known max
-   * width.  Usable for definition/repetition levels encoding.
-   */
-  Encoding::BIT_PACKED,
-  /**
-   * Delta encoding for integers. This can be used for int columns and works best
-   * on sorted data
-   */
-  Encoding::DELTA_BINARY_PACKED,
-  /**
-   * Encoding for byte arrays to separate the length values and the data. The lengths
-   * are encoded using DELTA_BINARY_PACKED
-   */
-  Encoding::DELTA_LENGTH_BYTE_ARRAY,
-  /**
-   * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
-   * Suffixes are stored as delta length byte arrays.
-   */
-  Encoding::DELTA_BYTE_ARRAY,
-  /**
-   * Dictionary encoding: the ids are encoded using the RLE encoding
-   */
-  Encoding::RLE_DICTIONARY,
-  /**
-   * Encoding for floating-point data.
-   * K byte-streams are created where K is the size in bytes of the data type.
-   * The individual bytes of an FP value are scattered to the corresponding stream and
-   * the streams are concatenated.
-   * This itself does not reduce the size of the data but can lead to better compression
-   * afterwards.
-   */
-  Encoding::BYTE_STREAM_SPLIT
+        /**
+         * Default encoding.
+         * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
+         * INT32 - 4 bytes per value.  Stored as little-endian.
+         * INT64 - 8 bytes per value.  Stored as little-endian.
+         * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
+         * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
+         * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
+         * FIXED_LEN_BYTE_ARRAY - Just the bytes.
+         */
+        Encoding::PLAIN,
+        /**
+         * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
+         * plain type.
+         * in a data page use RLE_DICTIONARY instead.
+         * in a Dictionary page use PLAIN instead
+         */
+        Encoding::PLAIN_DICTIONARY,
+        /**
+         * Group packed run length encoding. Usable for definition/repetition levels
+         * encoding and Booleans (on one bit: 0 is false; 1 is true.)
+         */
+        Encoding::RLE,
+        /**
+         * Bit packed encoding.  This can only be used if the data has a known max
+         * width.  Usable for definition/repetition levels encoding.
+         */
+        Encoding::BIT_PACKED,
+        /**
+         * Delta encoding for integers. This can be used for int columns and works best
+         * on sorted data
+         */
+        Encoding::DELTA_BINARY_PACKED,
+        /**
+         * Encoding for byte arrays to separate the length values and the data. The lengths
+         * are encoded using DELTA_BINARY_PACKED
+         */
+        Encoding::DELTA_LENGTH_BYTE_ARRAY,
+        /**
+         * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
+         * Suffixes are stored as delta length byte arrays.
+         */
+        Encoding::DELTA_BYTE_ARRAY,
+        /**
+         * Dictionary encoding: the ids are encoded using the RLE encoding
+         */
+        Encoding::RLE_DICTIONARY,
+        /**
+         * Encoding for floating-point data.
+         * K byte-streams are created where K is the size in bytes of the data type.
+         * The individual bytes of an FP value are scattered to the corresponding stream and
+         * the streams are concatenated.
+         * This itself does not reduce the size of the data but can lead to better compression
+         * afterwards.
+         */
+        Encoding::BYTE_STREAM_SPLIT
 };
-const char* _kEncodingNames[] = {
-  /**
-   * Default encoding.
-   * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
-   * INT32 - 4 bytes per value.  Stored as little-endian.
-   * INT64 - 8 bytes per value.  Stored as little-endian.
-   * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
-   * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
-   * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
-   * FIXED_LEN_BYTE_ARRAY - Just the bytes.
-   */
-  "PLAIN",
-  /**
-   * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
-   * plain type.
-   * in a data page use RLE_DICTIONARY instead.
-   * in a Dictionary page use PLAIN instead
-   */
-  "PLAIN_DICTIONARY",
-  /**
-   * Group packed run length encoding. Usable for definition/repetition levels
-   * encoding and Booleans (on one bit: 0 is false; 1 is true.)
-   */
-  "RLE",
-  /**
-   * Bit packed encoding.  This can only be used if the data has a known max
-   * width.  Usable for definition/repetition levels encoding.
-   */
-  "BIT_PACKED",
-  /**
-   * Delta encoding for integers. This can be used for int columns and works best
-   * on sorted data
-   */
-  "DELTA_BINARY_PACKED",
-  /**
-   * Encoding for byte arrays to separate the length values and the data. The lengths
-   * are encoded using DELTA_BINARY_PACKED
-   */
-  "DELTA_LENGTH_BYTE_ARRAY",
-  /**
-   * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
-   * Suffixes are stored as delta length byte arrays.
-   */
-  "DELTA_BYTE_ARRAY",
-  /**
-   * Dictionary encoding: the ids are encoded using the RLE encoding
-   */
-  "RLE_DICTIONARY",
-  /**
-   * Encoding for floating-point data.
-   * K byte-streams are created where K is the size in bytes of the data type.
-   * The individual bytes of an FP value are scattered to the corresponding stream and
-   * the streams are concatenated.
-   * This itself does not reduce the size of the data but can lead to better compression
-   * afterwards.
-   */
-  "BYTE_STREAM_SPLIT"
+const char *_kEncodingNames[] = {
+        /**
+         * Default encoding.
+         * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
+         * INT32 - 4 bytes per value.  Stored as little-endian.
+         * INT64 - 8 bytes per value.  Stored as little-endian.
+         * FLOAT - 4 bytes per value.  IEEE. Stored as little-endian.
+         * DOUBLE - 8 bytes per value.  IEEE. Stored as little-endian.
+         * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
+         * FIXED_LEN_BYTE_ARRAY - Just the bytes.
+         */
+        "PLAIN",
+        /**
+         * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
+         * plain type.
+         * in a data page use RLE_DICTIONARY instead.
+         * in a Dictionary page use PLAIN instead
+         */
+        "PLAIN_DICTIONARY",
+        /**
+         * Group packed run length encoding. Usable for definition/repetition levels
+         * encoding and Booleans (on one bit: 0 is false; 1 is true.)
+         */
+        "RLE",
+        /**
+         * Bit packed encoding.  This can only be used if the data has a known max
+         * width.  Usable for definition/repetition levels encoding.
+         */
+        "BIT_PACKED",
+        /**
+         * Delta encoding for integers. This can be used for int columns and works best
+         * on sorted data
+         */
+        "DELTA_BINARY_PACKED",
+        /**
+         * Encoding for byte arrays to separate the length values and the data. The lengths
+         * are encoded using DELTA_BINARY_PACKED
+         */
+        "DELTA_LENGTH_BYTE_ARRAY",
+        /**
+         * Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
+         * Suffixes are stored as delta length byte arrays.
+         */
+        "DELTA_BYTE_ARRAY",
+        /**
+         * Dictionary encoding: the ids are encoded using the RLE encoding
+         */
+        "RLE_DICTIONARY",
+        /**
+         * Encoding for floating-point data.
+         * K byte-streams are created where K is the size in bytes of the data type.
+         * The individual bytes of an FP value are scattered to the corresponding stream and
+         * the streams are concatenated.
+         * This itself does not reduce the size of the data but can lead to better compression
+         * afterwards.
+         */
+        "BYTE_STREAM_SPLIT"
 };
-const std::map<int, const char*> _Encoding_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(9, _kEncodingValues, _kEncodingNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _Encoding_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(9, _kEncodingValues, _kEncodingNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const Encoding::type& val) {
-  std::map<int, const char*>::const_iterator it = _Encoding_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const Encoding::type &val) {
+  std::map<int, const char *>::const_iterator it = _Encoding_VALUES_TO_NAMES.find(val);
   if (it != _Encoding_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -501,8 +508,8 @@ std::ostream& operator<<(std::ostream& out, const Encoding::type& val) {
   return out;
 }
 
-std::string to_string(const Encoding::type& val) {
-  std::map<int, const char*>::const_iterator it = _Encoding_VALUES_TO_NAMES.find(val);
+std::string to_string(const Encoding::type &val) {
+  std::map<int, const char *>::const_iterator it = _Encoding_VALUES_TO_NAMES.find(val);
   if (it != _Encoding_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -511,29 +518,31 @@ std::string to_string(const Encoding::type& val) {
 }
 
 int _kCompressionCodecValues[] = {
-  CompressionCodec::UNCOMPRESSED,
-  CompressionCodec::SNAPPY,
-  CompressionCodec::GZIP,
-  CompressionCodec::LZO,
-  CompressionCodec::BROTLI,
-  CompressionCodec::LZ4,
-  CompressionCodec::ZSTD,
-  CompressionCodec::LZ4_RAW
+        CompressionCodec::UNCOMPRESSED,
+        CompressionCodec::SNAPPY,
+        CompressionCodec::GZIP,
+        CompressionCodec::LZO,
+        CompressionCodec::BROTLI,
+        CompressionCodec::LZ4,
+        CompressionCodec::ZSTD,
+        CompressionCodec::LZ4_RAW
 };
-const char* _kCompressionCodecNames[] = {
-  "UNCOMPRESSED",
-  "SNAPPY",
-  "GZIP",
-  "LZO",
-  "BROTLI",
-  "LZ4",
-  "ZSTD",
-  "LZ4_RAW"
+const char *_kCompressionCodecNames[] = {
+        "UNCOMPRESSED",
+        "SNAPPY",
+        "GZIP",
+        "LZO",
+        "BROTLI",
+        "LZ4",
+        "ZSTD",
+        "LZ4_RAW"
 };
-const std::map<int, const char*> _CompressionCodec_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(8, _kCompressionCodecValues, _kCompressionCodecNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _CompressionCodec_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(8, _kCompressionCodecValues, _kCompressionCodecNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const CompressionCodec::type& val) {
-  std::map<int, const char*>::const_iterator it = _CompressionCodec_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const CompressionCodec::type &val) {
+  std::map<int, const char *>::const_iterator it = _CompressionCodec_VALUES_TO_NAMES.find(val);
   if (it != _CompressionCodec_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -542,8 +551,8 @@ std::ostream& operator<<(std::ostream& out, const CompressionCodec::type& val) {
   return out;
 }
 
-std::string to_string(const CompressionCodec::type& val) {
-  std::map<int, const char*>::const_iterator it = _CompressionCodec_VALUES_TO_NAMES.find(val);
+std::string to_string(const CompressionCodec::type &val) {
+  std::map<int, const char *>::const_iterator it = _CompressionCodec_VALUES_TO_NAMES.find(val);
   if (it != _CompressionCodec_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -552,21 +561,23 @@ std::string to_string(const CompressionCodec::type& val) {
 }
 
 int _kPageTypeValues[] = {
-  PageType::DATA_PAGE,
-  PageType::INDEX_PAGE,
-  PageType::DICTIONARY_PAGE,
-  PageType::DATA_PAGE_V2
+        PageType::DATA_PAGE,
+        PageType::INDEX_PAGE,
+        PageType::DICTIONARY_PAGE,
+        PageType::DATA_PAGE_V2
 };
-const char* _kPageTypeNames[] = {
-  "DATA_PAGE",
-  "INDEX_PAGE",
-  "DICTIONARY_PAGE",
-  "DATA_PAGE_V2"
+const char *_kPageTypeNames[] = {
+        "DATA_PAGE",
+        "INDEX_PAGE",
+        "DICTIONARY_PAGE",
+        "DATA_PAGE_V2"
 };
-const std::map<int, const char*> _PageType_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(4, _kPageTypeValues, _kPageTypeNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _PageType_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(4, _kPageTypeValues, _kPageTypeNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const PageType::type& val) {
-  std::map<int, const char*>::const_iterator it = _PageType_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const PageType::type &val) {
+  std::map<int, const char *>::const_iterator it = _PageType_VALUES_TO_NAMES.find(val);
   if (it != _PageType_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -575,8 +586,8 @@ std::ostream& operator<<(std::ostream& out, const PageType::type& val) {
   return out;
 }
 
-std::string to_string(const PageType::type& val) {
-  std::map<int, const char*>::const_iterator it = _PageType_VALUES_TO_NAMES.find(val);
+std::string to_string(const PageType::type &val) {
+  std::map<int, const char *>::const_iterator it = _PageType_VALUES_TO_NAMES.find(val);
   if (it != _PageType_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -585,19 +596,21 @@ std::string to_string(const PageType::type& val) {
 }
 
 int _kBoundaryOrderValues[] = {
-  BoundaryOrder::UNORDERED,
-  BoundaryOrder::ASCENDING,
-  BoundaryOrder::DESCENDING
+        BoundaryOrder::UNORDERED,
+        BoundaryOrder::ASCENDING,
+        BoundaryOrder::DESCENDING
 };
-const char* _kBoundaryOrderNames[] = {
-  "UNORDERED",
-  "ASCENDING",
-  "DESCENDING"
+const char *_kBoundaryOrderNames[] = {
+        "UNORDERED",
+        "ASCENDING",
+        "DESCENDING"
 };
-const std::map<int, const char*> _BoundaryOrder_VALUES_TO_NAMES(::apache::thrift::TEnumIterator(3, _kBoundaryOrderValues, _kBoundaryOrderNames), ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
+const std::map<int, const char *> _BoundaryOrder_VALUES_TO_NAMES(
+        ::apache::thrift::TEnumIterator(3, _kBoundaryOrderValues, _kBoundaryOrderNames),
+        ::apache::thrift::TEnumIterator(-1, nullptr, nullptr));
 
-std::ostream& operator<<(std::ostream& out, const BoundaryOrder::type& val) {
-  std::map<int, const char*>::const_iterator it = _BoundaryOrder_VALUES_TO_NAMES.find(val);
+std::ostream &operator<<(std::ostream &out, const BoundaryOrder::type &val) {
+  std::map<int, const char *>::const_iterator it = _BoundaryOrder_VALUES_TO_NAMES.find(val);
   if (it != _BoundaryOrder_VALUES_TO_NAMES.end()) {
     out << it->second;
   } else {
@@ -606,8 +619,8 @@ std::ostream& operator<<(std::ostream& out, const BoundaryOrder::type& val) {
   return out;
 }
 
-std::string to_string(const BoundaryOrder::type& val) {
-  std::map<int, const char*>::const_iterator it = _BoundaryOrder_VALUES_TO_NAMES.find(val);
+std::string to_string(const BoundaryOrder::type &val) {
+  std::map<int, const char *>::const_iterator it = _BoundaryOrder_VALUES_TO_NAMES.find(val);
   if (it != _BoundaryOrder_VALUES_TO_NAMES.end()) {
     return std::string(it->second);
   } else {
@@ -622,26 +635,26 @@ SizeStatistics::~SizeStatistics() noexcept {
 
 void SizeStatistics::__set_unencoded_byte_array_data_bytes(const int64_t val) {
   this->unencoded_byte_array_data_bytes = val;
-__isset.unencoded_byte_array_data_bytes = true;
+  __isset.unencoded_byte_array_data_bytes = true;
 }
 
-void SizeStatistics::__set_repetition_level_histogram(const std::vector<int64_t> & val) {
+void SizeStatistics::__set_repetition_level_histogram(const std::vector<int64_t> &val) {
   this->repetition_level_histogram = val;
-__isset.repetition_level_histogram = true;
+  __isset.repetition_level_histogram = true;
 }
 
-void SizeStatistics::__set_definition_level_histogram(const std::vector<int64_t> & val) {
+void SizeStatistics::__set_definition_level_histogram(const std::vector<int64_t> &val) {
   this->definition_level_histogram = val;
-__isset.definition_level_histogram = true;
+  __isset.definition_level_histogram = true;
 }
-std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const SizeStatistics &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -654,14 +667,12 @@ uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I64) {
           xfer += iprot->readI64(this->unencoded_byte_array_data_bytes);
@@ -679,8 +690,7 @@ uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype3, _size0);
             this->repetition_level_histogram.resize(_size0);
             uint32_t _i4;
-            for (_i4 = 0; _i4 < _size0; ++_i4)
-            {
+            for (_i4 = 0; _i4 < _size0; ++_i4) {
               xfer += iprot->readI64(this->repetition_level_histogram[_i4]);
             }
             xfer += iprot->readListEnd();
@@ -699,8 +709,7 @@ uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype8, _size5);
             this->definition_level_histogram.resize(_size5);
             uint32_t _i9;
-            for (_i9 = 0; _i9 < _size5; ++_i9)
-            {
+            for (_i9 = 0; _i9 < _size5; ++_i9) {
               xfer += iprot->readI64(this->definition_level_histogram[_i9]);
             }
             xfer += iprot->readListEnd();
@@ -722,7 +731,7 @@ uint32_t SizeStatistics::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t SizeStatistics::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t SizeStatistics::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("SizeStatistics");
@@ -735,10 +744,11 @@ uint32_t SizeStatistics::write(::apache::thrift::protocol::TProtocol* oprot) con
   if (this->__isset.repetition_level_histogram) {
     xfer += oprot->writeFieldBegin("repetition_level_histogram", ::apache::thrift::protocol::T_LIST, 2);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->repetition_level_histogram.size()));
-      std::vector<int64_t> ::const_iterator _iter10;
-      for (_iter10 = this->repetition_level_histogram.begin(); _iter10 != this->repetition_level_histogram.end(); ++_iter10)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64,
+                                    static_cast<uint32_t>(this->repetition_level_histogram.size()));
+      std::vector<int64_t>::const_iterator _iter10;
+      for (_iter10 = this->repetition_level_histogram.begin();
+           _iter10 != this->repetition_level_histogram.end(); ++_iter10) {
         xfer += oprot->writeI64((*_iter10));
       }
       xfer += oprot->writeListEnd();
@@ -748,10 +758,11 @@ uint32_t SizeStatistics::write(::apache::thrift::protocol::TProtocol* oprot) con
   if (this->__isset.definition_level_histogram) {
     xfer += oprot->writeFieldBegin("definition_level_histogram", ::apache::thrift::protocol::T_LIST, 3);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->definition_level_histogram.size()));
-      std::vector<int64_t> ::const_iterator _iter11;
-      for (_iter11 = this->definition_level_histogram.begin(); _iter11 != this->definition_level_histogram.end(); ++_iter11)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64,
+                                    static_cast<uint32_t>(this->definition_level_histogram.size()));
+      std::vector<int64_t>::const_iterator _iter11;
+      for (_iter11 = this->definition_level_histogram.begin();
+           _iter11 != this->definition_level_histogram.end(); ++_iter11) {
         xfer += oprot->writeI64((*_iter11));
       }
       xfer += oprot->writeListEnd();
@@ -771,38 +782,45 @@ void swap(SizeStatistics &a, SizeStatistics &b) {
   swap(a.__isset, b.__isset);
 }
 
-SizeStatistics::SizeStatistics(const SizeStatistics& other12) {
+SizeStatistics::SizeStatistics(const SizeStatistics &other12) {
   unencoded_byte_array_data_bytes = other12.unencoded_byte_array_data_bytes;
   repetition_level_histogram = other12.repetition_level_histogram;
   definition_level_histogram = other12.definition_level_histogram;
   __isset = other12.__isset;
 }
-SizeStatistics::SizeStatistics(SizeStatistics&& other13) noexcept {
+
+SizeStatistics::SizeStatistics(SizeStatistics &&other13) noexcept {
   unencoded_byte_array_data_bytes = other13.unencoded_byte_array_data_bytes;
   repetition_level_histogram = std::move(other13.repetition_level_histogram);
   definition_level_histogram = std::move(other13.definition_level_histogram);
   __isset = other13.__isset;
 }
-SizeStatistics& SizeStatistics::operator=(const SizeStatistics& other14) {
+
+SizeStatistics &SizeStatistics::operator=(const SizeStatistics &other14) {
   unencoded_byte_array_data_bytes = other14.unencoded_byte_array_data_bytes;
   repetition_level_histogram = other14.repetition_level_histogram;
   definition_level_histogram = other14.definition_level_histogram;
   __isset = other14.__isset;
   return *this;
 }
-SizeStatistics& SizeStatistics::operator=(SizeStatistics&& other15) noexcept {
+
+SizeStatistics &SizeStatistics::operator=(SizeStatistics &&other15) noexcept {
   unencoded_byte_array_data_bytes = other15.unencoded_byte_array_data_bytes;
   repetition_level_histogram = std::move(other15.repetition_level_histogram);
   definition_level_histogram = std::move(other15.definition_level_histogram);
   __isset = other15.__isset;
   return *this;
 }
-void SizeStatistics::printTo(std::ostream& out) const {
+
+void SizeStatistics::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "SizeStatistics(";
-  out << "unencoded_byte_array_data_bytes="; (__isset.unencoded_byte_array_data_bytes ? (out << to_string(unencoded_byte_array_data_bytes)) : (out << "<null>"));
-  out << ", " << "repetition_level_histogram="; (__isset.repetition_level_histogram ? (out << to_string(repetition_level_histogram)) : (out << "<null>"));
-  out << ", " << "definition_level_histogram="; (__isset.definition_level_histogram ? (out << to_string(definition_level_histogram)) : (out << "<null>"));
+  out << "unencoded_byte_array_data_bytes=";
+  (__isset.unencoded_byte_array_data_bytes ? (out << to_string(unencoded_byte_array_data_bytes)) : (out << "<null>"));
+  out << ", " << "repetition_level_histogram=";
+  (__isset.repetition_level_histogram ? (out << to_string(repetition_level_histogram)) : (out << "<null>"));
+  out << ", " << "definition_level_histogram=";
+  (__isset.definition_level_histogram ? (out << to_string(definition_level_histogram)) : (out << "<null>"));
   out << ")";
 }
 
@@ -811,53 +829,53 @@ Statistics::~Statistics() noexcept {
 }
 
 
-void Statistics::__set_max(const std::string& val) {
+void Statistics::__set_max(const std::string &val) {
   this->max = val;
-__isset.max = true;
+  __isset.max = true;
 }
 
-void Statistics::__set_min(const std::string& val) {
+void Statistics::__set_min(const std::string &val) {
   this->min = val;
-__isset.min = true;
+  __isset.min = true;
 }
 
 void Statistics::__set_null_count(const int64_t val) {
   this->null_count = val;
-__isset.null_count = true;
+  __isset.null_count = true;
 }
 
 void Statistics::__set_distinct_count(const int64_t val) {
   this->distinct_count = val;
-__isset.distinct_count = true;
+  __isset.distinct_count = true;
 }
 
-void Statistics::__set_max_value(const std::string& val) {
+void Statistics::__set_max_value(const std::string &val) {
   this->max_value = val;
-__isset.max_value = true;
+  __isset.max_value = true;
 }
 
-void Statistics::__set_min_value(const std::string& val) {
+void Statistics::__set_min_value(const std::string &val) {
   this->min_value = val;
-__isset.min_value = true;
+  __isset.min_value = true;
 }
 
 void Statistics::__set_is_max_value_exact(const bool val) {
   this->is_max_value_exact = val;
-__isset.is_max_value_exact = true;
+  __isset.is_max_value_exact = true;
 }
 
 void Statistics::__set_is_min_value_exact(const bool val) {
   this->is_min_value_exact = val;
-__isset.is_min_value_exact = true;
+  __isset.is_min_value_exact = true;
 }
-std::ostream& operator<<(std::ostream& out, const Statistics& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const Statistics &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t Statistics::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t Statistics::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -870,14 +888,12 @@ uint32_t Statistics::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
           xfer += iprot->readBinary(this->max);
@@ -954,7 +970,7 @@ uint32_t Statistics::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t Statistics::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t Statistics::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("Statistics");
@@ -1017,7 +1033,7 @@ void swap(Statistics &a, Statistics &b) {
   swap(a.__isset, b.__isset);
 }
 
-Statistics::Statistics(const Statistics& other16) {
+Statistics::Statistics(const Statistics &other16) {
   max = other16.max;
   min = other16.min;
   null_count = other16.null_count;
@@ -1028,7 +1044,8 @@ Statistics::Statistics(const Statistics& other16) {
   is_min_value_exact = other16.is_min_value_exact;
   __isset = other16.__isset;
 }
-Statistics::Statistics(Statistics&& other17) noexcept {
+
+Statistics::Statistics(Statistics &&other17) noexcept {
   max = std::move(other17.max);
   min = std::move(other17.min);
   null_count = other17.null_count;
@@ -1039,7 +1056,8 @@ Statistics::Statistics(Statistics&& other17) noexcept {
   is_min_value_exact = other17.is_min_value_exact;
   __isset = other17.__isset;
 }
-Statistics& Statistics::operator=(const Statistics& other18) {
+
+Statistics &Statistics::operator=(const Statistics &other18) {
   max = other18.max;
   min = other18.min;
   null_count = other18.null_count;
@@ -1051,7 +1069,8 @@ Statistics& Statistics::operator=(const Statistics& other18) {
   __isset = other18.__isset;
   return *this;
 }
-Statistics& Statistics::operator=(Statistics&& other19) noexcept {
+
+Statistics &Statistics::operator=(Statistics &&other19) noexcept {
   max = std::move(other19.max);
   min = std::move(other19.min);
   null_count = other19.null_count;
@@ -1063,17 +1082,26 @@ Statistics& Statistics::operator=(Statistics&& other19) noexcept {
   __isset = other19.__isset;
   return *this;
 }
-void Statistics::printTo(std::ostream& out) const {
+
+void Statistics::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "Statistics(";
-  out << "max="; (__isset.max ? (out << to_string(max)) : (out << "<null>"));
-  out << ", " << "min="; (__isset.min ? (out << to_string(min)) : (out << "<null>"));
-  out << ", " << "null_count="; (__isset.null_count ? (out << to_string(null_count)) : (out << "<null>"));
-  out << ", " << "distinct_count="; (__isset.distinct_count ? (out << to_string(distinct_count)) : (out << "<null>"));
-  out << ", " << "max_value="; (__isset.max_value ? (out << to_string(max_value)) : (out << "<null>"));
-  out << ", " << "min_value="; (__isset.min_value ? (out << to_string(min_value)) : (out << "<null>"));
-  out << ", " << "is_max_value_exact="; (__isset.is_max_value_exact ? (out << to_string(is_max_value_exact)) : (out << "<null>"));
-  out << ", " << "is_min_value_exact="; (__isset.is_min_value_exact ? (out << to_string(is_min_value_exact)) : (out << "<null>"));
+  out << "max=";
+  (__isset.max ? (out << to_string(max)) : (out << "<null>"));
+  out << ", " << "min=";
+  (__isset.min ? (out << to_string(min)) : (out << "<null>"));
+  out << ", " << "null_count=";
+  (__isset.null_count ? (out << to_string(null_count)) : (out << "<null>"));
+  out << ", " << "distinct_count=";
+  (__isset.distinct_count ? (out << to_string(distinct_count)) : (out << "<null>"));
+  out << ", " << "max_value=";
+  (__isset.max_value ? (out << to_string(max_value)) : (out << "<null>"));
+  out << ", " << "min_value=";
+  (__isset.min_value ? (out << to_string(min_value)) : (out << "<null>"));
+  out << ", " << "is_max_value_exact=";
+  (__isset.is_max_value_exact ? (out << to_string(is_max_value_exact)) : (out << "<null>"));
+  out << ", " << "is_min_value_exact=";
+  (__isset.is_min_value_exact ? (out << to_string(is_min_value_exact)) : (out << "<null>"));
   out << ")";
 }
 
@@ -1081,14 +1109,13 @@ void Statistics::printTo(std::ostream& out) const {
 StringType::~StringType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const StringType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const StringType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t StringType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t StringType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1101,8 +1128,7 @@ uint32_t StringType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1116,7 +1142,7 @@ uint32_t StringType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t StringType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t StringType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("StringType");
@@ -1132,21 +1158,25 @@ void swap(StringType &a, StringType &b) {
   (void) b;
 }
 
-StringType::StringType(const StringType& other20) noexcept {
+StringType::StringType(const StringType &other20) noexcept {
   (void) other20;
 }
-StringType::StringType(StringType&& other21) noexcept {
+
+StringType::StringType(StringType &&other21) noexcept {
   (void) other21;
 }
-StringType& StringType::operator=(const StringType& other22) noexcept {
+
+StringType &StringType::operator=(const StringType &other22) noexcept {
   (void) other22;
   return *this;
 }
-StringType& StringType::operator=(StringType&& other23) noexcept {
+
+StringType &StringType::operator=(StringType &&other23) noexcept {
   (void) other23;
   return *this;
 }
-void StringType::printTo(std::ostream& out) const {
+
+void StringType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "StringType(";
   out << ")";
@@ -1156,14 +1186,13 @@ void StringType::printTo(std::ostream& out) const {
 UUIDType::~UUIDType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const UUIDType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const UUIDType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t UUIDType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t UUIDType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1176,8 +1205,7 @@ uint32_t UUIDType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1191,7 +1219,7 @@ uint32_t UUIDType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t UUIDType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t UUIDType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("UUIDType");
@@ -1207,21 +1235,25 @@ void swap(UUIDType &a, UUIDType &b) {
   (void) b;
 }
 
-UUIDType::UUIDType(const UUIDType& other24) noexcept {
+UUIDType::UUIDType(const UUIDType &other24) noexcept {
   (void) other24;
 }
-UUIDType::UUIDType(UUIDType&& other25) noexcept {
+
+UUIDType::UUIDType(UUIDType &&other25) noexcept {
   (void) other25;
 }
-UUIDType& UUIDType::operator=(const UUIDType& other26) noexcept {
+
+UUIDType &UUIDType::operator=(const UUIDType &other26) noexcept {
   (void) other26;
   return *this;
 }
-UUIDType& UUIDType::operator=(UUIDType&& other27) noexcept {
+
+UUIDType &UUIDType::operator=(UUIDType &&other27) noexcept {
   (void) other27;
   return *this;
 }
-void UUIDType::printTo(std::ostream& out) const {
+
+void UUIDType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "UUIDType(";
   out << ")";
@@ -1231,14 +1263,13 @@ void UUIDType::printTo(std::ostream& out) const {
 MapType::~MapType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const MapType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const MapType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t MapType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t MapType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1251,8 +1282,7 @@ uint32_t MapType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1266,7 +1296,7 @@ uint32_t MapType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t MapType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t MapType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("MapType");
@@ -1282,21 +1312,25 @@ void swap(MapType &a, MapType &b) {
   (void) b;
 }
 
-MapType::MapType(const MapType& other28) noexcept {
+MapType::MapType(const MapType &other28) noexcept {
   (void) other28;
 }
-MapType::MapType(MapType&& other29) noexcept {
+
+MapType::MapType(MapType &&other29) noexcept {
   (void) other29;
 }
-MapType& MapType::operator=(const MapType& other30) noexcept {
+
+MapType &MapType::operator=(const MapType &other30) noexcept {
   (void) other30;
   return *this;
 }
-MapType& MapType::operator=(MapType&& other31) noexcept {
+
+MapType &MapType::operator=(MapType &&other31) noexcept {
   (void) other31;
   return *this;
 }
-void MapType::printTo(std::ostream& out) const {
+
+void MapType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "MapType(";
   out << ")";
@@ -1306,14 +1340,13 @@ void MapType::printTo(std::ostream& out) const {
 ListType::~ListType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const ListType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const ListType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ListType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ListType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1326,8 +1359,7 @@ uint32_t ListType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1341,7 +1373,7 @@ uint32_t ListType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t ListType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ListType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ListType");
@@ -1357,21 +1389,25 @@ void swap(ListType &a, ListType &b) {
   (void) b;
 }
 
-ListType::ListType(const ListType& other32) noexcept {
+ListType::ListType(const ListType &other32) noexcept {
   (void) other32;
 }
-ListType::ListType(ListType&& other33) noexcept {
+
+ListType::ListType(ListType &&other33) noexcept {
   (void) other33;
 }
-ListType& ListType::operator=(const ListType& other34) noexcept {
+
+ListType &ListType::operator=(const ListType &other34) noexcept {
   (void) other34;
   return *this;
 }
-ListType& ListType::operator=(ListType&& other35) noexcept {
+
+ListType &ListType::operator=(ListType &&other35) noexcept {
   (void) other35;
   return *this;
 }
-void ListType::printTo(std::ostream& out) const {
+
+void ListType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ListType(";
   out << ")";
@@ -1381,14 +1417,13 @@ void ListType::printTo(std::ostream& out) const {
 EnumType::~EnumType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const EnumType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const EnumType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t EnumType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t EnumType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1401,8 +1436,7 @@ uint32_t EnumType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1416,7 +1450,7 @@ uint32_t EnumType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t EnumType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t EnumType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("EnumType");
@@ -1432,21 +1466,25 @@ void swap(EnumType &a, EnumType &b) {
   (void) b;
 }
 
-EnumType::EnumType(const EnumType& other36) noexcept {
+EnumType::EnumType(const EnumType &other36) noexcept {
   (void) other36;
 }
-EnumType::EnumType(EnumType&& other37) noexcept {
+
+EnumType::EnumType(EnumType &&other37) noexcept {
   (void) other37;
 }
-EnumType& EnumType::operator=(const EnumType& other38) noexcept {
+
+EnumType &EnumType::operator=(const EnumType &other38) noexcept {
   (void) other38;
   return *this;
 }
-EnumType& EnumType::operator=(EnumType&& other39) noexcept {
+
+EnumType &EnumType::operator=(EnumType &&other39) noexcept {
   (void) other39;
   return *this;
 }
-void EnumType::printTo(std::ostream& out) const {
+
+void EnumType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "EnumType(";
   out << ")";
@@ -1456,14 +1494,13 @@ void EnumType::printTo(std::ostream& out) const {
 DateType::~DateType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const DateType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const DateType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t DateType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t DateType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1476,8 +1513,7 @@ uint32_t DateType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1491,7 +1527,7 @@ uint32_t DateType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t DateType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t DateType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("DateType");
@@ -1507,21 +1543,25 @@ void swap(DateType &a, DateType &b) {
   (void) b;
 }
 
-DateType::DateType(const DateType& other40) noexcept {
+DateType::DateType(const DateType &other40) noexcept {
   (void) other40;
 }
-DateType::DateType(DateType&& other41) noexcept {
+
+DateType::DateType(DateType &&other41) noexcept {
   (void) other41;
 }
-DateType& DateType::operator=(const DateType& other42) noexcept {
+
+DateType &DateType::operator=(const DateType &other42) noexcept {
   (void) other42;
   return *this;
 }
-DateType& DateType::operator=(DateType&& other43) noexcept {
+
+DateType &DateType::operator=(DateType &&other43) noexcept {
   (void) other43;
   return *this;
 }
-void DateType::printTo(std::ostream& out) const {
+
+void DateType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "DateType(";
   out << ")";
@@ -1531,14 +1571,13 @@ void DateType::printTo(std::ostream& out) const {
 Float16Type::~Float16Type() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const Float16Type& obj)
-{
+std::ostream &operator<<(std::ostream &out, const Float16Type &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t Float16Type::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t Float16Type::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1551,8 +1590,7 @@ uint32_t Float16Type::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1566,7 +1604,7 @@ uint32_t Float16Type::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t Float16Type::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t Float16Type::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("Float16Type");
@@ -1582,21 +1620,25 @@ void swap(Float16Type &a, Float16Type &b) {
   (void) b;
 }
 
-Float16Type::Float16Type(const Float16Type& other44) noexcept {
+Float16Type::Float16Type(const Float16Type &other44) noexcept {
   (void) other44;
 }
-Float16Type::Float16Type(Float16Type&& other45) noexcept {
+
+Float16Type::Float16Type(Float16Type &&other45) noexcept {
   (void) other45;
 }
-Float16Type& Float16Type::operator=(const Float16Type& other46) noexcept {
+
+Float16Type &Float16Type::operator=(const Float16Type &other46) noexcept {
   (void) other46;
   return *this;
 }
-Float16Type& Float16Type::operator=(Float16Type&& other47) noexcept {
+
+Float16Type &Float16Type::operator=(Float16Type &&other47) noexcept {
   (void) other47;
   return *this;
 }
-void Float16Type::printTo(std::ostream& out) const {
+
+void Float16Type::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "Float16Type(";
   out << ")";
@@ -1606,14 +1648,13 @@ void Float16Type::printTo(std::ostream& out) const {
 NullType::~NullType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const NullType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const NullType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t NullType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t NullType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1626,8 +1667,7 @@ uint32_t NullType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1641,7 +1681,7 @@ uint32_t NullType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t NullType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t NullType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("NullType");
@@ -1657,21 +1697,25 @@ void swap(NullType &a, NullType &b) {
   (void) b;
 }
 
-NullType::NullType(const NullType& other48) noexcept {
+NullType::NullType(const NullType &other48) noexcept {
   (void) other48;
 }
-NullType::NullType(NullType&& other49) noexcept {
+
+NullType::NullType(NullType &&other49) noexcept {
   (void) other49;
 }
-NullType& NullType::operator=(const NullType& other50) noexcept {
+
+NullType &NullType::operator=(const NullType &other50) noexcept {
   (void) other50;
   return *this;
 }
-NullType& NullType::operator=(NullType&& other51) noexcept {
+
+NullType &NullType::operator=(NullType &&other51) noexcept {
   (void) other51;
   return *this;
 }
-void NullType::printTo(std::ostream& out) const {
+
+void NullType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "NullType(";
   out << ")";
@@ -1689,14 +1733,14 @@ void DecimalType::__set_scale(const int32_t val) {
 void DecimalType::__set_precision(const int32_t val) {
   this->precision = val;
 }
-std::ostream& operator<<(std::ostream& out, const DecimalType& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const DecimalType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t DecimalType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t DecimalType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1711,14 +1755,12 @@ uint32_t DecimalType::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_scale = false;
   bool isset_precision = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->scale);
@@ -1751,7 +1793,7 @@ uint32_t DecimalType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t DecimalType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t DecimalType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("DecimalType");
@@ -1775,25 +1817,29 @@ void swap(DecimalType &a, DecimalType &b) {
   swap(a.precision, b.precision);
 }
 
-DecimalType::DecimalType(const DecimalType& other52) noexcept {
+DecimalType::DecimalType(const DecimalType &other52) noexcept {
   scale = other52.scale;
   precision = other52.precision;
 }
-DecimalType::DecimalType(DecimalType&& other53) noexcept {
+
+DecimalType::DecimalType(DecimalType &&other53) noexcept {
   scale = other53.scale;
   precision = other53.precision;
 }
-DecimalType& DecimalType::operator=(const DecimalType& other54) noexcept {
+
+DecimalType &DecimalType::operator=(const DecimalType &other54) noexcept {
   scale = other54.scale;
   precision = other54.precision;
   return *this;
 }
-DecimalType& DecimalType::operator=(DecimalType&& other55) noexcept {
+
+DecimalType &DecimalType::operator=(DecimalType &&other55) noexcept {
   scale = other55.scale;
   precision = other55.precision;
   return *this;
 }
-void DecimalType::printTo(std::ostream& out) const {
+
+void DecimalType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "DecimalType(";
   out << "scale=" << to_string(scale);
@@ -1805,14 +1851,13 @@ void DecimalType::printTo(std::ostream& out) const {
 MilliSeconds::~MilliSeconds() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const MilliSeconds& obj)
-{
+std::ostream &operator<<(std::ostream &out, const MilliSeconds &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t MilliSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t MilliSeconds::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1825,8 +1870,7 @@ uint32_t MilliSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1840,7 +1884,7 @@ uint32_t MilliSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t MilliSeconds::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t MilliSeconds::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("MilliSeconds");
@@ -1856,21 +1900,25 @@ void swap(MilliSeconds &a, MilliSeconds &b) {
   (void) b;
 }
 
-MilliSeconds::MilliSeconds(const MilliSeconds& other56) noexcept {
+MilliSeconds::MilliSeconds(const MilliSeconds &other56) noexcept {
   (void) other56;
 }
-MilliSeconds::MilliSeconds(MilliSeconds&& other57) noexcept {
+
+MilliSeconds::MilliSeconds(MilliSeconds &&other57) noexcept {
   (void) other57;
 }
-MilliSeconds& MilliSeconds::operator=(const MilliSeconds& other58) noexcept {
+
+MilliSeconds &MilliSeconds::operator=(const MilliSeconds &other58) noexcept {
   (void) other58;
   return *this;
 }
-MilliSeconds& MilliSeconds::operator=(MilliSeconds&& other59) noexcept {
+
+MilliSeconds &MilliSeconds::operator=(MilliSeconds &&other59) noexcept {
   (void) other59;
   return *this;
 }
-void MilliSeconds::printTo(std::ostream& out) const {
+
+void MilliSeconds::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "MilliSeconds(";
   out << ")";
@@ -1880,14 +1928,13 @@ void MilliSeconds::printTo(std::ostream& out) const {
 MicroSeconds::~MicroSeconds() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const MicroSeconds& obj)
-{
+std::ostream &operator<<(std::ostream &out, const MicroSeconds &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t MicroSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t MicroSeconds::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1900,8 +1947,7 @@ uint32_t MicroSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1915,7 +1961,7 @@ uint32_t MicroSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t MicroSeconds::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t MicroSeconds::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("MicroSeconds");
@@ -1931,21 +1977,25 @@ void swap(MicroSeconds &a, MicroSeconds &b) {
   (void) b;
 }
 
-MicroSeconds::MicroSeconds(const MicroSeconds& other60) noexcept {
+MicroSeconds::MicroSeconds(const MicroSeconds &other60) noexcept {
   (void) other60;
 }
-MicroSeconds::MicroSeconds(MicroSeconds&& other61) noexcept {
+
+MicroSeconds::MicroSeconds(MicroSeconds &&other61) noexcept {
   (void) other61;
 }
-MicroSeconds& MicroSeconds::operator=(const MicroSeconds& other62) noexcept {
+
+MicroSeconds &MicroSeconds::operator=(const MicroSeconds &other62) noexcept {
   (void) other62;
   return *this;
 }
-MicroSeconds& MicroSeconds::operator=(MicroSeconds&& other63) noexcept {
+
+MicroSeconds &MicroSeconds::operator=(MicroSeconds &&other63) noexcept {
   (void) other63;
   return *this;
 }
-void MicroSeconds::printTo(std::ostream& out) const {
+
+void MicroSeconds::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "MicroSeconds(";
   out << ")";
@@ -1955,14 +2005,13 @@ void MicroSeconds::printTo(std::ostream& out) const {
 NanoSeconds::~NanoSeconds() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const NanoSeconds& obj)
-{
+std::ostream &operator<<(std::ostream &out, const NanoSeconds &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t NanoSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t NanoSeconds::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -1975,8 +2024,7 @@ uint32_t NanoSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -1990,7 +2038,7 @@ uint32_t NanoSeconds::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t NanoSeconds::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t NanoSeconds::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("NanoSeconds");
@@ -2006,21 +2054,25 @@ void swap(NanoSeconds &a, NanoSeconds &b) {
   (void) b;
 }
 
-NanoSeconds::NanoSeconds(const NanoSeconds& other64) noexcept {
+NanoSeconds::NanoSeconds(const NanoSeconds &other64) noexcept {
   (void) other64;
 }
-NanoSeconds::NanoSeconds(NanoSeconds&& other65) noexcept {
+
+NanoSeconds::NanoSeconds(NanoSeconds &&other65) noexcept {
   (void) other65;
 }
-NanoSeconds& NanoSeconds::operator=(const NanoSeconds& other66) noexcept {
+
+NanoSeconds &NanoSeconds::operator=(const NanoSeconds &other66) noexcept {
   (void) other66;
   return *this;
 }
-NanoSeconds& NanoSeconds::operator=(NanoSeconds&& other67) noexcept {
+
+NanoSeconds &NanoSeconds::operator=(NanoSeconds &&other67) noexcept {
   (void) other67;
   return *this;
 }
-void NanoSeconds::printTo(std::ostream& out) const {
+
+void NanoSeconds::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "NanoSeconds(";
   out << ")";
@@ -2031,28 +2083,28 @@ TimeUnit::~TimeUnit() noexcept {
 }
 
 
-void TimeUnit::__set_MILLIS(const MilliSeconds& val) {
+void TimeUnit::__set_MILLIS(const MilliSeconds &val) {
   this->MILLIS = val;
-__isset.MILLIS = true;
+  __isset.MILLIS = true;
 }
 
-void TimeUnit::__set_MICROS(const MicroSeconds& val) {
+void TimeUnit::__set_MICROS(const MicroSeconds &val) {
   this->MICROS = val;
-__isset.MICROS = true;
+  __isset.MICROS = true;
 }
 
-void TimeUnit::__set_NANOS(const NanoSeconds& val) {
+void TimeUnit::__set_NANOS(const NanoSeconds &val) {
   this->NANOS = val;
-__isset.NANOS = true;
+  __isset.NANOS = true;
 }
-std::ostream& operator<<(std::ostream& out, const TimeUnit& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const TimeUnit &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t TimeUnit::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t TimeUnit::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2065,14 +2117,12 @@ uint32_t TimeUnit::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->MILLIS.read(iprot);
@@ -2109,7 +2159,7 @@ uint32_t TimeUnit::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t TimeUnit::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t TimeUnit::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("TimeUnit");
@@ -2142,38 +2192,45 @@ void swap(TimeUnit &a, TimeUnit &b) {
   swap(a.__isset, b.__isset);
 }
 
-TimeUnit::TimeUnit(const TimeUnit& other68) noexcept {
+TimeUnit::TimeUnit(const TimeUnit &other68) noexcept {
   MILLIS = other68.MILLIS;
   MICROS = other68.MICROS;
   NANOS = other68.NANOS;
   __isset = other68.__isset;
 }
-TimeUnit::TimeUnit(TimeUnit&& other69) noexcept {
+
+TimeUnit::TimeUnit(TimeUnit &&other69) noexcept {
   MILLIS = std::move(other69.MILLIS);
   MICROS = std::move(other69.MICROS);
   NANOS = std::move(other69.NANOS);
   __isset = other69.__isset;
 }
-TimeUnit& TimeUnit::operator=(const TimeUnit& other70) noexcept {
+
+TimeUnit &TimeUnit::operator=(const TimeUnit &other70) noexcept {
   MILLIS = other70.MILLIS;
   MICROS = other70.MICROS;
   NANOS = other70.NANOS;
   __isset = other70.__isset;
   return *this;
 }
-TimeUnit& TimeUnit::operator=(TimeUnit&& other71) noexcept {
+
+TimeUnit &TimeUnit::operator=(TimeUnit &&other71) noexcept {
   MILLIS = std::move(other71.MILLIS);
   MICROS = std::move(other71.MICROS);
   NANOS = std::move(other71.NANOS);
   __isset = other71.__isset;
   return *this;
 }
-void TimeUnit::printTo(std::ostream& out) const {
+
+void TimeUnit::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "TimeUnit(";
-  out << "MILLIS="; (__isset.MILLIS ? (out << to_string(MILLIS)) : (out << "<null>"));
-  out << ", " << "MICROS="; (__isset.MICROS ? (out << to_string(MICROS)) : (out << "<null>"));
-  out << ", " << "NANOS="; (__isset.NANOS ? (out << to_string(NANOS)) : (out << "<null>"));
+  out << "MILLIS=";
+  (__isset.MILLIS ? (out << to_string(MILLIS)) : (out << "<null>"));
+  out << ", " << "MICROS=";
+  (__isset.MICROS ? (out << to_string(MICROS)) : (out << "<null>"));
+  out << ", " << "NANOS=";
+  (__isset.NANOS ? (out << to_string(NANOS)) : (out << "<null>"));
   out << ")";
 }
 
@@ -2186,17 +2243,17 @@ void TimestampType::__set_isAdjustedToUTC(const bool val) {
   this->isAdjustedToUTC = val;
 }
 
-void TimestampType::__set_unit(const TimeUnit& val) {
+void TimestampType::__set_unit(const TimeUnit &val) {
   this->unit = val;
 }
-std::ostream& operator<<(std::ostream& out, const TimestampType& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const TimestampType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t TimestampType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t TimestampType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2211,14 +2268,12 @@ uint32_t TimestampType::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_isAdjustedToUTC = false;
   bool isset_unit = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_BOOL) {
           xfer += iprot->readBool(this->isAdjustedToUTC);
@@ -2251,7 +2306,7 @@ uint32_t TimestampType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t TimestampType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t TimestampType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("TimestampType");
@@ -2275,25 +2330,29 @@ void swap(TimestampType &a, TimestampType &b) {
   swap(a.unit, b.unit);
 }
 
-TimestampType::TimestampType(const TimestampType& other72) noexcept {
+TimestampType::TimestampType(const TimestampType &other72) noexcept {
   isAdjustedToUTC = other72.isAdjustedToUTC;
   unit = other72.unit;
 }
-TimestampType::TimestampType(TimestampType&& other73) noexcept {
+
+TimestampType::TimestampType(TimestampType &&other73) noexcept {
   isAdjustedToUTC = other73.isAdjustedToUTC;
   unit = std::move(other73.unit);
 }
-TimestampType& TimestampType::operator=(const TimestampType& other74) noexcept {
+
+TimestampType &TimestampType::operator=(const TimestampType &other74) noexcept {
   isAdjustedToUTC = other74.isAdjustedToUTC;
   unit = other74.unit;
   return *this;
 }
-TimestampType& TimestampType::operator=(TimestampType&& other75) noexcept {
+
+TimestampType &TimestampType::operator=(TimestampType &&other75) noexcept {
   isAdjustedToUTC = other75.isAdjustedToUTC;
   unit = std::move(other75.unit);
   return *this;
 }
-void TimestampType::printTo(std::ostream& out) const {
+
+void TimestampType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "TimestampType(";
   out << "isAdjustedToUTC=" << to_string(isAdjustedToUTC);
@@ -2310,17 +2369,17 @@ void TimeType::__set_isAdjustedToUTC(const bool val) {
   this->isAdjustedToUTC = val;
 }
 
-void TimeType::__set_unit(const TimeUnit& val) {
+void TimeType::__set_unit(const TimeUnit &val) {
   this->unit = val;
 }
-std::ostream& operator<<(std::ostream& out, const TimeType& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const TimeType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t TimeType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t TimeType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2335,14 +2394,12 @@ uint32_t TimeType::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_isAdjustedToUTC = false;
   bool isset_unit = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_BOOL) {
           xfer += iprot->readBool(this->isAdjustedToUTC);
@@ -2375,7 +2432,7 @@ uint32_t TimeType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t TimeType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t TimeType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("TimeType");
@@ -2399,25 +2456,29 @@ void swap(TimeType &a, TimeType &b) {
   swap(a.unit, b.unit);
 }
 
-TimeType::TimeType(const TimeType& other76) noexcept {
+TimeType::TimeType(const TimeType &other76) noexcept {
   isAdjustedToUTC = other76.isAdjustedToUTC;
   unit = other76.unit;
 }
-TimeType::TimeType(TimeType&& other77) noexcept {
+
+TimeType::TimeType(TimeType &&other77) noexcept {
   isAdjustedToUTC = other77.isAdjustedToUTC;
   unit = std::move(other77.unit);
 }
-TimeType& TimeType::operator=(const TimeType& other78) noexcept {
+
+TimeType &TimeType::operator=(const TimeType &other78) noexcept {
   isAdjustedToUTC = other78.isAdjustedToUTC;
   unit = other78.unit;
   return *this;
 }
-TimeType& TimeType::operator=(TimeType&& other79) noexcept {
+
+TimeType &TimeType::operator=(TimeType &&other79) noexcept {
   isAdjustedToUTC = other79.isAdjustedToUTC;
   unit = std::move(other79.unit);
   return *this;
 }
-void TimeType::printTo(std::ostream& out) const {
+
+void TimeType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "TimeType(";
   out << "isAdjustedToUTC=" << to_string(isAdjustedToUTC);
@@ -2437,14 +2498,14 @@ void IntType::__set_bitWidth(const int8_t val) {
 void IntType::__set_isSigned(const bool val) {
   this->isSigned = val;
 }
-std::ostream& operator<<(std::ostream& out, const IntType& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const IntType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t IntType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t IntType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2459,14 +2520,12 @@ uint32_t IntType::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_bitWidth = false;
   bool isset_isSigned = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_BYTE) {
           xfer += iprot->readByte(this->bitWidth);
@@ -2499,7 +2558,7 @@ uint32_t IntType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t IntType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t IntType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("IntType");
@@ -2523,25 +2582,29 @@ void swap(IntType &a, IntType &b) {
   swap(a.isSigned, b.isSigned);
 }
 
-IntType::IntType(const IntType& other80) noexcept {
+IntType::IntType(const IntType &other80) noexcept {
   bitWidth = other80.bitWidth;
   isSigned = other80.isSigned;
 }
-IntType::IntType(IntType&& other81) noexcept {
+
+IntType::IntType(IntType &&other81) noexcept {
   bitWidth = other81.bitWidth;
   isSigned = other81.isSigned;
 }
-IntType& IntType::operator=(const IntType& other82) noexcept {
+
+IntType &IntType::operator=(const IntType &other82) noexcept {
   bitWidth = other82.bitWidth;
   isSigned = other82.isSigned;
   return *this;
 }
-IntType& IntType::operator=(IntType&& other83) noexcept {
+
+IntType &IntType::operator=(IntType &&other83) noexcept {
   bitWidth = other83.bitWidth;
   isSigned = other83.isSigned;
   return *this;
 }
-void IntType::printTo(std::ostream& out) const {
+
+void IntType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "IntType(";
   out << "bitWidth=" << to_string(bitWidth);
@@ -2553,14 +2616,13 @@ void IntType::printTo(std::ostream& out) const {
 JsonType::~JsonType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const JsonType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const JsonType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t JsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t JsonType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2573,8 +2635,7 @@ uint32_t JsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -2588,7 +2649,7 @@ uint32_t JsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t JsonType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t JsonType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("JsonType");
@@ -2604,21 +2665,25 @@ void swap(JsonType &a, JsonType &b) {
   (void) b;
 }
 
-JsonType::JsonType(const JsonType& other84) noexcept {
+JsonType::JsonType(const JsonType &other84) noexcept {
   (void) other84;
 }
-JsonType::JsonType(JsonType&& other85) noexcept {
+
+JsonType::JsonType(JsonType &&other85) noexcept {
   (void) other85;
 }
-JsonType& JsonType::operator=(const JsonType& other86) noexcept {
+
+JsonType &JsonType::operator=(const JsonType &other86) noexcept {
   (void) other86;
   return *this;
 }
-JsonType& JsonType::operator=(JsonType&& other87) noexcept {
+
+JsonType &JsonType::operator=(JsonType &&other87) noexcept {
   (void) other87;
   return *this;
 }
-void JsonType::printTo(std::ostream& out) const {
+
+void JsonType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "JsonType(";
   out << ")";
@@ -2628,14 +2693,13 @@ void JsonType::printTo(std::ostream& out) const {
 BsonType::~BsonType() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const BsonType& obj)
-{
+std::ostream &operator<<(std::ostream &out, const BsonType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t BsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t BsonType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2648,8 +2712,7 @@ uint32_t BsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -2663,7 +2726,7 @@ uint32_t BsonType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t BsonType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t BsonType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("BsonType");
@@ -2679,21 +2742,25 @@ void swap(BsonType &a, BsonType &b) {
   (void) b;
 }
 
-BsonType::BsonType(const BsonType& other88) noexcept {
+BsonType::BsonType(const BsonType &other88) noexcept {
   (void) other88;
 }
-BsonType::BsonType(BsonType&& other89) noexcept {
+
+BsonType::BsonType(BsonType &&other89) noexcept {
   (void) other89;
 }
-BsonType& BsonType::operator=(const BsonType& other90) noexcept {
+
+BsonType &BsonType::operator=(const BsonType &other90) noexcept {
   (void) other90;
   return *this;
 }
-BsonType& BsonType::operator=(BsonType&& other91) noexcept {
+
+BsonType &BsonType::operator=(BsonType &&other91) noexcept {
   (void) other91;
   return *this;
 }
-void BsonType::printTo(std::ostream& out) const {
+
+void BsonType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "BsonType(";
   out << ")";
@@ -2704,83 +2771,83 @@ LogicalType::~LogicalType() noexcept {
 }
 
 
-void LogicalType::__set_STRING(const StringType& val) {
+void LogicalType::__set_STRING(const StringType &val) {
   this->STRING = val;
-__isset.STRING = true;
+  __isset.STRING = true;
 }
 
-void LogicalType::__set_MAP(const MapType& val) {
+void LogicalType::__set_MAP(const MapType &val) {
   this->MAP = val;
-__isset.MAP = true;
+  __isset.MAP = true;
 }
 
-void LogicalType::__set_LIST(const ListType& val) {
+void LogicalType::__set_LIST(const ListType &val) {
   this->LIST = val;
-__isset.LIST = true;
+  __isset.LIST = true;
 }
 
-void LogicalType::__set_ENUM(const EnumType& val) {
+void LogicalType::__set_ENUM(const EnumType &val) {
   this->ENUM = val;
-__isset.ENUM = true;
+  __isset.ENUM = true;
 }
 
-void LogicalType::__set_DECIMAL(const DecimalType& val) {
+void LogicalType::__set_DECIMAL(const DecimalType &val) {
   this->DECIMAL = val;
-__isset.DECIMAL = true;
+  __isset.DECIMAL = true;
 }
 
-void LogicalType::__set_DATE(const DateType& val) {
+void LogicalType::__set_DATE(const DateType &val) {
   this->DATE = val;
-__isset.DATE = true;
+  __isset.DATE = true;
 }
 
-void LogicalType::__set_TIME(const TimeType& val) {
+void LogicalType::__set_TIME(const TimeType &val) {
   this->TIME = val;
-__isset.TIME = true;
+  __isset.TIME = true;
 }
 
-void LogicalType::__set_TIMESTAMP(const TimestampType& val) {
+void LogicalType::__set_TIMESTAMP(const TimestampType &val) {
   this->TIMESTAMP = val;
-__isset.TIMESTAMP = true;
+  __isset.TIMESTAMP = true;
 }
 
-void LogicalType::__set_INTEGER(const IntType& val) {
+void LogicalType::__set_INTEGER(const IntType &val) {
   this->INTEGER = val;
-__isset.INTEGER = true;
+  __isset.INTEGER = true;
 }
 
-void LogicalType::__set_UNKNOWN(const NullType& val) {
+void LogicalType::__set_UNKNOWN(const NullType &val) {
   this->UNKNOWN = val;
-__isset.UNKNOWN = true;
+  __isset.UNKNOWN = true;
 }
 
-void LogicalType::__set_JSON(const JsonType& val) {
+void LogicalType::__set_JSON(const JsonType &val) {
   this->JSON = val;
-__isset.JSON = true;
+  __isset.JSON = true;
 }
 
-void LogicalType::__set_BSON(const BsonType& val) {
+void LogicalType::__set_BSON(const BsonType &val) {
   this->BSON = val;
-__isset.BSON = true;
+  __isset.BSON = true;
 }
 
-void LogicalType::__set_UUID(const UUIDType& val) {
+void LogicalType::__set_UUID(const UUIDType &val) {
   this->UUID = val;
-__isset.UUID = true;
+  __isset.UUID = true;
 }
 
-void LogicalType::__set_FLOAT16(const Float16Type& val) {
+void LogicalType::__set_FLOAT16(const Float16Type &val) {
   this->FLOAT16 = val;
-__isset.FLOAT16 = true;
+  __isset.FLOAT16 = true;
 }
-std::ostream& operator<<(std::ostream& out, const LogicalType& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const LogicalType &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t LogicalType::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t LogicalType::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -2793,14 +2860,12 @@ uint32_t LogicalType::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->STRING.read(iprot);
@@ -2925,7 +2990,7 @@ uint32_t LogicalType::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t LogicalType::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t LogicalType::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("LogicalType");
@@ -3024,7 +3089,7 @@ void swap(LogicalType &a, LogicalType &b) {
   swap(a.__isset, b.__isset);
 }
 
-LogicalType::LogicalType(const LogicalType& other92) noexcept {
+LogicalType::LogicalType(const LogicalType &other92) noexcept {
   STRING = other92.STRING;
   MAP = other92.MAP;
   LIST = other92.LIST;
@@ -3041,7 +3106,8 @@ LogicalType::LogicalType(const LogicalType& other92) noexcept {
   FLOAT16 = other92.FLOAT16;
   __isset = other92.__isset;
 }
-LogicalType::LogicalType(LogicalType&& other93) noexcept {
+
+LogicalType::LogicalType(LogicalType &&other93) noexcept {
   STRING = std::move(other93.STRING);
   MAP = std::move(other93.MAP);
   LIST = std::move(other93.LIST);
@@ -3058,7 +3124,8 @@ LogicalType::LogicalType(LogicalType&& other93) noexcept {
   FLOAT16 = std::move(other93.FLOAT16);
   __isset = other93.__isset;
 }
-LogicalType& LogicalType::operator=(const LogicalType& other94) noexcept {
+
+LogicalType &LogicalType::operator=(const LogicalType &other94) noexcept {
   STRING = other94.STRING;
   MAP = other94.MAP;
   LIST = other94.LIST;
@@ -3076,7 +3143,8 @@ LogicalType& LogicalType::operator=(const LogicalType& other94) noexcept {
   __isset = other94.__isset;
   return *this;
 }
-LogicalType& LogicalType::operator=(LogicalType&& other95) noexcept {
+
+LogicalType &LogicalType::operator=(LogicalType &&other95) noexcept {
   STRING = std::move(other95.STRING);
   MAP = std::move(other95.MAP);
   LIST = std::move(other95.LIST);
@@ -3094,23 +3162,38 @@ LogicalType& LogicalType::operator=(LogicalType&& other95) noexcept {
   __isset = other95.__isset;
   return *this;
 }
-void LogicalType::printTo(std::ostream& out) const {
+
+void LogicalType::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "LogicalType(";
-  out << "STRING="; (__isset.STRING ? (out << to_string(STRING)) : (out << "<null>"));
-  out << ", " << "MAP="; (__isset.MAP ? (out << to_string(MAP)) : (out << "<null>"));
-  out << ", " << "LIST="; (__isset.LIST ? (out << to_string(LIST)) : (out << "<null>"));
-  out << ", " << "ENUM="; (__isset.ENUM ? (out << to_string(ENUM)) : (out << "<null>"));
-  out << ", " << "DECIMAL="; (__isset.DECIMAL ? (out << to_string(DECIMAL)) : (out << "<null>"));
-  out << ", " << "DATE="; (__isset.DATE ? (out << to_string(DATE)) : (out << "<null>"));
-  out << ", " << "TIME="; (__isset.TIME ? (out << to_string(TIME)) : (out << "<null>"));
-  out << ", " << "TIMESTAMP="; (__isset.TIMESTAMP ? (out << to_string(TIMESTAMP)) : (out << "<null>"));
-  out << ", " << "INTEGER="; (__isset.INTEGER ? (out << to_string(INTEGER)) : (out << "<null>"));
-  out << ", " << "UNKNOWN="; (__isset.UNKNOWN ? (out << to_string(UNKNOWN)) : (out << "<null>"));
-  out << ", " << "JSON="; (__isset.JSON ? (out << to_string(JSON)) : (out << "<null>"));
-  out << ", " << "BSON="; (__isset.BSON ? (out << to_string(BSON)) : (out << "<null>"));
-  out << ", " << "UUID="; (__isset.UUID ? (out << to_string(UUID)) : (out << "<null>"));
-  out << ", " << "FLOAT16="; (__isset.FLOAT16 ? (out << to_string(FLOAT16)) : (out << "<null>"));
+  out << "STRING=";
+  (__isset.STRING ? (out << to_string(STRING)) : (out << "<null>"));
+  out << ", " << "MAP=";
+  (__isset.MAP ? (out << to_string(MAP)) : (out << "<null>"));
+  out << ", " << "LIST=";
+  (__isset.LIST ? (out << to_string(LIST)) : (out << "<null>"));
+  out << ", " << "ENUM=";
+  (__isset.ENUM ? (out << to_string(ENUM)) : (out << "<null>"));
+  out << ", " << "DECIMAL=";
+  (__isset.DECIMAL ? (out << to_string(DECIMAL)) : (out << "<null>"));
+  out << ", " << "DATE=";
+  (__isset.DATE ? (out << to_string(DATE)) : (out << "<null>"));
+  out << ", " << "TIME=";
+  (__isset.TIME ? (out << to_string(TIME)) : (out << "<null>"));
+  out << ", " << "TIMESTAMP=";
+  (__isset.TIMESTAMP ? (out << to_string(TIMESTAMP)) : (out << "<null>"));
+  out << ", " << "INTEGER=";
+  (__isset.INTEGER ? (out << to_string(INTEGER)) : (out << "<null>"));
+  out << ", " << "UNKNOWN=";
+  (__isset.UNKNOWN ? (out << to_string(UNKNOWN)) : (out << "<null>"));
+  out << ", " << "JSON=";
+  (__isset.JSON ? (out << to_string(JSON)) : (out << "<null>"));
+  out << ", " << "BSON=";
+  (__isset.BSON ? (out << to_string(BSON)) : (out << "<null>"));
+  out << ", " << "UUID=";
+  (__isset.UUID ? (out << to_string(UUID)) : (out << "<null>"));
+  out << ", " << "FLOAT16=";
+  (__isset.FLOAT16 ? (out << to_string(FLOAT16)) : (out << "<null>"));
   out << ")";
 }
 
@@ -3121,60 +3204,60 @@ SchemaElement::~SchemaElement() noexcept {
 
 void SchemaElement::__set_type(const Type::type val) {
   this->type = val;
-__isset.type = true;
+  __isset.type = true;
 }
 
 void SchemaElement::__set_type_length(const int32_t val) {
   this->type_length = val;
-__isset.type_length = true;
+  __isset.type_length = true;
 }
 
 void SchemaElement::__set_repetition_type(const FieldRepetitionType::type val) {
   this->repetition_type = val;
-__isset.repetition_type = true;
+  __isset.repetition_type = true;
 }
 
-void SchemaElement::__set_name(const std::string& val) {
+void SchemaElement::__set_name(const std::string &val) {
   this->name = val;
 }
 
 void SchemaElement::__set_num_children(const int32_t val) {
   this->num_children = val;
-__isset.num_children = true;
+  __isset.num_children = true;
 }
 
 void SchemaElement::__set_converted_type(const ConvertedType::type val) {
   this->converted_type = val;
-__isset.converted_type = true;
+  __isset.converted_type = true;
 }
 
 void SchemaElement::__set_scale(const int32_t val) {
   this->scale = val;
-__isset.scale = true;
+  __isset.scale = true;
 }
 
 void SchemaElement::__set_precision(const int32_t val) {
   this->precision = val;
-__isset.precision = true;
+  __isset.precision = true;
 }
 
 void SchemaElement::__set_field_id(const int32_t val) {
   this->field_id = val;
-__isset.field_id = true;
+  __isset.field_id = true;
 }
 
-void SchemaElement::__set_logicalType(const LogicalType& val) {
+void SchemaElement::__set_logicalType(const LogicalType &val) {
   this->logicalType = val;
-__isset.logicalType = true;
+  __isset.logicalType = true;
 }
-std::ostream& operator<<(std::ostream& out, const SchemaElement& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const SchemaElement &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t SchemaElement::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t SchemaElement::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -3188,14 +3271,12 @@ uint32_t SchemaElement::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   bool isset_name = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           int32_t ecast96;
@@ -3296,7 +3377,7 @@ uint32_t SchemaElement::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t SchemaElement::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t SchemaElement::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("SchemaElement");
@@ -3370,7 +3451,7 @@ void swap(SchemaElement &a, SchemaElement &b) {
   swap(a.__isset, b.__isset);
 }
 
-SchemaElement::SchemaElement(const SchemaElement& other99) {
+SchemaElement::SchemaElement(const SchemaElement &other99) {
   type = other99.type;
   type_length = other99.type_length;
   repetition_type = other99.repetition_type;
@@ -3383,7 +3464,8 @@ SchemaElement::SchemaElement(const SchemaElement& other99) {
   logicalType = other99.logicalType;
   __isset = other99.__isset;
 }
-SchemaElement::SchemaElement(SchemaElement&& other100) noexcept {
+
+SchemaElement::SchemaElement(SchemaElement &&other100) noexcept {
   type = other100.type;
   type_length = other100.type_length;
   repetition_type = other100.repetition_type;
@@ -3396,7 +3478,8 @@ SchemaElement::SchemaElement(SchemaElement&& other100) noexcept {
   logicalType = std::move(other100.logicalType);
   __isset = other100.__isset;
 }
-SchemaElement& SchemaElement::operator=(const SchemaElement& other101) {
+
+SchemaElement &SchemaElement::operator=(const SchemaElement &other101) {
   type = other101.type;
   type_length = other101.type_length;
   repetition_type = other101.repetition_type;
@@ -3410,7 +3493,8 @@ SchemaElement& SchemaElement::operator=(const SchemaElement& other101) {
   __isset = other101.__isset;
   return *this;
 }
-SchemaElement& SchemaElement::operator=(SchemaElement&& other102) noexcept {
+
+SchemaElement &SchemaElement::operator=(SchemaElement &&other102) noexcept {
   type = other102.type;
   type_length = other102.type_length;
   repetition_type = other102.repetition_type;
@@ -3424,19 +3508,29 @@ SchemaElement& SchemaElement::operator=(SchemaElement&& other102) noexcept {
   __isset = other102.__isset;
   return *this;
 }
-void SchemaElement::printTo(std::ostream& out) const {
+
+void SchemaElement::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "SchemaElement(";
-  out << "type="; (__isset.type ? (out << to_string(type)) : (out << "<null>"));
-  out << ", " << "type_length="; (__isset.type_length ? (out << to_string(type_length)) : (out << "<null>"));
-  out << ", " << "repetition_type="; (__isset.repetition_type ? (out << to_string(repetition_type)) : (out << "<null>"));
+  out << "type=";
+  (__isset.type ? (out << to_string(type)) : (out << "<null>"));
+  out << ", " << "type_length=";
+  (__isset.type_length ? (out << to_string(type_length)) : (out << "<null>"));
+  out << ", " << "repetition_type=";
+  (__isset.repetition_type ? (out << to_string(repetition_type)) : (out << "<null>"));
   out << ", " << "name=" << to_string(name);
-  out << ", " << "num_children="; (__isset.num_children ? (out << to_string(num_children)) : (out << "<null>"));
-  out << ", " << "converted_type="; (__isset.converted_type ? (out << to_string(converted_type)) : (out << "<null>"));
-  out << ", " << "scale="; (__isset.scale ? (out << to_string(scale)) : (out << "<null>"));
-  out << ", " << "precision="; (__isset.precision ? (out << to_string(precision)) : (out << "<null>"));
-  out << ", " << "field_id="; (__isset.field_id ? (out << to_string(field_id)) : (out << "<null>"));
-  out << ", " << "logicalType="; (__isset.logicalType ? (out << to_string(logicalType)) : (out << "<null>"));
+  out << ", " << "num_children=";
+  (__isset.num_children ? (out << to_string(num_children)) : (out << "<null>"));
+  out << ", " << "converted_type=";
+  (__isset.converted_type ? (out << to_string(converted_type)) : (out << "<null>"));
+  out << ", " << "scale=";
+  (__isset.scale ? (out << to_string(scale)) : (out << "<null>"));
+  out << ", " << "precision=";
+  (__isset.precision ? (out << to_string(precision)) : (out << "<null>"));
+  out << ", " << "field_id=";
+  (__isset.field_id ? (out << to_string(field_id)) : (out << "<null>"));
+  out << ", " << "logicalType=";
+  (__isset.logicalType ? (out << to_string(logicalType)) : (out << "<null>"));
   out << ")";
 }
 
@@ -3461,18 +3555,18 @@ void DataPageHeader::__set_repetition_level_encoding(const Encoding::type val) {
   this->repetition_level_encoding = val;
 }
 
-void DataPageHeader::__set_statistics(const Statistics& val) {
+void DataPageHeader::__set_statistics(const Statistics &val) {
   this->statistics = val;
-__isset.statistics = true;
+  __isset.statistics = true;
 }
-std::ostream& operator<<(std::ostream& out, const DataPageHeader& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const DataPageHeader &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t DataPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t DataPageHeader::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -3489,14 +3583,12 @@ uint32_t DataPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_definition_level_encoding = false;
   bool isset_repetition_level_encoding = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->num_values);
@@ -3563,7 +3655,7 @@ uint32_t DataPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t DataPageHeader::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t DataPageHeader::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("DataPageHeader");
@@ -3604,7 +3696,7 @@ void swap(DataPageHeader &a, DataPageHeader &b) {
   swap(a.__isset, b.__isset);
 }
 
-DataPageHeader::DataPageHeader(const DataPageHeader& other106) {
+DataPageHeader::DataPageHeader(const DataPageHeader &other106) {
   num_values = other106.num_values;
   encoding = other106.encoding;
   definition_level_encoding = other106.definition_level_encoding;
@@ -3612,7 +3704,8 @@ DataPageHeader::DataPageHeader(const DataPageHeader& other106) {
   statistics = other106.statistics;
   __isset = other106.__isset;
 }
-DataPageHeader::DataPageHeader(DataPageHeader&& other107) noexcept {
+
+DataPageHeader::DataPageHeader(DataPageHeader &&other107) noexcept {
   num_values = other107.num_values;
   encoding = other107.encoding;
   definition_level_encoding = other107.definition_level_encoding;
@@ -3620,7 +3713,8 @@ DataPageHeader::DataPageHeader(DataPageHeader&& other107) noexcept {
   statistics = std::move(other107.statistics);
   __isset = other107.__isset;
 }
-DataPageHeader& DataPageHeader::operator=(const DataPageHeader& other108) {
+
+DataPageHeader &DataPageHeader::operator=(const DataPageHeader &other108) {
   num_values = other108.num_values;
   encoding = other108.encoding;
   definition_level_encoding = other108.definition_level_encoding;
@@ -3629,7 +3723,8 @@ DataPageHeader& DataPageHeader::operator=(const DataPageHeader& other108) {
   __isset = other108.__isset;
   return *this;
 }
-DataPageHeader& DataPageHeader::operator=(DataPageHeader&& other109) noexcept {
+
+DataPageHeader &DataPageHeader::operator=(DataPageHeader &&other109) noexcept {
   num_values = other109.num_values;
   encoding = other109.encoding;
   definition_level_encoding = other109.definition_level_encoding;
@@ -3638,14 +3733,16 @@ DataPageHeader& DataPageHeader::operator=(DataPageHeader&& other109) noexcept {
   __isset = other109.__isset;
   return *this;
 }
-void DataPageHeader::printTo(std::ostream& out) const {
+
+void DataPageHeader::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "DataPageHeader(";
   out << "num_values=" << to_string(num_values);
   out << ", " << "encoding=" << to_string(encoding);
   out << ", " << "definition_level_encoding=" << to_string(definition_level_encoding);
   out << ", " << "repetition_level_encoding=" << to_string(repetition_level_encoding);
-  out << ", " << "statistics="; (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
+  out << ", " << "statistics=";
+  (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
   out << ")";
 }
 
@@ -3653,14 +3750,13 @@ void DataPageHeader::printTo(std::ostream& out) const {
 IndexPageHeader::~IndexPageHeader() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const IndexPageHeader& obj)
-{
+std::ostream &operator<<(std::ostream &out, const IndexPageHeader &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t IndexPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t IndexPageHeader::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -3673,8 +3769,7 @@ uint32_t IndexPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -3688,7 +3783,7 @@ uint32_t IndexPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t IndexPageHeader::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t IndexPageHeader::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("IndexPageHeader");
@@ -3704,21 +3799,25 @@ void swap(IndexPageHeader &a, IndexPageHeader &b) {
   (void) b;
 }
 
-IndexPageHeader::IndexPageHeader(const IndexPageHeader& other110) noexcept {
+IndexPageHeader::IndexPageHeader(const IndexPageHeader &other110) noexcept {
   (void) other110;
 }
-IndexPageHeader::IndexPageHeader(IndexPageHeader&& other111) noexcept {
+
+IndexPageHeader::IndexPageHeader(IndexPageHeader &&other111) noexcept {
   (void) other111;
 }
-IndexPageHeader& IndexPageHeader::operator=(const IndexPageHeader& other112) noexcept {
+
+IndexPageHeader &IndexPageHeader::operator=(const IndexPageHeader &other112) noexcept {
   (void) other112;
   return *this;
 }
-IndexPageHeader& IndexPageHeader::operator=(IndexPageHeader&& other113) noexcept {
+
+IndexPageHeader &IndexPageHeader::operator=(IndexPageHeader &&other113) noexcept {
   (void) other113;
   return *this;
 }
-void IndexPageHeader::printTo(std::ostream& out) const {
+
+void IndexPageHeader::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "IndexPageHeader(";
   out << ")";
@@ -3739,16 +3838,16 @@ void DictionaryPageHeader::__set_encoding(const Encoding::type val) {
 
 void DictionaryPageHeader::__set_is_sorted(const bool val) {
   this->is_sorted = val;
-__isset.is_sorted = true;
+  __isset.is_sorted = true;
 }
-std::ostream& operator<<(std::ostream& out, const DictionaryPageHeader& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const DictionaryPageHeader &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t DictionaryPageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t DictionaryPageHeader::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -3763,14 +3862,12 @@ uint32_t DictionaryPageHeader::read(::apache::thrift::protocol::TProtocol* iprot
   bool isset_num_values = false;
   bool isset_encoding = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->num_values);
@@ -3813,7 +3910,7 @@ uint32_t DictionaryPageHeader::read(::apache::thrift::protocol::TProtocol* iprot
   return xfer;
 }
 
-uint32_t DictionaryPageHeader::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t DictionaryPageHeader::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("DictionaryPageHeader");
@@ -3844,38 +3941,43 @@ void swap(DictionaryPageHeader &a, DictionaryPageHeader &b) {
   swap(a.__isset, b.__isset);
 }
 
-DictionaryPageHeader::DictionaryPageHeader(const DictionaryPageHeader& other115) noexcept {
+DictionaryPageHeader::DictionaryPageHeader(const DictionaryPageHeader &other115) noexcept {
   num_values = other115.num_values;
   encoding = other115.encoding;
   is_sorted = other115.is_sorted;
   __isset = other115.__isset;
 }
-DictionaryPageHeader::DictionaryPageHeader(DictionaryPageHeader&& other116) noexcept {
+
+DictionaryPageHeader::DictionaryPageHeader(DictionaryPageHeader &&other116) noexcept {
   num_values = other116.num_values;
   encoding = other116.encoding;
   is_sorted = other116.is_sorted;
   __isset = other116.__isset;
 }
-DictionaryPageHeader& DictionaryPageHeader::operator=(const DictionaryPageHeader& other117) noexcept {
+
+DictionaryPageHeader &DictionaryPageHeader::operator=(const DictionaryPageHeader &other117) noexcept {
   num_values = other117.num_values;
   encoding = other117.encoding;
   is_sorted = other117.is_sorted;
   __isset = other117.__isset;
   return *this;
 }
-DictionaryPageHeader& DictionaryPageHeader::operator=(DictionaryPageHeader&& other118) noexcept {
+
+DictionaryPageHeader &DictionaryPageHeader::operator=(DictionaryPageHeader &&other118) noexcept {
   num_values = other118.num_values;
   encoding = other118.encoding;
   is_sorted = other118.is_sorted;
   __isset = other118.__isset;
   return *this;
 }
-void DictionaryPageHeader::printTo(std::ostream& out) const {
+
+void DictionaryPageHeader::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "DictionaryPageHeader(";
   out << "num_values=" << to_string(num_values);
   out << ", " << "encoding=" << to_string(encoding);
-  out << ", " << "is_sorted="; (__isset.is_sorted ? (out << to_string(is_sorted)) : (out << "<null>"));
+  out << ", " << "is_sorted=";
+  (__isset.is_sorted ? (out << to_string(is_sorted)) : (out << "<null>"));
   out << ")";
 }
 
@@ -3910,21 +4012,21 @@ void DataPageHeaderV2::__set_repetition_levels_byte_length(const int32_t val) {
 
 void DataPageHeaderV2::__set_is_compressed(const bool val) {
   this->is_compressed = val;
-__isset.is_compressed = true;
+  __isset.is_compressed = true;
 }
 
-void DataPageHeaderV2::__set_statistics(const Statistics& val) {
+void DataPageHeaderV2::__set_statistics(const Statistics &val) {
   this->statistics = val;
-__isset.statistics = true;
+  __isset.statistics = true;
 }
-std::ostream& operator<<(std::ostream& out, const DataPageHeaderV2& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const DataPageHeaderV2 &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t DataPageHeaderV2::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t DataPageHeaderV2::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -3943,14 +4045,12 @@ uint32_t DataPageHeaderV2::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_definition_levels_byte_length = false;
   bool isset_repetition_levels_byte_length = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->num_values);
@@ -4041,7 +4141,7 @@ uint32_t DataPageHeaderV2::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t DataPageHeaderV2::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t DataPageHeaderV2::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("DataPageHeaderV2");
@@ -4098,7 +4198,7 @@ void swap(DataPageHeaderV2 &a, DataPageHeaderV2 &b) {
   swap(a.__isset, b.__isset);
 }
 
-DataPageHeaderV2::DataPageHeaderV2(const DataPageHeaderV2& other120) {
+DataPageHeaderV2::DataPageHeaderV2(const DataPageHeaderV2 &other120) {
   num_values = other120.num_values;
   num_nulls = other120.num_nulls;
   num_rows = other120.num_rows;
@@ -4109,7 +4209,8 @@ DataPageHeaderV2::DataPageHeaderV2(const DataPageHeaderV2& other120) {
   statistics = other120.statistics;
   __isset = other120.__isset;
 }
-DataPageHeaderV2::DataPageHeaderV2(DataPageHeaderV2&& other121) noexcept {
+
+DataPageHeaderV2::DataPageHeaderV2(DataPageHeaderV2 &&other121) noexcept {
   num_values = other121.num_values;
   num_nulls = other121.num_nulls;
   num_rows = other121.num_rows;
@@ -4120,7 +4221,8 @@ DataPageHeaderV2::DataPageHeaderV2(DataPageHeaderV2&& other121) noexcept {
   statistics = std::move(other121.statistics);
   __isset = other121.__isset;
 }
-DataPageHeaderV2& DataPageHeaderV2::operator=(const DataPageHeaderV2& other122) {
+
+DataPageHeaderV2 &DataPageHeaderV2::operator=(const DataPageHeaderV2 &other122) {
   num_values = other122.num_values;
   num_nulls = other122.num_nulls;
   num_rows = other122.num_rows;
@@ -4132,7 +4234,8 @@ DataPageHeaderV2& DataPageHeaderV2::operator=(const DataPageHeaderV2& other122) 
   __isset = other122.__isset;
   return *this;
 }
-DataPageHeaderV2& DataPageHeaderV2::operator=(DataPageHeaderV2&& other123) noexcept {
+
+DataPageHeaderV2 &DataPageHeaderV2::operator=(DataPageHeaderV2 &&other123) noexcept {
   num_values = other123.num_values;
   num_nulls = other123.num_nulls;
   num_rows = other123.num_rows;
@@ -4144,7 +4247,8 @@ DataPageHeaderV2& DataPageHeaderV2::operator=(DataPageHeaderV2&& other123) noexc
   __isset = other123.__isset;
   return *this;
 }
-void DataPageHeaderV2::printTo(std::ostream& out) const {
+
+void DataPageHeaderV2::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "DataPageHeaderV2(";
   out << "num_values=" << to_string(num_values);
@@ -4153,8 +4257,10 @@ void DataPageHeaderV2::printTo(std::ostream& out) const {
   out << ", " << "encoding=" << to_string(encoding);
   out << ", " << "definition_levels_byte_length=" << to_string(definition_levels_byte_length);
   out << ", " << "repetition_levels_byte_length=" << to_string(repetition_levels_byte_length);
-  out << ", " << "is_compressed="; (__isset.is_compressed ? (out << to_string(is_compressed)) : (out << "<null>"));
-  out << ", " << "statistics="; (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
+  out << ", " << "is_compressed=";
+  (__isset.is_compressed ? (out << to_string(is_compressed)) : (out << "<null>"));
+  out << ", " << "statistics=";
+  (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
   out << ")";
 }
 
@@ -4162,14 +4268,13 @@ void DataPageHeaderV2::printTo(std::ostream& out) const {
 SplitBlockAlgorithm::~SplitBlockAlgorithm() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const SplitBlockAlgorithm& obj)
-{
+std::ostream &operator<<(std::ostream &out, const SplitBlockAlgorithm &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t SplitBlockAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t SplitBlockAlgorithm::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4182,8 +4287,7 @@ uint32_t SplitBlockAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot)
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -4197,7 +4301,7 @@ uint32_t SplitBlockAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot)
   return xfer;
 }
 
-uint32_t SplitBlockAlgorithm::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t SplitBlockAlgorithm::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("SplitBlockAlgorithm");
@@ -4213,21 +4317,25 @@ void swap(SplitBlockAlgorithm &a, SplitBlockAlgorithm &b) {
   (void) b;
 }
 
-SplitBlockAlgorithm::SplitBlockAlgorithm(const SplitBlockAlgorithm& other124) noexcept {
+SplitBlockAlgorithm::SplitBlockAlgorithm(const SplitBlockAlgorithm &other124) noexcept {
   (void) other124;
 }
-SplitBlockAlgorithm::SplitBlockAlgorithm(SplitBlockAlgorithm&& other125) noexcept {
+
+SplitBlockAlgorithm::SplitBlockAlgorithm(SplitBlockAlgorithm &&other125) noexcept {
   (void) other125;
 }
-SplitBlockAlgorithm& SplitBlockAlgorithm::operator=(const SplitBlockAlgorithm& other126) noexcept {
+
+SplitBlockAlgorithm &SplitBlockAlgorithm::operator=(const SplitBlockAlgorithm &other126) noexcept {
   (void) other126;
   return *this;
 }
-SplitBlockAlgorithm& SplitBlockAlgorithm::operator=(SplitBlockAlgorithm&& other127) noexcept {
+
+SplitBlockAlgorithm &SplitBlockAlgorithm::operator=(SplitBlockAlgorithm &&other127) noexcept {
   (void) other127;
   return *this;
 }
-void SplitBlockAlgorithm::printTo(std::ostream& out) const {
+
+void SplitBlockAlgorithm::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "SplitBlockAlgorithm(";
   out << ")";
@@ -4238,18 +4346,18 @@ BloomFilterAlgorithm::~BloomFilterAlgorithm() noexcept {
 }
 
 
-void BloomFilterAlgorithm::__set_BLOCK(const SplitBlockAlgorithm& val) {
+void BloomFilterAlgorithm::__set_BLOCK(const SplitBlockAlgorithm &val) {
   this->BLOCK = val;
-__isset.BLOCK = true;
+  __isset.BLOCK = true;
 }
-std::ostream& operator<<(std::ostream& out, const BloomFilterAlgorithm& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const BloomFilterAlgorithm &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t BloomFilterAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t BloomFilterAlgorithm::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4262,14 +4370,12 @@ uint32_t BloomFilterAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->BLOCK.read(iprot);
@@ -4290,7 +4396,7 @@ uint32_t BloomFilterAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot
   return xfer;
 }
 
-uint32_t BloomFilterAlgorithm::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t BloomFilterAlgorithm::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("BloomFilterAlgorithm");
@@ -4311,28 +4417,33 @@ void swap(BloomFilterAlgorithm &a, BloomFilterAlgorithm &b) {
   swap(a.__isset, b.__isset);
 }
 
-BloomFilterAlgorithm::BloomFilterAlgorithm(const BloomFilterAlgorithm& other128) noexcept {
+BloomFilterAlgorithm::BloomFilterAlgorithm(const BloomFilterAlgorithm &other128) noexcept {
   BLOCK = other128.BLOCK;
   __isset = other128.__isset;
 }
-BloomFilterAlgorithm::BloomFilterAlgorithm(BloomFilterAlgorithm&& other129) noexcept {
+
+BloomFilterAlgorithm::BloomFilterAlgorithm(BloomFilterAlgorithm &&other129) noexcept {
   BLOCK = std::move(other129.BLOCK);
   __isset = other129.__isset;
 }
-BloomFilterAlgorithm& BloomFilterAlgorithm::operator=(const BloomFilterAlgorithm& other130) noexcept {
+
+BloomFilterAlgorithm &BloomFilterAlgorithm::operator=(const BloomFilterAlgorithm &other130) noexcept {
   BLOCK = other130.BLOCK;
   __isset = other130.__isset;
   return *this;
 }
-BloomFilterAlgorithm& BloomFilterAlgorithm::operator=(BloomFilterAlgorithm&& other131) noexcept {
+
+BloomFilterAlgorithm &BloomFilterAlgorithm::operator=(BloomFilterAlgorithm &&other131) noexcept {
   BLOCK = std::move(other131.BLOCK);
   __isset = other131.__isset;
   return *this;
 }
-void BloomFilterAlgorithm::printTo(std::ostream& out) const {
+
+void BloomFilterAlgorithm::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "BloomFilterAlgorithm(";
-  out << "BLOCK="; (__isset.BLOCK ? (out << to_string(BLOCK)) : (out << "<null>"));
+  out << "BLOCK=";
+  (__isset.BLOCK ? (out << to_string(BLOCK)) : (out << "<null>"));
   out << ")";
 }
 
@@ -4340,14 +4451,13 @@ void BloomFilterAlgorithm::printTo(std::ostream& out) const {
 XxHash::~XxHash() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const XxHash& obj)
-{
+std::ostream &operator<<(std::ostream &out, const XxHash &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t XxHash::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t XxHash::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4360,8 +4470,7 @@ uint32_t XxHash::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -4375,7 +4484,7 @@ uint32_t XxHash::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t XxHash::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t XxHash::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("XxHash");
@@ -4391,21 +4500,25 @@ void swap(XxHash &a, XxHash &b) {
   (void) b;
 }
 
-XxHash::XxHash(const XxHash& other132) noexcept {
+XxHash::XxHash(const XxHash &other132) noexcept {
   (void) other132;
 }
-XxHash::XxHash(XxHash&& other133) noexcept {
+
+XxHash::XxHash(XxHash &&other133) noexcept {
   (void) other133;
 }
-XxHash& XxHash::operator=(const XxHash& other134) noexcept {
+
+XxHash &XxHash::operator=(const XxHash &other134) noexcept {
   (void) other134;
   return *this;
 }
-XxHash& XxHash::operator=(XxHash&& other135) noexcept {
+
+XxHash &XxHash::operator=(XxHash &&other135) noexcept {
   (void) other135;
   return *this;
 }
-void XxHash::printTo(std::ostream& out) const {
+
+void XxHash::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "XxHash(";
   out << ")";
@@ -4416,18 +4529,18 @@ BloomFilterHash::~BloomFilterHash() noexcept {
 }
 
 
-void BloomFilterHash::__set_XXHASH(const XxHash& val) {
+void BloomFilterHash::__set_XXHASH(const XxHash &val) {
   this->XXHASH = val;
-__isset.XXHASH = true;
+  __isset.XXHASH = true;
 }
-std::ostream& operator<<(std::ostream& out, const BloomFilterHash& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const BloomFilterHash &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t BloomFilterHash::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t BloomFilterHash::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4440,14 +4553,12 @@ uint32_t BloomFilterHash::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->XXHASH.read(iprot);
@@ -4468,7 +4579,7 @@ uint32_t BloomFilterHash::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t BloomFilterHash::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t BloomFilterHash::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("BloomFilterHash");
@@ -4489,28 +4600,33 @@ void swap(BloomFilterHash &a, BloomFilterHash &b) {
   swap(a.__isset, b.__isset);
 }
 
-BloomFilterHash::BloomFilterHash(const BloomFilterHash& other136) noexcept {
+BloomFilterHash::BloomFilterHash(const BloomFilterHash &other136) noexcept {
   XXHASH = other136.XXHASH;
   __isset = other136.__isset;
 }
-BloomFilterHash::BloomFilterHash(BloomFilterHash&& other137) noexcept {
+
+BloomFilterHash::BloomFilterHash(BloomFilterHash &&other137) noexcept {
   XXHASH = std::move(other137.XXHASH);
   __isset = other137.__isset;
 }
-BloomFilterHash& BloomFilterHash::operator=(const BloomFilterHash& other138) noexcept {
+
+BloomFilterHash &BloomFilterHash::operator=(const BloomFilterHash &other138) noexcept {
   XXHASH = other138.XXHASH;
   __isset = other138.__isset;
   return *this;
 }
-BloomFilterHash& BloomFilterHash::operator=(BloomFilterHash&& other139) noexcept {
+
+BloomFilterHash &BloomFilterHash::operator=(BloomFilterHash &&other139) noexcept {
   XXHASH = std::move(other139.XXHASH);
   __isset = other139.__isset;
   return *this;
 }
-void BloomFilterHash::printTo(std::ostream& out) const {
+
+void BloomFilterHash::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "BloomFilterHash(";
-  out << "XXHASH="; (__isset.XXHASH ? (out << to_string(XXHASH)) : (out << "<null>"));
+  out << "XXHASH=";
+  (__isset.XXHASH ? (out << to_string(XXHASH)) : (out << "<null>"));
   out << ")";
 }
 
@@ -4518,14 +4634,13 @@ void BloomFilterHash::printTo(std::ostream& out) const {
 Uncompressed::~Uncompressed() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const Uncompressed& obj)
-{
+std::ostream &operator<<(std::ostream &out, const Uncompressed &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t Uncompressed::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t Uncompressed::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4538,8 +4653,7 @@ uint32_t Uncompressed::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -4553,7 +4667,7 @@ uint32_t Uncompressed::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t Uncompressed::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t Uncompressed::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("Uncompressed");
@@ -4569,21 +4683,25 @@ void swap(Uncompressed &a, Uncompressed &b) {
   (void) b;
 }
 
-Uncompressed::Uncompressed(const Uncompressed& other140) noexcept {
+Uncompressed::Uncompressed(const Uncompressed &other140) noexcept {
   (void) other140;
 }
-Uncompressed::Uncompressed(Uncompressed&& other141) noexcept {
+
+Uncompressed::Uncompressed(Uncompressed &&other141) noexcept {
   (void) other141;
 }
-Uncompressed& Uncompressed::operator=(const Uncompressed& other142) noexcept {
+
+Uncompressed &Uncompressed::operator=(const Uncompressed &other142) noexcept {
   (void) other142;
   return *this;
 }
-Uncompressed& Uncompressed::operator=(Uncompressed&& other143) noexcept {
+
+Uncompressed &Uncompressed::operator=(Uncompressed &&other143) noexcept {
   (void) other143;
   return *this;
 }
-void Uncompressed::printTo(std::ostream& out) const {
+
+void Uncompressed::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "Uncompressed(";
   out << ")";
@@ -4594,18 +4712,18 @@ BloomFilterCompression::~BloomFilterCompression() noexcept {
 }
 
 
-void BloomFilterCompression::__set_UNCOMPRESSED(const Uncompressed& val) {
+void BloomFilterCompression::__set_UNCOMPRESSED(const Uncompressed &val) {
   this->UNCOMPRESSED = val;
-__isset.UNCOMPRESSED = true;
+  __isset.UNCOMPRESSED = true;
 }
-std::ostream& operator<<(std::ostream& out, const BloomFilterCompression& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const BloomFilterCompression &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t BloomFilterCompression::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t BloomFilterCompression::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4618,14 +4736,12 @@ uint32_t BloomFilterCompression::read(::apache::thrift::protocol::TProtocol* ipr
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->UNCOMPRESSED.read(iprot);
@@ -4646,7 +4762,7 @@ uint32_t BloomFilterCompression::read(::apache::thrift::protocol::TProtocol* ipr
   return xfer;
 }
 
-uint32_t BloomFilterCompression::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t BloomFilterCompression::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("BloomFilterCompression");
@@ -4667,28 +4783,33 @@ void swap(BloomFilterCompression &a, BloomFilterCompression &b) {
   swap(a.__isset, b.__isset);
 }
 
-BloomFilterCompression::BloomFilterCompression(const BloomFilterCompression& other144) noexcept {
+BloomFilterCompression::BloomFilterCompression(const BloomFilterCompression &other144) noexcept {
   UNCOMPRESSED = other144.UNCOMPRESSED;
   __isset = other144.__isset;
 }
-BloomFilterCompression::BloomFilterCompression(BloomFilterCompression&& other145) noexcept {
+
+BloomFilterCompression::BloomFilterCompression(BloomFilterCompression &&other145) noexcept {
   UNCOMPRESSED = std::move(other145.UNCOMPRESSED);
   __isset = other145.__isset;
 }
-BloomFilterCompression& BloomFilterCompression::operator=(const BloomFilterCompression& other146) noexcept {
+
+BloomFilterCompression &BloomFilterCompression::operator=(const BloomFilterCompression &other146) noexcept {
   UNCOMPRESSED = other146.UNCOMPRESSED;
   __isset = other146.__isset;
   return *this;
 }
-BloomFilterCompression& BloomFilterCompression::operator=(BloomFilterCompression&& other147) noexcept {
+
+BloomFilterCompression &BloomFilterCompression::operator=(BloomFilterCompression &&other147) noexcept {
   UNCOMPRESSED = std::move(other147.UNCOMPRESSED);
   __isset = other147.__isset;
   return *this;
 }
-void BloomFilterCompression::printTo(std::ostream& out) const {
+
+void BloomFilterCompression::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "BloomFilterCompression(";
-  out << "UNCOMPRESSED="; (__isset.UNCOMPRESSED ? (out << to_string(UNCOMPRESSED)) : (out << "<null>"));
+  out << "UNCOMPRESSED=";
+  (__isset.UNCOMPRESSED ? (out << to_string(UNCOMPRESSED)) : (out << "<null>"));
   out << ")";
 }
 
@@ -4701,25 +4822,25 @@ void BloomFilterHeader::__set_numBytes(const int32_t val) {
   this->numBytes = val;
 }
 
-void BloomFilterHeader::__set_algorithm(const BloomFilterAlgorithm& val) {
+void BloomFilterHeader::__set_algorithm(const BloomFilterAlgorithm &val) {
   this->algorithm = val;
 }
 
-void BloomFilterHeader::__set_hash(const BloomFilterHash& val) {
+void BloomFilterHeader::__set_hash(const BloomFilterHash &val) {
   this->hash = val;
 }
 
-void BloomFilterHeader::__set_compression(const BloomFilterCompression& val) {
+void BloomFilterHeader::__set_compression(const BloomFilterCompression &val) {
   this->compression = val;
 }
-std::ostream& operator<<(std::ostream& out, const BloomFilterHeader& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const BloomFilterHeader &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t BloomFilterHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t BloomFilterHeader::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4736,14 +4857,12 @@ uint32_t BloomFilterHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_hash = false;
   bool isset_compression = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->numBytes);
@@ -4796,7 +4915,7 @@ uint32_t BloomFilterHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t BloomFilterHeader::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t BloomFilterHeader::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("BloomFilterHeader");
@@ -4830,33 +4949,37 @@ void swap(BloomFilterHeader &a, BloomFilterHeader &b) {
   swap(a.compression, b.compression);
 }
 
-BloomFilterHeader::BloomFilterHeader(const BloomFilterHeader& other148) noexcept {
+BloomFilterHeader::BloomFilterHeader(const BloomFilterHeader &other148) noexcept {
   numBytes = other148.numBytes;
   algorithm = other148.algorithm;
   hash = other148.hash;
   compression = other148.compression;
 }
-BloomFilterHeader::BloomFilterHeader(BloomFilterHeader&& other149) noexcept {
+
+BloomFilterHeader::BloomFilterHeader(BloomFilterHeader &&other149) noexcept {
   numBytes = other149.numBytes;
   algorithm = std::move(other149.algorithm);
   hash = std::move(other149.hash);
   compression = std::move(other149.compression);
 }
-BloomFilterHeader& BloomFilterHeader::operator=(const BloomFilterHeader& other150) noexcept {
+
+BloomFilterHeader &BloomFilterHeader::operator=(const BloomFilterHeader &other150) noexcept {
   numBytes = other150.numBytes;
   algorithm = other150.algorithm;
   hash = other150.hash;
   compression = other150.compression;
   return *this;
 }
-BloomFilterHeader& BloomFilterHeader::operator=(BloomFilterHeader&& other151) noexcept {
+
+BloomFilterHeader &BloomFilterHeader::operator=(BloomFilterHeader &&other151) noexcept {
   numBytes = other151.numBytes;
   algorithm = std::move(other151.algorithm);
   hash = std::move(other151.hash);
   compression = std::move(other151.compression);
   return *this;
 }
-void BloomFilterHeader::printTo(std::ostream& out) const {
+
+void BloomFilterHeader::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "BloomFilterHeader(";
   out << "numBytes=" << to_string(numBytes);
@@ -4885,36 +5008,36 @@ void PageHeader::__set_compressed_page_size(const int32_t val) {
 
 void PageHeader::__set_crc(const int32_t val) {
   this->crc = val;
-__isset.crc = true;
+  __isset.crc = true;
 }
 
-void PageHeader::__set_data_page_header(const DataPageHeader& val) {
+void PageHeader::__set_data_page_header(const DataPageHeader &val) {
   this->data_page_header = val;
-__isset.data_page_header = true;
+  __isset.data_page_header = true;
 }
 
-void PageHeader::__set_index_page_header(const IndexPageHeader& val) {
+void PageHeader::__set_index_page_header(const IndexPageHeader &val) {
   this->index_page_header = val;
-__isset.index_page_header = true;
+  __isset.index_page_header = true;
 }
 
-void PageHeader::__set_dictionary_page_header(const DictionaryPageHeader& val) {
+void PageHeader::__set_dictionary_page_header(const DictionaryPageHeader &val) {
   this->dictionary_page_header = val;
-__isset.dictionary_page_header = true;
+  __isset.dictionary_page_header = true;
 }
 
-void PageHeader::__set_data_page_header_v2(const DataPageHeaderV2& val) {
+void PageHeader::__set_data_page_header_v2(const DataPageHeaderV2 &val) {
   this->data_page_header_v2 = val;
-__isset.data_page_header_v2 = true;
+  __isset.data_page_header_v2 = true;
 }
-std::ostream& operator<<(std::ostream& out, const PageHeader& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const PageHeader &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t PageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t PageHeader::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -4930,14 +5053,12 @@ uint32_t PageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_uncompressed_page_size = false;
   bool isset_compressed_page_size = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           int32_t ecast152;
@@ -5022,7 +5143,7 @@ uint32_t PageHeader::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t PageHeader::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t PageHeader::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("PageHeader");
@@ -5082,7 +5203,7 @@ void swap(PageHeader &a, PageHeader &b) {
   swap(a.__isset, b.__isset);
 }
 
-PageHeader::PageHeader(const PageHeader& other153) {
+PageHeader::PageHeader(const PageHeader &other153) {
   type = other153.type;
   uncompressed_page_size = other153.uncompressed_page_size;
   compressed_page_size = other153.compressed_page_size;
@@ -5093,7 +5214,8 @@ PageHeader::PageHeader(const PageHeader& other153) {
   data_page_header_v2 = other153.data_page_header_v2;
   __isset = other153.__isset;
 }
-PageHeader::PageHeader(PageHeader&& other154) noexcept {
+
+PageHeader::PageHeader(PageHeader &&other154) noexcept {
   type = other154.type;
   uncompressed_page_size = other154.uncompressed_page_size;
   compressed_page_size = other154.compressed_page_size;
@@ -5104,7 +5226,8 @@ PageHeader::PageHeader(PageHeader&& other154) noexcept {
   data_page_header_v2 = std::move(other154.data_page_header_v2);
   __isset = other154.__isset;
 }
-PageHeader& PageHeader::operator=(const PageHeader& other155) {
+
+PageHeader &PageHeader::operator=(const PageHeader &other155) {
   type = other155.type;
   uncompressed_page_size = other155.uncompressed_page_size;
   compressed_page_size = other155.compressed_page_size;
@@ -5116,7 +5239,8 @@ PageHeader& PageHeader::operator=(const PageHeader& other155) {
   __isset = other155.__isset;
   return *this;
 }
-PageHeader& PageHeader::operator=(PageHeader&& other156) noexcept {
+
+PageHeader &PageHeader::operator=(PageHeader &&other156) noexcept {
   type = other156.type;
   uncompressed_page_size = other156.uncompressed_page_size;
   compressed_page_size = other156.compressed_page_size;
@@ -5128,17 +5252,23 @@ PageHeader& PageHeader::operator=(PageHeader&& other156) noexcept {
   __isset = other156.__isset;
   return *this;
 }
-void PageHeader::printTo(std::ostream& out) const {
+
+void PageHeader::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "PageHeader(";
   out << "type=" << to_string(type);
   out << ", " << "uncompressed_page_size=" << to_string(uncompressed_page_size);
   out << ", " << "compressed_page_size=" << to_string(compressed_page_size);
-  out << ", " << "crc="; (__isset.crc ? (out << to_string(crc)) : (out << "<null>"));
-  out << ", " << "data_page_header="; (__isset.data_page_header ? (out << to_string(data_page_header)) : (out << "<null>"));
-  out << ", " << "index_page_header="; (__isset.index_page_header ? (out << to_string(index_page_header)) : (out << "<null>"));
-  out << ", " << "dictionary_page_header="; (__isset.dictionary_page_header ? (out << to_string(dictionary_page_header)) : (out << "<null>"));
-  out << ", " << "data_page_header_v2="; (__isset.data_page_header_v2 ? (out << to_string(data_page_header_v2)) : (out << "<null>"));
+  out << ", " << "crc=";
+  (__isset.crc ? (out << to_string(crc)) : (out << "<null>"));
+  out << ", " << "data_page_header=";
+  (__isset.data_page_header ? (out << to_string(data_page_header)) : (out << "<null>"));
+  out << ", " << "index_page_header=";
+  (__isset.index_page_header ? (out << to_string(index_page_header)) : (out << "<null>"));
+  out << ", " << "dictionary_page_header=";
+  (__isset.dictionary_page_header ? (out << to_string(dictionary_page_header)) : (out << "<null>"));
+  out << ", " << "data_page_header_v2=";
+  (__isset.data_page_header_v2 ? (out << to_string(data_page_header_v2)) : (out << "<null>"));
   out << ")";
 }
 
@@ -5147,22 +5277,22 @@ KeyValue::~KeyValue() noexcept {
 }
 
 
-void KeyValue::__set_key(const std::string& val) {
+void KeyValue::__set_key(const std::string &val) {
   this->key = val;
 }
 
-void KeyValue::__set_value(const std::string& val) {
+void KeyValue::__set_value(const std::string &val) {
   this->value = val;
-__isset.value = true;
+  __isset.value = true;
 }
-std::ostream& operator<<(std::ostream& out, const KeyValue& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const KeyValue &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t KeyValue::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t KeyValue::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -5176,14 +5306,12 @@ uint32_t KeyValue::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   bool isset_key = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
           xfer += iprot->readString(this->key);
@@ -5214,7 +5342,7 @@ uint32_t KeyValue::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t KeyValue::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t KeyValue::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("KeyValue");
@@ -5240,33 +5368,38 @@ void swap(KeyValue &a, KeyValue &b) {
   swap(a.__isset, b.__isset);
 }
 
-KeyValue::KeyValue(const KeyValue& other157) {
+KeyValue::KeyValue(const KeyValue &other157) {
   key = other157.key;
   value = other157.value;
   __isset = other157.__isset;
 }
-KeyValue::KeyValue(KeyValue&& other158) noexcept {
+
+KeyValue::KeyValue(KeyValue &&other158) noexcept {
   key = std::move(other158.key);
   value = std::move(other158.value);
   __isset = other158.__isset;
 }
-KeyValue& KeyValue::operator=(const KeyValue& other159) {
+
+KeyValue &KeyValue::operator=(const KeyValue &other159) {
   key = other159.key;
   value = other159.value;
   __isset = other159.__isset;
   return *this;
 }
-KeyValue& KeyValue::operator=(KeyValue&& other160) noexcept {
+
+KeyValue &KeyValue::operator=(KeyValue &&other160) noexcept {
   key = std::move(other160.key);
   value = std::move(other160.value);
   __isset = other160.__isset;
   return *this;
 }
-void KeyValue::printTo(std::ostream& out) const {
+
+void KeyValue::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "KeyValue(";
   out << "key=" << to_string(key);
-  out << ", " << "value="; (__isset.value ? (out << to_string(value)) : (out << "<null>"));
+  out << ", " << "value=";
+  (__isset.value ? (out << to_string(value)) : (out << "<null>"));
   out << ")";
 }
 
@@ -5286,14 +5419,14 @@ void SortingColumn::__set_descending(const bool val) {
 void SortingColumn::__set_nulls_first(const bool val) {
   this->nulls_first = val;
 }
-std::ostream& operator<<(std::ostream& out, const SortingColumn& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const SortingColumn &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t SortingColumn::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t SortingColumn::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -5309,14 +5442,12 @@ uint32_t SortingColumn::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_descending = false;
   bool isset_nulls_first = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           xfer += iprot->readI32(this->column_idx);
@@ -5359,7 +5490,7 @@ uint32_t SortingColumn::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t SortingColumn::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t SortingColumn::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("SortingColumn");
@@ -5388,29 +5519,33 @@ void swap(SortingColumn &a, SortingColumn &b) {
   swap(a.nulls_first, b.nulls_first);
 }
 
-SortingColumn::SortingColumn(const SortingColumn& other161) noexcept {
+SortingColumn::SortingColumn(const SortingColumn &other161) noexcept {
   column_idx = other161.column_idx;
   descending = other161.descending;
   nulls_first = other161.nulls_first;
 }
-SortingColumn::SortingColumn(SortingColumn&& other162) noexcept {
+
+SortingColumn::SortingColumn(SortingColumn &&other162) noexcept {
   column_idx = other162.column_idx;
   descending = other162.descending;
   nulls_first = other162.nulls_first;
 }
-SortingColumn& SortingColumn::operator=(const SortingColumn& other163) noexcept {
+
+SortingColumn &SortingColumn::operator=(const SortingColumn &other163) noexcept {
   column_idx = other163.column_idx;
   descending = other163.descending;
   nulls_first = other163.nulls_first;
   return *this;
 }
-SortingColumn& SortingColumn::operator=(SortingColumn&& other164) noexcept {
+
+SortingColumn &SortingColumn::operator=(SortingColumn &&other164) noexcept {
   column_idx = other164.column_idx;
   descending = other164.descending;
   nulls_first = other164.nulls_first;
   return *this;
 }
-void SortingColumn::printTo(std::ostream& out) const {
+
+void SortingColumn::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "SortingColumn(";
   out << "column_idx=" << to_string(column_idx);
@@ -5435,14 +5570,14 @@ void PageEncodingStats::__set_encoding(const Encoding::type val) {
 void PageEncodingStats::__set_count(const int32_t val) {
   this->count = val;
 }
-std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const PageEncodingStats &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t PageEncodingStats::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t PageEncodingStats::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -5458,14 +5593,12 @@ uint32_t PageEncodingStats::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_encoding = false;
   bool isset_count = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           int32_t ecast165;
@@ -5512,7 +5645,7 @@ uint32_t PageEncodingStats::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t PageEncodingStats::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t PageEncodingStats::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("PageEncodingStats");
@@ -5541,29 +5674,33 @@ void swap(PageEncodingStats &a, PageEncodingStats &b) {
   swap(a.count, b.count);
 }
 
-PageEncodingStats::PageEncodingStats(const PageEncodingStats& other167) noexcept {
+PageEncodingStats::PageEncodingStats(const PageEncodingStats &other167) noexcept {
   page_type = other167.page_type;
   encoding = other167.encoding;
   count = other167.count;
 }
-PageEncodingStats::PageEncodingStats(PageEncodingStats&& other168) noexcept {
+
+PageEncodingStats::PageEncodingStats(PageEncodingStats &&other168) noexcept {
   page_type = other168.page_type;
   encoding = other168.encoding;
   count = other168.count;
 }
-PageEncodingStats& PageEncodingStats::operator=(const PageEncodingStats& other169) noexcept {
+
+PageEncodingStats &PageEncodingStats::operator=(const PageEncodingStats &other169) noexcept {
   page_type = other169.page_type;
   encoding = other169.encoding;
   count = other169.count;
   return *this;
 }
-PageEncodingStats& PageEncodingStats::operator=(PageEncodingStats&& other170) noexcept {
+
+PageEncodingStats &PageEncodingStats::operator=(PageEncodingStats &&other170) noexcept {
   page_type = other170.page_type;
   encoding = other170.encoding;
   count = other170.count;
   return *this;
 }
-void PageEncodingStats::printTo(std::ostream& out) const {
+
+void PageEncodingStats::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "PageEncodingStats(";
   out << "page_type=" << to_string(page_type);
@@ -5581,11 +5718,11 @@ void ColumnMetaData::__set_type(const Type::type val) {
   this->type = val;
 }
 
-void ColumnMetaData::__set_encodings(const std::vector<Encoding::type> & val) {
+void ColumnMetaData::__set_encodings(const std::vector<Encoding::type> &val) {
   this->encodings = val;
 }
 
-void ColumnMetaData::__set_path_in_schema(const std::vector<std::string> & val) {
+void ColumnMetaData::__set_path_in_schema(const std::vector<std::string> &val) {
   this->path_in_schema = val;
 }
 
@@ -5605,9 +5742,9 @@ void ColumnMetaData::__set_total_compressed_size(const int64_t val) {
   this->total_compressed_size = val;
 }
 
-void ColumnMetaData::__set_key_value_metadata(const std::vector<KeyValue> & val) {
+void ColumnMetaData::__set_key_value_metadata(const std::vector<KeyValue> &val) {
   this->key_value_metadata = val;
-__isset.key_value_metadata = true;
+  __isset.key_value_metadata = true;
 }
 
 void ColumnMetaData::__set_data_page_offset(const int64_t val) {
@@ -5616,46 +5753,46 @@ void ColumnMetaData::__set_data_page_offset(const int64_t val) {
 
 void ColumnMetaData::__set_index_page_offset(const int64_t val) {
   this->index_page_offset = val;
-__isset.index_page_offset = true;
+  __isset.index_page_offset = true;
 }
 
 void ColumnMetaData::__set_dictionary_page_offset(const int64_t val) {
   this->dictionary_page_offset = val;
-__isset.dictionary_page_offset = true;
+  __isset.dictionary_page_offset = true;
 }
 
-void ColumnMetaData::__set_statistics(const Statistics& val) {
+void ColumnMetaData::__set_statistics(const Statistics &val) {
   this->statistics = val;
-__isset.statistics = true;
+  __isset.statistics = true;
 }
 
-void ColumnMetaData::__set_encoding_stats(const std::vector<PageEncodingStats> & val) {
+void ColumnMetaData::__set_encoding_stats(const std::vector<PageEncodingStats> &val) {
   this->encoding_stats = val;
-__isset.encoding_stats = true;
+  __isset.encoding_stats = true;
 }
 
 void ColumnMetaData::__set_bloom_filter_offset(const int64_t val) {
   this->bloom_filter_offset = val;
-__isset.bloom_filter_offset = true;
+  __isset.bloom_filter_offset = true;
 }
 
 void ColumnMetaData::__set_bloom_filter_length(const int32_t val) {
   this->bloom_filter_length = val;
-__isset.bloom_filter_length = true;
+  __isset.bloom_filter_length = true;
 }
 
-void ColumnMetaData::__set_size_statistics(const SizeStatistics& val) {
+void ColumnMetaData::__set_size_statistics(const SizeStatistics &val) {
   this->size_statistics = val;
-__isset.size_statistics = true;
+  __isset.size_statistics = true;
 }
-std::ostream& operator<<(std::ostream& out, const ColumnMetaData& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const ColumnMetaData &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -5676,14 +5813,12 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_total_compressed_size = false;
   bool isset_data_page_offset = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I32) {
           int32_t ecast171;
@@ -5703,8 +5838,7 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype175, _size172);
             this->encodings.resize(_size172);
             uint32_t _i176;
-            for (_i176 = 0; _i176 < _size172; ++_i176)
-            {
+            for (_i176 = 0; _i176 < _size172; ++_i176) {
               int32_t ecast177;
               xfer += iprot->readI32(ecast177);
               this->encodings[_i176] = static_cast<Encoding::type>(ecast177);
@@ -5725,8 +5859,7 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype181, _size178);
             this->path_in_schema.resize(_size178);
             uint32_t _i182;
-            for (_i182 = 0; _i182 < _size178; ++_i182)
-            {
+            for (_i182 = 0; _i182 < _size178; ++_i182) {
               xfer += iprot->readString(this->path_in_schema[_i182]);
             }
             xfer += iprot->readListEnd();
@@ -5779,8 +5912,7 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype187, _size184);
             this->key_value_metadata.resize(_size184);
             uint32_t _i188;
-            for (_i188 = 0; _i188 < _size184; ++_i188)
-            {
+            for (_i188 = 0; _i188 < _size184; ++_i188) {
               xfer += this->key_value_metadata[_i188].read(iprot);
             }
             xfer += iprot->readListEnd();
@@ -5831,8 +5963,7 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype192, _size189);
             this->encoding_stats.resize(_size189);
             uint32_t _i193;
-            for (_i193 = 0; _i193 < _size189; ++_i193)
-            {
+            for (_i193 = 0; _i193 < _size189; ++_i193) {
               xfer += this->encoding_stats[_i193].read(iprot);
             }
             xfer += iprot->readListEnd();
@@ -5894,7 +6025,7 @@ uint32_t ColumnMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ColumnMetaData");
@@ -5906,9 +6037,8 @@ uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol* oprot) con
   xfer += oprot->writeFieldBegin("encodings", ::apache::thrift::protocol::T_LIST, 2);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I32, static_cast<uint32_t>(this->encodings.size()));
-    std::vector<Encoding::type> ::const_iterator _iter194;
-    for (_iter194 = this->encodings.begin(); _iter194 != this->encodings.end(); ++_iter194)
-    {
+    std::vector<Encoding::type>::const_iterator _iter194;
+    for (_iter194 = this->encodings.begin(); _iter194 != this->encodings.end(); ++_iter194) {
       xfer += oprot->writeI32(static_cast<int32_t>((*_iter194)));
     }
     xfer += oprot->writeListEnd();
@@ -5917,10 +6047,10 @@ uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol* oprot) con
 
   xfer += oprot->writeFieldBegin("path_in_schema", ::apache::thrift::protocol::T_LIST, 3);
   {
-    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->path_in_schema.size()));
-    std::vector<std::string> ::const_iterator _iter195;
-    for (_iter195 = this->path_in_schema.begin(); _iter195 != this->path_in_schema.end(); ++_iter195)
-    {
+    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING,
+                                  static_cast<uint32_t>(this->path_in_schema.size()));
+    std::vector<std::string>::const_iterator _iter195;
+    for (_iter195 = this->path_in_schema.begin(); _iter195 != this->path_in_schema.end(); ++_iter195) {
       xfer += oprot->writeString((*_iter195));
     }
     xfer += oprot->writeListEnd();
@@ -5946,10 +6076,10 @@ uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol* oprot) con
   if (this->__isset.key_value_metadata) {
     xfer += oprot->writeFieldBegin("key_value_metadata", ::apache::thrift::protocol::T_LIST, 8);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->key_value_metadata.size()));
-      std::vector<KeyValue> ::const_iterator _iter196;
-      for (_iter196 = this->key_value_metadata.begin(); _iter196 != this->key_value_metadata.end(); ++_iter196)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT,
+                                    static_cast<uint32_t>(this->key_value_metadata.size()));
+      std::vector<KeyValue>::const_iterator _iter196;
+      for (_iter196 = this->key_value_metadata.begin(); _iter196 != this->key_value_metadata.end(); ++_iter196) {
         xfer += (*_iter196).write(oprot);
       }
       xfer += oprot->writeListEnd();
@@ -5978,10 +6108,10 @@ uint32_t ColumnMetaData::write(::apache::thrift::protocol::TProtocol* oprot) con
   if (this->__isset.encoding_stats) {
     xfer += oprot->writeFieldBegin("encoding_stats", ::apache::thrift::protocol::T_LIST, 13);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->encoding_stats.size()));
-      std::vector<PageEncodingStats> ::const_iterator _iter197;
-      for (_iter197 = this->encoding_stats.begin(); _iter197 != this->encoding_stats.end(); ++_iter197)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT,
+                                    static_cast<uint32_t>(this->encoding_stats.size()));
+      std::vector<PageEncodingStats>::const_iterator _iter197;
+      for (_iter197 = this->encoding_stats.begin(); _iter197 != this->encoding_stats.end(); ++_iter197) {
         xfer += (*_iter197).write(oprot);
       }
       xfer += oprot->writeListEnd();
@@ -6029,7 +6159,7 @@ void swap(ColumnMetaData &a, ColumnMetaData &b) {
   swap(a.__isset, b.__isset);
 }
 
-ColumnMetaData::ColumnMetaData(const ColumnMetaData& other198) {
+ColumnMetaData::ColumnMetaData(const ColumnMetaData &other198) {
   type = other198.type;
   encodings = other198.encodings;
   path_in_schema = other198.path_in_schema;
@@ -6048,7 +6178,8 @@ ColumnMetaData::ColumnMetaData(const ColumnMetaData& other198) {
   size_statistics = other198.size_statistics;
   __isset = other198.__isset;
 }
-ColumnMetaData::ColumnMetaData(ColumnMetaData&& other199) noexcept {
+
+ColumnMetaData::ColumnMetaData(ColumnMetaData &&other199) noexcept {
   type = other199.type;
   encodings = std::move(other199.encodings);
   path_in_schema = std::move(other199.path_in_schema);
@@ -6067,7 +6198,8 @@ ColumnMetaData::ColumnMetaData(ColumnMetaData&& other199) noexcept {
   size_statistics = std::move(other199.size_statistics);
   __isset = other199.__isset;
 }
-ColumnMetaData& ColumnMetaData::operator=(const ColumnMetaData& other200) {
+
+ColumnMetaData &ColumnMetaData::operator=(const ColumnMetaData &other200) {
   type = other200.type;
   encodings = other200.encodings;
   path_in_schema = other200.path_in_schema;
@@ -6087,7 +6219,8 @@ ColumnMetaData& ColumnMetaData::operator=(const ColumnMetaData& other200) {
   __isset = other200.__isset;
   return *this;
 }
-ColumnMetaData& ColumnMetaData::operator=(ColumnMetaData&& other201) noexcept {
+
+ColumnMetaData &ColumnMetaData::operator=(ColumnMetaData &&other201) noexcept {
   type = other201.type;
   encodings = std::move(other201.encodings);
   path_in_schema = std::move(other201.path_in_schema);
@@ -6107,7 +6240,8 @@ ColumnMetaData& ColumnMetaData::operator=(ColumnMetaData&& other201) noexcept {
   __isset = other201.__isset;
   return *this;
 }
-void ColumnMetaData::printTo(std::ostream& out) const {
+
+void ColumnMetaData::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ColumnMetaData(";
   out << "type=" << to_string(type);
@@ -6117,15 +6251,23 @@ void ColumnMetaData::printTo(std::ostream& out) const {
   out << ", " << "num_values=" << to_string(num_values);
   out << ", " << "total_uncompressed_size=" << to_string(total_uncompressed_size);
   out << ", " << "total_compressed_size=" << to_string(total_compressed_size);
-  out << ", " << "key_value_metadata="; (__isset.key_value_metadata ? (out << to_string(key_value_metadata)) : (out << "<null>"));
+  out << ", " << "key_value_metadata=";
+  (__isset.key_value_metadata ? (out << to_string(key_value_metadata)) : (out << "<null>"));
   out << ", " << "data_page_offset=" << to_string(data_page_offset);
-  out << ", " << "index_page_offset="; (__isset.index_page_offset ? (out << to_string(index_page_offset)) : (out << "<null>"));
-  out << ", " << "dictionary_page_offset="; (__isset.dictionary_page_offset ? (out << to_string(dictionary_page_offset)) : (out << "<null>"));
-  out << ", " << "statistics="; (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
-  out << ", " << "encoding_stats="; (__isset.encoding_stats ? (out << to_string(encoding_stats)) : (out << "<null>"));
-  out << ", " << "bloom_filter_offset="; (__isset.bloom_filter_offset ? (out << to_string(bloom_filter_offset)) : (out << "<null>"));
-  out << ", " << "bloom_filter_length="; (__isset.bloom_filter_length ? (out << to_string(bloom_filter_length)) : (out << "<null>"));
-  out << ", " << "size_statistics="; (__isset.size_statistics ? (out << to_string(size_statistics)) : (out << "<null>"));
+  out << ", " << "index_page_offset=";
+  (__isset.index_page_offset ? (out << to_string(index_page_offset)) : (out << "<null>"));
+  out << ", " << "dictionary_page_offset=";
+  (__isset.dictionary_page_offset ? (out << to_string(dictionary_page_offset)) : (out << "<null>"));
+  out << ", " << "statistics=";
+  (__isset.statistics ? (out << to_string(statistics)) : (out << "<null>"));
+  out << ", " << "encoding_stats=";
+  (__isset.encoding_stats ? (out << to_string(encoding_stats)) : (out << "<null>"));
+  out << ", " << "bloom_filter_offset=";
+  (__isset.bloom_filter_offset ? (out << to_string(bloom_filter_offset)) : (out << "<null>"));
+  out << ", " << "bloom_filter_length=";
+  (__isset.bloom_filter_length ? (out << to_string(bloom_filter_length)) : (out << "<null>"));
+  out << ", " << "size_statistics=";
+  (__isset.size_statistics ? (out << to_string(size_statistics)) : (out << "<null>"));
   out << ")";
 }
 
@@ -6133,14 +6275,13 @@ void ColumnMetaData::printTo(std::ostream& out) const {
 EncryptionWithFooterKey::~EncryptionWithFooterKey() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const EncryptionWithFooterKey& obj)
-{
+std::ostream &operator<<(std::ostream &out, const EncryptionWithFooterKey &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t EncryptionWithFooterKey::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t EncryptionWithFooterKey::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -6153,8 +6294,7 @@ uint32_t EncryptionWithFooterKey::read(::apache::thrift::protocol::TProtocol* ip
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -6168,7 +6308,7 @@ uint32_t EncryptionWithFooterKey::read(::apache::thrift::protocol::TProtocol* ip
   return xfer;
 }
 
-uint32_t EncryptionWithFooterKey::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t EncryptionWithFooterKey::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("EncryptionWithFooterKey");
@@ -6184,21 +6324,25 @@ void swap(EncryptionWithFooterKey &a, EncryptionWithFooterKey &b) {
   (void) b;
 }
 
-EncryptionWithFooterKey::EncryptionWithFooterKey(const EncryptionWithFooterKey& other202) noexcept {
+EncryptionWithFooterKey::EncryptionWithFooterKey(const EncryptionWithFooterKey &other202) noexcept {
   (void) other202;
 }
-EncryptionWithFooterKey::EncryptionWithFooterKey(EncryptionWithFooterKey&& other203) noexcept {
+
+EncryptionWithFooterKey::EncryptionWithFooterKey(EncryptionWithFooterKey &&other203) noexcept {
   (void) other203;
 }
-EncryptionWithFooterKey& EncryptionWithFooterKey::operator=(const EncryptionWithFooterKey& other204) noexcept {
+
+EncryptionWithFooterKey &EncryptionWithFooterKey::operator=(const EncryptionWithFooterKey &other204) noexcept {
   (void) other204;
   return *this;
 }
-EncryptionWithFooterKey& EncryptionWithFooterKey::operator=(EncryptionWithFooterKey&& other205) noexcept {
+
+EncryptionWithFooterKey &EncryptionWithFooterKey::operator=(EncryptionWithFooterKey &&other205) noexcept {
   (void) other205;
   return *this;
 }
-void EncryptionWithFooterKey::printTo(std::ostream& out) const {
+
+void EncryptionWithFooterKey::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "EncryptionWithFooterKey(";
   out << ")";
@@ -6209,22 +6353,22 @@ EncryptionWithColumnKey::~EncryptionWithColumnKey() noexcept {
 }
 
 
-void EncryptionWithColumnKey::__set_path_in_schema(const std::vector<std::string> & val) {
+void EncryptionWithColumnKey::__set_path_in_schema(const std::vector<std::string> &val) {
   this->path_in_schema = val;
 }
 
-void EncryptionWithColumnKey::__set_key_metadata(const std::string& val) {
+void EncryptionWithColumnKey::__set_key_metadata(const std::string &val) {
   this->key_metadata = val;
-__isset.key_metadata = true;
+  __isset.key_metadata = true;
 }
-std::ostream& operator<<(std::ostream& out, const EncryptionWithColumnKey& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const EncryptionWithColumnKey &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t EncryptionWithColumnKey::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t EncryptionWithColumnKey::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -6238,14 +6382,12 @@ uint32_t EncryptionWithColumnKey::read(::apache::thrift::protocol::TProtocol* ip
 
   bool isset_path_in_schema = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
@@ -6255,8 +6397,7 @@ uint32_t EncryptionWithColumnKey::read(::apache::thrift::protocol::TProtocol* ip
             xfer += iprot->readListBegin(_etype209, _size206);
             this->path_in_schema.resize(_size206);
             uint32_t _i210;
-            for (_i210 = 0; _i210 < _size206; ++_i210)
-            {
+            for (_i210 = 0; _i210 < _size206; ++_i210) {
               xfer += iprot->readString(this->path_in_schema[_i210]);
             }
             xfer += iprot->readListEnd();
@@ -6288,17 +6429,17 @@ uint32_t EncryptionWithColumnKey::read(::apache::thrift::protocol::TProtocol* ip
   return xfer;
 }
 
-uint32_t EncryptionWithColumnKey::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t EncryptionWithColumnKey::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("EncryptionWithColumnKey");
 
   xfer += oprot->writeFieldBegin("path_in_schema", ::apache::thrift::protocol::T_LIST, 1);
   {
-    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->path_in_schema.size()));
-    std::vector<std::string> ::const_iterator _iter211;
-    for (_iter211 = this->path_in_schema.begin(); _iter211 != this->path_in_schema.end(); ++_iter211)
-    {
+    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING,
+                                  static_cast<uint32_t>(this->path_in_schema.size()));
+    std::vector<std::string>::const_iterator _iter211;
+    for (_iter211 = this->path_in_schema.begin(); _iter211 != this->path_in_schema.end(); ++_iter211) {
       xfer += oprot->writeString((*_iter211));
     }
     xfer += oprot->writeListEnd();
@@ -6322,33 +6463,38 @@ void swap(EncryptionWithColumnKey &a, EncryptionWithColumnKey &b) {
   swap(a.__isset, b.__isset);
 }
 
-EncryptionWithColumnKey::EncryptionWithColumnKey(const EncryptionWithColumnKey& other212) {
+EncryptionWithColumnKey::EncryptionWithColumnKey(const EncryptionWithColumnKey &other212) {
   path_in_schema = other212.path_in_schema;
   key_metadata = other212.key_metadata;
   __isset = other212.__isset;
 }
-EncryptionWithColumnKey::EncryptionWithColumnKey(EncryptionWithColumnKey&& other213) noexcept {
+
+EncryptionWithColumnKey::EncryptionWithColumnKey(EncryptionWithColumnKey &&other213) noexcept {
   path_in_schema = std::move(other213.path_in_schema);
   key_metadata = std::move(other213.key_metadata);
   __isset = other213.__isset;
 }
-EncryptionWithColumnKey& EncryptionWithColumnKey::operator=(const EncryptionWithColumnKey& other214) {
+
+EncryptionWithColumnKey &EncryptionWithColumnKey::operator=(const EncryptionWithColumnKey &other214) {
   path_in_schema = other214.path_in_schema;
   key_metadata = other214.key_metadata;
   __isset = other214.__isset;
   return *this;
 }
-EncryptionWithColumnKey& EncryptionWithColumnKey::operator=(EncryptionWithColumnKey&& other215) noexcept {
+
+EncryptionWithColumnKey &EncryptionWithColumnKey::operator=(EncryptionWithColumnKey &&other215) noexcept {
   path_in_schema = std::move(other215.path_in_schema);
   key_metadata = std::move(other215.key_metadata);
   __isset = other215.__isset;
   return *this;
 }
-void EncryptionWithColumnKey::printTo(std::ostream& out) const {
+
+void EncryptionWithColumnKey::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "EncryptionWithColumnKey(";
   out << "path_in_schema=" << to_string(path_in_schema);
-  out << ", " << "key_metadata="; (__isset.key_metadata ? (out << to_string(key_metadata)) : (out << "<null>"));
+  out << ", " << "key_metadata=";
+  (__isset.key_metadata ? (out << to_string(key_metadata)) : (out << "<null>"));
   out << ")";
 }
 
@@ -6357,23 +6503,23 @@ ColumnCryptoMetaData::~ColumnCryptoMetaData() noexcept {
 }
 
 
-void ColumnCryptoMetaData::__set_ENCRYPTION_WITH_FOOTER_KEY(const EncryptionWithFooterKey& val) {
+void ColumnCryptoMetaData::__set_ENCRYPTION_WITH_FOOTER_KEY(const EncryptionWithFooterKey &val) {
   this->ENCRYPTION_WITH_FOOTER_KEY = val;
-__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
+  __isset.ENCRYPTION_WITH_FOOTER_KEY = true;
 }
 
-void ColumnCryptoMetaData::__set_ENCRYPTION_WITH_COLUMN_KEY(const EncryptionWithColumnKey& val) {
+void ColumnCryptoMetaData::__set_ENCRYPTION_WITH_COLUMN_KEY(const EncryptionWithColumnKey &val) {
   this->ENCRYPTION_WITH_COLUMN_KEY = val;
-__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
+  __isset.ENCRYPTION_WITH_COLUMN_KEY = true;
 }
-std::ostream& operator<<(std::ostream& out, const ColumnCryptoMetaData& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const ColumnCryptoMetaData &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ColumnCryptoMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ColumnCryptoMetaData::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -6386,14 +6532,12 @@ uint32_t ColumnCryptoMetaData::read(::apache::thrift::protocol::TProtocol* iprot
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->ENCRYPTION_WITH_FOOTER_KEY.read(iprot);
@@ -6422,7 +6566,7 @@ uint32_t ColumnCryptoMetaData::read(::apache::thrift::protocol::TProtocol* iprot
   return xfer;
 }
 
-uint32_t ColumnCryptoMetaData::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ColumnCryptoMetaData::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ColumnCryptoMetaData");
@@ -6449,33 +6593,39 @@ void swap(ColumnCryptoMetaData &a, ColumnCryptoMetaData &b) {
   swap(a.__isset, b.__isset);
 }
 
-ColumnCryptoMetaData::ColumnCryptoMetaData(const ColumnCryptoMetaData& other216) {
+ColumnCryptoMetaData::ColumnCryptoMetaData(const ColumnCryptoMetaData &other216) {
   ENCRYPTION_WITH_FOOTER_KEY = other216.ENCRYPTION_WITH_FOOTER_KEY;
   ENCRYPTION_WITH_COLUMN_KEY = other216.ENCRYPTION_WITH_COLUMN_KEY;
   __isset = other216.__isset;
 }
-ColumnCryptoMetaData::ColumnCryptoMetaData(ColumnCryptoMetaData&& other217) noexcept {
+
+ColumnCryptoMetaData::ColumnCryptoMetaData(ColumnCryptoMetaData &&other217) noexcept {
   ENCRYPTION_WITH_FOOTER_KEY = std::move(other217.ENCRYPTION_WITH_FOOTER_KEY);
   ENCRYPTION_WITH_COLUMN_KEY = std::move(other217.ENCRYPTION_WITH_COLUMN_KEY);
   __isset = other217.__isset;
 }
-ColumnCryptoMetaData& ColumnCryptoMetaData::operator=(const ColumnCryptoMetaData& other218) {
+
+ColumnCryptoMetaData &ColumnCryptoMetaData::operator=(const ColumnCryptoMetaData &other218) {
   ENCRYPTION_WITH_FOOTER_KEY = other218.ENCRYPTION_WITH_FOOTER_KEY;
   ENCRYPTION_WITH_COLUMN_KEY = other218.ENCRYPTION_WITH_COLUMN_KEY;
   __isset = other218.__isset;
   return *this;
 }
-ColumnCryptoMetaData& ColumnCryptoMetaData::operator=(ColumnCryptoMetaData&& other219) noexcept {
+
+ColumnCryptoMetaData &ColumnCryptoMetaData::operator=(ColumnCryptoMetaData &&other219) noexcept {
   ENCRYPTION_WITH_FOOTER_KEY = std::move(other219.ENCRYPTION_WITH_FOOTER_KEY);
   ENCRYPTION_WITH_COLUMN_KEY = std::move(other219.ENCRYPTION_WITH_COLUMN_KEY);
   __isset = other219.__isset;
   return *this;
 }
-void ColumnCryptoMetaData::printTo(std::ostream& out) const {
+
+void ColumnCryptoMetaData::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ColumnCryptoMetaData(";
-  out << "ENCRYPTION_WITH_FOOTER_KEY="; (__isset.ENCRYPTION_WITH_FOOTER_KEY ? (out << to_string(ENCRYPTION_WITH_FOOTER_KEY)) : (out << "<null>"));
-  out << ", " << "ENCRYPTION_WITH_COLUMN_KEY="; (__isset.ENCRYPTION_WITH_COLUMN_KEY ? (out << to_string(ENCRYPTION_WITH_COLUMN_KEY)) : (out << "<null>"));
+  out << "ENCRYPTION_WITH_FOOTER_KEY=";
+  (__isset.ENCRYPTION_WITH_FOOTER_KEY ? (out << to_string(ENCRYPTION_WITH_FOOTER_KEY)) : (out << "<null>"));
+  out << ", " << "ENCRYPTION_WITH_COLUMN_KEY=";
+  (__isset.ENCRYPTION_WITH_COLUMN_KEY ? (out << to_string(ENCRYPTION_WITH_COLUMN_KEY)) : (out << "<null>"));
   out << ")";
 }
 
@@ -6484,57 +6634,57 @@ ColumnChunk::~ColumnChunk() noexcept {
 }
 
 
-void ColumnChunk::__set_file_path(const std::string& val) {
+void ColumnChunk::__set_file_path(const std::string &val) {
   this->file_path = val;
-__isset.file_path = true;
+  __isset.file_path = true;
 }
 
 void ColumnChunk::__set_file_offset(const int64_t val) {
   this->file_offset = val;
 }
 
-void ColumnChunk::__set_meta_data(const ColumnMetaData& val) {
+void ColumnChunk::__set_meta_data(const ColumnMetaData &val) {
   this->meta_data = val;
-__isset.meta_data = true;
+  __isset.meta_data = true;
 }
 
 void ColumnChunk::__set_offset_index_offset(const int64_t val) {
   this->offset_index_offset = val;
-__isset.offset_index_offset = true;
+  __isset.offset_index_offset = true;
 }
 
 void ColumnChunk::__set_offset_index_length(const int32_t val) {
   this->offset_index_length = val;
-__isset.offset_index_length = true;
+  __isset.offset_index_length = true;
 }
 
 void ColumnChunk::__set_column_index_offset(const int64_t val) {
   this->column_index_offset = val;
-__isset.column_index_offset = true;
+  __isset.column_index_offset = true;
 }
 
 void ColumnChunk::__set_column_index_length(const int32_t val) {
   this->column_index_length = val;
-__isset.column_index_length = true;
+  __isset.column_index_length = true;
 }
 
-void ColumnChunk::__set_crypto_metadata(const ColumnCryptoMetaData& val) {
+void ColumnChunk::__set_crypto_metadata(const ColumnCryptoMetaData &val) {
   this->crypto_metadata = val;
-__isset.crypto_metadata = true;
+  __isset.crypto_metadata = true;
 }
 
-void ColumnChunk::__set_encrypted_column_metadata(const std::string& val) {
+void ColumnChunk::__set_encrypted_column_metadata(const std::string &val) {
   this->encrypted_column_metadata = val;
-__isset.encrypted_column_metadata = true;
+  __isset.encrypted_column_metadata = true;
 }
-std::ostream& operator<<(std::ostream& out, const ColumnChunk& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const ColumnChunk &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ColumnChunk::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ColumnChunk::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -6548,14 +6698,12 @@ uint32_t ColumnChunk::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   bool isset_file_offset = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
           xfer += iprot->readString(this->file_path);
@@ -6642,7 +6790,7 @@ uint32_t ColumnChunk::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t ColumnChunk::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ColumnChunk::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ColumnChunk");
@@ -6710,7 +6858,7 @@ void swap(ColumnChunk &a, ColumnChunk &b) {
   swap(a.__isset, b.__isset);
 }
 
-ColumnChunk::ColumnChunk(const ColumnChunk& other220) {
+ColumnChunk::ColumnChunk(const ColumnChunk &other220) {
   file_path = other220.file_path;
   file_offset = other220.file_offset;
   meta_data = other220.meta_data;
@@ -6722,7 +6870,8 @@ ColumnChunk::ColumnChunk(const ColumnChunk& other220) {
   encrypted_column_metadata = other220.encrypted_column_metadata;
   __isset = other220.__isset;
 }
-ColumnChunk::ColumnChunk(ColumnChunk&& other221) noexcept {
+
+ColumnChunk::ColumnChunk(ColumnChunk &&other221) noexcept {
   file_path = std::move(other221.file_path);
   file_offset = other221.file_offset;
   meta_data = std::move(other221.meta_data);
@@ -6734,7 +6883,8 @@ ColumnChunk::ColumnChunk(ColumnChunk&& other221) noexcept {
   encrypted_column_metadata = std::move(other221.encrypted_column_metadata);
   __isset = other221.__isset;
 }
-ColumnChunk& ColumnChunk::operator=(const ColumnChunk& other222) {
+
+ColumnChunk &ColumnChunk::operator=(const ColumnChunk &other222) {
   file_path = other222.file_path;
   file_offset = other222.file_offset;
   meta_data = other222.meta_data;
@@ -6747,7 +6897,8 @@ ColumnChunk& ColumnChunk::operator=(const ColumnChunk& other222) {
   __isset = other222.__isset;
   return *this;
 }
-ColumnChunk& ColumnChunk::operator=(ColumnChunk&& other223) noexcept {
+
+ColumnChunk &ColumnChunk::operator=(ColumnChunk &&other223) noexcept {
   file_path = std::move(other223.file_path);
   file_offset = other223.file_offset;
   meta_data = std::move(other223.meta_data);
@@ -6760,18 +6911,27 @@ ColumnChunk& ColumnChunk::operator=(ColumnChunk&& other223) noexcept {
   __isset = other223.__isset;
   return *this;
 }
-void ColumnChunk::printTo(std::ostream& out) const {
+
+void ColumnChunk::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ColumnChunk(";
-  out << "file_path="; (__isset.file_path ? (out << to_string(file_path)) : (out << "<null>"));
+  out << "file_path=";
+  (__isset.file_path ? (out << to_string(file_path)) : (out << "<null>"));
   out << ", " << "file_offset=" << to_string(file_offset);
-  out << ", " << "meta_data="; (__isset.meta_data ? (out << to_string(meta_data)) : (out << "<null>"));
-  out << ", " << "offset_index_offset="; (__isset.offset_index_offset ? (out << to_string(offset_index_offset)) : (out << "<null>"));
-  out << ", " << "offset_index_length="; (__isset.offset_index_length ? (out << to_string(offset_index_length)) : (out << "<null>"));
-  out << ", " << "column_index_offset="; (__isset.column_index_offset ? (out << to_string(column_index_offset)) : (out << "<null>"));
-  out << ", " << "column_index_length="; (__isset.column_index_length ? (out << to_string(column_index_length)) : (out << "<null>"));
-  out << ", " << "crypto_metadata="; (__isset.crypto_metadata ? (out << to_string(crypto_metadata)) : (out << "<null>"));
-  out << ", " << "encrypted_column_metadata="; (__isset.encrypted_column_metadata ? (out << to_string(encrypted_column_metadata)) : (out << "<null>"));
+  out << ", " << "meta_data=";
+  (__isset.meta_data ? (out << to_string(meta_data)) : (out << "<null>"));
+  out << ", " << "offset_index_offset=";
+  (__isset.offset_index_offset ? (out << to_string(offset_index_offset)) : (out << "<null>"));
+  out << ", " << "offset_index_length=";
+  (__isset.offset_index_length ? (out << to_string(offset_index_length)) : (out << "<null>"));
+  out << ", " << "column_index_offset=";
+  (__isset.column_index_offset ? (out << to_string(column_index_offset)) : (out << "<null>"));
+  out << ", " << "column_index_length=";
+  (__isset.column_index_length ? (out << to_string(column_index_length)) : (out << "<null>"));
+  out << ", " << "crypto_metadata=";
+  (__isset.crypto_metadata ? (out << to_string(crypto_metadata)) : (out << "<null>"));
+  out << ", " << "encrypted_column_metadata=";
+  (__isset.encrypted_column_metadata ? (out << to_string(encrypted_column_metadata)) : (out << "<null>"));
   out << ")";
 }
 
@@ -6780,7 +6940,7 @@ RowGroup::~RowGroup() noexcept {
 }
 
 
-void RowGroup::__set_columns(const std::vector<ColumnChunk> & val) {
+void RowGroup::__set_columns(const std::vector<ColumnChunk> &val) {
   this->columns = val;
 }
 
@@ -6792,33 +6952,33 @@ void RowGroup::__set_num_rows(const int64_t val) {
   this->num_rows = val;
 }
 
-void RowGroup::__set_sorting_columns(const std::vector<SortingColumn> & val) {
+void RowGroup::__set_sorting_columns(const std::vector<SortingColumn> &val) {
   this->sorting_columns = val;
-__isset.sorting_columns = true;
+  __isset.sorting_columns = true;
 }
 
 void RowGroup::__set_file_offset(const int64_t val) {
   this->file_offset = val;
-__isset.file_offset = true;
+  __isset.file_offset = true;
 }
 
 void RowGroup::__set_total_compressed_size(const int64_t val) {
   this->total_compressed_size = val;
-__isset.total_compressed_size = true;
+  __isset.total_compressed_size = true;
 }
 
 void RowGroup::__set_ordinal(const int16_t val) {
   this->ordinal = val;
-__isset.ordinal = true;
+  __isset.ordinal = true;
 }
-std::ostream& operator<<(std::ostream& out, const RowGroup& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const RowGroup &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -6834,14 +6994,12 @@ uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_total_byte_size = false;
   bool isset_num_rows = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
@@ -6851,8 +7009,7 @@ uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype227, _size224);
             this->columns.resize(_size224);
             uint32_t _i228;
-            for (_i228 = 0; _i228 < _size224; ++_i228)
-            {
+            for (_i228 = 0; _i228 < _size224; ++_i228) {
               xfer += this->columns[_i228].read(iprot);
             }
             xfer += iprot->readListEnd();
@@ -6887,8 +7044,7 @@ uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype232, _size229);
             this->sorting_columns.resize(_size229);
             uint32_t _i233;
-            for (_i233 = 0; _i233 < _size229; ++_i233)
-            {
+            for (_i233 = 0; _i233 < _size229; ++_i233) {
               xfer += this->sorting_columns[_i233].read(iprot);
             }
             xfer += iprot->readListEnd();
@@ -6940,7 +7096,7 @@ uint32_t RowGroup::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t RowGroup::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t RowGroup::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("RowGroup");
@@ -6948,9 +7104,8 @@ uint32_t RowGroup::write(::apache::thrift::protocol::TProtocol* oprot) const {
   xfer += oprot->writeFieldBegin("columns", ::apache::thrift::protocol::T_LIST, 1);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->columns.size()));
-    std::vector<ColumnChunk> ::const_iterator _iter234;
-    for (_iter234 = this->columns.begin(); _iter234 != this->columns.end(); ++_iter234)
-    {
+    std::vector<ColumnChunk>::const_iterator _iter234;
+    for (_iter234 = this->columns.begin(); _iter234 != this->columns.end(); ++_iter234) {
       xfer += (*_iter234).write(oprot);
     }
     xfer += oprot->writeListEnd();
@@ -6968,10 +7123,10 @@ uint32_t RowGroup::write(::apache::thrift::protocol::TProtocol* oprot) const {
   if (this->__isset.sorting_columns) {
     xfer += oprot->writeFieldBegin("sorting_columns", ::apache::thrift::protocol::T_LIST, 4);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->sorting_columns.size()));
-      std::vector<SortingColumn> ::const_iterator _iter235;
-      for (_iter235 = this->sorting_columns.begin(); _iter235 != this->sorting_columns.end(); ++_iter235)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT,
+                                    static_cast<uint32_t>(this->sorting_columns.size()));
+      std::vector<SortingColumn>::const_iterator _iter235;
+      for (_iter235 = this->sorting_columns.begin(); _iter235 != this->sorting_columns.end(); ++_iter235) {
         xfer += (*_iter235).write(oprot);
       }
       xfer += oprot->writeListEnd();
@@ -7010,7 +7165,7 @@ void swap(RowGroup &a, RowGroup &b) {
   swap(a.__isset, b.__isset);
 }
 
-RowGroup::RowGroup(const RowGroup& other236) {
+RowGroup::RowGroup(const RowGroup &other236) {
   columns = other236.columns;
   total_byte_size = other236.total_byte_size;
   num_rows = other236.num_rows;
@@ -7020,7 +7175,8 @@ RowGroup::RowGroup(const RowGroup& other236) {
   ordinal = other236.ordinal;
   __isset = other236.__isset;
 }
-RowGroup::RowGroup(RowGroup&& other237) noexcept {
+
+RowGroup::RowGroup(RowGroup &&other237) noexcept {
   columns = std::move(other237.columns);
   total_byte_size = other237.total_byte_size;
   num_rows = other237.num_rows;
@@ -7030,7 +7186,8 @@ RowGroup::RowGroup(RowGroup&& other237) noexcept {
   ordinal = other237.ordinal;
   __isset = other237.__isset;
 }
-RowGroup& RowGroup::operator=(const RowGroup& other238) {
+
+RowGroup &RowGroup::operator=(const RowGroup &other238) {
   columns = other238.columns;
   total_byte_size = other238.total_byte_size;
   num_rows = other238.num_rows;
@@ -7041,7 +7198,8 @@ RowGroup& RowGroup::operator=(const RowGroup& other238) {
   __isset = other238.__isset;
   return *this;
 }
-RowGroup& RowGroup::operator=(RowGroup&& other239) noexcept {
+
+RowGroup &RowGroup::operator=(RowGroup &&other239) noexcept {
   columns = std::move(other239.columns);
   total_byte_size = other239.total_byte_size;
   num_rows = other239.num_rows;
@@ -7052,16 +7210,21 @@ RowGroup& RowGroup::operator=(RowGroup&& other239) noexcept {
   __isset = other239.__isset;
   return *this;
 }
-void RowGroup::printTo(std::ostream& out) const {
+
+void RowGroup::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "RowGroup(";
   out << "columns=" << to_string(columns);
   out << ", " << "total_byte_size=" << to_string(total_byte_size);
   out << ", " << "num_rows=" << to_string(num_rows);
-  out << ", " << "sorting_columns="; (__isset.sorting_columns ? (out << to_string(sorting_columns)) : (out << "<null>"));
-  out << ", " << "file_offset="; (__isset.file_offset ? (out << to_string(file_offset)) : (out << "<null>"));
-  out << ", " << "total_compressed_size="; (__isset.total_compressed_size ? (out << to_string(total_compressed_size)) : (out << "<null>"));
-  out << ", " << "ordinal="; (__isset.ordinal ? (out << to_string(ordinal)) : (out << "<null>"));
+  out << ", " << "sorting_columns=";
+  (__isset.sorting_columns ? (out << to_string(sorting_columns)) : (out << "<null>"));
+  out << ", " << "file_offset=";
+  (__isset.file_offset ? (out << to_string(file_offset)) : (out << "<null>"));
+  out << ", " << "total_compressed_size=";
+  (__isset.total_compressed_size ? (out << to_string(total_compressed_size)) : (out << "<null>"));
+  out << ", " << "ordinal=";
+  (__isset.ordinal ? (out << to_string(ordinal)) : (out << "<null>"));
   out << ")";
 }
 
@@ -7069,14 +7232,13 @@ void RowGroup::printTo(std::ostream& out) const {
 TypeDefinedOrder::~TypeDefinedOrder() noexcept {
 }
 
-std::ostream& operator<<(std::ostream& out, const TypeDefinedOrder& obj)
-{
+std::ostream &operator<<(std::ostream &out, const TypeDefinedOrder &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t TypeDefinedOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t TypeDefinedOrder::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7089,8 +7251,7 @@ uint32_t TypeDefinedOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
@@ -7104,7 +7265,7 @@ uint32_t TypeDefinedOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t TypeDefinedOrder::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t TypeDefinedOrder::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("TypeDefinedOrder");
@@ -7120,21 +7281,25 @@ void swap(TypeDefinedOrder &a, TypeDefinedOrder &b) {
   (void) b;
 }
 
-TypeDefinedOrder::TypeDefinedOrder(const TypeDefinedOrder& other240) noexcept {
+TypeDefinedOrder::TypeDefinedOrder(const TypeDefinedOrder &other240) noexcept {
   (void) other240;
 }
-TypeDefinedOrder::TypeDefinedOrder(TypeDefinedOrder&& other241) noexcept {
+
+TypeDefinedOrder::TypeDefinedOrder(TypeDefinedOrder &&other241) noexcept {
   (void) other241;
 }
-TypeDefinedOrder& TypeDefinedOrder::operator=(const TypeDefinedOrder& other242) noexcept {
+
+TypeDefinedOrder &TypeDefinedOrder::operator=(const TypeDefinedOrder &other242) noexcept {
   (void) other242;
   return *this;
 }
-TypeDefinedOrder& TypeDefinedOrder::operator=(TypeDefinedOrder&& other243) noexcept {
+
+TypeDefinedOrder &TypeDefinedOrder::operator=(TypeDefinedOrder &&other243) noexcept {
   (void) other243;
   return *this;
 }
-void TypeDefinedOrder::printTo(std::ostream& out) const {
+
+void TypeDefinedOrder::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "TypeDefinedOrder(";
   out << ")";
@@ -7145,18 +7310,18 @@ ColumnOrder::~ColumnOrder() noexcept {
 }
 
 
-void ColumnOrder::__set_TYPE_ORDER(const TypeDefinedOrder& val) {
+void ColumnOrder::__set_TYPE_ORDER(const TypeDefinedOrder &val) {
   this->TYPE_ORDER = val;
-__isset.TYPE_ORDER = true;
+  __isset.TYPE_ORDER = true;
 }
-std::ostream& operator<<(std::ostream& out, const ColumnOrder& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const ColumnOrder &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ColumnOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ColumnOrder::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7169,14 +7334,12 @@ uint32_t ColumnOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->TYPE_ORDER.read(iprot);
@@ -7197,7 +7360,7 @@ uint32_t ColumnOrder::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t ColumnOrder::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ColumnOrder::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ColumnOrder");
@@ -7218,28 +7381,33 @@ void swap(ColumnOrder &a, ColumnOrder &b) {
   swap(a.__isset, b.__isset);
 }
 
-ColumnOrder::ColumnOrder(const ColumnOrder& other244) noexcept {
+ColumnOrder::ColumnOrder(const ColumnOrder &other244) noexcept {
   TYPE_ORDER = other244.TYPE_ORDER;
   __isset = other244.__isset;
 }
-ColumnOrder::ColumnOrder(ColumnOrder&& other245) noexcept {
+
+ColumnOrder::ColumnOrder(ColumnOrder &&other245) noexcept {
   TYPE_ORDER = std::move(other245.TYPE_ORDER);
   __isset = other245.__isset;
 }
-ColumnOrder& ColumnOrder::operator=(const ColumnOrder& other246) noexcept {
+
+ColumnOrder &ColumnOrder::operator=(const ColumnOrder &other246) noexcept {
   TYPE_ORDER = other246.TYPE_ORDER;
   __isset = other246.__isset;
   return *this;
 }
-ColumnOrder& ColumnOrder::operator=(ColumnOrder&& other247) noexcept {
+
+ColumnOrder &ColumnOrder::operator=(ColumnOrder &&other247) noexcept {
   TYPE_ORDER = std::move(other247.TYPE_ORDER);
   __isset = other247.__isset;
   return *this;
 }
-void ColumnOrder::printTo(std::ostream& out) const {
+
+void ColumnOrder::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ColumnOrder(";
-  out << "TYPE_ORDER="; (__isset.TYPE_ORDER ? (out << to_string(TYPE_ORDER)) : (out << "<null>"));
+  out << "TYPE_ORDER=";
+  (__isset.TYPE_ORDER ? (out << to_string(TYPE_ORDER)) : (out << "<null>"));
   out << ")";
 }
 
@@ -7259,14 +7427,14 @@ void PageLocation::__set_compressed_page_size(const int32_t val) {
 void PageLocation::__set_first_row_index(const int64_t val) {
   this->first_row_index = val;
 }
-std::ostream& operator<<(std::ostream& out, const PageLocation& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const PageLocation &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t PageLocation::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t PageLocation::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7282,14 +7450,12 @@ uint32_t PageLocation::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_compressed_page_size = false;
   bool isset_first_row_index = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_I64) {
           xfer += iprot->readI64(this->offset);
@@ -7332,7 +7498,7 @@ uint32_t PageLocation::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t PageLocation::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t PageLocation::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("PageLocation");
@@ -7361,29 +7527,33 @@ void swap(PageLocation &a, PageLocation &b) {
   swap(a.first_row_index, b.first_row_index);
 }
 
-PageLocation::PageLocation(const PageLocation& other248) noexcept {
+PageLocation::PageLocation(const PageLocation &other248) noexcept {
   offset = other248.offset;
   compressed_page_size = other248.compressed_page_size;
   first_row_index = other248.first_row_index;
 }
-PageLocation::PageLocation(PageLocation&& other249) noexcept {
+
+PageLocation::PageLocation(PageLocation &&other249) noexcept {
   offset = other249.offset;
   compressed_page_size = other249.compressed_page_size;
   first_row_index = other249.first_row_index;
 }
-PageLocation& PageLocation::operator=(const PageLocation& other250) noexcept {
+
+PageLocation &PageLocation::operator=(const PageLocation &other250) noexcept {
   offset = other250.offset;
   compressed_page_size = other250.compressed_page_size;
   first_row_index = other250.first_row_index;
   return *this;
 }
-PageLocation& PageLocation::operator=(PageLocation&& other251) noexcept {
+
+PageLocation &PageLocation::operator=(PageLocation &&other251) noexcept {
   offset = other251.offset;
   compressed_page_size = other251.compressed_page_size;
   first_row_index = other251.first_row_index;
   return *this;
 }
-void PageLocation::printTo(std::ostream& out) const {
+
+void PageLocation::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "PageLocation(";
   out << "offset=" << to_string(offset);
@@ -7397,22 +7567,22 @@ OffsetIndex::~OffsetIndex() noexcept {
 }
 
 
-void OffsetIndex::__set_page_locations(const std::vector<PageLocation> & val) {
+void OffsetIndex::__set_page_locations(const std::vector<PageLocation> &val) {
   this->page_locations = val;
 }
 
-void OffsetIndex::__set_unencoded_byte_array_data_bytes(const std::vector<int64_t> & val) {
+void OffsetIndex::__set_unencoded_byte_array_data_bytes(const std::vector<int64_t> &val) {
   this->unencoded_byte_array_data_bytes = val;
-__isset.unencoded_byte_array_data_bytes = true;
+  __isset.unencoded_byte_array_data_bytes = true;
 }
-std::ostream& operator<<(std::ostream& out, const OffsetIndex& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const OffsetIndex &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7426,14 +7596,12 @@ uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   bool isset_page_locations = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
@@ -7443,8 +7611,7 @@ uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype255, _size252);
             this->page_locations.resize(_size252);
             uint32_t _i256;
-            for (_i256 = 0; _i256 < _size252; ++_i256)
-            {
+            for (_i256 = 0; _i256 < _size252; ++_i256) {
               xfer += this->page_locations[_i256].read(iprot);
             }
             xfer += iprot->readListEnd();
@@ -7463,8 +7630,7 @@ uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype260, _size257);
             this->unencoded_byte_array_data_bytes.resize(_size257);
             uint32_t _i261;
-            for (_i261 = 0; _i261 < _size257; ++_i261)
-            {
+            for (_i261 = 0; _i261 < _size257; ++_i261) {
               xfer += iprot->readI64(this->unencoded_byte_array_data_bytes[_i261]);
             }
             xfer += iprot->readListEnd();
@@ -7488,17 +7654,17 @@ uint32_t OffsetIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t OffsetIndex::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t OffsetIndex::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("OffsetIndex");
 
   xfer += oprot->writeFieldBegin("page_locations", ::apache::thrift::protocol::T_LIST, 1);
   {
-    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT, static_cast<uint32_t>(this->page_locations.size()));
-    std::vector<PageLocation> ::const_iterator _iter262;
-    for (_iter262 = this->page_locations.begin(); _iter262 != this->page_locations.end(); ++_iter262)
-    {
+    xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRUCT,
+                                  static_cast<uint32_t>(this->page_locations.size()));
+    std::vector<PageLocation>::const_iterator _iter262;
+    for (_iter262 = this->page_locations.begin(); _iter262 != this->page_locations.end(); ++_iter262) {
       xfer += (*_iter262).write(oprot);
     }
     xfer += oprot->writeListEnd();
@@ -7508,10 +7674,11 @@ uint32_t OffsetIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   if (this->__isset.unencoded_byte_array_data_bytes) {
     xfer += oprot->writeFieldBegin("unencoded_byte_array_data_bytes", ::apache::thrift::protocol::T_LIST, 2);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->unencoded_byte_array_data_bytes.size()));
-      std::vector<int64_t> ::const_iterator _iter263;
-      for (_iter263 = this->unencoded_byte_array_data_bytes.begin(); _iter263 != this->unencoded_byte_array_data_bytes.end(); ++_iter263)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64,
+                                    static_cast<uint32_t>(this->unencoded_byte_array_data_bytes.size()));
+      std::vector<int64_t>::const_iterator _iter263;
+      for (_iter263 = this->unencoded_byte_array_data_bytes.begin();
+           _iter263 != this->unencoded_byte_array_data_bytes.end(); ++_iter263) {
         xfer += oprot->writeI64((*_iter263));
       }
       xfer += oprot->writeListEnd();
@@ -7530,33 +7697,38 @@ void swap(OffsetIndex &a, OffsetIndex &b) {
   swap(a.__isset, b.__isset);
 }
 
-OffsetIndex::OffsetIndex(const OffsetIndex& other264) {
+OffsetIndex::OffsetIndex(const OffsetIndex &other264) {
   page_locations = other264.page_locations;
   unencoded_byte_array_data_bytes = other264.unencoded_byte_array_data_bytes;
   __isset = other264.__isset;
 }
-OffsetIndex::OffsetIndex(OffsetIndex&& other265) noexcept {
+
+OffsetIndex::OffsetIndex(OffsetIndex &&other265) noexcept {
   page_locations = std::move(other265.page_locations);
   unencoded_byte_array_data_bytes = std::move(other265.unencoded_byte_array_data_bytes);
   __isset = other265.__isset;
 }
-OffsetIndex& OffsetIndex::operator=(const OffsetIndex& other266) {
+
+OffsetIndex &OffsetIndex::operator=(const OffsetIndex &other266) {
   page_locations = other266.page_locations;
   unencoded_byte_array_data_bytes = other266.unencoded_byte_array_data_bytes;
   __isset = other266.__isset;
   return *this;
 }
-OffsetIndex& OffsetIndex::operator=(OffsetIndex&& other267) noexcept {
+
+OffsetIndex &OffsetIndex::operator=(OffsetIndex &&other267) noexcept {
   page_locations = std::move(other267.page_locations);
   unencoded_byte_array_data_bytes = std::move(other267.unencoded_byte_array_data_bytes);
   __isset = other267.__isset;
   return *this;
 }
-void OffsetIndex::printTo(std::ostream& out) const {
+
+void OffsetIndex::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "OffsetIndex(";
   out << "page_locations=" << to_string(page_locations);
-  out << ", " << "unencoded_byte_array_data_bytes="; (__isset.unencoded_byte_array_data_bytes ? (out << to_string(unencoded_byte_array_data_bytes)) : (out << "<null>"));
+  out << ", " << "unencoded_byte_array_data_bytes=";
+  (__isset.unencoded_byte_array_data_bytes ? (out << to_string(unencoded_byte_array_data_bytes)) : (out << "<null>"));
   out << ")";
 }
 
@@ -7565,15 +7737,15 @@ ColumnIndex::~ColumnIndex() noexcept {
 }
 
 
-void ColumnIndex::__set_null_pages(const std::vector<bool> & val) {
+void ColumnIndex::__set_null_pages(const std::vector<bool> &val) {
   this->null_pages = val;
 }
 
-void ColumnIndex::__set_min_values(const std::vector<std::string> & val) {
+void ColumnIndex::__set_min_values(const std::vector<std::string> &val) {
   this->min_values = val;
 }
 
-void ColumnIndex::__set_max_values(const std::vector<std::string> & val) {
+void ColumnIndex::__set_max_values(const std::vector<std::string> &val) {
   this->max_values = val;
 }
 
@@ -7581,28 +7753,28 @@ void ColumnIndex::__set_boundary_order(const BoundaryOrder::type val) {
   this->boundary_order = val;
 }
 
-void ColumnIndex::__set_null_counts(const std::vector<int64_t> & val) {
+void ColumnIndex::__set_null_counts(const std::vector<int64_t> &val) {
   this->null_counts = val;
-__isset.null_counts = true;
+  __isset.null_counts = true;
 }
 
-void ColumnIndex::__set_repetition_level_histograms(const std::vector<int64_t> & val) {
+void ColumnIndex::__set_repetition_level_histograms(const std::vector<int64_t> &val) {
   this->repetition_level_histograms = val;
-__isset.repetition_level_histograms = true;
+  __isset.repetition_level_histograms = true;
 }
 
-void ColumnIndex::__set_definition_level_histograms(const std::vector<int64_t> & val) {
+void ColumnIndex::__set_definition_level_histograms(const std::vector<int64_t> &val) {
   this->definition_level_histograms = val;
-__isset.definition_level_histograms = true;
+  __isset.definition_level_histograms = true;
 }
-std::ostream& operator<<(std::ostream& out, const ColumnIndex& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const ColumnIndex &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7619,14 +7791,12 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
   bool isset_max_values = false;
   bool isset_boundary_order = false;
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_LIST) {
           {
@@ -7636,8 +7806,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype271, _size268);
             this->null_pages.resize(_size268);
             uint32_t _i272;
-            for (_i272 = 0; _i272 < _size268; ++_i272)
-            {
+            for (_i272 = 0; _i272 < _size268; ++_i272) {
               xfer += iprot->readBool(this->null_pages[_i272]);
             }
             xfer += iprot->readListEnd();
@@ -7656,8 +7825,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype276, _size273);
             this->min_values.resize(_size273);
             uint32_t _i277;
-            for (_i277 = 0; _i277 < _size273; ++_i277)
-            {
+            for (_i277 = 0; _i277 < _size273; ++_i277) {
               xfer += iprot->readBinary(this->min_values[_i277]);
             }
             xfer += iprot->readListEnd();
@@ -7676,8 +7844,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype281, _size278);
             this->max_values.resize(_size278);
             uint32_t _i282;
-            for (_i282 = 0; _i282 < _size278; ++_i282)
-            {
+            for (_i282 = 0; _i282 < _size278; ++_i282) {
               xfer += iprot->readBinary(this->max_values[_i282]);
             }
             xfer += iprot->readListEnd();
@@ -7706,8 +7873,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype287, _size284);
             this->null_counts.resize(_size284);
             uint32_t _i288;
-            for (_i288 = 0; _i288 < _size284; ++_i288)
-            {
+            for (_i288 = 0; _i288 < _size284; ++_i288) {
               xfer += iprot->readI64(this->null_counts[_i288]);
             }
             xfer += iprot->readListEnd();
@@ -7726,8 +7892,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype292, _size289);
             this->repetition_level_histograms.resize(_size289);
             uint32_t _i293;
-            for (_i293 = 0; _i293 < _size289; ++_i293)
-            {
+            for (_i293 = 0; _i293 < _size289; ++_i293) {
               xfer += iprot->readI64(this->repetition_level_histograms[_i293]);
             }
             xfer += iprot->readListEnd();
@@ -7746,8 +7911,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
             xfer += iprot->readListBegin(_etype297, _size294);
             this->definition_level_histograms.resize(_size294);
             uint32_t _i298;
-            for (_i298 = 0; _i298 < _size294; ++_i298)
-            {
+            for (_i298 = 0; _i298 < _size294; ++_i298) {
               xfer += iprot->readI64(this->definition_level_histograms[_i298]);
             }
             xfer += iprot->readListEnd();
@@ -7777,7 +7941,7 @@ uint32_t ColumnIndex::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("ColumnIndex");
@@ -7785,9 +7949,8 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   xfer += oprot->writeFieldBegin("null_pages", ::apache::thrift::protocol::T_LIST, 1);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_BOOL, static_cast<uint32_t>(this->null_pages.size()));
-    std::vector<bool> ::const_iterator _iter299;
-    for (_iter299 = this->null_pages.begin(); _iter299 != this->null_pages.end(); ++_iter299)
-    {
+    std::vector<bool>::const_iterator _iter299;
+    for (_iter299 = this->null_pages.begin(); _iter299 != this->null_pages.end(); ++_iter299) {
       xfer += oprot->writeBool((*_iter299));
     }
     xfer += oprot->writeListEnd();
@@ -7797,9 +7960,8 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   xfer += oprot->writeFieldBegin("min_values", ::apache::thrift::protocol::T_LIST, 2);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->min_values.size()));
-    std::vector<std::string> ::const_iterator _iter300;
-    for (_iter300 = this->min_values.begin(); _iter300 != this->min_values.end(); ++_iter300)
-    {
+    std::vector<std::string>::const_iterator _iter300;
+    for (_iter300 = this->min_values.begin(); _iter300 != this->min_values.end(); ++_iter300) {
       xfer += oprot->writeBinary((*_iter300));
     }
     xfer += oprot->writeListEnd();
@@ -7809,9 +7971,8 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   xfer += oprot->writeFieldBegin("max_values", ::apache::thrift::protocol::T_LIST, 3);
   {
     xfer += oprot->writeListBegin(::apache::thrift::protocol::T_STRING, static_cast<uint32_t>(this->max_values.size()));
-    std::vector<std::string> ::const_iterator _iter301;
-    for (_iter301 = this->max_values.begin(); _iter301 != this->max_values.end(); ++_iter301)
-    {
+    std::vector<std::string>::const_iterator _iter301;
+    for (_iter301 = this->max_values.begin(); _iter301 != this->max_values.end(); ++_iter301) {
       xfer += oprot->writeBinary((*_iter301));
     }
     xfer += oprot->writeListEnd();
@@ -7826,9 +7987,8 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
     xfer += oprot->writeFieldBegin("null_counts", ::apache::thrift::protocol::T_LIST, 5);
     {
       xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->null_counts.size()));
-      std::vector<int64_t> ::const_iterator _iter302;
-      for (_iter302 = this->null_counts.begin(); _iter302 != this->null_counts.end(); ++_iter302)
-      {
+      std::vector<int64_t>::const_iterator _iter302;
+      for (_iter302 = this->null_counts.begin(); _iter302 != this->null_counts.end(); ++_iter302) {
         xfer += oprot->writeI64((*_iter302));
       }
       xfer += oprot->writeListEnd();
@@ -7838,10 +7998,11 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   if (this->__isset.repetition_level_histograms) {
     xfer += oprot->writeFieldBegin("repetition_level_histograms", ::apache::thrift::protocol::T_LIST, 6);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->repetition_level_histograms.size()));
-      std::vector<int64_t> ::const_iterator _iter303;
-      for (_iter303 = this->repetition_level_histograms.begin(); _iter303 != this->repetition_level_histograms.end(); ++_iter303)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64,
+                                    static_cast<uint32_t>(this->repetition_level_histograms.size()));
+      std::vector<int64_t>::const_iterator _iter303;
+      for (_iter303 = this->repetition_level_histograms.begin();
+           _iter303 != this->repetition_level_histograms.end(); ++_iter303) {
         xfer += oprot->writeI64((*_iter303));
       }
       xfer += oprot->writeListEnd();
@@ -7851,10 +8012,11 @@ uint32_t ColumnIndex::write(::apache::thrift::protocol::TProtocol* oprot) const 
   if (this->__isset.definition_level_histograms) {
     xfer += oprot->writeFieldBegin("definition_level_histograms", ::apache::thrift::protocol::T_LIST, 7);
     {
-      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64, static_cast<uint32_t>(this->definition_level_histograms.size()));
-      std::vector<int64_t> ::const_iterator _iter304;
-      for (_iter304 = this->definition_level_histograms.begin(); _iter304 != this->definition_level_histograms.end(); ++_iter304)
-      {
+      xfer += oprot->writeListBegin(::apache::thrift::protocol::T_I64,
+                                    static_cast<uint32_t>(this->definition_level_histograms.size()));
+      std::vector<int64_t>::const_iterator _iter304;
+      for (_iter304 = this->definition_level_histograms.begin();
+           _iter304 != this->definition_level_histograms.end(); ++_iter304) {
         xfer += oprot->writeI64((*_iter304));
       }
       xfer += oprot->writeListEnd();
@@ -7878,7 +8040,7 @@ void swap(ColumnIndex &a, ColumnIndex &b) {
   swap(a.__isset, b.__isset);
 }
 
-ColumnIndex::ColumnIndex(const ColumnIndex& other305) {
+ColumnIndex::ColumnIndex(const ColumnIndex &other305) {
   null_pages = other305.null_pages;
   min_values = other305.min_values;
   max_values = other305.max_values;
@@ -7888,7 +8050,8 @@ ColumnIndex::ColumnIndex(const ColumnIndex& other305) {
   definition_level_histograms = other305.definition_level_histograms;
   __isset = other305.__isset;
 }
-ColumnIndex::ColumnIndex(ColumnIndex&& other306) noexcept {
+
+ColumnIndex::ColumnIndex(ColumnIndex &&other306) noexcept {
   null_pages = std::move(other306.null_pages);
   min_values = std::move(other306.min_values);
   max_values = std::move(other306.max_values);
@@ -7898,7 +8061,8 @@ ColumnIndex::ColumnIndex(ColumnIndex&& other306) noexcept {
   definition_level_histograms = std::move(other306.definition_level_histograms);
   __isset = other306.__isset;
 }
-ColumnIndex& ColumnIndex::operator=(const ColumnIndex& other307) {
+
+ColumnIndex &ColumnIndex::operator=(const ColumnIndex &other307) {
   null_pages = other307.null_pages;
   min_values = other307.min_values;
   max_values = other307.max_values;
@@ -7909,7 +8073,8 @@ ColumnIndex& ColumnIndex::operator=(const ColumnIndex& other307) {
   __isset = other307.__isset;
   return *this;
 }
-ColumnIndex& ColumnIndex::operator=(ColumnIndex&& other308) noexcept {
+
+ColumnIndex &ColumnIndex::operator=(ColumnIndex &&other308) noexcept {
   null_pages = std::move(other308.null_pages);
   min_values = std::move(other308.min_values);
   max_values = std::move(other308.max_values);
@@ -7920,16 +8085,20 @@ ColumnIndex& ColumnIndex::operator=(ColumnIndex&& other308) noexcept {
   __isset = other308.__isset;
   return *this;
 }
-void ColumnIndex::printTo(std::ostream& out) const {
+
+void ColumnIndex::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "ColumnIndex(";
   out << "null_pages=" << to_string(null_pages);
   out << ", " << "min_values=" << to_string(min_values);
   out << ", " << "max_values=" << to_string(max_values);
   out << ", " << "boundary_order=" << to_string(boundary_order);
-  out << ", " << "null_counts="; (__isset.null_counts ? (out << to_string(null_counts)) : (out << "<null>"));
-  out << ", " << "repetition_level_histograms="; (__isset.repetition_level_histograms ? (out << to_string(repetition_level_histograms)) : (out << "<null>"));
-  out << ", " << "definition_level_histograms="; (__isset.definition_level_histograms ? (out << to_string(definition_level_histograms)) : (out << "<null>"));
+  out << ", " << "null_counts=";
+  (__isset.null_counts ? (out << to_string(null_counts)) : (out << "<null>"));
+  out << ", " << "repetition_level_histograms=";
+  (__isset.repetition_level_histograms ? (out << to_string(repetition_level_histograms)) : (out << "<null>"));
+  out << ", " << "definition_level_histograms=";
+  (__isset.definition_level_histograms ? (out << to_string(definition_level_histograms)) : (out << "<null>"));
   out << ")";
 }
 
@@ -7938,28 +8107,28 @@ AesGcmV1::~AesGcmV1() noexcept {
 }
 
 
-void AesGcmV1::__set_aad_prefix(const std::string& val) {
+void AesGcmV1::__set_aad_prefix(const std::string &val) {
   this->aad_prefix = val;
-__isset.aad_prefix = true;
+  __isset.aad_prefix = true;
 }
 
-void AesGcmV1::__set_aad_file_unique(const std::string& val) {
+void AesGcmV1::__set_aad_file_unique(const std::string &val) {
   this->aad_file_unique = val;
-__isset.aad_file_unique = true;
+  __isset.aad_file_unique = true;
 }
 
 void AesGcmV1::__set_supply_aad_prefix(const bool val) {
   this->supply_aad_prefix = val;
-__isset.supply_aad_prefix = true;
+  __isset.supply_aad_prefix = true;
 }
-std::ostream& operator<<(std::ostream& out, const AesGcmV1& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const AesGcmV1 &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t AesGcmV1::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t AesGcmV1::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -7972,14 +8141,12 @@ uint32_t AesGcmV1::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
           xfer += iprot->readBinary(this->aad_prefix);
@@ -8016,7 +8183,7 @@ uint32_t AesGcmV1::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t AesGcmV1::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t AesGcmV1::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("AesGcmV1");
@@ -8049,38 +8216,45 @@ void swap(AesGcmV1 &a, AesGcmV1 &b) {
   swap(a.__isset, b.__isset);
 }
 
-AesGcmV1::AesGcmV1(const AesGcmV1& other309) {
+AesGcmV1::AesGcmV1(const AesGcmV1 &other309) {
   aad_prefix = other309.aad_prefix;
   aad_file_unique = other309.aad_file_unique;
   supply_aad_prefix = other309.supply_aad_prefix;
   __isset = other309.__isset;
 }
-AesGcmV1::AesGcmV1(AesGcmV1&& other310) noexcept {
+
+AesGcmV1::AesGcmV1(AesGcmV1 &&other310) noexcept {
   aad_prefix = std::move(other310.aad_prefix);
   aad_file_unique = std::move(other310.aad_file_unique);
   supply_aad_prefix = other310.supply_aad_prefix;
   __isset = other310.__isset;
 }
-AesGcmV1& AesGcmV1::operator=(const AesGcmV1& other311) {
+
+AesGcmV1 &AesGcmV1::operator=(const AesGcmV1 &other311) {
   aad_prefix = other311.aad_prefix;
   aad_file_unique = other311.aad_file_unique;
   supply_aad_prefix = other311.supply_aad_prefix;
   __isset = other311.__isset;
   return *this;
 }
-AesGcmV1& AesGcmV1::operator=(AesGcmV1&& other312) noexcept {
+
+AesGcmV1 &AesGcmV1::operator=(AesGcmV1 &&other312) noexcept {
   aad_prefix = std::move(other312.aad_prefix);
   aad_file_unique = std::move(other312.aad_file_unique);
   supply_aad_prefix = other312.supply_aad_prefix;
   __isset = other312.__isset;
   return *this;
 }
-void AesGcmV1::printTo(std::ostream& out) const {
+
+void AesGcmV1::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "AesGcmV1(";
-  out << "aad_prefix="; (__isset.aad_prefix ? (out << to_string(aad_prefix)) : (out << "<null>"));
-  out << ", " << "aad_file_unique="; (__isset.aad_file_unique ? (out << to_string(aad_file_unique)) : (out << "<null>"));
-  out << ", " << "supply_aad_prefix="; (__isset.supply_aad_prefix ? (out << to_string(supply_aad_prefix)) : (out << "<null>"));
+  out << "aad_prefix=";
+  (__isset.aad_prefix ? (out << to_string(aad_prefix)) : (out << "<null>"));
+  out << ", " << "aad_file_unique=";
+  (__isset.aad_file_unique ? (out << to_string(aad_file_unique)) : (out << "<null>"));
+  out << ", " << "supply_aad_prefix=";
+  (__isset.supply_aad_prefix ? (out << to_string(supply_aad_prefix)) : (out << "<null>"));
   out << ")";
 }
 
@@ -8089,28 +8263,28 @@ AesGcmCtrV1::~AesGcmCtrV1() noexcept {
 }
 
 
-void AesGcmCtrV1::__set_aad_prefix(const std::string& val) {
+void AesGcmCtrV1::__set_aad_prefix(const std::string &val) {
   this->aad_prefix = val;
-__isset.aad_prefix = true;
+  __isset.aad_prefix = true;
 }
 
-void AesGcmCtrV1::__set_aad_file_unique(const std::string& val) {
+void AesGcmCtrV1::__set_aad_file_unique(const std::string &val) {
   this->aad_file_unique = val;
-__isset.aad_file_unique = true;
+  __isset.aad_file_unique = true;
 }
 
 void AesGcmCtrV1::__set_supply_aad_prefix(const bool val) {
   this->supply_aad_prefix = val;
-__isset.supply_aad_prefix = true;
+  __isset.supply_aad_prefix = true;
 }
-std::ostream& operator<<(std::ostream& out, const AesGcmCtrV1& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const AesGcmCtrV1 &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t AesGcmCtrV1::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t AesGcmCtrV1::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -8123,14 +8297,12 @@ uint32_t AesGcmCtrV1::read(::apache::thrift::protocol::TProtocol* iprot) {
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
           xfer += iprot->readBinary(this->aad_prefix);
@@ -8167,7 +8339,7 @@ uint32_t AesGcmCtrV1::read(::apache::thrift::protocol::TProtocol* iprot) {
   return xfer;
 }
 
-uint32_t AesGcmCtrV1::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t AesGcmCtrV1::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("AesGcmCtrV1");
@@ -8200,38 +8372,45 @@ void swap(AesGcmCtrV1 &a, AesGcmCtrV1 &b) {
   swap(a.__isset, b.__isset);
 }
 
-AesGcmCtrV1::AesGcmCtrV1(const AesGcmCtrV1& other313) {
+AesGcmCtrV1::AesGcmCtrV1(const AesGcmCtrV1 &other313) {
   aad_prefix = other313.aad_prefix;
   aad_file_unique = other313.aad_file_unique;
   supply_aad_prefix = other313.supply_aad_prefix;
   __isset = other313.__isset;
 }
-AesGcmCtrV1::AesGcmCtrV1(AesGcmCtrV1&& other314) noexcept {
+
+AesGcmCtrV1::AesGcmCtrV1(AesGcmCtrV1 &&other314) noexcept {
   aad_prefix = std::move(other314.aad_prefix);
   aad_file_unique = std::move(other314.aad_file_unique);
   supply_aad_prefix = other314.supply_aad_prefix;
   __isset = other314.__isset;
 }
-AesGcmCtrV1& AesGcmCtrV1::operator=(const AesGcmCtrV1& other315) {
+
+AesGcmCtrV1 &AesGcmCtrV1::operator=(const AesGcmCtrV1 &other315) {
   aad_prefix = other315.aad_prefix;
   aad_file_unique = other315.aad_file_unique;
   supply_aad_prefix = other315.supply_aad_prefix;
   __isset = other315.__isset;
   return *this;
 }
-AesGcmCtrV1& AesGcmCtrV1::operator=(AesGcmCtrV1&& other316) noexcept {
+
+AesGcmCtrV1 &AesGcmCtrV1::operator=(AesGcmCtrV1 &&other316) noexcept {
   aad_prefix = std::move(other316.aad_prefix);
   aad_file_unique = std::move(other316.aad_file_unique);
   supply_aad_prefix = other316.supply_aad_prefix;
   __isset = other316.__isset;
   return *this;
 }
-void AesGcmCtrV1::printTo(std::ostream& out) const {
+
+void AesGcmCtrV1::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "AesGcmCtrV1(";
-  out << "aad_prefix="; (__isset.aad_prefix ? (out << to_string(aad_prefix)) : (out << "<null>"));
-  out << ", " << "aad_file_unique="; (__isset.aad_file_unique ? (out << to_string(aad_file_unique)) : (out << "<null>"));
-  out << ", " << "supply_aad_prefix="; (__isset.supply_aad_prefix ? (out << to_string(supply_aad_prefix)) : (out << "<null>"));
+  out << "aad_prefix=";
+  (__isset.aad_prefix ? (out << to_string(aad_prefix)) : (out << "<null>"));
+  out << ", " << "aad_file_unique=";
+  (__isset.aad_file_unique ? (out << to_string(aad_file_unique)) : (out << "<null>"));
+  out << ", " << "supply_aad_prefix=";
+  (__isset.supply_aad_prefix ? (out << to_string(supply_aad_prefix)) : (out << "<null>"));
   out << ")";
 }
 
@@ -8240,23 +8419,23 @@ EncryptionAlgorithm::~EncryptionAlgorithm() noexcept {
 }
 
 
-void EncryptionAlgorithm::__set_AES_GCM_V1(const AesGcmV1& val) {
+void EncryptionAlgorithm::__set_AES_GCM_V1(const AesGcmV1 &val) {
   this->AES_GCM_V1 = val;
-__isset.AES_GCM_V1 = true;
+  __isset.AES_GCM_V1 = true;
 }
 
-void EncryptionAlgorithm::__set_AES_GCM_CTR_V1(const AesGcmCtrV1& val) {
+void EncryptionAlgorithm::__set_AES_GCM_CTR_V1(const AesGcmCtrV1 &val) {
   this->AES_GCM_CTR_V1 = val;
-__isset.AES_GCM_CTR_V1 = true;
+  __isset.AES_GCM_CTR_V1 = true;
 }
-std::ostream& operator<<(std::ostream& out, const EncryptionAlgorithm& obj)
-{
+
+std::ostream &operator<<(std::ostream &out, const EncryptionAlgorithm &obj) {
   obj.printTo(out);
   return out;
 }
 
 
-uint32_t EncryptionAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot) {
+uint32_t EncryptionAlgorithm::read(::apache::thrift::protocol::TProtocol *iprot) {
 
   ::apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
   uint32_t xfer = 0;
@@ -8269,14 +8448,12 @@ uint32_t EncryptionAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot)
   using ::apache::thrift::protocol::TProtocolException;
 
 
-  while (true)
-  {
+  while (true) {
     xfer += iprot->readFieldBegin(fname, ftype, fid);
     if (ftype == ::apache::thrift::protocol::T_STOP) {
       break;
     }
-    switch (fid)
-    {
+    switch (fid) {
       case 1:
         if (ftype == ::apache::thrift::protocol::T_STRUCT) {
           xfer += this->AES_GCM_V1.read(iprot);
@@ -8305,7 +8482,7 @@ uint32_t EncryptionAlgorithm::read(::apache::thrift::protocol::TProtocol* iprot)
   return xfer;
 }
 
-uint32_t EncryptionAlgorithm::write(::apache::thrift::protocol::TProtocol* oprot) const {
+uint32_t EncryptionAlgorithm::write(::apache::thrift::protocol::TProtocol *oprot) const {
   uint32_t xfer = 0;
   ::apache::thrift::protocol::TOutputRecursionTracker tracker(*oprot);
   xfer += oprot->writeStructBegin("EncryptionAlgorithm");
@@ -8332,33 +8509,39 @@ void swap(EncryptionAlgorithm &a, EncryptionAlgorithm &b) {
   swap(a.__isset, b.__isset);
 }
 
-EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm& other317) {
+EncryptionAlgorithm::EncryptionAlgorithm(const EncryptionAlgorithm &other317) {
   AES_GCM_V1 = other317.AES_GCM_V1;
   AES_GCM_CTR_V1 = other317.AES_GCM_CTR_V1;
   __isset = other317.__isset;
 }
-EncryptionAlgorithm::EncryptionAlgorithm(EncryptionAlgorithm&& other318) noexcept {
+
+EncryptionAlgorithm::EncryptionAlgorithm(EncryptionAlgorithm &&other318) noexcept {
   AES_GCM_V1 = std::move(other318.AES_GCM_V1);
   AES_GCM_CTR_V1 = std::move(other318.AES_GCM_CTR_V1);
   __isset = other318.__isset;
 }
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(const EncryptionAlgorithm& other319) {
+
+EncryptionAlgorithm &EncryptionAlgorithm::operator=(const EncryptionAlgorithm &other319) {
   AES_GCM_V1 = other319.AES_GCM_V1;
   AES_GCM_CTR_V1 = other319.AES_GCM_CTR_V1;
   __isset = other319.__isset;
   return *this;
 }
-EncryptionAlgorithm& EncryptionAlgorithm::operator=(EncryptionAlgorithm&& other320) noexcept {
+
+EncryptionAlgorithm &EncryptionAlgorithm::operator=(EncryptionAlgorithm &&other320) noexcept {
   AES_GCM_V1 = std::move(other320.AES_GCM_V1);
   AES_GCM_CTR_V1 = std::move(other320.AES_GCM_CTR_V1);
   __isset = other320.__isset;
   return *this;
 }
-void EncryptionAlgorithm::printTo(std::ostream& out) const {
+
+void EncryptionAlgorithm::printTo(std::ostream &out) const {
   using ::apache::thrift::to_string;
   out << "EncryptionAlgorithm(";
-  out << "AES_GCM_V1="; (__isset.AES_GCM_V1 ? (out << to_string(AES_GCM_V1)) : (out << "<null>"));
-  out << ", " << "AES_GCM_CTR_V1="; (__isset.AES_GCM_CTR_V1 ? (out << to_string(AES_GCM_CTR_V1)) : (out << "<null>"));
+  out << "AES_GCM_V1=";
+  (__isset.AES_GCM_V1 ? (out << to_string(AES_GCM_V1)) : (out << "<null>"));
+  out << ", " << "AES_GCM_CTR_V1=";
+  (__isset.AES_GCM_CTR_V1 ? (out << to_string(AES_GCM_CTR_V1)) : (out << "<null>"));
   out << ")";
 }
 
@@ -8371,7 +8554,7 @@ void FileMetaData::__set_version(const int32_t val) {
   this->version = val;
 }
 
-void FileMetaData::__set_schema(const std::vector<SchemaElement> & val) {
+void FileMetaData::__set_schema(const std::vector<SchemaElement> &val) {
   this->schema = val;
 }
 
@@ -8379,34 +8562,35 @@ void FileMetaData::__set_num_rows(const int64_t val) {
   this->num_rows = val;
 }
 
-void FileMetaData::__set_row_groups(const std::vector<RowGroup> & val) {
+void FileMetaData::__set_row_groups(const std::vector<RowGroup> &val) {
   this->row_groups = val;
 }
 
-void FileMetaData::__set_key_value_metadata(const std::vector<KeyValue> & val) {
+void FileMetaData::__set_key_value_metadata(const std::vector<KeyValue> &val) {
   this->key_value_metadata = val;
-__isset.key_value_metadata = true;
+  __isset.key_value_metadata = true;
 }
 
-void FileMetaData::__set_created_by(const std::string& val) {
+void FileMetaData::__set_created_by(const std::string &val) {
   this->created_by = val;
-__isset.created_by = true;
+  __isset.created_by = true;
 }
 
-void FileMetaData::__set_column_orders(const std::vector<ColumnOrder> & val) {
+void FileMetaData::__set_column_orders(const std::vector<ColumnOrder> &val) {
   this->column_orders = val;
-__isset.column_orders = true;
+  __isset.column_orders = true;
 }
 
-void FileMetaData::__set_encryption_algorithm(const EncryptionAlgorithm& val) {
+void FileMetaData::__set_encryption_algorithm(const EncryptionAlgorithm &val) {
   this->encryption_algorithm = val;
-__isset.encryption_algorithm = true;
+  __isset.encryption_algorithm = true;
 }
 
-void FileMetaData::__set_footer_signing_key_metadata(const std::string& val) {
+void FileMetaData::__set_footer_signing_key_metadata(const std::string &val) {
   this->footer_signing_key_metadata = val;
-__isset.footer_signing_key_metadata = true;
+  __isset.footer_signing_key_metadata = true;
 }
+
 std::ostream& operator<<(std::ostream& out, const FileMetaData& obj)
 {
   obj.printTo(out);
@@ -8437,7 +8621,7 @@ uint32_t FileMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
   std::string fname;
   ::apache::thrift::protocol::TType ftype;
   int16_t fid;
-  bool read_only_rowgroup_0 = true;
+  bool read_only_rowgroup_0 = this->read_only_rowgroup_0;
 
   xfer += iprot->readStructBegin(fname);
 

@@ -896,8 +896,9 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
 // File metadata helpers
 
 std::shared_ptr<FileMetaData> ReadMetaData(
-    const std::shared_ptr<::arrow::io::RandomAccessFile>& source) {
-  return ParquetFileReader::Open(source)->metadata();
+    const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
+    const ReaderProperties& props) {
+  return ParquetFileReader::Open(source, props)->metadata();
 }
 
 // ----------------------------------------------------------------------

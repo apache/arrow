@@ -3993,7 +3993,8 @@ class FileMetaData : public virtual ::apache::thrift::TBase {
                : version(0),
                  num_rows(0),
                  created_by(),
-                 footer_signing_key_metadata() {
+                 footer_signing_key_metadata(),
+                 read_only_rowgroup_0(false) {
   }
 
   virtual ~FileMetaData() noexcept;
@@ -4057,6 +4058,11 @@ class FileMetaData : public virtual ::apache::thrift::TBase {
    * Used only in encrypted files with plaintext footer.
    */
   std::string footer_signing_key_metadata;
+
+  /**
+   * Flag to read only the first row group
+   */
+  bool read_only_rowgroup_0;
 
   _FileMetaData__isset __isset;
 

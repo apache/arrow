@@ -1001,26 +1001,29 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
 {
   std::shared_ptr<::arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
-  auto metadata = parquet::ReadMetaData(infile);
+  ReaderProperties props = default_reader_properties();
+  props.set_read_only_rowgroup_0(true);
+  auto metadata_row_0 = parquet::ReadMetaData(infile, props);
+  auto metadata_all_rows = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
   auto rowgroup_offsets = ReadPageIndexes(filename);
   std::vector<int> row_group_test({3, 9});
   for(auto row_group: row_group_test) {
-    auto indexed_metadata = metadata->IndexTo(row_group, rowgroup_offsets);
-    auto target_metadata = metadata->Subset({row_group});
+    auto indexed_metadata = metadata_row_0->IndexTo(row_group, rowgroup_offsets);
+    auto expected_metadata = metadata_all_rows->Subset({row_group});
 
-    std::string expected = ReadIndexedRow(filename, indicies, target_metadata);
+    std::string expected_read = ReadIndexedRow(filename, indicies, expected_metadata);
     std::string indexed_read = ReadIndexedRow(filename, indicies, indexed_metadata);
 
     if(false) {
       std::cout << "Correct read:\n";
-      std::cout << expected;
+      std::cout << expected_read;
       std::cout << "\n\nOffset based read:\n";
       std::cout << indexed_read;
     }
 
-    ASSERT_EQ(expected, indexed_read);
+    ASSERT_EQ(expected_read, indexed_read);
   }
 }
 

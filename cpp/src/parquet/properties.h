@@ -120,6 +120,9 @@ class PARQUET_EXPORT ReaderProperties {
     page_checksum_verification_ = check_crc;
   }
 
+  bool read_only_rowgroup_0() const { return read_only_rowgroup_0_;}
+  void set_read_only_rowgroup_0(bool val) { read_only_rowgroup_0_ = val;}
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
@@ -130,6 +133,7 @@ class PARQUET_EXPORT ReaderProperties {
   // Used with a RecordReader.
   bool read_dense_for_nullable_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
+  bool read_only_rowgroup_0_ = false;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();

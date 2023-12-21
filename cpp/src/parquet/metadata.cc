@@ -611,6 +611,10 @@ class FileMetaData::FileMetaDataImpl {
       : properties_(std::move(properties)), file_decryptor_(std::move(file_decryptor)) {
     metadata_ = std::make_unique<format::FileMetaData>();
 
+    if(properties_.read_only_rowgroup_0()) {
+      metadata_->read_only_rowgroup_0 = true;
+    }
+
     auto footer_decryptor =
         file_decryptor_ != nullptr ? file_decryptor_->GetFooterDecryptor() : nullptr;
 
