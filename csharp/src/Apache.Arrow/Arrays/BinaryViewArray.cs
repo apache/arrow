@@ -74,7 +74,7 @@ namespace Apache.Arrow
             /// <summary>
             /// Gets the length of the array built so far.
             /// </summary>
-            public int Length => BinaryViews.Length - 1;
+            public int Length => BinaryViews.Length;
 
             /// <summary>
             /// Build an Arrow array from the appended contents so far.
