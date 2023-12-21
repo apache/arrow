@@ -1428,10 +1428,32 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  Status DeleteDirContentsWithoutHierarchicalNamespace(const AzureLocation& location,
-                                                       bool missing_dir_ok) {
-    auto container_client =
-        blob_service_client_->GetBlobContainerClient(location.container);
+  /// This function assumes the container already exists. So it can only be
+  /// called after that has been verified.
+  ///
+  /// \pre location.container is not empty.
+  /// \pre The location.container container already exists.
+  Status EnsureEmptyDirExists(const Blobs::BlobContainerClient& container_client,
+                              const AzureLocation& location) {
+    DCHECK(!location.container.empty());
+    if (location.path.empty()) {
+      // Nothing to do. The container already exists per the preconditions.
+      return Status::OK();
+    }
+    auto dir_marker_blob_path = internal::EnsureTrailingSlash(location.path);
+    auto block_blob_client =
+        container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
+    try {
+      block_blob_client.UploadFrom(nullptr, 0);
+      return Status::OK();
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception);
+    }
+  }
+
+  std::pair<int, Status> DeleteDirContentsWithoutHierarchicalNamespace(
+      const Blobs::BlobContainerClient& container_client, const AzureLocation& location,
+      bool missing_dir_ok) {
     Blobs::ListBlobsOptions options;
     if (!location.path.empty()) {
       options.Prefix = internal::EnsureTrailingSlash(location.path);
@@ -1442,10 +1464,11 @@ class AzureFileSystem::Impl {
     // size of the body for a batch request can't exceed 4 MB.
     const int32_t kNumMaxRequestsInBatch = 256;
     options.PageSizeHint = kNumMaxRequestsInBatch;
+    int num_potentially_deleted_blobs = 0;
     try {
       auto list_response = container_client.ListBlobs(options);
       if (!missing_dir_ok && list_response.Blobs.empty()) {
-        return PathNotFound(location);
+        return {num_potentially_deleted_blobs, PathNotFound(location)};
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         if (list_response.Blobs.empty()) {
@@ -1455,13 +1478,15 @@ class AzureFileSystem::Impl {
         std::vector<Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>>
             deferred_responses;
         for (const auto& blob_item : list_response.Blobs) {
+          num_potentially_deleted_blobs += 1;
           deferred_responses.push_back(batch.DeleteBlob(blob_item.Name));
         }
         try {
           container_client.SubmitBatch(batch);
         } catch (const Storage::StorageException& exception) {
-          return ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
-                                   location.path, ": ", container_client.GetUrl());
+          return {num_potentially_deleted_blobs,
+                  ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
+                                    location.path, ": ", container_client.GetUrl())};
         }
         std::vector<std::string> failed_blob_names;
         for (size_t i = 0; i < deferred_responses.size(); ++i) {
@@ -1469,7 +1494,12 @@ class AzureFileSystem::Impl {
           bool success = true;
           try {
             auto delete_result = deferred_response.GetResponse();
-            success = delete_result.Value.Deleted;
+            if (!delete_result.Value.Deleted) {
+              // We know for sure the blob was not deleted, so
+              // we can decrement num_potentially_deleted_blobs.
+              num_potentially_deleted_blobs -= 1;
+              success = false;
+            }
           } catch (const Storage::StorageException& exception) {
             success = false;
           }
@@ -1480,21 +1510,23 @@ class AzureFileSystem::Impl {
         }
         if (!failed_blob_names.empty()) {
           if (failed_blob_names.size() == 1) {
-            return Status::IOError("Failed to delete a blob: ", failed_blob_names[0],
-                                   ": " + container_client.GetUrl());
+            return {num_potentially_deleted_blobs,
+                    Status::IOError("Failed to delete a blob: ", failed_blob_names[0],
+                                    ": " + container_client.GetUrl())};
           } else {
-            return Status::IOError("Failed to delete blobs: [",
-                                   arrow::internal::JoinStrings(failed_blob_names, ", "),
-                                   "]: " + container_client.GetUrl());
+            return {num_potentially_deleted_blobs,
+                    Status::IOError("Failed to delete blobs: [",
+                                    arrow::internal::JoinStrings(failed_blob_names, ", "),
+                                    "]: " + container_client.GetUrl())};
           }
         }
       }
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception,
-                               "Failed to list blobs in a directory: ", location.path,
-                               ": ", container_client.GetUrl());
+      return {num_potentially_deleted_blobs,
+              ExceptionToStatus(exception, "Failed to list blobs in a directory: ",
+                                location.path, ": ", container_client.GetUrl())};
     }
-    return Status::OK();
+    return {num_potentially_deleted_blobs, Status::OK()};
   }
 
  public:
@@ -1545,8 +1577,13 @@ class AzureFileSystem::Impl {
                                  directory_client.GetUrl());
       }
     } else {
-      return DeleteDirContentsWithoutHierarchicalNamespace(location,
-                                                           /*missing_dir_ok=*/true);
+      auto container_client =
+          blob_service_client_->GetBlobContainerClient(location.container);
+      Status status;
+      std::tie(std::ignore, status) =
+          DeleteDirContentsWithoutHierarchicalNamespace(container_client, location,
+                                                        /*missing_dir_ok=*/false);
+      return status;
     }
   }
 
@@ -1599,7 +1636,21 @@ class AzureFileSystem::Impl {
       }
       return Status::OK();
     } else {
-      return DeleteDirContentsWithoutHierarchicalNamespace(location, missing_dir_ok);
+      auto container_client =
+          blob_service_client_->GetBlobContainerClient(location.container);
+      auto [num_potentially_deleted_blobs, status] =
+          DeleteDirContentsWithoutHierarchicalNamespace(container_client, location,
+                                                        missing_dir_ok);
+      if (num_potentially_deleted_blobs > 0) {
+        // If we potentially deleted some blobs, we need to ensure the empty directory
+        // marker blob exists. Otherwise, we don't need to do anything because the
+        // directory marker blob may not exist from the beginning and should remain that
+        // way. EnsureEmptyDirExists requires the container to exist as a pre-condition
+        // and having num_potentially_deleted_blobs > 0 implies the container exists.
+        auto second_status = EnsureEmptyDirExists(container_client, location);
+        return status.ok() ? second_status : status;
+      }
+      return status;
     }
   }
 

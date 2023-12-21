@@ -760,15 +760,17 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessEmpty() {
+    if (HasSubmitBatchBug()) {
+      GTEST_SKIP() << kSubmitBatchBugMessage;
+    }
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
 
     AssertFileInfo(fs(), directory_path, FileType::NotFound);
     ASSERT_OK(fs()->CreateDir(directory_path, true));
     AssertFileInfo(fs(), directory_path, FileType::Directory);
-    // XXX: implement DeleteDir on flat namespace storage accounts
-    // ASSERT_OK(fs()->DeleteDir(directory_path));
-    // AssertFileInfo(fs(), directory_path, FileType::NotFound);
+    ASSERT_OK(fs()->DeleteDir(directory_path));
+    AssertFileInfo(fs(), directory_path, FileType::NotFound);
   }
 
   void TestDeleteDirFailureNonexistent() {
@@ -778,6 +780,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveBlob() {
+    if (HasSubmitBatchBug()) {
+      GTEST_SKIP() << kSubmitBatchBugMessage;
+    }
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
     const auto blob_path = ConcatAbstractPath(directory_path, "hello.txt");
@@ -790,6 +795,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveDirectory() {
+    if (HasSubmitBatchBug()) {
+      GTEST_SKIP() << kSubmitBatchBugMessage;
+    }
     auto data = SetUpPreexistingData();
     const auto parent = data.RandomDirectoryPath(rng_);
     const auto path = ConcatAbstractPath(parent, "new-sub");
@@ -802,6 +810,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessExist() {
+    if (HasSubmitBatchBug()) {
+      GTEST_SKIP() << kSubmitBatchBugMessage;
+    }
     auto preexisting_data = SetUpPreexistingData();
     HierarchicalPaths paths;
     CreateHierarchicalData(&paths);
@@ -813,6 +824,9 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessNonexistent() {
+    if (HasSubmitBatchBug()) {
+      GTEST_SKIP() << kSubmitBatchBugMessage;
+    }
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
     ASSERT_OK(fs()->DeleteDirContents(directory_path, true));
@@ -1277,6 +1291,9 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
+  if (HasSubmitBatchBug()) {
+    GTEST_SKIP() << kSubmitBatchBugMessage;
+  }
   auto data = SetUpPreexistingData();
   const auto directory_path = data.RandomDirectoryPath(rng_);
   // There is only virtual directory without hierarchical namespace
