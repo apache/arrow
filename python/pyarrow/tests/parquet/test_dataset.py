@@ -898,7 +898,6 @@ def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     _assert_dataset_paths(dataset, paths)
 
 
-@pytest.mark.pandas
 def test_ignore_custom_prefixes(tempdir):
     # ARROW-9573 - allow override of default ignore_prefixes
     part = ["xxx"] * 3 + ["yyy"] * 3
@@ -1145,7 +1144,6 @@ def test_pickle_dataset(tempdir, pickle_module):
     assert is_pickleable(dataset)
 
 
-@pytest.mark.pandas
 def test_partitioned_dataset(tempdir):
     # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
     # to a Parquet file
@@ -1162,7 +1160,6 @@ def test_partitioned_dataset(tempdir):
     pq.write_table(table, path / "output.parquet")
 
 
-@pytest.mark.pandas
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
@@ -1186,7 +1183,6 @@ def test_dataset_read_dictionary(tempdir):
         assert c1.equals(ex_chunks[0])
 
 
-@pytest.mark.pandas
 def test_read_table_schema(tempdir):
     # test that schema keyword is passed through in read_table
     table = pa.table({'a': pa.array([1, 2, 3], pa.int32())})
@@ -1208,6 +1204,19 @@ def test_read_table_schema(tempdir):
     result = pq.ParquetDataset(tempdir, schema=schema)
     expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
     assert result.read().equals(expected)
+
+
+def test_read_table_duplicate_column_selection(tempdir):
+    # test that duplicate column selection gives duplicate columns
+    table = pa.table({'a': pa.array([1, 2, 3], pa.int32()),
+                      'b': pa.array([1, 2, 3], pa.uint8())})
+    pq.write_table(table, tempdir / "data.parquet")
+
+    result = pq.read_table(tempdir / "data.parquet", columns=['a', 'a'])
+    expected_schema = pa.schema([('a', 'int32'), ('a', 'int32')])
+
+    assert result.column_names == ['a', 'a']
+    assert result.schema == expected_schema
 
 
 def test_dataset_partitioning(tempdir):
