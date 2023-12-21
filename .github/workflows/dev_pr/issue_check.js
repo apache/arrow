@@ -48,7 +48,7 @@ async function verifyJIRAIssue(github, context, pullRequestNumber, jiraID) {
  * @param {String} pullRequestNumber
  */
 async function commentMissingComponents(github, context, pullRequestNumber) {
-    const {data: comments} = await github.issues.listComments({
+    const {data: comments} = await github.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: pullRequestNumber,
@@ -62,7 +62,7 @@ async function commentMissingComponents(github, context, pullRequestNumber) {
         } 
     }
     if (!found) {
-        await github.issues.createComment({
+        await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: pullRequestNumber,
@@ -79,7 +79,7 @@ async function commentMissingComponents(github, context, pullRequestNumber) {
  * @param {String} pullRequestNumber
  */
 async function commentNotStartedTicket(github, context, pullRequestNumber) {
-    const {data: comments} = await github.issues.listComments({
+    const {data: comments} = await github.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: pullRequestNumber,
@@ -93,7 +93,7 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
         } 
     }
     if (!found) {
-        await github.issues.createComment({
+        await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: pullRequestNumber,
@@ -103,7 +103,7 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
 }
 
 /**
- * Assigns the Github Issue to the PR creator.
+ * Assigns the GitHub Issue to the PR creator.
  *
  * @param {Object} github
  * @param {Object} context
@@ -111,13 +111,13 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
  * @param {Object} issueInfo
  */
 async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) {
-    await github.issues.addAssignees({
+    await github.rest.issues.addAssignees({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: issueInfo.number,
         assignees: context.payload.pull_request.user.login
     });
-    await github.issues.createComment({
+    await github.rest.issues.createComment({
         owner: context.repo.owner,
         repo: context.repo.repo,
         issue_number: pullRequestNumber,
@@ -139,7 +139,7 @@ async function assignGitHubIssue(github, context, pullRequestNumber, issueInfo) 
 async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
     const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
     if (!issueInfo) {
-        await github.issues.createComment({
+        await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: pullRequestNumber,
@@ -150,7 +150,7 @@ async function verifyGitHubIssue(github, context, pullRequestNumber, issueID) {
         await assignGitHubIssue(github, context, pullRequestNumber, issueInfo);
     }
     if(!issueInfo.labels.filter((label) => label.name.startsWith("Component:")).length) {
-        await github.issues.createComment({
+        await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: pullRequestNumber,

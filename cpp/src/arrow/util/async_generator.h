@@ -715,7 +715,7 @@ AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generato
 /// generator() once before it returns.  The returned generator will otherwise
 /// mirror the source.
 ///
-/// This generator forwards aysnc-reentrant pressure to the source
+/// This generator forwards async-reentrant pressure to the source
 /// This generator buffers one item (the first result) until it is delivered.
 template <typename T>
 AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
@@ -1843,7 +1843,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// active background thread task at any given time.  You MUST transfer away from this
 /// background generator.  Otherwise there could be a race condition if a callback on the
 /// background thread deletes the last consumer reference to the background generator. You
-/// can transfer onto the same executor as the background thread, it is only neccesary to
+/// can transfer onto the same executor as the background thread, it is only necessary to
 /// create a new thread task, not to switch executors.
 ///
 /// This generator is not async-reentrant

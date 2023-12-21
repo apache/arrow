@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.LargeVarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.LargeVarBinaryHolder;
@@ -34,7 +35,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * The size of the underlying buffer can be over 2GB.
  */
 public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for
@@ -68,17 +68,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
    */
   public LargeVarBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
   }
 
   /**
@@ -112,11 +106,23 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
       return null;
     }
     final long startOffset = getStartOffset(index);
-    final int dataLength =
-        (int) (offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - startOffset);
-    final byte[] result = new byte[dataLength];
-    valueBuffer.getBytes(startOffset, result, 0, dataLength);
+    final long dataLength = getEndOffset(index) - startOffset;
+    final byte[] result = new byte[(int) dataLength];
+    valueBuffer.getBytes(startOffset, result, 0, (int) dataLength);
     return result;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param buffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> buffer) {
+    final long startOffset = getStartOffset(index);
+    final long dataLength = getEndOffset(index) - startOffset;
+    buffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -144,7 +150,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     }
     holder.isSet = 1;
     holder.start = getStartOffset(index);
-    holder.end = offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH);
+    holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
   }
 
@@ -260,6 +266,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     return new TransferImpl(ref, allocator);
   }
 
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
@@ -276,6 +287,10 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new LargeVarBinaryVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new LargeVarBinaryVector(field, allocator);
     }
 
     public TransferImpl(LargeVarBinaryVector to) {

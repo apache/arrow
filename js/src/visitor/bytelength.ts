@@ -25,10 +25,11 @@ import { TypeToDataType } from '../interfaces.js';
 import { Type, TimeUnit, UnionMode } from '../enum.js';
 import {
     DataType, Dictionary,
-    Float, Int, Date_, Interval, Time, Timestamp,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary,
+    Float, Int, Date_, Interval, Time, Timestamp, Duration,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
 } from '../type.js';
+import { bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */ const sum = (x: number, y: number) => x + y;
 
@@ -39,7 +40,9 @@ export interface GetByteLengthVisitor extends Visitor {
     getVisitFn<T extends DataType>(node: Data<T> | T): (data: Data<T>, index: number) => number;
     getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>, index: number) => number;
     visitBinary<T extends Binary>(data: Data<T>, index: number): number;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>, index: number): number;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number): number;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number): number;
     visitList<T extends List>(data: Data<T>, index: number): number;
     visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): number;
     visitSparseUnion<T extends SparseUnion>(data: Data<T>, index: number): number;
@@ -75,6 +78,9 @@ export class GetByteLengthVisitor extends Visitor {
     public visitInterval(data: Data<Interval>, _: number) {
         return (data.type.unit + 1) * 4;
     }
+    public visitDuration(____: Data<Duration>, _: number) {
+        return 8;
+    }
     public visitStruct(data: Data<Struct>, i: number) {
         return data.children.reduce((total, child) => total + instance.visit(child, i), 0);
     }
@@ -91,22 +97,15 @@ export class GetByteLengthVisitor extends Visitor {
 }
 
 /** @ignore */
-const getUtf8ByteLength = <T extends Utf8>({ valueOffsets }: Data<T>, index: number): number => {
+const getBinaryByteLength = <T extends Binary | LargeBinary | Utf8 | LargeUtf8>({ valueOffsets }: Data<T>, index: number): number => {
     // 4 + 4 for the indices, `end - start` for the data bytes
-    return 8 + (valueOffsets[index + 1] - valueOffsets[index]);
-};
-
-/** @ignore */
-const getBinaryByteLength = <T extends Binary>({ valueOffsets }: Data<T>, index: number): number => {
-    // 4 + 4 for the indices, `end - start` for the data bytes
-    return 8 + (valueOffsets[index + 1] - valueOffsets[index]);
+    return 8 + bigIntToNumber(valueOffsets[index + 1]) - bigIntToNumber(valueOffsets[index]);
 };
 
 /** @ignore */
 const getListByteLength = <T extends List>({ valueOffsets, stride, children }: Data<T>, index: number): number => {
     const child: Data<T['valueType']> = children[0];
-    const { [index * stride]: start } = valueOffsets;
-    const { [index * stride + 1]: end } = valueOffsets;
+    const { [index * stride]: start, [index * stride + 1]: end } = valueOffsets;
     const visit = instance.getVisitFn(child.type);
     const slice = child.slice(start, end - start);
     let size = 8; // 4 + 4 for the indices
@@ -151,8 +150,10 @@ const getSparseUnionByteLength = <T extends SparseUnion>({ children }: Data<T>, 
     return 4 + instance.visitMany(children, children.map(() => index)).reduce(sum, 0);
 };
 
-GetByteLengthVisitor.prototype.visitUtf8 = getUtf8ByteLength;
+GetByteLengthVisitor.prototype.visitUtf8 = getBinaryByteLength;
+GetByteLengthVisitor.prototype.visitLargeUtf8 = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitBinary = getBinaryByteLength;
+GetByteLengthVisitor.prototype.visitLargeBinary = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitList = getListByteLength;
 GetByteLengthVisitor.prototype.visitFixedSizeList = getFixedSizeListByteLength;
 GetByteLengthVisitor.prototype.visitUnion = getUnionByteLength;

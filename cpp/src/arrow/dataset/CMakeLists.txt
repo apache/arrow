@@ -97,14 +97,25 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
+                                   ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
+                                   ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
+
+# Define arrow_dataset_testing object library for common test files
+if(ARROW_TESTING)
+  add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_dataset_testing PRIVATE ${ARROW_DATASET_TEST_LINK_LIBS})
+  list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
+endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
 function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
@@ -134,10 +145,6 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
-                 SOURCES
-                 ${REL_TEST_NAME}.cc
-                 test_util_internal.cc
-                 ../acero/test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
@@ -167,6 +174,13 @@ endif()
 
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
+  if(PARQUET_REQUIRE_ENCRYPTION AND ARROW_DATASET)
+    add_arrow_dataset_test(file_parquet_encryption_test
+                           SOURCES
+                           file_parquet_encryption_test.cc
+                           ${PROJECT_SOURCE_DIR}/src/parquet/encryption/test_in_memory_kms.cc
+    )
+  endif()
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

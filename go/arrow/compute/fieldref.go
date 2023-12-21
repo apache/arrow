@@ -27,8 +27,8 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
 )
 
 var (
@@ -282,31 +282,31 @@ type refImpl interface {
 //
 // Nested fields can be referenced as well, given the schema:
 //
-// 		arrow.NewSchema([]arrow.Field{
-//			{Name: "a", Type: arrow.StructOf(arrow.Field{Name: "n", Type: arrow.Null})},
-//  		{Name: "b", Type: arrow.PrimitiveTypes.Int32},
-// 		})
+//			arrow.NewSchema([]arrow.Field{
+//				{Name: "a", Type: arrow.StructOf(arrow.Field{Name: "n", Type: arrow.Null})},
+//	 		{Name: "b", Type: arrow.PrimitiveTypes.Int32},
+//			})
 //
 // the following all indicate the nested field named "n":
 //
-//		FieldRefPath(FieldPath{0, 0})
-//		FieldRefList("a", 0)
-// 		FieldRefList("a", "n")
-// 		FieldRefList(0, "n")
-//		NewFieldRefFromDotPath(".a[0]")
+//	FieldRefPath(FieldPath{0, 0})
+//	FieldRefList("a", 0)
+//	FieldRefList("a", "n")
+//	FieldRefList(0, "n")
+//	NewFieldRefFromDotPath(".a[0]")
 //
 // FieldPaths matching a FieldRef are retrieved with the FindAll* functions
 // Multiple matches are possible because field names may be duplicated within
 // a schema. For example:
 //
-//		aIsAmbiguous := arrow.NewSchema([]arrow.Field{
-//			{Name: "a", Type: arrow.PrimitiveTypes.Int32},
-//			{Name: "a", Type: arrow.PrimitiveTypes.Float32},
-//		})
-//		matches := FieldRefName("a").FindAll(aIsAmbiguous)
-//		assert.Len(matches, 2)
-//		assert.True(matches[0].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(0))
-//		assert.True(matches[1].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(1))
+//	aIsAmbiguous := arrow.NewSchema([]arrow.Field{
+//		{Name: "a", Type: arrow.PrimitiveTypes.Int32},
+//		{Name: "a", Type: arrow.PrimitiveTypes.Float32},
+//	})
+//	matches := FieldRefName("a").FindAll(aIsAmbiguous)
+//	assert.Len(matches, 2)
+//	assert.True(matches[0].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(0))
+//	assert.True(matches[1].Get(aIsAmbiguous).Equals(aIsAmbiguous.Field(1))
 type FieldRef struct {
 	impl refImpl
 }
@@ -346,17 +346,18 @@ func FieldRefList(elems ...interface{}) FieldRef {
 // NewFieldRefFromDotPath parses a dot path into a field ref.
 //
 // dot_path = '.' name
-//			| '[' digit+ ']'
-//			| dot_path+
+//
+//	| '[' digit+ ']'
+//	| dot_path+
 //
 // Examples
 //
-// 		".alpha" => FieldRefName("alpha")
-//		"[2]" => FieldRefIndex(2)
-//		".beta[3]" => FieldRefList("beta", 3)
-//		"[5].gamma.delta[7]" => FieldRefList(5, "gamma", "delta", 7)
-//		".hello world" => FieldRefName("hello world")
-//		`.\[y\]\\tho\.\` => FieldRef(`[y]\tho.\`)
+//	".alpha" => FieldRefName("alpha")
+//	"[2]" => FieldRefIndex(2)
+//	".beta[3]" => FieldRefList("beta", 3)
+//	"[5].gamma.delta[7]" => FieldRefList(5, "gamma", "delta", 7)
+//	".hello world" => FieldRefName("hello world")
+//	`.\[y\]\\tho\.\` => FieldRef(`[y]\tho.\`)
 //
 // Note: when parsing a name, a '\' preceding any other character will be
 // dropped from the resulting name. therefore if a name must contain the characters

@@ -4,7 +4,7 @@
 \alias{as_schema}
 \alias{as_schema.Schema}
 \alias{as_schema.StructType}
-\title{Convert an object to an Arrow DataType}
+\title{Convert an object to an Arrow Schema}
 \usage{
 as_schema(x, ...)
 
@@ -21,7 +21,7 @@ as_schema(x, ...)
 A \link{Schema} object.
 }
 \description{
-Convert an object to an Arrow DataType
+Convert an object to an Arrow Schema
 }
 \examples{
 as_schema(schema(col1 = int32()))

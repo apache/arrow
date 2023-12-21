@@ -22,9 +22,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 func TestChunked(t *testing.T) {
@@ -784,5 +784,50 @@ func TestTableReader(t *testing.T) {
 				t.Fatalf("invalid number of rows iterated over: got=%d, want=%d", sum, tbl.NumRows())
 			}
 		})
+	}
+}
+
+func TestTableToString(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(mem, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, []bool{true, true, false, true})
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}, nil)
+
+	rec1 := b.NewRecord()
+	defer rec1.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{111, 112, 113, 114, 115, 116, 117, 118, 119, 120}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{211, 212, 213, 214, 215, 216, 217, 218, 219, 220}, nil)
+
+	rec2 := b.NewRecord()
+	defer rec2.Release()
+
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1, rec2})
+	defer tbl.Release()
+
+	table_str := tbl.String()
+	expected_str :=
+		`schema:
+  fields: 2
+    - f1-i32: type=int32
+    - f2-f64: type=float64
+f1-i32: [[1 2 3 4 5 6 7 8 (null) 10], [111 112 113 114 115 116 117 118 119 120]]
+f2-f64: [[11 12 13 14 15 16 17 18 19 20], [211 212 213 214 215 216 217 218 219 220]]
+`
+	if got, want := table_str, expected_str; table_str != expected_str {
+		t.Fatalf("invalid String: got=%#v, want=%#v", got, want)
 	}
 }

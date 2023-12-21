@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
@@ -35,7 +35,7 @@ const (
 	// URI for official Arrow Substrait Extension Types
 	ArrowExtTypesUri          = "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
 	SubstraitDefaultURIPrefix = extensions.SubstraitDefaultURIPrefix
-	// URI for official Substrait Arithemetic funcs extensions
+	// URI for official Substrait Arithmetic funcs extensions
 	SubstraitArithmeticFuncsURI = SubstraitDefaultURIPrefix + "functions_arithmetic.yaml"
 	// URI for official Substrait Comparison funcs extensions
 	SubstraitComparisonFuncsURI = SubstraitDefaultURIPrefix + "functions_comparison.yaml"
@@ -235,7 +235,7 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
-// NewExtensionSetDefault is a convenince function to create a new extension
+// NewExtensionSetDefault is a convenience function to create a new extension
 // set using the Default arrow extension ID registry.
 //
 // See NewExtensionSet for more info.
@@ -594,7 +594,7 @@ func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (type
 			Precision: dt.GetPrecision(), Scale: dt.GetScale()}, nil
 	case arrow.STRUCT:
 		dt := dt.(*arrow.StructType)
-		fields := make([]types.Type, len(dt.Fields()))
+		fields := make([]types.Type, dt.NumFields())
 		var err error
 		for i, f := range dt.Fields() {
 			fields[i], err = ToSubstraitType(f.Type, f.Nullable, ext)

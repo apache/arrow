@@ -3,9 +3,9 @@
 \docType{class}
 \name{MemoryPool}
 \alias{MemoryPool}
-\title{class arrow::MemoryPool}
+\title{MemoryPool class}
 \description{
-class arrow::MemoryPool
+MemoryPool class
 }
 \section{Methods}{
 

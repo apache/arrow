@@ -600,6 +600,38 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
     return MergeStatuses(std::move(status), ReturnConnection(std::move(connection)));
   }
 
+  Status PollFlightInfo(const FlightCallOptions& options,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* info) override {
+    ARROW_ASSIGN_OR_RAISE(auto connection, CheckoutConnection(options));
+    UcpCallDriver* driver = connection.driver();
+
+    auto impl = [&]() {
+      RETURN_NOT_OK(driver->StartCall(kMethodPollFlightInfo));
+
+      ARROW_ASSIGN_OR_RAISE(std::string payload, descriptor.SerializeToString());
+
+      RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
+                                      reinterpret_cast<const uint8_t*>(payload.data()),
+                                      static_cast<int64_t>(payload.size())));
+
+      ARROW_ASSIGN_OR_RAISE(auto incoming_message, driver->ReadNextFrame());
+      if (incoming_message->type == FrameType::kBuffer) {
+        ARROW_ASSIGN_OR_RAISE(
+            *info, PollInfo::Deserialize(std::string_view(*incoming_message->buffer)));
+        ARROW_ASSIGN_OR_RAISE(incoming_message, driver->ReadNextFrame());
+      }
+      RETURN_NOT_OK(driver->ExpectFrameType(*incoming_message, FrameType::kHeaders));
+      ARROW_ASSIGN_OR_RAISE(auto headers,
+                            HeadersFrame::Parse(std::move(incoming_message->buffer)));
+      Status status;
+      RETURN_NOT_OK(headers.GetStatus(&status));
+      return status;
+    };
+    auto status = impl();
+    return MergeStatuses(std::move(status), ReturnConnection(std::move(connection)));
+  }
+
   Status DoExchange(const FlightCallOptions& options,
                     std::unique_ptr<internal::ClientDataStream>* out) override {
     ARROW_ASSIGN_OR_RAISE(auto connection, CheckoutConnection(options));

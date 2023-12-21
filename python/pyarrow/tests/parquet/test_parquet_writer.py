@@ -94,14 +94,14 @@ def test_validate_schema_write_table(tempdir):
             w.write_table(simple_table)
 
 
-def test_parquet_invalid_writer():
+def test_parquet_invalid_writer(tempdir):
     # avoid segfaults with invalid construction
     with pytest.raises(TypeError):
         some_schema = pa.schema([pa.field("x", pa.int32())])
         pq.ParquetWriter(None, some_schema)
 
     with pytest.raises(TypeError):
-        pq.ParquetWriter("some_path", None)
+        pq.ParquetWriter(tempdir / "some_path", None)
 
 
 @pytest.mark.pandas
@@ -223,15 +223,19 @@ def test_parquet_writer_chunk_size(tempdir):
         table = pa.Table.from_arrays([
             _range_integers(data_size, 'b')
         ], names=['x'])
-        pq.write_table(table, tempdir / 'test.parquet', row_group_size=chunk_size)
+        if chunk_size is None:
+            pq.write_table(table, tempdir / 'test.parquet')
+        else:
+            pq.write_table(table, tempdir / 'test.parquet', row_group_size=chunk_size)
         metadata = pq.read_metadata(tempdir / 'test.parquet')
+        expected_chunk_size = default_chunk_size if chunk_size is None else chunk_size
         assert metadata.num_row_groups == expect_num_chunks
-        latched_chunk_size = min(chunk_size, abs_max_chunk_size)
+        latched_chunk_size = min(expected_chunk_size, abs_max_chunk_size)
         # First chunks should be full size
         for chunk_idx in range(expect_num_chunks - 1):
             assert metadata.row_group(chunk_idx).num_rows == latched_chunk_size
         # Last chunk may be smaller
-        remainder = data_size - (chunk_size * (expect_num_chunks - 1))
+        remainder = data_size - (expected_chunk_size * (expect_num_chunks - 1))
         if remainder == 0:
             assert metadata.row_group(
                 expect_num_chunks - 1).num_rows == latched_chunk_size
@@ -245,6 +249,11 @@ def test_parquet_writer_chunk_size(tempdir):
     # Even though the chunk size requested is large enough it will be capped
     # by the absolute max chunk size
     check_chunk_size(abs_max_chunk_size * 2, abs_max_chunk_size * 2, 2)
+
+    # These tests don't pass a chunk_size to write_table and so the chunk size
+    # should be default_chunk_size
+    check_chunk_size(default_chunk_size, None, 1)
+    check_chunk_size(default_chunk_size + 1, None, 2)
 
 
 @pytest.mark.pandas

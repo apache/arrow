@@ -18,25 +18,30 @@
 import Foundation
 
 public class ArrowData {
-    public let type: ArrowType.Info
+    public let type: ArrowType
     public let buffers: [ArrowBuffer]
     public let nullCount: UInt
     public let length: UInt
     public let stride: Int
 
-    init(_ type: ArrowType.Info, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
-        switch(type) {
-            case let .PrimitiveInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ArrowError.unknownType
-                }
-            case let .VariableInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ArrowError.unknownType
-                }
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
+        let infoType = arrowType.info
+        switch infoType {
+        case let .primitiveInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown primitive type for data")
+            }
+        case let .variableInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown variable type for data")
+            }
+        case let .timeInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown time type for data")
+            }
         }
 
-        self.type = type
+        self.type = arrowType
         self.buffers = buffers
         self.nullCount = nullCount
         self.length = buffers[1].length
@@ -44,7 +49,7 @@ public class ArrowData {
     }
 
     public func isNull(_ at: UInt) -> Bool {
-        let nullBuffer = buffers[0];
+        let nullBuffer = buffers[0]
         return nullBuffer.length > 0 && !BitUtility.isSet(at, buffer: nullBuffer)
     }
 }

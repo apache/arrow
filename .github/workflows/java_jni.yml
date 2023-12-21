@@ -25,6 +25,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
 
 concurrency:
@@ -46,26 +48,28 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
-
   docker:
     name: AMD64 manylinux2014 Java JNI
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 500
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: java-jni-manylinux-2014-${{ hashFiles('cpp/**', 'java/**') }}
           restore-keys: java-jni-manylinux-2014-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -76,7 +80,11 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run java-jni-manylinux-2014
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -90,18 +98,18 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -112,7 +120,11 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run conda-python-java-integration
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

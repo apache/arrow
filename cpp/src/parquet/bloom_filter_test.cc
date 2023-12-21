@@ -107,24 +107,26 @@ TEST(BasicTest, TestBloomFilter) {
 
     // Deserialize Bloom filter from memory
     ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-    ::arrow::io::BufferReader source(buffer);
 
     ReaderProperties reader_properties;
-    BlockSplitBloomFilter de_bloom =
-        BlockSplitBloomFilter::Deserialize(reader_properties, &source);
-
-    // Lookup previously inserted values
-    for (const auto v : kIntInserts) {
-      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+    for (std::optional<int64_t> bloom_filter_length :
+         std::vector<std::optional<int64_t>>{std::nullopt, buffer->size()}) {
+      ::arrow::io::BufferReader source(buffer);
+      BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(
+          reader_properties, &source, bloom_filter_length);
+      // Lookup previously inserted values
+      for (const auto v : kIntInserts) {
+        EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+      }
+      for (const auto v : kFloatInserts) {
+        EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
+      }
+      false_positives = 0;
+      for (const auto v : kNegativeIntLookups) {
+        false_positives += de_bloom.FindHash(de_bloom.Hash(v));
+      }
+      EXPECT_LE(false_positives, 2);
     }
-    for (const auto v : kFloatInserts) {
-      EXPECT_TRUE(de_bloom.FindHash(de_bloom.Hash(v)));
-    }
-    false_positives = 0;
-    for (const auto v : kNegativeIntLookups) {
-      false_positives += de_bloom.FindHash(de_bloom.Hash(v));
-    }
-    EXPECT_LE(false_positives, 2);
   }
 }
 

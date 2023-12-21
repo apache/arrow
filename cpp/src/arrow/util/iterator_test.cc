@@ -438,10 +438,12 @@ TEST(ReadaheadIterator, Trace) {
     ASSERT_EQ(values[i], TestInt());
   }
 
+#ifdef ARROW_ENABLE_THREADING
   // Values were all emitted from the same thread, and it's not this thread
   const auto& thread_ids = tracing->thread_ids();
   ASSERT_EQ(thread_ids.size(), 1);
   ASSERT_NE(*thread_ids.begin(), std::this_thread::get_id());
+#endif
 }
 
 TEST(ReadaheadIterator, NextError) {

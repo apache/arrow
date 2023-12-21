@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>13.0.0-SNAPSHOT</version>
+  <version>15.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -30,22 +30,24 @@
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
-    <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.82.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.49.1</dep.grpc-bom.version>
-    <dep.protobuf-bom.version>3.21.6</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
+    <dep.junit.jupiter.version>5.10.1</dep.junit.jupiter.version>
+    <dep.slf4j.version>2.0.9</dep.slf4j.version>
+    <dep.guava-bom.version>32.1.3-jre</dep.guava-bom.version>
+    <dep.netty-bom.version>4.1.100.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.60.0</dep.grpc-bom.version>
+    <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
+    <dep.jackson-bom.version>2.16.0</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <dep.fbs.version>1.12.0</dep.fbs.version>
-    <dep.avro.version>1.10.0</dep.avro.version>
+    <dep.fbs.version>23.5.26</dep.fbs.version>
+    <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.16</error_prone_core.version>
-    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <error_prone_core.version>2.22.0</error_prone_core.version>
+    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    <mockito.core.version>5.5.0</mockito.core.version>
+    <mockito.inline.version>5.2.0</mockito.inline.version>
   </properties>
 
   <scm>
@@ -306,7 +308,7 @@
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.5</version>
+            <version>${dep.slf4j.version}</version>
           </dependency>
         </dependencies>
         <executions>
@@ -319,6 +321,7 @@
           </execution>
         </executions>
         <configuration>
+          <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
@@ -359,12 +362,30 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.6</version>
+        <version>2.7.10</version>
         <executions>
           <execution>
             <phase>package</phase>
             <goals>
               <goal>makeBom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
             </goals>
           </execution>
         </executions>
@@ -376,7 +397,12 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.0.1</version>
+          <!--
+            This appears to report a false positive with versions
+            greater than 3.1.2 (tested up to 3.6.0) when compiling
+            arrow-tools about Jackson being only used for tests.
+          -->
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -393,6 +419,9 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
+            <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
                 <groupId>org.immutables</groupId>
@@ -407,6 +436,11 @@
           <version>3.0.0-M2</version>
         </plugin>
         <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.0.0-M7</version>
           <dependencies>
@@ -418,7 +452,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.0.0-M7</version>
+              <version>3.2.3</version>
             </dependency>
           </dependencies>
           <configuration>
@@ -533,12 +567,25 @@
             </lifecycleMappingMetadata>
           </configuration>
         </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
   </build>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Utilize the bill of materials in sub-modules -->
+      <dependency>
+        <groupId>org.apache.arrow</groupId>
+        <artifactId>arrow-bom</artifactId>
+        <version>${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
@@ -677,7 +724,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -714,6 +761,8 @@
   </reporting>
 
   <modules>
+    <module>maven</module>
+    <module>bom</module>
     <module>format</module>
     <module>memory</module>
     <module>vector</module>
@@ -984,13 +1033,13 @@
       <properties>
         <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
-        <ARROW_CSV>ON</ARROW_CSV>
+        <ARROW_DATASET>ON</ARROW_DATASET>
+        <ARROW_GANDIVA>ON</ARROW_GANDIVA>
         <ARROW_ORC>ON</ARROW_ORC>
         <ARROW_PARQUET>ON</ARROW_PARQUET>
-        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
-        <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
+        <ARROW_JAVA_JNI_ENABLE_GANDIVA>ON</ARROW_JAVA_JNI_ENABLE_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
       </properties>
       <build>
@@ -1012,16 +1061,18 @@
                     -S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
-                    -DARROW_CSV=${ARROW_CSV}
-                    -DARROW_DATASET=ON
+                    -DARROW_CSV=${ARROW_DATASET}
+                    -DARROW_DATASET=${ARROW_DATASET}
                     -DARROW_DEPENDENCY_SOURCE=BUNDLED
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
                     -DARROW_GANDIVA=${ARROW_GANDIVA}
                     -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
@@ -1068,6 +1119,8 @@
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
+                    -DProtobuf_USE_STATIC_LIBS=ON
+                    -DProtobuf_ROOT=${project.basedir}/../cpp-jni/protobuf_ep-install
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
@@ -1097,13 +1150,14 @@
       <properties>
         <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
-        <ARROW_CSV>ON</ARROW_CSV>
-        <ARROW_ORC>OFF</ARROW_ORC>
+        <ARROW_DATASET>ON</ARROW_DATASET>
+        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
+        <ARROW_ORC>ON</ARROW_ORC>
         <ARROW_PARQUET>ON</ARROW_PARQUET>
         <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
         <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
-        <ARROW_JAVA_JNI_ENABLE_ORC>OFF</ARROW_JAVA_JNI_ENABLE_ORC>
+        <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
       </properties>
       <build>
         <plugins>
@@ -1124,13 +1178,16 @@
                     -S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
-                    -DARROW_CSV=${ARROW_CSV}
-                    -DARROW_DATASET=ON
+                    -DARROW_CSV=${ARROW_DATASET}
+                    -DARROW_DATASET=${ARROW_DATASET}
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
+                    -DARROW_GANDIVA=${ARROW_GANDIVA}
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DARROW_WITH_BROTLI=ON
                     -DARROW_WITH_LZ4=ON
@@ -1206,7 +1263,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>

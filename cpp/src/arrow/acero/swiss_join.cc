@@ -1433,16 +1433,16 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
     if (!no_payload_) {
       // Count sort payloads on key id
       //
-      // Start by computing inclusive cummulative sum of counters.
+      // Start by computing inclusive cumulative sum of counters.
       //
       uint32_t sum = 0;
       for (int64_t i = 0; i < num_keys; ++i) {
         sum += counters[i];
         counters[i] = sum;
       }
-      // Now use cummulative sum of counters to obtain the target position in
+      // Now use cumulative sum of counters to obtain the target position in
       // the sorted order for each row. At the end of this process the counters
-      // will contain exclusive cummulative sum (instead of inclusive that is
+      // will contain exclusive cumulative sum (instead of inclusive that is
       // there at the beginning).
       //
       source_payload_ids.resize(prtn_state.key_ids.size());
@@ -1458,7 +1458,7 @@ void SwissTableForJoinBuild::PrtnMerge(int prtn_id) {
       }
     } else {
       // When there is no payload to process, we just need to compute exclusive
-      // cummulative sum of counters and add the base payload id to all of them.
+      // cumulative sum of counters and add the base payload id to all of them.
       //
       uint32_t sum = 0;
       for (int64_t i = 0; i < num_keys; ++i) {

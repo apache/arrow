@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/float16"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -37,7 +37,7 @@ func RecordEqual(left, right arrow.Record) bool {
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !ArrayEqual(lc, rc) {
+		if !Equal(lc, rc) {
 			return false
 		}
 	}
@@ -196,15 +196,6 @@ func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	return true
 }
 
-// ArrayEqual reports whether the two provided arrays are equal.
-//
-// Deprecated: This currently just delegates to calling Equal. This will be
-// removed in v9 so please update any calling code to just call array.Equal
-// directly instead.
-func ArrayEqual(left, right arrow.Array) bool {
-	return Equal(left, right)
-}
-
 // Equal reports whether the two provided arrays are equal.
 func Equal(left, right arrow.Array) bool {
 	switch {
@@ -241,6 +232,12 @@ func Equal(left, right arrow.Array) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -301,6 +298,12 @@ func Equal(left, right arrow.Array) bool {
 	case *LargeList:
 		r := right.(*LargeList)
 		return arrayEqualLargeList(l, r)
+	case *ListView:
+		r := right.(*ListView)
+		return arrayEqualListView(l, r)
+	case *LargeListView:
+		r := right.(*LargeListView)
+		return arrayEqualLargeListView(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -342,14 +345,6 @@ func Equal(left, right arrow.Array) bool {
 	}
 }
 
-// ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
-//
-// Deprecated: Renamed to just array.SliceEqual, this currently will just delegate to the renamed
-// function and will be removed in v9. Please update any calling code.
-func ArraySliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
-	return SliceEqual(left, lbeg, lend, right, rbeg, rend)
-}
-
 // SliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
 func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
 	l := NewSlice(left, lbeg, lend)
@@ -358,14 +353,6 @@ func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, ren
 	defer r.Release()
 
 	return Equal(l, r)
-}
-
-// ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
-//
-// Deprecated: renamed to just SliceApproxEqual and will be removed in v9. Please update
-// calling code to just call array.SliceApproxEqual.
-func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
-	return SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
 }
 
 // SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
@@ -459,17 +446,8 @@ func WithUnorderedMapKeys(v bool) EqualOption {
 	}
 }
 
-// ArrayApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
-//
-// Deprecated: renamed to just ApproxEqual, this alias will be removed in v9. Please update
-// calling code to just call array.ApproxEqual
-func ArrayApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
-	return ApproxEqual(left, right, opts...)
-}
-
 // ApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
+// For non-floating point arrays, it is equivalent to Equal.
 func ApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
 	opt := newEqualOption(opts...)
 	return arrayApproxEqual(left, right, opt)
@@ -510,6 +488,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -570,6 +554,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *LargeList:
 		r := right.(*LargeList)
 		return arrayApproxEqualLargeList(l, r, opt)
+	case *ListView:
+		r := right.(*ListView)
+		return arrayApproxEqualListView(l, r, opt)
+	case *LargeListView:
+		r := right.(*LargeListView)
+		return arrayApproxEqualLargeListView(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -698,6 +688,44 @@ func arrayApproxEqualList(left, right *List, opt equalOption) bool {
 }
 
 func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualListView(left, right *ListView, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeListView(left, right *LargeListView, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

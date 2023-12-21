@@ -21,8 +21,8 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 func loadWord(byt []byte) uint64 {
@@ -165,7 +165,7 @@ func (b *BitBlockCounter) NextWord() BitBlockCount {
 }
 
 // OptionalBitBlockCounter is a useful counter to iterate through a possibly
-// non-existent validity bitmap to allow us to write one code path for both
+// nonexistent validity bitmap to allow us to write one code path for both
 // the with-nulls and no-nulls cases without giving up a lot of performance.
 type OptionalBitBlockCounter struct {
 	hasBitmap bool

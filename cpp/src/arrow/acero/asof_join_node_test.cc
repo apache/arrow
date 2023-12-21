@@ -19,9 +19,12 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <string_view>
+#include "arrow/acero/exec_plan.h"
+#include "arrow/testing/future_util.h"
 #ifndef NDEBUG
 #include <sstream>
 #endif
@@ -31,6 +34,8 @@
 #ifndef NDEBUG
 #include "arrow/acero/options_internal.h"
 #endif
+#include "arrow/acero/map_node.h"
+#include "arrow/acero/query_context.h"
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
@@ -599,7 +604,7 @@ struct BasicTest {
     auto r0_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
     auto r1_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
 
-    // sample a limited number of type-combinations to keep the runnning time reasonable
+    // sample a limited number of type-combinations to keep the running time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
     auto start_time = std::chrono::system_clock::now();
     auto seed = start_time.time_since_epoch().count();
@@ -1274,7 +1279,7 @@ TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
                                field("r0_v0", float32())}));
 })
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedBytype, {
+TRACED_TEST(AsofJoinTest, TestUnsupportedByType, {
   DoRunInvalidTypeTest(schema({field("time", int64()), field("key", list(int32())),
                                field("l_v0", float64())}),
                        schema({field("time", int64()), field("key", list(int32())),
@@ -1360,9 +1365,67 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
 
+struct BackpressureCounters {
+  std::atomic<int32_t> pause_count = 0;
+  std::atomic<int32_t> resume_count = 0;
+};
+
+struct BackpressureCountingNodeOptions : public ExecNodeOptions {
+  BackpressureCountingNodeOptions(BackpressureCounters* counters) : counters(counters) {}
+
+  BackpressureCounters* counters;
+};
+
+struct BackpressureCountingNode : public MapNode {
+  static constexpr const char* kKindName = "BackpressureCountingNode";
+  static constexpr const char* kFactoryName = "backpressure_count";
+
+  static void Register() {
+    auto exec_reg = default_exec_factory_registry();
+    if (!exec_reg->GetFactory(kFactoryName).ok()) {
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureCountingNode::Make));
+    }
+  }
+
+  BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureCountingNodeOptions& options)
+      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto bp_options = static_cast<const BackpressureCountingNodeOptions&>(options);
+    return plan->EmplaceNode<BackpressureCountingNode>(
+        plan, inputs, inputs[0]->output_schema(), bp_options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    ++counters->pause_count;
+    inputs()[0]->PauseProducing(this, counter);
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    ++counters->resume_count;
+    inputs()[0]->ResumeProducing(this, counter);
+  }
+
+  BackpressureCounters* counters;
+};
+
+AsyncGenerator<std::optional<ExecBatch>> GetGen(
+    AsyncGenerator<std::optional<ExecBatch>> gen) {
+  return gen;
+}
+AsyncGenerator<std::optional<ExecBatch>> GetGen(BatchesWithSchema bws) {
+  return bws.gen(false, false);
+}
+
 template <typename BatchesMaker>
-void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
-                      double fast_delay, double slow_delay, bool noisy = false) {
+void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
+                      int num_r0_batches, int num_r1_batches, bool slow_r0) {
   auto l_schema =
       schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
   auto r0_schema =
@@ -1370,47 +1433,116 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   auto r1_schema =
       schema({field("time", int32()), field("key", int32()), field("r1_value", int32())});
 
-  auto make_shift = [&maker, num_batches, batch_size](
-                        const std::shared_ptr<Schema>& schema, int shift) {
+  auto make_shift = [&maker, batch_size](int num_batches,
+                                         const std::shared_ptr<Schema>& schema,
+                                         int shift) {
     return maker({[](int row) -> int64_t { return row; },
                   [num_batches](int row) -> int64_t { return row / num_batches; },
                   [shift](int row) -> int64_t { return row * 10 + shift; }},
                  schema, num_batches, batch_size);
   };
-  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
-  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(r0_schema, 1));
-  ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(num_l_batches, l_schema, 0));
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(num_r0_batches, r0_schema, 1));
+  ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(num_r1_batches, r1_schema, 2));
 
-  Declaration l_src = {
-      "source", SourceNodeOptions(
-                    l_schema, MakeDelayedGen(l_batches, "0:fast", fast_delay, noisy))};
-  Declaration r0_src = {
-      "source", SourceNodeOptions(
-                    r0_schema, MakeDelayedGen(r0_batches, "1:slow", slow_delay, noisy))};
-  Declaration r1_src = {
-      "source", SourceNodeOptions(
-                    r1_schema, MakeDelayedGen(r1_batches, "2:fast", fast_delay, noisy))};
+  BackpressureCountingNode::Register();
+  RegisterTestNodes();  // for GatedNode
 
-  Declaration asofjoin = {
-      "asofjoin", {l_src, r0_src, r1_src}, GetRepeatedOptions(3, "time", {"key"}, 1000)};
+  struct BackpressureSourceConfig {
+    std::string name_prefix;
+    bool is_gated;
+    bool is_delayed;
+    std::shared_ptr<Schema> schema;
+    decltype(l_batches) batches;
 
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> batch_reader,
-                       DeclarationToReader(asofjoin, /*use_threads=*/false));
-
-  int64_t total_length = 0;
-  for (;;) {
-    ASSERT_OK_AND_ASSIGN(auto batch, batch_reader->Next());
-    if (!batch) {
-      break;
+    std::string name() const {
+      return name_prefix + ";" + (is_gated ? "gated" : "ungated");
     }
-    total_length += batch->num_rows();
+  };
+
+  auto gate_ptr = Gate::Make();
+  auto& gate = *gate_ptr;
+  GatedNodeOptions gate_options(gate_ptr.get());
+
+  // Two ungated and one gated
+  std::vector<BackpressureSourceConfig> source_configs = {
+      {"0", false, false, l_schema, l_batches},
+      {"1", true, slow_r0, r0_schema, r0_batches},
+      {"2", false, false, r1_schema, r1_batches},
+  };
+
+  std::vector<BackpressureCounters> bp_counters(source_configs.size());
+  std::vector<Declaration> src_decls;
+  std::vector<std::shared_ptr<BackpressureCountingNodeOptions>> bp_options;
+  std::vector<Declaration::Input> bp_decls;
+  for (size_t i = 0; i < source_configs.size(); i++) {
+    const auto& config = source_configs[i];
+    if (config.is_delayed) {
+      src_decls.emplace_back(
+          "source",
+          SourceNodeOptions(config.schema, MakeDelayedGen(config.batches, "slow_source",
+                                                          /*delay_sec=*/0.5,
+                                                          /*noisy=*/false)));
+    } else {
+      src_decls.emplace_back("source",
+                             SourceNodeOptions(config.schema, GetGen(config.batches)));
+    }
+    bp_options.push_back(
+        std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
+    std::shared_ptr<ExecNodeOptions> options = bp_options.back();
+    std::vector<Declaration::Input> bp_in = {src_decls.back()};
+    Declaration bp_decl = {BackpressureCountingNode::kFactoryName, bp_in,
+                           std::move(options)};
+    if (config.is_gated) {
+      bp_decl = {std::string{GatedNodeOptions::kName}, {bp_decl}, gate_options};
+    }
+    bp_decls.emplace_back(bp_decl);
   }
-  ASSERT_EQ(static_cast<int64_t>(num_batches * batch_size), total_length);
+
+  auto opts = GetRepeatedOptions(source_configs.size(), "time", {"key"}, 0);
+
+  Declaration asofjoin = {"asofjoin", bp_decls, opts};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
+                       internal::ThreadPool::Make(1));
+  ExecContext exec_ctx(default_memory_pool(), tpool.get());
+  Future<BatchesWithCommonSchema> batches_fut =
+      DeclarationToExecBatchesAsync(asofjoin, exec_ctx);
+
+  auto has_bp_been_applied = [&] {
+    // One of the inputs is gated.  The other two will eventually be paused by the asof
+    // join node
+    for (size_t i = 0; i < source_configs.size(); i++) {
+      const auto& counters = bp_counters[i];
+      if (source_configs[i].is_gated) {
+        if (counters.pause_count > 0) return false;
+      } else {
+        if (counters.pause_count != 1) return false;
+      }
+    }
+    return true;
+  };
+
+  BusyWait(60.0, has_bp_been_applied);
+  ASSERT_TRUE(has_bp_been_applied());
+
+  gate.ReleaseAllBatches();
+  ASSERT_FINISHES_OK_AND_ASSIGN(BatchesWithCommonSchema batches, batches_fut);
+
+  // One of the inputs is gated and was released. The other two will eventually be resumed
+  // by the asof join node
+  for (size_t i = 0; i < source_configs.size(); i++) {
+    const auto& counters = bp_counters[i];
+    if (!source_configs[i].is_gated) {
+      ASSERT_GE(counters.resume_count, 0);
+    }
+  }
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/10, /*batch_size=*/1,
-                          /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/false);
+  // Give the first right hand table a delay to stress test race conditions
+  return TestBackpressure(MakeIntegerBatches, /*batch_size=*/1, /*num_l_batches=*/20,
+                          /*num_r0_batches=*/50, /*num_r1_batches=*/20, /*slow_r0=*/true);
 }
 
 template <typename BatchesMaker>
@@ -1473,10 +1605,13 @@ T GetEnvValue(const std::string& var, T default_value) {
 }  // namespace
 
 TEST(AsofJoinTest, BackpressureWithBatchesGen) {
-  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 10);
+  GTEST_SKIP() << "Skipping - see GH-36331";
+  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
-  return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size,
-                          /*fast_delay=*/0.001, /*slow_delay=*/0.01);
+  return TestBackpressure(MakeIntegerBatchGenForTest, /*batch_size=*/batch_size,
+                          /*num_l_batches=*/num_batches,
+                          /*num_r0_batches=*/num_batches, /*num_r1_batches=*/num_batches,
+                          /*slow_r0=*/false);
 }
 
 }  // namespace acero

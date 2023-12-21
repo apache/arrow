@@ -16,6 +16,7 @@
 # under the License.
 
 import collections
+from cython cimport binding
 
 
 cdef class Scalar(_Weakrefable):
@@ -123,6 +124,15 @@ cdef class Scalar(_Weakrefable):
         return str(self.as_py())
 
     def equals(self, Scalar other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Scalar
+
+        Returns
+        -------
+        bool
+        """
         return self.wrapped.get().Equals(other.unwrap().get()[0])
 
     def __eq__(self, other):
@@ -522,6 +532,23 @@ cdef class TimestampScalar(Scalar):
 
         return _datetime_from_int(sp.value, unit=dtype.unit(), tzinfo=tzinfo)
 
+    def __repr__(self):
+        """
+        Return the representation of TimestampScalar using `strftime` to avoid
+        original repr datetime values being out of range.
+        """
+        cdef:
+            CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
+            CTimestampType* dtype = <CTimestampType*> sp.type.get()
+
+        if not dtype.timezone().empty():
+            type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
+        else:
+            type_format = str(_pc().strftime(self))
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, type_format
+        )
+
 
 cdef class DurationScalar(Scalar):
     """
@@ -785,16 +812,16 @@ cdef class MapScalar(ListScalar):
         if arr is None:
             raise IndexError(i)
         dct = arr[_normalize_index(i, len(arr))]
-        return (dct['key'], dct['value'])
+        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
 
     def __iter__(self):
         """
         Iterate over this element's values.
         """
         arr = self.values
-        if array is None:
-            raise StopIteration
-        for k, v in zip(arr.field('key'), arr.field('value')):
+        if arr is None:
+            return
+        for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
     def as_py(self):
@@ -810,8 +837,9 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
-    @classmethod
-    def _reconstruct(cls, type, is_valid, index, dictionary):
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value
             shared_ptr[CDictionaryScalar] wrapped

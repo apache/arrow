@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
-import pickle
 import sys
 import weakref
 
@@ -301,14 +300,14 @@ def test_chunked_array_equals():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
-def test_chunked_array_pickle(data, typ):
+def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
         arrays.append(pa.array(data[:2], type=typ))
         data = data[2:]
     array = pa.chunked_array(arrays, type=typ)
     array.validate()
-    result = pickle.loads(pickle.dumps(array))
+    result = pickle_module.loads(pickle_module.dumps(array))
     result.validate()
     assert result.equals(array)
 
@@ -511,7 +510,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -547,6 +546,115 @@ foo: 'bar'"""
     assert wr() is not None
     del batch
     assert wr() is None
+
+
+def test_recordbatch_dunder_init():
+    with pytest.raises(TypeError, match='RecordBatch'):
+        pa.RecordBatch()
+
+
+def test_recordbatch_c_array_interface():
+    class BatchWrapper:
+        def __init__(self, batch):
+            self.batch = batch
+
+        def __arrow_c_array__(self, requested_type=None):
+            return self.batch.__arrow_c_array__(requested_type)
+
+    data = pa.record_batch([
+        pa.array([1, 2, 3], type=pa.int64())
+    ], names=['a'])
+    wrapper = BatchWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.record_batch(wrapper)
+    assert result == data
+
+    # Can also import with a schema that implementer can cast to.
+    castable_schema = pa.schema([
+        pa.field('a', pa.int32())
+    ])
+    result = pa.record_batch(wrapper, schema=castable_schema)
+    expected = pa.record_batch([
+        pa.array([1, 2, 3], type=pa.int32())
+    ], names=['a'])
+    assert result == expected
+
+
+def test_table_c_array_interface():
+    class BatchWrapper:
+        def __init__(self, batch):
+            self.batch = batch
+
+        def __arrow_c_array__(self, requested_type=None):
+            return self.batch.__arrow_c_array__(requested_type)
+
+    data = pa.record_batch([
+        pa.array([1, 2, 3], type=pa.int64())
+    ], names=['a'])
+    wrapper = BatchWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.table(wrapper)
+    expected = pa.Table.from_batches([data])
+    assert result == expected
+
+    # Can also import with a schema that implementer can cast to.
+    castable_schema = pa.schema([
+        pa.field('a', pa.int32())
+    ])
+    result = pa.table(wrapper, schema=castable_schema)
+    expected = pa.table({
+        'a': pa.array([1, 2, 3], type=pa.int32())
+    })
+    assert result == expected
+
+
+def test_table_c_stream_interface():
+    class StreamWrapper:
+        def __init__(self, batches):
+            self.batches = batches
+
+        def __arrow_c_stream__(self, requested_type=None):
+            reader = pa.RecordBatchReader.from_batches(
+                self.batches[0].schema, self.batches)
+            return reader.__arrow_c_stream__(requested_type)
+
+    data = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a'])
+    ]
+    wrapper = StreamWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.table(wrapper)
+    expected = pa.Table.from_batches(data)
+    assert result == expected
+
+    # Passing schema works if already that schema
+    result = pa.table(wrapper, schema=data[0].schema)
+    assert result == expected
+
+    # If schema doesn't match, raises NotImplementedError
+    with pytest.raises(NotImplementedError):
+        pa.table(wrapper, schema=pa.schema([pa.field('a', pa.int32())]))
+
+
+def test_recordbatch_itercolumns():
+    data = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    batch = pa.record_batch(data, ['c0', 'c1'])
+
+    columns = []
+    for col in batch.itercolumns():
+        columns.append(col)
+
+    assert batch.columns == columns
+    assert batch == pa.record_batch(columns, names=batch.column_names)
+    assert batch != pa.record_batch(columns[1:], names=batch.column_names[1:])
+    assert batch != columns
 
 
 def test_recordbatch_equals():
@@ -641,7 +749,7 @@ def test_recordbatch_empty_metadata():
     assert batch.schema.metadata is None
 
 
-def test_recordbatch_pickle():
+def test_recordbatch_pickle(pickle_module):
     data = [
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
@@ -653,7 +761,7 @@ def test_recordbatch_pickle():
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(batch))
+    result = pickle_module.loads(pickle_module.dumps(batch))
     assert result.equals(batch)
     assert result.schema == schema
 
@@ -927,7 +1035,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     columns = []
     for col in table.itercolumns():
@@ -950,6 +1058,11 @@ def test_table_basics():
     assert wr() is not None
     del table
     assert wr() is None
+
+
+def test_table_dunder_init():
+    with pytest.raises(TypeError, match='Table'):
+        pa.Table()
 
 
 def test_table_from_arrays_preserves_column_metadata():
@@ -995,7 +1108,7 @@ def test_table_from_lists():
     assert result.equals(expected)
 
 
-def test_table_pickle():
+def test_table_pickle(pickle_module):
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
@@ -1005,7 +1118,7 @@ def test_table_pickle():
                        metadata={b'foo': b'bar'})
     table = pa.Table.from_arrays(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(table))
+    result = pickle_module.loads(pickle_module.dumps(table))
     result.validate()
     assert result.equals(table)
 
@@ -1304,6 +1417,23 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_permissive():
+    t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
+    t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
+
+    with pytest.raises(
+            pa.ArrowTypeError,
+            match="Unable to merge: Field a has incompatible types: int64 vs string"):
+        _ = pa.concat_tables([t1, t2], promote_options="permissive")
+
+
+def test_concat_tables_invalid_option():
+    t = pa.Table.from_arrays([list(range(10))], names=('a',))
+
+    with pytest.raises(ValueError, match="Invalid promote options: invalid"):
+        pa.concat_tables([t, t], promote_options="invalid")
+
+
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
@@ -1333,18 +1463,50 @@ def test_concat_tables_with_different_schema_metadata():
     assert table2.schema.equals(table3.schema)
 
 
+def test_concat_tables_with_promote_option():
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+
+    with pytest.warns(FutureWarning):
+        result = pa.concat_tables([t1, t2], promote=True)
+
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, None, None], type=pa.int64()),
+        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
+    ], ["int64_field", "float_field"]))
+
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
+        with pytest.warns(FutureWarning):
+            pa.concat_tables([t1, t2], promote=False)
+
+
 def test_concat_tables_with_promotion():
     t1 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.int64())], ["int64_field"])
     t2 = pa.Table.from_arrays(
         [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
 
-    result = pa.concat_tables([t1, t2], promote=True)
+    result = pa.concat_tables([t1, t2], promote_options="default")
 
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, None, None], type=pa.int64()),
         pa.array([None, None, 1.0, 2.0], type=pa.float32()),
     ], ["int64_field", "float_field"]))
+
+    t3 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int32())], ["int64_field"])
+    result = pa.concat_tables(
+        [t1, t3], promote_options="permissive")
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, 1, 2], type=pa.int64()),
+    ], ["int64_field"]))
 
 
 def test_concat_tables_with_promotion_error():
@@ -1353,8 +1515,8 @@ def test_concat_tables_with_promotion_error():
     t2 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
-    with pytest.raises(pa.ArrowInvalid):
-        pa.concat_tables([t1, t2], promote=True)
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+        pa.concat_tables([t1, t2], promote_options="default")
 
 
 def test_table_negative_indexing():
@@ -2149,6 +2311,21 @@ def test_table_group_by():
     }
 
 
+@pytest.mark.acero
+def test_table_group_by_first():
+    # "first" is an ordered aggregation -> requires to specify use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a', 'b'] * 2})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b', 'a'] * 2})
+    table = pa.concat_tables([table1, table2])
+
+    with pytest.raises(NotImplementedError):
+        table.group_by("b").aggregate([("a", "first")])
+
+    result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
+    expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
+    assert result.equals(expected)
+
+
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})
     reader = table.to_reader()
@@ -2363,3 +2540,60 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_asarray(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    result = np.asarray(table)
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+    np.testing.assert_allclose(result, expected)
+
+    result = np.asarray(table, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no columns
+    table2 = table.select([])
+    result = np.asarray(table2)
+    expected = np.empty((3, 0))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table2, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no rows
+    table3 = table.slice(0, 0)
+    result = np.asarray(table3)
+    expected = np.empty((0, 2))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table3, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+
+@pytest.mark.acero
+def test_invalid_non_join_column():
+    NUM_ITEMS = 30
+    t1 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
+    })
+    t2 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'value': [x for x in range(NUM_ITEMS)]
+    })
+
+    # check as left table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t1.join(t2, 'id', join_type='inner')
+    exp_error_msg = "Data type list<item: int64> is not supported " \
+        + "in join non-key field array_column"
+    assert exp_error_msg in str(excinfo.value)
+
+    # check as right table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t2.join(t1, 'id', join_type='inner')
+    assert exp_error_msg in str(excinfo.value)

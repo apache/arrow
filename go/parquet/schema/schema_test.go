@@ -20,9 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -380,7 +380,7 @@ func (s *SchemaConverterSuite) TestZeroColumns() {
 func (s *SchemaConverterSuite) TestInvalidRoot() {
 	// According to the Parquet spec, the first element in the list<SchemaElement>
 	// is a group whose children (and their descendants) contain all of the rest of
-	// the flattened schema elments. If the first element is not a group, it is malformed
+	// the flattened schema elements. If the first element is not a group, it is malformed
 	elements := []*format.SchemaElement{NewPrimitive("not-a-group" /* name */, format.FieldRepetitionType_REQUIRED,
 		format.Type_INT32, 0 /* fieldID */), format.NewSchemaElement()}
 	s.Panics(func() { s.convert(elements) })
@@ -633,6 +633,10 @@ func TestPanicSchemaNodeCreation(t *testing.T) {
 
 	assert.Panics(t, func() {
 		schema.MustPrimitive(schema.NewPrimitiveNodeLogical("uuid" /* name */, parquet.Repetitions.Required, schema.UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 64 /* type len */, -1 /* fieldID */))
+	}, "incompatible primitive length")
+
+	assert.Panics(t, func() {
+		schema.MustPrimitive(schema.NewPrimitiveNodeLogical("float16" /* name */, parquet.Repetitions.Required, schema.Float16LogicalType{}, parquet.Types.FixedLenByteArray, 4 /* type len */, -1 /* fieldID */))
 	}, "incompatible primitive length")
 
 	assert.Panics(t, func() {

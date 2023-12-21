@@ -26,9 +26,11 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
@@ -639,6 +641,11 @@ struct ArithmeticFunction : ScalarFunction {
         if (TypeHolder type = CommonNumeric(*types)) {
           ReplaceTypes(type, types);
         }
+      }
+
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 
@@ -1503,6 +1510,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
+
+  // Add divide(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingDivide>::Exec;
+    DCHECK_OK(
+        divide->AddKernel({duration(unit), duration(unit)}, float64(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
@@ -1514,6 +1529,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, DivideChecked>::Exec;
     DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                        std::move(exec)));
+  }
+
+  // Add divide_checked(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingDivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), duration(unit)}, float64(),
                                         std::move(exec)));
   }
 

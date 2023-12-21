@@ -31,6 +31,26 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
+// Timestamp
+
+Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp) {
+  const auto seconds = std::chrono::seconds{pb_timestamp.seconds()};
+  const auto nanoseconds = std::chrono::nanoseconds{pb_timestamp.nanos()};
+  const auto duration =
+      std::chrono::duration_cast<Timestamp::duration>(seconds + nanoseconds);
+  *timestamp = Timestamp(duration);
+  return Status::OK();
+}
+
+Status ToProto(const Timestamp& timestamp, google::protobuf::Timestamp* pb_timestamp) {
+  const auto since_epoch = timestamp.time_since_epoch();
+  const auto since_epoch_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(since_epoch).count();
+  pb_timestamp->set_seconds(since_epoch_ns / std::nano::den);
+  pb_timestamp->set_nanos(since_epoch_ns % std::nano::den);
+  return Status::OK();
+}
+
 // ActionType
 
 Status FromProto(const pb::ActionType& pb_type, ActionType* type) {
@@ -72,6 +92,20 @@ Status FromProto(const pb::Result& pb_result, Result* result) {
 
 Status ToProto(const Result& result, pb::Result* pb_result) {
   pb_result->set_body(result.body->ToString());
+  return Status::OK();
+}
+
+// CancelFlightInfoResult
+
+Status FromProto(const pb::CancelFlightInfoResult& pb_result,
+                 CancelFlightInfoResult* result) {
+  result->status = static_cast<CancelStatus>(pb_result.status());
+  return Status::OK();
+}
+
+Status ToProto(const CancelFlightInfoResult& result,
+               pb::CancelFlightInfoResult* pb_result) {
+  pb_result->set_status(static_cast<protocol::CancelStatus>(result.status));
   return Status::OK();
 }
 
@@ -138,6 +172,12 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
   for (int i = 0; i < pb_endpoint.location_size(); ++i) {
     RETURN_NOT_OK(FromProto(pb_endpoint.location(i), &endpoint->locations[i]));
   }
+  if (pb_endpoint.has_expiration_time()) {
+    Timestamp expiration_time;
+    RETURN_NOT_OK(FromProto(pb_endpoint.expiration_time(), &expiration_time));
+    endpoint->expiration_time = std::move(expiration_time);
+  }
+  endpoint->app_metadata = pb_endpoint.app_metadata();
   return Status::OK();
 }
 
@@ -147,6 +187,25 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
   for (const Location& location : endpoint.locations) {
     RETURN_NOT_OK(ToProto(location, pb_endpoint->add_location()));
   }
+  if (endpoint.expiration_time) {
+    RETURN_NOT_OK(ToProto(endpoint.expiration_time.value(),
+                          pb_endpoint->mutable_expiration_time()));
+  }
+  pb_endpoint->set_app_metadata(endpoint.app_metadata);
+  return Status::OK();
+}
+
+// RenewFlightEndpointRequest
+
+Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
+                 RenewFlightEndpointRequest* request) {
+  RETURN_NOT_OK(FromProto(pb_request.endpoint(), &request->endpoint));
+  return Status::OK();
+}
+
+Status ToProto(const RenewFlightEndpointRequest& request,
+               pb::RenewFlightEndpointRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(request.endpoint, pb_request->mutable_endpoint()));
   return Status::OK();
 }
 
@@ -184,20 +243,22 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
 
 // FlightInfo
 
-Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
-  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
+arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
+  FlightInfo::Data info;
+  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info.descriptor));
 
-  info->schema = pb_info.schema();
+  info.schema = pb_info.schema();
 
-  info->endpoints.resize(pb_info.endpoint_size());
+  info.endpoints.resize(pb_info.endpoint_size());
   for (int i = 0; i < pb_info.endpoint_size(); ++i) {
-    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info->endpoints[i]));
+    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info.endpoints[i]));
   }
 
-  info->total_records = pb_info.total_records();
-  info->total_bytes = pb_info.total_bytes();
-  info->ordered = pb_info.ordered();
-  return Status::OK();
+  info.total_records = pb_info.total_records();
+  info.total_bytes = pb_info.total_bytes();
+  info.ordered = pb_info.ordered();
+  info.app_metadata = pb_info.app_metadata();
+  return FlightInfo(std::move(info));
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
@@ -238,6 +299,63 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
   pb_info->set_ordered(info.ordered());
+  pb_info->set_app_metadata(info.app_metadata());
+  return Status::OK();
+}
+
+// PollInfo
+
+Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
+  ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
+  info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+  if (pb_info.has_flight_descriptor()) {
+    FlightDescriptor descriptor;
+    RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &descriptor));
+    info->descriptor = std::move(descriptor);
+  } else {
+    info->descriptor = std::nullopt;
+  }
+  if (pb_info.has_progress()) {
+    info->progress = pb_info.progress();
+  } else {
+    info->progress = std::nullopt;
+  }
+  if (pb_info.has_expiration_time()) {
+    Timestamp expiration_time;
+    RETURN_NOT_OK(FromProto(pb_info.expiration_time(), &expiration_time));
+    info->expiration_time = std::move(expiration_time);
+  } else {
+    info->expiration_time = std::nullopt;
+  }
+  return Status::OK();
+}
+
+Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
+  RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
+  if (info.descriptor) {
+    RETURN_NOT_OK(ToProto(*info.descriptor, pb_info->mutable_flight_descriptor()));
+  }
+  if (info.progress) {
+    pb_info->set_progress(info.progress.value());
+  }
+  if (info.expiration_time) {
+    RETURN_NOT_OK(ToProto(*info.expiration_time, pb_info->mutable_expiration_time()));
+  }
+  return Status::OK();
+}
+
+// CancelFlightInfoRequest
+
+Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
+                 CancelFlightInfoRequest* request) {
+  ARROW_ASSIGN_OR_RAISE(FlightInfo info, FromProto(pb_request.info()));
+  request->info = std::make_unique<FlightInfo>(std::move(info));
+  return Status::OK();
+}
+
+Status ToProto(const CancelFlightInfoRequest& request,
+               pb::CancelFlightInfoRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(*request.info, pb_request->mutable_info()));
   return Status::OK();
 }
 

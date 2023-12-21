@@ -20,10 +20,12 @@ breathe
 doxygen
 ipython
 numpydoc
-pydata-sphinx-theme==0.8
+pydata-sphinx-theme
+sphinx-autobuild
 sphinx-design
-sphinx>=4.2,<6
 sphinx-copybutton
+sphinxcontrib-jquery
+sphinx==6.2
 # Requirement for doctest-cython
 pytest-cython
 pandas

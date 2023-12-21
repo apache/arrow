@@ -23,11 +23,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // Struct represents an ordered sequence of relative types.
@@ -224,7 +224,7 @@ func NewStructBuilder(mem memory.Allocator, dtype *arrow.StructType) *StructBuil
 	b := &StructBuilder{
 		builder: builder{refCount: 1, mem: mem},
 		dtype:   dtype,
-		fields:  make([]Builder, len(dtype.Fields())),
+		fields:  make([]Builder, dtype.NumFields()),
 	}
 	for i, f := range dtype.Fields() {
 		b.fields[i] = NewBuilder(b.mem, f.Type)
@@ -259,7 +259,15 @@ func (b *StructBuilder) Release() {
 }
 
 func (b *StructBuilder) Append(v bool) {
-	b.Reserve(1)
+	// Intentionally not calling `Reserve` as it will recursively call
+	// `Reserve` on the child builders, which during profiling has shown to be
+	// very expensive due to iterating over children, dynamic dispatch and all
+	// other code that gets executed even if previously `Reserve` was called to
+	// preallocate. Not calling `Reserve` has no downsides as when appending to
+	// the underlying children they already ensure they have enough space
+	// reserved. The only thing we must do is ensure we have enough space in
+	// the validity bitmap of the struct builder itself.
+	b.builder.reserve(1, b.resizeHelper)
 	b.unsafeAppendBoolToBitmap(v)
 	if !v {
 		for _, f := range b.fields {
@@ -275,10 +283,22 @@ func (b *StructBuilder) AppendValues(valids []bool) {
 
 func (b *StructBuilder) AppendNull() { b.Append(false) }
 
+func (b *StructBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *StructBuilder) AppendEmptyValue() {
 	b.Append(true)
 	for _, f := range b.fields {
 		f.AppendEmptyValue()
+	}
+}
+
+func (b *StructBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
 	}
 }
 

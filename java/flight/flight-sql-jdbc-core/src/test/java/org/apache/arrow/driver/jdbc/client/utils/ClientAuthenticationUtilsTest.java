@@ -158,7 +158,7 @@ public class ClientAuthenticationUtilsTest {
           if (method.getName().equals("getInstance")) {
             return invocationOnMock.callRealMethod();
           }
-          return invocationOnMock.getMock();
+          return method.invoke(invocationOnMock.getMock(), invocationOnMock.getArguments());
         }
     );
   }
@@ -169,13 +169,15 @@ public class ClientAuthenticationUtilsTest {
       if (method.getName().equals("getCertificateInputStreamFromSystem")) {
         return invocationOnMock.callRealMethod();
       }
-      return invocationOnMock.getMock();
+      return method.invoke(invocationOnMock.getMock(), invocationOnMock.getArguments());
     });
   }
 
   private void setOperatingSystemMock(MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic,
                                       boolean isWindows, boolean isMac) {
     clientAuthenticationUtilsMockedStatic.when(ClientAuthenticationUtils::isMac).thenReturn(isMac);
+    Assert.assertEquals(ClientAuthenticationUtils.isMac(), isMac);
     clientAuthenticationUtilsMockedStatic.when(ClientAuthenticationUtils::isWindows).thenReturn(isWindows);
+    Assert.assertEquals(ClientAuthenticationUtils.isWindows(), isWindows);
   }
 }

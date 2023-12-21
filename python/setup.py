@@ -41,7 +41,8 @@ import Cython
 is_64_bit = sys.maxsize > 2**32
 
 if Cython.__version__ < '0.29.31':
-    raise Exception('Please upgrade to Cython 0.29.31 or newer')
+    raise Exception(
+        'Please update your Cython version. Supported Cython >= 0.29.31')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -406,7 +407,7 @@ class build_ext(_build_ext):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '13.0.0-SNAPSHOT'
+default_version = '15.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -491,20 +492,20 @@ setup(
                                  'pyarrow/_generated_version.py'),
         'version_scheme': guess_next_dev_version
     },
-    setup_requires=['setuptools_scm', 'cython >= 0.29.31'] + setup_requires,
+    setup_requires=['setuptools_scm < 8.0.0', 'cython >= 0.29.31'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

@@ -24,7 +24,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_NAME libmexclass)
 # libmexclass is accessible for CI without permission issues.
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_REPOSITORY "https://github.com/mathworks/libmexclass.git")
 # Use a specific Git commit hash to avoid libmexclass version changing unexpectedly.
-set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG "77f3d72")
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_GIT_TAG "d04f88d")
                                                            
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_SOURCE_SUBDIR "libmexclass/cpp")
 
@@ -36,11 +36,48 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME arrowproxy)
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error")
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error"
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type"
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy"
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer")
+
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/boolean_array.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/bit_pack_matlab_logical_array.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/bit_unpack_arrow_buffer.cc")
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/string_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/timestamp_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/time32_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/time64_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/struct_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/list_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/chunked_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/wrap.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/table.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/schema.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/pack.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/unpack.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/fixed_width_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/string_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/date_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/date32_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/date64_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/timestamp_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/time_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/time32_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/time64_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/struct_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/list_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/field.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/wrap.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/feather/proxy/writer.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/feather/proxy/reader.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_writer.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_reader.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/index/validate.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer/proxy/buffer.cc")
+
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
@@ -88,6 +125,7 @@ libmexclass_client_add_proxy_library(
 )
 # Use C++17
 target_compile_features(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE cxx_std_17)
+target_compile_definitions(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE ARROW_MATLAB_EXPORTING)
 
 # When building Arrow from source, Arrow must be built before building the client Proxy library.
 if(TARGET arrow_ep)

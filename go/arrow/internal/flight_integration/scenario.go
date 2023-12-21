@@ -22,26 +22,30 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v13/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v15/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Scenario interface {
@@ -57,6 +61,18 @@ func GetScenario(name string, args ...string) Scenario {
 		return &middlewareScenarioTester{}
 	case "ordered":
 		return &orderedScenarioTester{}
+	case "expiration_time:do_get":
+		return &expirationTimeDoGetScenarioTester{}
+	case "expiration_time:list_actions":
+		return &expirationTimeListActionsScenarioTester{}
+	case "expiration_time:cancel_flight_info":
+		return &expirationTimeCancelFlightInfoScenarioTester{}
+	case "expiration_time:renew_flight_endpoint":
+		return &expirationTimeRenewFlightEndpointScenarioTester{}
+	case "poll_flight_info":
+		return &pollFlightInfoScenarioTester{}
+	case "app_metadata_flight_info_endpoint":
+		return &appMetadataFlightInfoEndpointScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
@@ -532,7 +548,7 @@ type orderedScenarioTester struct {
 	flight.BaseFlightServer
 }
 
-func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+func (o *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
 	if err != nil {
 		return err
@@ -549,8 +565,8 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 		return fmt.Errorf("expected to server return FlightInfo.ordered = true")
 	}
 
-	recs := make([]arrow.Record, len(info.Endpoint))
-	for i, ep := range info.Endpoint {
+	var recs []arrow.Record
+	for _, ep := range info.Endpoint {
 		if len(ep.Location) != 0 {
 			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
 				ep.Location)
@@ -571,7 +587,7 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 			record := rdr.Record()
 			record.Retain()
 			defer record.Release()
-			recs[i] = record
+			recs = append(recs, record)
 		}
 		if rdr.Err() != nil {
 			return rdr.Err()
@@ -608,14 +624,14 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	table := array.NewTableFromRecords(schema, recs)
 	defer table.Release()
 	if !array.TableEqual(table, expected_table) {
-		return fmt.Errorf("read data isn't expected\n" +
-			"Expected:\n" +
-			"%s\n" +
-			"num-rows: %d\n" +
-			"num-cols: %d\n" +
-			"Actual:\n" +
-			"%s\n" +
-			"num-rows: %d\n" +
+		return fmt.Errorf("read data isn't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"num-rows: %d\n"+
+			"num-cols: %d\n"+
+			"Actual:\n"+
+			"%s\n"+
+			"num-rows: %d\n"+
 			"num-cols: %d",
 			expected_table.Schema(),
 			expected_table.NumRows(),
@@ -628,14 +644,14 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	return nil
 }
 
-func (m *orderedScenarioTester) MakeServer(port int) flight.Server {
+func (o *orderedScenarioTester) MakeServer(port int) flight.Server {
 	srv := flight.NewServerWithMiddleware(nil)
-	srv.RegisterFlightService(m)
+	srv.RegisterFlightService(o)
 	initServer(port, srv)
 	return srv
 }
 
-func (m *orderedScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+func (o *orderedScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 	ordered := desc.Type == flight.DescriptorCMD && string(desc.Cmd) == "ordered"
 	schema := arrow.NewSchema(
 		[]arrow.Field{
@@ -666,7 +682,7 @@ func (m *orderedScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.
 	}, nil
 }
 
-func (m *orderedScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+func (o *orderedScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "number", Type: arrow.PrimitiveTypes.Int32},
@@ -687,6 +703,598 @@ func (m *orderedScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightServic
 	defer rec.Release()
 	w.Write(rec)
 
+	return nil
+}
+
+type expirationTimeEndpointStatus struct {
+	expirationTime *time.Time
+	numGets        uint32
+	cancelled      bool
+}
+
+type expirationTimeScenarioTester struct {
+	flight.BaseFlightServer
+	statuses map[int]expirationTimeEndpointStatus
+}
+
+func (tester *expirationTimeScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *expirationTimeScenarioTester) AppendGetFlightInfo(endpoints []*flight.FlightEndpoint, ticket string, expirationTime *time.Time) []*flight.FlightEndpoint {
+	index := len(tester.statuses)
+	endpoint := flight.FlightEndpoint{
+		Ticket:   &flight.Ticket{Ticket: []byte(strconv.Itoa(index) + ": " + ticket)},
+		Location: []*flight.Location{},
+	}
+	if expirationTime != nil {
+		endpoint.ExpirationTime = timestamppb.New(*expirationTime)
+	}
+	endpoints = append(endpoints, &endpoint)
+	tester.statuses[index] = expirationTimeEndpointStatus{
+		expirationTime: expirationTime,
+		numGets:        0,
+		cancelled:      false,
+	}
+	return endpoints
+}
+
+func (tester *expirationTimeScenarioTester) ExtractIndexFromTicket(ticket string) (int, error) {
+	indexString := strings.SplitN(ticket, ":", 2)[0]
+	index, err := strconv.Atoi(indexString)
+	if err != nil {
+		return 0, fmt.Errorf("invalid flight: no index: %s: %s", ticket, err)
+	}
+	if index >= len(tester.statuses) {
+		return 0, fmt.Errorf("invalid flight: out of index: %s", ticket)
+	}
+	return index, nil
+}
+
+func (tester *expirationTimeScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	tester.statuses = make(map[int]expirationTimeEndpointStatus)
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	var endpoints []*flight.FlightEndpoint
+	endpoints = tester.AppendGetFlightInfo(endpoints, "No expiration time", nil)
+	expirationTime5 := time.Now().Add(time.Second * 5)
+	endpoints = tester.AppendGetFlightInfo(endpoints, "5 seconds", &expirationTime5)
+	expirationTime6 := time.Now().Add(time.Second * 6)
+	endpoints = tester.AppendGetFlightInfo(endpoints, "6 seconds", &expirationTime6)
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}, nil
+}
+
+func (tester *expirationTimeScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+	ticket := string(tkt.GetTicket())
+	index, err := tester.ExtractIndexFromTicket(ticket)
+	if err != nil {
+		return err
+	}
+	st := tester.statuses[index]
+	if st.cancelled {
+		return status.Errorf(codes.InvalidArgument,
+			"Invalid flight: cancelled: %s", ticket)
+	}
+	if st.expirationTime == nil {
+		if st.numGets > 0 {
+			return status.Errorf(codes.InvalidArgument,
+				"Invalid flight: "+
+					"can't read multiple times: %s", ticket)
+		}
+	} else {
+		availableDuration := time.Until(*st.expirationTime)
+		if availableDuration < 0 {
+			return status.Errorf(codes.InvalidArgument,
+				"Invalid flight: expired: %s", ticket)
+		}
+	}
+	st.numGets++
+	tester.statuses[index] = st
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	b := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer b.Release()
+	b.Field(0).(*array.Uint32Builder).AppendValues([]uint32{uint32(index)}, nil)
+	w := flight.NewRecordWriter(fs, ipc.WithSchema(schema))
+	rec := b.NewRecord()
+	defer rec.Release()
+	w.Write(rec)
+
+	return nil
+}
+
+func (tester *expirationTimeScenarioTester) ListActions(_ *flight.Empty, stream flight.FlightService_ListActionsServer) error {
+	actions := []string{
+		flight.CancelFlightInfoActionType,
+		flight.RenewFlightEndpointActionType,
+	}
+
+	for _, a := range actions {
+		if err := stream.Send(&flight.ActionType{Type: a}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func packActionResult(msg proto.Message) (*flight.Result, error) {
+	ret := &flight.Result{}
+	var err error
+	if ret.Body, err = proto.Marshal(msg); err != nil {
+		return nil, fmt.Errorf("%w: unable to marshal final response", err)
+	}
+	return ret, nil
+}
+
+func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream flight.FlightService_DoActionServer) error {
+	switch cmd.Type {
+	case flight.CancelFlightInfoActionType:
+		var request flight.CancelFlightInfoRequest
+		if err := proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		cancelStatus := flight.CancelStatusUnspecified
+		for _, ep := range request.Info.Endpoint {
+			ticket := string(ep.Ticket.Ticket)
+			index, err := tester.ExtractIndexFromTicket(ticket)
+			if err == nil {
+				st := tester.statuses[index]
+				if st.cancelled {
+					cancelStatus = flight.CancelStatusNotCancellable
+				} else {
+					st.cancelled = true
+					if cancelStatus == flight.CancelStatusUnspecified {
+						cancelStatus = flight.CancelStatusCancelled
+					}
+					tester.statuses[index] = st
+				}
+			} else {
+				cancelStatus = flight.CancelStatusNotCancellable
+			}
+		}
+		result := flight.CancelFlightInfoResult{Status: cancelStatus}
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		if err = stream.Send(out); err != nil {
+			return err
+		}
+		return nil
+	case flight.RenewFlightEndpointActionType:
+		var request flight.RenewFlightEndpointRequest
+		if err := proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		endpoint := request.Endpoint
+		ticket := string(endpoint.Ticket.Ticket)
+		index, err := tester.ExtractIndexFromTicket(ticket)
+		if err != nil {
+			return err
+		}
+		endpoint.Ticket.Ticket = []byte(string(endpoint.Ticket.Ticket) + ": renewed (+ 10 seconds)")
+		renewedExpirationTime := time.Now().Add(time.Second * 10)
+		endpoint.ExpirationTime = timestamppb.New(renewedExpirationTime)
+		st := tester.statuses[index]
+		st.expirationTime = &renewedExpirationTime
+		tester.statuses[index] = st
+		out, err := packActionResult(endpoint)
+		if err != nil {
+			return err
+		}
+		if err = stream.Send(out); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return status.Errorf(codes.InvalidArgument, "unsupported action: %s", cmd.Type)
+	}
+}
+
+type expirationTimeDoGetScenarioTester struct {
+	expirationTimeScenarioTester
+}
+
+func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("expiration_time")})
+	if err != nil {
+		return err
+	}
+
+	var recs []arrow.Record
+	for _, ep := range info.Endpoint {
+		if len(recs) == 0 {
+			if ep.ExpirationTime != nil {
+				return fmt.Errorf("endpoints[0] must not have " +
+					"expiration time")
+			}
+		} else {
+			if ep.ExpirationTime == nil {
+				return fmt.Errorf("endpoints[1] must have " +
+					"expiration time")
+			}
+		}
+
+		if len(ep.Location) != 0 {
+			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
+				ep.Location)
+		}
+
+		stream, err := client.DoGet(ctx, ep.Ticket)
+		if err != nil {
+			return err
+		}
+
+		rdr, err := flight.NewRecordReader(stream)
+		if err != nil {
+			return err
+		}
+		defer rdr.Release()
+
+		for rdr.Next() {
+			record := rdr.Record()
+			record.Retain()
+			defer record.Release()
+			recs = append(recs, record)
+		}
+		if rdr.Err() != nil {
+			return rdr.Err()
+		}
+	}
+
+	// Build expected records
+	mem := memory.DefaultAllocator
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	expectedTable, _ := array.TableFromJSON(mem, schema, []string{
+		`[{"number": 0}]`,
+		`[{"number": 1}]`,
+		`[{"number": 2}]`,
+	})
+	defer expectedTable.Release()
+
+	table := array.NewTableFromRecords(schema, recs)
+	defer table.Release()
+	if !array.TableEqual(table, expectedTable) {
+		return fmt.Errorf("read data isn't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
+			"numCols: %d\n"+
+			"Actual:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
+			"numCols: %d",
+			expectedTable.Schema(),
+			expectedTable.NumRows(),
+			expectedTable.NumCols(),
+			table.Schema(),
+			table.NumRows(),
+			table.NumCols())
+	}
+
+	return nil
+}
+
+type expirationTimeListActionsScenarioTester struct {
+	expirationTimeScenarioTester
+}
+
+func (tester *expirationTimeListActionsScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	stream, err := client.ListActions(ctx, &flight.Empty{})
+	if err != nil {
+		return err
+	}
+
+	var actionTypeNames []string
+	for {
+		actionType, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		actionTypeNames = append(actionTypeNames, actionType.Type)
+	}
+	sort.Strings(actionTypeNames)
+	expectedActionTypeNames := []string{
+		"CancelFlightInfo",
+		"RenewFlightEndpoint",
+	}
+	if !reflect.DeepEqual(actionTypeNames, expectedActionTypeNames) {
+		return fmt.Errorf("action types aren't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"Actual:\n"+
+			"%s",
+			expectedActionTypeNames,
+			actionTypeNames)
+	}
+
+	return nil
+}
+
+type expirationTimeCancelFlightInfoScenarioTester struct {
+	expirationTimeScenarioTester
+}
+
+func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("expiration_time")})
+	if err != nil {
+		return err
+	}
+
+	request := flight.CancelFlightInfoRequest{Info: info}
+	result, err := client.CancelFlightInfo(ctx, &request)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	if result.Status != flight.CancelStatusCancelled {
+		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_STATUS_CANCELLED: %s", result.Status)
+	}
+	for _, ep := range info.Endpoint {
+		stream, err := client.DoGet(ctx, ep.Ticket)
+		if err != nil {
+			return err
+		}
+		rdr, err := flight.NewRecordReader(stream)
+		if err == nil {
+			rdr.Release()
+			return fmt.Errorf("invalid: DoGet after CancelFlightInfo must be failed")
+		}
+	}
+
+	return nil
+}
+
+type expirationTimeRenewFlightEndpointScenarioTester struct {
+	expirationTimeScenarioTester
+}
+
+func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("expiration_time")})
+	if err != nil {
+		return err
+	}
+
+	// Renew all endpoints that have expiration time
+	for _, ep := range info.Endpoint {
+		if ep.ExpirationTime == nil {
+			continue
+		}
+		expirationTime := ep.ExpirationTime.AsTime()
+		request := flight.RenewFlightEndpointRequest{Endpoint: ep}
+		renewedEndpoint, err := client.RenewFlightEndpoint(ctx, &request)
+		if err != nil {
+			return err
+		}
+		if renewedEndpoint.ExpirationTime == nil {
+			return fmt.Errorf("renewed endpoint must have expiration time: %s",
+				renewedEndpoint)
+		}
+		renewedExpirationTime := renewedEndpoint.ExpirationTime.AsTime()
+		if renewedExpirationTime.Sub(expirationTime) <= 0 {
+			return fmt.Errorf("renewed endpoint must have newer expiration time\n"+
+				"Original: %s\nRenewed: %s",
+				ep, renewedEndpoint)
+		}
+	}
+
+	return nil
+}
+
+type pollFlightInfoScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *pollFlightInfoScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	endpoints := []*flight.FlightEndpoint{
+		{
+			Ticket:   &flight.Ticket{Ticket: []byte("long-running query")},
+			Location: []*flight.Location{},
+		},
+	}
+	info := &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}
+	pollDesc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("poll"),
+	}
+	if desc.Type == pollDesc.Type && string(desc.Cmd) == string(pollDesc.Cmd) {
+		progress := float64(1.0)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: nil,
+			Progress:         &progress,
+			ExpirationTime:   nil,
+		}, nil
+	} else {
+		progress := float64(0.1)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: &pollDesc,
+			Progress:         &progress,
+			ExpirationTime:   timestamppb.New(time.Now().Add(time.Second * 10)),
+		}, nil
+	}
+}
+
+func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("heavy query"),
+	}
+	info, err := client.PollFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor == nil:
+		return fmt.Errorf("description is missing: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing: %s", info.String())
+	case !(0.0 <= *info.Progress && *info.Progress <= 1.0):
+		return fmt.Errorf("invalid progress: %s", info.String())
+	case info.ExpirationTime == nil:
+		return fmt.Errorf("expiration time is missing: %s", info.String())
+	}
+
+	info, err = client.PollFlightInfo(ctx, info.FlightDescriptor)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor != nil:
+		return fmt.Errorf("retried but no finished yet: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing in finished query: %s",
+			info.String())
+	case math.Abs(*info.Progress-1.0) > 1e-5:
+		return fmt.Errorf("progress for finished query isn't 1.0: %s",
+			info.String())
+	case info.ExpirationTime != nil:
+		return fmt.Errorf("expiration time must not be set for finished query: %s",
+			info.String())
+	}
+
+	return nil
+}
+
+type appMetadataFlightInfoEndpointScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+
+	if desc.Type != flight.DescriptorCMD {
+		return nil, fmt.Errorf("%w: should have received CMD descriptor", arrow.ErrInvalid)
+	}
+	endpoints := []*flight.FlightEndpoint{{AppMetadata: desc.Cmd}}
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+		AppMetadata:      desc.Cmd,
+	}, nil
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("foobar"),
+	}
+	info, err := client.GetFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case !bytes.Equal(desc.Cmd, info.AppMetadata):
+		return fmt.Errorf("invalid flight info app_metadata: %s, expected: %s", info.AppMetadata, desc.Cmd)
+	case len(info.Endpoint) != 1:
+		return fmt.Errorf("expected exactly 1 flight endpoint, got: %d", len(info.Endpoint))
+	case !bytes.Equal(desc.Cmd, info.Endpoint[0].AppMetadata):
+		return fmt.Errorf("invalid flight endpoint app_metadata: %s, expected: %s", info.Endpoint[0].AppMetadata, desc.Cmd)
+	}
 	return nil
 }
 
@@ -1182,7 +1790,7 @@ func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context
 	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 	}
-	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStatement %s",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
@@ -1509,22 +2117,24 @@ func (m *flightSqlScenarioTester) BeginTransaction(context.Context, flightsql.Ac
 	return []byte(transactionID), nil
 }
 
-func (m *flightSqlScenarioTester) CancelQuery(_ context.Context, request flightsql.ActionCancelQueryRequest) (flightsql.CancelResult, error) {
-	if err := assertEq(1, len(request.GetInfo().Endpoint)); err != nil {
-		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
+func (m *flightSqlScenarioTester) CancelFlightInfo(_ context.Context, request *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error) {
+	result := flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified}
+	if err := assertEq(1, len(request.Info.Endpoint)); err != nil {
+		return result, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
 	}
 
-	endpoint := request.GetInfo().Endpoint[0]
+	endpoint := request.Info.Endpoint[0]
 	tkt, err := flightsql.GetStatementQueryTicket(endpoint.Ticket)
 	if err != nil {
-		return flightsql.CancelResultUnspecified, err
+		return result, err
 	}
 
 	if err := assertEq([]byte("PLAN HANDLE"), tkt.GetStatementHandle()); err != nil {
-		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: unexpected ticket in CancelQuery", err)
+		return result, fmt.Errorf("%w: unexpected ticket in CancelQuery", err)
 	}
 
-	return flightsql.CancelResultCancelled, nil
+	result.Status = flight.CancelStatusCancelled
+	return result, nil
 }
 
 func (m *flightSqlScenarioTester) EndSavepoint(_ context.Context, request flightsql.ActionEndSavepointRequest) error {
@@ -1748,6 +2358,7 @@ func (m *flightSqlExtensionScenarioTester) ValidateStatementExecution(client *fl
 		return err
 	}
 
+	//lint:ignore SA1019 for backward compatibility
 	cancelResult, err := client.CancelQuery(ctx, info)
 	if err != nil {
 		return err

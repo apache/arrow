@@ -71,6 +71,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
@@ -1333,7 +1334,7 @@ TEST(Substrait, GetRecordBatchReader) {
     ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
-    // in case of a test failure, re-evalaute the content in the file
+    // in case of a test failure, re-evaluate the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
 }
@@ -4222,7 +4223,7 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-  // To avoid unnecessar metadata columns being included in the final result
+  // To avoid unnecessary metadata columns being included in the final result
   std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(std::move(expected_table), buf, std::move(include_columns),
@@ -4458,6 +4459,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5477,6 +5481,10 @@ TEST(Substrait, MixedSort) {
 }
 
 TEST(Substrait, PlanWithExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5665,6 +5673,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
@@ -6057,6 +6068,101 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   auto expected_table =
       TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
+void CheckExpressionRoundTrip(const Schema& schema,
+                              const compute::Expression& expression) {
+  ASSERT_OK_AND_ASSIGN(compute::Expression bound_expression, expression.Bind(schema));
+  BoundExpressions bound_expressions;
+  bound_expressions.schema = std::make_shared<Schema>(schema);
+  bound_expressions.named_expressions = {{std::move(bound_expression), "some_name"}};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
+                       SerializeExpressions(bound_expressions));
+
+  ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
+
+  AssertSchemaEqual(schema, *round_tripped.schema);
+  ASSERT_EQ(1, round_tripped.named_expressions.size());
+  ASSERT_EQ("some_name", round_tripped.named_expressions[0].name);
+  ASSERT_EQ(bound_expressions.named_expressions[0].expression,
+            round_tripped.named_expressions[0].expression);
+}
+
+TEST(Substrait, ExtendedExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", int32()), field("c", float32()),
+              field("nested", struct_({field("x", float32()), field("y", float32())}))});
+  // Basic a + b
+  CheckExpressionRoundTrip(
+      *test_schema, compute::call("add", {compute::field_ref(0), compute::field_ref(1)}));
+  // Nested struct reference
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(FieldPath{3, 0}));
+  // Struct return type
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(3));
+  // c + nested.y
+  CheckExpressionRoundTrip(
+      *test_schema,
+      compute::call("add", {compute::field_ref(2), compute::field_ref(FieldPath{3, 1})}));
+}
+
+TEST(Substrait, ExtendedExpressionInvalidPlans) {
+  // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
+  constexpr std::string_view kBadOutputNames = R"(
+    {
+      "referredExpr":[
+        {
+          "expression":{
+            "selection":{
+              "directReference":{
+                "structField":{
+                  "field":3
+                }
+              },
+              "rootReference":{}
+            }
+          },
+          "outputNames":["a", "y", "some_name"]
+        }
+      ],
+      "baseSchema":{
+        "names":["a","b","c","nested","x","y"],
+        "struct":{
+          "types":[
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "struct":{
+                "types":[
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  },
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  }
+                ],
+                "nullability":"NULLABILITY_NULLABLE"
+              }
+            }
+          ]
+        }
+      },
+      "version":{"majorNumber":9999}
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOutputNames));
+
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
 }
 
 }  // namespace engine

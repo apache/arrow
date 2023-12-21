@@ -24,15 +24,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/compute"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -459,9 +459,9 @@ func (f *FilterKernelNumeric) TestFilterNumeric() {
 	})
 }
 
-type comparator[T exec.NumericTypes] func(a, b T) bool
+type comparator[T arrow.NumericType] func(a, b T) bool
 
-func getComparator[T exec.NumericTypes](op kernels.CompareOperator) comparator[T] {
+func getComparator[T arrow.NumericType](op kernels.CompareOperator) comparator[T] {
 	return []comparator[T]{
 		// EQUAL
 		func(a, b T) bool { return a == b },
@@ -478,7 +478,7 @@ func getComparator[T exec.NumericTypes](op kernels.CompareOperator) comparator[T
 	}[int8(op)]
 }
 
-func compareAndFilterImpl[T exec.NumericTypes](mem memory.Allocator, data []T, fn func(T) bool) arrow.Array {
+func compareAndFilterImpl[T arrow.NumericType](mem memory.Allocator, data []T, fn func(T) bool) arrow.Array {
 	filtered := make([]T, 0, len(data))
 	for _, v := range data {
 		if fn(v) {
@@ -488,12 +488,12 @@ func compareAndFilterImpl[T exec.NumericTypes](mem memory.Allocator, data []T, f
 	return exec.ArrayFromSlice(mem, filtered)
 }
 
-func compareAndFilterValue[T exec.NumericTypes](mem memory.Allocator, data []T, val T, op kernels.CompareOperator) arrow.Array {
+func compareAndFilterValue[T arrow.NumericType](mem memory.Allocator, data []T, val T, op kernels.CompareOperator) arrow.Array {
 	cmp := getComparator[T](op)
 	return compareAndFilterImpl(mem, data, func(e T) bool { return cmp(e, val) })
 }
 
-func compareAndFilterSlice[T exec.NumericTypes](mem memory.Allocator, data, other []T, op kernels.CompareOperator) arrow.Array {
+func compareAndFilterSlice[T arrow.NumericType](mem memory.Allocator, data, other []T, op kernels.CompareOperator) arrow.Array {
 	cmp := getComparator[T](op)
 	i := 0
 	return compareAndFilterImpl(mem, data, func(e T) bool {
@@ -503,7 +503,7 @@ func compareAndFilterSlice[T exec.NumericTypes](mem memory.Allocator, data, othe
 	})
 }
 
-func createFilterImpl[T exec.NumericTypes](mem memory.Allocator, data []T, fn func(T) bool) arrow.Array {
+func createFilterImpl[T arrow.NumericType](mem memory.Allocator, data []T, fn func(T) bool) arrow.Array {
 	bldr := array.NewBooleanBuilder(mem)
 	defer bldr.Release()
 	for _, v := range data {
@@ -512,12 +512,12 @@ func createFilterImpl[T exec.NumericTypes](mem memory.Allocator, data []T, fn fu
 	return bldr.NewArray()
 }
 
-func createFilterValue[T exec.NumericTypes](mem memory.Allocator, data []T, val T, op kernels.CompareOperator) arrow.Array {
+func createFilterValue[T arrow.NumericType](mem memory.Allocator, data []T, val T, op kernels.CompareOperator) arrow.Array {
 	cmp := getComparator[T](op)
 	return createFilterImpl(mem, data, func(e T) bool { return cmp(e, val) })
 }
 
-func createFilterSlice[T exec.NumericTypes](mem memory.Allocator, data, other []T, op kernels.CompareOperator) arrow.Array {
+func createFilterSlice[T arrow.NumericType](mem memory.Allocator, data, other []T, op kernels.CompareOperator) arrow.Array {
 	cmp := getComparator[T](op)
 	i := 0
 	return createFilterImpl(mem, data, func(e T) bool {
@@ -527,8 +527,8 @@ func createFilterSlice[T exec.NumericTypes](mem memory.Allocator, data, other []
 	})
 }
 
-func compareScalarAndFilterRandomNumeric[T exec.NumericTypes](t *testing.T, mem memory.Allocator) {
-	dt := exec.GetDataType[T]()
+func compareScalarAndFilterRandomNumeric[T arrow.NumericType](t *testing.T, mem memory.Allocator) {
+	dt := arrow.GetDataType[T]()
 
 	rng := gen.NewRandomArrayGenerator(randomSeed, mem)
 	t.Run("compare scalar and filter", func(t *testing.T) {
@@ -537,7 +537,7 @@ func compareScalarAndFilterRandomNumeric[T exec.NumericTypes](t *testing.T, mem 
 			t.Run(fmt.Sprintf("random %d", length), func(t *testing.T) {
 				arr := rng.Numeric(dt.ID(), length, 0, 100, 0)
 				defer arr.Release()
-				data := exec.GetData[T](arr.Data().Buffers()[1].Bytes())
+				data := arrow.GetData[T](arr.Data().Buffers()[1].Bytes())
 				for _, op := range []kernels.CompareOperator{kernels.CmpEQ, kernels.CmpNE, kernels.CmpGT, kernels.CmpLE} {
 					selection := createFilterValue(mem, data, 50, op)
 					defer selection.Release()
@@ -556,8 +556,8 @@ func compareScalarAndFilterRandomNumeric[T exec.NumericTypes](t *testing.T, mem 
 	})
 }
 
-func compareArrayAndFilterRandomNumeric[T exec.NumericTypes](t *testing.T, mem memory.Allocator) {
-	dt := exec.GetDataType[T]()
+func compareArrayAndFilterRandomNumeric[T arrow.NumericType](t *testing.T, mem memory.Allocator) {
+	dt := arrow.GetDataType[T]()
 	rng := gen.NewRandomArrayGenerator(randomSeed, mem)
 	t.Run("compare array and filter", func(t *testing.T) {
 		for i := 3; i < 10; i++ {
@@ -568,8 +568,8 @@ func compareArrayAndFilterRandomNumeric[T exec.NumericTypes](t *testing.T, mem m
 				rhs := rng.Numeric(dt.ID(), length, 0, 100, 0)
 				defer rhs.Release()
 
-				data := exec.GetData[T](lhs.Data().Buffers()[1].Bytes())
-				other := exec.GetData[T](rhs.Data().Buffers()[1].Bytes())
+				data := arrow.GetData[T](lhs.Data().Buffers()[1].Bytes())
+				other := arrow.GetData[T](rhs.Data().Buffers()[1].Bytes())
 				for _, op := range []kernels.CompareOperator{kernels.CmpEQ, kernels.CmpNE, kernels.CmpGT, kernels.CmpLE} {
 					selection := createFilterSlice(mem, data, other, op)
 					defer selection.Release()

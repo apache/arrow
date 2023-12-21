@@ -47,7 +47,7 @@ ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran
 
 # Install DuckDB from github when requested
 if [ ${R_DUCKDB_DEV} == "true" ]; then
-  ${R_BIN} -e "remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg', build = FALSE)"
+  ${R_BIN} -e "remotes::install_github('duckdb/duckdb-r', build = FALSE)"
 fi
 
 # Separately install the optional/test dependencies but don't error on them,

@@ -425,6 +425,15 @@ std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous,
     gcs_opts.default_metadata = strings_to_kvm(options["default_metadata"]);
   }
 
+  // /// \brief The project to use for creating buckets.
+  // ///
+  // /// If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+  // /// variable. Most I/O operations do not need a project id, only applications
+  // /// that create new buckets need a project id.
+  if (!Rf_isNull(options["project_id"])) {
+    gcs_opts.project_id = cpp11::as_cpp<std::string>(options["project_id"]);
+  }
+
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
   // TODO(ARROW-16884): update when this returns Result
   return fs::GcsFileSystem::Make(gcs_opts, io_context);
@@ -485,6 +494,10 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
     }
 
     out.push_back({"default_metadata"_nm = metadata});
+  }
+
+  if (opts.project_id.has_value()) {
+    out.push_back({"project_id"_nm = opts.project_id.value()});
   }
 
   return out;

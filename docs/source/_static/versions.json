@@ -1,58 +1,78 @@
 [
     {
-        "name": "13.0 (dev)",
-        "version": "dev/"
+        "name": "15.0 (dev)",
+        "version": "dev/",
+        "url": "https://arrow.apache.org/docs/dev/"
     },
     {
-        "name": "12.0 (stable)",
-        "version": ""
+        "name": "14.0 (stable)",
+        "version": "",
+        "url": "https://arrow.apache.org/docs/",
+        "preferred": true
+    },
+    {
+        "name": "13.0",
+        "version": "13.0/",
+        "url": "https://arrow.apache.org/docs/13.0/"
     },
     {
         "name": "12.0",
-        "version": "12.0/"
+        "version": "12.0/",
+        "url": "https://arrow.apache.org/docs/12.0/"
     },
     {
         "name": "11.0",
-        "version": "11.0/"
+        "version": "11.0/",
+        "url": "https://arrow.apache.org/docs/11.0/"
     },
     {
         "name": "10.0",
-        "version": "10.0/"
+        "version": "10.0/",
+        "url": "https://arrow.apache.org/docs/10.0/"
     },
     {
         "name": "9.0",
-        "version": "9.0/"
+        "version": "9.0/",
+        "url": "https://arrow.apache.org/docs/9.0/"
     },
     {
         "name": "8.0",
-        "version": "8.0/"
+        "version": "8.0/",
+        "url": "https://arrow.apache.org/docs/8.0/"
     },
     {
         "name": "7.0",
-        "version": "7.0/"
+        "version": "7.0/",
+        "url": "https://arrow.apache.org/docs/7.0/"
     },
     {
         "name": "6.0",
-        "version": "6.0/"
+        "version": "6.0/",
+        "url": "https://arrow.apache.org/docs/6.0/"
     },
     {
         "name": "5.0",
-        "version": "5.0/"
+        "version": "5.0/",
+        "url": "https://arrow.apache.org/docs/5.0/"
     },
     {
         "name": "4.0",
-        "version": "4.0/"
+        "version": "4.0/",
+        "url": "https://arrow.apache.org/docs/4.0/"
     },
     {
         "name": "3.0",
-        "version": "3.0/"
+        "version": "3.0/",
+        "url": "https://arrow.apache.org/docs/3.0/"
     },
     {
         "name": "2.0",
-        "version": "2.0/"
+        "version": "2.0/",
+        "url": "https://arrow.apache.org/docs/2.0/"
     },
     {
         "name": "1.0",
-        "version": "1.0/"
+        "version": "1.0/",
+        "url": "https://arrow.apache.org/docs/dev/"
     }
 ]

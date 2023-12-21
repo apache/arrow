@@ -16,30 +16,16 @@
 // under the License.
 
 #include <immintrin.h>
+#include <cstring>
 
-#include "arrow/acero/util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/logging.h"
 
-namespace arrow {
-namespace util {
-
-#if defined(ARROW_HAVE_AVX2)
-
-void bit_util::bits_to_indexes_avx2(int bit_to_search, const int num_bits,
-                                    const uint8_t* bits, int* num_indexes,
-                                    uint16_t* indexes, uint16_t base_index) {
-  if (bit_to_search == 0) {
-    bits_to_indexes_imp_avx2<0>(num_bits, bits, num_indexes, indexes, base_index);
-  } else {
-    ARROW_DCHECK(bit_to_search == 1);
-    bits_to_indexes_imp_avx2<1>(num_bits, bits, num_indexes, indexes, base_index);
-  }
-}
+namespace arrow::util::bit_util::avx2 {
 
 template <int bit_to_search>
-void bit_util::bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                        int* num_indexes, uint16_t* indexes,
-                                        uint16_t base_index) {
+void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits, int* num_indexes,
+                              uint16_t* indexes, uint16_t base_index = 0) {
   // 64 bits at a time
   constexpr int unroll = 64;
 
@@ -82,21 +68,20 @@ void bit_util::bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
   }
 }
 
-void bit_util::bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
-                                        const uint8_t* bits,
-                                        const uint16_t* input_indexes, int* num_indexes,
-                                        uint16_t* indexes) {
+void bits_to_indexes_avx2(int bit_to_search, const int num_bits, const uint8_t* bits,
+                          int* num_indexes, uint16_t* indexes, uint16_t base_index) {
   if (bit_to_search == 0) {
-    bits_filter_indexes_imp_avx2<0>(num_bits, bits, input_indexes, num_indexes, indexes);
+    bits_to_indexes_imp_avx2<0>(num_bits, bits, num_indexes, indexes, base_index);
   } else {
-    bits_filter_indexes_imp_avx2<1>(num_bits, bits, input_indexes, num_indexes, indexes);
+    ARROW_DCHECK(bit_to_search == 1);
+    bits_to_indexes_imp_avx2<1>(num_bits, bits, num_indexes, indexes, base_index);
   }
 }
 
 template <int bit_to_search>
-void bit_util::bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                            const uint16_t* input_indexes,
-                                            int* out_num_indexes, uint16_t* indexes) {
+void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
+                                  const uint16_t* input_indexes, int* out_num_indexes,
+                                  uint16_t* indexes) {
   // 64 bits at a time
   constexpr int unroll = 64;
 
@@ -167,8 +152,17 @@ void bit_util::bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* b
   *out_num_indexes = num_indexes;
 }
 
-void bit_util::bits_to_bytes_avx2(const int num_bits, const uint8_t* bits,
-                                  uint8_t* bytes) {
+void bits_filter_indexes_avx2(int bit_to_search, const int num_bits, const uint8_t* bits,
+                              const uint16_t* input_indexes, int* num_indexes,
+                              uint16_t* indexes) {
+  if (bit_to_search == 0) {
+    bits_filter_indexes_imp_avx2<0>(num_bits, bits, input_indexes, num_indexes, indexes);
+  } else {
+    bits_filter_indexes_imp_avx2<1>(num_bits, bits, input_indexes, num_indexes, indexes);
+  }
+}
+
+void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits, uint8_t* bytes) {
   constexpr int unroll = 32;
 
   constexpr uint64_t kEachByteIs1 = 0x0101010101010101ULL;
@@ -188,8 +182,7 @@ void bit_util::bits_to_bytes_avx2(const int num_bits, const uint8_t* bits,
   }
 }
 
-void bit_util::bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes,
-                                  uint8_t* bits) {
+void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes, uint8_t* bits) {
   constexpr int unroll = 32;
   // Processing 32 bits at a time
   for (int i = 0; i < num_bits / unroll; ++i) {
@@ -198,7 +191,7 @@ void bit_util::bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes,
   }
 }
 
-bool bit_util::are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes) {
+bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes) {
   __m256i result_or = _mm256_setzero_si256();
   uint32_t i;
   for (i = 0; i < num_bytes / 32; ++i) {
@@ -216,7 +209,4 @@ bool bit_util::are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes)
   return result_or32 == 0;
 }
 
-#endif  // ARROW_HAVE_AVX2
-
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::bit_util::avx2

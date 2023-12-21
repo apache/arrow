@@ -25,10 +25,11 @@ Authors:
   \item Neal Richardson \email{neal.p.richardson@gmail.com}
   \item Ian Cook \email{ianmcook@gmail.com}
   \item Dewey Dunnington \email{dewey@fishandwhistle.net} (\href{https://orcid.org/0000-0002-9415-4582}{ORCID})
-  \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
+  \item Romain François (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jonathan Keane \email{jkeane@gmail.com}
   \item Dragoș Moldovan-Grünfeld \email{dragos.mold@gmail.com}
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
+  \item Jacob Wujciak-Jens \email{jacob@wujciak.de}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }
 

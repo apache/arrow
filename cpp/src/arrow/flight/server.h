@@ -53,17 +53,9 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
   /// \brief Compute FlightPayload containing serialized RecordBatch schema
   virtual arrow::Result<FlightPayload> GetSchemaPayload() = 0;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchemaPayload(FlightPayload* payload) {
-    return GetSchemaPayload().Value(payload);
-  }
-
   // When the stream is completed, the last payload written will have null
   // metadata
   virtual arrow::Result<FlightPayload> Next() = 0;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightPayload* payload) { return Next().Value(payload); }
 
   virtual Status Close();
 };
@@ -130,6 +122,15 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual const std::string& peer_identity() const = 0;
   /// \brief The peer address (not validated)
   virtual const std::string& peer() const = 0;
+  /// \brief Add a response header.  This is only valid before the server
+  /// starts sending the response; generally this isn't an issue unless you
+  /// are implementing FlightDataStream, ResultStream, or similar interfaces
+  /// yourself, or during a DoExchange or DoPut.
+  virtual void AddHeader(const std::string& key, const std::string& value) const = 0;
+  /// \brief Add a response trailer.  This is only valid before the server
+  /// sends the final status; generally this isn't an issue unless your RPC
+  /// handler launches a thread or similar.
+  virtual void AddTrailer(const std::string& key, const std::string& value) const = 0;
   /// \brief Look up a middleware by key. Do not maintain a reference
   /// to the object beyond the request body.
   /// \return The middleware, or nullptr if not found.
@@ -210,8 +211,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   Status SetShutdownOnSignals(const std::vector<int> sigs);
 
   /// \brief Start serving.
-  /// This method blocks until either Shutdown() is called or one of the signals
-  /// registered in SetShutdownOnSignals() is received.
+  /// This method blocks until the server shuts down.
+  ///
+  /// The server will start to shut down when either Shutdown() is called
+  /// or one of the signals registered in SetShutdownOnSignals() is received.
   Status Serve();
 
   /// \brief Query whether Serve() was interrupted by a signal.
@@ -220,14 +223,18 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \return int the signal number that interrupted Serve(), if any, otherwise 0
   int GotSignal() const;
 
-  /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Serve() blocks. Optionally a deadline can be set. Once the
-  /// the deadline expires server will wait until remaining running calls
-  /// complete.
+  /// \brief Shut down the server, blocking until current requests finish.
   ///
+  /// Can be called from a signal handler or another thread while Serve()
+  /// blocks. Optionally a deadline can be set. Once the deadline expires
+  /// server will wait until remaining running calls complete.
+  ///
+  /// Should only be called once.
   Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
-  /// \brief Block until server is terminated with Shutdown.
+  /// \brief Block until server shuts down with Shutdown.
+  ///
+  /// Does not respond to signals like Serve().
   Status Wait();
 
   // Implement these methods to create your own server. The default
@@ -245,16 +252,26 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Retrieve the schema and an access plan for the indicated
   /// descriptor
   /// \param[in] context The call context.
-  /// \param[in] request may be null
+  /// \param[in] request the dataset request, whether a named dataset or command
   /// \param[out] info the returned flight info provider
   /// \return Status
   virtual Status GetFlightInfo(const ServerCallContext& context,
                                const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
 
+  /// \brief Retrieve the current status of the target query
+  /// \param[in] context The call context.
+  /// \param[in] request the dataset request or a descriptor returned by a
+  /// prior PollFlightInfo call
+  /// \param[out] info the returned retry info provider
+  /// \return Status
+  virtual Status PollFlightInfo(const ServerCallContext& context,
+                                const FlightDescriptor& request,
+                                std::unique_ptr<PollInfo>* info);
+
   /// \brief Retrieve the schema for the indicated descriptor
   /// \param[in] context The call context.
-  /// \param[in] request may be null
+  /// \param[in] request the dataset request, whether a named dataset or command
   /// \param[out] schema the returned flight schema provider
   /// \return Status
   virtual Status GetSchema(const ServerCallContext& context,

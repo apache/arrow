@@ -31,6 +31,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
 using namespace std::string_view_literals;  // NOLINT
@@ -188,7 +189,8 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
-  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files) {
+  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files,
+                         bool check_num_record_batches = true) {
     counter_ = 0;
     for (const auto& expected_file : expected_files) {
       std::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
@@ -196,7 +198,9 @@ class DatasetWriterTestFixture : public testing::Test {
       int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
                          *ReadAsBatch(written_file->data, &num_batches));
-      ASSERT_EQ(expected_file.num_record_batches, num_batches);
+      if (check_num_record_batches) {
+        ASSERT_EQ(expected_file.num_record_batches, num_batches);
+      }
     }
   }
 
@@ -274,6 +278,30 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-1.arrow", 10, 10},
                      {"testdir/chunk-2.arrow", 20, 10},
                      {"testdir/chunk-3.arrow", 30, 5}});
+}
+
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
+  // GH-38884: This test is to make sure that the writer can handle
+  //  throttle resources in `WriteRecordBatch`.
+
+  constexpr auto kFileSizeLimit = static_cast<uint64_t>(10);
+  write_options_.max_rows_per_file = kFileSizeLimit;
+  write_options_.max_rows_per_group = kFileSizeLimit;
+  write_options_.max_open_files = 2;
+  write_options_.min_rows_per_group = kFileSizeLimit - 1;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
+  for (int i = 0; i < 20; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 5), "");
+  }
+  EndWriterChecked(dataset_writer.get());
+  std::vector<ExpectedFile> expected_files;
+  for (int i = 0; i < 100; ++i) {
+    expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
+                                kFileSizeLimit * i, kFileSizeLimit);
+  }
+  // Not checking the number of record batches because file may contain the
+  // zero-length record batch.
+  AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
@@ -380,6 +408,9 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // Use a gated filesystem to queue up many writes behind a file open to make sure the
   // file isn't opened multiple times.
   auto gated_fs = UseGatedFs();
@@ -394,6 +425,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
@@ -412,6 +446,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   auto gated_fs = UseGatedFs();
   std::atomic<bool> paused = false;
   write_options_.max_open_files = 2;

@@ -23,13 +23,13 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
 	"golang.org/x/exp/constraints"
 )
 
@@ -69,13 +69,13 @@ func CastIntegerToFloating(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.
 	return nil
 }
 
-type decimal[T exec.DecimalTypes] interface {
+type decimal[T decimal128.Num | decimal256.Num] interface {
 	Less(T) bool
 	GreaterEqual(T) bool
 	LowBits() uint64
 }
 
-func decimalToIntImpl[InT exec.DecimalTypes, OutT exec.IntTypes | exec.UintTypes](allowOverflow bool, min, max InT, v decimal[InT], err *error) OutT {
+func decimalToIntImpl[InT decimal128.Num | decimal256.Num, OutT arrow.IntType | arrow.UintType](allowOverflow bool, min, max InT, v decimal[InT], err *error) OutT {
 	if !allowOverflow && (v.Less(min) || v.GreaterEqual(max)) {
 		debug.Log("integer value out of bounds from decimal")
 		*err = fmt.Errorf("%w: integer value out of bounds", arrow.ErrInvalid)
@@ -84,7 +84,7 @@ func decimalToIntImpl[InT exec.DecimalTypes, OutT exec.IntTypes | exec.UintTypes
 	return OutT(v.LowBits())
 }
 
-func CastDecimal256ToInteger[T exec.IntTypes | exec.UintTypes](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+func CastDecimal256ToInteger[T arrow.IntType | arrow.UintType](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	var (
 		opts       = ctx.State.(CastState)
 		inputType  = batch.Values[0].Type().(*arrow.Decimal256Type)
@@ -125,7 +125,7 @@ func CastDecimal256ToInteger[T exec.IntTypes | exec.UintTypes](ctx *exec.KernelC
 	return ex(ctx, batch, out)
 }
 
-func CastDecimal128ToInteger[T exec.IntTypes | exec.UintTypes](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+func CastDecimal128ToInteger[T arrow.IntType | arrow.UintType](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	var (
 		opts       = ctx.State.(CastState)
 		inputType  = batch.Values[0].Type().(*arrow.Decimal128Type)
@@ -166,7 +166,7 @@ func CastDecimal128ToInteger[T exec.IntTypes | exec.UintTypes](ctx *exec.KernelC
 	return ex(ctx, batch, out)
 }
 
-func integerToDecimal128[T exec.IntTypes | exec.UintTypes](inType arrow.Type, outScale int32) exec.ArrayKernelExec {
+func integerToDecimal128[T arrow.IntType | arrow.UintType](inType arrow.Type, outScale int32) exec.ArrayKernelExec {
 	var getDecimal func(v T) decimal128.Num
 	switch inType {
 	case arrow.UINT8, arrow.UINT16, arrow.UINT32, arrow.UINT64:
@@ -183,7 +183,7 @@ func integerToDecimal128[T exec.IntTypes | exec.UintTypes](inType arrow.Type, ou
 	})
 }
 
-func integerToDecimal256[T exec.IntTypes | exec.UintTypes](inType arrow.Type, outScale int32) exec.ArrayKernelExec {
+func integerToDecimal256[T arrow.IntType | arrow.UintType](inType arrow.Type, outScale int32) exec.ArrayKernelExec {
 	var getDecimal func(v T) decimal256.Num
 	switch inType {
 	case arrow.UINT8, arrow.UINT16, arrow.UINT32, arrow.UINT64:
@@ -200,7 +200,7 @@ func integerToDecimal256[T exec.IntTypes | exec.UintTypes](inType arrow.Type, ou
 	})
 }
 
-func CastIntegerToDecimal[OutT exec.DecimalTypes, Arg0 exec.IntTypes | exec.UintTypes](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+func CastIntegerToDecimal[OutT decimal128.Num | decimal256.Num, Arg0 arrow.IntType | arrow.UintType](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	var (
 		precision, scale int32
 		executor         exec.ArrayKernelExec
@@ -234,7 +234,7 @@ func CastIntegerToDecimal[OutT exec.DecimalTypes, Arg0 exec.IntTypes | exec.Uint
 	return executor(ctx, batch, out)
 }
 
-func getCastIntToDecimal[T exec.DecimalTypes](inType arrow.Type) exec.ArrayKernelExec {
+func getCastIntToDecimal[T decimal128.Num | decimal256.Num](inType arrow.Type) exec.ArrayKernelExec {
 	switch inType {
 	case arrow.UINT8:
 		return CastIntegerToDecimal[T, uint8]
@@ -543,7 +543,7 @@ func boolToNum[T numeric](_ *exec.KernelCtx, in []byte, out []T) error {
 	return nil
 }
 
-func checkFloatTrunc[InT constraints.Float, OutT exec.IntTypes | exec.UintTypes](in, out *exec.ArraySpan) error {
+func checkFloatTrunc[InT constraints.Float, OutT arrow.IntType | arrow.UintType](in, out *exec.ArraySpan) error {
 	wasTrunc := func(out OutT, in InT) bool {
 		return InT(out) != in
 	}
@@ -665,7 +665,7 @@ func checkIntToFloatTrunc(in *exec.ArraySpan, outType arrow.Type) error {
 	return nil
 }
 
-func parseStringToNumberImpl[T exec.IntTypes | exec.UintTypes | exec.FloatTypes, OffsetT int32 | int64](parseFn func(string) (T, error)) exec.ArrayKernelExec {
+func parseStringToNumberImpl[T arrow.IntType | arrow.UintType | arrow.FloatType, OffsetT int32 | int64](parseFn func(string) (T, error)) exec.ArrayKernelExec {
 	return ScalarUnaryNotNullBinaryArg[T, OffsetT](func(_ *exec.KernelCtx, in []byte, err *error) T {
 		st := *(*string)(unsafe.Pointer(&in))
 		v, e := parseFn(st)
@@ -749,7 +749,7 @@ func addCommonNumberCasts[T numeric](outTy arrow.DataType, kernels []exec.Scalar
 	return kernels
 }
 
-func GetCastToInteger[T exec.IntTypes | exec.UintTypes](outType arrow.DataType) []exec.ScalarKernel {
+func GetCastToInteger[T arrow.IntType | arrow.UintType](outType arrow.DataType) []exec.ScalarKernel {
 	kernels := make([]exec.ScalarKernel, 0)
 
 	output := exec.NewOutputType(outType)

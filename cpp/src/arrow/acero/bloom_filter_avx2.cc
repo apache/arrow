@@ -16,13 +16,12 @@
 // under the License.
 
 #include <immintrin.h>
+
 #include "arrow/acero/bloom_filter.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace acero {
-
-#if defined(ARROW_HAVE_AVX2)
 
 inline __m256i BlockedBloomFilter::mask_avx2(__m256i hash) const {
   // AVX2 translation of mask() method
@@ -131,8 +130,6 @@ int64_t BlockedBloomFilter::Insert_avx2(int64_t num_rows, const uint32_t* hashes
 int64_t BlockedBloomFilter::Insert_avx2(int64_t num_rows, const uint64_t* hashes) {
   return InsertImp_avx2(num_rows, hashes);
 }
-
-#endif
 
 }  // namespace acero
 }  // namespace arrow

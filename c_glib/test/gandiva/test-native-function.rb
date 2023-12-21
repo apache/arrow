@@ -20,7 +20,7 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
 
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
+    @registry = Gandiva::FunctionRegistry.default
     @not = lookup("not", [boolean_data_type], boolean_data_type)
     @isnull = lookup("isnull", [int8_data_type], boolean_data_type)
   end

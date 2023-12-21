@@ -21,6 +21,7 @@ on:
   issues:
     types:
       - opened
+      - edited
 
 permissions:
   contents: read
@@ -32,11 +33,25 @@ jobs:
     if: github.event.issue.pull_request == null
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
+
+            let current_labels = await github.rest.issues.listLabelsOnIssue({
+              "owner": context.repo.owner,
+              "repo": context.repo.repo,
+              "per_page": 100,
+              "issue_number": context.payload.issue.number,
+            });
+
+            let current_label_names = current_labels.data.map(label => label.name);
+
+            // keep non-component labels
+            let non_component_labels = current_label_names.filter(
+              label => !label.startsWith("Component: ")
+            );
 
             let component_labels = split_body[1]
               .split(',')
@@ -49,16 +64,16 @@ jobs:
               "per_page": 100,
             });
 
-            // this removes non-existent labels
+            // this removes nonexistent labels
             component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );
           
             if (component_labels.length == 0) throw new Error('No components found!');
 
-            await github.rest.issues.addLabels({
+            await github.rest.issues.setLabels({
               "owner": context.repo.owner,
               "repo": context.repo.repo,
               "issue_number": context.payload.issue.number,
-              "labels": component_labels,
+              "labels": component_labels.concat(non_component_labels),
             });

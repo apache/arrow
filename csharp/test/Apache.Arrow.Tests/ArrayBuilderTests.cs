@@ -26,6 +26,7 @@ namespace Apache.Arrow.Tests
     {
         // TODO: Test various builder invariants (Append, AppendRange, Clear, Resize, Reserve, etc)
 
+#if NET5_0_OR_GREATER
         [Fact]
         public void PrimitiveArrayBuildersProduceExpectedArray()
         {
@@ -40,8 +41,8 @@ namespace Apache.Arrow.Tests
             Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
             Test<float, FloatArray, FloatArray.Builder>();
             Test<double, DoubleArray, DoubleArray.Builder>();
-            Test<int, Time32Array, Time32Array.Builder>();
-            Test<long, Time64Array, Time64Array.Builder>();
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
 
             static void Test<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -64,8 +65,8 @@ namespace Apache.Arrow.Tests
             Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
             Test<float, FloatArray, FloatArray.Builder>();
             Test<double, DoubleArray, DoubleArray.Builder>();
-            Test<int, Time32Array, Time32Array.Builder>();
-            Test<long, Time64Array, Time64Array.Builder>();
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x9);
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x9);
 
             static void Test<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -73,6 +74,7 @@ namespace Apache.Arrow.Tests
                 where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
                 TestArrayBuilder<TArray, TBuilder>(x => x.Append(T.CreateChecked(123)).AppendNull().AppendNull().Append(T.CreateChecked(127)), 4, 2, 0x09);
         }
+#endif
 
         [Fact]
         public void BooleanArrayBuilderProducersExpectedArray()
@@ -199,6 +201,132 @@ namespace Apache.Arrow.Tests
             Assert.Equal(
                 new List<long?> { 8, 9, 10, 11, 12 },
                 ((Int64Array)childList3.GetSlicedValues(0)).ToList());
+        }
+
+        [Fact]
+        public void FixedSizeListArrayBuilder()
+        {
+            var listBuilder = new FixedSizeListArray.Builder(StringType.Default, 4);
+            var valueBuilder = listBuilder.ValueBuilder as StringArray.Builder;
+            Assert.NotNull(valueBuilder);
+            listBuilder.Append();
+
+            Assert.Throws<ArgumentOutOfRangeException>(listBuilder.Append);
+
+            valueBuilder.Append("1");
+            valueBuilder.Append("2");
+            valueBuilder.Append("3");
+            valueBuilder.Append("4");
+            listBuilder.AppendNull();
+            listBuilder.Append();
+            valueBuilder.Append("5").Append("6").Append("7").Append("8");
+            listBuilder.Append();
+            valueBuilder.Append("444").AppendNull().Append("555").Append("666");
+
+            var list = listBuilder.Build();
+
+            Assert.Equal(
+                new List<string> { "1", "2", "3", "4" },
+                ConvertStringArrayToList(list.GetSlicedValues(0) as StringArray));
+            Assert.Null(list.GetSlicedValues(1));
+            Assert.Equal(
+                new List<string> { "5", "6", "7", "8" },
+                ConvertStringArrayToList(list.GetSlicedValues(2) as StringArray));
+            Assert.Equal(
+                new List<string> { "444", null, "555", "666" },
+                ConvertStringArrayToList(list.GetSlicedValues(3) as StringArray));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.GetSlicedValues(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => list.GetSlicedValues(4));
+
+            listBuilder.Resize(3);
+            var truncatedList = listBuilder.Build();
+
+            Assert.Equal(
+                new List<string> { "5", "6", "7", "8" },
+                ConvertStringArrayToList(truncatedList.GetSlicedValues(2) as StringArray));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => truncatedList.GetSlicedValues(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => truncatedList.GetSlicedValues(3));
+
+            listBuilder.Clear();
+            var emptyList = listBuilder.Build();
+
+            Assert.Equal(0, emptyList.Length);
+
+            List<string> ConvertStringArrayToList(StringArray array)
+            {
+                var length = array.Length;
+                var resultList = new List<string>(length);
+                for (var index = 0; index < length; index++)
+                {
+                    resultList.Add(array.GetString(index));
+                }
+                return resultList;
+            }
+        }
+
+        [Fact]
+        public void FixedSizeListArrayBuilderValidityBuffer()
+        {
+            FixedSizeListArray.Builder builder = new FixedSizeListArray.Builder(Int64Type.Default, 2).Append();
+            ((Int64Array.Builder)builder.ValueBuilder).Append(1).Append(2);
+            FixedSizeListArray listArray = builder.AppendNull().Build();
+            Assert.False(listArray.IsValid(2));
+        }
+
+        [Fact]
+        public void NestedFixedSizeListArrayBuilder()
+        {
+            var childListType = new FixedSizeListType(Int64Type.Default, 2);
+            var parentListBuilder = new FixedSizeListArray.Builder(childListType, 3);
+            var childListBuilder = parentListBuilder.ValueBuilder as FixedSizeListArray.Builder;
+            Assert.NotNull(childListBuilder);
+            var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
+            Assert.NotNull(valueBuilder);
+
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(1);
+            valueBuilder.Append(2);
+            childListBuilder.Append();
+            valueBuilder.Append(3).Append(4);
+            childListBuilder.AppendNull();
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(4).Append(5);
+            childListBuilder.Append();
+            valueBuilder.Append(6).Append(7);
+            childListBuilder.Append();
+            valueBuilder.Append(8).Append(9);
+            parentListBuilder.Append();
+            childListBuilder.Append();
+            valueBuilder.Append(10).Append(11);
+            childListBuilder.AppendNull();
+            childListBuilder.Append();
+            valueBuilder.Append(12).AppendNull();
+
+            var parentList = parentListBuilder.Build();
+
+            var childList1 = (FixedSizeListArray)parentList.GetSlicedValues(0);
+            var childList2 = (FixedSizeListArray)parentList.GetSlicedValues(1);
+            var childList3 = (FixedSizeListArray)parentList.GetSlicedValues(2);
+
+            Assert.Equal(3, childList1.Length);
+            Assert.Equal(3, childList2.Length);
+            Assert.Equal(3, childList3.Length);
+            Assert.Equal(
+                new List<long?> { 1, 2 },
+                ((Int64Array)childList1.GetSlicedValues(0)).ToList());
+            Assert.Equal(
+                new List<long?> { 3, 4 },
+                ((Int64Array)childList1.GetSlicedValues(1)).ToList());
+            Assert.Equal(
+                new List<long?> { 4, 5 },
+                ((Int64Array)childList2.GetSlicedValues(0)).ToList());
+            Assert.Equal(
+                new List<long?> { 12, null },
+                ((Int64Array)childList3.GetSlicedValues(2)).ToList(includeNulls: true));
         }
 
         public class TimestampArrayBuilder

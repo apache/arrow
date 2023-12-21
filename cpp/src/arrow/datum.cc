@@ -182,15 +182,15 @@ std::string Datum::ToString() const {
     case Datum::NONE:
       return "nullptr";
     case Datum::SCALAR:
-      return "Scalar";
+      return "Scalar(" + scalar()->ToString() + ")";
     case Datum::ARRAY:
-      return "Array";
+      return "Array(" + make_array()->ToString() + ")";
     case Datum::CHUNKED_ARRAY:
-      return "ChunkedArray";
+      return "ChunkedArray(" + chunked_array()->ToString() + ")";
     case Datum::RECORD_BATCH:
-      return "RecordBatch";
+      return "RecordBatch(" + record_batch()->ToString() + ")";
     case Datum::TABLE:
-      return "Table";
+      return "Table(" + table()->ToString() + ")";
     default:
       DCHECK(false);
       return "";

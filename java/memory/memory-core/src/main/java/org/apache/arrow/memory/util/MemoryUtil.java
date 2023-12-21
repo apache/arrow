@@ -54,6 +54,10 @@ public class MemoryUtil {
    */
   public static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
+  // Java 1.8, 9, 11, 17, 21 becomes 1, 9, 11, 17, and 21.
+  private static final int majorVersion =
+      Integer.parseInt(System.getProperty("java.specification.version").split("\\D+")[0]);
+
   static {
     try {
       // try to get the unsafe object
@@ -94,7 +98,8 @@ public class MemoryUtil {
               @Override
               public Object run() {
                 try {
-                  final Constructor<?> constructor =
+                  final Constructor<?> constructor = (majorVersion >= 21) ?
+                      direct.getClass().getDeclaredConstructor(long.class, long.class) :
                       direct.getClass().getDeclaredConstructor(long.class, int.class);
                   constructor.setAccessible(true);
                   logger.debug("Constructor for direct buffer found and made accessible");
@@ -136,8 +141,8 @@ public class MemoryUtil {
       // This exception will get swallowed, but it's necessary for the static analysis that ensures
       // the static fields above get initialized
       final RuntimeException failure = new RuntimeException(
-          "Failed to initialize MemoryUtil. Was Java started with " +
-              "`--add-opens=java.base/java.nio=ALL-UNNAMED`? " +
+          "Failed to initialize MemoryUtil. You must start Java with " +
+              "`--add-opens=java.base/java.nio=ALL-UNNAMED` " +
               "(See https://arrow.apache.org/docs/java/install.html)", e);
       failure.printStackTrace();
       throw failure;

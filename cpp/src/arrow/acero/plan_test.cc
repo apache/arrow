@@ -36,6 +36,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
@@ -762,6 +763,23 @@ TEST(ExecPlanExecution, DeclarationToReader) {
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> out, reader->ToTable());
   ASSERT_EQ(5, out->num_rows());
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
+                                  reader->Next());
+}
+
+TEST(ExecPlanExecution, DeclarationToReaderWithEarlyClose) {
+  auto random_data = MakeRandomBatches(schema({field("a", int8())}), /*num_batches=*/100);
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(random_data.schema, random_data.gen(false, false))}});
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(plan, /*use_threads=*/false));
+
+  // read only a few batches
+  for (size_t i = 0; i < 10; i++) {
+    ASSERT_OK(reader->Next());
+  }
+  // then close
   ASSERT_OK(reader->Close());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
                                   reader->Next());
@@ -1602,6 +1620,12 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
+  if (internal::GetCpuThreadPool()->GetCapacity() < 2) {
+    GTEST_SKIP() << "Test requires at least 2 threads";
+  }
   BatchesWithSchema data;
   data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
   data.schema = schema({field("i32", int32())});

@@ -18,11 +18,13 @@ classdef tInt16Array < hNumericArray
     
     properties
         ArrowArrayClassName = "arrow.array.Int16Array"
-        ArrowArrayConstructor = @arrow.array.Int16Array
+        ArrowArrayConstructorFcn = @arrow.array.Int16Array.fromMATLAB
         MatlabConversionFcn = @int16 % int16 method on class
         MatlabArrayFcn = @int16 % int16 function
         MaxValue = intmax("int16")
         MinValue = intmin("int16")
+        NullSubstitutionValue = int16(0)
+        ArrowType = arrow.int16
     end
 
 end

@@ -24,7 +24,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/byte_stream_split.h"
+#include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/visit_data_inline.h"
 
 #include "parquet/encoding.h"
@@ -737,6 +737,114 @@ static void BM_DeltaLengthDecodingSpacedByteArray(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 BENCHMARK(BM_DeltaLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 
+struct DeltaByteArrayState {
+  int32_t min_size = 0;
+  int32_t max_size;
+  int32_t array_length;
+  int32_t total_data_size = 0;
+  double prefixed_probability;
+  std::vector<uint8_t> buf;
+
+  explicit DeltaByteArrayState(const benchmark::State& state)
+      : max_size(static_cast<int32_t>(state.range(0))),
+        array_length(static_cast<int32_t>(state.range(1))),
+        prefixed_probability(state.range(2) / 100.0) {}
+
+  std::vector<ByteArray> MakeRandomByteArray(uint32_t seed) {
+    std::default_random_engine gen(seed);
+    std::uniform_int_distribution<int> dist_size(min_size, max_size);
+    std::uniform_int_distribution<int> dist_byte(0, 255);
+    std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+    std::uniform_real_distribution<double> dist_prefix_length(0, 1);
+
+    std::vector<ByteArray> out(array_length);
+    buf.resize(max_size * array_length);
+    auto buf_ptr = buf.data();
+    total_data_size = 0;
+
+    for (int32_t i = 0; i < array_length; ++i) {
+      int len = dist_size(gen);
+      out[i].len = len;
+      out[i].ptr = buf_ptr;
+
+      bool do_prefix = i > 0 && dist_has_prefix(gen);
+      int prefix_len = 0;
+      if (do_prefix) {
+        int max_prefix_len = std::min(len, static_cast<int>(out[i - 1].len));
+        prefix_len =
+            static_cast<int>(std::ceil(max_prefix_len * dist_prefix_length(gen)));
+      }
+      for (int j = 0; j < prefix_len; ++j) {
+        buf_ptr[j] = out[i - 1].ptr[j];
+      }
+      for (int j = prefix_len; j < len; ++j) {
+        buf_ptr[j] = static_cast<uint8_t>(dist_byte(gen));
+      }
+      buf_ptr += len;
+      total_data_size += len;
+    }
+    return out;
+  }
+};
+
+static void BM_DeltaEncodingByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  const int64_t plain_encoded_size =
+      delta_state.total_data_size + 4 * delta_state.array_length;
+  int64_t encoded_size = 0;
+
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoded_size = encoder->FlushValues()->size();
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(plain_encoded_size) / encoded_size;
+}
+
+static void BM_DeltaDecodingByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  const int64_t plain_encoded_size =
+      delta_state.total_data_size + 4 * delta_state.array_length;
+  const int64_t encoded_size = buf->size();
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(plain_encoded_size) / encoded_size;
+}
+
+static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
+  for (int max_string_length : {8, 64, 1024}) {
+    for (int batch_size : {512, 2048}) {
+      for (int prefixed_percent : {10, 90, 99}) {
+        b->Args({max_string_length, batch_size, prefixed_percent});
+      }
+    }
+  }
+  b->ArgNames({"max-string-length", "batch-size", "prefixed-percent"});
+}
+
+BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
+BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
+
 static void BM_RleEncodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::RLE);
@@ -783,7 +891,29 @@ static void BM_RleDecodingSpacedBoolean(benchmark::State& state) {
 BENCHMARK(BM_RleDecodingSpacedBoolean)->Apply(BM_SpacedArgs);
 
 template <typename Type>
-static void DecodeDict(std::vector<typename Type::c_type>& values,
+static void EncodeDict(const std::vector<typename Type::c_type>& values,
+                       benchmark::State& state) {
+  using T = typename Type::c_type;
+  int num_values = static_cast<int>(values.size());
+
+  MemoryPool* allocator = default_memory_pool();
+  std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
+
+  auto base_encoder = MakeEncoder(Type::type_num, Encoding::RLE_DICTIONARY,
+                                  /*use_dictionary=*/true, descr.get(), allocator);
+  auto encoder =
+      dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
+  for (auto _ : state) {
+    encoder->Put(values.data(), num_values);
+    encoder->FlushValues();
+  }
+
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
+}
+
+template <typename Type>
+static void DecodeDict(const std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {
   typedef typename Type::c_type T;
   int num_values = static_cast<int>(values.size());
@@ -810,6 +940,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
 
   PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
+  std::vector<T> decoded_values(num_values);
   for (auto _ : state) {
     auto dict_decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr.get());
     dict_decoder->SetData(dict_traits->num_entries(), dict_buffer->data(),
@@ -818,10 +949,11 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
     auto decoder = MakeDictDecoder<Type>(descr.get());
     decoder->SetDict(dict_decoder.get());
     decoder->SetData(num_values, indices->data(), static_cast<int>(indices->size()));
-    decoder->Decode(values.data(), num_values);
+    decoder->Decode(decoded_values.data(), num_values);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
 }
 
 static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
@@ -834,18 +966,37 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_DictEncodingInt64_repeats(benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range(0), 64);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
   std::vector<T> values(state.range(0));
-  for (size_t i = 0; i < values.size(); ++i) {
-    values[i] = i;
-  }
+  std::iota(values.begin(), values.end(), 0);
   DecodeDict<Type>(values, state);
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictEncodingInt64_literals(benchmark::State& state) {
+  using Type = Int64Type;
+  using T = typename Type::c_type;
+
+  std::vector<T> values(state.range(0));
+  std::iota(values.begin(), values.end(), 0);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_DictDecodingByteArray(benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rag(0);

@@ -73,11 +73,19 @@ struct REETestData {
                                  std::vector<std::string> inputs_json,
                                  std::vector<std::string> expected_values_json,
                                  std::vector<std::string> expected_run_ends_json,
-                                 int64_t input_offset = 0) {
+                                 int64_t input_offset = 0,
+                                 bool force_validity_bitmap = false) {
     std::vector<std::shared_ptr<Array>> inputs;
     inputs.reserve(inputs_json.size());
     for (const auto& input_json : inputs_json) {
-      inputs.push_back(ArrayFromJSON(data_type, input_json));
+      auto chunk = ArrayFromJSON(data_type, input_json);
+      auto& data = chunk->data();
+      if (force_validity_bitmap && !data->HasValidityBitmap()) {
+        EXPECT_OK_AND_ASSIGN(auto validity, AllocateBitmap(data->length));
+        memset(validity->mutable_data(), 0xFF, validity->size());
+        data->buffers[0] = std::move(validity);
+      }
+      inputs.push_back(std::move(chunk));
     }
     auto chunked_input = std::make_shared<ChunkedArray>(std::move(inputs));
 
@@ -166,47 +174,52 @@ class TestRunEndEncodeDecode : public ::testing::TestWithParam<
     DCHECK(datum.is_chunked_array());
     return datum.chunked_array();
   }
+
+  void TestEncodeDecodeArray(REETestData& data,
+                             const std::shared_ptr<DataType>& run_end_type) {
+    ASSERT_OK_AND_ASSIGN(
+        Datum encoded_datum,
+        RunEndEncode(data.InputDatum(), RunEndEncodeOptions{run_end_type}));
+
+    auto encoded = AsChunkedArray(encoded_datum);
+    ASSERT_OK(encoded->ValidateFull());
+    ASSERT_EQ(data.input->length(), encoded->length());
+
+    for (int i = 0; i < encoded->num_chunks(); i++) {
+      auto& chunk = encoded->chunk(i);
+      auto run_ends_array = MakeArray(chunk->data()->child_data[0]);
+      auto values_array = MakeArray(chunk->data()->child_data[1]);
+      ASSERT_OK(chunk->ValidateFull());
+      ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(run_end_type, data.expected_run_ends_json[i]),
+                          *run_ends_array);
+      ASSERT_ARRAYS_EQUAL(*values_array, *data.expected_values[i]);
+      ASSERT_EQ(chunk->data()->buffers.size(), 1);
+      ASSERT_EQ(chunk->data()->buffers[0], NULLPTR);
+      ASSERT_EQ(chunk->data()->child_data.size(), 2);
+      ASSERT_EQ(run_ends_array->data()->buffers[0], NULLPTR);
+      ASSERT_EQ(run_ends_array->length(), data.expected_values[i]->length());
+      ASSERT_EQ(run_ends_array->offset(), 0);
+      ASSERT_EQ(chunk->data()->length, data.input->chunk(i)->length());
+      ASSERT_EQ(chunk->data()->offset, 0);
+      ASSERT_EQ(*chunk->data()->type,
+                RunEndEncodedType(run_end_type, data.input->type()));
+      ASSERT_EQ(chunk->data()->null_count, 0);
+    }
+
+    ASSERT_OK_AND_ASSIGN(Datum decoded_datum, data.chunked
+                                                  ? RunEndDecode(encoded)
+                                                  : RunEndDecode(encoded->chunk(0)));
+    auto decoded = AsChunkedArray(decoded_datum);
+    ASSERT_OK(decoded->ValidateFull());
+    for (int i = 0; i < decoded->num_chunks(); i++) {
+      ASSERT_ARRAYS_EQUAL(*decoded->chunk(i), *data.input->chunk(i));
+    }
+  }
 };
 
 TEST_P(TestRunEndEncodeDecode, EncodeDecodeArray) {
   auto [data, run_end_type] = GetParam();
-
-  ASSERT_OK_AND_ASSIGN(
-      Datum encoded_datum,
-      RunEndEncode(data.InputDatum(), RunEndEncodeOptions{run_end_type}));
-
-  auto encoded = AsChunkedArray(encoded_datum);
-  ASSERT_OK(encoded->ValidateFull());
-  ASSERT_EQ(data.input->length(), encoded->length());
-
-  for (int i = 0; i < encoded->num_chunks(); i++) {
-    auto& chunk = encoded->chunk(i);
-    auto run_ends_array = MakeArray(chunk->data()->child_data[0]);
-    auto values_array = MakeArray(chunk->data()->child_data[1]);
-    ASSERT_OK(chunk->ValidateFull());
-    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(run_end_type, data.expected_run_ends_json[i]),
-                        *run_ends_array);
-    ASSERT_ARRAYS_EQUAL(*values_array, *data.expected_values[i]);
-    ASSERT_EQ(chunk->data()->buffers.size(), 1);
-    ASSERT_EQ(chunk->data()->buffers[0], NULLPTR);
-    ASSERT_EQ(chunk->data()->child_data.size(), 2);
-    ASSERT_EQ(run_ends_array->data()->buffers[0], NULLPTR);
-    ASSERT_EQ(run_ends_array->length(), data.expected_values[i]->length());
-    ASSERT_EQ(run_ends_array->offset(), 0);
-    ASSERT_EQ(chunk->data()->length, data.input->chunk(i)->length());
-    ASSERT_EQ(chunk->data()->offset, 0);
-    ASSERT_EQ(*chunk->data()->type, RunEndEncodedType(run_end_type, data.input->type()));
-    ASSERT_EQ(chunk->data()->null_count, 0);
-  }
-
-  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, data.chunked
-                                                ? RunEndDecode(encoded)
-                                                : RunEndDecode(encoded->chunk(0)));
-  auto decoded = AsChunkedArray(decoded_datum);
-  ASSERT_OK(decoded->ValidateFull());
-  for (int i = 0; i < decoded->num_chunks(); i++) {
-    ASSERT_ARRAYS_EQUAL(*decoded->chunk(i), *data.input->chunk(i));
-  }
+  TestEncodeDecodeArray(data, run_end_type);
 }
 
 // Encoding an input with an offset results in a completely new encoded array without an
@@ -253,6 +266,17 @@ TEST_P(TestRunEndEncodeDecode, DecodeWithOffset) {
     ASSERT_ARRAYS_EQUAL(*array_without_first->chunk(i), *expected_without_first);
     ASSERT_ARRAYS_EQUAL(*array_without_last->chunk(i), *expected_without_last);
   }
+}
+
+// GH-36708
+TEST_P(TestRunEndEncodeDecode, InputWithValidityAndNoNulls) {
+  auto data =
+      REETestData::JSONChunked(int32(),
+                               /*inputs=*/{"[1, 1, 2, 2, 2, 3]", "[4, 5, 5, 5, 6, 6]"},
+                               /*expected_values=*/{"[1, 2, 3]", "[4, 5, 6]"},
+                               /*expected_run_ends=*/{"[2, 5, 6]", "[1, 4, 6]"},
+                               /*input_offset=*/0, /*force_validity_bitmap=*/true);
+  TestEncodeDecodeArray(data, int32());
 }
 
 // This test creates an run-end encoded array with an offset in the child array, which

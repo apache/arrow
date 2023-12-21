@@ -44,6 +44,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -108,8 +109,6 @@ Status InvalidMessageType(MessageType expected, MessageType actual) {
                              FormatMessageType((message).type()));      \
     }                                                                   \
   } while (0)
-
-}  // namespace
 
 // ----------------------------------------------------------------------
 // Record batch read path
@@ -206,7 +205,10 @@ class ArrayLoader {
     }
   }
 
-  Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
+  Status LoadType(const DataType& type) {
+    DCHECK_NE(out_, nullptr);
+    return VisitTypeInline(type, this);
+  }
 
   Status Load(const Field* field, ArrayData* out) {
     if (max_recursion_depth_ <= 0) {
@@ -224,6 +226,9 @@ class ArrayLoader {
     skip_io_ = true;
     Status status = Load(field, &dummy);
     skip_io_ = false;
+    // GH-37851: Reset state. Load will set `out_` to `&dummy`, which would
+    // be a dangling pointer.
+    out_ = nullptr;
     return status;
   }
 
@@ -243,6 +248,20 @@ class ArrayLoader {
     }
   }
 
+  Result<size_t> GetVariadicCount(int i) {
+    auto* variadic_counts = metadata_->variadicBufferCounts();
+    CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
+    if (i >= static_cast<int>(variadic_counts->size())) {
+      return Status::IOError("variadic_count_index out of range.");
+    }
+    int64_t count = variadic_counts->Get(i);
+    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
+      return Status::IOError(
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    }
+    return static_cast<size_t>(count);
+  }
+
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
@@ -259,6 +278,7 @@ class ArrayLoader {
   }
 
   Status LoadCommon(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
@@ -277,6 +297,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -289,8 +310,8 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(3);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -300,6 +321,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadList(const TYPE& type) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type.id()));
@@ -313,7 +335,24 @@ class ArrayLoader {
     return LoadChildren(type.fields());
   }
 
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
+    DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
 
     parent->child_data.resize(child_fields.size());
@@ -345,7 +384,22 @@ class ArrayLoader {
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
-    return LoadBinary<T>(type.id());
+    return LoadBinary(type.id());
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+
+    ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
+                          GetVariadicCount(variadic_count_index_++));
+    out_->buffers.resize(data_buffer_count + 2);
+    for (size_t i = 0; i < data_buffer_count; ++i) {
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
+    }
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
@@ -357,6 +411,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {
@@ -440,6 +499,7 @@ class ArrayLoader {
   int buffer_index_ = 0;
   int field_index_ = 0;
   bool skip_io_ = false;
+  int variadic_count_index_ = 0;
 
   BatchDataReadRequest read_request_;
   const Field* field_ = nullptr;
@@ -570,9 +630,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
   if (context.swap_endian) {
-    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-      ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(filtered_columns[i]));
+    for (auto& filtered_column : filtered_columns) {
+      ARROW_ASSIGN_OR_RAISE(filtered_column,
+                            arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
   return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
@@ -633,34 +693,12 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
   return Status::OK();
 }
 
-static Status ReadContiguousPayload(io::InputStream* file,
-                                    std::unique_ptr<Message>* message) {
+Status ReadContiguousPayload(io::InputStream* file, std::unique_ptr<Message>* message) {
   ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
   return Status::OK();
-}
-
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const std::shared_ptr<Schema>& schema, const DictionaryMemo* dictionary_memo,
-    const IpcReadOptions& options, io::InputStream* file) {
-  std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  CHECK_HAS_BODY(*message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
-                         reader.get());
-}
-
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const Message& message, const std::shared_ptr<Schema>& schema,
-    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options) {
-  CHECK_MESSAGE_TYPE(MessageType::RECORD_BATCH, message.type());
-  CHECK_HAS_BODY(message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
-                         reader.get());
 }
 
 Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
@@ -763,22 +801,6 @@ Status UnpackSchemaMessage(const Message& message, const IpcReadOptions& options
                              out_schema, field_inclusion_mask, swap_endian);
 }
 
-Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
-    const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
-    io::RandomAccessFile* file) {
-  std::shared_ptr<Schema> out_schema;
-  // Empty means do not use
-  std::vector<bool> inclusion_mask;
-  IpcReadContext context(const_cast<DictionaryMemo*>(dictionary_memo), options, false);
-  RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
-                                             &inclusion_mask, &out_schema));
-  ARROW_ASSIGN_OR_RAISE(
-      auto batch_and_custom_metadata,
-      ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file));
-  return batch_and_custom_metadata.batch;
-}
-
 Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
                       DictionaryKind* kind, io::RandomAccessFile* file) {
   const flatbuf::Message* message = nullptr;
@@ -823,7 +845,8 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
 
   // swap endian in dict_data if necessary (swap_endian == true)
   if (context.swap_endian) {
-    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(dict_data));
+    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(
+                                         dict_data, context.options.memory_pool));
   }
 
   if (dictionary_batch->isDelta()) {
@@ -849,88 +872,156 @@ Status ReadDictionary(const Message& message, const IpcReadContext& context,
   return ReadDictionary(*message.metadata(), context, kind, reader.get());
 }
 
-// ----------------------------------------------------------------------
-// RecordBatchStreamReader implementation
+}  // namespace
 
-class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const Buffer& metadata, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
+    io::RandomAccessFile* file) {
+  std::shared_ptr<Schema> out_schema;
+  // Empty means do not use
+  std::vector<bool> inclusion_mask;
+  IpcReadContext context(const_cast<DictionaryMemo*>(dictionary_memo), options, false);
+  RETURN_NOT_OK(GetInclusionMaskAndOutSchema(schema, context.options.included_fields,
+                                             &inclusion_mask, &out_schema));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch_and_custom_metadata,
+      ReadRecordBatchInternal(metadata, schema, inclusion_mask, context, file));
+  return batch_and_custom_metadata.batch;
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const std::shared_ptr<Schema>& schema, const DictionaryMemo* dictionary_memo,
+    const IpcReadOptions& options, io::InputStream* file) {
+  std::unique_ptr<Message> message;
+  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  CHECK_HAS_BODY(*message);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
+                         reader.get());
+}
+
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const Message& message, const std::shared_ptr<Schema>& schema,
+    const DictionaryMemo* dictionary_memo, const IpcReadOptions& options) {
+  CHECK_MESSAGE_TYPE(MessageType::RECORD_BATCH, message.type());
+  CHECK_HAS_BODY(message);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
+                         reader.get());
+}
+
+// Streaming format decoder
+class StreamDecoderInternal : public MessageDecoderListener {
  public:
-  Status Open(std::unique_ptr<MessageReader> message_reader,
-              const IpcReadOptions& options) {
-    message_reader_ = std::move(message_reader);
-    options_ = options;
+  enum State {
+    SCHEMA,
+    INITIAL_DICTIONARIES,
+    RECORD_BATCHES,
+    EOS,
+  };
 
-    // Read schema
-    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message, ReadNextMessage());
-    if (!message) {
-      return Status::Invalid("Tried reading schema message, was null or length 0");
+  explicit StreamDecoderInternal(std::shared_ptr<Listener> listener,
+                                 IpcReadOptions options)
+      : listener_(std::move(listener)),
+        options_(std::move(options)),
+        state_(State::SCHEMA),
+        field_inclusion_mask_(),
+        num_required_initial_dictionaries_(0),
+        num_read_initial_dictionaries_(0),
+        dictionary_memo_(),
+        schema_(nullptr),
+        filtered_schema_(nullptr),
+        stats_(),
+        swap_endian_(false) {}
+
+  Status OnMessageDecoded(std::unique_ptr<Message> message) override {
+    ++stats_.num_messages;
+    switch (state_) {
+      case State::SCHEMA:
+        ARROW_RETURN_NOT_OK(OnSchemaMessageDecoded(std::move(message)));
+        break;
+      case State::INITIAL_DICTIONARIES:
+        ARROW_RETURN_NOT_OK(OnInitialDictionaryMessageDecoded(std::move(message)));
+        break;
+      case State::RECORD_BATCHES:
+        ARROW_RETURN_NOT_OK(OnRecordBatchMessageDecoded(std::move(message)));
+        break;
+      case State::EOS:
+        break;
     }
-
-    RETURN_NOT_OK(UnpackSchemaMessage(*message, options, &dictionary_memo_, &schema_,
-                                      &out_schema_, &field_inclusion_mask_,
-                                      &swap_endian_));
     return Status::OK();
   }
 
-  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadNext());
-    *batch = std::move(batch_with_metadata.batch);
-    return Status::OK();
+  Status OnEOS() override {
+    state_ = State::EOS;
+    return listener_->OnEOS();
   }
 
-  Result<RecordBatchWithMetadata> ReadNext() override {
-    if (!have_read_initial_dictionaries_) {
-      RETURN_NOT_OK(ReadInitialDictionaries());
-    }
+  std::shared_ptr<Listener> listener() const { return listener_; }
 
-    RecordBatchWithMetadata batch_with_metadata;
-    if (empty_stream_) {
-      // ARROW-6006: Degenerate case where stream contains no data, we do not
-      // bother trying to read a RecordBatch message from the stream
-      return batch_with_metadata;
-    }
+  Listener* raw_listener() const { return listener_.get(); }
 
-    // Continue to read other dictionaries, if any
-    std::unique_ptr<Message> message;
-    ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
+  IpcReadOptions options() const { return options_; }
 
-    while (message != nullptr && message->type() == MessageType::DICTIONARY_BATCH) {
-      RETURN_NOT_OK(ReadDictionary(*message));
-      ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
-    }
+  State state() const { return state_; }
 
-    if (message == nullptr) {
-      // End of stream
-      return batch_with_metadata;
-    }
+  std::shared_ptr<Schema> schema() const { return filtered_schema_; }
 
-    CHECK_HAS_BODY(*message);
-    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    return ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                   context, reader.get());
+  ReadStats stats() const { return stats_; }
+
+  int num_required_initial_dictionaries() const {
+    return num_required_initial_dictionaries_;
   }
 
-  std::shared_ptr<Schema> schema() const override { return out_schema_; }
-
-  ReadStats stats() const override { return stats_; }
+  int num_read_initial_dictionaries() const { return num_read_initial_dictionaries_; }
 
  private:
-  Result<std::unique_ptr<Message>> ReadNextMessage() {
-    ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
-    if (message) {
-      ++stats_.num_messages;
-      switch (message->type()) {
-        case MessageType::RECORD_BATCH:
-          ++stats_.num_record_batches;
-          break;
-        case MessageType::DICTIONARY_BATCH:
-          ++stats_.num_dictionary_batches;
-          break;
-        default:
-          break;
-      }
+  Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
+    RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
+                                      &filtered_schema_, &field_inclusion_mask_,
+                                      &swap_endian_));
+
+    num_required_initial_dictionaries_ = dictionary_memo_.fields().num_dicts();
+    num_read_initial_dictionaries_ = 0;
+    if (num_required_initial_dictionaries_ == 0) {
+      state_ = State::RECORD_BATCHES;
+      RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_, filtered_schema_));
+    } else {
+      state_ = State::INITIAL_DICTIONARIES;
     }
-    return std::move(message);
+    return Status::OK();
+  }
+
+  Status OnInitialDictionaryMessageDecoded(std::unique_ptr<Message> message) {
+    if (message->type() != MessageType::DICTIONARY_BATCH) {
+      return Status::Invalid("IPC stream did not have the expected number (",
+                             num_required_initial_dictionaries_,
+                             ") of dictionaries at the start of the stream");
+    }
+    RETURN_NOT_OK(ReadDictionary(*message));
+    num_read_initial_dictionaries_++;
+    if (num_read_initial_dictionaries_ == num_required_initial_dictionaries_) {
+      state_ = State::RECORD_BATCHES;
+      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_, filtered_schema_));
+    }
+    return Status::OK();
+  }
+
+  Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
+    if (message->type() == MessageType::DICTIONARY_BATCH) {
+      return ReadDictionary(*message);
+    } else {
+      CHECK_HAS_BODY(*message);
+      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
+      ARROW_ASSIGN_OR_RAISE(
+          auto batch_with_metadata,
+          ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
+                                  context, reader.get()));
+      ++stats_.num_record_batches;
+      return listener_->OnRecordBatchWithMetadataDecoded(batch_with_metadata);
+    }
   }
 
   // Read dictionary from dictionary batch
@@ -938,6 +1029,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     DictionaryKind kind;
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
     RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
+    ++stats_.num_dictionary_batches;
     switch (kind) {
       case DictionaryKind::New:
         break;
@@ -951,60 +1043,86 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
     return Status::OK();
   }
 
-  Status ReadInitialDictionaries() {
-    // We must receive all dictionaries before reconstructing the
-    // first record batch. Subsequent dictionary deltas modify the memo
-    std::unique_ptr<Message> message;
+  std::shared_ptr<Listener> listener_;
+  const IpcReadOptions options_;
+  State state_;
+  std::vector<bool> field_inclusion_mask_;
+  int num_required_initial_dictionaries_;
+  int num_read_initial_dictionaries_;
+  DictionaryMemo dictionary_memo_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> filtered_schema_;
+  ReadStats stats_;
+  bool swap_endian_;
+};
 
-    // TODO(wesm): In future, we may want to reconcile the ids in the stream with
-    // those found in the schema
-    const auto num_dicts = dictionary_memo_.fields().num_dicts();
-    for (int i = 0; i < num_dicts; ++i) {
-      ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
-      if (!message) {
-        if (i == 0) {
-          /// ARROW-6006: If we fail to find any dictionaries in the stream, then
-          /// it may be that the stream has a schema but no actual data. In such
-          /// case we communicate that we were unable to find the dictionaries
-          /// (but there was no failure otherwise), so the caller can decide what
-          /// to do
-          empty_stream_ = true;
-          break;
-        } else {
-          // ARROW-6126, the stream terminated before receiving the expected
-          // number of dictionaries
-          return Status::Invalid("IPC stream ended without reading the expected number (",
-                                 num_dicts, ") of dictionaries");
-        }
-      }
+// ----------------------------------------------------------------------
+// RecordBatchStreamReader implementation
 
-      if (message->type() != MessageType::DICTIONARY_BATCH) {
-        return Status::Invalid("IPC stream did not have the expected number (", num_dicts,
-                               ") of dictionaries at the start of the stream");
-      }
-      RETURN_NOT_OK(ReadDictionary(*message));
+class RecordBatchStreamReaderImpl : public RecordBatchStreamReader,
+                                    public StreamDecoderInternal {
+ public:
+  RecordBatchStreamReaderImpl(std::unique_ptr<MessageReader> message_reader,
+                              const IpcReadOptions& options)
+      : RecordBatchStreamReader(),
+        StreamDecoderInternal(std::make_shared<CollectListener>(), options),
+        message_reader_(std::move(message_reader)) {}
+
+  Status Init() {
+    // Read schema
+    ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
+    if (!message) {
+      return Status::Invalid("Tried reading schema message, was null or length 0");
     }
+    return OnMessageDecoded(std::move(message));
+  }
 
-    have_read_initial_dictionaries_ = true;
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    ARROW_ASSIGN_OR_RAISE(auto batch_with_metadata, ReadNext());
+    *batch = std::move(batch_with_metadata.batch);
     return Status::OK();
   }
 
+  Result<RecordBatchWithMetadata> ReadNext() override {
+    auto collect_listener = checked_cast<CollectListener*>(raw_listener());
+    while (collect_listener->num_record_batches() == 0 &&
+           state() != StreamDecoderInternal::State::EOS) {
+      ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
+      if (!message) {  // End of stream
+        if (state() == StreamDecoderInternal::State::INITIAL_DICTIONARIES) {
+          if (num_read_initial_dictionaries() == 0) {
+            // ARROW-6006: If we fail to find any dictionaries in the
+            // stream, then it may be that the stream has a schema
+            // but no actual data. In such case we communicate that
+            // we were unable to find the dictionaries (but there was
+            // no failure otherwise), so the caller can decide what
+            // to do
+            return RecordBatchWithMetadata{nullptr, nullptr};
+          } else {
+            // ARROW-6126, the stream terminated before receiving the
+            // expected number of dictionaries
+            return Status::Invalid(
+                "IPC stream ended without reading the "
+                "expected number (",
+                num_required_initial_dictionaries(), ") of dictionaries");
+          }
+        } else {
+          return RecordBatchWithMetadata{nullptr, nullptr};
+        }
+      }
+      ARROW_RETURN_NOT_OK(OnMessageDecoded(std::move(message)));
+    }
+    return collect_listener->PopRecordBatchWithMetadata();
+  }
+
+  std::shared_ptr<Schema> schema() const override {
+    return StreamDecoderInternal::schema();
+  }
+
+  ReadStats stats() const override { return StreamDecoderInternal::stats(); }
+
+ private:
   std::unique_ptr<MessageReader> message_reader_;
-  IpcReadOptions options_;
-  std::vector<bool> field_inclusion_mask_;
-
-  bool have_read_initial_dictionaries_ = false;
-
-  // Flag to set in case where we fail to observe all dictionaries in a stream,
-  // and so the reader should not attempt to parse any messages
-  bool empty_stream_ = false;
-
-  ReadStats stats_;
-
-  DictionaryMemo dictionary_memo_;
-  std::shared_ptr<Schema> schema_, out_schema_;
-
-  bool swap_endian_;
 };
 
 // ----------------------------------------------------------------------
@@ -1013,8 +1131,9 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     std::unique_ptr<MessageReader> message_reader, const IpcReadOptions& options) {
   // Private ctor
-  auto result = std::make_shared<RecordBatchStreamReaderImpl>();
-  RETURN_NOT_OK(result->Open(std::move(message_reader), options));
+  auto result =
+      std::make_shared<RecordBatchStreamReaderImpl>(std::move(message_reader), options);
+  RETURN_NOT_OK(result->Init());
   return result;
 }
 
@@ -1614,8 +1733,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       // swap endian in a set of ArrayData if necessary (swap_endian == true)
       if (context.swap_endian) {
         for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-          ARROW_ASSIGN_OR_RAISE(filtered_columns[i], arrow::internal::SwapEndianArrayData(
-                                                         filtered_columns[i]));
+          ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
+                                arrow::internal::SwapEndianArrayData(
+                                    filtered_columns[i], context.options.memory_pool));
         }
       }
       return RecordBatch::Make(std::move(filtered_schema), length,
@@ -1810,6 +1930,21 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
       .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
+Result<RecordBatchVector> RecordBatchFileReader::ToRecordBatches() {
+  RecordBatchVector batches;
+  const auto n = num_record_batches();
+  for (int i = 0; i < n; ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, ReadRecordBatch(i));
+    batches.emplace_back(std::move(batch));
+  }
+  return batches;
+}
+
+Result<std::shared_ptr<Table>> RecordBatchFileReader::ToTable() {
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
+  return Table::FromRecordBatches(schema(), std::move(batches));
+}
+
 Future<SelectiveIpcFileRecordBatchGenerator::Item>
 SelectiveIpcFileRecordBatchGenerator::operator()() {
   int index = index_++;
@@ -1903,50 +2038,26 @@ Status Listener::OnEOS() { return Status::OK(); }
 
 Status Listener::OnSchemaDecoded(std::shared_ptr<Schema> schema) { return Status::OK(); }
 
+Status Listener::OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                                 std::shared_ptr<Schema> filtered_schema) {
+  return OnSchemaDecoded(std::move(schema));
+}
+
 Status Listener::OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) {
   return Status::NotImplemented("OnRecordBatchDecoded() callback isn't implemented");
 }
 
-class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
- private:
-  enum State {
-    SCHEMA,
-    INITIAL_DICTIONARIES,
-    RECORD_BATCHES,
-    EOS,
-  };
+Status Listener::OnRecordBatchWithMetadataDecoded(
+    RecordBatchWithMetadata record_batch_with_metadata) {
+  return OnRecordBatchDecoded(std::move(record_batch_with_metadata.batch));
+}
 
+class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
  public:
   explicit StreamDecoderImpl(std::shared_ptr<Listener> listener, IpcReadOptions options)
-      : listener_(std::move(listener)),
-        options_(std::move(options)),
-        state_(State::SCHEMA),
+      : StreamDecoderInternal(std::move(listener), options),
         message_decoder_(std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
-                         options_.memory_pool),
-        n_required_dictionaries_(0) {}
-
-  Status OnMessageDecoded(std::unique_ptr<Message> message) override {
-    ++stats_.num_messages;
-    switch (state_) {
-      case State::SCHEMA:
-        ARROW_RETURN_NOT_OK(OnSchemaMessageDecoded(std::move(message)));
-        break;
-      case State::INITIAL_DICTIONARIES:
-        ARROW_RETURN_NOT_OK(OnInitialDictionaryMessageDecoded(std::move(message)));
-        break;
-      case State::RECORD_BATCHES:
-        ARROW_RETURN_NOT_OK(OnRecordBatchMessageDecoded(std::move(message)));
-        break;
-      case State::EOS:
-        break;
-    }
-    return Status::OK();
-  }
-
-  Status OnEOS() override {
-    state_ = State::EOS;
-    return listener_->OnEOS();
-  }
+                         options.memory_pool) {}
 
   Status Consume(const uint8_t* data, int64_t size) {
     return message_decoder_.Consume(data, size);
@@ -1956,101 +2067,90 @@ class StreamDecoder::StreamDecoderImpl : public MessageDecoderListener {
     return message_decoder_.Consume(std::move(buffer));
   }
 
-  std::shared_ptr<Schema> schema() const { return out_schema_; }
-
   int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
-  ReadStats stats() const { return stats_; }
+  const MessageDecoder* message_decoder() const { return &message_decoder_; }
 
  private:
-  Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
-    RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
-                                      &out_schema_, &field_inclusion_mask_,
-                                      &swap_endian_));
-
-    n_required_dictionaries_ = dictionary_memo_.fields().num_fields();
-    if (n_required_dictionaries_ == 0) {
-      state_ = State::RECORD_BATCHES;
-      RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
-    } else {
-      state_ = State::INITIAL_DICTIONARIES;
-    }
-    return Status::OK();
-  }
-
-  Status OnInitialDictionaryMessageDecoded(std::unique_ptr<Message> message) {
-    if (message->type() != MessageType::DICTIONARY_BATCH) {
-      return Status::Invalid("IPC stream did not have the expected number (",
-                             dictionary_memo_.fields().num_fields(),
-                             ") of dictionaries at the start of the stream");
-    }
-    RETURN_NOT_OK(ReadDictionary(*message));
-    n_required_dictionaries_--;
-    if (n_required_dictionaries_ == 0) {
-      state_ = State::RECORD_BATCHES;
-      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
-    }
-    return Status::OK();
-  }
-
-  Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
-    if (message->type() == MessageType::DICTIONARY_BATCH) {
-      return ReadDictionary(*message);
-    } else {
-      CHECK_HAS_BODY(*message);
-      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-      IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-      ARROW_ASSIGN_OR_RAISE(
-          auto batch_with_metadata,
-          ReadRecordBatchInternal(*message->metadata(), schema_, field_inclusion_mask_,
-                                  context, reader.get()));
-      ++stats_.num_record_batches;
-      return listener_->OnRecordBatchDecoded(std::move(batch_with_metadata.batch));
-    }
-  }
-
-  // Read dictionary from dictionary batch
-  Status ReadDictionary(const Message& message) {
-    DictionaryKind kind;
-    IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
-    ++stats_.num_dictionary_batches;
-    switch (kind) {
-      case DictionaryKind::New:
-        break;
-      case DictionaryKind::Delta:
-        ++stats_.num_dictionary_deltas;
-        break;
-      case DictionaryKind::Replacement:
-        ++stats_.num_replaced_dictionaries;
-        break;
-    }
-    return Status::OK();
-  }
-
-  std::shared_ptr<Listener> listener_;
-  const IpcReadOptions options_;
-  State state_;
   MessageDecoder message_decoder_;
-  std::vector<bool> field_inclusion_mask_;
-  int n_required_dictionaries_;
-  DictionaryMemo dictionary_memo_;
-  std::shared_ptr<Schema> schema_, out_schema_;
-  ReadStats stats_;
-  bool swap_endian_;
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {
-  impl_.reset(new StreamDecoderImpl(std::move(listener), options));
+  impl_ = std::make_unique<StreamDecoderImpl>(std::move(listener), options);
 }
 
 StreamDecoder::~StreamDecoder() {}
 
 Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
-  return impl_->Consume(data, size);
+  while (size > 0) {
+    const auto next_required_size = impl_->next_required_size();
+    if (next_required_size == 0) {
+      break;
+    }
+    if (size < next_required_size) {
+      break;
+    }
+    ARROW_RETURN_NOT_OK(impl_->Consume(data, next_required_size));
+    data += next_required_size;
+    size -= next_required_size;
+  }
+  if (size > 0) {
+    return impl_->Consume(data, size);
+  } else {
+    return arrow::Status::OK();
+  }
 }
+
 Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
-  return impl_->Consume(std::move(buffer));
+  if (buffer->size() == 0) {
+    return arrow::Status::OK();
+  }
+  if (impl_->next_required_size() == 0 || buffer->size() <= impl_->next_required_size()) {
+    return impl_->Consume(std::move(buffer));
+  } else {
+    int64_t offset = 0;
+    while (true) {
+      const auto next_required_size = impl_->next_required_size();
+      if (next_required_size == 0) {
+        break;
+      }
+      if (buffer->size() - offset <= next_required_size) {
+        break;
+      }
+      if (buffer->is_cpu()) {
+        switch (impl_->message_decoder()->state()) {
+          case MessageDecoder::State::INITIAL:
+          case MessageDecoder::State::METADATA_LENGTH:
+            // We don't need to pass a sliced buffer because
+            // MessageDecoder doesn't keep reference of the given
+            // buffer on these states.
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(buffer->data() + offset, next_required_size));
+            break;
+          default:
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+            break;
+        }
+      } else {
+        ARROW_RETURN_NOT_OK(
+            impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+      }
+      offset += next_required_size;
+    }
+    if (buffer->size() - offset == 0) {
+      return arrow::Status::OK();
+    } else if (offset == 0) {
+      return impl_->Consume(std::move(buffer));
+    } else {
+      return impl_->Consume(SliceBuffer(std::move(buffer), offset));
+    }
+  }
+}
+
+Status StreamDecoder::Reset() {
+  impl_ = std::make_unique<StreamDecoderImpl>(impl_->listener(), impl_->options());
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }

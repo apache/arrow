@@ -21,7 +21,7 @@ namespace Apache.Arrow.Flight.Client
 {
     public class FlightClientRecordBatchStreamReader : FlightRecordBatchStreamReader
     {
-        internal FlightClientRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(flightDataStream)
+        internal FlightClientRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream) : base(flightDataStream)
         {
         }
     }

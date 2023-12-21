@@ -24,19 +24,19 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	arrutils "github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	arrutils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -304,7 +304,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettings(encoding parquet.En
 	}
 	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, nil, nil)
-	// behavior should be independant of the number of calls to Close
+	// behavior should be independent of the number of calls to Close
 	writer.Close()
 	writer.Close()
 }
@@ -321,7 +321,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettingsSpaced(encoding parq
 	}
 	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValuesSpaced(writer, nil, nil, validBits, 0)
-	// behavior should be independant from the number of close calls
+	// behavior should be independent from the number of close calls
 	writer.Close()
 	writer.Close()
 }

@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/encoded"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
-	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/encoded"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 // RunEndEncoded represents an array containing two children:
@@ -150,19 +150,19 @@ func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
 	case *Int16:
 		for _, v := range e.Int16Values()[physOffset : physOffset+physLength] {
 			v -= int16(r.data.offset)
-			v = int16(utils.MinInt(int(v), r.data.length))
+			v = int16(utils.Min(int(v), r.data.length))
 			bldr.(*Int16Builder).Append(v)
 		}
 	case *Int32:
 		for _, v := range e.Int32Values()[physOffset : physOffset+physLength] {
 			v -= int32(r.data.offset)
-			v = int32(utils.MinInt(int(v), r.data.length))
+			v = int32(utils.Min(int(v), r.data.length))
 			bldr.(*Int32Builder).Append(v)
 		}
 	case *Int64:
 		for _, v := range e.Int64Values()[physOffset : physOffset+physLength] {
 			v -= int64(r.data.offset)
-			v = int64(utils.MinInt(int(v), r.data.length))
+			v = int64(utils.Min(int(v), r.data.length))
 			bldr.(*Int64Builder).Append(v)
 		}
 	}
@@ -355,23 +355,33 @@ func (b *RunEndEncodedBuilder) finishRun() {
 }
 
 func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
+
 func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendRuns(runs []uint64) {
 	for _, r := range runs {
 		b.finishRun()
 		b.addLength(r)
 	}
 }
+
 func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendNull() {
 	b.finishRun()
 	b.values.AppendNull()
 	b.addLength(1)
+}
+
+func (b *RunEndEncodedBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
 }
 
 func (b *RunEndEncodedBuilder) NullN() int {
@@ -380,6 +390,10 @@ func (b *RunEndEncodedBuilder) NullN() int {
 
 func (b *RunEndEncodedBuilder) AppendEmptyValue() {
 	b.AppendNull()
+}
+
+func (b *RunEndEncodedBuilder) AppendEmptyValues(n int) {
+	b.AppendNulls(n)
 }
 
 func (b *RunEndEncodedBuilder) Reserve(n int) {
@@ -410,7 +424,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	defer runEnds.Release()
 
 	data = NewData(
-		b.dt, b.length, []*memory.Buffer{nil},
+		b.dt, b.length, []*memory.Buffer{},
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return

@@ -40,17 +40,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -83,6 +82,8 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"Z":   arrow.BinaryTypes.LargeBinary,
 	"u":   arrow.BinaryTypes.String,
 	"U":   arrow.BinaryTypes.LargeString,
+	"vz":  arrow.BinaryTypes.BinaryView,
+	"vu":  arrow.BinaryTypes.StringView,
 	"tdD": arrow.FixedWidthTypes.Date32,
 	"tdm": arrow.FixedWidthTypes.Date64,
 	"tts": arrow.FixedWidthTypes.Time32s,
@@ -152,13 +153,8 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	var childFields []arrow.Field
 	if schema.n_children > 0 {
 		// call ourselves recursively if there are children.
-		var schemaChildren []*CArrowSchema
 		// set up a slice to reference safely
-		s := (*reflect.SliceHeader)(unsafe.Pointer(&schemaChildren))
-		s.Data = uintptr(unsafe.Pointer(schema.children))
-		s.Len = int(schema.n_children)
-		s.Cap = int(schema.n_children)
-
+		schemaChildren := unsafe.Slice(schema.children, schema.n_children)
 		childFields = make([]arrow.Field, schema.n_children)
 		for i, c := range schemaChildren {
 			childFields[i], err = importSchema((*CArrowSchema)(c))
@@ -197,7 +193,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 
 	// handle types with params via colon
 	typs := strings.Split(f, ":")
-	defaulttz := "UTC"
+	defaulttz := ""
 	switch typs[0] {
 	case "tss":
 		tz := typs[1]
@@ -269,6 +265,12 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			dt = arrow.ListOfField(childFields[0])
 		case 'L': // large list
 			dt = arrow.LargeListOfField(childFields[0])
+		case 'v': // list view/large list view
+			if f[2] == 'l' {
+				dt = arrow.ListViewOfField(childFields[0])
+			} else if f[2] == 'L' {
+				dt = arrow.LargeListViewOfField(childFields[0])
+			}
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
@@ -278,6 +280,11 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			dt = arrow.FixedSizeListOfField(int32(listSize), childFields[0])
 		case 's': // struct
 			dt = arrow.StructOf(childFields...)
+		case 'r': // run-end encoded
+			if len(childFields) != 2 {
+				return ret, fmt.Errorf("%w: run-end encoded arrays must have 2 children", arrow.ErrInvalid)
+			}
+			dt = arrow.RunEndEncodedOf(childFields[0].Type, childFields[1].Type)
 		case 'm': // map type is basically a list of structs.
 			st := childFields[0].Type.(*arrow.StructType)
 			dt = arrow.MapOf(st.Field(0).Type, st.Field(1).Type)
@@ -336,21 +343,18 @@ type cimporter struct {
 	parent   *cimporter
 	children []cimporter
 	cbuffers []*C.void
+
+	alloc *importAllocator
 }
 
 func (imp *cimporter) importChild(parent *cimporter, src *CArrowArray) error {
-	imp.parent = parent
-	return imp.doImport(src)
+	imp.parent, imp.arr, imp.alloc = parent, src, parent.alloc
+	return imp.doImport()
 }
 
 // import any child arrays for lists, structs, and so on.
 func (imp *cimporter) doImportChildren() error {
-	var children []*CArrowArray
-	// create a proper slice for our children
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
-	s.Data = uintptr(unsafe.Pointer(imp.arr.children))
-	s.Len = int(imp.arr.n_children)
-	s.Cap = int(imp.arr.n_children)
+	children := unsafe.Slice(imp.arr.children, imp.arr.n_children)
 
 	if len(children) > 0 {
 		imp.children = make([]cimporter, len(children))
@@ -368,6 +372,16 @@ func (imp *cimporter) doImportChildren() error {
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
+	case arrow.LIST_VIEW: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.ListViewType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+	case arrow.LARGE_LIST_VIEW: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.LargeListViewType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
 	case arrow.FIXED_SIZE_LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.FixedSizeListType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
@@ -378,6 +392,16 @@ func (imp *cimporter) doImportChildren() error {
 		for i, c := range children {
 			imp.children[i].dt = st.Field(i).Type
 			imp.children[i].importChild(imp, c)
+		}
+	case arrow.RUN_END_ENCODED: // import run-ends and values
+		st := imp.dt.(*arrow.RunEndEncodedType)
+		imp.children[0].dt = st.RunEnds()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+		imp.children[1].dt = st.Encoded()
+		if err := imp.children[1].importChild(imp, children[1]); err != nil {
+			return err
 		}
 	case arrow.MAP: // only one child to import, it's a struct array
 		imp.children[0].dt = imp.dt.(*arrow.MapType).Elem()
@@ -403,26 +427,44 @@ func (imp *cimporter) doImportChildren() error {
 
 func (imp *cimporter) initarr() {
 	imp.arr = C.get_arr()
+	if imp.alloc == nil {
+		imp.alloc = &importAllocator{arr: imp.arr}
+	}
+}
+
+func (imp *cimporter) doImportArr(src *CArrowArray) error {
+	imp.arr = C.get_arr()
+	C.ArrowArrayMove(src, imp.arr)
+	if imp.alloc == nil {
+		imp.alloc = &importAllocator{arr: imp.arr}
+	}
+
+	// we tie the releasing of the array to when the buffers are
+	// cleaned up, so if there are no buffers that we've imported
+	// such as for a null array or a nested array with no bitmap
+	// and only null columns, then we can release the CArrowArray
+	// struct immediately after import, since we have no imported
+	// memory that we have to track the lifetime of.
+	defer func() {
+		if imp.alloc.bufCount == 0 {
+			C.ArrowArrayRelease(imp.arr)
+		}
+	}()
+
+	return imp.doImport()
 }
 
 // import is called recursively as needed for importing an array and its children
 // in order to generate array.Data objects
-func (imp *cimporter) doImport(src *CArrowArray) error {
-	imp.initarr()
+func (imp *cimporter) doImport() error {
 	// move the array from the src object passed in to the one referenced by
 	// this importer. That way we can set up a finalizer on the created
 	// arrow.ArrayData object so we clean up our Array's memory when garbage collected.
-	C.ArrowArrayMove(src, imp.arr)
 	defer func(arr *CArrowArray) {
-		if imp.data != nil {
-			runtime.SetFinalizer(imp.data, func(arrow.ArrayData) {
-				defer C.free(unsafe.Pointer(arr))
-				C.ArrowArrayRelease(arr)
-				if C.ArrowArrayIsReleased(arr) != 1 {
-					panic("did not release C mem")
-				}
-			})
-		} else {
+		// this should only occur in the case of an error happening
+		// during import, at which point we need to clean up the
+		// ArrowArray struct we allocated.
+		if imp.data == nil {
 			C.free(unsafe.Pointer(arr))
 		}
 	}(imp.arr)
@@ -430,6 +472,12 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 	// import any children
 	if err := imp.doImportChildren(); err != nil {
 		return err
+	}
+
+	for _, c := range imp.children {
+		if c.data != nil {
+			defer c.data.Release()
+		}
 	}
 
 	if imp.arr.n_buffers > 0 {
@@ -443,6 +491,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		if err := imp.checkNoChildren(); err != nil {
 			return err
 		}
+
 		imp.data = array.NewData(dt, int(imp.arr.length), nil, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	case arrow.FixedWidthDataType:
 		return imp.importFixedSizePrimitive()
@@ -454,10 +503,18 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.LargeBinaryType:
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
+	case *arrow.StringViewType:
+		return imp.importBinaryViewLike()
+	case *arrow.BinaryViewType:
+		return imp.importBinaryViewLike()
 	case *arrow.ListType:
 		return imp.importListLike()
 	case *arrow.LargeListType:
 		return imp.importListLike()
+	case *arrow.ListViewType:
+		return imp.importListViewLike()
+	case *arrow.LargeListViewType:
+		return imp.importListViewLike()
 	case *arrow.MapType:
 		return imp.importListLike()
 	case *arrow.FixedSizeListType:
@@ -473,6 +530,9 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		if err != nil {
 			return err
 		}
+		if nulls != nil {
+			defer nulls.Release()
+		}
 
 		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	case *arrow.StructType:
@@ -484,6 +544,9 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		if err != nil {
 			return err
 		}
+		if nulls != nil {
+			defer nulls.Release()
+		}
 
 		children := make([]arrow.ArrayData, len(imp.children))
 		for i := range imp.children {
@@ -491,6 +554,17 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		}
 
 		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, children, int(imp.arr.null_count), int(imp.arr.offset))
+	case *arrow.RunEndEncodedType:
+		if err := imp.checkNumBuffers(0); err != nil {
+			return err
+		}
+
+		if len(imp.children) != 2 {
+			return fmt.Errorf("%w: run-end encoded array should have 2 children", arrow.ErrInvalid)
+		}
+
+		children := []arrow.ArrayData{imp.children[0].data, imp.children[1].data}
+		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{}, children, int(imp.arr.null_count), int(imp.arr.offset))
 	case *arrow.DenseUnionType:
 		if err := imp.checkNoNulls(); err != nil {
 			return err
@@ -503,9 +577,11 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			if bufs[1], err = imp.importFixedSizeBuffer(1, 1); err != nil {
 				return err
 			}
+			defer bufs[1].Release()
 			if bufs[2], err = imp.importFixedSizeBuffer(2, int64(arrow.Int32SizeBytes)); err != nil {
 				return err
 			}
+			defer bufs[2].Release()
 		} else {
 			if err := imp.checkNumBuffers(2); err != nil {
 				return err
@@ -514,9 +590,11 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			if bufs[1], err = imp.importFixedSizeBuffer(0, 1); err != nil {
 				return err
 			}
+			defer bufs[1].Release()
 			if bufs[2], err = imp.importFixedSizeBuffer(1, int64(arrow.Int32SizeBytes)); err != nil {
 				return err
 			}
+			defer bufs[2].Release()
 		}
 
 		children := make([]arrow.ArrayData, len(imp.children))
@@ -536,6 +614,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			if buf, err = imp.importFixedSizeBuffer(1, 1); err != nil {
 				return err
 			}
+			defer buf.Release()
 		} else {
 			if err := imp.checkNumBuffers(1); err != nil {
 				return err
@@ -544,6 +623,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 			if buf, err = imp.importFixedSizeBuffer(0, 1); err != nil {
 				return err
 			}
+			defer buf.Release()
 		}
 
 		children := make([]arrow.ArrayData, len(imp.children))
@@ -570,14 +650,17 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
 	var (
 		nulls, offsets, values *memory.Buffer
 	)
-
 	if nulls, err = imp.importNullBitmap(0); err != nil {
 		return
+	}
+	if nulls != nil {
+		defer nulls.Release()
 	}
 
 	if offsets, err = imp.importOffsetsBuffer(1, offsetByteWidth); err != nil {
 		return
 	}
+	defer offsets.Release()
 
 	var nvals int64
 	switch offsetByteWidth {
@@ -591,7 +674,36 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
 	if values, err = imp.importVariableValuesBuffer(2, 1, nvals); err != nil {
 		return
 	}
+	defer values.Release()
+
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
+	return
+}
+
+func (imp *cimporter) importBinaryViewLike() (err error) {
+	if err = imp.checkNoChildren(); err != nil {
+		return
+	}
+
+	buffers := make([]*memory.Buffer, len(imp.cbuffers)-1)
+	defer memory.ReleaseBuffers(buffers)
+
+	if buffers[0], err = imp.importNullBitmap(0); err != nil {
+		return
+	}
+
+	if buffers[1], err = imp.importFixedSizeBuffer(1, int64(arrow.ViewHeaderSizeBytes)); err != nil {
+		return
+	}
+
+	dataBufferSizes := unsafe.Slice((*int64)(unsafe.Pointer(imp.cbuffers[len(buffers)])), len(buffers)-2)
+	for i, size := range dataBufferSizes {
+		if buffers[i+2], err = imp.importVariableValuesBuffer(i+2, 1, size); err != nil {
+			return
+		}
+	}
+
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), buffers, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	return
 }
 
@@ -608,13 +720,56 @@ func (imp *cimporter) importListLike() (err error) {
 	if nulls, err = imp.importNullBitmap(0); err != nil {
 		return
 	}
+	if nulls != nil {
+		defer nulls.Release()
+	}
 
 	offsetSize := imp.dt.Layout().Buffers[1].ByteWidth
 	if offsets, err = imp.importOffsetsBuffer(1, int64(offsetSize)); err != nil {
 		return
 	}
+	if offsets != nil {
+		defer offsets.Release()
+	}
 
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
+	return
+}
+
+func (imp *cimporter) importListViewLike() (err error) {
+	offsetSize := int64(imp.dt.Layout().Buffers[1].ByteWidth)
+
+	if err = imp.checkNumChildren(1); err != nil {
+		return err
+	}
+
+	if err = imp.checkNumBuffers(3); err != nil {
+		return err
+	}
+
+	var nulls, offsets, sizes *memory.Buffer
+	if nulls, err = imp.importNullBitmap(0); err != nil {
+		return
+	}
+	if nulls != nil {
+		defer nulls.Release()
+	}
+
+	if offsets, err = imp.importFixedSizeBuffer(1, offsetSize); err != nil {
+		return
+	}
+	if offsets != nil {
+		defer offsets.Release()
+	}
+
+	if sizes, err = imp.importFixedSizeBuffer(2, offsetSize); err != nil {
+		return
+	}
+	if sizes != nil {
+		defer sizes.Release()
+	}
+
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, sizes}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return
 }
 
@@ -651,12 +806,19 @@ func (imp *cimporter) importFixedSizePrimitive() error {
 	var dict *array.Data
 	if dt, ok := imp.dt.(*arrow.DictionaryType); ok {
 		dictImp := &cimporter{dt: dt.ValueType}
-		if err := dictImp.doImport(imp.arr.dictionary); err != nil {
+		if err := dictImp.importChild(imp, imp.arr.dictionary); err != nil {
 			return err
 		}
 		defer dictImp.data.Release()
 
 		dict = dictImp.data.(*array.Data)
+	}
+
+	if nulls != nil {
+		defer nulls.Release()
+	}
+	if values != nil {
+		defer values.Release()
 	}
 
 	imp.data = array.NewDataWithDictionary(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, values}, int(imp.arr.null_count), int(imp.arr.offset), dict)
@@ -695,9 +857,9 @@ func (imp *cimporter) importBuffer(bufferID int, sz int64) (*memory.Buffer, erro
 		}
 		return memory.NewBufferBytes([]byte{}), nil
 	}
-	const maxLen = 0x7fffffff
-	data := (*[maxLen]byte)(unsafe.Pointer(imp.cbuffers[bufferID]))[:sz:sz]
-	return memory.NewBufferBytes(data), nil
+	data := unsafe.Slice((*byte)(unsafe.Pointer(imp.cbuffers[bufferID])), sz)
+	imp.alloc.addBuffer()
+	return memory.NewBufferWithAllocator(data, imp.alloc), nil
 }
 
 func (imp *cimporter) importBitsBuffer(bufferID int) (*memory.Buffer, error) {
@@ -734,7 +896,7 @@ func (imp *cimporter) importVariableValuesBuffer(bufferID int, byteWidth, nvals 
 
 func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, err error) {
 	imp = &cimporter{dt: dt}
-	err = imp.doImport(arr)
+	err = imp.doImportArr(arr)
 	return
 }
 

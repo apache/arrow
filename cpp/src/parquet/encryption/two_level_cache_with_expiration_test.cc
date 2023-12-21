@@ -25,9 +25,7 @@
 
 #include "parquet/encryption/two_level_cache_with_expiration.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using ::arrow::SleepFor;
 
@@ -172,6 +170,4 @@ TEST_F(TwoLevelCacheWithExpirationTest, MultiThread) {
   clean_thread.join();
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

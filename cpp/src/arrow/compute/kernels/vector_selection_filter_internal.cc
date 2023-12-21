@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -26,6 +27,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/vector_selection_filter_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
@@ -48,8 +50,7 @@ using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::OptionalBitBlockCounter;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -84,13 +85,29 @@ int64_t GetBitmapFilterOutputSize(const ArraySpan& filter,
   return output_size;
 }
 
-// TODO(pr-35750): Handle run-end encoded filters in compute kernels
+int64_t GetREEFilterOutputSize(const ArraySpan& filter,
+                               FilterOptions::NullSelectionBehavior null_selection) {
+  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
+  DCHECK_EQ(ree_type.value_type()->id(), Type::BOOL);
+  int64_t output_size = 0;
+  VisitPlainxREEFilterOutputSegments(
+      filter, /*filter_may_have_nulls=*/true, null_selection,
+      [&output_size](int64_t, int64_t segment_length, bool) {
+        output_size += segment_length;
+        return true;
+      });
+  return output_size;
+}
 
 }  // namespace
 
 int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
-  return GetBitmapFilterOutputSize(filter, null_selection);
+  if (filter.type->id() == Type::BOOL) {
+    return GetBitmapFilterOutputSize(filter, null_selection);
+  }
+  DCHECK_EQ(filter.type->id(), Type::RUN_END_ENCODED);
+  return GetREEFilterOutputSize(filter, null_selection);
 }
 
 namespace {
@@ -146,10 +163,7 @@ class PrimitiveFilterImpl {
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
-        filter_is_valid_(filter.buffers[0].data),
-        filter_data_(filter.buffers[1].data),
-        filter_null_count_(filter.null_count),
-        filter_offset_(filter.offset),
+        filter_(filter),
         null_selection_(null_selection) {
     if (values.type->id() != Type::BOOL) {
       // No offset applied for boolean because it's a bitmap
@@ -157,7 +171,7 @@ class PrimitiveFilterImpl {
     }
 
     if (out_arr->buffers[0] != nullptr) {
-      // May not be allocated if neither filter nor values contains nulls
+      // May be unallocated if neither filter nor values contain nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
@@ -166,24 +180,83 @@ class PrimitiveFilterImpl {
     out_position_ = 0;
   }
 
-  void ExecNonNull() {
-    // Fast filter when values and filter are not null
-    ::arrow::internal::VisitSetBitRunsVoid(
-        filter_data_, filter_offset_, values_length_,
-        [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
+  void ExecREEFilter() {
+    if (filter_.child_data[1].null_count == 0 && values_null_count_ == 0) {
+      DCHECK(!out_is_valid_);
+      // Fastest: no nulls in either filter or values
+      return VisitPlainxREEFilterOutputSegments(
+          filter_, /*filter_may_have_nulls=*/false, null_selection_,
+          [&](int64_t position, int64_t segment_length, bool filter_valid) {
+            // Fastest path: all values in range are included and not null
+            WriteValueSegment(position, segment_length);
+            DCHECK(filter_valid);
+            return true;
+          });
+    }
+    if (values_is_valid_) {
+      DCHECK(out_is_valid_);
+      // Slower path: values can be null, so the validity bitmap should be copied
+      return VisitPlainxREEFilterOutputSegments(
+          filter_, /*filter_may_have_nulls=*/true, null_selection_,
+          [&](int64_t position, int64_t segment_length, bool filter_valid) {
+            if (filter_valid) {
+              CopyBitmap(values_is_valid_, values_offset_ + position, segment_length,
+                         out_is_valid_, out_offset_ + out_position_);
+              WriteValueSegment(position, segment_length);
+            } else {
+              bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
+                                  segment_length, false);
+              memset(out_data_ + out_offset_ + out_position_, 0,
+                     segment_length * sizeof(T));
+              out_position_ += segment_length;
+            }
+            return true;
+          });
+    }
+    // Faster path: only write to out_is_valid_ if filter contains nulls and
+    // null_selection is EMIT_NULL
+    if (out_is_valid_) {
+      // Set all to valid, so only if nulls are produced by EMIT_NULL, we need
+      // to set out_is_valid[i] to false.
+      bit_util::SetBitsTo(out_is_valid_, out_offset_, out_length_, true);
+    }
+    return VisitPlainxREEFilterOutputSegments(
+        filter_, /*filter_may_have_nulls=*/true, null_selection_,
+        [&](int64_t position, int64_t segment_length, bool filter_valid) {
+          if (filter_valid) {
+            WriteValueSegment(position, segment_length);
+          } else {
+            bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
+                                segment_length, false);
+            memset(out_data_ + out_offset_ + out_position_, 0,
+                   segment_length * sizeof(T));
+            out_position_ += segment_length;
+          }
+          return true;
+        });
   }
 
   void Exec() {
-    if (filter_null_count_ == 0 && values_null_count_ == 0) {
-      return ExecNonNull();
+    if (filter_.type->id() == Type::RUN_END_ENCODED) {
+      return ExecREEFilter();
+    }
+    const auto* filter_is_valid = filter_.buffers[0].data;
+    const auto* filter_data = filter_.buffers[1].data;
+    const auto filter_offset = filter_.offset;
+    if (filter_.null_count == 0 && values_null_count_ == 0) {
+      // Fast filter when values and filter are not null
+      ::arrow::internal::VisitSetBitRunsVoid(
+          filter_data, filter_.offset, values_length_,
+          [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
+      return;
     }
 
     // Bit counters used for both null_selection behaviors
-    DropNullCounter drop_null_counter(filter_is_valid_, filter_data_, filter_offset_,
+    DropNullCounter drop_null_counter(filter_is_valid, filter_data, filter_offset,
                                       values_length_);
     OptionalBitBlockCounter data_counter(values_is_valid_, values_offset_,
                                          values_length_);
-    OptionalBitBlockCounter filter_valid_counter(filter_is_valid_, filter_offset_,
+    OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
                                                  values_length_);
 
     auto WriteNotNull = [&](int64_t index) {
@@ -228,7 +301,7 @@ class PrimitiveFilterImpl {
           if (filter_valid_block.AllSet()) {
             // Filter is non-null but some values are false
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 WriteNotNull(in_position);
               }
               ++in_position;
@@ -236,8 +309,8 @@ class PrimitiveFilterImpl {
           } else if (null_selection_ == FilterOptions::DROP) {
             // If any values are selected, they ARE NOT null
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 WriteNotNull(in_position);
               }
               ++in_position;
@@ -246,9 +319,9 @@ class PrimitiveFilterImpl {
             // Data values in this block are not null
             for (int64_t i = 0; i < filter_block.length; ++i) {
               const bool is_valid =
-                  bit_util::GetBit(filter_is_valid_, filter_offset_ + in_position);
+                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
               if (is_valid &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 // Filter slot is non-null and set
                 WriteNotNull(in_position);
               } else if (!is_valid) {
@@ -264,7 +337,7 @@ class PrimitiveFilterImpl {
           if (filter_valid_block.AllSet()) {
             // Filter is non-null but some values are false
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 WriteMaybeNull(in_position);
               }
               ++in_position;
@@ -272,8 +345,8 @@ class PrimitiveFilterImpl {
           } else if (null_selection_ == FilterOptions::DROP) {
             // If any values are selected, they ARE NOT null
             for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_is_valid_, filter_offset_ + in_position) &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 WriteMaybeNull(in_position);
               }
               ++in_position;
@@ -282,9 +355,9 @@ class PrimitiveFilterImpl {
             // Data values in this block are not null
             for (int64_t i = 0; i < filter_block.length; ++i) {
               const bool is_valid =
-                  bit_util::GetBit(filter_is_valid_, filter_offset_ + in_position);
+                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
               if (is_valid &&
-                  bit_util::GetBit(filter_data_, filter_offset_ + in_position)) {
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 // Filter slot is non-null and set
                 WriteMaybeNull(in_position);
               } else if (!is_valid) {
@@ -303,7 +376,7 @@ class PrimitiveFilterImpl {
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
   void WriteValue(int64_t in_position) {
-    out_data_[out_position_++] = values_data_[in_position];
+    out_data_[out_offset_ + out_position_++] = values_data_[in_position];
   }
 
   void WriteValueSegment(int64_t in_start, int64_t length) {
@@ -313,7 +386,7 @@ class PrimitiveFilterImpl {
 
   void WriteNull() {
     // Zero the memory
-    out_data_[out_position_++] = T{};
+    out_data_[out_offset_ + out_position_++] = T{};
   }
 
  private:
@@ -322,12 +395,9 @@ class PrimitiveFilterImpl {
   int64_t values_null_count_;
   int64_t values_offset_;
   int64_t values_length_;
-  const uint8_t* filter_is_valid_;
-  const uint8_t* filter_data_;
-  int64_t filter_null_count_;
-  int64_t filter_offset_;
+  const ArraySpan& filter_;
   FilterOptions::NullSelectionBehavior null_selection_;
-  uint8_t* out_is_valid_;
+  uint8_t* out_is_valid_ = NULLPTR;
   T* out_data_;
   int64_t out_offset_;
   int64_t out_length_;
@@ -357,6 +427,7 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
 Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& filter = batch[1].array;
+  const bool is_ree_filter = filter.type->id() == Type::RUN_END_ENCODED;
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
@@ -364,20 +435,23 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 
   ArrayData* out_arr = out->array_data().get();
 
+  const bool filter_null_count_is_zero =
+      is_ree_filter ? filter.child_data[1].null_count == 0 : filter.null_count == 0;
+
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+      (null_selection == FilterOptions::DROP || filter_null_count_is_zero)) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
   }
 
   // When neither the values nor filter is known to have any nulls, we will
-  // elect the optimized ExecNonNull path where there is no need to populate a
+  // elect the optimized non-null path where there is no need to populate a
   // validity bitmap.
-  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
+  const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
   const int bit_width = values.type->bit_width();
   RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, output_length, bit_width,
@@ -444,31 +518,44 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 
 // Optimized binary filter for the case where neither values nor filter have
 // nulls
-template <typename Type>
+template <typename ArrowType>
 Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
                                const ArraySpan& filter, int64_t output_length,
                                FilterOptions::NullSelectionBehavior null_selection,
                                ArrayData* out) {
-  using offset_type = typename Type::offset_type;
-  const auto filter_data = filter.buffers[1].data;
+  using offset_type = typename ArrowType::offset_type;
+  const bool is_ree_filter = filter.type->id() == Type::RUN_END_ENCODED;
 
   BINARY_FILTER_SETUP_COMMON();
 
-  RETURN_NOT_OK(arrow::internal::VisitSetBitRuns(
-      filter_data, filter.offset, filter.length, [&](int64_t position, int64_t length) {
-        // Bulk-append raw data
-        const offset_type run_data_bytes =
-            (raw_offsets[position + length] - raw_offsets[position]);
-        APPEND_RAW_DATA(raw_data + raw_offsets[position], run_data_bytes);
-        // Append offsets
-        offset_type cur_offset = raw_offsets[position];
-        for (int64_t i = 0; i < length; ++i) {
-          offset_builder.UnsafeAppend(offset);
-          offset += raw_offsets[i + position + 1] - cur_offset;
-          cur_offset = raw_offsets[i + position + 1];
-        }
-        return Status::OK();
-      }));
+  auto emit_segment = [&](int64_t position, int64_t length) {
+    // Bulk-append raw data
+    const offset_type run_data_bytes =
+        (raw_offsets[position + length] - raw_offsets[position]);
+    APPEND_RAW_DATA(raw_data + raw_offsets[position], run_data_bytes);
+    // Append offsets
+    for (int64_t i = 0; i < length; ++i) {
+      offset_builder.UnsafeAppend(offset);
+      offset += raw_offsets[i + position + 1] - raw_offsets[i + position];
+    }
+    return Status::OK();
+  };
+  if (is_ree_filter) {
+    Status status;
+    VisitPlainxREEFilterOutputSegments(
+        filter, /*filter_may_have_nulls=*/false, null_selection,
+        [&status, emit_segment = std::move(emit_segment)](
+            int64_t position, int64_t segment_length, bool filter_valid) {
+          DCHECK(filter_valid);
+          status = emit_segment(position, segment_length);
+          return status.ok();
+        });
+    RETURN_NOT_OK(std::move(status));
+  } else {
+    const auto filter_data = filter.buffers[1].data;
+    RETURN_NOT_OK(arrow::internal::VisitSetBitRuns(
+        filter_data, filter.offset, filter.length, std::move(emit_segment)));
+  }
 
   offset_builder.UnsafeAppend(offset);
   out->length = output_length;
@@ -476,164 +563,199 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
   return data_builder.Finish(&out->buffers[2]);
 }
 
-template <typename Type>
+template <typename ArrowType>
 Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
                         const ArraySpan& filter, int64_t output_length,
                         FilterOptions::NullSelectionBehavior null_selection,
                         ArrayData* out) {
-  using offset_type = typename Type::offset_type;
+  using offset_type = typename ArrowType::offset_type;
 
-  const auto filter_data = filter.buffers[1].data;
-  const uint8_t* filter_is_valid = filter.buffers[0].data;
-  const int64_t filter_offset = filter.offset;
+  const bool is_ree_filter = filter.type->id() == Type::RUN_END_ENCODED;
+
+  BINARY_FILTER_SETUP_COMMON();
 
   const uint8_t* values_is_valid = values.buffers[0].data;
   const int64_t values_offset = values.offset;
 
+  const int64_t out_offset = out->offset;
   uint8_t* out_is_valid = out->buffers[0]->mutable_data();
   // Zero bits and then only have to set valid values to true
-  bit_util::SetBitsTo(out_is_valid, 0, output_length, false);
-
-  // We use 3 block counters for fast scanning of the filter
-  //
-  // * values_valid_counter: for values null/not-null
-  // * filter_valid_counter: for filter null/not-null
-  // * filter_counter: for filter true/false
-  OptionalBitBlockCounter values_valid_counter(values_is_valid, values_offset,
-                                               values.length);
-  OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
-                                               filter.length);
-  BitBlockCounter filter_counter(filter_data, filter_offset, filter.length);
-
-  BINARY_FILTER_SETUP_COMMON();
+  bit_util::SetBitsTo(out_is_valid, out_offset, output_length, false);
 
   int64_t in_position = 0;
   int64_t out_position = 0;
-  while (in_position < filter.length) {
-    BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
-    BitBlockCount values_valid_block = values_valid_counter.NextWord();
-    BitBlockCount filter_block = filter_counter.NextWord();
-    if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
-      // For this exceedingly common case in low-selectivity filters we can
-      // skip further analysis of the data and move on to the next block.
-      in_position += filter_block.length;
-    } else if (filter_valid_block.AllSet()) {
-      // Simpler path: no filter values are null
-      if (filter_block.AllSet()) {
-        // Fastest path: filter values are all true and not null
-        if (values_valid_block.AllSet()) {
-          // The values aren't null either
-          bit_util::SetBitsTo(out_is_valid, out_position, filter_block.length, true);
-
-          // Bulk-append raw data
-          offset_type block_data_bytes =
-              (raw_offsets[in_position + filter_block.length] - raw_offsets[in_position]);
-          APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
-          // Append offsets
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            offset_builder.UnsafeAppend(offset);
-            offset += raw_offsets[in_position + 1] - raw_offsets[in_position];
-          }
-          out_position += filter_block.length;
-        } else {
-          // Some of the values in this block are null
-          for (int64_t i = 0; i < filter_block.length;
-               ++i, ++in_position, ++out_position) {
-            offset_builder.UnsafeAppend(offset);
-            if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-              bit_util::SetBit(out_is_valid, out_position);
-              APPEND_SINGLE_VALUE();
-            }
-          }
-        }
-      } else {  // !filter_block.AllSet()
-        // Some of the filter values are false, but all not null
-        if (values_valid_block.AllSet()) {
-          // All the values are not-null, so we can skip null checking for
-          // them
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
-              offset_builder.UnsafeAppend(offset);
-              bit_util::SetBit(out_is_valid, out_position++);
-              APPEND_SINGLE_VALUE();
-            }
-          }
-        } else {
-          // Some of the values in the block are null, so we have to check
-          // each one
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
-              offset_builder.UnsafeAppend(offset);
-              if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                bit_util::SetBit(out_is_valid, out_position);
-                APPEND_SINGLE_VALUE();
-              }
-              ++out_position;
-            }
-          }
-        }
-      }
-    } else {  // !filter_valid_block.AllSet()
-      // Some of the filter values are null, so we have to handle the DROP
-      // versus EMIT_NULL null selection behavior.
-      if (null_selection == FilterOptions::DROP) {
-        // Filter null values are treated as false.
-        if (values_valid_block.AllSet()) {
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
-                bit_util::GetBit(filter_data, filter_offset + in_position)) {
-              offset_builder.UnsafeAppend(offset);
-              bit_util::SetBit(out_is_valid, out_position++);
-              APPEND_SINGLE_VALUE();
-            }
-          }
-        } else {
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
-                bit_util::GetBit(filter_data, filter_offset + in_position)) {
-              offset_builder.UnsafeAppend(offset);
-              if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                bit_util::SetBit(out_is_valid, out_position);
-                APPEND_SINGLE_VALUE();
-              }
-              ++out_position;
-            }
+  if (is_ree_filter) {
+    auto emit_segment = [&](int64_t position, int64_t segment_length, bool filter_valid) {
+      in_position = position;
+      if (filter_valid) {
+        // Filter values are all true and not null
+        // Some of the values in the block may be null
+        for (int64_t i = 0; i < segment_length; ++i, ++in_position, ++out_position) {
+          offset_builder.UnsafeAppend(offset);
+          if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
+            bit_util::SetBit(out_is_valid, out_offset + out_position);
+            APPEND_SINGLE_VALUE();
           }
         }
       } else {
-        // EMIT_NULL
+        offset_builder.UnsafeAppend(segment_length, offset);
+        out_position += segment_length;
+      }
+      return Status::OK();
+    };
+    Status status;
+    VisitPlainxREEFilterOutputSegments(
+        filter, /*filter_may_have_nulls=*/true, null_selection,
+        [&status, emit_segment = std::move(emit_segment)](
+            int64_t position, int64_t segment_length, bool filter_valid) {
+          status = emit_segment(position, segment_length, filter_valid);
+          return status.ok();
+        });
+    RETURN_NOT_OK(std::move(status));
+  } else {
+    const auto filter_data = filter.buffers[1].data;
+    const uint8_t* filter_is_valid = filter.buffers[0].data;
+    const int64_t filter_offset = filter.offset;
 
-        // Filter null values are appended to output as null whether the
-        // value in the corresponding slot is valid or not
-        if (values_valid_block.AllSet()) {
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            const bool filter_not_null =
-                bit_util::GetBit(filter_is_valid, filter_offset + in_position);
-            if (filter_not_null &&
-                bit_util::GetBit(filter_data, filter_offset + in_position)) {
+    // We use 3 block counters for fast scanning of the filter
+    //
+    // * values_valid_counter: for values null/not-null
+    // * filter_valid_counter: for filter null/not-null
+    // * filter_counter: for filter true/false
+    OptionalBitBlockCounter values_valid_counter(values_is_valid, values_offset,
+                                                 values.length);
+    OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
+                                                 filter.length);
+    BitBlockCounter filter_counter(filter_data, filter_offset, filter.length);
+
+    while (in_position < filter.length) {
+      BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
+      BitBlockCount values_valid_block = values_valid_counter.NextWord();
+      BitBlockCount filter_block = filter_counter.NextWord();
+      if (filter_block.NoneSet() && null_selection == FilterOptions::DROP) {
+        // For this exceedingly common case in low-selectivity filters we can
+        // skip further analysis of the data and move on to the next block.
+        in_position += filter_block.length;
+      } else if (filter_valid_block.AllSet()) {
+        // Simpler path: no filter values are null
+        if (filter_block.AllSet()) {
+          // Fastest path: filter values are all true and not null
+          if (values_valid_block.AllSet()) {
+            // The values aren't null either
+            bit_util::SetBitsTo(out_is_valid, out_offset + out_position,
+                                filter_block.length, true);
+
+            // Bulk-append raw data
+            offset_type block_data_bytes =
+                (raw_offsets[in_position + filter_block.length] -
+                 raw_offsets[in_position]);
+            APPEND_RAW_DATA(raw_data + raw_offsets[in_position], block_data_bytes);
+            // Append offsets
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
               offset_builder.UnsafeAppend(offset);
-              bit_util::SetBit(out_is_valid, out_position++);
-              APPEND_SINGLE_VALUE();
-            } else if (!filter_not_null) {
+              offset += raw_offsets[in_position + 1] - raw_offsets[in_position];
+            }
+            out_position += filter_block.length;
+          } else {
+            // Some of the values in this block are null
+            for (int64_t i = 0; i < filter_block.length;
+                 ++i, ++in_position, ++out_position) {
               offset_builder.UnsafeAppend(offset);
-              ++out_position;
+              if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
+                bit_util::SetBit(out_is_valid, out_offset + out_position);
+                APPEND_SINGLE_VALUE();
+              }
+            }
+          }
+        } else {  // !filter_block.AllSet()
+          // Some of the filter values are false, but all not null
+          if (values_valid_block.AllSet()) {
+            // All the values are not-null, so we can skip null checking for
+            // them
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
+                APPEND_SINGLE_VALUE();
+              }
+            }
+          } else {
+            // Some of the values in the block are null, so we have to check
+            // each one
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
+                  APPEND_SINGLE_VALUE();
+                }
+                ++out_position;
+              }
+            }
+          }
+        }
+      } else {  // !filter_valid_block.AllSet()
+        // Some of the filter values are null, so we have to handle the DROP
+        // versus EMIT_NULL null selection behavior.
+        if (null_selection == FilterOptions::DROP) {
+          // Filter null values are treated as false.
+          if (values_valid_block.AllSet()) {
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
+                APPEND_SINGLE_VALUE();
+              }
+            }
+          } else {
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
+                  APPEND_SINGLE_VALUE();
+                }
+                ++out_position;
+              }
             }
           }
         } else {
-          for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
-            const bool filter_not_null =
-                bit_util::GetBit(filter_is_valid, filter_offset + in_position);
-            if (filter_not_null &&
-                bit_util::GetBit(filter_data, filter_offset + in_position)) {
-              offset_builder.UnsafeAppend(offset);
-              if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                bit_util::SetBit(out_is_valid, out_position);
+          // EMIT_NULL
+
+          // Filter null values are appended to output as null whether the
+          // value in the corresponding slot is valid or not
+          if (values_valid_block.AllSet()) {
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              const bool filter_not_null =
+                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
+              if (filter_not_null &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
                 APPEND_SINGLE_VALUE();
+              } else if (!filter_not_null) {
+                offset_builder.UnsafeAppend(offset);
+                ++out_position;
               }
-              ++out_position;
-            } else if (!filter_not_null) {
-              offset_builder.UnsafeAppend(offset);
-              ++out_position;
+            }
+          } else {
+            for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
+              const bool filter_not_null =
+                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
+              if (filter_not_null &&
+                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
+                offset_builder.UnsafeAppend(offset);
+                if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
+                  APPEND_SINGLE_VALUE();
+                }
+                ++out_position;
+              } else if (!filter_not_null) {
+                offset_builder.UnsafeAppend(offset);
+                ++out_position;
+              }
             }
           }
         }
@@ -656,21 +778,25 @@ Status BinaryFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
   const ArraySpan& values = batch[0].array;
   const ArraySpan& filter = batch[1].array;
+  const bool is_ree_filter = filter.type->id() == Type::RUN_END_ENCODED;
   int64_t output_length = GetFilterOutputSize(filter, null_selection);
 
   ArrayData* out_arr = out->array_data().get();
+
+  const bool filter_null_count_is_zero =
+      is_ree_filter ? filter.child_data[1].null_count == 0 : filter.null_count == 0;
 
   // The output precomputed null count is unknown except in the narrow
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter.null_count == 0)) {
+      (null_selection == FilterOptions::DROP || filter_null_count_is_zero)) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
   }
   Type::type type_id = values.type->id();
-  if (values.null_count == 0 && filter.null_count == 0) {
+  if (values.null_count == 0 && filter_null_count_is_zero) {
     // Faster no-nulls case
     if (is_binary_like(type_id)) {
       RETURN_NOT_OK(BinaryFilterNonNullImpl<BinaryType>(
@@ -737,20 +863,29 @@ Status ExtensionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   return Status::OK();
 }
 
-Status StructFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // Transform filter to selection indices and then use Take.
+// Transform filter to selection indices and then use Take.
+Status FilterWithTakeExec(const ArrayKernelExec& take_exec, KernelContext* ctx,
+                          const ExecSpan& batch, ExecResult* out) {
   std::shared_ptr<ArrayData> indices;
   RETURN_NOT_OK(GetTakeIndices(batch[1].array,
                                FilterState::Get(ctx).null_selection_behavior,
                                ctx->memory_pool())
                     .Value(&indices));
+  KernelContext take_ctx(*ctx);
+  TakeState state{TakeOptions::NoBoundsCheck()};
+  take_ctx.SetState(&state);
+  ExecSpan take_batch({batch[0], ArraySpan(*indices)}, batch.length);
+  return take_exec(&take_ctx, take_batch, out);
+}
 
-  Datum result;
-  RETURN_NOT_OK(Take(batch[0].array.ToArrayData(), Datum(indices),
-                     TakeOptions::NoBoundsCheck(), ctx->exec_context())
-                    .Value(&result));
-  out->value = result.array();
-  return Status::OK();
+// Due to the special treatment with their Take kernels, we filter Struct and SparseUnion
+// arrays by transforming filter to selection indices and call Take.
+Status StructFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterWithTakeExec(StructTakeExec, ctx, batch, out);
+}
+
+Status SparseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterWithTakeExec(SparseUnionTakeExec, ctx, batch, out);
 }
 
 // ----------------------------------------------------------------------
@@ -807,7 +942,7 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
       inputs.back() = filter.chunked_array()->chunks();
       break;
     default:
-      return Status::NotImplemented("Filter should be array-like");
+      return Status::TypeError("Filter should be array-like");
   }
 
   // Rechunk inputs to allow consistent iteration over their respective chunks
@@ -863,7 +998,17 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    if (args[1].type()->id() != Type::BOOL) {
+    if (args[1].kind() != Datum::ARRAY && args[1].kind() != Datum::CHUNKED_ARRAY) {
+      return Status::TypeError("Filter should be array-like");
+    }
+
+    const auto& filter_type = *args[1].type();
+    const bool filter_is_plain_bool = filter_type.id() == Type::BOOL;
+    const bool filter_is_ree_bool =
+        filter_type.id() == Type::RUN_END_ENCODED &&
+        checked_cast<const arrow::RunEndEncodedType&>(filter_type).value_type()->id() ==
+            Type::BOOL;
+    if (!filter_is_plain_bool && !filter_is_ree_bool) {
       return Status::NotImplemented("Filter argument must be boolean type");
     }
 
@@ -897,26 +1042,48 @@ std::unique_ptr<Function> MakeFilterMetaFunction() {
 }
 
 void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
+  auto plain_filter = InputType(Type::BOOL);
+  auto ree_filter = InputType(match::RunEndEncoded(Type::BOOL));
+
   *out = {
-      {InputType(match::Primitive()), PrimitiveFilterExec},
-      {InputType(match::BinaryLike()), BinaryFilterExec},
-      {InputType(match::LargeBinaryLike()), BinaryFilterExec},
-      {InputType(Type::FIXED_SIZE_BINARY), FSBFilterExec},
-      {InputType(null()), NullFilterExec},
-      {InputType(Type::DECIMAL128), FSBFilterExec},
-      {InputType(Type::DECIMAL256), FSBFilterExec},
-      {InputType(Type::DICTIONARY), DictionaryFilterExec},
-      {InputType(Type::EXTENSION), ExtensionFilterExec},
-      {InputType(Type::LIST), ListFilterExec},
-      {InputType(Type::LARGE_LIST), LargeListFilterExec},
-      {InputType(Type::FIXED_SIZE_LIST), FSLFilterExec},
-      {InputType(Type::DENSE_UNION), DenseUnionFilterExec},
-      {InputType(Type::STRUCT), StructFilterExec},
-      {InputType(Type::MAP), MapFilterExec},
+      // * x Boolean
+      {InputType(match::Primitive()), plain_filter, PrimitiveFilterExec},
+      {InputType(match::BinaryLike()), plain_filter, BinaryFilterExec},
+      {InputType(match::LargeBinaryLike()), plain_filter, BinaryFilterExec},
+      {InputType(Type::FIXED_SIZE_BINARY), plain_filter, FSBFilterExec},
+      {InputType(null()), plain_filter, NullFilterExec},
+      {InputType(Type::DECIMAL128), plain_filter, FSBFilterExec},
+      {InputType(Type::DECIMAL256), plain_filter, FSBFilterExec},
+      {InputType(Type::DICTIONARY), plain_filter, DictionaryFilterExec},
+      {InputType(Type::EXTENSION), plain_filter, ExtensionFilterExec},
+      {InputType(Type::LIST), plain_filter, ListFilterExec},
+      {InputType(Type::LARGE_LIST), plain_filter, LargeListFilterExec},
+      {InputType(Type::FIXED_SIZE_LIST), plain_filter, FSLFilterExec},
+      {InputType(Type::DENSE_UNION), plain_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), plain_filter, SparseUnionFilterExec},
+      {InputType(Type::STRUCT), plain_filter, StructFilterExec},
+      {InputType(Type::MAP), plain_filter, MapFilterExec},
+
+      // * x REE(Boolean)
+      {InputType(match::Primitive()), ree_filter, PrimitiveFilterExec},
+      {InputType(match::BinaryLike()), ree_filter, BinaryFilterExec},
+      {InputType(match::LargeBinaryLike()), ree_filter, BinaryFilterExec},
+      {InputType(Type::FIXED_SIZE_BINARY), ree_filter, FSBFilterExec},
+      {InputType(null()), ree_filter, NullFilterExec},
+      {InputType(Type::DECIMAL128), ree_filter, FSBFilterExec},
+      {InputType(Type::DECIMAL256), ree_filter, FSBFilterExec},
+      {InputType(Type::DICTIONARY), ree_filter, DictionaryFilterExec},
+      {InputType(Type::EXTENSION), ree_filter, ExtensionFilterExec},
+      {InputType(Type::LIST), ree_filter, ListFilterExec},
+      {InputType(Type::LARGE_LIST), ree_filter, LargeListFilterExec},
+      {InputType(Type::FIXED_SIZE_LIST), ree_filter, FSLFilterExec},
+      {InputType(Type::DENSE_UNION), ree_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), ree_filter, SparseUnionFilterExec},
+      {InputType(Type::STRUCT), ree_filter, StructFilterExec},
+      {InputType(Type::MAP), ree_filter, MapFilterExec},
   };
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 
 }  // namespace arrow

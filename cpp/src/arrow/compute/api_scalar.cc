@@ -275,6 +275,29 @@ struct EnumTraits<compute::MapLookupOptions::Occurrence>
   }
 };
 
+template <>
+struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
+    : BasicEnumTraits<compute::SetLookupOptions::NullMatchingBehavior,
+                      compute::SetLookupOptions::NullMatchingBehavior::MATCH,
+                      compute::SetLookupOptions::NullMatchingBehavior::SKIP,
+                      compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL,
+                      compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE> {
+  static std::string name() { return "SetLookupOptions::NullMatchingBehavior"; }
+  static std::string value_name(compute::SetLookupOptions::NullMatchingBehavior value) {
+    switch (value) {
+      case compute::SetLookupOptions::NullMatchingBehavior::MATCH:
+        return "MATCH";
+      case compute::SetLookupOptions::NullMatchingBehavior::SKIP:
+        return "SKIP";
+      case compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL:
+        return "EMIT_NULL";
+      case compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE:
+        return "INCONCLUSIVE";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -286,6 +309,7 @@ using ::arrow::internal::checked_cast;
 
 namespace internal {
 namespace {
+using ::arrow::internal::CoercedDataMember;
 using ::arrow::internal::DataMember;
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
@@ -344,7 +368,8 @@ static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultiple
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
-    DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+    CoercedDataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior,
+                      &SetLookupOptions::GetNullMatchingBehavior));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
@@ -540,8 +565,29 @@ constexpr char RoundToMultipleOptions::kTypeName[];
 SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
-      skip_nulls(skip_nulls) {}
-SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
+      skip_nulls(skip_nulls) {
+  if (skip_nulls) {
+    this->null_matching_behavior = SetLookupOptions::SKIP;
+  } else {
+    this->null_matching_behavior = SetLookupOptions::MATCH;
+  }
+}
+SetLookupOptions::SetLookupOptions(
+    Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior)
+    : FunctionOptions(internal::kSetLookupOptionsType),
+      value_set(std::move(value_set)),
+      null_matching_behavior(std::move(null_matching_behavior)) {}
+SetLookupOptions::SetLookupOptions()
+    : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
+SetLookupOptions::NullMatchingBehavior SetLookupOptions::GetNullMatchingBehavior() const {
+  if (!this->skip_nulls.has_value()) {
+    return this->null_matching_behavior;
+  } else if (this->skip_nulls.value()) {
+    return SetLookupOptions::SKIP;
+  } else {
+    return SetLookupOptions::MATCH;
+  }
+}
 constexpr char SetLookupOptions::kTypeName[];
 
 SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
@@ -774,34 +820,6 @@ SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
 SCALAR_EAGER_BINARY(Or, "or")
 SCALAR_EAGER_BINARY(Xor, "xor")
 SCALAR_EAGER_UNARY(Invert, "invert")
-
-// ----------------------------------------------------------------------
-
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx) {
-  std::string func_name;
-  switch (options.op) {
-    case CompareOperator::EQUAL:
-      func_name = "equal";
-      break;
-    case CompareOperator::NOT_EQUAL:
-      func_name = "not_equal";
-      break;
-    case CompareOperator::GREATER:
-      func_name = "greater";
-      break;
-    case CompareOperator::GREATER_EQUAL:
-      func_name = "greater_equal";
-      break;
-    case CompareOperator::LESS:
-      func_name = "less";
-      break;
-    case CompareOperator::LESS_EQUAL:
-      func_name = "less_equal";
-      break;
-  }
-  return CallFunction(func_name, {left, right}, nullptr, ctx);
-}
 
 // ----------------------------------------------------------------------
 // Validity functions

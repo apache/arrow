@@ -24,6 +24,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
@@ -49,6 +50,8 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
+
+  protected volatile FieldReader fieldReader;
 
   protected BaseValueVector(BufferAllocator allocator) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
@@ -141,6 +144,35 @@ public abstract class BaseValueVector implements ValueVector {
       bufferSize += DataSizeRoundingUtil.roundUpTo8Multiple((long) valueCount * typeWidth);
     }
     return allocator.getRoundingPolicy().getRoundedSize(bufferSize);
+  }
+
+  /**
+   * Each vector has a different reader that implements the FieldReader interface. Overridden methods must make
+   * sure to return the correct concrete reader implementation.
+   *
+   * @return Returns a lambda that initializes a reader when called.
+   */
+  protected abstract FieldReader getReaderImpl();
+
+  /**
+   * Default implementation to create a reader for the vector. Depends on the individual vector
+   * class' implementation of {@link #getReaderImpl} to initialize the reader appropriately.
+   *
+   * @return Concrete instance of FieldReader by using double-checked locking.
+   */
+  public FieldReader getReader() {
+    FieldReader reader = fieldReader;
+
+    if (reader != null) {
+      return reader;
+    }
+    synchronized (this) {
+      if (fieldReader == null) {
+        fieldReader = getReaderImpl();
+      }
+
+      return fieldReader;
+    }
   }
 
   /**

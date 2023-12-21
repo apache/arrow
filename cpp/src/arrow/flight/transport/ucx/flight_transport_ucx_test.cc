@@ -103,6 +103,8 @@ class UcxErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
   std::string transport() const override { return "ucx"; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
+
+  void TestGetFlightInfoMetadata() { GTEST_SKIP() << "Middleware not implemented"; }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(UcxErrorHandlingTest);
 

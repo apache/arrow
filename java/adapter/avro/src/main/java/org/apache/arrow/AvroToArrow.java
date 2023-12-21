@@ -39,9 +39,9 @@ public class AvroToArrow {
    */
   static VectorSchemaRoot avroToArrow(Schema schema, Decoder decoder, AvroToArrowConfig config)
       throws IOException {
-    Preconditions.checkNotNull(schema, "Avro schema object can not be null");
-    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
-    Preconditions.checkNotNull(config, "config can not be null");
+    Preconditions.checkNotNull(schema, "Avro schema object cannot be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object cannot be null");
+    Preconditions.checkNotNull(config, "config cannot be null");
 
     return AvroToArrowUtils.avroToArrowVectors(schema, decoder, config);
   }
@@ -58,9 +58,9 @@ public class AvroToArrow {
       Decoder decoder,
       AvroToArrowConfig config) throws IOException {
 
-    Preconditions.checkNotNull(schema, "Avro schema object can not be null");
-    Preconditions.checkNotNull(decoder, "Avro decoder object can not be null");
-    Preconditions.checkNotNull(config, "config can not be null");
+    Preconditions.checkNotNull(schema, "Avro schema object cannot be null");
+    Preconditions.checkNotNull(decoder, "Avro decoder object cannot be null");
+    Preconditions.checkNotNull(config, "config cannot be null");
 
     return AvroToArrowVectorIterator.create(decoder, schema, config);
   }

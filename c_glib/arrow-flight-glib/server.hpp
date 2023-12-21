@@ -27,6 +27,14 @@
 arrow::flight::FlightDataStream *
 gaflight_data_stream_get_raw(GAFlightDataStream *stream);
 
+GAFlightMessageReader *
+gaflight_message_reader_new_raw(
+  arrow::flight::FlightMessageReader *flight_reader,
+  gboolean is_owner);
+arrow::flight::FlightMessageReader *
+gaflight_message_reader_get_raw(GAFlightMessageReader *reader);
+
+
 GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(
   const arrow::flight::ServerCallContext *flight_call_context);

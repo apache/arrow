@@ -19,7 +19,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Apache.Arrow.Ipc;
-using FlatBuffers;
+using Google.FlatBuffers;
 
 namespace Apache.Arrow.Flight
 {

@@ -67,7 +67,6 @@ list(APPEND
      Boost::headers
      Boost::filesystem
      Boost::system
-     ${ARROW_GTEST_GTEST}
      ${ARROW_GTEST_GMOCK})
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
@@ -83,11 +82,15 @@ set(FLIGHT_GENERATED_PROTO_FILES
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
+set(FLIGHT_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}")
+if(Protobuf_VERSION VERSION_LESS 3.15)
+  list(APPEND FLIGHT_PROTOC_COMMAND "--experimental_allow_proto3_optional")
+endif()
 add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
                    DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
+                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
                            "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                            "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                            "${FLIGHT_PROTO}")
@@ -102,84 +105,26 @@ set(CMAKE_CXX_FLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
 string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-# Probe the version of gRPC being used to see if it supports disabling server
-# verification when using TLS.
-# gRPC's pkg-config file neglects to specify pthreads.
-find_package(Threads REQUIRED)
-function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
-  if(NOT DEFINED ${DST_VAR})
-    message(STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})..."
-    )
-    get_property(CURRENT_INCLUDE_DIRECTORIES
-                 DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                 PROPERTY INCLUDE_DIRECTORIES)
-    # ARROW-13881: when detecting support, avoid mismatch between
-    # debug flags of gRPC and our probe (which results in LNK2038)
-    set(CMAKE_TRY_COMPILE_CONFIGURATION ${CMAKE_BUILD_TYPE})
-    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile
-                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
-                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc++ Threads::Threads
-                OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
-    if(HAS_GRPC_VERSION)
-      set(${DST_VAR}
-          "${DETECT_VERSION}"
-          CACHE INTERNAL "The detected (approximate) gRPC version.")
-    else()
-      message(STATUS "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
-      )
-      if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
-        message(WARNING "Build output:")
-        list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
-        message(WARNING ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-        list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
-      else()
-        message(DEBUG "Build output:")
-        list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
-        message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
-        list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
-      endif()
-    endif()
-  endif()
-endfunction()
-
-if(GRPC_VENDORED)
-  # v1.35.0 -> 1.35
-  string(REGEX MATCH "[0-9]+\\.[0-9]+" GRPC_VERSION "${ARROW_GRPC_BUILD_VERSION}")
-else()
-  test_grpc_version(GRPC_VERSION "1.43" "check_tls_opts_143.cc")
-  test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
-  test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
-  test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
-  test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
-  message(STATUS "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
-  )
-endif()
-if(GRPC_VERSION EQUAL "1.27")
-  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
-elseif(GRPC_VERSION EQUAL "1.32")
-  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
-  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-                  -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
-                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif(GRPC_VERSION EQUAL "1.36")
-  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif((GRPC_VERSION EQUAL "1.43") OR (GRPC_VERSION EQUAL "1.46"))
-  # 1.46 is the bundled version
+if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.43")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
                   -DGRPC_USE_CERTIFICATE_VERIFIER)
+elseif(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.36")
+  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+elseif(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.34")
+  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+                  -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+elseif(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.32")
+  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 else()
-  message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
-  )
-  message(STATUS "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
-  )
-  if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
-    message(FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
-    )
-  endif()
+  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
+endif()
+
+# Was in a different namespace, or simply not supported, prior to this
+if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.40")
+  add_definitions(-DGRPC_ENABLE_ASYNC)
 endif()
 
 # </KLUDGE> Restore the CXXFLAGS that were modified above

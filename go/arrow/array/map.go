@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // Map represents an immutable sequence of Key/Value structs. It is a
@@ -222,13 +222,34 @@ func (b *MapBuilder) Append(v bool) {
 	b.listBuilder.Append(v)
 }
 
+func (b *MapBuilder) AppendWithSize(v bool, _ int) {
+	b.Append(v)
+}
+
 // AppendNull adds a null map entry to the array.
 func (b *MapBuilder) AppendNull() {
 	b.Append(false)
 }
 
+// AppendNulls adds null map entry to the array.
+func (b *MapBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *MapBuilder) SetNull(i int) {
+	b.listBuilder.SetNull(i)
+}
+
 func (b *MapBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *MapBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // Reserve enough space for n maps

@@ -24,10 +24,10 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 // masks for grabbing the trailing bits based on the number of trailing bits desired
@@ -152,7 +152,7 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 	if n != nbytes {
 		return false
 	}
-	// zero pad the the bytes
+	// zero pad the bytes
 	memory.Set(b.raw[n:typBytes], 0)
 
 	switch v := v.(type) {
@@ -215,7 +215,7 @@ func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error)
 	var val uint64
 
 	length := len(out)
-	// if we're not currently byte-aligned, read bits until we are byte-aligned.
+	// if we aren't currently byte-aligned, read bits until we are byte-aligned.
 	for ; i < length && b.bitoffset != 0; i++ {
 		val, err = b.next(bits)
 		out[i] = IndexType(val)
@@ -266,7 +266,7 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	for i < length {
 		// grab byte-aligned bits in a loop since it's more efficient than going
 		// bit by bit when you can grab 8 bools at a time.
-		unpackSize := utils.MinInt(blen, length-i) / 8 * 8
+		unpackSize := utils.Min(blen, length-i) / 8 * 8
 		n, err := b.reader.Read(buf[:bitutil.BytesForBits(int64(unpackSize))])
 		if err != nil {
 			return i, err
@@ -314,7 +314,7 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	b.reader.Seek(b.byteoffset, io.SeekStart)
 	for i < length {
 		// unpack groups of 32 bytes at a time into a buffer since it's more efficient
-		unpackSize := utils.MinInt(buflen, length-i)
+		unpackSize := utils.Min(buflen, length-i)
 		numUnpacked := unpack32(b.reader, b.unpackBuf[:unpackSize], int(bits))
 		if numUnpacked == 0 {
 			break

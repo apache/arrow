@@ -24,12 +24,12 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -95,6 +95,11 @@ func (f *FileMetaDataBuilder) AppendRowGroup() *RowGroupMetaDataBuilder {
 	return f.currentRgBldr
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (f *FileMetaDataBuilder) AppendKeyValueMetadata(key string, value string) error {
+	return f.kvmeta.Append(key, value)
+}
+
 // Finish will finalize the metadata of the number of rows, row groups,
 // version etc. This will clear out this filemetadatabuilder so it can
 // be re-used
@@ -114,7 +119,7 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	createdBy := f.props.CreatedBy()
 	f.metadata.CreatedBy = &createdBy
 
-	// Users cannot set the `ColumnOrder` since we do not not have user defined sort order
+	// Users cannot set the `ColumnOrder` since we do not have user defined sort order
 	// in the spec yet.
 	//
 	// We always default to `TYPE_DEFINED_ORDER`. We can expose it in
@@ -396,7 +401,7 @@ func (f *FileMetaData) KeyValueMetadata() KeyValueMetadata {
 // Panics if f.FileDecryptor is nil
 func (f *FileMetaData) VerifySignature(signature []byte) bool {
 	if f.FileDecryptor == nil {
-		panic("decryption not set propertly, cannot verify signature")
+		panic("decryption not set properly, cannot verify signature")
 	}
 
 	serializer := thrift.NewThriftSerializer()
@@ -467,7 +472,7 @@ func (f *FileMetaData) Version() parquet.Version {
 	case 2:
 		return parquet.V2_LATEST
 	default:
-		// imporperly set version, assume parquet 1.0
+		// improperly set version, assume parquet 1.0
 		return parquet.V1_0
 	}
 }

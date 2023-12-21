@@ -156,7 +156,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
 #' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
 #'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
-#' - `request_timeout`: Socket read time on Windows and MacOS in seconds. If
+#' - `request_timeout`: Socket read time on Windows and macOS in seconds. If
 #'    negative, the AWS SDK default (typically 3 seconds).
 #' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
 #'    SDK default is used (typically 1 second).
@@ -181,6 +181,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `retry_limit_seconds`: the maximum amount of time to spend retrying if
 #'   the filesystem encounters errors. Default is 15 seconds.
 #' - `default_metadata`: default metadata to write in new objects.
+#' - `project_id`: the project to use for creating buckets.
 #'
 #' @section Methods:
 #'
@@ -237,6 +238,14 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' objects will be not publicly visible, and will have no bucket policies
 #' and no resource tags. To have more control over how buckets are created,
 #' use a different API to create them.
+#'
+#' On S3FileSystem, output is only produced for fatal errors or when printing
+#' return values. For troubleshooting, the log level can be set using the
+#' environment variable `ARROW_S3_LOG_LEVEL` (e.g.,
+#' `Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")`). The log level must be set prior
+#' to running any code that interacts with S3. Possible values include 'FATAL'
+#' (the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+#' 'OFF'.
 #'
 #' @usage NULL
 #' @format NULL
@@ -461,11 +470,25 @@ default_s3_options <- list(
 #'
 #' @param bucket string S3 bucket name or path
 #' @param ... Additional connection options, passed to `S3FileSystem$create()`
+#'
+#' @details By default, \code{\link{s3_bucket}} and other
+#' \code{\link{S3FileSystem}} functions only produce output for fatal errors
+#' or when printing their return values. When troubleshooting problems, it may
+#' be useful to increase the log level. See the Notes section in
+#' \code{\link{S3FileSystem}} for more information or see Examples below.
+#'
 #' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
+#'
+#' @examplesIf FALSE
+#' # Turn on debug logging. The following line of code should be run in a fresh
+#' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
+#' Sys.setenv("ARROW_S3_LOG_LEVEL", "DEBUG")
+#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#'
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
@@ -562,7 +585,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   valid_opts <- c(
     "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "default_metadata"
+    "scheme", "default_bucket_location", "default_metadata", "project_id"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)

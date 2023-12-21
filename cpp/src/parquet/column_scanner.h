@@ -48,8 +48,10 @@ class PARQUET_EXPORT Scanner {
         value_offset_(0),
         values_buffered_(0),
         reader_(std::move(reader)) {
-    def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
-    rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
+    def_levels_.resize(
+        descr()->max_definition_level() > 0 ? static_cast<size_t>(batch_size_) : 0);
+    rep_levels_.resize(
+        descr()->max_repetition_level() > 0 ? static_cast<size_t>(batch_size_) : 0);
   }
 
   virtual ~Scanner() {}

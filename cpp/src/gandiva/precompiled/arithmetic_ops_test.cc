@@ -681,14 +681,14 @@ TEST(TestArithmeticOps, TestCeilingFloatDouble) {
 }
 
 TEST(TestArithmeticOps, TestFloorFloatDouble) {
-  // ceiling from floats
+  // floor from floats
   EXPECT_EQ(floor_float32(6.6f), 6.0f);
   EXPECT_EQ(floor_float32(-6.6f), -7.0f);
   EXPECT_EQ(floor_float32(-6.3f), -7.0f);
   EXPECT_EQ(floor_float32(0.0f), 0.0f);
   EXPECT_EQ(floor_float32(-0), 0.0);
 
-  // ceiling from doubles
+  // floor from doubles
   EXPECT_EQ(floor_float64(6.6), 6.0);
   EXPECT_EQ(floor_float64(-6.6), -7.0);
   EXPECT_EQ(floor_float64(-6.3), -7.0);

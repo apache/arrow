@@ -27,6 +27,7 @@ on:
       - 'ci/docker/conda-python.dockerfile'
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/python_build.sh'
+      - 'docker-compose.yml'
 
 permissions:
   contents: read
@@ -41,22 +42,22 @@ jobs:
     name: AMD64 Conda Python 3.9 Sphinx Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       PYTHON: "3.9"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery

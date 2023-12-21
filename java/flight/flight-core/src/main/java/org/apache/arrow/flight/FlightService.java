@@ -258,6 +258,21 @@ class FlightService extends FlightServiceImplBase {
     responseObserver.onCompleted();
   }
 
+  @Override
+  public void pollFlightInfo(Flight.FlightDescriptor request, StreamObserver<Flight.PollInfo> responseObserver) {
+    final PollInfo info;
+    try {
+      info = producer
+          .pollFlightInfo(makeContext((ServerCallStreamObserver<?>) responseObserver), new FlightDescriptor(request));
+    } catch (Exception ex) {
+      // Don't capture exceptions from onNext or onCompleted with this block - because then we can't call onError
+      responseObserver.onError(StatusUtils.toGrpcException(ex));
+      return;
+    }
+    responseObserver.onNext(info.toProtocol());
+    responseObserver.onCompleted();
+  }
+
   /**
    * Broadcast the given exception to all registered middleware.
    */

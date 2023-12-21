@@ -26,13 +26,13 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -363,6 +363,16 @@ func (b *BaseEncodingTestSuite) TestBasicRoundTrip() {
 	b.checkRoundTrip(parquet.Encodings.Plain)
 }
 
+func (b *BaseEncodingTestSuite) TestRleBooleanEncodingRoundTrip() {
+	switch b.typ {
+	case reflect.TypeOf(true):
+		b.initData(2000, 200)
+		b.checkRoundTrip(parquet.Encodings.RLE)
+	default:
+		b.T().SkipNow()
+	}
+}
+
 func (b *BaseEncodingTestSuite) TestDeltaEncodingRoundTrip() {
 	b.initData(10000, 1)
 
@@ -408,6 +418,8 @@ func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 			if validBits != nil {
 				b.checkRoundTripSpaced(parquet.Encodings.Plain, validBits, validBitsOffset)
 				switch b.typ {
+				case reflect.TypeOf(false):
+					b.checkRoundTripSpaced(parquet.Encodings.RLE, validBits, validBitsOffset)
 				case reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)):
 					b.checkRoundTripSpaced(parquet.Encodings.DeltaBinaryPacked, validBits, validBitsOffset)
 				case reflect.TypeOf(parquet.ByteArray{}):
@@ -594,6 +606,28 @@ func TestWriteDeltaBitPackedInt32(t *testing.T) {
 			assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
 		}
 	})
+
+	t.Run("test decoding multiple pages", func(t *testing.T) {
+		values := make([]int32, 1000)
+		testutils.FillRandomInt32(0, values)
+
+		enc := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int32Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		// Using same Decoder to decode the data.
+		dec := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		for i := 0; i < 5; i += 1 {
+			dec.(encoding.Int32Decoder).SetData(len(values), buf.Bytes())
+
+			valueBuf := make([]int32, 100)
+			for i, j := 0, len(valueBuf); j <= len(values); i, j = i+len(valueBuf), j+len(valueBuf) {
+				dec.(encoding.Int32Decoder).Decode(valueBuf)
+				assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
+			}
+		}
+	})
 }
 
 func TestWriteDeltaBitPackedInt64(t *testing.T) {
@@ -644,6 +678,52 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 			decoded, _ := dec.(encoding.Int64Decoder).Decode(valueBuf)
 			assert.Equal(t, len(valueBuf), decoded)
 			assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
+		}
+	})
+
+	t.Run("GH-37102", func(t *testing.T) {
+		values := []int64{
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0,
+		}
+
+		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int64Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		dec.(encoding.Int64Decoder).SetData(len(values), buf.Bytes())
+
+		valueBuf := make([]int64, len(values))
+
+		decoded, _ := dec.(encoding.Int64Decoder).Decode(valueBuf)
+		assert.Equal(t, len(valueBuf), decoded)
+		assert.Equal(t, values, valueBuf)
+	})
+
+	t.Run("test decoding multiple pages", func(t *testing.T) {
+		values := make([]int64, 1000)
+		testutils.FillRandomInt64(0, values)
+
+		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int64Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		// Using same Decoder to decode the data.
+		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		for i := 0; i < 5; i += 1 {
+			dec.(encoding.Int64Decoder).SetData(len(values), buf.Bytes())
+
+			valueBuf := make([]int64, 100)
+			for i, j := 0, len(valueBuf); j <= len(values); i, j = i+len(valueBuf), j+len(valueBuf) {
+				dec.(encoding.Int64Decoder).Decode(valueBuf)
+				assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
+			}
 		}
 	})
 }

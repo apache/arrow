@@ -32,7 +32,7 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
-from pyarrow._fs cimport FileSystem, FileSelector
+from pyarrow._fs cimport FileSystem, FileSelector, FileInfo
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
@@ -96,27 +96,33 @@ def _get_parquet_symbol(name):
     return _dataset_pq and getattr(_dataset_pq, name)
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, object file_size=None):
 
     cdef:
         CFileSource c_source
         shared_ptr[CFileSystem] c_filesystem
+        CFileInfo c_info
         c_string c_path
         shared_ptr[CRandomAccessFile] c_file
         shared_ptr[CBuffer] c_buffer
+        int64_t c_size
 
     if isinstance(file, Buffer):
         c_buffer = pyarrow_unwrap_buffer(file)
         c_source = CFileSource(move(c_buffer))
-
     elif _is_path_like(file):
         if filesystem is None:
             raise ValueError("cannot construct a FileSource from "
                              "a path without a FileSystem")
         c_filesystem = filesystem.unwrap()
         c_path = tobytes(_stringify_path(file))
-        c_source = CFileSource(move(c_path), move(c_filesystem))
 
+        if file_size is not None:
+            c_size = file_size
+            c_info = FileInfo(c_path, size=c_size).unwrap()
+            c_source = CFileSource(move(c_info), move(c_filesystem))
+        else:
+            c_source = CFileSource(move(c_path), move(c_filesystem))
     elif hasattr(file, 'read'):
         # Optimistically hope this is file-like
         c_file = get_native_file(file, False).get_random_access_file()
@@ -131,10 +137,18 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
     if segment_encoding == "none":
-        return CSegmentEncodingNone
+        return CSegmentEncoding_None
     elif segment_encoding == "uri":
-        return CSegmentEncodingUri
+        return CSegmentEncoding_Uri
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
+
+
+cdef str _wrap_segment_encoding(CSegmentEncoding segment_encoding):
+    if segment_encoding == CSegmentEncoding_None:
+        return "none"
+    elif segment_encoding == CSegmentEncoding_Uri:
+        return "uri"
+    raise ValueError("Unknown segment encoding")
 
 
 cdef Expression _true = Expression._scalar(True)
@@ -311,7 +325,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -433,7 +447,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -511,7 +525,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -589,7 +603,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -667,7 +681,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -722,7 +736,7 @@ cdef class Dataset(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -845,7 +859,7 @@ cdef class Dataset(_Weakrefable):
             Which suffix to add to right column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the left column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
@@ -1008,7 +1022,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Epression, got {0})".format(type(root_partition))
+                "Expression, got {0})".format(type(root_partition))
             )
 
         for fragment in fragments:
@@ -1070,7 +1084,8 @@ cdef class FileSystemDataset(Dataset):
     @classmethod
     def from_paths(cls, paths, schema=None, format=None,
                    filesystem=None, partitions=None, root_partition=None):
-        """A Dataset created from a list of paths on a particular filesystem.
+        """
+        A Dataset created from a list of paths on a particular filesystem.
 
         Parameters
         ----------
@@ -1221,7 +1236,7 @@ cdef class FileFormat(_Weakrefable):
             The schema inferred from the file
         """
         cdef:
-            CFileSource c_source = _make_file_source(file, filesystem)
+            CFileSource c_source = _make_file_source(file, filesystem, file_size=None)
             CResult[shared_ptr[CSchema]] c_result
         with nogil:
             c_result = self.format.Inspect(c_source)
@@ -1229,7 +1244,8 @@ cdef class FileFormat(_Weakrefable):
         return pyarrow_wrap_schema(move(c_schema))
 
     def make_fragment(self, file, filesystem=None,
-                      Expression partition_expression=None):
+                      Expression partition_expression=None,
+                      *, file_size=None):
         """
         Make a FileFragment from a given file.
 
@@ -1243,6 +1259,9 @@ cdef class FileFormat(_Weakrefable):
         partition_expression : Expression, optional
             An expression that is guaranteed true for all rows in the fragment.  Allows
             fragment to be potentially skipped while scanning with a filter.
+        file_size : int, optional
+            The size of the file in bytes. Can improve performance with high-latency filesystems
+            when file size needs to be known before reading.
 
         Returns
         -------
@@ -1251,8 +1270,7 @@ cdef class FileFormat(_Weakrefable):
         """
         if partition_expression is None:
             partition_expression = _true
-
-        c_source = _make_file_source(file, filesystem)
+        c_source = _make_file_source(file, filesystem, file_size)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap(),
@@ -1403,7 +1421,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1483,7 +1501,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1566,7 +1584,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1645,7 +1663,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1723,7 +1741,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1778,7 +1796,7 @@ cdef class Fragment(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -1984,9 +2002,27 @@ cdef class IpcFileFormat(FileFormat):
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
 
     def equals(self, IpcFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.IpcFileFormat
+
+        Returns
+        -------
+        True
+        """
         return True
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.ipc.IpcWriteOptions
+        """
         cdef IpcFileWriteOptions opts = \
             <IpcFileWriteOptions> FileFormat.make_write_options(self)
         opts.write_options = IpcWriteOptions(**kwargs)
@@ -2063,6 +2099,15 @@ cdef class CsvFileFormat(FileFormat):
         self.csv_format = <CCsvFileFormat*> sp.get()
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.csv.WriteOptions
+        """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)
         opts.write_options = WriteOptions(**kwargs)
@@ -2085,6 +2130,15 @@ cdef class CsvFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, CsvFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.CsvFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.parse_options.equals(other.parse_options) and
             self.default_fragment_scan_options ==
@@ -2157,6 +2211,15 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
                 make_streamwrap_func(read_options.encoding, 'utf-8'))
 
     def equals(self, CsvFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.CsvFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             other and
             self.convert_options.equals(other.convert_options) and
@@ -2242,6 +2305,15 @@ cdef class JsonFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, JsonFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.JsonFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (other and
                 self.default_fragment_scan_options ==
                 other.default_fragment_scan_options)
@@ -2300,6 +2372,15 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
         self.json_options.read_options = read_options.options
 
     def equals(self, JsonFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.JsonFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             other and
             self.read_options.equals(other.read_options) and
@@ -2339,7 +2420,23 @@ cdef class Partitioning(_Weakrefable):
     cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
+    def __eq__(self, other):
+        if isinstance(other, Partitioning):
+            return self.partitioning.Equals(deref((<Partitioning>other).unwrap()))
+        return False
+
     def parse(self, path):
+        """
+        Parse a path into a partition expression.
+
+        Parameters
+        ----------
+        path : str
+
+        Returns
+        -------
+        pyarrow.dataset.Expression
+        """
         cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
@@ -2360,15 +2457,21 @@ cdef class PartitioningFactory(_Weakrefable):
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitioningFactory]& sp):
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp,
+              object constructor, object options):
         cdef PartitioningFactory self = PartitioningFactory.__new__(
             PartitioningFactory
         )
         self.init(sp)
+        self.constructor = constructor
+        self.options = options
         return self
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
+
+    def __reduce__(self):
+        return self.constructor, self.options
 
     @property
     def type_name(self):
@@ -2393,6 +2496,7 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
 
     return c_dictionaries
 
+
 cdef class KeyValuePartitioning(Partitioning):
 
     cdef:
@@ -2406,6 +2510,15 @@ cdef class KeyValuePartitioning(Partitioning):
         self.keyvalue_partitioning = <CKeyValuePartitioning*> sp.get()
         self.wrapped = sp
         self.partitioning = sp.get()
+
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        return self.__class__, (self.schema, dictionaries, segment_encoding)
 
     @property
     def dictionaries(self):
@@ -2428,6 +2541,10 @@ cdef class KeyValuePartitioning(Partitioning):
             else:
                 res.append(pyarrow_wrap_array(arr))
         return res
+
+
+def _constructor_directory_partitioning_factory(*args):
+    return DirectoryPartitioning.discover(*args)
 
 
 cdef class DirectoryPartitioning(KeyValuePartitioning):
@@ -2547,7 +2664,15 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
+            CDirectoryPartitioning.MakeFactory(c_field_names, c_options),
+            _constructor_directory_partitioning_factory,
+            (field_names, infer_dictionary, max_partition_dictionary_size,
+             schema, segment_encoding)
+        )
+
+
+def _constructor_hive_partitioning_factory(*args):
+    return HivePartitioning.discover(*args)
 
 
 cdef class HivePartitioning(KeyValuePartitioning):
@@ -2620,6 +2745,18 @@ cdef class HivePartitioning(KeyValuePartitioning):
         KeyValuePartitioning.init(self, sp)
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        null_fallback = frombytes(deref(self.hive_partitioning).null_fallback())
+        return HivePartitioning, (
+            self.schema, dictionaries, null_fallback, segment_encoding
+        )
+
     @staticmethod
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
@@ -2678,7 +2815,15 @@ cdef class HivePartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CHivePartitioning.MakeFactory(c_options))
+            CHivePartitioning.MakeFactory(c_options),
+            _constructor_hive_partitioning_factory,
+            (infer_dictionary, max_partition_dictionary_size, null_fallback,
+             schema, segment_encoding),
+        )
+
+
+def _constructor_filename_partitioning_factory(*args):
+    return FilenamePartitioning.discover(*args)
 
 
 cdef class FilenamePartitioning(KeyValuePartitioning):
@@ -2787,7 +2932,10 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CFilenamePartitioning.MakeFactory(c_field_names, c_options))
+            CFilenamePartitioning.MakeFactory(c_field_names, c_options),
+            _constructor_filename_partitioning_factory,
+            (field_names, infer_dictionary, schema, segment_encoding)
+        )
 
 
 cdef class DatasetFactory(_Weakrefable):
@@ -2952,7 +3100,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         c_factory = self.options.partitioning.factory()
         if c_factory.get() == nullptr:
             return None
-        return PartitioningFactory.wrap(c_factory)
+        return PartitioningFactory.wrap(c_factory, None, None)
 
     @partitioning_factory.setter
     def partitioning_factory(self, PartitioningFactory value):
@@ -3088,7 +3236,7 @@ cdef class RecordBatchIterator(_Weakrefable):
         object iterator_owner
         # Iterator is a non-POD type and Cython uses offsetof, leading
         # to a compiler warning unless wrapped like so
-        shared_ptr[CRecordBatchIterator] iterator
+        SharedPtrNoGIL[CRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
@@ -3134,7 +3282,7 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches with fragments."""
     cdef:
         object iterator_owner
-        shared_ptr[CTaggedRecordBatchIterator] iterator
+        SharedPtrNoGIL[CTaggedRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
@@ -3273,7 +3421,7 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3298,7 +3446,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -3352,7 +3500,7 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3377,7 +3525,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.
@@ -3438,7 +3586,7 @@ cdef class Scanner(_Weakrefable):
             The iterator of Batches.
         schema : Schema
             The schema of the batches.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3463,7 +3611,7 @@ cdef class Scanner(_Weakrefable):
             partition information or internal metadata found in the data
             source, e.g. Parquet statistics. Otherwise filters the loaded
             RecordBatches before yielding them.
-        batch_size : int, default 128Ki
+        batch_size : int, default 131_072
             The maximum row count for scanned record batches. If scanned
             record batches are overflowing memory then this method can be
             called to reduce their size.

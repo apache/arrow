@@ -16,7 +16,7 @@
 // under the License.
 
 import { Vector } from './vector.js';
-import { BufferType, Type } from './enum.js';
+import { BufferType, Type, UnionMode } from './enum.js';
 import { DataType, strideForType } from './type.js';
 import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
@@ -30,11 +30,12 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 /** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
 /** @ignore */ export type TypeIdsBuffer = Int8Array | ArrayLike<number> | Iterable<number> | undefined;
 /** @ignore */ export type ValueOffsetsBuffer = Int32Array | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type LargeValueOffsetsBuffer = BigInt64Array | ArrayLike<bigint> | Iterable<bigint> | undefined;
 /** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
 /** @ignore */
 export interface Buffers<T extends DataType> {
-    [BufferType.OFFSET]: Int32Array;
+    [BufferType.OFFSET]: T['TOffsetArray'];
     [BufferType.DATA]: T['TArray'];
     [BufferType.VALIDITY]: Uint8Array;
     [BufferType.TYPE]: T['TArray'];
@@ -56,7 +57,6 @@ export class Data<T extends DataType = DataType> {
     declare public readonly length: number;
     declare public readonly offset: number;
     declare public readonly stride: number;
-    declare public readonly nullable: boolean;
     declare public readonly children: Data[];
 
     /**
@@ -70,10 +70,26 @@ export class Data<T extends DataType = DataType> {
     declare public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
 
     public get typeId(): T['TType'] { return this.type.typeId; }
+
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
+
     public get buffers() {
         return [this.valueOffsets, this.values, this.nullBitmap, this.typeIds] as Buffers<T>;
     }
+
+    public get nullable(): boolean {
+        if (this._nullCount !== 0) {
+            const { type } = this;
+            if (DataType.isSparseUnion(type)) {
+                return this.children.some((child) => child.nullable);
+            } else if (DataType.isDenseUnion(type)) {
+                return this.children.some((child) => child.nullable);
+            }
+            return this.nullBitmap && this.nullBitmap.byteLength > 0;
+        }
+        return true;
+    }
+
     public get byteLength(): number {
         let byteLength = 0;
         const { valueOffsets, values, nullBitmap, typeIds } = this;
@@ -86,7 +102,10 @@ export class Data<T extends DataType = DataType> {
 
     protected _nullCount: number | kUnknownNullCount;
 
-    public get nullCount() {
+    public get nullCount(): number {
+        if (DataType.isUnion(this.type)) {
+            return this.children.reduce((nullCount, child) => nullCount + child.nullCount, 0);
+        }
         let nullCount = this._nullCount;
         let nullBitmap: Uint8Array | undefined;
         if (nullCount <= kUnknownNullCount && (nullBitmap = this.nullBitmap)) {
@@ -118,10 +137,16 @@ export class Data<T extends DataType = DataType> {
                 (buffer = (buffers as Buffers<T>)[3]) && (this.typeIds = buffer);
             }
         }
-        this.nullable = this._nullCount !== 0 && this.nullBitmap && this.nullBitmap.byteLength > 0;
     }
 
-    public getValid(index: number) {
+    public getValid(index: number): boolean {
+        const { type } = this;
+        if (DataType.isUnion(type)) {
+            const union = (<unknown>type as Union);
+            const child = this.children[union.typeIdToChildIndex[this.typeIds[index]]];
+            const indexInChild = union.mode === UnionMode.Dense ? this.valueOffsets[index] : index;
+            return child.getValid(indexInChild);
+        }
         if (this.nullable && this.nullCount > 0) {
             const pos = this.offset + index;
             const val = this.nullBitmap[pos >> 3];
@@ -130,22 +155,45 @@ export class Data<T extends DataType = DataType> {
         return true;
     }
 
-    public setValid(index: number, value: boolean) {
-        // Don't interact w/ nullBitmap if not nullable
-        if (!this.nullable) { return value; }
-        // If no null bitmap, initialize one on the fly
-        if (!this.nullBitmap || this.nullBitmap.byteLength <= (index >> 3)) {
-            const { nullBitmap } = this._changeLengthAndBackfillNullBitmap(this.length);
-            Object.assign(this, { nullBitmap, _nullCount: 0 });
+    public setValid(index: number, value: boolean): boolean {
+        let prev: boolean;
+        const { type } = this;
+        if (DataType.isUnion(type)) {
+            const union = (<unknown>type as Union);
+            const child = this.children[union.typeIdToChildIndex[this.typeIds[index]]];
+            const indexInChild = union.mode === UnionMode.Dense ? this.valueOffsets[index] : index;
+            prev = child.getValid(indexInChild);
+            child.setValid(indexInChild, value);
+        } else {
+            let { nullBitmap } = this;
+            const { offset, length } = this;
+            const idx = offset + index;
+            const mask = 1 << (idx % 8);
+            const byteOffset = idx >> 3;
+
+            // If no null bitmap, initialize one on the fly
+            if (!nullBitmap || nullBitmap.byteLength <= byteOffset) {
+                nullBitmap = new Uint8Array((((offset + length) + 63) & ~63) >> 3).fill(255);
+                // if we have a nullBitmap, truncate + slice and set it over the pre-filled 1s
+                if (this.nullCount > 0) {
+                    nullBitmap.set(truncateBitmap(offset, length, this.nullBitmap), 0);
+                }
+                Object.assign(this, { nullBitmap, _nullCount: -1 });
+            }
+
+            const byte = nullBitmap[byteOffset];
+
+            prev = (byte & mask) !== 0;
+            value ?
+                (nullBitmap[byteOffset] = byte | mask) :
+                (nullBitmap[byteOffset] = byte & ~mask);
         }
-        const { nullBitmap, offset } = this;
-        const pos = (offset + index) >> 3;
-        const bit = (offset + index) % 8;
-        const val = (nullBitmap[pos] >> bit) & 1;
-        // If `val` is truthy and the current bit is 0, flip it to 1 and increment `_nullCount`.
-        // If `val` is falsey and the current bit is 1, flip it to 0 and decrement `_nullCount`.
-        value ? val === 0 && ((nullBitmap[pos] |= (1 << bit)), (this._nullCount = this.nullCount + 1))
-            : val === 1 && ((nullBitmap[pos] &= ~(1 << bit)), (this._nullCount = this.nullCount - 1));
+
+        if (prev !== !!value) {
+            // Update `_nullCount` if the new value is different from the old value.
+            this._nullCount = this.nullCount + (value ? -1 : 1);
+        }
+
         return value;
     }
 
@@ -205,18 +253,19 @@ export class Data<T extends DataType = DataType> {
 
 import {
     Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float,
     Int,
     Date_,
     Interval,
+    Duration,
     Time,
     Timestamp,
     Union, DenseUnion, SparseUnion,
 } from './type.js';
 
 import { Visitor } from './visitor.js';
-import { toArrayBufferView, toInt32Array, toUint8Array } from './util/buffer.js';
+import { toArrayBufferView, toBigInt64Array, toInt32Array, toUint8Array } from './util/buffer.js';
 
 class MakeDataVisitor extends Visitor {
     public visit<T extends DataType>(props: any): Data<T> {
@@ -228,7 +277,7 @@ class MakeDataVisitor extends Visitor {
             ['offset']: offset = 0,
             ['length']: length = 0,
         } = props;
-        return new Data(type, offset, length, 0);
+        return new Data(type, offset, length, length);
     }
     public visitBool<T extends Bool>(props: BoolDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0 } = props;
@@ -259,11 +308,27 @@ class MakeDataVisitor extends Visitor {
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
     }
+    public visitLargeUtf8<T extends LargeUtf8>(props: LargeUtf8DataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toBigInt64Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
     public visitBinary<T extends Binary>(props: BinaryDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0 } = props;
         const data = toUint8Array(props['data']);
         const nullBitmap = toUint8Array(props['nullBitmap']);
         const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
+    public visitLargeBinary<T extends LargeBinary>(props: LargeBinaryDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toBigInt64Array(props['valueOffsets']);
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
     }
@@ -320,14 +385,13 @@ class MakeDataVisitor extends Visitor {
     }
     public visitUnion<T extends Union>(props: UnionDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
-        const nullBitmap = toUint8Array(props['nullBitmap']);
         const typeIds = toArrayBufferView(type.ArrayType, props['typeIds']);
-        const { ['length']: length = typeIds.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        const { ['length']: length = typeIds.length, ['nullCount']: nullCount = -1, } = props;
         if (DataType.isSparseUnion(type)) {
-            return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap, typeIds], children);
+            return new Data(type, offset, length, nullCount, [undefined, undefined, undefined, typeIds], children);
         }
         const valueOffsets = toInt32Array(props['valueOffsets']);
-        return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap, typeIds], children);
+        return new Data(type, offset, length, nullCount, [valueOffsets, undefined, undefined, typeIds], children);
     }
     public visitDictionary<T extends Dictionary>(props: DictionaryDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0 } = props;
@@ -342,6 +406,13 @@ class MakeDataVisitor extends Visitor {
         const nullBitmap = toUint8Array(props['nullBitmap']);
         const data = toArrayBufferView(type.ArrayType, props['data']);
         const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitDuration<T extends Duration>(props: DurationDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
         return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
     }
     public visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
@@ -378,15 +449,18 @@ interface Date_DataProps<T extends Date_> extends DataProps_<T> { data?: DataBuf
 interface TimeDataProps<T extends Time> extends DataProps_<T> { data?: DataBuffer<T> }
 interface TimestampDataProps<T extends Timestamp> extends DataProps_<T> { data?: DataBuffer<T> }
 interface IntervalDataProps<T extends Interval> extends DataProps_<T> { data?: DataBuffer<T> }
+interface DurationDataProps<T extends Duration> extends DataProps_<T> { data?: DataBuffer<T> }
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeBinaryDataProps<T extends LargeBinary> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer | ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer | ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data<T['valueType']> }
 interface FixedSizeListDataProps<T extends FixedSizeList> extends DataProps_<T> { child: Data<T['valueType']> }
 interface StructDataProps<T extends Struct> extends DataProps_<T> { children: Data[] }
 interface Map_DataProps<T extends Map_> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data }
-interface SparseUnionDataProps<T extends SparseUnion> extends DataProps_<T> { typeIds: TypeIdsBuffer; children: Data[] }
-interface DenseUnionDataProps<T extends DenseUnion> extends DataProps_<T> { typeIds: TypeIdsBuffer; children: Data[]; valueOffsets: ValueOffsetsBuffer }
+interface SparseUnionDataProps<T extends SparseUnion> extends DataProps_<T> { nullBitmap: never; typeIds: TypeIdsBuffer; children: Data[] }
+interface DenseUnionDataProps<T extends DenseUnion> extends DataProps_<T> { nullBitmap: never; typeIds: TypeIdsBuffer; children: Data[]; valueOffsets: ValueOffsetsBuffer }
 interface UnionDataProps<T extends Union> extends DataProps_<T> { typeIds: TypeIdsBuffer; children: Data[]; valueOffsets?: ValueOffsetsBuffer }
 
 export type DataProps<T extends DataType> = (
@@ -400,9 +474,12 @@ export type DataProps<T extends DataType> = (
     T extends Time /*            */ ? TimeDataProps<T> :
     T extends Timestamp /*       */ ? TimestampDataProps<T> :
     T extends Interval /*        */ ? IntervalDataProps<T> :
+    T extends Duration /*        */ ? DurationDataProps<T> :
     T extends FixedSizeBinary /* */ ? FixedSizeBinaryDataProps<T> :
     T extends Binary /*          */ ? BinaryDataProps<T> :
+    T extends LargeBinary /*     */ ? LargeBinaryDataProps<T> :
     T extends Utf8 /*            */ ? Utf8DataProps<T> :
+    T extends LargeUtf8 /*       */ ? LargeUtf8DataProps<T> :
     T extends List /*            */ ? ListDataProps<T> :
     T extends FixedSizeList /*   */ ? FixedSizeListDataProps<T> :
     T extends Struct /*          */ ? StructDataProps<T> :
@@ -412,6 +489,8 @@ export type DataProps<T extends DataType> = (
     T extends Union /*           */ ? UnionDataProps<T> :
  /*                                */ DataProps_<T>
 );
+
+const makeDataVisitor = new MakeDataVisitor();
 
 export function makeData<T extends Null>(props: NullDataProps<T>): Data<T>;
 export function makeData<T extends Int>(props: IntDataProps<T>): Data<T>;
@@ -423,9 +502,12 @@ export function makeData<T extends Date_>(props: Date_DataProps<T>): Data<T>;
 export function makeData<T extends Time>(props: TimeDataProps<T>): Data<T>;
 export function makeData<T extends Timestamp>(props: TimestampDataProps<T>): Data<T>;
 export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<T>;
+export function makeData<T extends Duration>(props: DurationDataProps<T>): Data<T>;
 export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
+export function makeData<T extends LargeBinary>(props: LargeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
+export function makeData<T extends LargeUtf8>(props: LargeUtf8DataProps<T>): Data<T>;
 export function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
 export function makeData<T extends FixedSizeList>(props: FixedSizeListDataProps<T>): Data<T>;
 export function makeData<T extends Struct>(props: StructDataProps<T>): Data<T>;
@@ -435,5 +517,5 @@ export function makeData<T extends DenseUnion>(props: DenseUnionDataProps<T>): D
 export function makeData<T extends Union>(props: UnionDataProps<T>): Data<T>;
 export function makeData<T extends DataType>(props: DataProps_<T>): Data<T>;
 export function makeData(props: any) {
-    return new MakeDataVisitor().visit(props);
+    return makeDataVisitor.visit(props);
 }

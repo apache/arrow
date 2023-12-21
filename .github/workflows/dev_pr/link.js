@@ -35,7 +35,7 @@ async function haveComment(github, context, pullRequestNumber, message) {
     page: 1
   };
   while (true) {
-    const response = await github.issues.listComments(options);
+    const response = await github.rest.issues.listComments(options);
     if (response.data.some(comment => comment.body === message)) {
       return true;
     }
@@ -62,7 +62,7 @@ async function commentJIRAURL(github, context, pullRequestNumber, jiraID) {
     return;
   }
   if (issueInfo){
-    await github.issues.createComment({
+    await github.rest.issues.createComment({
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: pullRequestNumber,
@@ -84,14 +84,15 @@ async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
   const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
   const message = "* Closes: #" + issueInfo.number
   if (issueInfo) {
-    if (context.payload.pull_request.body.includes(message)) {
+    const body = context.payload.pull_request.body || "";
+    if (body.includes(message)) {
       return;
     }
-    await github.pulls.update({
+    await github.rest.pulls.update({
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: pullRequestNumber,
-      body: (context.payload.pull_request.body || "") + "\n" + message
+      body: body + "\n" + message
     });
   }
 }

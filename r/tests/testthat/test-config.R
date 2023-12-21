@@ -19,11 +19,22 @@ test_that("set_io_thread_count() sets the number of io threads", {
   current_io_thread_count <- io_thread_count()
   on.exit(set_io_thread_count(current_io_thread_count))
 
-  previous_io_thread_count <- set_io_thread_count(1)
+  previous_io_thread_count <- set_io_thread_count(2)
   expect_identical(previous_io_thread_count, current_io_thread_count)
-  expect_identical(io_thread_count(), 1L)
+  expect_identical(io_thread_count(), 2L)
 
-  expect_identical(set_io_thread_count(current_io_thread_count), 1L)
+  expect_identical(set_io_thread_count(current_io_thread_count), 2L)
+})
+
+test_that("set_io_thread_count() warns for num_threads == 1",  {
+  current_io_thread_count <- io_thread_count()
+  on.exit(set_io_thread_count(current_io_thread_count))
+
+  expect_warning(
+    set_io_thread_count(1),
+    "num_threads < 2",
+    fixed = TRUE
+  )
 })
 
 test_that("set_cpu_count() sets the number of CPU threads", {

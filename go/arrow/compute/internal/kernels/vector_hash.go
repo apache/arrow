@@ -21,13 +21,13 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	"github.com/apache/arrow/go/v13/internal/hashing"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/hashing"
 )
 
 type HashState interface {
@@ -178,7 +178,7 @@ func doAppendFixedSize(action Action, memo hashing.MemoTable, arr *exec.ArraySpa
 		})
 }
 
-func doAppendNumeric[T exec.IntTypes | exec.UintTypes | exec.FloatTypes](action Action, memo hashing.MemoTable, arr *exec.ArraySpan) error {
+func doAppendNumeric[T arrow.IntType | arrow.UintType | arrow.FloatType](action Action, memo hashing.MemoTable, arr *exec.ArraySpan) error {
 	arrData := exec.GetSpanValues[T](arr, 1)
 	shouldEncodeNulls := action.ShouldEncodeNulls()
 	return bitutils.VisitBitBlocksShort(arr.Buffers[0].Buf, arr.Offset, arr.Len,

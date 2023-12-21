@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.VarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
@@ -29,6 +30,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
  * VarCharVector implements a variable width vector of VARCHAR
@@ -36,7 +38,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * to track which elements in the vector are null.
  */
 public final class VarCharVector extends BaseVariableWidthVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a VarCharVector. This doesn't allocate any memory for
@@ -68,16 +69,11 @@ public final class VarCharVector extends BaseVariableWidthVector {
    */
   public VarCharVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new VarCharReaderImpl(VarCharVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new VarCharReaderImpl(VarCharVector.this);
   }
 
   /**
@@ -110,8 +106,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
       return null;
     }
     final int startOffset = getStartOffset(index);
-    final int dataLength =
-            offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - startOffset;
+    final int dataLength = getEndOffset(index) - startOffset;
     final byte[] result = new byte[dataLength];
     valueBuffer.getBytes(startOffset, result, 0, dataLength);
     return result;
@@ -124,12 +119,27 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @return Text object for non-null element, null otherwise
    */
   public Text getObject(int index) {
-    byte[] b = get(index);
-    if (b == null) {
+    assert index >= 0;
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
-    } else {
-      return new Text(b);
     }
+
+    final Text result = new Text();
+    read(index, result);
+    return result;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param buffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> buffer) {
+    final int startOffset = getStartOffset(index);
+    final int dataLength = getEndOffset(index) - startOffset;
+    buffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -147,7 +157,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
     }
     holder.isSet = 1;
     holder.start = getStartOffset(index);
-    holder.end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+    holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
   }
 
@@ -252,7 +262,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param text    Text object with data
    */
   public void set(int index, Text text) {
-    set(index, text.getBytes(), 0, text.getLength());
+    set(index, text.getBytes(), 0, (int) text.getLength());
   }
 
   /**
@@ -264,7 +274,18 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param text    Text object with data
    */
   public void setSafe(int index, Text text) {
-    setSafe(index, text.getBytes(), 0, text.getLength());
+    setSafe(index, text.getBytes(), 0, (int) text.getLength());
+  }
+
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      byte[] value = get(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(Text.validateUTF8NoThrow(value),
+            "Non-UTF-8 data in VarCharVector at position " + i + ".");
+      }
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -286,6 +307,11 @@ public final class VarCharVector extends BaseVariableWidthVector {
     return new TransferImpl(ref, allocator);
   }
 
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
@@ -302,6 +328,10 @@ public final class VarCharVector extends BaseVariableWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new VarCharVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new VarCharVector(field, allocator);
     }
 
     public TransferImpl(VarCharVector to) {

@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/endian"
 )
 
 type Metadata struct {
@@ -194,12 +194,13 @@ func (sc *Schema) WithEndianness(e endian.Endianness) *Schema {
 func (sc *Schema) Endianness() endian.Endianness { return sc.endianness }
 func (sc *Schema) IsNativeEndian() bool          { return sc.endianness == endian.NativeEndian }
 func (sc *Schema) Metadata() Metadata            { return sc.meta }
-func (sc *Schema) Fields() []Field { 
+func (sc *Schema) Fields() []Field {
 	fields := make([]Field, len(sc.fields))
 	copy(fields, sc.fields)
 	return fields
 }
-func (sc *Schema) Field(i int) Field             { return sc.fields[i] }
+func (sc *Schema) Field(i int) Field { return sc.fields[i] }
+func (sc *Schema) NumFields() int    { return len(sc.fields) }
 
 func (sc *Schema) FieldsByName(n string) ([]Field, bool) {
 	indices, ok := sc.index[n]
@@ -258,8 +259,8 @@ func (s *Schema) AddField(i int, field Field) (*Schema, error) {
 
 func (s *Schema) String() string {
 	o := new(strings.Builder)
-	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
-	for i, f := range s.Fields() {
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", s.NumFields())
+	for i, f := range s.fields {
 		if i > 0 {
 			o.WriteString("\n")
 		}
@@ -281,7 +282,7 @@ func (s *Schema) Fingerprint() string {
 
 	var b strings.Builder
 	b.WriteString("S{")
-	for _, f := range s.Fields() {
+	for _, f := range s.fields {
 		fieldFingerprint := f.Fingerprint()
 		if fieldFingerprint == "" {
 			return ""

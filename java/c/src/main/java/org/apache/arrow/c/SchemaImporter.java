@@ -44,7 +44,7 @@ final class SchemaImporter {
   private static final Logger logger = LoggerFactory.getLogger(SchemaImporter.class);
 
   private static final int MAX_IMPORT_RECURSION_LEVEL = 64;
-  private long nextDictionaryID = 1L;
+  private long nextDictionaryID = 0L;
 
   private final BufferAllocator allocator;
 

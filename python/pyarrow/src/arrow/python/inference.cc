@@ -27,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
@@ -340,6 +341,7 @@ class TypeInferrer {
         decimal_count_(0),
         list_count_(0),
         struct_count_(0),
+        arrow_scalar_count_(0),
         numpy_dtype_count_(0),
         interval_count_(0),
         max_decimal_metadata_(std::numeric_limits<int32_t>::min(),
@@ -391,6 +393,8 @@ class TypeInferrer {
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
       *keep_going = make_unions_;
+    } else if (arrow::py::is_scalar(obj)) {
+      RETURN_NOT_OK(VisitArrowScalar(obj, keep_going));
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
     } else if (PySet_Check(obj) || (Py_TYPE(obj) == &PyDictValues_Type)) {
@@ -454,6 +458,12 @@ class TypeInferrer {
     }
 
     RETURN_NOT_OK(Validate());
+
+    if (arrow_scalar_count_ > 0 && arrow_scalar_count_ + none_count_ != total_count_) {
+      return Status::Invalid(
+          "pyarrow scalars cannot be mixed "
+          "with other Python scalar values currently");
+    }
 
     if (numpy_dtype_count_ > 0) {
       // All NumPy scalars and Nones/nulls
@@ -534,6 +544,8 @@ class TypeInferrer {
       *out = utf8();
     } else if (interval_count_) {
       *out = month_day_nano_interval();
+    } else if (arrow_scalar_count_) {
+      *out = scalar_type_;
     } else {
       *out = null();
     }
@@ -557,6 +569,17 @@ class TypeInferrer {
         RETURN_NOT_OK(it.second.Validate());
       }
     }
+    return Status::OK();
+  }
+
+  Status VisitArrowScalar(PyObject* obj, bool* keep_going /* unused */) {
+    ARROW_ASSIGN_OR_RAISE(auto scalar, arrow::py::unwrap_scalar(obj));
+    // Check that all the scalar types for the sequence are the same
+    if (arrow_scalar_count_ > 0 && *scalar->type != *scalar_type_) {
+      return internal::InvalidValue(obj, "cannot mix scalars with different types");
+    }
+    scalar_type_ = scalar->type;
+    ++arrow_scalar_count_;
     return Status::OK();
   }
 
@@ -600,7 +623,7 @@ class TypeInferrer {
 
     // XXX(wesm): In ARROW-4324 I added accounting to check whether
     // all of the non-null values have NumPy dtypes, but the
-    // total_count not not being properly incremented here
+    // total_count not being properly incremented here
     ++(*list_inferrer_).total_count_;
     return list_inferrer_->VisitDType(dtype, keep_going);
   }
@@ -675,10 +698,12 @@ class TypeInferrer {
   int64_t decimal_count_;
   int64_t list_count_;
   int64_t struct_count_;
+  int64_t arrow_scalar_count_;
   int64_t numpy_dtype_count_;
   int64_t interval_count_;
   std::unique_ptr<TypeInferrer> list_inferrer_;
   std::map<std::string, TypeInferrer> struct_inferrers_;
+  std::shared_ptr<DataType> scalar_type_;
 
   // If we observe a strongly-typed value in e.g. a NumPy array, we can store
   // it here to skip the type counting logic above

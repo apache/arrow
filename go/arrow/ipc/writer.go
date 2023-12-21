@@ -26,14 +26,15 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 type swriter struct {
@@ -277,7 +278,7 @@ type dictEncoder struct {
 }
 
 func (d *dictEncoder) encodeMetadata(p *Payload, isDelta bool, id, nrows int64) error {
-	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec)
+	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec, d.variadicCounts)
 	return nil
 }
 
@@ -300,8 +301,9 @@ func (d *dictEncoder) Encode(p *Payload, id int64, isDelta bool, dict arrow.Arra
 type recordEncoder struct {
 	mem memory.Allocator
 
-	fields []fieldMetadata
-	meta   []bufferMetadata
+	fields         []fieldMetadata
+	meta           []bufferMetadata
+	variadicCounts []int64
 
 	depth           int64
 	start           int64
@@ -577,10 +579,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.StringType, *arrow.LargeStringType:
 		arr := arr.(array.BinaryLike)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
+		voffsets := w.getZeroBasedValueOffsets(arr)
 		data := arr.Data()
 		values := data.Buffers()[2]
 
@@ -604,6 +603,33 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
+
+	case arrow.BinaryViewDataType:
+		data := arr.Data()
+		values := data.Buffers()[1]
+		arrLen := int64(arr.Len())
+		typeWidth := int64(arrow.ViewHeaderSizeBytes)
+		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
+
+		switch {
+		case needTruncate(int64(data.Offset()), values, minLength):
+			// non-zero offset: slice the buffer
+			offset := data.Offset() * int(typeWidth)
+			// send padding if available
+			len := int(minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len()-offset)))
+			values = memory.SliceBuffer(values, offset, len)
+		default:
+			if values != nil {
+				values.Retain()
+			}
+		}
+		p.body = append(p.body, values)
+
+		w.variadicCounts = append(w.variadicCounts, int64(len(data.Buffers())-2))
+		for _, b := range data.Buffers()[2:] {
+			b.Retain()
+			p.body = append(p.body, b)
+		}
 
 	case *arrow.StructType:
 		w.depth--
@@ -687,10 +713,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		w.depth++
 	case *arrow.MapType, *arrow.ListType, *arrow.LargeListType:
 		arr := arr.(array.ListLike)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
+		voffsets := w.getZeroBasedValueOffsets(arr)
 		p.body = append(p.body, voffsets)
 
 		w.depth--
@@ -716,7 +739,32 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values = array.NewSlice(values, values_offset, values_end)
 			mustRelease = true
 		}
-		err = w.visit(p, values)
+		err := w.visit(p, values)
+
+		if err != nil {
+			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
+		}
+		w.depth++
+
+	case *arrow.ListViewType, *arrow.LargeListViewType:
+		arr := arr.(array.VarLenListLike)
+
+		voffsets, minOffset, maxEnd := w.getZeroBasedListViewOffsets(arr)
+		vsizes := w.getListViewSizes(arr)
+
+		p.body = append(p.body, voffsets)
+		p.body = append(p.body, vsizes)
+
+		w.depth--
+		var (
+			values = arr.ListValues()
+		)
+
+		if minOffset != 0 || maxEnd < int64(values.Len()) {
+			values = array.NewSlice(values, minOffset, maxEnd)
+			defer values.Release()
+		}
+		err := w.visit(p, values)
 
 		if err != nil {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
@@ -764,19 +812,25 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 	return nil
 }
 
-func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
+func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
 	offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
 	offsetBytesNeeded := offsetTraits.BytesRequired(data.Len() + 1)
 
-	if data.Offset() != 0 || offsetBytesNeeded < voffsets.Len() {
-		// if we have a non-zero offset, then the value offsets do not start at
-		// zero. we must a) create a new offsets array with shifted offsets and
-		// b) slice the values array accordingly
-		//
-		// or if there are more value offsets than values (the array has been sliced)
-		// we need to trim off the trailing offsets
+	if voffsets == nil || voffsets.Len() == 0 {
+		return nil
+	}
+
+	// if we have a non-zero offset, then the value offsets do not start at
+	// zero. we must a) create a new offsets array with shifted offsets and
+	// b) slice the values array accordingly
+	//
+	// or if there are more value offsets than values (the array has been sliced)
+	// we need to trim off the trailing offsets
+	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
+
+	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
@@ -805,11 +859,96 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 	} else {
 		voffsets.Retain()
 	}
-	if voffsets == nil || voffsets.Len() == 0 {
-		return nil, nil
+
+	return voffsets
+}
+
+func getZeroBasedListViewOffsets[OffsetT int32 | int64](mem memory.Allocator, arr array.VarLenListLike) (valueOffsets *memory.Buffer, minOffset, maxEnd OffsetT) {
+	requiredBytes := int(unsafe.Sizeof(minOffset)) * arr.Len()
+	if arr.Data().Offset() == 0 {
+		// slice offsets to used extent, in case we have truncated slice
+		minOffset, maxEnd = 0, OffsetT(arr.ListValues().Len())
+		valueOffsets = arr.Data().Buffers()[1]
+		if valueOffsets.Len() > requiredBytes {
+			valueOffsets = memory.SliceBuffer(valueOffsets, 0, requiredBytes)
+		} else {
+			valueOffsets.Retain()
+		}
+		return
 	}
 
-	return voffsets, nil
+	// non-zero offset, it's likely that the smallest offset is not zero
+	// we must a) create a new offsets array with shifted offsets and
+	// b) slice the values array accordingly
+
+	valueOffsets = memory.NewResizableBuffer(mem)
+	valueOffsets.Resize(requiredBytes)
+	if arr.Len() > 0 {
+		// max value of int32/int64 based on type
+		minOffset = (^OffsetT(0)) << ((8 * unsafe.Sizeof(minOffset)) - 1)
+		for i := 0; i < arr.Len(); i++ {
+			start, end := arr.ValueOffsets(i)
+			minOffset = utils.Min(minOffset, OffsetT(start))
+			maxEnd = utils.Max(maxEnd, OffsetT(end))
+		}
+	}
+
+	offsets := arrow.GetData[OffsetT](arr.Data().Buffers()[1].Bytes())[arr.Data().Offset():]
+	destOffset := arrow.GetData[OffsetT](valueOffsets.Bytes())
+	for i := 0; i < arr.Len(); i++ {
+		destOffset[i] = offsets[i] - minOffset
+	}
+	return
+}
+
+func getListViewSizes[OffsetT int32 | int64](arr array.VarLenListLike) *memory.Buffer {
+	var z OffsetT
+	requiredBytes := int(unsafe.Sizeof(z)) * arr.Len()
+	sizes := arr.Data().Buffers()[2]
+
+	if arr.Data().Offset() != 0 || sizes.Len() > requiredBytes {
+		// slice offsets to used extent, in case we have truncated slice
+		offsetBytes := arr.Data().Offset() * int(unsafe.Sizeof(z))
+		sizes = memory.SliceBuffer(sizes, offsetBytes, requiredBytes)
+	} else {
+		sizes.Retain()
+	}
+	return sizes
+}
+
+func (w *recordEncoder) getZeroBasedListViewOffsets(arr array.VarLenListLike) (*memory.Buffer, int64, int64) {
+	if arr.Len() == 0 {
+		return nil, 0, 0
+	}
+
+	var (
+		outOffsets     *memory.Buffer
+		minOff, maxEnd int64
+	)
+
+	switch v := arr.(type) {
+	case *array.ListView:
+		voffsets, outOff, outEnd := getZeroBasedListViewOffsets[int32](w.mem, v)
+		outOffsets = voffsets
+		minOff, maxEnd = int64(outOff), int64(outEnd)
+	case *array.LargeListView:
+		outOffsets, minOff, maxEnd = getZeroBasedListViewOffsets[int64](w.mem, v)
+	}
+	return outOffsets, minOff, maxEnd
+}
+
+func (w *recordEncoder) getListViewSizes(arr array.VarLenListLike) *memory.Buffer {
+	if arr.Len() == 0 {
+		return nil
+	}
+
+	switch v := arr.(type) {
+	case *array.ListView:
+		return getListViewSizes[int32](v)
+	case *array.LargeListView:
+		return getListViewSizes[int64](v)
+	}
+	return nil
 }
 
 func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
@@ -847,7 +986,7 @@ func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 }
 
 func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {
-	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec)
+	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec, w.variadicCounts)
 	return nil
 }
 

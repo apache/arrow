@@ -25,9 +25,9 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
+{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
   - name: Checkout Arrow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v{{ action_v }}
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow
@@ -72,6 +72,14 @@ on:
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
+{%- macro github_free_space() -%}
+  - name: Free up disk space
+    if: runner.os == 'Linux' && runner.arch == 'X64'
+    shell: bash
+    run: |
+      arrow/ci/scripts/util_free_space.sh
+{% endmacro %}
+
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python by actions/setup-python
     if: runner.arch == 'X64'
@@ -88,7 +96,7 @@ on:
         python3-pip
       sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v4
     with:
       path: crossbow
       ref: {{ job.branch }}
@@ -137,12 +145,26 @@ on:
     run: |
       sudo apt update
       sudo apt install -y ruby-full
+  - name: Set up Ruby by GitHub Actions
+    if: runner.arch == 'X64' && runner.os != 'macOS'
+    uses: ruby/setup-ruby@v1
+    with:
+      ruby-version: "ruby"
+  - name: Install gemfury client on ARM self-hosted
+    if: runner.arch != 'X64'
+    run: |
+      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
+      gem install --user-install gemfury -v 0.12.0
+      ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
+  - name: Install gemfury client
+    if: runner.arch == 'X64'
+    run: |
+      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
+      gem install gemfury -v 0.12.0
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
-      gem install --user-install gemfury
-      fury \
+      fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
         {{ pattern }}
@@ -158,6 +180,11 @@ on:
       git -C arrow checkout {{ arrow.head }}
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
+{% endmacro %}
+
+{%- macro azure_free_space() -%}
+  - script: arrow/ci/scripts/util_free_space.sh
+    displayName: Free up disk space
 {% endmacro %}
 
 {%- macro azure_upload_releases(pattern) -%}
@@ -204,16 +231,17 @@ on:
     env:
       ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
     run: |
-      brew update
+      brew update || echo "brew update did not finish successfully"
       brew --version
       brew unlink python@2 || true
       brew config
       brew doctor || true
       # The GHA runners install of python > 3.10 is incompatible with brew so we
-      # have to force overwritting of the symlinks
+      # have to force overwriting of the symlinks
       # see https://github.com/actions/runner-images/issues/6868
       brew install --overwrite python@3.11 python@3.10
 
+      set -x
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
       for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
@@ -223,28 +251,14 @@ on:
         # Pin the current commit in the formula to test so that
         # we're not always pulling from the tip of the default branch
         sed -i '' -E \
-          -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+          -e 's@https://github.com/apache/arrow.git", branch: "main"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}
         # Sometimes crossbow gives a remote URL with .git and sometimes not.
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
+        cat ${formula}
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
-{% endmacro %}
-
-{%- macro pin_brew_formulae(is_fork = false) -%}
-{#- This macro expects the cwd to be arrow/r -#}
-      # Copy all *brew formulae
-      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
-
-      # Pin the git commit in the formula to match
-      cd tools
-      if [ "{{ is_fork }}" == "true" ]; then
-        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
-      else
-        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
-      fi
-      rm -f apache-arrow*.rb.bak
 {% endmacro %}
 
 {%- macro github_change_r_pkg_version(is_fork, version) -%}
@@ -257,8 +271,6 @@ on:
         DESCRIPTION
       head DESCRIPTION
       rm -f DESCRIPTION.bak
-
-      {{ pin_brew_formulae(is_fork) }}
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
@@ -271,6 +283,7 @@ on:
     "arrow",
     repos = c(getOption("arrow.dev_repo"), getOption("repos")),
     verbose = TRUE,
+    type = "source",
     INSTALL_opts = "--build"
   )
 
@@ -282,7 +295,8 @@ on:
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
+{%- macro github_setup_local_r_repo(get_nix, get_win, get_mac=False) -%}
+# TODO: improve arg handling
   - name: Setup local repo
     shell: bash
     run: mkdir repo
@@ -300,6 +314,17 @@ on:
     with:
       name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
       path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
+    {% endfor %}
+  {% endif %}
+  {% if get_mac %}
+    {% for openssl_version in ["1.1", "3.0"] %}
+      {% for arch in ["x86_64", "arm64"] %}
+  - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
+      path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
+      {% endfor %}
     {% endfor %}
   {% endif %}
   - name: Get src pkg
@@ -355,7 +380,7 @@ on:
             "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
             "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
-            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
           }
  %}
   {% for key, value in sccache_vars.items() %}
@@ -369,7 +394,7 @@ on:
             "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
             "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
             "SCCACHE_REGION": '$(SCCACHE_REGION)',
-            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
           }
   %}
   {% for key, value in sccache_vars.items() %}

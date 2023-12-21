@@ -18,7 +18,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class Time32Type : TimeType
     {
-        public static readonly Time32Type Default = new Time32Type();
+        public static Time32Type Default => Millisecond;
 
         public override ArrowTypeId TypeId => ArrowTypeId.Time32;
         public override string Name => "time32";

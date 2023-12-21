@@ -23,8 +23,12 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -36,7 +40,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
 /**
@@ -50,6 +53,7 @@ public class FlightInfo {
   private final long records;
   private final boolean ordered;
   private final IpcOption option;
+  private final byte[] appMetadata;
 
   /**
    * Constructs a new instance.
@@ -93,10 +97,28 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option) {
-    Objects.requireNonNull(schema);
+    this(schema, descriptor, endpoints, bytes, records, ordered, option, null);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints A list of endpoints that have the flight available.
+   * @param bytes The number of bytes in the flight
+   * @param records The number of records in the flight.
+   * @param ordered Whether the endpoints in this flight are ordered.
+   * @param option IPC write options.
+   * @param appMetadata Metadata to send along with the flight
+   */
+  public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
+                    long records, boolean ordered, IpcOption option, byte[] appMetadata) {
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
-    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
+    if (schema != null) {
+      MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
+    }
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;
@@ -104,6 +126,7 @@ public class FlightInfo {
     this.records = records;
     this.ordered = ordered;
     this.option = option;
+    this.appMetadata = appMetadata;
   }
 
   /**
@@ -114,8 +137,10 @@ public class FlightInfo {
       final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
       schema = pbFlightInfo.getSchema().size() > 0 ?
           MessageSerializer.deserializeSchema(
-              new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
-          : new Schema(ImmutableList.of());
+                          new ReadChannel(
+                                  Channels.newChannel(
+                                          new ByteBufferBackedInputStream(schemaBuf))))
+          : null;
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -127,11 +152,21 @@ public class FlightInfo {
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
     ordered = pbFlightInfo.getOrdered();
+    appMetadata = (pbFlightInfo.getAppMetadata().size() == 0 ? null : pbFlightInfo.getAppMetadata().toByteArray());
     option = IpcOption.DEFAULT;
   }
 
+  public Optional<Schema> getSchemaOptional() {
+    return Optional.ofNullable(schema);
+  }
+
+  /**
+   * Returns the schema, or an empty schema if no schema is present.
+   * @deprecated Deprecated. Use {@link #getSchemaOptional()} instead.
+   */
+  @Deprecated
   public Schema getSchema() {
-    return schema;
+    return schema != null ? schema : new Schema(Collections.emptyList());
   }
 
   public long getBytes() {
@@ -154,25 +189,36 @@ public class FlightInfo {
     return ordered;
   }
 
+  public byte[] getAppMetadata() {
+    return appMetadata;
+  }
+
   /**
    * Converts to the protocol buffer representation.
    */
   Flight.FlightInfo toProtocol() {
-    // Encode schema in a Message payload
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, option);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    Flight.FlightInfo.Builder builder = Flight.FlightInfo.newBuilder()
+            .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
+            .setFlightDescriptor(descriptor.toProtocol())
+            .setTotalBytes(FlightInfo.this.bytes)
+            .setTotalRecords(records)
+            .setOrdered(ordered);
+    if (schema != null) {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      try {
+        MessageSerializer.serialize(
+                new WriteChannel(Channels.newChannel(baos)),
+                schema,
+                option);
+        builder.setSchema(ByteString.copyFrom(baos.toByteArray()));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
-    return Flight.FlightInfo.newBuilder()
-        .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
-        .setSchema(ByteString.copyFrom(baos.toByteArray()))
-        .setFlightDescriptor(descriptor.toProtocol())
-        .setTotalBytes(FlightInfo.this.bytes)
-        .setTotalRecords(records)
-        .setOrdered(ordered)
-        .build();
+    if (appMetadata != null) {
+      builder.setAppMetadata(ByteString.copyFrom(appMetadata));
+    }
+    return builder.build();
   }
 
   /**
@@ -212,12 +258,13 @@ public class FlightInfo {
         schema.equals(that.schema) &&
         descriptor.equals(that.descriptor) &&
         endpoints.equals(that.endpoints) &&
-        ordered == that.ordered;
+        ordered == that.ordered &&
+        Arrays.equals(appMetadata, that.appMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered);
+    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered, Arrays.hashCode(appMetadata));
   }
 
   @Override
@@ -229,6 +276,95 @@ public class FlightInfo {
         ", bytes=" + bytes +
         ", records=" + records +
         ", ordered=" + ordered +
+        ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
         '}';
+  }
+
+  /**
+   * Create a builder for FlightInfo.
+   *
+   * @param schema     The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints  A list of endpoints that have the flight available.
+   */
+  public static Builder builder(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints) {
+    return new Builder(schema, descriptor, endpoints);
+  }
+
+  /**
+   * Builder for FlightInfo.
+   */
+  public static final class Builder {
+    private final Schema schema;
+    private final FlightDescriptor descriptor;
+    private final List<FlightEndpoint> endpoints;
+    private long bytes = -1;
+    private long records = -1;
+    private boolean ordered = false;
+    private IpcOption option = IpcOption.DEFAULT;
+    private byte[] appMetadata = null;
+
+    private Builder(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints) {
+      this.schema = schema;
+      this.descriptor = descriptor;
+      this.endpoints = endpoints;
+    }
+
+    /**
+     * Set the number of bytes for the flight. Default to -1 for unknown.
+     *
+     * @param bytes The number of bytes in the flight
+     */
+    public Builder setBytes(long bytes) {
+      this.bytes = bytes;
+      return this;
+    }
+
+    /**
+     * Set the number of records for the flight. Default to -1 for unknown.
+     *
+     * @param records The number of records in the flight.
+     */
+    public Builder setRecords(long records) {
+      this.records = records;
+      return this;
+    }
+
+    /**
+     * Set whether the flight endpoints are ordered. Default is false.
+     *
+     * @param ordered Whether the endpoints in this flight are ordered.
+     */
+    public Builder setOrdered(boolean ordered) {
+      this.ordered = ordered;
+      return this;
+    }
+
+    /**
+     * Set IPC write options. Default is IpcOption.DEFAULT
+     *
+     * @param option IPC write options.
+     */
+    public Builder setOption(IpcOption option) {
+      this.option = option;
+      return this;
+    }
+
+    /**
+     * Set the app metadata to send along with the flight. Default is null.
+     *
+     * @param appMetadata Metadata to send along with the flight
+     */
+    public Builder setAppMetadata(byte[] appMetadata) {
+      this.appMetadata = appMetadata;
+      return this;
+    }
+
+    /**
+     * Build FlightInfo object.
+     */
+    public FlightInfo build() {
+      return new FlightInfo(schema, descriptor, endpoints, bytes, records, ordered, option, appMetadata);
+    }
   }
 }

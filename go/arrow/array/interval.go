@@ -23,11 +23,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 func NewIntervalData(data arrow.ArrayData) arrow.Array {
@@ -173,8 +173,20 @@ func (b *MonthIntervalBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *MonthIntervalBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *MonthIntervalBuilder) AppendEmptyValue() {
 	b.Append(arrow.MonthInterval(0))
+}
+
+func (b *MonthIntervalBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *MonthIntervalBuilder) UnsafeAppend(v arrow.MonthInterval) {
@@ -461,8 +473,20 @@ func (b *DayTimeIntervalBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *DayTimeIntervalBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *DayTimeIntervalBuilder) AppendEmptyValue() {
 	b.Append(arrow.DayTimeInterval{})
+}
+
+func (b *DayTimeIntervalBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *DayTimeIntervalBuilder) UnsafeAppend(v arrow.DayTimeInterval) {
@@ -752,8 +776,20 @@ func (b *MonthDayNanoIntervalBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *MonthDayNanoIntervalBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *MonthDayNanoIntervalBuilder) AppendEmptyValue() {
 	b.Append(arrow.MonthDayNanoInterval{})
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnsafeAppend(v arrow.MonthDayNanoInterval) {

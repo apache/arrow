@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
 import java.time.Duration;
 
@@ -26,6 +27,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -133,5 +135,15 @@ public class TestDurationVector {
       assertEquals(1 , holder.isSet);
       assertEquals(1000000 , holder.value);
     }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    final DurationVector fromVector = TestUtils.newVector(DurationVector.class, "nanos",
+        new ArrowType.Duration(TimeUnit.NANOSECOND), allocator);
+    final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
+    final DurationVector toVector = (DurationVector) transferPair.getTo();
+    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    assertSame(fromVector.getField(), toVector.getField());
   }
 }

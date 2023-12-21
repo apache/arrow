@@ -216,10 +216,10 @@ all.ArrowDatum <- function(..., na.rm = FALSE) {
   scalar_aggregate("all", ..., na.rm = na.rm)
 }
 
-#' `match` and `%in%` for Arrow objects
+#' Value matching for Arrow objects
 #'
-#' `base::match()` is not a generic, so we can't just define Arrow methods for
-#' it. This function exposes the analogous functions in the Arrow C++ library.
+#' `base::match()` and `base::%in%` are not generics, so we can't just define Arrow methods for
+#' them. These functions expose the analogous functions in the Arrow C++ library.
 #'
 #' @param x `Scalar`, `Array` or `ChunkedArray`
 #' @param table `Scalar`, Array`, `ChunkedArray`, or R vector lookup table.

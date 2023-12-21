@@ -53,7 +53,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final int targetBatchSize;
 
-  // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
+  // This is used to track whether the ResultSet has been fully read, and is needed specifically for cases where there
   // is a ResultSet having zero rows (empty):
   private boolean readComplete = false;
 
@@ -139,7 +139,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     for (int i = 1; i <= consumers.length; i++) {
       final JdbcFieldInfo columnFieldInfo = JdbcToArrowUtils.getJdbcFieldInfoForColumn(rsmd, i, config);
       ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
-      consumers[i - 1] = JdbcToArrowUtils.getConsumer(
+      consumers[i - 1] = config.getJdbcConsumerGetter().apply(
           arrowType, i, isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo), root.getVector(i - 1), config);
     }
   }

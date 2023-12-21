@@ -19,18 +19,21 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/pqarrow"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,6 +97,72 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 			defer expectedArr.Release()
 
 			assert.Truef(t, array.Equal(expectedArr, chunk), "expected: %s\ngot: %s", expectedArr, chunk)
+		})
+	}
+}
+
+func TestArrowReaderAdHocReadFloat16s(t *testing.T) {
+	tests := []struct {
+		file string
+		len  int
+		vals []float16.Num
+	}{
+		{"float16_nonzeros_and_nans", 8,
+			[]float16.Num{
+				float16.New(1.0),
+				float16.New(-2.0),
+				float16.NaN(),
+				float16.New(0.0),
+				float16.New(-1.0),
+				float16.New(0.0).Negate(),
+				float16.New(2.0),
+			}},
+		{"float16_zeros_and_nans", 3,
+			[]float16.Num{
+				float16.New(0.0),
+				float16.NaN(),
+			}},
+	}
+
+	dataDir := getDataDir()
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			filename := filepath.Join(dataDir, tt.file+".parquet")
+			require.FileExists(t, filename)
+
+			rdr, err := file.OpenParquetFile(filename, false, file.WithReadProps(parquet.NewReaderProperties(mem)))
+			require.NoError(t, err)
+			defer rdr.Close()
+
+			arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
+			require.NoError(t, err)
+
+			tbl, err := arrowRdr.ReadTable(context.Background())
+			require.NoError(t, err)
+			defer tbl.Release()
+
+			assert.EqualValues(t, 1, tbl.NumCols())
+			assert.Truef(t, arrow.TypeEqual(tbl.Schema().Field(0).Type, &arrow.Float16Type{}), "expected: %s\ngot: %s", tbl.Schema().Field(0).Type, arrow.Float16Type{})
+
+			valCol := tbl.Column(0)
+			assert.EqualValues(t, tt.len, valCol.Len())
+			assert.Len(t, valCol.Data().Chunks(), 1)
+
+			chunk := valCol.Data().Chunk(0).(*array.Float16)
+			assert.True(t, chunk.IsNull(0))
+			for i := 0; i < tt.len-1; i++ {
+				expected := tt.vals[i]
+				actual := chunk.Value(i + 1)
+				if expected.IsNaN() {
+					// NaN representations aren't guaranteed to be exact on a binary level
+					assert.True(t, actual.IsNaN())
+				} else {
+					assert.Equal(t, expected.Uint16(), actual.Uint16())
+				}
+			}
 		})
 	}
 }
@@ -215,4 +284,69 @@ func TestFileReaderWriterMetadata(t *testing.T) {
 	kvMeta := pf.MetaData().KeyValueMetadata()
 	assert.Equal(t, []string{"foo", "bar"}, kvMeta.Keys())
 	assert.Equal(t, []string{"bar", "baz"}, kvMeta.Values())
+}
+
+func TestFileReaderColumnChunkBoundsErrors(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "zero", Type: arrow.PrimitiveTypes.Float64},
+		{Name: "g", Type: arrow.StructOf(
+			arrow.Field{Name: "one", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "two", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "three", Type: arrow.PrimitiveTypes.Float64},
+		)},
+	}, nil)
+
+	// generate Parquet data with four columns
+	// that are represented by two logical fields
+	data := `[
+		{
+			"zero": 1,
+			"g": {
+				"one": 1,
+				"two": 1,
+				"three": 1
+			}
+		},
+		{
+			"zero": 2,
+			"g": {
+				"one": 2,
+				"two": 2,
+				"three": 2
+			}
+		}
+	]`
+
+	record, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, strings.NewReader(data))
+	require.NoError(t, err)
+
+	output := &bytes.Buffer{}
+	writer, err := pqarrow.NewFileWriter(schema, output, parquet.NewWriterProperties(), pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Write(record))
+	require.NoError(t, writer.Close())
+
+	fileReader, err := file.NewParquetReader(bytes.NewReader(output.Bytes()))
+	require.NoError(t, err)
+
+	arrowReader, err := pqarrow.NewFileReader(fileReader, pqarrow.ArrowReadProperties{BatchSize: 1024}, memory.DefaultAllocator)
+	require.NoError(t, err)
+
+	// assert that errors are returned for indexes outside the bounds of the logical fields (instead of the physical columns)
+	ctx := pqarrow.NewArrowWriteContext(context.Background(), nil)
+	assert.Greater(t, fileReader.NumRowGroups(), 0)
+	for rowGroupIndex := 0; rowGroupIndex < fileReader.NumRowGroups(); rowGroupIndex += 1 {
+		rowGroupReader := arrowReader.RowGroup(rowGroupIndex)
+		for fieldNum := 0; fieldNum < schema.NumFields(); fieldNum += 1 {
+			_, err := rowGroupReader.Column(fieldNum).Read(ctx)
+			assert.NoError(t, err, "reading field num: %d", fieldNum)
+		}
+
+		_, subZeroErr := rowGroupReader.Column(-1).Read(ctx)
+		assert.Error(t, subZeroErr)
+
+		_, tooHighErr := rowGroupReader.Column(schema.NumFields()).Read(ctx)
+		assert.ErrorContains(t, tooHighErr, fmt.Sprintf("there are only %d columns", schema.NumFields()))
+	}
 }

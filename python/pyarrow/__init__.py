@@ -66,10 +66,10 @@ import pyarrow.lib as _lib
 if _gc_enabled:
     _gc.enable()
 
-from pyarrow.lib import (BuildInfo, RuntimeInfo, MonthDayNano,
-                         VersionInfo, cpp_build_info, cpp_version,
-                         cpp_version_info, runtime_info, cpu_count,
-                         set_cpu_count, enable_signal_handlers,
+from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, cpp_build_info,
+                         cpp_version, cpp_version_info, runtime_info,
+                         cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
 
 
@@ -243,7 +243,7 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,
-                         BufferedInputStream, BufferedOutputStream,
+                         BufferedInputStream, BufferedOutputStream, CacheOptions,
                          CompressedInputStream, CompressedOutputStream,
                          TransformInputStream, transcoding_input_stream,
                          FixedSizeBufferWriter,

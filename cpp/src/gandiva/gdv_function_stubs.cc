@@ -209,7 +209,7 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
                                         int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
     *out_len = 0;
     return "";
   }
@@ -236,7 +236,7 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
     *out_len = 0;
     return "";
   }
@@ -743,17 +743,17 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
 }
 
 GANDIVA_EXPORT
-gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_milliseconds,
                                         const char* timezone, gdv_int32 length) {
   using arrow_vendored::date::locate_zone;
   using arrow_vendored::date::sys_time;
   using std::chrono::milliseconds;
 
-  sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  sys_time<milliseconds> tp{milliseconds{time_milliseconds}};
   try {
     const auto local_tz = locate_zone(std::string(timezone, length));
     gdv_timestamp offset = local_tz->get_info(tp).offset.count() * 1000;
-    return time_miliseconds - static_cast<gdv_timestamp>(offset);
+    return time_milliseconds - static_cast<gdv_timestamp>(offset);
   } catch (...) {
     std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
     gdv_fn_context_set_error_msg(context, e_msg.c_str());
@@ -763,17 +763,17 @@ gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_mili
 
 GANDIVA_EXPORT
 gdv_timestamp from_utc_timezone_timestamp(gdv_int64 context,
-                                          gdv_timestamp time_miliseconds,
+                                          gdv_timestamp time_milliseconds,
                                           const char* timezone, gdv_int32 length) {
   using arrow_vendored::date::sys_time;
   using arrow_vendored::date::zoned_time;
   using std::chrono::milliseconds;
 
-  const sys_time<milliseconds> tp{milliseconds{time_miliseconds}};
+  const sys_time<milliseconds> tp{milliseconds{time_milliseconds}};
   try {
     const zoned_time<milliseconds> local_tz{std::string(timezone, length), tp};
     gdv_timestamp offset = local_tz.get_time_zone()->get_info(tp).offset.count() * 1000;
-    return time_miliseconds + static_cast<gdv_timestamp>(offset);
+    return time_milliseconds + static_cast<gdv_timestamp>(offset);
   } catch (...) {
     std::string e_msg = std::string(timezone, length) + " is an invalid time zone name.";
     gdv_fn_context_set_error_msg(context, e_msg.c_str());
@@ -822,7 +822,7 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
 
 namespace gandiva {
 
-void ExportedStubFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -1268,5 +1268,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("mask_utf8", types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(mask_utf8));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

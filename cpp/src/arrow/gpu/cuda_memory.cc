@@ -198,6 +198,11 @@ Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
   return handle;
 }
 
+CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
+    : MutableBuffer(data, size) {
+  device_type_ = DeviceAllocationType::kCUDA_HOST;
+}
+
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
   ARROW_CHECK_OK(maybe_manager.status());
@@ -478,6 +483,22 @@ Result<uint8_t*> GetHostAddress(uintptr_t device_ptr) {
       "cuPointerGetAttribute",
       cuPointerGetAttribute(&ptr, CU_POINTER_ATTRIBUTE_HOST_POINTER, device_ptr));
   return static_cast<uint8_t*>(ptr);
+}
+
+Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id) {
+  switch (device_type) {
+    case ARROW_DEVICE_CPU:
+      return default_cpu_memory_manager();
+    case ARROW_DEVICE_CUDA:
+    case ARROW_DEVICE_CUDA_HOST:
+    case ARROW_DEVICE_CUDA_MANAGED: {
+      ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
+      return device->default_memory_manager();
+    }
+    default:
+      return Status::NotImplemented("memory manager not implemented for device");
+  }
 }
 
 }  // namespace cuda

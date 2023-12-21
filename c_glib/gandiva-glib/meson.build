@@ -85,6 +85,7 @@ libgandiva_glib = library('gandiva-glib',
                           sources: sources + enums,
                           install: true,
                           dependencies: dependencies,
+                          implicit_include_directories: false,
                           include_directories: base_include_directories,
                           soversion: so_version,
                           version: library_version)

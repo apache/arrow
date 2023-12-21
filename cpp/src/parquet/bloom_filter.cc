@@ -105,16 +105,24 @@ static ::arrow::Status ValidateBloomFilterHeader(
 }
 
 BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
-    const ReaderProperties& properties, ArrowInputStream* input) {
-  // NOTE: we don't know the bloom filter header size upfront, and we can't rely on
-  // InputStream::Peek() which isn't always implemented. Therefore, we must first
-  // Read() with an upper bound estimate of the header size, then once we know
-  // the bloom filter data size, we can Read() the exact number of remaining data bytes.
+    const ReaderProperties& properties, ArrowInputStream* input,
+    std::optional<int64_t> bloom_filter_length) {
   ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
+  int64_t bloom_filter_header_read_size = 0;
+  if (bloom_filter_length.has_value()) {
+    bloom_filter_header_read_size = bloom_filter_length.value();
+  } else {
+    // NOTE: we don't know the bloom filter header size upfront without
+    // bloom_filter_length, and we can't rely on InputStream::Peek() which isn't always
+    // implemented. Therefore, we must first Read() with an upper bound estimate of the
+    // header size, then once we know the bloom filter data size, we can Read() the exact
+    // number of remaining data bytes.
+    bloom_filter_header_read_size = kBloomFilterHeaderSizeGuess;
+  }
 
   // Read and deserialize bloom filter header
-  PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(kBloomFilterHeaderSizeGuess));
+  PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(bloom_filter_header_read_size));
   // This gets used, then set by DeserializeThriftMsg
   uint32_t header_size = static_cast<uint32_t>(header_buf->size());
   try {
@@ -136,6 +144,14 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
+  if (bloom_filter_length && *bloom_filter_length != bloom_filter_size + header_size) {
+    // We know the bloom filter data size, but the real size is different.
+    std::stringstream ss;
+    ss << "Bloom filter length (" << bloom_filter_length.value()
+       << ") does not match the actual bloom filter (size: "
+       << bloom_filter_size + header_size << ").";
+    throw ParquetException(ss.str());
+  }
   // We have read a part of the bloom filter already, copy it to the target buffer
   // and read the remaining part from the InputStream.
   auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_size);
@@ -143,7 +159,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
   if (bloom_filter_bytes_in_header > 0) {
     std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
-                bloom_filter_bytes_in_header);
+                static_cast<size_t>(bloom_filter_bytes_in_header));
   }
 
   const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;

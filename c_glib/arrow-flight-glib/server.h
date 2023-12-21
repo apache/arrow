@@ -55,6 +55,23 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
 
 
+#define GAFLIGHT_TYPE_MESSAGE_READER            \
+  (gaflight_message_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightMessageReader,
+                         gaflight_message_reader,
+                         GAFLIGHT,
+                         MESSAGE_READER,
+                         GAFlightRecordBatchReader)
+struct _GAFlightMessageReaderClass
+{
+  GAFlightRecordBatchReaderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_14_0
+GAFlightDescriptor *
+gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader);
+
+
 #define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT       \
   (gaflight_server_call_context_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
@@ -66,6 +83,13 @@ struct _GAFlightServerCallContextClass
 {
   GObjectClass parent_class;
 };
+
+GARROW_AVAILABLE_IN_14_0
+void
+gaflight_server_call_context_foreach_incoming_header(
+  GAFlightServerCallContext *context,
+  GAFlightHeaderFunc func,
+  gpointer user_data);
 
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_SENDER        \
@@ -141,11 +165,10 @@ struct _GAFlightServerCustomAuthHandlerClass
                        GAFlightServerAuthSender *sender,
                        GAFlightServerAuthReader *reader,
                        GError **error);
-  void (*is_valid)(GAFlightServerCustomAuthHandler *handler,
-                   GAFlightServerCallContext *context,
-                   GBytes *token,
-                   GBytes **peer_identity,
-                   GError **error);
+  GBytes *(*is_valid)(GAFlightServerCustomAuthHandler *handler,
+                      GAFlightServerCallContext *context,
+                      GBytes *token,
+                      GError **error);
 };
 
 GARROW_AVAILABLE_IN_12_0
@@ -158,12 +181,11 @@ gaflight_server_custom_auth_handler_authenticate(
   GError **error);
 
 GARROW_AVAILABLE_IN_12_0
-void
+GBytes *
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
   GAFlightServerCallContext *context,
   GBytes *token,
-  GBytes **peer_identity,
   GError **error);
 
 

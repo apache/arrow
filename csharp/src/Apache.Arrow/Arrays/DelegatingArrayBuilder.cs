@@ -98,5 +98,11 @@ namespace Apache.Arrow
             InnerBuilder.Clear();
             return this as TBuilder;
         }
+
+        /// <summary>
+        /// Appends a null value
+        /// </summary>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public abstract TBuilder AppendNull();
     }
 }

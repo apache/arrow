@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
-# Unless overriden use Python 3.10
+# Unless overridden use Python 3.10
 # Google GCS fails building with Python 3.11 at the moment.
 ARG python=3.10
 
@@ -61,6 +61,7 @@ ENV ARROW_ACERO=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -68,7 +69,6 @@ ENV ARROW_ACERO=ON \
     # Blocked on https://issues.apache.org/jira/browse/ARROW-15066
     ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_UCX=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     GTest_SOURCE=BUNDLED \

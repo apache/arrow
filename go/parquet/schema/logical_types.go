@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v13/internal/json"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 )
 
 // DecimalMetadata is a struct for managing scale and precision information between
@@ -68,6 +68,8 @@ func getLogicalType(l *format.LogicalType) LogicalType {
 		return BSONLogicalType{}
 	case l.IsSetUUID():
 		return UUIDLogicalType{}
+	case l.IsSetFLOAT16():
+		return Float16LogicalType{}
 	case l == nil:
 		return NoLogicalType{}
 	default:
@@ -616,6 +618,55 @@ func NewTimestampLogicalTypeForce(isAdjustedToUTC bool, unit TimeUnitType) Logic
 	}
 }
 
+// TimestampOpt options used with New Timestamp Logical Type
+type TimestampOpt func(*TimestampLogicalType)
+
+// WithTSIsAdjustedToUTC sets the IsAdjustedToUTC field of the timestamp type.
+func WithTSIsAdjustedToUTC() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.typ.IsAdjustedToUTC = true
+	}
+}
+
+// WithTSTimeUnitType sets the time unit for the timestamp type
+func WithTSTimeUnitType(unit TimeUnitType) TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.typ.Unit = createTimeUnit(unit)
+	}
+}
+
+// WithTSForceConverted enable force converted mode
+func WithTSForceConverted() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.forceConverted = true
+	}
+}
+
+// WithTSFromConverted enable the timestamp logical type to be
+// constructed from a converted type.
+func WithTSFromConverted() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.fromConverted = true
+	}
+}
+
+// NewTimestampLogicalTypeWithOpts creates a new TimestampLogicalType with the provided options.
+//
+// TimestampType Unit defaults to milliseconds (TimeUnitMillis)
+func NewTimestampLogicalTypeWithOpts(opts ...TimestampOpt) LogicalType {
+	ts := &TimestampLogicalType{
+		typ: &format.TimestampType{
+			Unit: createTimeUnit(TimeUnitMillis), // default to milliseconds
+		},
+	}
+
+	for _, o := range opts {
+		o(ts)
+	}
+
+	return ts
+}
+
 // TimestampLogicalType represents an int64 number that can be decoded
 // into a year, month, day, hour, minute, second, and subsecond
 type TimestampLogicalType struct {
@@ -1012,6 +1063,50 @@ func (IntervalLogicalType) toThrift() *format.LogicalType {
 
 func (IntervalLogicalType) Equals(rhs LogicalType) bool {
 	_, ok := rhs.(IntervalLogicalType)
+	return ok
+}
+
+// Float16LogicalType can only be used with a FixedLength byte array column
+// that is exactly 2 bytes long
+type Float16LogicalType struct{ baseLogicalType }
+
+func (Float16LogicalType) SortOrder() SortOrder {
+	return SortSIGNED
+}
+
+func (Float16LogicalType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{"Type": Float16LogicalType{}.String()})
+}
+
+func (Float16LogicalType) String() string {
+	return "Float16"
+}
+
+func (Float16LogicalType) ToConvertedType() (ConvertedType, DecimalMetadata) {
+	return ConvertedTypes.None, DecimalMetadata{}
+}
+
+func (Float16LogicalType) IsCompatible(c ConvertedType, dec DecimalMetadata) bool {
+	if dec.IsSet {
+		return false
+	}
+	switch c {
+	case ConvertedTypes.None, ConvertedTypes.NA:
+		return true
+	}
+	return false
+}
+
+func (Float16LogicalType) IsApplicable(t parquet.Type, tlen int32) bool {
+	return t == parquet.Types.FixedLenByteArray && tlen == 2
+}
+
+func (Float16LogicalType) toThrift() *format.LogicalType {
+	return &format.LogicalType{FLOAT16: format.NewFloat16Type()}
+}
+
+func (Float16LogicalType) Equals(rhs LogicalType) bool {
+	_, ok := rhs.(Float16LogicalType)
 	return ok
 }
 

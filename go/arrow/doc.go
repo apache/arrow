@@ -22,22 +22,21 @@ language-independent columnar memory format for flat and hierarchical data, orga
 operations on modern hardware. It also provides computational libraries and zero-copy streaming
 messaging and inter-process communication.
 
-Basics
+# Basics
 
 The fundamental data structure in Arrow is an Array, which holds a sequence of values of the same type. An array
 consists of memory holding the data and an additional validity bitmap that indicates if the corresponding entry in the
 array is valid (not null). If the array has no null entries, it is possible to omit this bitmap.
 
-Requirements
+# Requirements
 
-Despite the go.mod stating go1.18, everything except for the compute package
-is able to be built with go1.17 (and most is also compatible with go1.16).
+Despite the go.mod stating go1.20, everything is able to be built with go1.19 or higher.
 
 To build with tinygo include the noasm build tag.
 */
 package arrow
 
-const PkgVersion = "13.0.0-SNAPSHOT"
+const PkgVersion = "15.0.0-SNAPSHOT"
 
 //go:generate go run _tools/tmpl/main.go -i -data=numeric.tmpldata type_traits_numeric.gen.go.tmpl type_traits_numeric.gen_test.go.tmpl array/numeric.gen.go.tmpl array/numericbuilder.gen.go.tmpl array/bufferbuilder_numeric.gen.go.tmpl
 //go:generate go run _tools/tmpl/main.go -i -data=datatype_numeric.gen.go.tmpldata datatype_numeric.gen.go.tmpl tensor/numeric.gen.go.tmpl tensor/numeric.gen_test.go.tmpl

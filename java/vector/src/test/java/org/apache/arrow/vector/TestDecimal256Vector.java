@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -27,6 +28,7 @@ import java.math.BigInteger;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -102,7 +104,7 @@ public class TestDecimal256Vector {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
         UnsupportedOperationException ue =
             assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
-        assertEquals("BigDecimal precision can not be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
+        assertEquals("BigDecimal precision cannot be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
       }
     }
   }
@@ -335,6 +337,15 @@ public class TestDecimal256Vector {
                                                       new BigDecimal("2982346298346289346293467923465345.63")};
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 15);
     }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    final Decimal256Vector fromVector = new Decimal256Vector("decimal", allocator, 10, scale);
+    final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
+    final Decimal256Vector toVector = (Decimal256Vector) transferPair.getTo();
+    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    assertSame(fromVector.getField(), toVector.getField());
   }
 
   private void verifyWritingArrowBufWithBigEndianBytes(Decimal256Vector decimalVector,

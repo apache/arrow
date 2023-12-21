@@ -34,10 +34,33 @@ if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
+fi
+
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  case "$(uname)" in
+    Linux|Darwin|MINGW*)
+      if [ "${ARROW_GDB:-OFF}" != "ON" ]; then
+        : ${ARROW_C_FLAGS_DEBUG:=-g1}
+        : ${ARROW_CXX_FLAGS_DEBUG:=-g1}
+      fi
+      ;;
+    *)
+      ;;
+  esac
+fi
+
+if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
+  ARROW_FLIGHT=OFF
+  ARROW_FLIGHT_SQL=OFF
+  ARROW_GCS=OFF
+  ARROW_JEMALLOC=OFF
+  ARROW_MIMALLOC=OFF
+  ARROW_S3=OFF
+  ARROW_WITH_OPENTELEMETRY=OFF
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
@@ -70,7 +93,8 @@ pushd ${build_dir}
 
 cmake \
   -Dabsl_SOURCE=${absl_SOURCE:-} \
-  -DARROW_ACERO=${ARROW_ACERO:-ON} \
+  -DARROW_ACERO=${ARROW_ACERO:-OFF} \
+  -DARROW_AZURE=${ARROW_AZURE:-OFF} \
   -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
   -DARROW_BUILD_BENCHMARKS_REFERENCE=${ARROW_BUILD_BENCHMARKS:-OFF} \
   -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
@@ -84,8 +108,15 @@ cmake \
   -DARROW_CSV=${ARROW_CSV:-ON} \
   -DARROW_CUDA=${ARROW_CUDA:-OFF} \
   -DARROW_CXXFLAGS=${ARROW_CXXFLAGS:-} \
-  -DARROW_DATASET=${ARROW_DATASET:-ON} \
+  -DARROW_CXX_FLAGS_DEBUG="${ARROW_CXX_FLAGS_DEBUG:-}" \
+  -DARROW_CXX_FLAGS_RELEASE="${ARROW_CXX_FLAGS_RELEASE:-}" \
+  -DARROW_CXX_FLAGS_RELWITHDEBINFO="${ARROW_CXX_FLAGS_RELWITHDEBINFO:-}" \
+  -DARROW_C_FLAGS_DEBUG="${ARROW_C_FLAGS_DEBUG:-}" \
+  -DARROW_C_FLAGS_RELEASE="${ARROW_C_FLAGS_RELEASE:-}" \
+  -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
+  -DARROW_DATASET=${ARROW_DATASET:-OFF} \
   -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+  -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
   -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
   -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
@@ -106,8 +137,9 @@ cmake \
   -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
   -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
   -DARROW_S3=${ARROW_S3:-OFF} \
+  -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
   -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
-  -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-ON} \
+  -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
   -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
   -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
   -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
@@ -130,6 +162,7 @@ cmake \
   -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
   -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
   -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
+  -DAzure_SOURCE=${Azure_SOURCE:-} \
   -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
   -DBOOST_SOURCE=${BOOST_SOURCE:-} \
   -DBrotli_SOURCE=${Brotli_SOURCE:-} \
@@ -161,11 +194,14 @@ cmake \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
   -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
-  ${CMAKE_ARGS} \
+  ${ARROW_CMAKE_ARGS} \
   ${source_dir}
 
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
 time cmake --build . --target install
+
+# Save disk space by removing large temporary build products
+find . -name "*.o" -delete
 
 popd
 

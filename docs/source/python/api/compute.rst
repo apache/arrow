@@ -52,9 +52,11 @@ Aggregations
 Cumulative Functions
 --------------------
 
-Cumulative functions are vector functions that perform a running total on their
-input and output an array containing the corresponding intermediate running values.
-By default these functions do not detect overflow. They are also
+Cumulative functions are vector functions that perform a running accumulation on 
+their input using a given binary associative operation with an identity element 
+(a monoid) and output an array containing the corresponding intermediate running 
+values. The input is expected to be of numeric type. By default these functions 
+do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which
 throws an ``ArrowInvalid`` exception when overflow is detected.
 
@@ -63,6 +65,10 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
 
    cumulative_sum
    cumulative_sum_checked
+   cumulative_prod
+   cumulative_prod_checked
+   cumulative_max
+   cumulative_min
 
 Arithmetic Functions
 --------------------
@@ -462,6 +468,7 @@ Timezone Handling
    :toctree: ../generated/
 
    assume_timezone
+   local_timestamp
 
 Associative Transforms
 ----------------------
@@ -515,6 +522,14 @@ Structural Transforms
    replace_with_mask
    struct_field
 
+Pairwise Functions
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   pairwise_diff
+
 Compute Options
 ---------------
 
@@ -541,6 +556,7 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
+   PairwiseOptions
    PartitionNthOptions
    QuantileOptions
    ReplaceSliceOptions

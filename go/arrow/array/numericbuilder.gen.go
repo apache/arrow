@@ -27,11 +27,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 type Int64Builder struct {
@@ -75,8 +75,20 @@ func (b *Int64Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Int64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Int64Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Int64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int64Builder) UnsafeAppend(v int64) {
@@ -302,8 +314,20 @@ func (b *Uint64Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Uint64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Uint64Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Uint64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint64Builder) UnsafeAppend(v uint64) {
@@ -529,8 +553,20 @@ func (b *Float64Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Float64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Float64Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Float64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float64Builder) UnsafeAppend(v float64) {
@@ -756,8 +792,20 @@ func (b *Int32Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Int32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Int32Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Int32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int32Builder) UnsafeAppend(v int32) {
@@ -983,8 +1031,20 @@ func (b *Uint32Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Uint32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Uint32Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Uint32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint32Builder) UnsafeAppend(v uint32) {
@@ -1210,8 +1270,20 @@ func (b *Float32Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Float32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Float32Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Float32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float32Builder) UnsafeAppend(v float32) {
@@ -1437,8 +1509,20 @@ func (b *Int16Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Int16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Int16Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Int16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int16Builder) UnsafeAppend(v int16) {
@@ -1664,8 +1748,20 @@ func (b *Uint16Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Uint16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Uint16Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Uint16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint16Builder) UnsafeAppend(v uint16) {
@@ -1891,8 +1987,20 @@ func (b *Int8Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Int8Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Int8Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Int8Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int8Builder) UnsafeAppend(v int8) {
@@ -2118,8 +2226,20 @@ func (b *Uint8Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Uint8Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Uint8Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Uint8Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint8Builder) UnsafeAppend(v uint8) {
@@ -2346,8 +2466,20 @@ func (b *Time32Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Time32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Time32Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Time32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Time32Builder) UnsafeAppend(v arrow.Time32) {
@@ -2574,8 +2706,20 @@ func (b *Time64Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Time64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Time64Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Time64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Time64Builder) UnsafeAppend(v arrow.Time64) {
@@ -2801,8 +2945,20 @@ func (b *Date32Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Date32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Date32Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Date32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Date32Builder) UnsafeAppend(v arrow.Date32) {
@@ -3028,8 +3184,20 @@ func (b *Date64Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Date64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Date64Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *Date64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Date64Builder) UnsafeAppend(v arrow.Date64) {
@@ -3256,8 +3424,20 @@ func (b *DurationBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *DurationBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *DurationBuilder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *DurationBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *DurationBuilder) UnsafeAppend(v arrow.Duration) {

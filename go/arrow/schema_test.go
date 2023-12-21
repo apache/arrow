@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/endian"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -255,7 +255,7 @@ func TestSchema(t *testing.T) {
 				s = s.WithEndianness(endian.NonNativeEndian)
 			}
 
-			if got, want := len(s.Fields()), len(tc.fields); got != want {
+			if got, want := s.NumFields(), len(tc.fields); got != want {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 			}
 
@@ -339,10 +339,10 @@ func TestSchemaAddField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got, want := len(s.Fields()), 3; got != want {
+	if got, want := s.NumFields(), 3; got != want {
 		t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 	}
-	got, want := s.Field(2), Field{Name: "f3", Type: PrimitiveTypes.Int32};
+	got, want := s.Field(2), Field{Name: "f3", Type: PrimitiveTypes.Int32}
 	if !got.Equal(want) {
 		t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 	}
@@ -461,4 +461,20 @@ func TestSchemaEqual(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSchemaNumFields(t *testing.T) {
+	s := NewSchema([]Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}, nil)
+
+	assert.Equal(t, 2, s.NumFields())
+
+	var err error
+	s, err = s.AddField(2, Field{Name: "f3", Type: PrimitiveTypes.Int32})
+	assert.NoError(t, err)
+
+	assert.Equal(t, 3, s.NumFields())
+	assert.Equal(t, s.NumFields(), s.NumFields())
 }

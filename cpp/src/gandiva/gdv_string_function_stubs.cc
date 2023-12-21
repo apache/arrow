@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//#pragma once
-
 #include "gandiva/gdv_function_stubs.h"
 
 #include <utf8proc.h>
@@ -86,7 +84,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
@@ -122,7 +120,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
@@ -413,10 +411,13 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     return out;
   } else if (static_cast<int32_t>(abs(cnt)) <= static_cast<int32_t>(occ.size()) &&
              cnt < 0) {
+    int32_t sz = static_cast<int32_t>(occ.size());
     int32_t temp = static_cast<int32_t>(abs(cnt));
-    memcpy(out, txt + occ[temp - 1] + pat_len, txt_len - occ[temp - 1] - pat_len);
-    *out_len = txt_len - occ[temp - 1] - pat_len;
+
+    memcpy(out, txt + occ[sz - temp] + pat_len, txt_len - occ[sz - temp] - pat_len);
+    *out_len = txt_len - occ[sz - temp] - pat_len;
     return out;
+
   } else {
     *out_len = txt_len;
     memcpy(out, txt, txt_len);
@@ -758,7 +759,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
 namespace gandiva {
 
-void ExportedStringFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -985,5 +986,6 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

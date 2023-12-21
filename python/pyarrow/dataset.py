@@ -20,39 +20,45 @@
 import pyarrow as pa
 from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
-from pyarrow._dataset import (  # noqa
-    CsvFileFormat,
-    CsvFragmentScanOptions,
-    JsonFileFormat,
-    JsonFragmentScanOptions,
-    Dataset,
-    DatasetFactory,
-    DirectoryPartitioning,
-    FeatherFileFormat,
-    FilenamePartitioning,
-    FileFormat,
-    FileFragment,
-    FileSystemDataset,
-    FileSystemDatasetFactory,
-    FileSystemFactoryOptions,
-    FileWriteOptions,
-    Fragment,
-    FragmentScanOptions,
-    HivePartitioning,
-    IpcFileFormat,
-    IpcFileWriteOptions,
-    InMemoryDataset,
-    Partitioning,
-    PartitioningFactory,
-    Scanner,
-    TaggedRecordBatch,
-    UnionDataset,
-    UnionDatasetFactory,
-    WrittenFile,
-    get_partition_keys,
-    get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
-    _filesystemdataset_write,
-)
+try:
+    from pyarrow._dataset import (  # noqa
+        CsvFileFormat,
+        CsvFragmentScanOptions,
+        JsonFileFormat,
+        JsonFragmentScanOptions,
+        Dataset,
+        DatasetFactory,
+        DirectoryPartitioning,
+        FeatherFileFormat,
+        FilenamePartitioning,
+        FileFormat,
+        FileFragment,
+        FileSystemDataset,
+        FileSystemDatasetFactory,
+        FileSystemFactoryOptions,
+        FileWriteOptions,
+        Fragment,
+        FragmentScanOptions,
+        HivePartitioning,
+        IpcFileFormat,
+        IpcFileWriteOptions,
+        InMemoryDataset,
+        Partitioning,
+        PartitioningFactory,
+        Scanner,
+        TaggedRecordBatch,
+        UnionDataset,
+        UnionDatasetFactory,
+        WrittenFile,
+        get_partition_keys,
+        get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
+        _filesystemdataset_write,
+    )
+except ImportError as exc:
+    raise ImportError(
+        f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
+    ) from None
+
 # keep Expression functionality exposed here for backwards compatibility
 from pyarrow.compute import Expression, scalar, field  # noqa
 
@@ -87,6 +93,15 @@ try:
         RowGroupInfo,
     )
     _parquet_available = True
+except ImportError:
+    pass
+
+
+try:
+    from pyarrow._dataset_parquet_encryption import (  # noqa
+        ParquetDecryptionConfig,
+        ParquetEncryptionConfig,
+    )
 except ImportError:
     pass
 
@@ -154,7 +169,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
-        The partioning scheme
+        The partitioning scheme
 
     Examples
     --------
@@ -496,7 +511,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
                     partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
-    `pyarrrow.parquet.write_metadata`.
+    `pyarrow.parquet.write_metadata`.
 
     Parameters
     ----------
@@ -519,7 +534,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -615,7 +630,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the

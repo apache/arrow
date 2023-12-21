@@ -16,7 +16,6 @@
 # under the License.
 
 from collections import OrderedDict
-import pickle
 import sys
 import weakref
 
@@ -25,6 +24,12 @@ import numpy as np
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
+from pyarrow.vendored.version import Version
+
+try:
+    import pandas as pd
+except ImportError:
+    pass
 
 
 def test_schema_constructor_errors():
@@ -44,8 +49,11 @@ def test_type_integers():
         assert str(t) == name
 
 
+@pytest.mark.pandas
 def test_type_to_pandas_dtype():
-    M8_ns = np.dtype('datetime64[ns]')
+    M8 = np.dtype('datetime64[ms]')
+    if Version(pd.__version__) < Version("2.0.0"):
+        M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
         (pa.bool_(), np.bool_),
@@ -60,9 +68,9 @@ def test_type_to_pandas_dtype():
         (pa.float16(), np.float16),
         (pa.float32(), np.float32),
         (pa.float64(), np.float64),
-        (pa.date32(), M8_ns),
-        (pa.date64(), M8_ns),
-        (pa.timestamp('ms'), M8_ns),
+        (pa.date32(), M8),
+        (pa.date64(), M8),
+        (pa.timestamp('ms'), M8),
         (pa.binary(), np.object_),
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
@@ -576,7 +584,7 @@ two: int32""")
     assert repr(sch) == expected
 
 
-def test_type_schema_pickling():
+def test_type_schema_pickling(pickle_module):
     cases = [
         pa.int8(),
         pa.string(),
@@ -612,7 +620,7 @@ def test_type_schema_pickling():
     ]
 
     for val in cases:
-        roundtripped = pickle.loads(pickle.dumps(val))
+        roundtripped = pickle_module.loads(pickle_module.dumps(val))
         assert val == roundtripped
 
     fields = []
@@ -623,7 +631,7 @@ def test_type_schema_pickling():
             fields.append(pa.field('_f{}'.format(i), f))
 
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
-    roundtripped = pickle.loads(pickle.dumps(schema))
+    roundtripped = pickle_module.loads(pickle_module.dumps(schema))
     assert schema == roundtripped
 
 
@@ -709,12 +717,15 @@ def test_schema_merge():
     ])
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         pa.unify_schemas([b, d])
 
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    result = pa.unify_schemas([b, d], promote_options="permissive")
+    assert result.equals(d)
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):

@@ -40,7 +40,7 @@
 \alias{fixed_size_list_of}
 \alias{MapType}
 \alias{map_of}
-\title{Apache Arrow data types}
+\title{Create Arrow data types}
 \usage{
 int8()
 

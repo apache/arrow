@@ -21,11 +21,12 @@
 
 jobs:
   test:
-    name: Docs Preview 
+    name: Build Docs
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
+      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
@@ -39,12 +40,13 @@ jobs:
             {{ image }} \
             {{ command|default("") }}
       - name: Checkout Crossbow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: {{ default_branch|default("main") }}
           path: crossbow
           fetch-depth: 1
-      - name: Prepare docs
+      {% if  publish %}
+      - name: Prepare Docs Preview
         run: |
           # build files are created by the docker user
           sudo chown -R ${USER}: build
@@ -55,9 +57,16 @@ jobs:
           {%- raw %}
           AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }} 
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }}
           BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
           {% endraw %}
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
           echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+      {% endif %}
+      - name: Prepare Docs artifacts
+        run: |
+          cd build
+          sudo chown -R ${USER}: .
+          tar cvzf docs.tar.gz docs
+      {{ macros.github_upload_releases("build/docs.tar.gz")|indent }}

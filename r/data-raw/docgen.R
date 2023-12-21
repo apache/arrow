@@ -54,7 +54,7 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 #' to a `dbplyr::tbl_lazy`. This means that the verbs do not eagerly evaluate
 #' the query on the data. To run the query, call either `compute()`,
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
-#' Table into an R `data.frame`.
+#' Table into an R `tibble`.
 #'
 %s
 #'
@@ -79,6 +79,8 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 %s
 #'
 #' @name acero
+#'
+#' @aliases arrow-functions arrow-verbs arrow-dplyr
 NULL"
 
 library(dplyr)

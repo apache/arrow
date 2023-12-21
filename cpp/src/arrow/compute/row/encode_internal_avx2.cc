@@ -22,8 +22,6 @@
 namespace arrow {
 namespace compute {
 
-#if defined(ARROW_HAVE_AVX2)
-
 void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
                                       uint32_t num_rows, uint32_t offset_within_row,
                                       const RowTableImpl& rows, KeyColumnArray* col) {
@@ -229,8 +227,6 @@ void EncoderVarBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
         }
       });
 }
-
-#endif
 
 }  // namespace compute
 }  // namespace arrow

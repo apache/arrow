@@ -16,6 +16,7 @@
 // under the License.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.C
@@ -38,7 +39,11 @@ namespace Apache.Arrow.C
         public byte** buffers;
         public CArrowArray** children;
         public CArrowArray* dictionary;
-        public delegate* unmanaged[Stdcall]<CArrowArray*, void> release;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowArray*, void> release;
+#else
+        internal IntPtr release;
+#endif
         public void* private_data;
 
         /// <summary>
@@ -51,16 +56,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowArray*)Marshal.AllocHGlobal(sizeof(CArrowArray));
 
-            ptr->length = 0;
-            ptr->n_buffers = 0;
-            ptr->offset = 0;
-            ptr->buffers = null;
-            ptr->n_children = 0;
-            ptr->children = null;
-            ptr->dictionary = null;
-            ptr->null_count = 0;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }
@@ -73,12 +69,26 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArray* array)
         {
-            if (array->release != null)
+            CallReleaseFunc(array);
+            Marshal.FreeHGlobal((IntPtr)array);
+        }
+
+        /// <summary>
+        /// Call the array's release func, if set.
+        /// </summary>
+        public static void CallReleaseFunc(CArrowArray* array)
+        {
+            if (array->release != default)
             {
                 // Call release if not already called.
+#if NET5_0_OR_GREATER
                 array->release(array);
+#else
+                Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(array->release)(array);
+#endif
+                Debug.Assert(array->release == default,
+                             "Calling the CArrowArray release func should have set it to NULL");
             }
-            Marshal.FreeHGlobal((IntPtr)array);
         }
     }
 }

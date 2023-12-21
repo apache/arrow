@@ -17,50 +17,69 @@
 package schema
 
 import (
-	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
 // ListOf is a convenience helper function to create a properly structured
 // list structure according to the Parquet Spec.
 //
-// <list-repetition> group <name> (LIST) {
-//   repeated group list {
-//     <element-repetition> <element-type> element;
-//   }
-// }
+//	<list-repetition> group <name> (LIST) {
+//	  repeated group list {
+//	    <element-repetition> <element-type> element;
+//	  }
+//	}
 //
-// <list-repetition> can only be optional or required. panics if repeated.
-// <element-repetition> can only be optional or required. panics if repeated.
+// <list-repetition> can only be optional or required.
+// <element-repetition> can only be optional or required.
 func ListOf(n Node, rep parquet.Repetition, fieldID int32) (*GroupNode, error) {
-	if rep == parquet.Repetitions.Repeated || n.RepetitionType() == parquet.Repetitions.Repeated {
-		return nil, xerrors.New("parquet: listof repetition and element repetition must not be repeated.")
-	}
-	listName := n.Name()
+	return ListOfWithName(n.Name(), n, rep, fieldID)
+}
 
-	switch n := n.(type) {
+// ListOf is a convenience helper function to create a properly structured
+// list structure according to the Parquet Spec.
+//
+//	<list-repetition> group <name> (LIST) {
+//	  repeated group list {
+//	    <element-repetition> <element-type> element;
+//	  }
+//	}
+//
+// <list-repetition> can only be optional or required.
+// <element-repetition> can only be optional or required.
+func ListOfWithName(listName string, element Node, rep parquet.Repetition, fieldID int32) (*GroupNode, error) {
+	if rep == parquet.Repetitions.Repeated {
+		return nil, xerrors.Errorf("parquet: listof repetition must not be repeated, got :%s", rep)
+	}
+
+	if element.RepetitionType() == parquet.Repetitions.Repeated {
+		return nil, xerrors.Errorf("parquet: element repetition must not be repeated, got: %s", element.RepetitionType())
+	}
+
+	switch n := element.(type) {
 	case *PrimitiveNode:
 		n.name = "element"
 	case *GroupNode:
 		n.name = "element"
 	}
 
-	list, err := NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{n}, -1 /* fieldID */)
+	list, err := NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{element}, -1 /* fieldID */)
 	if err != nil {
 		return nil, err
 	}
+
 	return NewGroupNodeLogical(listName, rep, FieldList{list}, ListLogicalType{}, fieldID)
 }
 
 // MapOf is a convenience helper function to create a properly structured
 // parquet map node setup according to the Parquet Spec.
 //
-// <map-repetition> group <name> (MAP) {
-// 	 repeated group key_value {
-// 	   required <key-type> key;
-//     <value-repetition> <value-type> value;
-//   }
-// }
+//	<map-repetition> group <name> (MAP) {
+//		 repeated group key_value {
+//		   required <key-type> key;
+//	    <value-repetition> <value-type> value;
+//	  }
+//	}
 //
 // key node will be renamed to "key", value node if not nil will be renamed to "value"
 //
@@ -69,14 +88,15 @@ func ListOf(n Node, rep parquet.Repetition, fieldID int32) (*GroupNode, error) {
 // the key node *must* be required repetition. panics if optional or repeated
 //
 // value node can be nil (omitted) or have a repetition of required or optional *only*.
-// panics if value node is not nil and has a repetition of repeated.
 func MapOf(name string, key Node, value Node, mapRep parquet.Repetition, fieldID int32) (*GroupNode, error) {
 	if mapRep == parquet.Repetitions.Repeated {
-		return nil, xerrors.New("parquet: map repetition cannot be Repeated")
+		return nil, xerrors.Errorf("parquet: map repetition cannot be Repeated, got: %s", mapRep)
 	}
+
 	if key.RepetitionType() != parquet.Repetitions.Required {
-		return nil, xerrors.New("parquet: map key repetition must be Required")
+		return nil, xerrors.Errorf("parquet: map key repetition must be Required, got: %s", key.RepetitionType())
 	}
+
 	if value != nil {
 		if value.RepetitionType() == parquet.Repetitions.Repeated {
 			return nil, xerrors.New("parquet: map value cannot have repetition Repeated")

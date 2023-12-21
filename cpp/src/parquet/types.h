@@ -30,13 +30,11 @@
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class Codec;
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 namespace parquet {
 
@@ -159,6 +157,7 @@ class PARQUET_EXPORT LogicalType {
       JSON,
       BSON,
       UUID,
+      FLOAT16,
       NONE  // Not a real logical type; should always be last element
     };
   };
@@ -212,6 +211,7 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> JSON();
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
+  static std::shared_ptr<const LogicalType> Float16();
 
   /// \brief Create a placeholder for when no logical type is specified
   static std::shared_ptr<const LogicalType> None();
@@ -265,6 +265,7 @@ class PARQUET_EXPORT LogicalType {
   bool is_JSON() const;
   bool is_BSON() const;
   bool is_UUID() const;
+  bool is_float16() const;
   bool is_none() const;
   /// \brief Return true if this logical type is of a known type.
   bool is_valid() const;
@@ -435,6 +436,16 @@ class PARQUET_EXPORT UUIDLogicalType : public LogicalType {
   UUIDLogicalType() = default;
 };
 
+/// \brief Allowed for physical type FIXED_LEN_BYTE_ARRAY with length 2,
+/// must encode raw FLOAT16 bytes.
+class PARQUET_EXPORT Float16LogicalType : public LogicalType {
+ public:
+  static std::shared_ptr<const LogicalType> Make();
+
+ private:
+  Float16LogicalType() = default;
+};
+
 /// \brief Allowed for any physical type.
 class PARQUET_EXPORT NoLogicalType : public LogicalType {
  public:
@@ -486,6 +497,10 @@ bool IsCodecSupported(Compression::type codec);
 
 PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
+
+PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options);
 
 PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
@@ -575,6 +590,11 @@ struct ByteArray {
   ByteArray(::std::string_view view)  // NOLINT implicit conversion
       : ByteArray(static_cast<uint32_t>(view.size()),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
+
+  explicit operator std::string_view() const {
+    return std::string_view{reinterpret_cast<const char*>(ptr), len};
+  }
+
   uint32_t len;
   const uint8_t* ptr;
 };

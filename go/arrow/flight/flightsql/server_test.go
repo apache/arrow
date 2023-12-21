@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -357,7 +357,29 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
 	st, ok := status.FromError(err)
 	s.True(ok)
 	s.Equal(codes.Unimplemented, st.Code())
-	s.Equal(st.Message(), "CreatePreparedStatement not implemented")
+	s.Equal("CreatePreparedStatement not implemented", st.Message())
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestCancelFlightInfo() {
+	request := flight.CancelFlightInfoRequest{}
+	result, err := s.cl.CancelFlightInfo(context.TODO(), &request)
+	s.Equal(flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
+		result)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("CancelFlightInfo not implemented", st.Message())
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestRenewFlightEndpoint() {
+	endpoint := flight.FlightEndpoint{}
+	request := flight.RenewFlightEndpointRequest{Endpoint: &endpoint}
+	renewedEndpoint, err := s.cl.RenewFlightEndpoint(context.TODO(), &request)
+	s.Nil(renewedEndpoint)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("RenewFlightEndpoint not implemented", st.Message())
 }
 
 func TestBaseServer(t *testing.T) {

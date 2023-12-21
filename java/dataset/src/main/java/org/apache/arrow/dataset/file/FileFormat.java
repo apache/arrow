@@ -25,6 +25,7 @@ public enum FileFormat {
   ARROW_IPC(1),
   ORC(2),
   CSV(3),
+  JSON(4),
   NONE(-1);
 
   private final int id;

@@ -78,7 +78,24 @@ def get_json(url, headers=None):
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise ValueError(response.json())
-    return response.json()
+    # GitHub returns a link header with the next, previous, last
+    # page if there is pagination on the response. See:
+    # https://docs.github.com/en/rest/guides/using-pagination-in-the-rest-api#using-link-headers
+    next_responses = None
+    if "link" in response.headers:
+        links = response.headers['link'].split(', ')
+        for link in links:
+            if 'rel="next"' in link:
+                # Format: '<url>; rel="next"'
+                next_url = link.split(";")[0][1:-1]
+                next_responses = get_json(next_url, headers)
+    responses = response.json()
+    if next_responses:
+        if isinstance(responses, list):
+            responses.extend(next_responses)
+        else:
+            raise ValueError('GitHub response was paginated and is not a list')
+    return responses
 
 
 def run_cmd(cmd):
@@ -418,10 +435,22 @@ class GitHubAPI(object):
         }
         response = requests.put(url, headers=self.headers, json=payload)
         result = response.json()
-        if response.status_code != 200 and 'merged' not in result:
+        if response.status_code == 200 and 'merged' in result:
+            self.clear_pr_state_labels(number)
+        else:
             result['merged'] = False
             result['message'] += f': {url}'
         return result
+
+    def clear_pr_state_labels(self, number):
+        url = f'{self.github_api}/issues/{number}/labels'
+        response = requests.get(url, headers=self.headers)
+        labels = response.json()
+        for label in labels:
+            # All PR workflow state labels starts with "awaiting"
+            if label['name'].startswith('awaiting'):
+                label_url = f"{url}/{label['name']}"
+                requests.delete(label_url, headers=self.headers)
 
 
 class CommandInput(object):

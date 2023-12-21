@@ -19,11 +19,11 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -60,6 +60,7 @@ func TestMakeFromData(t *testing.T) {
 		{name: "int16", d: &testDataType{arrow.INT16}},
 		{name: "int32", d: &testDataType{arrow.INT32}},
 		{name: "int64", d: &testDataType{arrow.INT64}},
+		{name: "float16", d: &testDataType{arrow.FLOAT16}},
 		{name: "float32", d: &testDataType{arrow.FLOAT32}},
 		{name: "float64", d: &testDataType{arrow.FLOAT64}},
 		{name: "string", d: &testDataType{arrow.STRING}, size: 3},
@@ -122,6 +123,11 @@ func TestMakeFromData(t *testing.T) {
 
 		{name: "extension", d: &testDataType{arrow.EXTENSION}, expPanic: true, expError: "arrow/array: DataType for ExtensionArray must implement arrow.ExtensionType"},
 		{name: "extension", d: types.NewUUIDType()},
+
+		{name: "run end encoded", d: arrow.RunEndEncodedOf(arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Int64), child: []arrow.ArrayData{
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+		}},
 
 		// invalid types
 		{name: "invalid(-1)", d: &testDataType{arrow.Type(-1)}, expPanic: true, expError: "invalid data type: Type(-1)"},

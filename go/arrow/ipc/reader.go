@@ -23,13 +23,13 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/endian"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // Reader reads records from an io.Reader.
@@ -159,6 +159,7 @@ func (r *Reader) Release() {
 			r.r.Release()
 			r.r = nil
 		}
+		r.memo.Clear()
 	}
 }
 

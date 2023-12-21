@@ -68,18 +68,6 @@ if(NOT LLVM_FOUND)
 endif()
 
 if(LLVM_FOUND)
-  # Find the libraries that correspond to the LLVM components
-  llvm_map_components_to_libnames(LLVM_LIBS
-                                  core
-                                  mcjit
-                                  native
-                                  ipo
-                                  bitreader
-                                  target
-                                  linker
-                                  analysis
-                                  debuginfodwarf)
-
   find_program(LLVM_LINK_EXECUTABLE llvm-link HINTS ${LLVM_TOOLS_BINARY_DIR})
 
   find_program(CLANG_EXECUTABLE
@@ -94,22 +82,41 @@ if(LLVM_FOUND)
                                    INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}")
 
   add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
-  set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                   "${LLVM_LIBS}")
-
-  if(TARGET LLVMSupport AND NOT ARROW_ZSTD_USE_SHARED)
-    get_target_property(LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES LLVMSupport
-                        INTERFACE_LINK_LIBRARIES)
-    list(FIND LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES zstd::libzstd_shared
-         LLVM_SUPPORT_LIBZSTD_INDEX)
-    if(NOT LLVM_SUPPORT_LIBZSTD_INDEX EQUAL -1)
-      list(REMOVE_AT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX})
-      list(INSERT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX}
-           zstd::libzstd_static)
+  if(ARROW_LLVM_USE_SHARED)
+    target_link_libraries(LLVM::LLVM_LIBS INTERFACE LLVM)
+  else()
+    # Find the libraries that correspond to the LLVM components
+    set(LLVM_TARGET_COMPONENTS
+        analysis
+        bitreader
+        core
+        debuginfodwarf
+        ipo
+        linker
+        mcjit
+        native
+        target)
+    if(LLVM_VERSION_MAJOR GREATER_EQUAL 14)
+      list(APPEND LLVM_TARGET_COMPONENTS passes)
     endif()
-    set_target_properties(LLVMSupport
-                          PROPERTIES INTERFACE_LINK_LIBRARIES
-                                     "${LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES}")
+    llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_TARGET_COMPONENTS})
+    target_link_libraries(LLVM::LLVM_LIBS INTERFACE ${LLVM_LIBS})
+
+    if(TARGET LLVMSupport AND NOT ARROW_ZSTD_USE_SHARED)
+      get_target_property(LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES LLVMSupport
+                          INTERFACE_LINK_LIBRARIES)
+      list(FIND LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES zstd::libzstd_shared
+           LLVM_SUPPORT_LIBZSTD_INDEX)
+      if(NOT LLVM_SUPPORT_LIBZSTD_INDEX EQUAL -1)
+        list(REMOVE_AT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES
+             ${LLVM_SUPPORT_LIBZSTD_INDEX})
+        list(INSERT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX}
+             zstd::libzstd_static)
+      endif()
+      set_target_properties(LLVMSupport
+                            PROPERTIES INTERFACE_LINK_LIBRARIES
+                                       "${LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES}")
+    endif()
   endif()
 endif()
 

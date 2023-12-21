@@ -19,8 +19,8 @@ package arrow
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding
@@ -81,6 +81,8 @@ type ArrayData interface {
 	// Dictionary returns the ArrayData object for the dictionary if this is a
 	// dictionary array, otherwise it will be nil.
 	Dictionary() ArrayData
+	// SizeInBytes returns the size of the ArrayData buffers and any children and/or dictionary in bytes.
+	SizeInBytes() uint64
 }
 
 // Array represents an immutable sequence of values using the Arrow in-memory format.

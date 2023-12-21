@@ -15,6 +15,8 @@
 
 
 using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 
@@ -22,9 +24,13 @@ namespace Apache.Arrow.C
 {
     public static class CArrowArrayExporter
     {
-        private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
+#if NET5_0_OR_GREATER
+        private static unsafe delegate* unmanaged<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
+#else
+        internal unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
-
+        private static IntPtr ReleaseArrayPtr => s_releaseArray.Pointer;
+#endif
         /// <summary>
         /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the
         /// export succeeds, the original array becomes invalid. Clone an array to continue using it
@@ -49,17 +55,11 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(cArray));
             }
-            if (cArray->release != null)
-            {
-                throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
-            }
 
             ExportedAllocationOwner allocationOwner = new ExportedAllocationOwner();
             try
             {
                 ConvertArray(allocationOwner, array.Data, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)(IntPtr)s_releaseArray.Pointer;
-                cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
             finally
@@ -92,7 +92,7 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(cArray));
             }
-            if (cArray->release != null)
+            if (cArray->release != default)
             {
                 throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
             }
@@ -101,8 +101,6 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertRecordBatch(allocationOwner, batch, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
-                cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
             finally
@@ -116,8 +114,8 @@ namespace Apache.Arrow.C
             cArray->length = array.Length;
             cArray->offset = array.Offset;
             cArray->null_count = array.NullCount;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
-            cArray->private_data = null;
+            cArray->release = ReleaseArrayPtr;
+            cArray->private_data = MakePrivateData(sharedOwner);
 
             cArray->n_buffers = array.Buffers?.Length ?? 0;
             cArray->buffers = null;
@@ -130,7 +128,7 @@ namespace Apache.Arrow.C
                     IntPtr ptr;
                     if (!buffer.TryExport(sharedOwner, out ptr))
                     {
-                        throw new NotSupportedException($"An ArrowArray of type {array.DataType.TypeId} could not be exported");
+                        throw new NotSupportedException($"An ArrowArray of type {array.DataType.TypeId} could not be exported: failed on buffer #{i}");
                     }
                     cArray->buffers[i] = (byte*)ptr;
                 }
@@ -143,7 +141,7 @@ namespace Apache.Arrow.C
                 cArray->children = (CArrowArray**)sharedOwner.Allocate(IntPtr.Size * array.Children.Length);
                 for (int i = 0; i < array.Children.Length; i++)
                 {
-                    cArray->children[i] = CArrowArray.Create();
+                    cArray->children[i] = MakeArray(sharedOwner);
                     ConvertArray(sharedOwner, array.Children[i], cArray->children[i]);
                 }
             }
@@ -151,7 +149,7 @@ namespace Apache.Arrow.C
             cArray->dictionary = null;
             if (array.Dictionary != null)
             {
-                cArray->dictionary = CArrowArray.Create();
+                cArray->dictionary = MakeArray(sharedOwner);
                 ConvertArray(sharedOwner, array.Dictionary, cArray->dictionary);
             }
         }
@@ -161,21 +159,25 @@ namespace Apache.Arrow.C
             cArray->length = batch.Length;
             cArray->offset = 0;
             cArray->null_count = 0;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
-            cArray->private_data = null;
+            cArray->release = ReleaseArrayPtr;
+            cArray->private_data = MakePrivateData(sharedOwner);
 
             cArray->n_buffers = 1;
             cArray->buffers = (byte**)sharedOwner.Allocate(IntPtr.Size);
 
             cArray->n_children = batch.ColumnCount;
             cArray->children = null;
+            // XXX sharing the same ExportedAllocationOwner for all columns
+            // and child arrays makes memory tracking inflexible.
+            // If the consumer keeps only a single record batch column,
+            // the entire record batch memory is nevertheless kept alive.
             if (cArray->n_children > 0)
             {
                 cArray->children = (CArrowArray**)sharedOwner.Allocate(IntPtr.Size * batch.ColumnCount);
                 int i = 0;
                 foreach (IArrowArray child in batch.Arrays)
                 {
-                    cArray->children[i] = CArrowArray.Create();
+                    cArray->children[i] = MakeArray(sharedOwner);
                     ConvertArray(sharedOwner, child.Data, cArray->children[i]);
                     i++;
                 }
@@ -184,28 +186,49 @@ namespace Apache.Arrow.C
             cArray->dictionary = null;
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
-            if (cArray->private_data != null)
+            for (long i = 0; i < cArray->n_children; i++)
             {
-                Dispose(&cArray->private_data);
+                CArrowArray.CallReleaseFunc(cArray->children[i]);
             }
-            cArray->private_data = null;
-            cArray->release = null;
+            if (cArray->dictionary != null)
+            {
+                CArrowArray.CallReleaseFunc(cArray->dictionary);
+            }
+            DisposePrivateData(&cArray->private_data);
+            cArray->release = default;
         }
 
-        private unsafe static void* FromDisposable(IDisposable disposable)
+        private unsafe static CArrowArray* MakeArray(ExportedAllocationOwner sharedOwner)
         {
-            GCHandle gch = GCHandle.Alloc(disposable);
+            var array = (CArrowArray*)sharedOwner.Allocate(sizeof(CArrowArray));
+            *array = default;
+            return array;
+        }
+
+        private unsafe static void* MakePrivateData(ExportedAllocationOwner sharedOwner)
+        {
+            GCHandle gch = GCHandle.Alloc(sharedOwner);
+            sharedOwner.IncRef();
             return (void*)GCHandle.ToIntPtr(gch);
         }
 
-        private unsafe static void Dispose(void** ptr)
+        private unsafe static void DisposePrivateData(void** ptr)
         {
-            GCHandle gch = GCHandle.FromIntPtr((IntPtr)(*ptr));
-            ((IDisposable)gch.Target).Dispose();
+            GCHandle gch = GCHandle.FromIntPtr((IntPtr) (*ptr));
+            if (!gch.IsAllocated)
+            {
+                return;
+            }
+            // We can't call IDisposable.Dispose() here as we create multiple
+            // GCHandles to the same object. Instead, refcounting ensures
+            // timely memory deallocation when all GCHandles are freed.
+            ((ExportedAllocationOwner) gch.Target).DecRef();
             gch.Free();
-            *ptr = null;
         }
     }
 }

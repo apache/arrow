@@ -17,16 +17,17 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -345,6 +346,11 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 		c.curDecoder = decoder
 	} else {
 		switch encoding {
+		case format.Encoding_RLE:
+			if c.descr.PhysicalType() != parquet.Types.Boolean {
+				return fmt.Errorf("parquet: only boolean supports RLE encoding, got %s", c.descr.PhysicalType())
+			}
+			fallthrough
 		case format.Encoding_PLAIN,
 			format.Encoding_DELTA_BYTE_ARRAY,
 			format.Encoding_DELTA_LENGTH_BYTE_ARRAY,
@@ -352,7 +358,7 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 			c.curDecoder = c.decoderTraits.Decoder(parquet.Encoding(encoding), c.descr, false, c.mem)
 			c.decoders[encoding] = c.curDecoder
 		case format.Encoding_RLE_DICTIONARY:
-			return xerrors.New("parquet: dictionary page must be before data page")
+			return errors.New("parquet: dictionary page must be before data page")
 		case format.Encoding_BYTE_STREAM_SPLIT:
 			return fmt.Errorf("parquet: unsupported data encoding %s", encoding)
 		default:
@@ -511,7 +517,7 @@ func (c *columnChunkReader) readBatch(batchSize int64, defLvls, repLvls []int16,
 		// if this is a required field, ndefs will be 0 since there is no definition
 		// levels stored with it and `read` will be the number of values, otherwise
 		// we use ndefs since it will be equal to or greater than read.
-		totalVals := int64(utils.MaxInt(ndefs, read))
+		totalVals := int64(utils.Max(ndefs, read))
 		c.consumeBufferedValues(totalVals)
 
 		totalLvls += totalVals

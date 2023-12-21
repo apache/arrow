@@ -16,16 +16,24 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
 {
     public static class CArrowSchemaExporter
     {
-        private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
+#if NET5_0_OR_GREATER
+        private static unsafe delegate* unmanaged<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
+#else
+        internal unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
+        private static IntPtr ReleaseSchemaPtr => s_releaseSchema.Pointer;
+#endif
 
         /// <summary>
         /// Export a type to a <see cref="CArrowSchema"/>.
@@ -50,10 +58,6 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(schema));
             }
-            if (schema->release != null)
-            {
-                throw new ArgumentException("Cannot export schema to a struct that is already initialized.");
-            }
 
             schema->format = StringUtil.ToCStringUtf8(GetFormat(datatype));
             schema->name = null;
@@ -65,7 +69,7 @@ namespace Apache.Arrow.C
 
             schema->dictionary = ConstructDictionary(datatype);
 
-            schema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)s_releaseSchema.Pointer;
+            schema->release = ReleaseSchemaPtr;
 
             schema->private_data = null;
         }
@@ -87,8 +91,7 @@ namespace Apache.Arrow.C
         {
             ExportType(field.DataType, schema);
             schema->name = StringUtil.ToCStringUtf8(field.Name);
-            // TODO: field metadata
-            schema->metadata = null;
+            schema->metadata = ConstructMetadata(field.Metadata);
             schema->flags = GetFlags(field.DataType, field.IsNullable);
         }
 
@@ -108,8 +111,8 @@ namespace Apache.Arrow.C
         public static unsafe void ExportSchema(Schema schema, CArrowSchema* out_schema)
         {
             var structType = new StructType(schema.FieldsList);
-            // TODO: top-level metadata
             ExportType(structType, out_schema);
+            out_schema->metadata = ConstructMetadata(schema.Metadata);
         }
 
         private static char FormatTimeUnit(TimeUnit unit) => unit switch
@@ -120,6 +123,23 @@ namespace Apache.Arrow.C
             TimeUnit.Nanosecond => 'n',
             _ => throw new InvalidDataException($"Unsupported time unit for export: {unit}"),
         };
+
+        private static string FormatUnion(UnionType unionType)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(unionType.Mode switch
+            {
+                UnionMode.Sparse => "+us:",
+                UnionMode.Dense => "+ud:",
+                _ => throw new InvalidDataException($"Unsupported union mode for export: {unionType.Mode}"),
+            });
+            for (int i = 0; i < unionType.TypeIds.Length; i++)
+            {
+                if (i > 0) { builder.Append(','); }
+                builder.Append(unionType.TypeIds[i]);
+            }
+            return builder.ToString();
+        }
 
         private static string GetFormat(IArrowType datatype)
         {
@@ -159,12 +179,28 @@ namespace Apache.Arrow.C
                 case Time64Type timeType:
                     // Same prefix as Time32, but allowed time units are different.
                     return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                // Duration
+                case DurationType durationType:
+                    return String.Format("tD{0}", FormatTimeUnit(durationType.Unit));
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Interval
+                case IntervalType intervalType:
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => "tiM",
+                        IntervalUnit.DayTime => "tiD",
+                        IntervalUnit.MonthDayNanosecond => "tin",
+                        _ => throw new InvalidDataException($"Unsupported interval unit for export: {intervalType.Unit}"),
+                    };
                 // Nested
                 case ListType _: return "+l";
+                case FixedSizeListType fixedListType:
+                    return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
+                case UnionType u: return FormatUnion(u);
+                case MapType _: return "+m";
                 // Dictionary
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);
@@ -189,10 +225,9 @@ namespace Apache.Arrow.C
                 }
             }
 
-            if (datatype.TypeId == ArrowTypeId.Map)
+            if (datatype is MapType mapType && mapType.KeySorted)
             {
-                // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
-                throw new NotSupportedException("Exporting MapTypes is not supported.");
+                flags |= CArrowSchema.ArrowFlagMapKeysSorted;
             }
 
             return flags;
@@ -243,10 +278,58 @@ namespace Apache.Arrow.C
             }
         }
 
+        private unsafe static byte* ConstructMetadata(IReadOnlyDictionary<string, string> metadata)
+        {
+            if (metadata == null || metadata.Count == 0)
+            {
+                return null;
+            }
+
+            int size = 4;
+            int[] lengths = new int[metadata.Count * 2];
+            int i = 0;
+            foreach (KeyValuePair<string, string> pair in metadata)
+            {
+                size += 8;
+                lengths[i] = Encoding.UTF8.GetByteCount(pair.Key);
+                size += lengths[i++];
+                lengths[i] = Encoding.UTF8.GetByteCount(pair.Value);
+                size += lengths[i++];
+            }
+
+            IntPtr result = Marshal.AllocHGlobal(size);
+            Marshal.WriteInt32(result, metadata.Count);
+            byte* ptr = (byte*)result + 4;
+            i = 0;
+            foreach (KeyValuePair<string, string> pair in metadata)
+            {
+                WriteMetadataString(ref ptr, lengths[i++], pair.Key);
+                WriteMetadataString(ref ptr, lengths[i++], pair.Value);
+            }
+
+            Debug.Assert((long)(IntPtr)ptr - (long)result == size);
+
+            return (byte*)result;
+        }
+
+        private unsafe static void WriteMetadataString(ref byte* ptr, int length, string str)
+        {
+            Marshal.WriteInt32((IntPtr)ptr, length);
+            ptr += 4;
+            fixed (char* s = str)
+            {
+                Encoding.UTF8.GetBytes(s, str.Length, ptr, length);
+            }
+            ptr += length;
+        }
+
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)
         {
             if (schema == null) return;
-            if (schema->release == null) return;
+            if (schema->release == default) return;
 
             Marshal.FreeHGlobal((IntPtr)schema->format);
             Marshal.FreeHGlobal((IntPtr)schema->name);
@@ -273,7 +356,7 @@ namespace Apache.Arrow.C
             schema->n_children = 0;
             schema->dictionary = null;
             schema->children = null;
-            schema->release = null;
+            schema->release = default;
         }
     }
 }

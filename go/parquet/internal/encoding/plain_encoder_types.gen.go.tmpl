@@ -20,10 +20,10 @@ import (
   "encoding/binary"
   "fmt"
 
-  "github.com/apache/arrow/go/v13/arrow"
-  "github.com/apache/arrow/go/v13/parquet"
-  "github.com/apache/arrow/go/v13/internal/utils"
-  "github.com/apache/arrow/go/v13/internal/bitutils"
+  "github.com/apache/arrow/go/v15/arrow"
+  "github.com/apache/arrow/go/v15/parquet"
+  "github.com/apache/arrow/go/v15/internal/utils"
+  "github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 var (
@@ -133,7 +133,7 @@ func (Plain{{.Name}}Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *Plain{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  max := utils.MinInt(len(out), dec.nvals)
+  max := utils.Min(len(out), dec.nvals)
   nbytes := int64(max) * int64({{.prefix}}.{{.Name}}SizeBytes)
   if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
     return 0, fmt.Errorf("parquet: eof exception decode plain {{.Name}}, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))

@@ -194,7 +194,7 @@ TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
                              "Invalid dim_names");
 }
 
-TEST_F(TestExtensionType, RoudtripBatch) {
+TEST_F(TestExtensionType, RoundtripBatch) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
@@ -383,7 +383,7 @@ TEST_F(TestExtensionType, SliceTensor) {
   ASSERT_EQ(sliced->length(), partial->length());
 }
 
-TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
+TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
                                                  shape_, {}, {"n", "x", "y"}));
@@ -432,6 +432,34 @@ TEST_F(TestExtensionType, ComputeStrides) {
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
   ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 112, 16}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
+}
+
+TEST_F(TestExtensionType, ToString) {
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
+
+  auto ext_type_1 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int16(), {3, 4, 7}));
+  auto ext_type_2 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int32(), {3, 4, 7}, {1, 0, 2}));
+  auto ext_type_3 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int64(), {3, 4, 7}, {}, {"C", "H", "W"}));
+
+  std::string result_1 = ext_type_1->ToString();
+  std::string expected_1 =
+      "extension<arrow.fixed_shape_tensor[value_type=int16, shape=[3,4,7]]>";
+  ASSERT_EQ(expected_1, result_1);
+
+  std::string result_2 = ext_type_2->ToString();
+  std::string expected_2 =
+      "extension<arrow.fixed_shape_tensor[value_type=int32, shape=[3,4,7], "
+      "permutation=[1,0,2]]>";
+  ASSERT_EQ(expected_2, result_2);
+
+  std::string result_3 = ext_type_3->ToString();
+  std::string expected_3 =
+      "extension<arrow.fixed_shape_tensor[value_type=int64, shape=[3,4,7], "
+      "dim_names=[C,H,W]]>";
+  ASSERT_EQ(expected_3, result_3);
 }
 
 }  // namespace arrow

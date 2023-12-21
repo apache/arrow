@@ -96,13 +96,15 @@ class ARROW_EXPORT DictionaryArray : public Array {
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
       const int32_t* transpose_map, MemoryPool* pool = default_memory_pool()) const;
 
+  Result<std::shared_ptr<Array>> Compact(MemoryPool* pool = default_memory_pool()) const;
+
   /// \brief Determine whether dictionary arrays may be compared without unification
   bool CanCompareIndices(const DictionaryArray& other) const;
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure
-  std::shared_ptr<Array> dictionary() const;
-  std::shared_ptr<Array> indices() const;
+  const std::shared_ptr<Array>& dictionary() const;
+  const std::shared_ptr<Array>& indices() const;
 
   /// \brief Return the ith value of indices, cast to int64_t. Not recommended
   /// for use in performance-sensitive code. Does not validate whether the

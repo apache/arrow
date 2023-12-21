@@ -20,10 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated
@@ -136,11 +137,11 @@ func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTabl
 //   - the total length of each column's array slice (ie: number of rows
 //     in the column) aren't the same for all columns.
 func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable {
-	if len(data) != len(schema.Fields()) {
+	if len(data) != schema.NumFields() {
 		panic("array/table: mismatch in number of columns and data for creating a table")
 	}
 
-	cols := make([]arrow.Column, len(schema.Fields()))
+	cols := make([]arrow.Column, schema.NumFields())
 	for i, arrs := range data {
 		field := schema.Field(i)
 		chunked := arrow.NewChunked(field.Type, arrs)
@@ -176,7 +177,7 @@ func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable 
 // NewTableFromRecords panics if the records and schema are inconsistent.
 func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable {
 	arrs := make([]arrow.Array, len(recs))
-	cols := make([]arrow.Column, len(schema.Fields()))
+	cols := make([]arrow.Column, schema.NumFields())
 
 	defer func(cols []arrow.Column) {
 		for i := range cols {
@@ -223,7 +224,7 @@ func (tbl *simpleTable) NumCols() int64             { return int64(len(tbl.cols)
 func (tbl *simpleTable) Column(i int) *arrow.Column { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
-	if len(tbl.cols) != len(tbl.schema.Fields()) {
+	if len(tbl.cols) != tbl.schema.NumFields() {
 		panic(errors.New("arrow/array: table schema mismatch"))
 	}
 	for i, col := range tbl.cols {
@@ -255,6 +256,25 @@ func (tbl *simpleTable) Release() {
 		}
 		tbl.cols = nil
 	}
+}
+
+func (tbl *simpleTable) String() string {
+	o := new(strings.Builder)
+	o.WriteString(tbl.Schema().String())
+	o.WriteString("\n")
+
+	for i := 0; i < int(tbl.NumCols()); i++ {
+		col := tbl.Column(i)
+		o.WriteString(col.Field().Name + ": [")
+		for j, chunk := range col.Data().Chunks() {
+			if j != 0 {
+				o.WriteString(", ")
+			}
+			o.WriteString(chunk.String())
+		}
+		o.WriteString("]\n")
+	}
+	return o.String()
 }
 
 // TableReader is a Record iterator over a (possibly chunked) Table

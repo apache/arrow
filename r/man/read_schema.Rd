@@ -2,7 +2,7 @@
 % Please edit documentation in R/schema.R
 \name{read_schema}
 \alias{read_schema}
-\title{read a Schema from a stream}
+\title{Read a Schema from a stream}
 \usage{
 read_schema(stream, ...)
 }
@@ -15,5 +15,5 @@ read_schema(stream, ...)
 A \link{Schema}
 }
 \description{
-read a Schema from a stream
+Read a Schema from a stream
 }

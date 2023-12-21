@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 var (
@@ -118,6 +118,18 @@ func WithHeader(useHeader bool) Option {
 	}
 }
 
+// WithLazyQuotes sets csv parsing option to LazyQuotes
+func WithLazyQuotes(useLazyQuotes bool) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.r.LazyQuotes = useLazyQuotes
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
 // DefaultNullValues is the set of values considered as NULL values by default
 // when Reader is configured to handle NULL values.
 var DefaultNullValues = []string{"", "NULL", "null"}
@@ -160,7 +172,7 @@ func WithNullWriter(null string) Option {
 }
 
 // WithBoolWriter override the default bool formatter with a function that returns
-// a string representaton of bool states. i.e. True, False, 1, 0
+// a string representation of bool states. i.e. True, False, 1, 0
 func WithBoolWriter(fmtr func(bool) string) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
@@ -217,14 +229,15 @@ func validate(schema *arrow.Schema) {
 		case *arrow.BooleanType:
 		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
 		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType:
+		case *arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type:
+		case *arrow.StringType, *arrow.LargeStringType:
 		case *arrow.TimestampType:
 		case *arrow.Date32Type, *arrow.Date64Type:
 		case *arrow.Decimal128Type, *arrow.Decimal256Type:
-		case *arrow.ListType:
-		case *arrow.BinaryType:
+		case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType:
+		case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.FixedSizeBinaryType:
 		case arrow.ExtensionType:
+		case *arrow.NullType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

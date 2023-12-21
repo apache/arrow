@@ -42,6 +42,7 @@ import org.apache.arrow.vector.holders.ComplexHolder;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -99,7 +100,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
    * @param conflictPolicy policy to determine how duplicate names are handled.
-   * @param allowConflictPolicyChanges wether duplicate names are allowed at all.
+   * @param allowConflictPolicyChanges whether duplicate names are allowed at all.
    */
   public StructVector(String name,
                       BufferAllocator allocator,
@@ -111,6 +112,44 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     this.validityBuffer = allocator.getEmpty();
     this.validityAllocationSizeInBytes =
       BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public StructVector(Field field,
+                      BufferAllocator allocator,
+                      CallBack callBack) {
+    super(field,
+        checkNotNull(allocator),
+        callBack);
+    this.validityBuffer = allocator.getEmpty();
+    this.validityAllocationSizeInBytes =
+        BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   * @param conflictPolicy policy to determine how duplicate names are handled.
+   * @param allowConflictPolicyChanges whether duplicate names are allowed at all.
+   */
+  public StructVector(Field field,
+                      BufferAllocator allocator,
+                      CallBack callBack,
+                      ConflictPolicy conflictPolicy,
+                      boolean allowConflictPolicyChanges) {
+    super(field, checkNotNull(allocator), callBack, conflictPolicy, allowConflictPolicyChanges);
+    this.validityBuffer = allocator.getEmpty();
+    this.validityAllocationSizeInBytes =
+        BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION);
   }
 
   @Override
@@ -167,7 +206,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public TransferPair getTransferPair(BufferAllocator allocator) {
     return new NullableStructTransferPair(this, new StructVector(name,
         allocator,
-        fieldType,
+        field.getFieldType(),
         null,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -182,7 +221,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new NullableStructTransferPair(this, new StructVector(ref,
         allocator,
-        fieldType,
+        field.getFieldType(),
         null,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -192,7 +231,25 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new NullableStructTransferPair(this, new StructVector(ref,
         allocator,
-        fieldType,
+        field.getFieldType(),
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new NullableStructTransferPair(this, new StructVector(field,
+        allocator,
+        null,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new NullableStructTransferPair(this, new StructVector(field,
+        allocator,
         callBack,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);

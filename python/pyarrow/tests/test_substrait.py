@@ -21,8 +21,9 @@ import pathlib
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from pyarrow.lib import tobytes
-from pyarrow.lib import ArrowInvalid
+from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
 try:
     import pyarrow.substrait as substrait
@@ -31,7 +32,7 @@ except ImportError:
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not substrait'
-pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
+pytestmark = pytest.mark.substrait
 
 
 def mock_udf_context(batch_length=10):
@@ -181,7 +182,7 @@ def has_function(fns, ext_file, fn_name):
 
 def test_get_supported_functions():
     supported_functions = pa._substrait.get_supported_functions()
-    # It probably doesn't make sense to exhaustively verfiy this list but
+    # It probably doesn't make sense to exhaustively verify this list but
     # we can check a sample aggregate and a sample non-aggregate entry
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'add')
@@ -607,7 +608,7 @@ def test_output_field_names(use_threads):
     assert res_tb == expected
 
 
-def test_aggregate_udf_basic(varargs_agg_func_fixture):
+def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(
         {"k": [1, 1, 2, 2], "v1": [1, 2, 3, 4],
@@ -630,7 +631,7 @@ def test_aggregate_udf_basic(varargs_agg_func_fixture):
       "extensionFunction": {
         "extensionUriReference": 1,
         "functionAnchor": 1,
-        "name": "y=sum_mean(x...)"
+        "name": "sum_mean"
       }
     }
   ],
@@ -753,3 +754,276 @@ def test_aggregate_udf_basic(varargs_agg_func_fixture):
     })
 
     assert res_tb == expected_tb
+
+
+def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
+
+    test_table = pa.Table.from_pydict(
+        {"t": [1, 1, 1, 1, 2, 2, 2, 2],
+         "k": [1, 0, 0, 1, 0, 1, 0, 1],
+         "v1": [1, 2, 3, 4, 5, 6, 7, 8],
+         "v2": [1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0]}
+    )
+
+    def table_provider(names, _):
+        return test_table
+
+    substrait_query = b"""
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    },
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "sum_mean"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "extensionSingle": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "t",
+                    "k",
+                    "v1",
+                    "v2",
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["t1"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "groupingKeys": [
+                {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "segmentKeys": [
+                {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "measures": [
+                {
+                  "measure": {
+                    "functionReference": 1,
+                    "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                    "outputType": {
+                      "fp64": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    "arguments": [
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 3
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "t",
+          "k",
+          "v_avg"
+        ]
+      }
+    }
+  ],
+}
+"""
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=False)
+    res_tb = reader.read_all()
+
+    expected_tb = pa.Table.from_pydict({
+        't': [1, 1, 2, 2],
+        'k': [1, 0, 0, 1],
+        'v_avg': [3.5, 3.5, 9.0, 11.0]
+    })
+
+    # Ordering of k is deterministic because this is running with serial execution
+    assert res_tb == expected_tb
+
+
+@pytest.mark.parametrize("expr", [
+    pc.equal(pc.field("x"), 7),
+    pc.equal(pc.field("x"), pc.field("y")),
+    pc.field("x") > 50
+])
+def test_serializing_expressions(expr):
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+
+    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert "test_expr" in returned.expressions
+
+
+def test_invalid_expression_ser_des():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    expr = pc.equal(pc.field("x"), 7)
+    bad_expr = pc.equal(pc.field("z"), 7)
+    # Invalid number of names
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([expr], [], schema)
+    assert 'need to have the same length' in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([expr], ["foo", "bar"], schema)
+    assert 'need to have the same length' in str(excinfo.value)
+    # Expression doesn't match schema
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([bad_expr], ["expr"], schema)
+    assert 'No match for FieldRef' in str(excinfo.value)
+
+
+def test_serializing_multiple_expressions():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    exprs = [pc.equal(pc.field("x"), 7), pc.equal(pc.field("x"), pc.field("y"))]
+    buf = pa.substrait.serialize_expressions(exprs, ["first", "second"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 2
+
+    norm_exprs = [pc.equal(pc.field(0), 7), pc.equal(pc.field(0), pc.field(1))]
+    assert str(returned.expressions["first"]) == str(norm_exprs[0])
+    assert str(returned.expressions["second"]) == str(norm_exprs[1])
+
+
+def test_serializing_with_compute():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    expr = pc.equal(pc.field("x"), 7)
+    expr_norm = pc.equal(pc.field(0), 7)
+    buf = expr.to_substrait(schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+
+    assert str(returned.expressions["expression"]) == str(expr_norm)
+
+    # Compute can't deserialize messages with multiple expressions
+    buf = pa.substrait.serialize_expressions([expr, expr], ["first", "second"], schema)
+    with pytest.raises(ValueError) as excinfo:
+        pc.Expression.from_substrait(buf)
+    assert 'contained multiple expressions' in str(excinfo.value)
+
+    # Deserialization should be possible regardless of the expression name
+    buf = pa.substrait.serialize_expressions([expr], ["weirdname"], schema)
+    expr2 = pc.Expression.from_substrait(buf)
+    assert str(expr2) == str(expr_norm)
+
+
+def test_serializing_udfs():
+    # Note, UDF in this context means a function that is not
+    # recognized by Substrait.  It might still be a builtin pyarrow
+    # function.
+    schema = pa.schema([
+        pa.field("x", pa.uint32())
+    ])
+    a = pc.scalar(10)
+    b = pc.scalar(4)
+    exprs = [pc.shift_left(a, b)]
+
+    with pytest.raises(ArrowNotImplementedError):
+        pa.substrait.serialize_expressions(exprs, ["expr"], schema)
+
+    buf = pa.substrait.serialize_expressions(
+        exprs, ["expr"], schema, allow_arrow_extensions=True)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert str(returned.expressions["expr"]) == str(exprs[0])

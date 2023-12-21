@@ -51,7 +51,7 @@ class TestParquetStatistics < Test::Unit::TestCase
 
   test("#has_n_distinct_values?") do
     assert do
-      @statistics.has_n_distinct_values?
+      not @statistics.has_n_distinct_values?
     end
   end
 

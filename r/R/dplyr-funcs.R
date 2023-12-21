@@ -123,6 +123,8 @@ unregister_binding <- function(fun_name, registry = nse_funcs,
   invisible(previous_fun)
 }
 
+#' @rdname register_binding
+#' @keywords internal
 register_binding_agg <- function(fun_name,
                                  agg_fun,
                                  registry = agg_funcs,
