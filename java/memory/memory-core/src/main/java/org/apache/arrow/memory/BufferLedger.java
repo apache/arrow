@@ -123,7 +123,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
           "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt = decrement(decrement);
-    if (BaseAllocator.DEBUG && historicalLog != null) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("release(%d). original value: %d",
           decrement, refCnt + decrement);
     }
@@ -206,7 +206,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    */
   @Override
   @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
-  //{"dereference of possibly-null reference historicalLog", "synchronizing over a possibly-null lock (buffers)"}
+  //{"dereference of possibly-null reference buffers", "synchronizing over a possibly-null lock (buffers)"}
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, long index, long length) {
     /*
      * Usage type 1 for deriveBuffer():
@@ -236,7 +236,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
             );
 
     // logging
-    if (BaseAllocator.DEBUG) {
+    if (historicalLog != null) {
       historicalLog.recordEvent(
               "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
                       "UnsafeDirectLittleEndian[identityHashCode == " +
@@ -339,6 +339,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return Whether transfer fit within target ledgers limits.
    */
   boolean transferBalance(final @Nullable ReferenceManager targetReferenceManager) {
+    Preconditions.checkArgument(targetReferenceManager != null,
+            "Expecting valid target reference manager");
+    boolean overlimit = false;
     if (targetReferenceManager != null) {
       final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
       Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
@@ -368,18 +371,15 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
                   targetReferenceManager.getAllocator().getName());
         }
 
-        boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
+        overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
         allocator.releaseBytes(allocationManager.getSize());
         // since the transfer can only happen from the owning reference manager,
         // we need to set the target ref manager as the new owning ref manager
         // for the chunk of memory in allocation manager
         allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
-        return overlimit;
       }
-    } else {
-      throw new IllegalArgumentException("Expecting valid target reference manager");
     }
-
+    return overlimit;
   }
 
   /**

@@ -137,7 +137,9 @@ public abstract class AllocationManager {
     Preconditions.checkState(map.containsKey(allocator),
         "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
-
+    // to cover current NPE logic before Nullability evaluations
+    Preconditions.checkState(oldLedger != null,
+            "Expecting a valid BufferLedger, but received null instead");
 
     if (oldLedger != null) {
       BufferAllocator oldAllocator = oldLedger.getAllocator();
@@ -167,12 +169,12 @@ public abstract class AllocationManager {
           // exceeded the limit since this consumer can't do anything with this.
           oldLedger.transferBalance(newOwningLedger);
         }
+      } else {
+        // the release call was made by a non-owning reference manager, so after remove there have
+        // to be 1 or more <allocator, reference manager> mappings
+        Preconditions.checkState(map.size() > 0,
+                "The final removal of reference manager should be connected to owning reference manager");
       }
-    } else {
-      // the release call was made by a non-owning reference manager, so after remove there have
-      // to be 1 or more <allocator, reference manager> mappings
-      Preconditions.checkState(map.size() > 0,
-          "The final removal of reference manager should be connected to owning reference manager");
     }
   }
 

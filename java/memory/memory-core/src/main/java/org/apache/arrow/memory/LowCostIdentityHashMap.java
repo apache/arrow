@@ -72,7 +72,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
-      elementData = newElementArrayUnderInitialization(computeElementArraySize());
+      elementData = newElementArrayUnderInitialized(computeElementArraySize());
     } else {
       throw new IllegalArgumentException();
     }
@@ -110,7 +110,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *            the number of elements
    * @return Reference to the element array
    */
-  private Object[] newElementArrayUnderInitialization(@UnderInitialization LowCostIdentityHashMap<K, V> this, int s) {
+  private Object[] newElementArrayUnderInitialized(@UnderInitialization LowCostIdentityHashMap<K, V> this, int s) {
     return new Object[s];
   }
 

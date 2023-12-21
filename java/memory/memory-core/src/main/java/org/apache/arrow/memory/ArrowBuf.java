@@ -94,7 +94,7 @@ public final class ArrowBuf implements AutoCloseable {
     this.capacity = capacity;
     this.readerIndex = 0;
     this.writerIndex = 0;
-    if (BaseAllocator.DEBUG && historicalLog != null) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("create()");
     }
   }
@@ -314,10 +314,8 @@ public final class ArrowBuf implements AutoCloseable {
     // check bounds
     Preconditions.checkArgument(fieldLength >= 0, "expecting non-negative data length");
     if (index < 0 || index > capacity() - fieldLength) {
-      if (BaseAllocator.DEBUG) {
-        if (historicalLog != null) {
-          historicalLog.logHistory(logger);
-        }
+      if (historicalLog != null) {
+        historicalLog.logHistory(logger);
       }
       throw new IndexOutOfBoundsException(String.format(
         "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
@@ -1112,11 +1110,9 @@ public final class ArrowBuf implements AutoCloseable {
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
     CommonUtil.indent(sb, indent).append(toString());
 
-    if (BaseAllocator.DEBUG && verbosity.includeHistoricalLog) {
-      if (historicalLog != null) {
-        sb.append("\n");
-        historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
-      }
+    if (historicalLog != null && verbosity.includeHistoricalLog) {
+      sb.append("\n");
+      historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
   }
 

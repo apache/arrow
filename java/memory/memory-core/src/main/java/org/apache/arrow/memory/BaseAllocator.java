@@ -976,7 +976,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
       final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
 
-      if (DEBUG && historicalLog != null) {
+      if (historicalLog != null) {
         historicalLog.recordEvent("reserve(%d) => %s", nBytes, Boolean.toString(outcome.isOk()));
       }
 
