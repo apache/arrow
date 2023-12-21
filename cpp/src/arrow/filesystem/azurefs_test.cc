@@ -275,7 +275,13 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   AzureOptions options;
   ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
-  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
+TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
+  AzureOptions options;
+  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential("dummy-account-name"));
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
