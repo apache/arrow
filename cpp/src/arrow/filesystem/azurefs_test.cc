@@ -62,7 +62,6 @@ namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
 using internal::ConcatAbstractPath;
-namespace {
 namespace bp = boost::process;
 
 using ::testing::IsEmpty;
@@ -1714,6 +1713,5 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->Seek(2));
 }
 
-}  // namespace
 }  // namespace fs
 }  // namespace arrow
