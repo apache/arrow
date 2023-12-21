@@ -25,11 +25,11 @@ from ..utils.source import ARROW_ROOT_DEFAULT
 
 _NANOARROW_PATH = os.environ.get(
     "ARROW_NANOARROW_PATH",
-    os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow"),
+    os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow/cdata"),
 )
 
 _INTEGRATION_DLL = os.path.join(
-    _NANOARROW_PATH, "cdata/libnanoarrow_c_data_integration" + cdata.dll_suffix
+    _NANOARROW_PATH, "libnanoarrow_c_data_integration" + cdata.dll_suffix
 )
 
 
@@ -105,10 +105,8 @@ class _CDataBase:
         """
         assert self.ffi.typeof(na_error) is self.ffi.typeof("const char*")
         if na_error != self.ffi.NULL:
-            # TODO: remove these...at least one call is returning a non-null-terminated
-            # message causing a crash.
-            # error = self.ffi.string(na_error).decode("utf8", errors="replace")
-            raise RuntimeError("nanoarrow C Data Integration call failed")
+            error = self.ffi.string(na_error).decode("utf8", errors="replace")
+            raise RuntimeError(f"nanoarrow C Data Integration call failed: {error}")
 
 
 class NanoarrowCDataExporter(CDataExporter, _CDataBase):

@@ -46,16 +46,7 @@ set -x
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
-# Build nanoarrow C Data integration tests
-mkdir -p cdata && pushd cdata
 cmake ${source_dir} -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
 cmake --build .
-popd
-
-# Build nanoarrow IPC integration tests
-mkdir -p ipc && pushd ipc
-cmake ${source_dir}/extensions/nanoarrow_ipc -DNANOARROW_IPC_BUILD_APPS=ON
-cmake --build .
-popd
 
 popd
