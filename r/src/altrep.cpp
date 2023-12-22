@@ -560,12 +560,8 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return dup;
   }
 
-  // The value at position i
-  static int Elt(SEXP alt, R_xlen_t i) {
-    if (Base::IsMaterialized(alt)) {
-      return INTEGER_ELT(Representation(alt), i);
-    }
-
+  // The value at position i as an int64_t (to make bounds checking less verbose)
+  static int64_t Elt64(SEXP alt, R_xlen_t i) {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
@@ -615,14 +611,11 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
           case Type::INT32:
             return indices->data()->GetValues<int32_t>(1)[j] + 1;
           case Type::UINT32:
-            // TODO: check index?
-            return static_cast<int>(indices->data()->GetValues<uint32_t>(1)[j] + 1);
+            return indices->data()->GetValues<uint32_t>(1)[j] + 1;
           case Type::INT64:
-            // TODO: check index?
-            return static_cast<int>(indices->data()->GetValues<int64_t>(1)[j] + 1);
+            return indices->data()->GetValues<int64_t>(1)[j] + 1;
           case Type::UINT64:
-            // TODO: check index?
-            return static_cast<int>(indices->data()->GetValues<uint64_t>(1)[j] + 1);
+            return static_cast<int64_t>(indices->data()->GetValues<uint64_t>(1)[j] + 1);
           default:
             break;
         }
@@ -631,6 +624,18 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     // not reached
     return NA_INTEGER;
+  }
+
+  // The value at position i as an int (which R needs because this is a factor)
+  static int Elt(SEXP alt, R_xlen_t i) {
+    if (Base::IsMaterialized(alt)) {
+      return INTEGER_ELT(Representation(alt), i);
+    }
+
+    int64_t elt64 = Elt64(alt, i);
+    ARROW_R_DCHECK(elt64 == NA_INTEGER || elt64 >= 1);
+    ARROW_R_DCHECK(elt64 <= std::numeric_limits<int>::max());
+    return static_cast<int>(elt64);
   }
 
   static R_xlen_t Get_region(SEXP alt, R_xlen_t start, R_xlen_t n, int* buf) {
@@ -724,7 +729,12 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     VisitArraySpanInline<Type>(
         *array->data(),
         /*valid_func=*/
-        [&](index_type index) { *out++ = static_cast<int>(transpose(index) + 1); },
+        [&](index_type index) {
+          int64_t transposed = transpose(index) + 1;
+          ARROW_R_DCHECK(transposed >= 1);
+          ARROW_R_DCHECK(transposed <= std::numeric_limits<int>::max());
+          *out++ = static_cast<int>(transposed);
+        },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 
@@ -771,6 +781,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       bool no_nul = std::find(view_.begin(), view_.end(), '\0') == view_.end();
 
       if (no_nul) {
+        ARROW_R_DCHECK(view_.size() <= std::numeric_limits<int>::max());
         return Rf_mkCharLenCE(view_.data(), static_cast<int>(view_.size()), CE_UTF8);
       } else if (strip_out_nuls_) {
         return ConvertStripNul();
@@ -808,6 +819,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       }
 
       nul_was_stripped_ = true;
+      ARROW_R_DCHECK(stripped_len <= std::numeric_limits<int>::max());
       return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len),
                             CE_UTF8);
     }
