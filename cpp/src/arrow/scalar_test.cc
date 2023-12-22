@@ -1255,10 +1255,10 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, large_list(key_value_type));
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 
-//  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
-//                       "Cannot cast " + scalar.type->ToString() + " of length " +
-//                           std::to_string(value->length()) +
-//                           " to fixed size list of length 5");
+  //  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
+  //                       "Cannot cast " + scalar.type->ToString() + " of length " +
+  //                           std::to_string(value->length()) +
+  //                           " to fixed size list of length 5");
 }
 
 TEST(TestStructScalar, FieldAccess) {
