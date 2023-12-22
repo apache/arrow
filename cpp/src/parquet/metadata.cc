@@ -761,7 +761,7 @@ class FileMetaData::FileMetaDataImpl {
     return metadata_->row_groups[i];
   }
 
-  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+  void AppendRowGroups(FileMetaDataImpl* other) {
     std::ostringstream diff_output;
     if (!schema()->Equals(*other->schema(), &diff_output)) {
       auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
@@ -969,7 +969,7 @@ const std::shared_ptr<const KeyValueMetadata>& FileMetaData::key_value_metadata(
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
 void FileMetaData::AppendRowGroups(const FileMetaData& other) {
-  impl_->AppendRowGroups(other.impl_);
+  impl_->AppendRowGroups(other.impl_.get());
 }
 
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
