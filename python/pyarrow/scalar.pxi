@@ -1048,7 +1048,15 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
     def to_tensor(self):
         """
-        Convert fixed shape tensor extension scalar to a pyarrow.Tensor.
+        Convert fixed shape tensor extension scalar to a pyarrow.Tensor, using shape
+        and strides derived from corresponding FixedShapeTensorType.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor represented stored in FixedShapeTensorScalar.
         """
         cdef:
             CFixedShapeTensorType* c_type = static_pointer_cast[CFixedShapeTensorType, CDataType](
