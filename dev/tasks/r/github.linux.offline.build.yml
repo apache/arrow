@@ -93,6 +93,6 @@ jobs:
       - name: Save the test output
         uses: actions/upload-artifact@v4
         with:
-          name: test-output-${{ env.GITHUB_JOB }}
+          name: test-output-{{ "${{ env.GITHUB_JOB }}" }}
           path: arrow-tests/testthat.Rout*
         if: always()

@@ -58,5 +58,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-output-${{ env.GITHUB_JOB }}
+          name: test-output-{{ "${{ env.GITHUB_JOB }}" }}
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
