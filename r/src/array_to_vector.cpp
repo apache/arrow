@@ -375,7 +375,7 @@ struct Converter_String : public Converter {
 
  private:
   static SEXP r_string_from_view(std::string_view view) {
-    return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
+    return Rf_mkCharLenCE(view.data(), static_cast<int>(view.size()), CE_UTF8);
   }
 
   static SEXP r_string_from_view_strip_nul(std::string_view view,
@@ -576,10 +576,10 @@ class Converter_Dictionary : public Converter {
       const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
-      size_t n_arrays = chunked_array->num_chunks();
+      int n_arrays = chunked_array->num_chunks();
       arrays_transpose_.resize(n_arrays);
 
-      for (size_t i = 0; i < n_arrays; i++) {
+      for (int i = 0; i < n_arrays; i++) {
         const auto& dict_i =
             *checked_cast<const DictionaryArray&>(*chunked_array->chunk(i)).dictionary();
         StopIfNotOk(unifier_->Unify(dict_i, &arrays_transpose_[i]));
@@ -748,7 +748,7 @@ class Converter_Struct : public Converter {
     auto colnames = arrow::r::to_r_strings(
         type->fields(),
         [](const std::shared_ptr<Field>& field) { return field->name(); });
-    out.attr(symbols::row_names) = arrow::r::short_row_names(n);
+    out.attr(symbols::row_names) = arrow::r::short_row_names(static_cast<int>(n));
     out.attr(R_NamesSymbol) = colnames;
     out.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
 
@@ -756,7 +756,7 @@ class Converter_Struct : public Converter {
   }
 
   Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
-    int nf = converters.size();
+    int nf = static_cast<int>(converters.size());
     for (int i = 0; i < nf; i++) {
       SEXP data_i = VECTOR_ELT(data, i);
 
@@ -771,7 +771,7 @@ class Converter_Struct : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     auto struct_array = checked_cast<const arrow::StructArray*>(array.get());
-    int nf = converters.size();
+    int nf = static_cast<int>(converters.size());
     // Flatten() deals with merging of nulls
     auto arrays = ValueOrStop(struct_array->Flatten(gc_memory_pool()));
     for (int i = 0; i < nf; i++) {
@@ -1384,7 +1384,7 @@ cpp11::writable::list to_data_frame(const std::shared_ptr<Rectangle>& data,
 
   tbl.attr(R_NamesSymbol) = names;
   tbl.attr(R_ClassSymbol) = arrow::r::data::classes_tbl_df;
-  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(nr);
+  tbl.attr(R_RowNamesSymbol) = arrow::r::short_row_names(static_cast<int>(nr));
 
   return tbl;
 }
