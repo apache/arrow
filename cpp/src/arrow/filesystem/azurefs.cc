@@ -146,6 +146,9 @@ Status AzureOptions::ConfigureWorkloadIdentityCredential(
 
 Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceClient()
     const {
+  if (account_name_.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
@@ -161,6 +164,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
 
 Result<std::unique_ptr<DataLake::DataLakeServiceClient>>
 AzureOptions::MakeDataLakeServiceClient() const {
+  if (account_name_.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
