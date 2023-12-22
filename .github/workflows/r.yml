@@ -108,7 +108,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-output
+          name: test-output-${{ github.job }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
