@@ -2002,16 +2002,17 @@ struct PlainSubstringReplacer {
   Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     if (s.empty()) {
       // Special-case empty input as s.data() may not be a valid pointer
+      if (options_.pattern.empty()) {
+        // Case, string and pattern are empty, result will just be the replacement.
+        return builder->Append(reinterpret_cast<const uint8_t*>(options_.replacement.data()),
+                               options_.replacement.length());
+      }
       return Status::OK();
     }
     const char* i = s.data();
     const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
-    if (options_.pattern.empty()) {
-      // If the pattern is empty then entering the loop will hang forever.
-      return builder->Append(reinterpret_cast<const uint8_t*>(i),
-                             static_cast<int64_t>(end - i));
-    }
+    bool emptyPattern = options_.pattern.empty();
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
           std::search(i, end, options_.pattern.begin(), options_.pattern.end());
@@ -2027,10 +2028,22 @@ struct PlainSubstringReplacer {
         RETURN_NOT_OK(
             builder->Append(reinterpret_cast<const uint8_t*>(options_.replacement.data()),
                             options_.replacement.length()));
+        if (emptyPattern) {
+	  // include next character to match the behavior of .replace in python
+	  RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
+                                        static_cast<int64_t>(1)));
+	  pos++;
+        }
         // skip pattern
         i = pos + options_.pattern.length();
         max_replacements--;
       }
+    }
+    if (max_replacements != 0 && emptyPattern) {
+      // empty pattern results in replacement being added to the end of the string
+      RETURN_NOT_OK(
+            builder->Append(reinterpret_cast<const uint8_t*>(options_.replacement.data()),
+                            options_.replacement.length()));
     }
     // if we exited early due to max_replacements, add the trailing part
     return builder->Append(reinterpret_cast<const uint8_t*>(i),
