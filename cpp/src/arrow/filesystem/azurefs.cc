@@ -132,11 +132,11 @@ Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name)
 }
 
 Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& account_name,
-                                                        std::string const& clientId) {
+                                                        const std::string& client_id) {
   account_name_ = account_name;
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ =
-      std::make_shared<Azure::Identity::ManagedIdentityCredential>(clientId);
+      std::make_shared<Azure::Identity::ManagedIdentityCredential>(client_id);
   return Status::OK();
 }
 
