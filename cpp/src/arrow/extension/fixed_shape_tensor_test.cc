@@ -119,6 +119,16 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Invalid: dim_names size must match shape size."),
       FixedShapeTensorType::Make(value_type_, cell_shape_, {}, {"x"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Permutation indices for 2 dimensional tensors must be "
+                         "unique and within [0, 1] range. Got: [0,3]"),
+      FixedShapeTensorType::Make(value_type_, {5, 6}, {3, 0}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Permutation indices for 3 dimensional tensors must be "
+                         "unique and within [0, 2] range. Got: [0,1,1]"),
+      FixedShapeTensorType::Make(value_type_, {1, 2, 3}, {0, 1, 1}));
 }
 
 TEST_F(TestExtensionType, EqualsCases) {

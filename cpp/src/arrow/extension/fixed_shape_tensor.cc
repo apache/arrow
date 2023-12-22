@@ -382,20 +382,37 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
-  if (!permutation.empty() && shape.size() != permutation.size()) {
-    return Status::Invalid("permutation size must match shape size. Expected: ",
-                           shape.size(), " Got: ", permutation.size());
+  const auto ndim = shape.size();
+  if (!permutation.empty() && ndim != permutation.size()) {
+    return Status::Invalid("permutation size must match shape size. Expected: ", ndim,
+                           " Got: ", permutation.size());
   }
-  if (!dim_names.empty() && shape.size() != dim_names.size()) {
-    return Status::Invalid("dim_names size must match shape size. Expected: ",
-                           shape.size(), " Got: ", dim_names.size());
+  if (!dim_names.empty() && ndim != dim_names.size()) {
+    return Status::Invalid("dim_names size must match shape size. Expected: ", ndim,
+                           " Got: ", dim_names.size());
   }
-  for (auto i : permutation) {
-    if (i < 0 || i >= static_cast<int64_t>(shape.size())) {
-      return Status::Invalid("permutation indices must be in [0, shape.size()). Got: ",
-                             i);
+  if (!permutation.empty()) {
+    std::vector<int64_t> sorted_permutation = permutation;
+    std::sort(sorted_permutation.begin(), sorted_permutation.end());
+
+    const auto max_index = std::max<int64_t>(static_cast<int64_t>(ndim - 1), 0);
+    if (sorted_permutation[0] != 0) {
+      return Status::Invalid(
+          "Permutation indices for ", ndim,
+          " dimensional tensors must be unique and within [0, ", max_index,
+          "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
+    }
+
+    for (size_t i = 1; i < sorted_permutation.size(); ++i) {
+      if (sorted_permutation[i - 1] + 1 != sorted_permutation[i]) {
+        return Status::Invalid(
+            "Permutation indices for ", ndim,
+            " dimensional tensors must be unique and within [0, ", max_index,
+            "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
+      }
     }
   }
+
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),
