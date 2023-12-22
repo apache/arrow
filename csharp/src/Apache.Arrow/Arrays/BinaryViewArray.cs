@@ -83,12 +83,12 @@ namespace Apache.Arrow
             /// <returns>Returns an array of type <typeparamref name="TArray"/>.</returns>
             public TArray Build(MemoryAllocator allocator = default)
             {
-                var bufs = new[]
-                {
-                    NullCount > 0 ? ValidityBuffer.Build(allocator) : ArrowBuffer.Empty,
-                    BinaryViews.Build(allocator),
-                    ValueBuffer.Build(allocator),
-                };
+                bool hasValues = ValueBuffer.Length > 0;
+                var bufs = new ArrowBuffer[hasValues ? 3 : 2];
+                bufs[0] = NullCount > 0 ? ValidityBuffer.Build(allocator) : ArrowBuffer.Empty;
+                bufs[1] = BinaryViews.Build(allocator);
+                if (hasValues) { bufs[2] = ValueBuffer.Build(allocator); }
+
                 var data = new ArrayData(
                     DataType,
                     length: Length,
@@ -325,7 +325,7 @@ namespace Apache.Arrow
                 return ViewsBuffer.Span.Slice(16 * index + 4, binaryView.Length);
             }
 
-            return DataBuffer(binaryView.BufferIndex).Span.Slice(binaryView.Offset, binaryView.Length);
+            return DataBuffer(binaryView._bufferIndex).Span.Slice(binaryView._bufferOffset, binaryView.Length);
         }
 
         int IReadOnlyCollection<byte[]>.Count => Length;

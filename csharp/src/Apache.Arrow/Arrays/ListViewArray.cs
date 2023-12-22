@@ -67,6 +67,7 @@ namespace Apache.Arrow
             public Builder Append()
             {
                 AppendPrevious();
+
                 ValidityBufferBuilder.Append(true);
 
                 return this;
@@ -75,26 +76,24 @@ namespace Apache.Arrow
             public Builder AppendNull()
             {
                 AppendPrevious();
+
+                ValidityBufferBuilder.Append(false);
                 ValueOffsetsBufferBuilder.Append(Start);
                 SizesBufferBuilder.Append(0);
-                ValidityBufferBuilder.Append(false);
                 NullCount++;
+                Start = -1;
 
                 return this;
             }
 
             private void AppendPrevious()
             {
-                if (Start < 0)
-                {
-                    Start = 0;
-                }
-                else
+                if (Start >= 0)
                 {
                     ValueOffsetsBufferBuilder.Append(Start);
-                    SizesBufferBuilder.Append(ValueOffsetsBufferBuilder.Length - Start);
-                    Start = ValueOffsetsBufferBuilder.Length;
+                    SizesBufferBuilder.Append(ValueBuilder.Length - Start);
                 }
+                Start = ValueBuilder.Length;
             }
 
             public ListViewArray Build(MemoryAllocator allocator = default)
@@ -142,11 +141,11 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueOffsetsBuffer => Data.Buffers[1];
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(Offset, Length);
 
         public ArrowBuffer SizesBuffer => Data.Buffers[2];
 
-        public ReadOnlySpan<int> Sizes => SizesBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
+        public ReadOnlySpan<int> Sizes => SizesBuffer.Span.CastTo<int>().Slice(Offset, Length);
 
         public ListViewArray(IArrowType dataType, int length,
             ArrowBuffer valueOffsetsBuffer, ArrowBuffer sizesBuffer, IArrowArray values,
@@ -183,8 +182,7 @@ namespace Apache.Arrow
                 return 0;
             }
 
-            ReadOnlySpan<int> offsets = ValueOffsets;
-            return offsets[index + 1] - offsets[index];
+            return Sizes[index];
         }
 
         public IArrowArray GetSlicedValues(int index)

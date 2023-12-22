@@ -107,7 +107,25 @@ namespace Apache.Arrow
             {
                 CheckData(type, 3);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
+
+                var offsetsBuilder = new ArrowBuffer.Builder<int>(_totalLength);
+                int baseOffset = 0;
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    if (arrayData.Length > 0)
+                    {
+                        ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(0, arrayData.Length);
+                        foreach (int offset in span)
+                        {
+                            offsetsBuilder.Append(baseOffset + offset);
+                        }
+                    }
+
+                    baseOffset += arrayData.Children[0].Length;
+                }
+
+                ArrowBuffer offsetBuffer = offsetsBuilder.Build(_allocator);
                 ArrowBuffer sizesBuffer = ConcatenateFixedWidthTypeValueBuffer(2, Int32Type.Default);
                 ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
@@ -207,7 +225,7 @@ namespace Apache.Arrow
                 ArrowBuffer[] buffers = new ArrowBuffer[2 + variadicBufferCount];
                 buffers[0] = validityBuffer;
                 buffers[1] = viewBuffer;
-                int index = 0;
+                int index = 2;
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     for (int i = 2; i < arrayData.Buffers.Length; i++)
@@ -324,10 +342,7 @@ namespace Apache.Arrow
                         continue;
                     }
 
-                    // The first offset is always 0.
-                    // It should be skipped because it duplicate to the last offset of builder.
-                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(1, arrayData.Length);
-
+                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(0, arrayData.Length);
                     foreach (BinaryView view in span)
                     {
                         if (view.Length > BinaryView.MaxInlineLength)

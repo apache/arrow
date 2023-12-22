@@ -14,7 +14,7 @@
 // limitations under the License.
 
 using System;
-using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Scalars
@@ -22,54 +22,77 @@ namespace Apache.Arrow.Scalars
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct BinaryView : IEquatable<BinaryView>
     {
+        public const int PrefixLength = 4;
         public const int MaxInlineLength = 12;
 
         [FieldOffset(0)]
         public readonly int Length;
 
         [FieldOffset(4)]
-        internal readonly int Prefix;
+        internal readonly int _prefix;
 
         [FieldOffset(8)]
-        internal readonly int BufferIndex;
+        internal readonly int _bufferIndex;
 
         [FieldOffset(12)]
-        internal readonly int Offset;
+        internal readonly int _bufferOffset;
 
         [FieldOffset(4)]
-        internal fixed byte Inline[12];
+        internal fixed byte _inline[MaxInlineLength];
 
-        public unsafe BinaryView(ReadOnlySpan<byte> inlined) : this()
+        public unsafe BinaryView(ReadOnlySpan<byte> inline) : this()
         {
-            Length = inlined.Length;
-            fixed (byte* dest = Inline)
-            fixed (byte* src = inlined)
+            if (inline.Length > MaxInlineLength)
             {
-                Buffer.MemoryCopy(src, dest, 12, inlined.Length);
+                throw new ArgumentException("invalid inline data length", nameof(inline));
+            }
+
+            Length = inline.Length;
+            fixed (byte* dest = _inline)
+            fixed (byte* src = inline)
+            {
+                Buffer.MemoryCopy(src, dest, MaxInlineLength, inline.Length);
             }
         }
 
-        public BinaryView(int length, ReadOnlySpan<byte> prefix, int bufferIndex, int offset)
+        public BinaryView(int length, ReadOnlySpan<byte> prefix, int bufferIndex, int bufferOffset)
         {
-            Debug.Assert(prefix.Length == 4);
+            if (length < MaxInlineLength)
+            {
+                throw new ArgumentException("invalid length", nameof(length));
+            }
+            if (prefix.Length != PrefixLength)
+            {
+                throw new ArgumentException("invalid prefix length", nameof(prefix));
+            }
 
             Length = length;
-            BufferIndex = bufferIndex;
-            Offset = offset;
-            Prefix = prefix.CastTo<int>()[0];
+            _bufferIndex = bufferIndex;
+            _bufferOffset = bufferOffset;
+            _prefix = prefix.CastTo<int>()[0];
         }
 
         private BinaryView(int length, int prefix, int bufferIndex, int offset)
         {
             Length = length;
-            Prefix = prefix;
-            BufferIndex = bufferIndex;
-            Offset = offset;
+            _prefix = prefix;
+            _bufferIndex = bufferIndex;
+            _bufferOffset = offset;
         }
 
         public bool IsInline => Length <= MaxInlineLength;
 
-        public override int GetHashCode() => Length ^ Prefix ^ BufferIndex ^ Offset;
+#if NET5_0_OR_GREATER
+        public ReadOnlySpan<byte> Bytes => MemoryMarshal.CreateReadOnlySpan<byte>(ref Unsafe.AsRef(_inline[0]), IsInline ? Length : PrefixLength);
+#else
+        public unsafe ReadOnlySpan<byte> Bytes => new ReadOnlySpan<byte>(Unsafe.AsPointer(ref _inline[0]), IsInline ? Length : PrefixLength);
+#endif
+
+        public int BufferIndex => IsInline ? -1 : _bufferIndex;
+
+        public int BufferOffset => IsInline ? -1 : _bufferOffset;
+
+        public override int GetHashCode() => Length ^ _prefix ^ _bufferIndex ^ _bufferOffset;
 
         public override bool Equals(object obj)
         {
@@ -77,11 +100,12 @@ namespace Apache.Arrow.Scalars
             return other != null && Equals(other.Value);
         }
 
-        public bool Equals(BinaryView other) => Length == other.Length && Prefix == other.Prefix && BufferIndex == other.BufferIndex && Offset == other.Offset;
+        public bool Equals(BinaryView other) =>
+            Length == other.Length && _prefix == other._prefix && _bufferIndex == other._bufferIndex && _bufferOffset == other._bufferOffset;
 
         internal BinaryView AdjustBufferIndex(int bufferOffset)
         {
-            return new BinaryView(Length, Prefix, BufferIndex + bufferOffset, Offset);
+            return new BinaryView(Length, _prefix, _bufferIndex + bufferOffset, _bufferOffset);
         }
     }
 }
