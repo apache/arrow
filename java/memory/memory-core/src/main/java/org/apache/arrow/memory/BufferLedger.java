@@ -179,7 +179,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   @Override
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
-    if (BaseAllocator.DEBUG && historicalLog != null) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("retain(%d)", increment);
     }
     final int originalReferenceCount = bufRefCnt.getAndAdd(increment);
@@ -311,7 +311,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   @Override
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
 
-    if (BaseAllocator.DEBUG && historicalLog != null) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("retain(%s)", target.getName());
     }
 
