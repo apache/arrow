@@ -332,25 +332,26 @@ TEST_F(TestExtensionType, TestFromTensorType) {
   }
 }
 
-void CheckToTensor(const std::vector<int64_t>& values, const int32_t& cell_size,
-                   const std::vector<int64_t>& cell_shape,
+template <typename T>
+void CheckToTensor(const std::vector<T>& values, const std::shared_ptr<DataType> typ,
+                   const int32_t& cell_size, const std::vector<int64_t>& cell_shape,
                    const std::vector<int64_t>& cell_permutation,
                    const std::vector<std::string>& cell_dim_names,
                    const std::vector<int64_t>& tensor_shape,
                    const std::vector<std::string>& tensor_dim_names,
                    const std::vector<int64_t>& tensor_strides) {
   auto buffer = Buffer::Wrap(values);
-  const std::shared_ptr<DataType> cell_type = fixed_size_list(int64(), cell_size);
+  const std::shared_ptr<DataType> cell_type = fixed_size_list(typ, cell_size);
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, buffer};
-  auto arr_data = std::make_shared<ArrayData>(int64(), values.size(), buffers);
+  auto arr_data = std::make_shared<ArrayData>(typ, values.size(), buffers);
   auto arr = std::make_shared<Int64Array>(arr_data);
   ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
 
   ASSERT_OK_AND_ASSIGN(
       auto expected_tensor,
-      Tensor::Make(int64(), buffer, tensor_shape, tensor_strides, tensor_dim_names));
+      Tensor::Make(typ, buffer, tensor_shape, tensor_strides, tensor_dim_names));
   const auto ext_type =
-      fixed_shape_tensor(int64(), cell_shape, cell_permutation, cell_dim_names);
+      fixed_shape_tensor(typ, cell_shape, cell_permutation, cell_dim_names);
 
   auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
   const auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
@@ -365,6 +366,10 @@ void CheckToTensor(const std::vector<int64_t>& values, const int32_t& cell_size,
 }
 
 TEST_F(TestExtensionType, ToTensor) {
+  std::vector<float> values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+                               12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                               24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
+
   auto cell_sizes = std::vector<int32_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
 
   auto cell_shapes =
@@ -377,7 +382,10 @@ TEST_F(TestExtensionType, ToTensor) {
   auto cell_permutations =
       std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
                                         {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
-  auto tensor_strides = std::vector<std::vector<int64_t>>{
+  auto tensor_strides_32 = std::vector<std::vector<int64_t>>{
+      {48, 16, 4}, {48, 4, 12}, {48, 12, 4}, {48, 4, 16},     {24, 12, 4},
+      {24, 4, 8},  {72, 24, 4}, {72, 4, 12}, {72, 24, 12, 4}, {72, 4, 12, 24}};
+  auto tensor_strides_64 = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
       {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
 
@@ -390,9 +398,12 @@ TEST_F(TestExtensionType, ToTensor) {
       {"", "H", "W", "C"}, {"", "C", "W", "H"}};
 
   for (size_t i = 0; i < cell_shapes.size(); i++) {
-    CheckToTensor(values_, cell_sizes[i], cell_shapes[i], cell_permutations[i],
+    CheckToTensor<float_t>(values, float32(), cell_sizes[i], cell_shapes[i],
+                           cell_permutations[i], cell_dim_names[i], tensor_shapes[i],
+                           tensor_dim_names[i], tensor_strides_32[i]);
+    CheckToTensor(values_, int64(), cell_sizes[i], cell_shapes[i], cell_permutations[i],
                   cell_dim_names[i], tensor_shapes[i], tensor_dim_names[i],
-                  tensor_strides[i]);
+                  tensor_strides_64[i]);
   }
 }
 
