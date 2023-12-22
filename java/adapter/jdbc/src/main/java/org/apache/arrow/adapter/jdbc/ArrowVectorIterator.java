@@ -26,6 +26,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumerException;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
@@ -114,7 +115,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       root.setRowCount(readRowCount);
     } catch (Throwable e) {
       compositeConsumer.close();
-      throw new RuntimeException("Error occurred while consuming data.", e);
+      if (e instanceof JdbcConsumerException) {
+        throw (JdbcConsumerException) e;
+      } else {
+        throw new RuntimeException("Error occurred while consuming data.", e);
+      }
     }
   }
 
@@ -178,7 +183,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       return ret;
     } catch (Exception e) {
       close();
-      throw new RuntimeException("Error occurred while getting next schema root.", e);
+      if (e instanceof JdbcConsumerException) {
+        throw (JdbcConsumerException) e;
+      } else {
+        throw new RuntimeException("Error occurred while getting next schema root.", e);
+      }
     }
   }
 

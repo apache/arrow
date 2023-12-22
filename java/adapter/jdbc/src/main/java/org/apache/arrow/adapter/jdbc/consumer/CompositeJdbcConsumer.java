@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * Composite consumer which hold all consumers.
@@ -43,7 +45,18 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
   @Override
   public void consume(ResultSet rs) throws SQLException, IOException {
     for (int i = 0; i < consumers.length; i++) {
-      consumers[i].consume(rs);
+      try {
+        consumers[i].consume(rs);
+      } catch (Exception e) {
+        if (consumers[i] instanceof BaseConsumer) {
+          BaseConsumer consumer = (BaseConsumer) consumers[i];
+          JdbcFieldInfo fieldInfo = new JdbcFieldInfo(rs.getMetaData(), consumer.columnIndexInResultSet);
+          ArrowType arrowType = consumer.vector.getMinorType().getType();
+          throw new JdbcConsumerException("Exception while consuming JDBC value", e, fieldInfo, arrowType);
+        } else {
+          throw e;
+        }
+      }
     }
   }
 
@@ -72,5 +85,28 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
     for (int i = 0; i < consumers.length; i++) {
       consumers[i].resetValueVector(root.getVector(i));
     }
+  }
+}
+
+/**
+ * Exception while consuming JDBC data. This exception stores the JdbcFieldInfo for the column and the
+ * ArrowType for the corresponding vector for easier debugging.
+ */
+public class JdbcConsumerException extends RuntimeException {
+  final JdbcFieldInfo fieldInfo;
+  final ArrowType arrowType;
+
+  public JdbcConsumerException(String message, Throwable cause, JdbcFieldInfo fieldInfo, ArrowType arrowType) {
+    super(message, cause);
+    this.fieldInfo = fieldInfo;
+    this.arrowType = arrowType;
+  }
+
+  public ArrowType getArrowType() {
+    return this.arrowType;
+  }
+
+  public JdbcFieldInfo getFieldInfo() {
+    return this.fieldInfo;
   }
 }
