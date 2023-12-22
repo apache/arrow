@@ -26,7 +26,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
-import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumerException;
+import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;

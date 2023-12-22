@@ -22,6 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
+import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -88,25 +89,3 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
   }
 }
 
-/**
- * Exception while consuming JDBC data. This exception stores the JdbcFieldInfo for the column and the
- * ArrowType for the corresponding vector for easier debugging.
- */
-public class JdbcConsumerException extends RuntimeException {
-  final JdbcFieldInfo fieldInfo;
-  final ArrowType arrowType;
-
-  public JdbcConsumerException(String message, Throwable cause, JdbcFieldInfo fieldInfo, ArrowType arrowType) {
-    super(message, cause);
-    this.fieldInfo = fieldInfo;
-    this.arrowType = arrowType;
-  }
-
-  public ArrowType getArrowType() {
-    return this.arrowType;
-  }
-
-  public JdbcFieldInfo getFieldInfo() {
-    return this.fieldInfo;
-  }
-}
