@@ -100,7 +100,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// derived from shape and permutation of FixedShapeTensorType. Shape and
   /// dim_names will be permuted according to permutation stored in the
   /// FixedShapeTensorType metadata.
-  const Result<std::shared_ptr<Tensor>> MakeTensor(
+  static Result<std::shared_ptr<Tensor>> MakeTensor(
       const std::shared_ptr<ExtensionScalar>& scalar);
 
   /// \brief Create a FixedShapeTensorType instance

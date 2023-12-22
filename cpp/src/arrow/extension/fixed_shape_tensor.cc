@@ -205,30 +205,33 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
+Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) {
-  if (!is_fixed_width(*this->value_type())) {
+  const auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  const auto ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(scalar->type);
+  if (!is_fixed_width(*ext_type->value_type())) {
     return Status::TypeError("Cannot convert non-fixed-width values to Tensor.");
   }
   const auto array =
-      internal::checked_pointer_cast<const FixedSizeListScalar>(scalar->value)->value;
+      internal::checked_pointer_cast<const FixedSizeListScalar>(ext_scalar->value)->value;
   if (array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
   const auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(this->value_type());
+      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
   const auto byte_width = value_type->byte_width();
 
-  std::vector<int64_t> permutation = this->permutation();
+  std::vector<int64_t> permutation = ext_type->permutation();
   if (permutation.empty()) {
-    permutation.resize(this->ndim());
+    permutation.resize(ext_type->ndim());
     std::iota(permutation.begin(), permutation.end(), 0);
   }
 
-  std::vector<int64_t> shape = this->shape();
+  std::vector<int64_t> shape = ext_type->shape();
   internal::Permute<int64_t>(permutation, &shape);
 
-  std::vector<std::string> dim_names = this->dim_names();
+  std::vector<std::string> dim_names = ext_type->dim_names();
   if (!dim_names.empty()) {
     internal::Permute<std::string>(permutation, &dim_names);
   }
@@ -241,7 +244,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
   const auto buffer =
       SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
 
-  return Tensor::Make(this->value_type(), buffer, shape, strides, dim_names);
+  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(
