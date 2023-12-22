@@ -511,6 +511,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddTypeToTypeCast<CastVarToFixedList<LargeListType>, LargeListType>(cast_fsl.get());
   AddTypeToTypeCast<CastVarToFixedList<LargeListViewType>, LargeListViewType>(
       cast_fsl.get());
+  AddMapCast<FixedSizeListType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
