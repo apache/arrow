@@ -117,6 +117,7 @@ Status AzureOptions::ConfigureClientSecretCredential(const std::string& account_
                                                      const std::string& tenant_id,
                                                      const std::string& client_id,
                                                      const std::string& client_secret) {
+  account_name_ = account_name;
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
       tenant_id, client_id, client_secret);
@@ -124,6 +125,7 @@ Status AzureOptions::ConfigureClientSecretCredential(const std::string& account_
 }
 
 Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
+  account_name_ = account_name;
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
@@ -131,6 +133,7 @@ Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name)
 
 Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& account_name,
                                                         std::string const& clientId) {
+  account_name_ = account_name;
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>(clientId);
@@ -139,6 +142,7 @@ Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& accou
 
 Status AzureOptions::ConfigureWorkloadIdentityCredential(
     const std::string& account_name) {
+  account_name_ = account_name;
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
   return Status::OK();
