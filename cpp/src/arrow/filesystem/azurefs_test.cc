@@ -271,6 +271,13 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
+TEST(AzureFileSystem, InitializeFilesystemWithClientSecretCredential) {
+  AzureOptions options;
+  ARROW_EXPECT_OK(options.ConfigureClientSecretCredential(
+      "dummy-account-name", "tenant_id", "client_id", "client_secret"));
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   AzureOptions options;
   ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));

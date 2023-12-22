@@ -110,6 +110,11 @@ struct ARROW_EXPORT AzureOptions {
   Status ConfigureAccountKeyCredential(const std::string& account_name,
                                        const std::string& account_key);
 
+  Status ConfigureClientSecretCredential(const std::string& account_name,
+                                         const std::string& tenant_id,
+                                         const std::string& client_id,
+                                         const std::string& client_secret);
+
   bool Equals(const AzureOptions& other) const;
 
   std::string AccountBlobUrl(const std::string& account_name) const;

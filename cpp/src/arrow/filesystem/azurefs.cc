@@ -113,6 +113,16 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_na
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureClientSecretCredential(const std::string& account_name,
+                                                     const std::string& tenant_id,
+                                                     const std::string& client_id,
+                                                     const std::string& client_secret) {
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
+      tenant_id, client_id, client_secret);
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
