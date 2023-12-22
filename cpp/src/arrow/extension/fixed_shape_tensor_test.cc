@@ -370,16 +370,16 @@ TEST_F(TestExtensionType, ToTensor) {
                                12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
                                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
 
-  auto cell_sizes = std::vector<int32_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
+  auto element_sizes = std::vector<int32_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
 
-  auto cell_shapes =
+  auto element_shapes =
       std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4},    {2, 3},
                                         {3, 2}, {3, 6}, {6, 3}, {3, 2, 3}, {3, 2, 3}};
   auto tensor_shapes = std::vector<std::vector<int64_t>>{
       {3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3},    {6, 2, 3},
       {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
 
-  auto cell_permutations =
+  auto element_permutations =
       std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
                                         {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
   auto tensor_strides_32 = std::vector<std::vector<int64_t>>{
@@ -389,7 +389,7 @@ TEST_F(TestExtensionType, ToTensor) {
       {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
       {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
 
-  auto cell_dim_names = std::vector<std::vector<std::string>>{
+  auto element_dim_names = std::vector<std::vector<std::string>>{
       {"y", "z"}, {"z", "y"}, {"y", "z"}, {"z", "y"},      {"y", "z"},
       {"z", "y"}, {"y", "z"}, {"z", "y"}, {"H", "W", "C"}, {"H", "W", "C"}};
   auto tensor_dim_names = std::vector<std::vector<std::string>>{
@@ -397,13 +397,13 @@ TEST_F(TestExtensionType, ToTensor) {
       {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
       {"", "H", "W", "C"}, {"", "C", "W", "H"}};
 
-  for (size_t i = 0; i < cell_shapes.size(); i++) {
-    CheckToTensor<float_t>(values, float32(), cell_sizes[i], cell_shapes[i],
-                           cell_permutations[i], cell_dim_names[i], tensor_shapes[i],
-                           tensor_dim_names[i], tensor_strides_32[i]);
-    CheckToTensor(values_, int64(), cell_sizes[i], cell_shapes[i], cell_permutations[i],
-                  cell_dim_names[i], tensor_shapes[i], tensor_dim_names[i],
-                  tensor_strides_64[i]);
+  for (size_t i = 0; i < element_shapes.size(); i++) {
+    CheckToTensor<float_t>(values, float32(), element_sizes[i], element_shapes[i],
+                           element_permutations[i], element_dim_names[i],
+                           tensor_shapes[i], tensor_dim_names[i], tensor_strides_32[i]);
+    CheckToTensor(values_, int64(), element_sizes[i], element_shapes[i],
+                  element_permutations[i], element_dim_names[i], tensor_shapes[i],
+                  tensor_dim_names[i], tensor_strides_64[i]);
   }
 }
 
