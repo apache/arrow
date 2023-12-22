@@ -662,7 +662,7 @@ class TestAzureFileSystem : public ::testing::Test {
 void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {
   EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
   if (trip_up_azurite && env->backend() != AzureBackend::kAzurite) {
-    GTEST_SKIP() << "trip_up_azurite=true is only for Azurite.";
+    return;
   }
 
   auto data = SetUpPreexistingData();
