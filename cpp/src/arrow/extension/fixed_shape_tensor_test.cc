@@ -271,7 +271,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
   auto ext_arr_5 = std::static_pointer_cast<FixedShapeTensorArray>(
       ExtensionType::WrapArray(ext_type_5, fsla_arr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("binary is not valid data type for a tensor"),
+      TypeError, testing::HasSubstr("binary is not valid data type for a tensor"),
       ext_arr_5->ToTensor());
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
@@ -578,7 +578,7 @@ TEST_F(TestExtensionType, GetTensor) {
     ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(i));
     auto actual_ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
     ASSERT_OK_AND_ASSIGN(auto actual_tensor,
-                         exact_ext_type->GetTensor(actual_ext_scalar));
+                         exact_ext_type->MakeTensor(actual_ext_scalar));
     ASSERT_OK_AND_ASSIGN(
         auto expected_tensor,
         Tensor::Make(value_type_, Buffer::Wrap(cell_values[i]), {3, 4}, {}, {"x", "y"}));
@@ -595,7 +595,7 @@ TEST_F(TestExtensionType, GetTensor) {
                                       {8, 24}, {"y", "x"}));
     ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(i));
     ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor,
-                         exact_permuted_ext_type->GetTensor(
+                         exact_permuted_ext_type->MakeTensor(
                              internal::checked_pointer_cast<ExtensionScalar>(scalar)));
     ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
     ASSERT_EQ(expected_permuted_tensor->shape(), actual_permuted_tensor->shape());
@@ -617,21 +617,21 @@ TEST_F(TestExtensionType, GetTensor) {
   auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
 
   ASSERT_OK_AND_ASSIGN(auto scalar, tensor_array->GetScalar(0));
-  ASSERT_OK_AND_ASSIGN(
-      auto tensor,
-      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       exact_ext_type->MakeTensor(
+                           internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 
   ASSERT_OK_AND_ASSIGN(scalar, tensor_array->GetScalar(1));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      testing::HasSubstr("Invalid: Cannot convert data with nulls values to Tensor."),
-      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+      Invalid, testing::HasSubstr("Invalid: Cannot convert data with nulls to Tensor."),
+      exact_ext_type->MakeTensor(
+          internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 
   ASSERT_OK_AND_ASSIGN(scalar, tensor_array->GetScalar(2));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      testing::HasSubstr("Invalid: Cannot convert data with nulls values to Tensor."),
-      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+      Invalid, testing::HasSubstr("Invalid: Cannot convert data with nulls to Tensor."),
+      exact_ext_type->MakeTensor(
+          internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 
   // Test non-fixed size list array fails
   cell_type = list(utf8());
@@ -640,9 +640,10 @@ TEST_F(TestExtensionType, GetTensor) {
   exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      testing::HasSubstr("Invalid: Cannot convert non-fixed-width values to Tensor."),
-      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+      TypeError,
+      testing::HasSubstr("Type error: Cannot convert non-fixed-width values to Tensor."),
+      exact_ext_type->MakeTensor(
+          internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 }
 
 }  // namespace arrow

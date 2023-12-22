@@ -3571,12 +3571,12 @@ cdef class FixedShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self):
         """
         Convert fixed shape tensor extension array to a multi-dimensional numpy.ndarray.
-        
+
         The resulting ndarray will have (ndim + 1) dimensions.
         The size of the first dimension will be the length of the fixed shape tensor array
         and the rest of the dimensions will match the permuted shape of the fixed
         shape tensor.
-        
+
         The conversion is zero-copy.
 
 
@@ -3597,7 +3597,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         The size of the first dimension will be the length of the fixed shape tensor array
         and the rest of the dimensions will match the permuted shape of the fixed
         shape tensor.
-        
+
         The conversion is zero-copy.
 
         Returns

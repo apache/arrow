@@ -1035,7 +1035,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
     def to_numpy_ndarray(self):
         """
         Convert fixed shape tensor scalar to a numpy.ndarray.
-        
+
         The resulting ndarray's shape matches the permuted shape of the
         fixed shape tensor scalar.
         The conversion is zero-copy.
@@ -1065,7 +1065,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
             shared_ptr[CTensor] ctensor
 
         with nogil:
-            ctensor = GetResultValue(c_type.GetTensor(scalar))
+            ctensor = GetResultValue(c_type.MakeTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
 

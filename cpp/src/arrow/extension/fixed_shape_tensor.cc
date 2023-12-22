@@ -205,8 +205,8 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
-    const std::shared_ptr<ExtensionScalar>& scalar) const {
+const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
+    const std::shared_ptr<ExtensionScalar>& scalar) {
   if (!is_fixed_width(*this->value_type())) {
     return Status::TypeError("Cannot convert non-fixed-width values to Tensor.");
   }
@@ -221,7 +221,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
 
   std::vector<int64_t> permutation = this->permutation();
   if (permutation.empty()) {
-    permutation.resize(ndim);
+    permutation.resize(this->ndim());
     std::iota(permutation.begin(), permutation.end(), 0);
   }
 

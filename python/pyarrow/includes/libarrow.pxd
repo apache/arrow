@@ -2699,7 +2699,7 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
 
-        CResult[shared_ptr[CTensor]] GetTensor(const shared_ptr[CExtensionScalar]& scalar) const
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
