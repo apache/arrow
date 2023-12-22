@@ -1034,7 +1034,15 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
     def to_numpy_ndarray(self):
         """
-        Convert fixed shape tensor extension scalar to a numpy.ndarray with zero copy.
+        Convert fixed shape tensor scalar to a numpy.ndarray.
+        
+        The resulting ndarray's shape matches the permuted shape of the
+        fixed shape tensor scalar.
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        numpy.ndarray
         """
         return self.to_tensor().to_numpy()
 

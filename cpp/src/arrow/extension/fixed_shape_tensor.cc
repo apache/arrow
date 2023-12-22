@@ -208,12 +208,12 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
 const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) const {
   if (!is_fixed_width(*this->value_type())) {
-    return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
+    return Status::TypeError("Cannot convert non-fixed-width values to Tensor.");
   }
   const auto array =
       internal::checked_pointer_cast<const FixedSizeListScalar>(scalar->value)->value;
   if (array->null_count() > 0) {
-    return Status::Invalid("Cannot convert data with nulls values to Tensor.");
+    return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
   const auto value_type =
       internal::checked_pointer_cast<FixedWidthType>(this->value_type());
@@ -221,9 +221,8 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
 
   std::vector<int64_t> permutation = this->permutation();
   if (permutation.empty()) {
-    for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
-      permutation.emplace_back(j);
-    }
+    permutation.resize(ndim);
+    std::iota(permutation.begin(), permutation.end(), 0);
   }
 
   std::vector<int64_t> shape = this->shape();
@@ -340,7 +339,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   const auto value_type = ext_type->value_type();
   ARROW_RETURN_IF(
       !is_fixed_width(*value_type),
-      Status::Invalid(value_type->ToString(), " is not valid data type for a tensor"));
+      Status::TypeError(value_type->ToString(), " is not valid data type for a tensor"));
 
   std::vector<int64_t> permutation = ext_type->permutation();
   if (permutation.empty()) {
