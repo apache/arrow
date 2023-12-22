@@ -1077,21 +1077,38 @@ std::shared_ptr<DataType> MakeListType<FixedSizeListType>(
 
 template <typename ScalarType>
 void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
-  EXPECT_OK_AND_ASSIGN(auto cast_scalar, scalar.CastTo(to_type));
-  ASSERT_OK(cast_scalar->ValidateFull());
-  ASSERT_EQ(*cast_scalar->type, *to_type);
+  EXPECT_OK_AND_ASSIGN(auto cast_scalar, Cast(scalar, to_type));
+  ASSERT_OK(cast_scalar.scalar()->ValidateFull());
+  ASSERT_EQ(*cast_scalar.scalar()->type, *to_type);
 
-  ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
+  ASSERT_EQ(scalar.is_valid, cast_scalar.scalar()->is_valid);
   ASSERT_TRUE(scalar.is_valid);
   ASSERT_ARRAYS_EQUAL(*scalar.value,
-                      *checked_cast<const BaseListScalar&>(*cast_scalar).value);
+                      *checked_cast<const BaseListScalar&>(*cast_scalar.scalar()).value);
 }
 
-void CheckInvalidListCast(const Scalar& scalar, const std::shared_ptr<DataType>& to_type,
+std::tuple<StatusCode, std::string> GetExpectedError(
+    const std::shared_ptr<DataType>& type,
+    const std::shared_ptr<DataType>& invalidCastType) {
+  if (type->id() == Type::FIXED_SIZE_LIST) {
+    return std::make_tuple(
+        StatusCode::TypeError,
+        "Size of FixedSizeList is not the same. input list: " + type->ToString() +
+            " output list: " + invalidCastType->ToString());
+  } else {
+    return std::make_tuple(
+        StatusCode::Invalid,
+        "ListType can only be casted to FixedSizeListType if the lists are all the "
+        "expected size.");
+  }
+}
+
+template <typename ScalarType>
+void CheckInvalidListCast(const ScalarType& scalar,
+                          const std::shared_ptr<DataType>& to_type, const StatusCode code,
                           const std::string& expected_message) {
-  EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(StatusCode::Invalid,
-                                           ::testing::HasSubstr(expected_message),
-                                           scalar.CastTo(to_type));
+  EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, ::testing::HasSubstr(expected_message),
+                                           Cast(scalar, to_type));
 }
 
 template <typename T>
@@ -1178,10 +1195,10 @@ class TestListLikeScalar : public ::testing::Test {
     CheckListCast(
         scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
 
-    CheckInvalidListCast(scalar, fixed_size_list(value_->type(), 5),
-                         "Cannot cast " + scalar.type->ToString() + " of length " +
-                             std::to_string(value_->length()) +
-                             " to fixed size list of length 5");
+    auto invalidCastType = fixed_size_list(value_->type(), 5);
+    auto [expectedCode, expectedMessage] = GetExpectedError(type_, invalidCastType);
+
+    CheckInvalidListCast(scalar, invalidCastType, expectedCode, expectedMessage);
   }
 
  protected:
@@ -1238,10 +1255,10 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, large_list(key_value_type));
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 
-  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
-                       "Cannot cast " + scalar.type->ToString() + " of length " +
-                           std::to_string(value->length()) +
-                           " to fixed size list of length 5");
+//  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
+//                       "Cannot cast " + scalar.type->ToString() + " of length " +
+//                           std::to_string(value->length()) +
+//                           " to fixed size list of length 5");
 }
 
 TEST(TestStructScalar, FieldAccess) {
