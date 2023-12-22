@@ -272,36 +272,35 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 };
 
 TEST(AzureFileSystem, InitializeFilesystemWithClientSecretCredential) {
-  AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureClientSecretCredential(
-      "dummy-account-name", "tenant_id", "client_id", "client_secret"));
+  AzureOptions options("dummy-account-name");
+  ARROW_EXPECT_OK(
+      options.ConfigureClientSecretCredential("tenant_id", "client_id", "client_secret"));
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
-  AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  AzureOptions options("dummy-account-name");
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithManagedIdentityCredential) {
-  AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("dummy-account-name"));
+  AzureOptions options("dummy-account-name");
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 
-  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("dummy-account-name",
-                                                             "specific-client-id"));
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("specific-client-id"));
   EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
-  AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential("dummy-account-name"));
+  AzureOptions options("dummy-account-name");
+  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
-  AzureOptions options;
+  AzureOptions options("account-name");
   EXPECT_TRUE(options.Equals(options));
 }
 
@@ -375,7 +374,7 @@ class TestAzureFileSystem : public ::testing::Test {
   std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
 
  public:
-  TestAzureFileSystem() : rng_(std::random_device()()) {}
+  TestAzureFileSystem() : rng_(std::random_device()()), options_("temp") {}
 
   virtual Result<BaseAzureEnv*> GetAzureEnv() const = 0;
   virtual HNSSupport CachedHNSSupport(const BaseAzureEnv& env) const = 0;
@@ -392,7 +391,7 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
-    AzureOptions options;
+    AzureOptions options(env->account_name());
     switch (env->backend()) {
       case AzureBackend::kAzurite:
         options.blob_storage_authority = "127.0.0.1:10000";
@@ -404,8 +403,7 @@ class TestAzureFileSystem : public ::testing::Test {
         // Use the default values
         break;
     }
-    ARROW_EXPECT_OK(
-        options.ConfigureAccountKeyCredential(env->account_name(), env->account_key()));
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
     return options;
   }
 

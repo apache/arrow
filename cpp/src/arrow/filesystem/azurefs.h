@@ -100,21 +100,18 @@ struct ARROW_EXPORT AzureOptions {
       storage_shared_key_credential_;
 
  public:
-  AzureOptions();
+  AzureOptions(const std::string& account_name);
   ~AzureOptions();
 
-  Status ConfigureDefaultCredential(const std::string& account_name);
+  Status ConfigureDefaultCredential();
 
-  Status ConfigureManagedIdentityCredential(const std::string& account_name,
-                                            const std::string& client_id = std::string());
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
 
-  Status ConfigureWorkloadIdentityCredential(const std::string& account_name);
+  Status ConfigureWorkloadIdentityCredential();
 
-  Status ConfigureAccountKeyCredential(const std::string& account_name,
-                                       const std::string& account_key);
+  Status ConfigureAccountKeyCredential(const std::string& account_key);
 
-  Status ConfigureClientSecretCredential(const std::string& account_name,
-                                         const std::string& tenant_id,
+  Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
 
