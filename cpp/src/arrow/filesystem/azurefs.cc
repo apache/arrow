@@ -47,9 +47,7 @@ using HNSSupport = internal::HierarchicalNamespaceSupport;
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
 
-// AzureOptions::AzureOptions(const std::string& account_name) = default;
-AzureOptions::AzureOptions(const std::string& account_name)
-      : account_name_(account_name) {}
+AzureOptions::AzureOptions() = default;
 
 AzureOptions::~AzureOptions() = default;
 
@@ -60,7 +58,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
                       blob_storage_scheme == other.blob_storage_scheme &&
                       dfs_storage_scheme == other.dfs_storage_scheme &&
                       default_metadata == other.default_metadata &&
-                      account_name_ == other.account_name_ &&
+                      account_name == other.account_name &&
                       credential_kind_ == other.credential_kind_;
   if (!equals) {
     return false;
@@ -108,8 +106,11 @@ std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
 
 Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_key) {
   credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   storage_shared_key_credential_ =
-      std::make_shared<Storage::StorageSharedKeyCredential>(account_name_, account_key);
+      std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
   return Status::OK();
 }
 
@@ -143,17 +144,17 @@ Status AzureOptions::ConfigureWorkloadIdentityCredential() {
 
 Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceClient()
     const {
-  if (account_name_.empty()) {
+  if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
     case CredentialKind::kTokenCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
@@ -161,7 +162,7 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
 
 Result<std::unique_ptr<DataLake::DataLakeServiceClient>>
 AzureOptions::MakeDataLakeServiceClient() const {
-  if (account_name_.empty()) {
+  if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
@@ -169,10 +170,10 @@ AzureOptions::MakeDataLakeServiceClient() const {
       break;
     case CredentialKind::kTokenCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name_), token_credential_);
+          AccountDfsUrl(account_name), token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name_), storage_shared_key_credential_);
+          AccountDfsUrl(account_name), storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }

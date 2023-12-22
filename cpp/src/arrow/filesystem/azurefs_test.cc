@@ -272,20 +272,23 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 };
 
 TEST(AzureFileSystem, InitializeFilesystemWithClientSecretCredential) {
-  AzureOptions options("dummy-account-name");
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(
       options.ConfigureClientSecretCredential("tenant_id", "client_id", "client_secret"));
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
-  AzureOptions options("dummy-account-name");
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureDefaultCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithManagedIdentityCredential) {
-  AzureOptions options("dummy-account-name");
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 
@@ -294,13 +297,14 @@ TEST(AzureFileSystem, InitializeFilesystemWithManagedIdentityCredential) {
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
-  AzureOptions options("dummy-account-name");
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
-  AzureOptions options("account-name");
+  AzureOptions options;
   EXPECT_TRUE(options.Equals(options));
 }
 
@@ -374,7 +378,7 @@ class TestAzureFileSystem : public ::testing::Test {
   std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
 
  public:
-  TestAzureFileSystem() : rng_(std::random_device()()), options_("temp") {}
+  TestAzureFileSystem() : rng_(std::random_device()()) {}
 
   virtual Result<BaseAzureEnv*> GetAzureEnv() const = 0;
   virtual HNSSupport CachedHNSSupport(const BaseAzureEnv& env) const = 0;
@@ -391,7 +395,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
-    AzureOptions options(env->account_name());
+    AzureOptions options;
+    options.account_name = env->account_name();
     switch (env->backend()) {
       case AzureBackend::kAzurite:
         options.blob_storage_authority = "127.0.0.1:10000";

@@ -48,6 +48,9 @@ class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
+  /// \brief account name of the Azure Storage account.
+  std::string account_name;
+
   /// \brief hostname[:port] of the Azure Blob Storage Service.
   ///
   /// If the hostname is a relative domain name (one that starts with a '.'), then storage
@@ -94,13 +97,12 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKeyCredential,
   } credential_kind_ = CredentialKind::kAnonymous;
 
-  std::string account_name_;
   std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
 
  public:
-  AzureOptions(const std::string& account_name);
+  AzureOptions();
   ~AzureOptions();
 
   Status ConfigureDefaultCredential();
