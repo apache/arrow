@@ -17,6 +17,7 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.memory.util.CheckerFrameworkUtil;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -135,46 +136,42 @@ public abstract class AllocationManager {
     // remove the <BaseAllocator, BufferLedger> mapping for the allocator
     // of calling BufferLedger
     Preconditions.checkState(map.containsKey(allocator),
-        "Expecting a mapping for allocator and reference manager");
+            "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
-    // to cover current NPE logic before Nullability evaluations
-    Preconditions.checkState(oldLedger != null,
-            "Expecting a valid BufferLedger, but received null instead");
+    CheckerFrameworkUtil.assertMethod(oldLedger != null);
+    BufferAllocator oldAllocator = oldLedger.getAllocator();
+    if (oldAllocator instanceof BaseAllocator) {
+      // needed for debug only: tell the allocator that AllocationManager is removing a
+      // reference manager associated with this particular allocator
+      ((BaseAllocator) oldAllocator).dissociateLedger(oldLedger);
+    }
 
-    if (oldLedger != null) {
-      BufferAllocator oldAllocator = oldLedger.getAllocator();
-      if (oldAllocator instanceof BaseAllocator) {
-        // needed for debug only: tell the allocator that AllocationManager is removing a
-        // reference manager associated with this particular allocator
-        ((BaseAllocator) oldAllocator).dissociateLedger(oldLedger);
-      }
-      if (oldLedger == owningLedger) {
-        // the release call was made by the owning reference manager
-        if (map.isEmpty()) {
-          // the only <allocator, reference manager> mapping was for the owner
-          // which now has been removed, it implies we can safely destroy the
-          // underlying memory chunk as it is no longer being referenced
-          oldAllocator.releaseBytes(getSize());
-          // free the memory chunk associated with the allocation manager
-          release0();
-          oldAllocator.getListener().onRelease(getSize());
-          owningLedger = null;
-        } else {
-          // since the refcount dropped to 0 for the owning reference manager and allocation
-          // manager will no longer keep a mapping for it, we need to change the owning
-          // reference manager to whatever the next available <allocator, reference manager>
-          // mapping exists.
-          BufferLedger newOwningLedger = map.getNextValue();
-          // we'll forcefully transfer the ownership and not worry about whether we
-          // exceeded the limit since this consumer can't do anything with this.
-          oldLedger.transferBalance(newOwningLedger);
-        }
+    if (oldLedger == owningLedger) {
+      // the release call was made by the owning reference manager
+      if (map.isEmpty()) {
+        // the only <allocator, reference manager> mapping was for the owner
+        // which now has been removed, it implies we can safely destroy the
+        // underlying memory chunk as it is no longer being referenced
+        oldAllocator.releaseBytes(getSize());
+        // free the memory chunk associated with the allocation manager
+        release0();
+        oldAllocator.getListener().onRelease(getSize());
+        owningLedger = null;
       } else {
-        // the release call was made by a non-owning reference manager, so after remove there have
-        // to be 1 or more <allocator, reference manager> mappings
-        Preconditions.checkState(map.size() > 0,
-                "The final removal of reference manager should be connected to owning reference manager");
+        // since the refcount dropped to 0 for the owning reference manager and allocation
+        // manager will no longer keep a mapping for it, we need to change the owning
+        // reference manager to whatever the next available <allocator, reference manager>
+        // mapping exists.
+        BufferLedger newOwningLedger = map.getNextValue();
+        // we'll forcefully transfer the ownership and not worry about whether we
+        // exceeded the limit since this consumer can't do anything with this.
+        oldLedger.transferBalance(newOwningLedger);
       }
+    } else {
+      // the release call was made by a non-owning reference manager, so after remove there have
+      // to be 1 or more <allocator, reference manager> mappings
+      Preconditions.checkState(map.size() > 0,
+              "The final removal of reference manager should be connected to owning reference manager");
     }
   }
 

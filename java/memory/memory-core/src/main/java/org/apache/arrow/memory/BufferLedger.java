@@ -21,6 +21,7 @@ import java.util.IdentityHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.arrow.memory.util.CheckerFrameworkUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
@@ -205,8 +206,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return derived buffer
    */
   @Override
-  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
-  //{"dereference of possibly-null reference buffers", "synchronizing over a possibly-null lock (buffers)"}
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, long index, long length) {
     /*
      * Usage type 1 for deriveBuffer():
@@ -236,20 +235,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
             );
 
     // logging
-    if (historicalLog != null) {
-      historicalLog.recordEvent(
-              "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-                      "UnsafeDirectLittleEndian[identityHashCode == " +
-                      "%d](%s)) => ledger hc == %d",
-              allocator.getName(), System.identityHashCode(derivedBuf), derivedBuf.toString(),
-              System.identityHashCode(this));
-
-      synchronized (buffers) {
-        buffers.put(derivedBuf, null);
-      }
-    }
-
-    return derivedBuf;
+    return loggingArrowBufHistoricalLog(derivedBuf);
   }
 
   /**
@@ -264,8 +250,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return A new ArrowBuf that shares references with all ArrowBufs associated
    *         with this BufferLedger
    */
-  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
-  //{"dereference of possibly-null reference historicalLog,buffers","synchronizing over a possibly-null lock (buffers)"}
   ArrowBuf newArrowBuf(final long length, final @Nullable BufferManager manager) {
     allocator.assertOpen();
 
@@ -276,13 +260,17 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress);
 
     // logging
-    if (BaseAllocator.DEBUG) {
+    return loggingArrowBufHistoricalLog(buf);
+  }
+
+  private ArrowBuf loggingArrowBufHistoricalLog(ArrowBuf buf) {
+    if (historicalLog != null) {
       historicalLog.recordEvent(
           "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
           "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
           allocator.getName(), System.identityHashCode(buf), buf.toString(),
           System.identityHashCode(this));
-
+      CheckerFrameworkUtil.assertMethod(buffers != null);
       synchronized (buffers) {
         buffers.put(buf, null);
       }
@@ -489,8 +477,6 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param indent    The level of indentation to position the data.
    * @param verbosity The level of verbosity to print.
    */
-  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
-  //{"dereference of possibly-null reference buffers", "synchronizing over a possibly-null lock (buffers)"}
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
     CommonUtil.indent(sb, indent)
       .append("ledger[")
@@ -511,6 +497,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");
     } else {
+      CheckerFrameworkUtil.assertMethod(buffers != null);
       synchronized (buffers) {
         sb.append("] holds ")
           .append(buffers.size())
