@@ -410,18 +410,6 @@ struct CastMap {
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
-    // Validate if output is fixed size list
-    if (out->type()->id() == Type::FIXED_SIZE_LIST) {
-      const auto& in_type = checked_cast<const MapType&>(*batch[0].type());
-      const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
-      const auto in_size = batch[0].array.child_data[0].ToArrayData()->length;
-      const auto out_size = out_type.list_size();
-      if (in_size != out_size) {
-        return Status::TypeError("Size of FixedSizeList is not the same.",
-                                 " input type: ", in_type.ToString(),
-                                 " output type: ", out_type.ToString());
-      }
-    }
 
     std::shared_ptr<DataType> entry_type =
         checked_cast<const DestType&>(*out->type()).value_type();
@@ -436,11 +424,8 @@ struct CastMap {
     const ArraySpan& in_array = batch[0].array;
 
     ArrayData* out_array = out->array_data().get();
-    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
-    if (in_array.GetBuffer(1) != nullptr) {
-      out_array->buffers[1] = in_array.GetBuffer(1);
-    }
+    out_array->buffers[0] = in_array.GetBuffer(0);
+    out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> entries = in_array.child_data[0].ToArrayData();
 
@@ -526,7 +511,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddTypeToTypeCast<CastVarToFixedList<LargeListType>, LargeListType>(cast_fsl.get());
   AddTypeToTypeCast<CastVarToFixedList<LargeListViewType>, LargeListViewType>(
       cast_fsl.get());
-  AddMapCast<FixedSizeListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListType>, MapType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
