@@ -1090,11 +1090,11 @@ void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to
 std::tuple<StatusCode, std::string> GetExpectedError(
     const std::shared_ptr<DataType>& type,
     const std::shared_ptr<DataType>& invalidCastType) {
-  if (type->id() == Type::FIXED_SIZE_LIST) {
+  if (type->id() == Type::FIXED_SIZE_LIST || type->id() == Type::MAP) {
     return std::make_tuple(
         StatusCode::TypeError,
-        "Size of FixedSizeList is not the same. input list: " + type->ToString() +
-            " output list: " + invalidCastType->ToString());
+        "Size of FixedSizeList is not the same. input type: " + type->ToString() +
+            " output type: " + invalidCastType->ToString());
   } else {
     return std::make_tuple(
         StatusCode::Invalid,
@@ -1255,10 +1255,10 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, large_list(key_value_type));
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 
-  //  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
-  //                       "Cannot cast " + scalar.type->ToString() + " of length " +
-  //                           std::to_string(value->length()) +
-  //                           " to fixed size list of length 5");
+  auto invalidCastType = fixed_size_list(key_value_type, 5);
+  auto [expectedCode, expectedMessage] = GetExpectedError(scalar.type, invalidCastType);
+
+  CheckInvalidListCast(scalar, invalidCastType, expectedCode, expectedMessage);
 }
 
 TEST(TestStructScalar, FieldAccess) {

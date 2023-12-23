@@ -317,8 +317,8 @@ struct CastFixedList {
 
     if (in_size != out_size) {
       return Status::TypeError("Size of FixedSizeList is not the same.",
-                               " input list: ", in_type.ToString(),
-                               " output list: ", out_type.ToString());
+                               " input type: ", in_type.ToString(),
+                               " output type: ", out_type.ToString());
     }
 
     const ArraySpan& in_array = batch[0].array;
@@ -428,6 +428,19 @@ struct CastMap {
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> entries = in_array.child_data[0].ToArrayData();
+
+    // Validate if output is fixed size list
+    if (out->type()->id() == Type::FIXED_SIZE_LIST) {
+      const auto& in_type = checked_cast<const MapType&>(*batch[0].type());
+      const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
+      const auto in_size = entries->length;
+      const auto out_size = out_type.list_size();
+      if (in_size != out_size) {
+        return Status::TypeError("Size of FixedSizeList is not the same.",
+                                 " input type: ", in_type.ToString(),
+                                 " output type: ", out_type.ToString());
+      }
+    }
 
     // Shift bitmap in case the source offset is non-zero
     if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
