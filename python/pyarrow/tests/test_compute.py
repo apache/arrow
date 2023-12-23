@@ -2223,6 +2223,29 @@ def _check_datetime_components(timestamps, timezone=None):
         first_week_is_fully_in_year=False)
     assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
+    # Test for iso_calendar regression
+    # https://github.com/apache/arrow/issues/38655
+    ts = (pd.date_range("2019-01-01", periods=33, freq="21D")
+            .tz_localize("UTC")
+            .tz_convert(timezone).to_series())
+    tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
+
+    if Version(pd.__version__) < Version("1.1.0"):
+        # https://github.com/pandas-dev/pandas/issues/33206
+        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
+        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
+        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
+        isocalendar_values = (iso_year, iso_week, iso_day)
+    else:
+        # Casting is required because pandas isocalendar returns int32
+        # while arrow isocalendar returns int64.
+        values = ts.dt.isocalendar().values.astype("int64")
+        isocalendar_values = (values[:, 0], values[:, 1], values[:, 2])
+
+    iso_calendar = pa.StructArray.from_arrays(
+        isocalendar_values, fields=iso_calendar_fields)
+    assert pc.iso_calendar(tsa).equals(iso_calendar)
+
 
 @pytest.mark.pandas
 def test_extract_datetime_components():

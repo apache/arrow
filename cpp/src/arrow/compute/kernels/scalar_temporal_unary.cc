@@ -1503,14 +1503,13 @@ struct ISOCalendar {
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), IsoCalendarType(), &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
-    RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(3);
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+      RETURN_NOT_OK(field_builders[i]->Reserve(in.length));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;
