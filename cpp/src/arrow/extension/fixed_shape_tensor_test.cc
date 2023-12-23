@@ -649,17 +649,15 @@ TEST_F(TestExtensionType, GetTensor) {
       exact_ext_type->MakeTensor(
           internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 
-  // // Test non-fixed size list array fails
-  // element_type = list(utf8());
-  // scalar = std::make_shared<ListScalar>(ArrayFromJSON(element_type, R"([["a",
-  // "b"]])")); ext_type = fixed_shape_tensor(utf8(), {1}); exact_ext_type =
-  // internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
-  //
-  // EXPECT_RAISES_WITH_MESSAGE_THAT(
-  //     TypeError,
-  //     testing::HasSubstr("Type error: Cannot convert non-fixed-width values to
-  //     Tensor."), exact_ext_type->MakeTensor(
-  //         internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+  element_type = list(utf8());
+  ext_type = fixed_shape_tensor(utf8(), {1});
+  exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  scalar = std::make_shared<ListScalar>(ArrayFromJSON(element_type, R"([["a", "b"]])"));
+  auto ext_scalar = std::make_shared<ExtensionScalar>(scalar, ext_type);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      testing::HasSubstr("Type error: Cannot convert non-fixed-width values to Tensor."),
+      exact_ext_type->MakeTensor(ext_scalar));
 }
 
 }  // namespace arrow
