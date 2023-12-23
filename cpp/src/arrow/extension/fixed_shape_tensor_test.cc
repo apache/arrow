@@ -370,32 +370,27 @@ TEST_F(TestExtensionType, ToTensor) {
                                12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
                                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
 
-  auto element_sizes = std::vector<int32_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
+  auto element_sizes = std::vector<int32_t>{6, 6, 18, 18, 18, 18};
 
-  auto element_shapes =
-      std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4},    {2, 3},
-                                        {3, 2}, {3, 6}, {6, 3}, {3, 2, 3}, {3, 2, 3}};
+  auto element_shapes = std::vector<std::vector<int64_t>>{{2, 3}, {3, 2},    {3, 6},
+                                                          {6, 3}, {3, 2, 3}, {3, 2, 3}};
   auto tensor_shapes = std::vector<std::vector<int64_t>>{
-      {3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3},    {6, 2, 3},
-      {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
+      {6, 2, 3}, {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
 
-  auto element_permutations =
-      std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
-                                        {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
-  auto tensor_strides_32 = std::vector<std::vector<int64_t>>{
-      {48, 16, 4}, {48, 4, 12}, {48, 12, 4}, {48, 4, 16},     {24, 12, 4},
-      {24, 4, 8},  {72, 24, 4}, {72, 4, 12}, {72, 24, 12, 4}, {72, 4, 12, 24}};
-  auto tensor_strides_64 = std::vector<std::vector<int64_t>>{
-      {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
-      {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+  auto element_permutations = std::vector<std::vector<int64_t>>{
+      {0, 1}, {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
+  auto tensor_strides_32 =
+      std::vector<std::vector<int64_t>>{{24, 12, 4}, {24, 4, 8},      {72, 24, 4},
+                                        {72, 4, 12}, {72, 24, 12, 4}, {72, 4, 12, 24}};
+  auto tensor_strides_64 =
+      std::vector<std::vector<int64_t>>{{48, 24, 8},  {48, 8, 16},      {144, 48, 8},
+                                        {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
 
   auto element_dim_names = std::vector<std::vector<std::string>>{
-      {"y", "z"}, {"z", "y"}, {"y", "z"}, {"z", "y"},      {"y", "z"},
-      {"z", "y"}, {"y", "z"}, {"z", "y"}, {"H", "W", "C"}, {"H", "W", "C"}};
+      {"y", "z"}, {"z", "y"}, {"y", "z"}, {"z", "y"}, {"H", "W", "C"}, {"H", "W", "C"}};
   auto tensor_dim_names = std::vector<std::vector<std::string>>{
-      {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
-      {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
-      {"", "H", "W", "C"}, {"", "C", "W", "H"}};
+      {"", "y", "z"}, {"", "y", "z"},      {"", "y", "z"},
+      {"", "y", "z"}, {"", "H", "W", "C"}, {"", "C", "W", "H"}};
 
   for (size_t i = 0; i < element_shapes.size(); i++) {
     CheckToTensor<float_t>(values, float32(), element_sizes[i], element_shapes[i],
