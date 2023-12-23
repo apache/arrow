@@ -1479,7 +1479,7 @@ class AzureFileSystem::Impl {
   /// \pre location.container is not empty.
   std::pair<int, Status> DeleteDirContentsOnContainer(
       const Blobs::BlobContainerClient& container_client, const AzureLocation& location,
-      bool missing_dir_ok) {
+      bool require_dir_to_exist) {
     DCHECK(!location.container.empty());
     Blobs::ListBlobsOptions options;
     if (!location.path.empty()) {
@@ -1494,7 +1494,7 @@ class AzureFileSystem::Impl {
     int num_potentially_deleted_blobs = 0;
     try {
       auto list_response = container_client.ListBlobs(options);
-      if (!missing_dir_ok && list_response.Blobs.empty()) {
+      if (require_dir_to_exist && list_response.Blobs.empty()) {
         return {num_potentially_deleted_blobs, PathNotFound(location)};
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
@@ -1772,7 +1772,7 @@ Status AzureFileSystem::DeleteDir(const std::string& path) {
   Status status;
   std::tie(std::ignore, status) =
       impl_->DeleteDirContentsOnContainer(container_client, location,
-                                          /*missing_dir_ok=*/false);
+                                          /*require_dir_to_exist=*/true);
   return status;
 }
 
@@ -1793,8 +1793,8 @@ Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_
     return impl_->DeleteDirContentsOnFileSystem(adlfs_client, location, missing_dir_ok);
   }
   auto container_client = impl_->GetBlobContainerClient(location.container);
-  auto [num_potentially_deleted_blobs, status] =
-      impl_->DeleteDirContentsOnContainer(container_client, location, missing_dir_ok);
+  auto [num_potentially_deleted_blobs, status] = impl_->DeleteDirContentsOnContainer(
+      container_client, location, /*require_dir_to_exist=*/!missing_dir_ok);
   if (num_potentially_deleted_blobs > 0) {
     // If we potentially deleted some blobs, we need to ensure the empty directory
     // marker blob exists. Otherwise, we don't need to do anything because the
