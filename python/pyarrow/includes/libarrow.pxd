@@ -2809,6 +2809,7 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
         CCompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
