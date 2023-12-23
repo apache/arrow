@@ -484,6 +484,7 @@ cdef class DictionaryArray(Array):
 cdef class ExtensionArray(Array):
     pass
 
+
 cdef class MonthDayNanoIntervalArray(Array):
     pass
 
