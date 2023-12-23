@@ -271,22 +271,44 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
+TEST(AzureFileSystem, InitializingFilesystemWithoutAccountNameFails) {
+  AzureOptions options;
+  ASSERT_RAISES(Invalid, options.ConfigureAccountKeyCredential("account_key"));
+
+  ARROW_EXPECT_OK(
+      options.ConfigureClientSecretCredential("tenant_id", "client_id", "client_secret"));
+  ASSERT_RAISES(Invalid, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeFilesystemWithClientSecretCredential) {
   AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureClientSecretCredential(
-      "dummy-account-name", "tenant_id", "client_id", "client_secret"));
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(
+      options.ConfigureClientSecretCredential("tenant_id", "client_id", "client_secret"));
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
+TEST(AzureFileSystem, InitializeFilesystemWithManagedIdentityCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("specific-client-id"));
+  EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
   AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential("dummy-account-name"));
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -383,6 +405,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
   static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
     AzureOptions options;
+    options.account_name = env->account_name();
     switch (env->backend()) {
       case AzureBackend::kAzurite:
         options.blob_storage_authority = "127.0.0.1:10000";
@@ -394,8 +417,7 @@ class TestAzureFileSystem : public ::testing::Test {
         // Use the default values
         break;
     }
-    ARROW_EXPECT_OK(
-        options.ConfigureAccountKeyCredential(env->account_name(), env->account_key()));
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
     return options;
   }
 
