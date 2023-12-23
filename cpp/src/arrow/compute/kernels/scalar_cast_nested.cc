@@ -317,8 +317,8 @@ struct CastFixedList {
 
     if (in_size != out_size) {
       return Status::TypeError("Size of FixedSizeList is not the same.",
-                               " input type: ", in_type.ToString(),
-                               " output type: ", out_type.ToString());
+                               " input list: ", in_type.ToString(),
+                               " output list: ", out_type.ToString());
     }
 
     const ArraySpan& in_array = batch[0].array;

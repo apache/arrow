@@ -1093,8 +1093,8 @@ std::tuple<StatusCode, std::string> GetExpectedError(
   if (type->id() == Type::FIXED_SIZE_LIST) {
     return std::make_tuple(
         StatusCode::TypeError,
-        "Size of FixedSizeList is not the same. input type: " + type->ToString() +
-            " output type: " + invalidCastType->ToString());
+        "Size of FixedSizeList is not the same. input list: " + type->ToString() +
+            " output list: " + invalidCastType->ToString());
   } else {
     return std::make_tuple(
         StatusCode::Invalid,
