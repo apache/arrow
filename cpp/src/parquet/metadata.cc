@@ -1027,9 +1027,8 @@ std::shared_ptr<FileMetaData> FileMetaData::Subset(
   return impl_->Subset(row_groups);
 }
 
-typedef std::vector<std::shared_ptr<parquet::OffsetIndex>> offsets;
 std::shared_ptr<FileMetaData> FileMetaData::IndexTo(int row_group,
-                                                    const std::vector<RowgroupOffsets> &rowgroup_offsets) const {
+                                                    const std::vector<ColumnOffsets> &rowgroup_offsets) const {
   std::vector<int> row_groups = {row_group};
   auto row_0_metadata = this->Subset({0});
   auto target_column_offsets = rowgroup_offsets[row_group];
@@ -1044,7 +1043,7 @@ std::shared_ptr<FileMetaData> FileMetaData::IndexTo(int row_group,
   return row_0_metadata;
 }
 
-void FileMetaData::set_column_offsets(const RowgroupOffsets& column_offsets, int64_t expected_num_rows) {
+void FileMetaData::set_column_offsets(const ColumnOffsets& column_offsets, int64_t expected_num_rows) {
 
   impl_->set_column_offsets(column_offsets, expected_num_rows);
 }

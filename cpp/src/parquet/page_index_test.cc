@@ -33,6 +33,7 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/encryption/encryption_internal.h"
 
 
 /*
@@ -86,8 +87,9 @@ TEST(PageIndex, ReadOffsetIndex) {
 
   // Deserialize offset index.
   auto properties = default_reader_properties();
+  auto sz = static_cast<uint32_t>(buffer->size());
   std::unique_ptr<OffsetIndex> offset_index = OffsetIndex::Make(
-      buffer->data(), static_cast<uint32_t>(buffer->size()), properties);
+      buffer->data(), &sz, properties);
 
   // Verify only partial data as it contains 325 pages in total.
   const size_t num_pages = 325;
@@ -470,8 +472,9 @@ TEST(PageIndex, WriteOffsetIndex) {
   auto sink = CreateOutputStream();
   builder->WriteTo(sink.get());
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto sz = static_cast<uint32_t>(buffer->size());
   offset_indexes.emplace_back(OffsetIndex::Make(buffer->data(),
-                                                static_cast<uint32_t>(buffer->size()),
+                                                &sz,
                                                 default_reader_properties()));
 
   /// Verify the data of the offset index.
@@ -791,8 +794,9 @@ class PageIndexBuilderTest : public ::testing::Test {
       return nullptr;
     }
     auto properties = default_reader_properties();
+    auto sz = static_cast<uint32_t>(location->length);
     return OffsetIndex::Make(buffer_->data() + location->offset,
-                             static_cast<uint32_t>(location->length), properties);
+                             &sz, properties);
   }
 
   SchemaDescriptor schema_;
@@ -883,28 +887,6 @@ TEST_F(PageIndexBuilderTest, TwoRowGroups) {
   CheckOffsetIndex(/*row_group=*/1, /*column=*/1, page_locations[1][1], final_position);
 }
 
-/*
-#include "arrow/api.h"
-#include "arrow/io/api.h"
-#include "arrow/result.h"
-#include "arrow/util/type_fwd.h"
-#include "parquet/arrow/reader.h"
-#include "parquet/arrow/writer.h"
-
-#include <iostream>
-#include <list>
-#include <chrono>
-#include <random>
-#include <vector>
-#include <fstream>
-#include <filesystem>
-#include <iomanip>
-#include <cassert>
-#include <parquet/page_index.h>
-
-
-*/
-
 using ::arrow::Status;
 
 std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
@@ -960,19 +942,18 @@ void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filen
                                     outfile, chunkSize, properties) == Status::OK());
 }
 
-typedef std::vector<std::shared_ptr<parquet::OffsetIndex>> offsets;
-
-std::vector<offsets> ReadPageIndexes(const std::string &filename) {
+// Read page indexes one piece at a time via full metadata and PageIndexReader
+std::vector<ColumnOffsets> ReadPageIndexes(const std::string &filename) {
   auto read_properties = parquet::default_reader_properties();
   auto reader = parquet::ParquetFileReader::OpenFile(filename, false, read_properties);
   auto metadata = reader->metadata();
   std::shared_ptr<parquet::PageIndexReader> page_index_reader = reader->GetPageIndexReader();
 
-  std::vector<offsets> rowgroup_offsets;
+  std::vector<ColumnOffsets> rowgroup_offsets;
   for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
     std::shared_ptr<parquet::RowGroupPageIndexReader> row_group_index_reader = page_index_reader->RowGroup(rg);
     auto row_group_reader = reader->RowGroup(rg);
-    offsets offset_indexes;
+    ColumnOffsets offset_indexes;
     for (int col = 0; col < metadata->num_columns(); ++col) {
       auto column_index = row_group_index_reader->GetColumnIndex(col);
       auto offset_index = row_group_index_reader->GetOffsetIndex(col);
@@ -980,6 +961,16 @@ std::vector<offsets> ReadPageIndexes(const std::string &filename) {
     }
     rowgroup_offsets.push_back(offset_indexes);
   }
+  return rowgroup_offsets;
+}
+
+// Read all page indexes as one chunk from parquet file
+std::vector<ColumnOffsets> ReadPageIndexesDirect(const std::string &filename, std::shared_ptr<parquet::FileMetaData> metadata) {
+  auto read_properties = parquet::default_reader_properties();
+  auto reader = parquet::ParquetFileReader::OpenFile(filename, false, read_properties, metadata);
+  std::shared_ptr<parquet::PageIndexReader> page_index_reader = reader->GetPageIndexReader();
+
+  std::vector<ColumnOffsets> rowgroup_offsets = page_index_reader->GetAllOffsets();
   return rowgroup_offsets;
 }
 
@@ -1009,7 +1000,18 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
   auto metadata_all_rows = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
-  auto rowgroup_offsets = ReadPageIndexes(filename);
+  // Retrieve and check page offsets
+  auto expected_rowgroup_offsets = ReadPageIndexes(filename);
+  auto rowgroup_offsets = ReadPageIndexesDirect(filename, metadata_row_0);
+  for(int rg=0; rg < metadata_all_rows->num_row_groups(); ++rg) {
+    for(int col=0; col < metadata_all_rows->num_columns(); ++col) {
+      auto expected = expected_rowgroup_offsets[rg][col];
+      auto actual = rowgroup_offsets[rg][col];
+      ASSERT_EQ(expected->page_locations(), actual->page_locations()) << "The retrieved page index locations are incorrect";
+    }
+  }
+
+  // Use indexes to read and check rows
   std::vector<int> row_group_test({3, 9});
   for(auto row_group: row_group_test) {
     auto indexed_metadata = metadata_row_0->IndexTo(row_group, rowgroup_offsets);

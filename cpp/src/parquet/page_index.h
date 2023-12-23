@@ -28,6 +28,8 @@ namespace parquet {
 
 class EncodedStatistics;
 struct PageIndexLocation;
+class OffsetIndex;
+typedef std::vector<std::shared_ptr<OffsetIndex>> ColumnOffsets;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -116,12 +118,19 @@ struct PARQUET_EXPORT PageLocation {
   int64_t first_row_index;
 };
 
+bool inline operator==(const PageLocation& lhs, const PageLocation& rhs)
+{
+  return lhs.offset == rhs.offset && lhs.compressed_page_size == rhs.compressed_page_size &&
+    lhs.first_row_index == rhs.first_row_index;
+}
+
 /// \brief OffsetIndex is a proxy around format::OffsetIndex.
 class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.
+  /// On return, index_len contains remaining bytes
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
-                                           uint32_t index_len,
+                                           uint32_t *index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor = NULLPTR);
 
@@ -194,6 +203,11 @@ class PARQUET_EXPORT PageIndexReader {
   ///          to the RowGroupPageIndexReader.
   /// \throws ParquetException if the index is out of bound.
   virtual std::shared_ptr<RowGroupPageIndexReader> RowGroup(int i) = 0;
+
+  /// \brief Get all OffsetIndex entries for all columns and row groups
+  /// \returns vector<ColumnOffsets>
+  ///          For each row group, holds a vector of page offsets for every column
+  virtual std::vector<ColumnOffsets> GetAllOffsets() = 0;
 
   /// \brief Advise the reader which part of page index will be read later.
   ///
