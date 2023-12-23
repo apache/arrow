@@ -1293,7 +1293,7 @@ def test_cpp_extension_in_python(tmpdir):
     assert reconstructed_array == array
 
 
-def test_tensor_type():
+def test_fixed_shape_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
     assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
@@ -1317,6 +1317,8 @@ def test_tensor_type():
     assert tensor_type.dim_names == ['C', 'H', 'W']
     assert tensor_type.permutation is None
 
+
+def test_variable_shape_tensor_type():
     tensor_type = pa.variable_shape_tensor(pa.int8(), 2)
     expected_storage_type = pa.struct([
         pa.field("shape", pa.list_(pa.int32(), 2)),
