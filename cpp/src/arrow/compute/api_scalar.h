@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/options.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"

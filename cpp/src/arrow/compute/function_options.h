@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle.
+
 #pragma once
 
 #include "arrow/compute/type_fwd.h"

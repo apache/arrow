@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include "arrow/compute/options.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
