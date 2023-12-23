@@ -80,8 +80,8 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   /// This method will return a Tensor from ExtensionScalar with strides derived
   /// from shape and permutation stored. Shape and dim_names will be permuted
   /// according to permutation stored in the VariableShapeTensorType.
-  Result<std::shared_ptr<Tensor>> GetTensor(
-      const std::shared_ptr<ExtensionScalar>&) const;
+  static Result<std::shared_ptr<Tensor>> MakeTensor(
+      const std::shared_ptr<ExtensionScalar>&);
 
   /// \brief Create a VariableShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(
