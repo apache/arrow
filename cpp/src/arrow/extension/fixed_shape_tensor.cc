@@ -372,13 +372,11 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   ARROW_RETURN_NOT_OK(
       ComputeStrides(*fw_value_type.get(), shape, permutation, &tensor_strides));
 
-  ARROW_ASSIGN_OR_RAISE(
-      const auto flattened_storage_array,
-      internal::checked_pointer_cast<FixedSizeListArray>(this->storage())->Flatten());
+  const auto raw_buffer = this->storage()->data()->child_data[0]->buffers[1];
   ARROW_ASSIGN_OR_RAISE(
       const auto buffer,
-      SliceBufferSafe(flattened_storage_array->data()->buffers[1],
-                      this->offset() * cell_size * value_type->byte_width()));
+      SliceBufferSafe(raw_buffer, this->offset() * cell_size * value_type->byte_width()));
+
   return Tensor::Make(value_type, buffer, shape, tensor_strides, dim_names);
 }
 
