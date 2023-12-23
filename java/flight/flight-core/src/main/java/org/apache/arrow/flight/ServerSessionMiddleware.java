@@ -57,7 +57,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       try {
         id = idGenerator.call();
       } catch (Exception ignored) {
-        // Most impls aren't going to throw so making caller handle a nonexistent checked is a bit silly
+        // Most impls aren't going to throw so don't make caller handle a nonexistent checked exception
         return null;
       }
       if (sessionStore.containsKey(id)) {
@@ -101,10 +101,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       // Cookie provided by caller, but invalid
       if (session == null) {
         // Can't soft-fail/proceed here, clients will get unexpected behaviour without options they thought were set.
-        throw new CallStatus(
-            FlightStatusCode.NOT_FOUND, null,
-            "Invalid or expired " + sessionCookieName + " cookie.", null)
-          .toRuntimeException();
+        throw CallStatus.NOT_FOUND.withDescription("Invalid " + sessionCookieName + " cookie.").toRuntimeException();
       }
 
       return new ServerSessionMiddleware(this, incomingHeaders, session);
