@@ -577,6 +577,16 @@ TEST_F(TestVariableShapeTensorType, CreateExtensionType) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Invalid: dim_names size must match ndim."),
       VariableShapeTensorType::Make(value_type_, ndim_, {}, {"x"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Permutation indices for 3 dimensional tensors must be "
+                         "unique and within [0, 2] range. Got: [0,0,2]"),
+      VariableShapeTensorType::Make(value_type_, 3, {2, 0, 0}, {"C", "H", "W"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Permutation indices for 3 dimensional tensors must be "
+                         "unique and within [0, 2] range. Got: [1,2,3]"),
+      VariableShapeTensorType::Make(value_type_, 3, {1, 2, 3}, {"C", "H", "W"}));
 }
 
 TEST_F(TestVariableShapeTensorType, EqualsCases) {

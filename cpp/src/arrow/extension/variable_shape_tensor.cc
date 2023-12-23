@@ -277,24 +277,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const int32_t ndim,
-    const std::vector<int64_t> permutation, const std::vector<std::string> dim_names,
-    const std::vector<std::optional<int64_t>> uniform_shape) {
-  if (!permutation.empty()) {
-    if (permutation.size() != static_cast<size_t>(ndim)) {
-      return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
-                             " Got: ", permutation.size());
-    }
-    const std::set<int64_t> permutation_set(permutation.begin(), permutation.end());
-    if (permutation_set.size() != permutation.size()) {
-      return Status::Invalid("permutation must be a valid permutation vector");
-    }
-    for (auto p : permutation) {
-      if (p < 0 || ndim <= p) {
-        return Status::Invalid("permutation must be a valid permutation vector");
-      }
-    }
-  }
-
+    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
+    const std::vector<std::optional<int64_t>>& uniform_shape) {
   if (!dim_names.empty() && dim_names.size() != static_cast<size_t>(ndim)) {
     return Status::Invalid("dim_names size must match ndim. Expected: ", ndim,
                            " Got: ", dim_names.size());
@@ -310,6 +294,33 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
       }
     }
   }
+  if (!permutation.empty()) {
+    if (permutation.size() != static_cast<size_t>(ndim)) {
+      return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
+                             " Got: ", permutation.size());
+    }
+
+    std::vector<int64_t> sorted_permutation = permutation;
+    std::sort(sorted_permutation.begin(), sorted_permutation.end());
+    const auto max_index = std::max<int64_t>(static_cast<int64_t>(ndim - 1), 0);
+
+    if (sorted_permutation[0] != 0) {
+      return Status::Invalid(
+          "Permutation indices for ", ndim,
+          " dimensional tensors must be unique and within [0, ", max_index,
+          "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
+    }
+
+    for (size_t i = 1; i < sorted_permutation.size(); ++i) {
+      if (sorted_permutation[i - 1] + 1 != sorted_permutation[i]) {
+        return Status::Invalid(
+            "Permutation indices for ", ndim,
+            " dimensional tensors must be unique and within [0, ", max_index,
+            "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
+      }
+    }
+  }
+
   return std::make_shared<VariableShapeTensorType>(
       value_type, std::move(ndim), std::move(permutation), std::move(dim_names),
       std::move(uniform_shape));
