@@ -501,10 +501,10 @@ class DictionaryHashKernel : public HashKernel {
   }
 
   Result<std::shared_ptr<Array>> dictionary() const {
-    if (!first_dictionary_) {  // Append is never called
+    if (!first_dictionary_) {  // Append was never called
       return nullptr;
     }
-    if (!dictionary_unifier_) {  // Append is called only once
+    if (!dictionary_unifier_) {  // Append was called only once
       return first_dictionary_;
     }
 
