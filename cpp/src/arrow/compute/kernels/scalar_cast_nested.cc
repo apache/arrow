@@ -438,7 +438,9 @@ struct CastMap {
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
                           GetNullBitmapBuffer(in_array, ctx->memory_pool()));
-    out_array->buffers[1] = in_array.GetBuffer(1);
+    if (in_array.GetBuffer(1) != nullptr) {
+      out_array->buffers[1] = in_array.GetBuffer(1);
+    }
 
     std::shared_ptr<ArrayData> entries = in_array.child_data[0].ToArrayData();
 
