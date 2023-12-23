@@ -86,9 +86,9 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   /// \brief Create a VariableShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(
       const std::shared_ptr<DataType>& value_type, const int32_t ndim,
-      const std::vector<int64_t> permutation = {},
-      const std::vector<std::string> dim_names = {},
-      const std::vector<std::optional<int64_t>> uniform_shape = {});
+      const std::vector<int64_t>& permutation = {},
+      const std::vector<std::string>& dim_names = {},
+      const std::vector<std::optional<int64_t>>& uniform_shape = {});
 
  private:
   std::shared_ptr<DataType> storage_type_;
