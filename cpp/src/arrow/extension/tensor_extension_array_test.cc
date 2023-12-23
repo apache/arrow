@@ -666,7 +666,7 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
 
   ASSERT_OK_AND_ASSIGN(auto scalar, ext_array->GetScalar(0));
   auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
-  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->MakeTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
 
@@ -681,13 +681,13 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
 
   ASSERT_OK_AND_ASSIGN(scalar, ext_array->GetScalar(1));
   ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
-  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->MakeTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 1, 2}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{16, 16, 8}));
 
   ASSERT_OK_AND_ASSIGN(scalar, ext_array->GetScalar(2));
   ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
-  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->MakeTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{3, 1, 3}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 24, 8}));
 
@@ -708,7 +708,7 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
 
   ASSERT_OK_AND_ASSIGN(auto sc, ext_arr->GetScalar(2));
   auto s = internal::checked_pointer_cast<ExtensionScalar>(sc);
-  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(s));
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->MakeTensor(s));
   ASSERT_EQ(tensor->strides(), t->strides());
   ASSERT_EQ(tensor->shape(), t->shape());
   ASSERT_EQ(tensor->dim_names(), t->dim_names());
@@ -727,7 +727,7 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
 
   ASSERT_OK_AND_ASSIGN(sc, ext_arr->GetScalar(3));
   ASSERT_OK_AND_ASSIGN(
-      t, exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(sc)));
+      t, exact_ext_type->MakeTensor(internal::checked_pointer_cast<ExtensionScalar>(sc)));
   ASSERT_EQ(tensor->strides(), t->strides());
   ASSERT_EQ(tensor->shape(), t->shape());
   ASSERT_EQ(tensor->dim_names(), t->dim_names());

@@ -212,9 +212,12 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
-    const std::shared_ptr<ExtensionScalar>& scalar) const {
+Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
+    const std::shared_ptr<ExtensionScalar>& scalar) {
+  const auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
   const auto tensor_scalar = internal::checked_pointer_cast<StructScalar>(scalar->value);
+  const auto ext_type =
+      internal::checked_pointer_cast<VariableShapeTensorType>(scalar->type);
 
   ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
   ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar->field(1));
@@ -224,7 +227,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
       internal::checked_pointer_cast<BaseListScalar>(data_scalar)->value;
 
   const auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(this->value_type());
+      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
 
   if (!is_fixed_width(*value_type)) {
     return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
@@ -233,15 +236,15 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
     return Status::Invalid("Cannot convert data with nulls values to Tensor.");
   }
 
-  auto permutation = this->permutation();
+  auto permutation = ext_type->permutation();
   if (permutation.empty()) {
-    for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
+    for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
       permutation.emplace_back(j);
     }
   }
 
   std::vector<int64_t> shape;
-  for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
+  for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array->GetScalar(j));
     auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
     if (size_value < 0) {
@@ -251,7 +254,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   }
   internal::Permute<int64_t>(permutation, &shape);
 
-  std::vector<std::string> dim_names = this->dim_names();
+  std::vector<std::string> dim_names = ext_type->dim_names();
   if (!dim_names.empty()) {
     internal::Permute<std::string>(permutation, &dim_names);
   }
@@ -269,7 +272,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
       SliceBufferSafe(data_array->data()->buffers[1], start_position, size * byte_width));
 
   return Tensor::Make(value_type, std::move(buffer), std::move(shape), std::move(strides),
-                      this->dim_names());
+                      ext_type->dim_names());
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
