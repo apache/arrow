@@ -1480,6 +1480,7 @@ class AzureFileSystem::Impl {
   std::pair<int, Status> DeleteDirContentsOnContainer(
       const Blobs::BlobContainerClient& container_client, const AzureLocation& location,
       bool require_dir_to_exist) {
+    using DeleteBlobResponse = Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>;
     DCHECK(!location.container.empty());
     Blobs::ListBlobsOptions options;
     if (!location.path.empty()) {
@@ -1502,8 +1503,7 @@ class AzureFileSystem::Impl {
           continue;
         }
         auto batch = container_client.CreateBatch();
-        std::vector<Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>>
-            deferred_responses;
+        std::vector<DeleteBlobResponse> deferred_responses;
         for (const auto& blob_item : list_response.Blobs) {
           num_potentially_deleted_blobs += 1;
           deferred_responses.push_back(batch.DeleteBlob(blob_item.Name));
