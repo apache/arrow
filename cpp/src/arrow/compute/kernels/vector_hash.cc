@@ -500,6 +500,8 @@ class DictionaryHashKernel : public HashKernel {
     return dictionary_value_type_;
   }
 
+  /// This can't be called more than once because DictionaryUnifier::GetResult()
+  /// can't be called more than once and produce the same output. 
   Result<std::shared_ptr<Array>> dictionary() const {
     if (!first_dictionary_) {  // Append was never called
       return nullptr;
