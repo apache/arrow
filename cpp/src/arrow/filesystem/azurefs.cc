@@ -819,7 +819,7 @@ bool IsDfsEmulator(const AzureOptions& options) {
 namespace internal {
 
 Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
-    DataLake::DataLakeFileSystemClient& adlfs_client, const AzureOptions& options) {
+    const DataLake::DataLakeFileSystemClient& adlfs_client, const AzureOptions& options) {
   try {
     auto directory_client = adlfs_client.GetDirectoryClient("");
     // GetAccessControlList will fail on storage accounts
@@ -885,7 +885,7 @@ const char kDelimiter[] = {internal::kSep, '\0'};
 /// \pre location.container is not empty.
 template <class ContainerClient>
 Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
-                                             ContainerClient& container_client) {
+                                             const ContainerClient& container_client) {
   DCHECK(!location.container.empty());
   FileInfo info{location.path.empty() ? location.all : location.container};
   try {
@@ -905,7 +905,7 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
 
 template <class ContainerClient>
 Status CreateContainerIfNotExists(const std::string& container_name,
-                                  ContainerClient& container_client) {
+                                  const ContainerClient& container_client) {
   try {
     container_client.CreateIfNotExists();
     return Status::OK();
@@ -974,7 +974,7 @@ class AzureFileSystem::Impl {
   ///
   /// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never returned).
   Result<HNSSupport> HierarchicalNamespaceSupport(
-      DataLake::DataLakeFileSystemClient& adlfs_client) {
+      const DataLake::DataLakeFileSystemClient& adlfs_client) {
     switch (cached_hns_support_) {
       case HNSSupport::kEnabled:
       case HNSSupport::kDisabled:
@@ -1018,7 +1018,7 @@ class AzureFileSystem::Impl {
   }
 
   /// \pre location.path is not empty.
-  Result<FileInfo> GetFileInfo(DataLake::DataLakeFileSystemClient& adlfs_client,
+  Result<FileInfo> GetFileInfo(const DataLake::DataLakeFileSystemClient& adlfs_client,
                                const AzureLocation& location) {
     auto file_client = adlfs_client.GetFileClient(location.path);
     try {
@@ -1055,7 +1055,7 @@ class AzureFileSystem::Impl {
   /// being blobs with names starting with the directory path.
   ///
   /// \pre location.path is not empty.
-  Result<FileInfo> GetFileInfo(Blobs::BlobContainerClient& container_client,
+  Result<FileInfo> GetFileInfo(const Blobs::BlobContainerClient& container_client,
                                const AzureLocation& location) {
     DCHECK(!location.path.empty());
     Blobs::ListBlobsOptions options;
@@ -1097,7 +1097,7 @@ class AzureFileSystem::Impl {
  private:
   /// \pref location.container is not empty.
   template <typename ContainerClient>
-  Status CheckDirExists(ContainerClient& container_client,
+  Status CheckDirExists(const ContainerClient& container_client,
                         const AzureLocation& location) {
     DCHECK(!location.container.empty());
     FileInfo info;
@@ -1334,7 +1334,7 @@ class AzureFileSystem::Impl {
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
   template <class ContainerClient, class GetDirectoryClient, class CreateDirIfNotExists>
-  Status CreateDirTemplate(ContainerClient& container_client,
+  Status CreateDirTemplate(const ContainerClient& container_client,
                            GetDirectoryClient&& get_directory_client,
                            CreateDirIfNotExists&& create_if_not_exists,
                            const AzureLocation& location, bool recursive) {
@@ -1378,7 +1378,7 @@ class AzureFileSystem::Impl {
   ///
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  Status CreateDirOnFileSystem(DataLake::DataLakeFileSystemClient& adlfs_client,
+  Status CreateDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
                                const AzureLocation& location, bool recursive) {
     return CreateDirTemplate(
         adlfs_client,
@@ -1393,7 +1393,7 @@ class AzureFileSystem::Impl {
   ///
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  Status CreateDirOnContainer(Blobs::BlobContainerClient& container_client,
+  Status CreateDirOnContainer(const Blobs::BlobContainerClient& container_client,
                               const AzureLocation& location, bool recursive) {
     return CreateDirTemplate(
         container_client,
@@ -1453,7 +1453,7 @@ class AzureFileSystem::Impl {
 
   /// \pre location.container is not empty.
   /// \pre location.path is empty.
-  Status DeleteContainer(Blobs::BlobContainerClient& container_client,
+  Status DeleteContainer(const Blobs::BlobContainerClient& container_client,
                          const AzureLocation& location) {
     DCHECK(!location.container.empty());
     DCHECK(location.path.empty());
@@ -1589,7 +1589,7 @@ class AzureFileSystem::Impl {
 
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  Status DeleteDirOnFileSystem(DataLake::DataLakeFileSystemClient& adlfs_client,
+  Status DeleteDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
                                const AzureLocation& location) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
