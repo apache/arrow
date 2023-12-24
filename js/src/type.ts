@@ -259,9 +259,8 @@ export interface LargeBinary extends DataType<Type.LargeBinary> { TArray: Uint8A
 /** @ignore */
 export class LargeBinary extends DataType<Type.LargeBinary> {
     constructor() {
-        super();
+        super(Type.LargeBinary);
     }
-    public get typeId() { return Type.LargeBinary as Type.LargeBinary; }
     public toString() { return `LargeBinary`; }
     protected static [Symbol.toStringTag] = ((proto: LargeBinary) => {
         (<any>proto).ArrayType = Uint8Array;
