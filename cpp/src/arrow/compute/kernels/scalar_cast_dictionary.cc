@@ -85,23 +85,23 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   return Status::OK();
 }
 
+template <typename SrcType>
+void AddDictionaryCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastToDictionary;
+  kernel.signature =
+      KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
+}
+
 std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
-  auto create_cast_function = [](const std::string& name, Type::type input_type) {
-    auto cast_function = std::make_shared<CastFunction>(name, Type::DICTIONARY);
-    AddCommonCasts(input_type, kOutputTargetType, cast_function.get());
+  auto cast_dict = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
+  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dict.get());
+  AddDictionaryCast<DictionaryType>(cast_dict.get());
+  AddDictionaryCast<StringType>(cast_dict.get());
 
-    ScalarKernel kernel({InputType(input_type)}, kOutputTargetType, CastToDictionary);
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    DCHECK_OK(cast_function->AddKernel(input_type, std::move(kernel)));
-
-    return cast_function;
-  };
-
-  auto cast_dict = create_cast_function("cast_dictionary", Type::DICTIONARY);
-  auto cast_string = create_cast_function("cast_dictionary", Type::STRING);
-
-  return {cast_dict, cast_string};
+  return {cast_dict};
 }
 
 }  // namespace internal
