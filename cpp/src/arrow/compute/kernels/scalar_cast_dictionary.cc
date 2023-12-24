@@ -44,6 +44,14 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   }
 
   std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
+
+  // If the input type is STRING, it is first encoded as a dictionary to facilitate
+  // processing. This approach allows the subsequent code to uniformly handle STRING
+  // inputs as if they were originally provided in dictionary format. Encoding as a
+  // dictionary helps in reusing the same logic for dictionary operations.
+  if (batch[0].type()->id() == Type::STRING) {
+    in_array = DictionaryEncode(batch[0].array.ToArrayData())->array();
+  }
   const auto& in_type = checked_cast<const DictionaryType&>(*in_array->type);
 
   ArrayData* out_array = out->array_data().get();
@@ -78,16 +86,22 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 }
 
 std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
-  auto func = std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
+  auto create_cast_function = [](const std::string& name, Type::type input_type) {
+    auto cast_function = std::make_shared<CastFunction>(name, Type::DICTIONARY);
+    AddCommonCasts(input_type, kOutputTargetType, cast_function.get());
 
-  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, func.get());
-  ScalarKernel kernel({InputType(Type::DICTIONARY)}, kOutputTargetType, CastToDictionary);
-  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    ScalarKernel kernel({InputType(input_type)}, kOutputTargetType, CastToDictionary);
+    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    DCHECK_OK(cast_function->AddKernel(input_type, std::move(kernel)));
 
-  DCHECK_OK(func->AddKernel(Type::DICTIONARY, std::move(kernel)));
+    return cast_function;
+  };
 
-  return {func};
+  auto cast_dict = create_cast_function("cast_dictionary", Type::DICTIONARY);
+  auto cast_string = create_cast_function("cast_dictionary", Type::STRING);
+
+  return {cast_dict, cast_string};
 }
 
 }  // namespace internal
