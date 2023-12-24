@@ -1476,10 +1476,21 @@ class AzureFileSystem::Impl {
     }
   }
 
+  /// Deletes and contents of a directory and possibly the directory itself
+  /// depending on the value of preserve_dir_marker_blob.
+  ///
   /// \pre location.container is not empty.
-  std::pair<int, Status> DeleteDirContentsOnContainer(
-      const Blobs::BlobContainerClient& container_client, const AzureLocation& location,
-      bool require_dir_to_exist) {
+  ///
+  /// \param require_dir_to_exist Require the directory to exist *before* this
+  /// operation, otherwise return PathNotFound.
+  /// \param preserve_dir_marker_blob Ensure the empty directory marker blob
+  /// is preserved (not deleted) or created (before the contents are deleted) if it
+  /// doesn't exist explicitly but is implied by the existence of blobs with names
+  /// starting with the directory path.
+  Status DeleteDirContentsOnContainer(const Blobs::BlobContainerClient& container_client,
+                                      const AzureLocation& location,
+                                      bool require_dir_to_exist,
+                                      bool preserve_dir_marker_blob) {
     using DeleteBlobResponse = Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>;
     DCHECK(!location.container.empty());
     Blobs::ListBlobsOptions options;
@@ -1492,67 +1503,82 @@ class AzureFileSystem::Impl {
     // size of the body for a batch request can't exceed 4 MB.
     const int32_t kNumMaxRequestsInBatch = 256;
     options.PageSizeHint = kNumMaxRequestsInBatch;
-    int num_potentially_deleted_blobs = 0;
+    // trusted only if preserve_dir_marker_blob is true.
+    bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
       if (require_dir_to_exist && list_response.Blobs.empty()) {
-        return {num_potentially_deleted_blobs, PathNotFound(location)};
+        return PathNotFound(location);
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         if (list_response.Blobs.empty()) {
           continue;
         }
         auto batch = container_client.CreateBatch();
-        std::vector<DeleteBlobResponse> deferred_responses;
+        std::vector<std::pair<std::string_view, DeleteBlobResponse>> deferred_responses;
         for (const auto& blob_item : list_response.Blobs) {
-          num_potentially_deleted_blobs += 1;
-          deferred_responses.push_back(batch.DeleteBlob(blob_item.Name));
+          if (preserve_dir_marker_blob && !found_dir_marker_blob) {
+            const bool is_dir_marker_blob =
+                options.Prefix.HasValue() && blob_item.Name == *options.Prefix;
+            if (is_dir_marker_blob) {
+              // Skip deletion of the existing directory marker blob,
+              // but take note that it exists.
+              found_dir_marker_blob = true;
+              continue;
+            }
+          }
+          deferred_responses.emplace_back(blob_item.Name,
+                                          batch.DeleteBlob(blob_item.Name));
         }
         try {
-          container_client.SubmitBatch(batch);
+          // Before submitting the batch deleting directory contents, ensure
+          // the empty directory marker blob exists. Doing this first, means that
+          // directory doesn't "stop existing" during the duration of the batch delete
+          // operation.
+          if (preserve_dir_marker_blob && !found_dir_marker_blob) {
+            // Only create an empty directory marker blob if the directory's
+            // existence is implied by the existence of blobs with names
+            // starting with the directory path.
+            if (!deferred_responses.empty()) {
+              RETURN_NOT_OK(EnsureEmptyDirExists(container_client, location));
+            }
+          }
+          if (!deferred_responses.empty()) {
+            container_client.SubmitBatch(batch);
+          }
         } catch (const Storage::StorageException& exception) {
-          return {num_potentially_deleted_blobs,
-                  ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
-                                    location.path, ": ", container_client.GetUrl())};
+          return ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
+                                   location.path, ": ", container_client.GetUrl());
         }
         std::vector<std::string> failed_blob_names;
-        for (size_t i = 0; i < deferred_responses.size(); ++i) {
-          const auto& deferred_response = deferred_responses[i];
+        for (auto& [blob_name_view, deferred_response] : deferred_responses) {
           bool success = true;
           try {
             auto delete_result = deferred_response.GetResponse();
-            if (!delete_result.Value.Deleted) {
-              // We know for sure the blob was not deleted, so
-              // we can decrement num_potentially_deleted_blobs.
-              num_potentially_deleted_blobs -= 1;
-              success = false;
-            }
+            success = delete_result.Value.Deleted;
           } catch (const Storage::StorageException& exception) {
             success = false;
           }
           if (!success) {
-            const auto& blob_item = list_response.Blobs[i];
-            failed_blob_names.push_back(blob_item.Name);
+            failed_blob_names.emplace_back(blob_name_view);
           }
         }
         if (!failed_blob_names.empty()) {
           if (failed_blob_names.size() == 1) {
-            return {num_potentially_deleted_blobs,
-                    Status::IOError("Failed to delete a blob: ", failed_blob_names[0],
-                                    ": " + container_client.GetUrl())};
+            return Status::IOError("Failed to delete a blob: ", failed_blob_names[0],
+                                   ": " + container_client.GetUrl());
           } else {
-            return {num_potentially_deleted_blobs,
-                    Status::IOError("Failed to delete blobs: [",
-                                    arrow::internal::JoinStrings(failed_blob_names, ", "),
-                                    "]: " + container_client.GetUrl())};
+            return Status::IOError("Failed to delete blobs: [",
+                                   arrow::internal::JoinStrings(failed_blob_names, ", "),
+                                   "]: " + container_client.GetUrl());
           }
         }
       }
-      return {num_potentially_deleted_blobs, Status::OK()};
+      return Status::OK();
     } catch (const Storage::StorageException& exception) {
-      return {num_potentially_deleted_blobs,
-              ExceptionToStatus(exception, "Failed to list blobs in a directory: ",
-                                location.path, ": ", container_client.GetUrl())};
+      return ExceptionToStatus(exception,
+                               "Failed to list blobs in a directory: ", location.path,
+                               ": ", container_client.GetUrl());
     }
   }
 
@@ -1769,11 +1795,9 @@ Status AzureFileSystem::DeleteDir(const std::string& path) {
   }
   DCHECK_EQ(hns_support, HNSSupport::kDisabled);
   auto container_client = impl_->GetBlobContainerClient(location.container);
-  Status status;
-  std::tie(std::ignore, status) =
-      impl_->DeleteDirContentsOnContainer(container_client, location,
-                                          /*require_dir_to_exist=*/true);
-  return status;
+  return impl_->DeleteDirContentsOnContainer(container_client, location,
+                                             /*require_dir_to_exist=*/true,
+                                             /*preserve_dir_marker_blob=*/false);
 }
 
 Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
@@ -1793,18 +1817,9 @@ Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_
     return impl_->DeleteDirContentsOnFileSystem(adlfs_client, location, missing_dir_ok);
   }
   auto container_client = impl_->GetBlobContainerClient(location.container);
-  auto [num_potentially_deleted_blobs, status] = impl_->DeleteDirContentsOnContainer(
-      container_client, location, /*require_dir_to_exist=*/!missing_dir_ok);
-  if (num_potentially_deleted_blobs > 0) {
-    // If we potentially deleted some blobs, we need to ensure the empty directory
-    // marker blob exists. Otherwise, we don't need to do anything because the
-    // directory marker blob may not exist from the beginning and should remain that
-    // way. EnsureEmptyDirExists requires the container to exist as a pre-condition
-    // and having num_potentially_deleted_blobs > 0 implies the container exists.
-    auto second_status = impl_->EnsureEmptyDirExists(container_client, location);
-    return status.ok() ? second_status : status;
-  }
-  return status;
+  return impl_->DeleteDirContentsOnContainer(container_client, location,
+                                             /*require_dir_to_exist=*/!missing_dir_ok,
+                                             /*preserve_dir_marker_blob=*/true);
 }
 
 Status AzureFileSystem::DeleteRootDirContents() {
