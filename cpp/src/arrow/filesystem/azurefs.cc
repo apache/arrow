@@ -1480,6 +1480,8 @@ class AzureFileSystem::Impl {
   /// depending on the value of preserve_dir_marker_blob.
   ///
   /// \pre location.container is not empty.
+  /// \pre preserve_dir_marker_blob=false implies location.path is not empty
+  /// because we can't *not preserve* the root directory of a container.
   ///
   /// \param require_dir_to_exist Require the directory to exist *before* this
   /// operation, otherwise return PathNotFound.
@@ -1493,6 +1495,9 @@ class AzureFileSystem::Impl {
                                       bool preserve_dir_marker_blob) {
     using DeleteBlobResponse = Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>;
     DCHECK(!location.container.empty());
+    DCHECK(preserve_dir_marker_blob || !location.path.empty())
+        << "Must pass preserve_dir_marker_blob=true when location.path is empty "
+           "(i.e. deleting the contents of a container).";
     Blobs::ListBlobsOptions options;
     if (!location.path.empty()) {
       options.Prefix = internal::EnsureTrailingSlash(location.path);
