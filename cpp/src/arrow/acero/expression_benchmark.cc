@@ -107,7 +107,7 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
 }
 
 /// \brief Baseline benchmarks are implemented in pure C++ without arrow for performance
-/// comparision.
+/// comparison.
 template <typename BenchmarkType>
 void ExecuteScalarExpressionBaseline(benchmark::State& state) {
   const auto rows_per_batch = static_cast<int32_t>(state.range(0));
@@ -193,7 +193,7 @@ BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
 struct ComplexExpressionBaseline {
  public:
   ComplexExpressionBaseline(size_t input_size) {
-    /* hack - cuts off a few elemets if the input size is not a multiple of 64 for
+    /* hack - cuts off a few elements if the input size is not a multiple of 64 for
      * simplicity. We can't use std::vector<bool> here since it slows down things
      * massively */
     less_20.resize(input_size / 64);

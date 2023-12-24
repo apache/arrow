@@ -85,7 +85,7 @@ Result<NamedExpression> ExpressionFromProto(
   // expression which is not redundant.
   //
   // For example, if the base schema is [struct<foo:i32>, i32] and the expression is
-  // field(0) the the extended expression output names might be ["foo", "my_expression"].
+  // field(0) the extended expression output names might be ["foo", "my_expression"].
   // The "foo" is redundant but we can verify it matches and reject if it does not.
   //
   // The one exception is struct literals which have no field names.  For example, if

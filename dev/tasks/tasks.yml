@@ -17,7 +17,7 @@
 
 groups:
   # these groups are just for convenience
-  # makes it easier to submit related taskshttps://github.com/github/release-radar
+  # makes it easier to submit related tasks https://github.com/github/release-radar
 
 {############################# Packaging tasks ###############################}
 
@@ -85,12 +85,6 @@ groups:
 
   r:
     - test*-r-*
-    # r-conda tasks
-    - conda-linux-x64-cpu-r*
-    - conda-linux-aarch64-cpu-r*
-    - conda-osx-x64-cpu-r*
-    - conda-osx-arm64-cpu-r*
-    - conda-win-x64-cpu-r*
     - r-binary-packages
 
   ruby:
@@ -237,32 +231,12 @@ tasks:
   #
   # * On conda-forge the `pyarrow` and `arrow-cpp` packages are built in
   #   the same feedstock as the dependency matrix is the same for them as
-  #   Python and the OS are the main dimension. The R package `r-arrow` is
-  #   an independent feedstock as it doesn't have the Python but the
-  #   R dimension.
+  #   Python and the OS are the main dimension.   
   # * The files in `dev/tasks/conda-recipes/.ci_support/` are automatically
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
-
-  conda-linux-x64-cpu-r43:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_64_cuda_compiler_versionNone
-      r_config: linux_64_r_base4.3
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
-
-  conda-linux-x64-cpu-r42:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_64_cuda_compiler_versionNone
-      r_config: linux_64_r_base4.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r42(h[a-z0-9]+)_0.conda
+  # * We no longer run the arrow-r jobs as the feedstock is very stable and
+  #   the complexity is mostly covered by arrow-cpp.
 
   conda-linux-x64-cpu-py3:
     ci: azure
@@ -289,26 +263,6 @@ tasks:
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
   ########################### Conda Linux (aarch64) ###########################
-
-  conda-linux-aarch64-cpu-r43:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_aarch64_cuda_compiler_versionNone
-      r_config: linux_aarch64_r_base4.3
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
-
-  conda-linux-aarch64-cpu-r42:
-    ci: azure
-    template: conda-recipes/azure.linux.yml
-    params:
-      config: linux_aarch64_cuda_compiler_versionNone
-      r_config: linux_aarch64_r_base4.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r42(h[a-z0-9]+)_0.conda
 
   conda-linux-aarch64-cpu-py3:
     ci: azure
@@ -362,26 +316,6 @@ tasks:
 
   ############################## Conda OSX (x64) ##############################
 
-  conda-osx-x64-cpu-r43:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_64_
-      r_config: osx_64_r_base4.3
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
-
-  conda-osx-x64-cpu-r42:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_64_
-      r_config: osx_64_r_base4.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r42(h[a-z0-9]+)_0.conda
-
   conda-osx-x64-cpu-py3:
     ci: azure
     template: conda-recipes/azure.osx.yml
@@ -396,26 +330,6 @@ tasks:
 
   ############################# Conda OSX (arm64) #############################
 
-  conda-osx-arm64-cpu-r43:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_arm64_
-      r_config: osx_arm64_r_base4.3
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
-
-  conda-osx-arm64-cpu-r42:
-    ci: azure
-    template: conda-recipes/azure.osx.yml
-    params:
-      config: osx_arm64_
-      r_config: osx_arm64_r_base4.2
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r42(h[a-z0-9]+)_0.conda
-
   conda-osx-arm64-cpu-py3:
     ci: azure
     template: conda-recipes/azure.osx.yml
@@ -429,18 +343,6 @@ tasks:
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
   ############################## Conda Windows ################################
-
-  conda-win-x64-cpu-r41:
-    ci: azure
-    template: conda-recipes/azure.win.yml
-    params:
-      config: win_64_cuda_compiler_versionNone
-      r_config: win_64_
-    artifacts:
-      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
-
-  # conda-forge does not yet support R 4.2 on windows
 
   conda-win-x64-cpu-py3:
     ci: azure

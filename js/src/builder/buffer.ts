@@ -16,32 +16,21 @@
 // under the License.
 
 import { memcpy } from '../util/buffer.js';
-import {
-    TypedArray, TypedArrayConstructor,
-    BigIntArray, BigIntArrayConstructor
-} from '../interfaces.js';
-
-/** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
-/** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
-/** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
-    T extends TypedArray ? TypedArrayConstructor<T> :
-    T extends BigIntArray ? BigIntArrayConstructor<T> :
-    any;
+import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
+import { DataType } from '../type.js';
 
 /** @ignore */
-const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;
+function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
+    const bytesMinus1 = Math.ceil(len) * BPE - 1;
+    return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
+}
 /** @ignore */
 const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
     arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
 ) as T;
 
 /** @ignore */
-export interface BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
-    readonly offset: number;
-}
-
-/** @ignore */
-export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
+export class BufferBuilder<T extends TypedArray | BigIntArray> {
 
     constructor(buffer: T, stride = 1) {
         this.buffer = buffer;
@@ -64,8 +53,8 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public get reservedByteLength() { return this.buffer.byteLength; }
 
     // @ts-ignore
-    public set(index: number, value: TValue) { return this; }
-    public append(value: TValue) { return this.set(this.length, value); }
+    public set(index: number, value: T[0]) { return this; }
+    public append(value: T[0]) { return this.set(this.length, value); }
     public reserve(extra: number) {
         if (extra > 0) {
             this.length += extra;
@@ -97,13 +86,11 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     }
 }
 
-(BufferBuilder.prototype as any).offset = 0;
-
 /** @ignore */
-export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, number> {
+export class DataBufferBuilder<T extends TypedArray | BigIntArray> extends BufferBuilder<T> {
     public last() { return this.get(this.length - 1); }
-    public get(index: number) { return this.buffer[index]; }
-    public set(index: number, value: number) {
+    public get(index: number): T[0] { return this.buffer[index]; }
+    public set(index: number, value: T[0]) {
         this.reserve(index - this.length + 1);
         this.buffer[index * this.stride] = value;
         return this;
@@ -134,15 +121,18 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 }
 
 /** @ignore */
-export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
-    constructor(data = new Int32Array(1)) { super(data, 1); }
-    public append(value: number) {
+export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffsetArray']> {
+    constructor(type: T) {
+        super(new type.OffsetArrayType(1), 1);
+    }
+
+    public append(value: T['TOffsetArray'][0]) {
         return this.set(this.length - 1, value);
     }
-    public set(index: number, value: number) {
+    public set(index: number, value: T['TOffsetArray'][0]) {
         const offset = this.length - 1;
         const buffer = this.reserve(index - offset + 1).buffer;
-        if (offset < index++) {
+        if (offset < index++ && offset >= 0) {
             buffer.fill(buffer[offset], offset, index);
         }
         buffer[index] = buffer[index - 1] + value;
@@ -150,7 +140,7 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     }
     public flush(length = this.length - 1) {
         if (length > this.length) {
-            this.set(length - 1, 0);
+            this.set(length - 1, this.BYTES_PER_ELEMENT > 4 ? BigInt(0) : 0);
         }
         return super.flush(length + 1);
     }

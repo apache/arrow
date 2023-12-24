@@ -542,6 +542,13 @@ def test_filesystem_equals():
     assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
 
 
+def test_filesystem_equals_none(fs):
+    with pytest.raises(TypeError, match="got NoneType"):
+        fs.equals(None)
+
+    assert fs is not None
+
+
 def test_subtree_filesystem():
     localfs = LocalFileSystem()
 
@@ -758,6 +765,38 @@ def test_delete_dir(fs, pathfn):
         fs.delete_dir(nd)
     with pytest.raises(pa.ArrowIOError):
         fs.delete_dir(d)
+
+
+def test_delete_dir_with_explicit_subdir(fs, pathfn):
+    # GH-38618: regression with AWS failing to delete directories,
+    # depending on whether they were created explicitly. Note that
+    # Minio doesn't reproduce the issue, so this test is not a regression
+    # test in itself.
+    skip_fsspec_s3fs(fs)
+
+    d = pathfn('directory/')
+    nd = pathfn('directory/nested/')
+
+    # deleting dir with explicit subdir
+    fs.create_dir(d)
+    fs.create_dir(nd)
+    fs.delete_dir(d)
+    dir_info = fs.get_file_info(d)
+    assert dir_info.type == FileType.NotFound
+
+    # deleting dir with blob in explicit subdir
+    d = pathfn('directory2')
+    nd = pathfn('directory2/nested')
+    f = pathfn('directory2/nested/target-file')
+
+    fs.create_dir(d)
+    fs.create_dir(nd)
+    with fs.open_output_stream(f) as s:
+        s.write(b'data')
+
+    fs.delete_dir(d)
+    dir_info = fs.get_file_info(d)
+    assert dir_info.type == FileType.NotFound
 
 
 def test_delete_dir_contents(fs, pathfn):
@@ -1303,12 +1342,12 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
     # Missing port
     with pytest.raises(KeyError):
         S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
-    # Invalid proxy URI (invalid scheme htttps)
+    # Invalid proxy URI (invalid scheme httpsB)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options='htttps://localhost:9000')
-    # Invalid proxy_options dict (invalid scheme htttps)
+        S3FileSystem(proxy_options='httpsB://localhost:9000')
+    # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options={'scheme': 'htttp', 'host': 'localhost',
+        S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',
                                     'port': 8999})
 
 
@@ -1690,11 +1729,11 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Non-existent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket (hopefully, otherwise need to fix this test)
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-non-existent-bucket')
+        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
     fs, path = FileSystem.from_uri(
-        's3://x-arrow-non-existent-bucket?region=us-east-3')
+        's3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 
 

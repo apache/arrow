@@ -502,7 +502,7 @@ class Repo:
                 logger.error('Attempt {} has failed with message: {}.'
                              .format(i + 1, str(e)))
                 logger.error('Error message {}'.format(e.msg))
-                logger.error('List of errors provided by Github:')
+                logger.error('List of errors provided by GitHub:')
                 for err in e.errors:
                     logger.error(' - {}'.format(err))
 
@@ -526,7 +526,7 @@ class Repo:
 
             time.sleep(retry_backoff)
 
-        raise RuntimeError('Github asset uploading has failed!')
+        raise RuntimeError('GitHub asset uploading has failed!')
 
     def github_upload_asset_curl(self, release, path, name, mime):
         upload_url, _ = release.upload_url.split('{?')
@@ -1029,8 +1029,8 @@ class TaskAssets(dict):
 
     def __init__(self, github_release, artifact_patterns,
                  validate_patterns=True):
-        # HACK(kszucs): don't expect uploaded assets of no atifacts were
-        # defiened for the tasks in order to spare a bit of github rate limit
+        # HACK(kszucs): don't expect uploaded assets of no artifacts were
+        # defined for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
             return
 
@@ -1142,7 +1142,7 @@ class Job(Serializable):
     @classmethod
     def from_config(cls, config, target, tasks=None, groups=None, params=None):
         """
-        Intantiate a job from based on a config.
+        Instantiate a job from based on a config.
 
         Parameters
         ----------
@@ -1302,7 +1302,7 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly refering to the tasks
+        # validate that the task groups are properly referring to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
                 # remove the negation character for blocklisted tasks

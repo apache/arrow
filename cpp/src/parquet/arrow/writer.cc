@@ -294,7 +294,7 @@ class FileWriterImpl : public FileWriter {
       for (int i = 0; i < schema_->num_fields(); ++i) {
         // Explicitly create each ArrowWriteContext object to avoid unintentional
         // call of the copy constructor. Otherwise, the buffers in the type of
-        // sharad_ptr will be shared among all contexts.
+        // shared_ptr will be shared among all contexts.
         parallel_column_write_contexts_.emplace_back(pool, arrow_properties_.get());
       }
     }
@@ -419,6 +419,7 @@ class FileWriterImpl : public FileWriter {
     // Max number of rows allowed in a row group.
     const int64_t max_row_group_length = this->properties().max_row_group_length();
 
+    // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
         row_group_writer_->num_rows() >= max_row_group_length) {
       RETURN_NOT_OK(NewBufferedRowGroup());
@@ -461,8 +462,9 @@ class FileWriterImpl : public FileWriter {
       RETURN_NOT_OK(WriteBatch(offset, batch_size));
       offset += batch_size;
 
-      // Flush current row group if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length) {
+      // Flush current row group writer and create a new writer if it is full.
+      if (row_group_writer_->num_rows() >= max_row_group_length &&
+          offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }

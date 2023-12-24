@@ -1722,12 +1722,12 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
   }
 
   // div(duration, duration) -> float64
-  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4]");
-  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, 300, 20, 1]");
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, -3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, -300, 20, 1]");
   auto expected_left_by_right =
-      ArrayFromJSON(float64(), "[0.25, 6.666666666666667, 150, 4000]");
+      ArrayFromJSON(float64(), "[0.25, -6.666666666666667, -150, 4000]");
   auto expected_right_by_left =
-      ArrayFromJSON(float64(), "[4, 0.15, 0.006666666666666667, 0.00025]");
+      ArrayFromJSON(float64(), "[4, -0.15, -0.006666666666666667, 0.00025]");
   CheckScalarBinary("divide", left, right, expected_left_by_right);
   CheckScalarBinary("divide_checked", left, right, expected_left_by_right);
   CheckScalarBinary("divide", right, left, expected_right_by_left);

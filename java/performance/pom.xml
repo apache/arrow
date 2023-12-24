@@ -26,6 +26,7 @@
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <version>${jmh.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
@@ -37,10 +38,12 @@
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <classifier>${arrow.vector.classifier}</classifier>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -51,20 +54,23 @@
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
             <version>${dep.avro.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-avro</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>1.4.196</version>
+            <version>2.2.224</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-jdbc</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -103,7 +109,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

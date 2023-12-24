@@ -212,7 +212,7 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
    * ArrowBuf of decimal vector.
    *
    * <p>This method takes care of adding the necessary padding if the length
-   * of byte array is less then 32 (length of decimal type).
+   * of byte array is less than 32 (length of decimal type).
    *
    * @param index position of element
    * @param value array of bytes containing decimal in big endian byte order.
