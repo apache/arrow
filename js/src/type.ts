@@ -289,9 +289,8 @@ export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array
 /** @ignore */
 export class LargeUtf8 extends DataType<Type.LargeUtf8> {
     constructor() {
-        super();
+        super(Type.LargeUtf8);
     }
-    public get typeId() { return Type.LargeUtf8 as Type.LargeUtf8; }
     public toString() { return `LargeUtf8`; }
     protected static [Symbol.toStringTag] = ((proto: LargeUtf8) => {
         (<any>proto).ArrayType = Uint8Array;
