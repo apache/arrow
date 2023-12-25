@@ -30,7 +30,7 @@
   </prerequisites>
 
   <properties>
-    <maven.version>3.3.9</maven.version>
+    <maven.version>3.9.6</maven.version>
   </properties>
 
   <dependencies>
