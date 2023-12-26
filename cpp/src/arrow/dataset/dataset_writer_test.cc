@@ -284,8 +284,6 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   // GH-38884: This test is to make sure that the writer can handle
   //  throttle resources in `WriteRecordBatch`.
 
-  auto current_time = std::chrono::steady_clock::now();
-
   constexpr auto kFileSizeLimit = static_cast<uint64_t>(10);
   write_options_.max_rows_per_file = kFileSizeLimit;
   write_options_.max_rows_per_group = kFileSizeLimit;
@@ -304,12 +302,6 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   // Not checking the number of record batches because file may contain the
   // zero-length record batch.
   AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
-
-  std::cout << "time_spend:"
-            << std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::steady_clock::now() - current_time)
-                   .count()
-            << std::endl;
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
