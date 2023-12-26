@@ -575,7 +575,7 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   constexpr static const char* const kSubmitBatchBugMessage =
-      "This test is affected by an Azurite isse: "
+      "This test is affected by an Azurite issue: "
       "https://github.com/Azure/Azurite/pull/2302";
 
   /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
