@@ -1105,9 +1105,9 @@ std::tuple<StatusCode, std::string> GetExpectedError(
 }
 
 template <typename ScalarType>
-void CheckInvalidListCast(const ScalarType& scalar,
-                          const std::shared_ptr<DataType>& to_type, const StatusCode code,
-                          const std::string& expected_message) {
+void CheckListCastError(const ScalarType& scalar,
+                        const std::shared_ptr<DataType>& to_type, const StatusCode code,
+                        const std::string& expected_message) {
   EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, ::testing::HasSubstr(expected_message),
                                            Cast(scalar, to_type));
 }
@@ -1199,7 +1199,7 @@ class TestListLikeScalar : public ::testing::Test {
     auto invalidCastType = fixed_size_list(value_->type(), 5);
     auto [expectedCode, expectedMessage] = GetExpectedError(type_, invalidCastType);
 
-    CheckInvalidListCast(scalar, invalidCastType, expectedCode, expectedMessage);
+    CheckListCastError(scalar, invalidCastType, expectedCode, expectedMessage);
   }
 
  protected:
@@ -1259,7 +1259,7 @@ TEST(TestMapScalar, Cast) {
   auto invalidCastType = fixed_size_list(key_value_type, 5);
   auto [expectedCode, expectedMessage] = GetExpectedError(scalar.type, invalidCastType);
 
-  CheckInvalidListCast(scalar, invalidCastType, expectedCode, expectedMessage);
+  CheckListCastError(scalar, invalidCastType, expectedCode, expectedMessage);
 }
 
 TEST(TestStructScalar, FieldAccess) {
