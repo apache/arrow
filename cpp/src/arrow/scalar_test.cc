@@ -1077,14 +1077,15 @@ std::shared_ptr<DataType> MakeListType<FixedSizeListType>(
 
 template <typename ScalarType>
 void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
-  EXPECT_OK_AND_ASSIGN(auto cast_scalar, Cast(scalar, to_type));
-  ASSERT_OK(cast_scalar.scalar()->ValidateFull());
-  ASSERT_EQ(*cast_scalar.scalar()->type, *to_type);
+  EXPECT_OK_AND_ASSIGN(auto cast_scalar_datum, Cast(scalar, to_type));
+  const auto& cast_scalar = cast_scalar_datum.scalar();
+  ASSERT_OK(cast_scalar->ValidateFull());
+  ASSERT_EQ(*cast_scalar->type, *to_type);
 
-  ASSERT_EQ(scalar.is_valid, cast_scalar.scalar()->is_valid);
+  ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
   ASSERT_TRUE(scalar.is_valid);
   ASSERT_ARRAYS_EQUAL(*scalar.value,
-                      *checked_cast<const BaseListScalar&>(*cast_scalar.scalar()).value);
+                      *checked_cast<const BaseListScalar&>(*cast_scalar).value);
 }
 
 std::tuple<StatusCode, std::string> GetExpectedError(
