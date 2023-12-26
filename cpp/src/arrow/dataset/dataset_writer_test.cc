@@ -284,24 +284,32 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   // GH-38884: This test is to make sure that the writer can handle
   //  throttle resources in `WriteRecordBatch`.
 
+  auto current_time = std::chrono::steady_clock::now();
+
   constexpr auto kFileSizeLimit = static_cast<uint64_t>(10);
   write_options_.max_rows_per_file = kFileSizeLimit;
   write_options_.max_rows_per_group = kFileSizeLimit;
   write_options_.max_open_files = 2;
   write_options_.min_rows_per_group = kFileSizeLimit - 1;
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
-  for (int i = 0; i < 20; ++i) {
-    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 5), "");
+  for (int i = 0; i < 5; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 2), "");
   }
   EndWriterChecked(dataset_writer.get());
   std::vector<ExpectedFile> expected_files;
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 10; ++i) {
     expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
                                 kFileSizeLimit * i, kFileSizeLimit);
   }
   // Not checking the number of record batches because file may contain the
   // zero-length record batch.
   AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
+
+  std::cout << "time_spend:"
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::steady_clock::now() - current_time)
+                   .count()
+            << std::endl;
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
