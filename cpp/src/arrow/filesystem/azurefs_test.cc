@@ -583,8 +583,8 @@ class TestAzureFileSystem : public ::testing::Test {
   ///  - AzureFileSystem::DeleteDir
   ///  - AzureFileSystem::DeleteDirContents
   bool HasSubmitBatchBug() const {
-    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
 #ifdef __APPLE__
+    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     return env->backend() == AzureBackend::kAzurite;
 #else
     return false;
