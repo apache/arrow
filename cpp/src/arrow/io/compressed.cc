@@ -201,7 +201,7 @@ Result<std::shared_ptr<CompressedOutputStream>> CompressedOutputStream::Make(
     util::Codec* codec, const std::shared_ptr<OutputStream>& raw, MemoryPool* pool) {
   // CAUTION: codec is not owned
   std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
+  res->impl_ = std::make_unique<Impl>(pool, std::move(raw));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
 }
@@ -413,10 +413,9 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
     Codec* codec, const std::shared_ptr<InputStream>& raw, MemoryPool* pool) {
   // CAUTION: codec is not owned
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
+  res->impl_ = std::make_unique<Impl>(pool, std::move(raw));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
-  return Status::OK();
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
