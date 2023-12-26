@@ -1065,7 +1065,17 @@ class AzureFileSystem::Impl {
     try {
       FileInfo info{location.all};
       auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      // Since PageSizeHint=1, we expect at most one entry in either Blobs or
+      // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
+      // distinguish between a directory and a file by checking if we received a
+      // prefix or a blob.
       if (!list_response.BlobPrefixes.empty()) {
+        // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
+        // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
+        // the container contains "dir/abracadabra/" but not "dir/abra/", we will get back
+        // "dir/abracadabra/" in the BlobPrefixes list. If "dir/abra/" existed,
+        // it would be returned instead because it comes before "dir/abracadabra/" in the
+        // lexicographic order guaranteed by ListBlobsByHierarchy.
         const auto& blob_prefix = list_response.BlobPrefixes[0];
         if (blob_prefix == internal::EnsureTrailingSlash(location.path)) {
           info.set_type(FileType::Directory);
