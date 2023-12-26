@@ -20,9 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
