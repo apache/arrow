@@ -16,54 +16,13 @@
 
 namespace Apache.Arrow.Types
 {
-    public enum ArrowTypeId
+    public sealed class StringViewType : ArrowType
     {
-        Null,
-        Boolean,
-        UInt8,
-        Int8,
-        UInt16,
-        Int16,
-        UInt32,
-        Int32,
-        UInt64,
-        Int64,
-        HalfFloat,
-        Float,
-        Double,
-        String,
-        Binary,
-        FixedSizedBinary,
-        Date32,
-        Date64,
-        Timestamp,
-        Time32,
-        Time64,
-        Interval,
-        Decimal128,
-        Decimal256,
-        List,
-        Struct,
-        Union,
-        Dictionary,
-        Map,
-        FixedSizeList,
-        Duration,
-        RecordBatch,
-        BinaryView,
-        StringView,
-        ListView,
-    }
+        public static StringViewType Default = new StringViewType();
 
-    public interface IArrowType
-    {
-        ArrowTypeId TypeId { get; }
+        public override ArrowTypeId TypeId => ArrowTypeId.StringView;
+        public override string Name => "utf8view";
 
-        string Name { get; }
- 
-        void Accept(IArrowTypeVisitor visitor);
-
-        bool IsFixedWidth { get; }
-    
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

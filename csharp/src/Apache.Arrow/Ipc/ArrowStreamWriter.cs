@@ -54,9 +54,12 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<DayTimeIntervalArray>,
             IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<ListViewArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<StringViewArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<BinaryViewArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
@@ -81,6 +84,7 @@ namespace Apache.Arrow.Ipc
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
+            public List<long> VariadicCounts { get; private set; } 
             public int TotalLength { get; private set; }
 
             public ArrowRecordBatchFlatBufferBuilder()
@@ -121,6 +125,15 @@ namespace Apache.Arrow.Ipc
                 array.Values.Accept(this);
             }
 
+            public void Visit(ListViewArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBuffer(array.SizesBuffer));
+
+                array.Values.Accept(this);
+            }
+
             public void Visit(FixedSizeListArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
@@ -130,11 +143,25 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(StringArray array) => Visit(array as BinaryArray);
 
+            public void Visit(StringViewArray array) => Visit(array as BinaryViewArray);
+
             public void Visit(BinaryArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }
+
+            public void Visit(BinaryViewArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ViewsBuffer));
+                for (int i = 0; i < array.DataBufferCount; i++)
+                {
+                    _buffers.Add(CreateBuffer(array.DataBuffer(i)));
+                }
+                VariadicCounts = VariadicCounts ?? new List<long>();
+                VariadicCounts.Add(array.DataBufferCount);
             }
 
             public void Visit(FixedSizeBinaryArray array)
@@ -328,7 +355,7 @@ namespace Apache.Arrow.Ipc
                 HasWrittenDictionaryBatch = true;
             }
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
                 PreparingWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
@@ -339,7 +366,9 @@ namespace Apache.Arrow.Ipc
 
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                default,
+                variadicCountsOffset);
 
             long metadataLength = WriteMessage(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength);
@@ -367,7 +396,7 @@ namespace Apache.Arrow.Ipc
                 HasWrittenDictionaryBatch = true;
             }
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
                 PreparingWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
@@ -378,7 +407,9 @@ namespace Apache.Arrow.Ipc
 
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                default,
+                variadicCountsOffset);
 
             long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
                 recordBatchOffset, recordBatchBuilder.TotalLength,
@@ -451,12 +482,12 @@ namespace Apache.Arrow.Ipc
             return bodyLength + bodyPaddingLength;
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
         {
             return PreparingWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
         {
             Builder.Clear();
 
@@ -483,6 +514,12 @@ namespace Apache.Arrow.Ipc
                 fieldArray.Accept(recordBatchBuilder);
             }
 
+            VectorOffset variadicCountOffset = default;
+            if (recordBatchBuilder.VariadicCounts != null)
+            {
+                variadicCountOffset = Flatbuf.RecordBatch.CreateVariadicCountsVectorBlock(Builder, recordBatchBuilder.VariadicCounts.ToArray());
+            }
+
             IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
 
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
@@ -494,7 +531,7 @@ namespace Apache.Arrow.Ipc
                     buffers[i].Offset, buffers[i].DataBuffer.Length);
             }
 
-            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
+            return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset, variadicCountOffset);
         }
 
         private protected virtual void StartingWritingDictionary()
@@ -561,7 +598,7 @@ namespace Apache.Arrow.Ipc
 
             var arrays = new List<IArrowArray> { dictionary };
 
-            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
+            (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
                 PreparingWritingRecordBatch(fields, arrays);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
@@ -569,7 +606,9 @@ namespace Apache.Arrow.Ipc
             // Serialize record batch
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, dictionary.Length,
                 fieldNodesVectorOffset,
-                buffersVectorOffset);
+                buffersVectorOffset,
+                default,
+                variadicCountsOffset);
 
             // TODO: Support delta.
             Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset = Flatbuf.DictionaryBatch.CreateDictionaryBatch(Builder, id, recordBatchOffset, false);
