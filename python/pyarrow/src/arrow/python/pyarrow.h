@@ -85,7 +85,7 @@ DECLARE_WRAP_FUNCTIONS(expression, compute::Expression)
 
 #ifdef ARROW_WITH_ACERO
 DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-DECLARE_WRAP_FUNCTIONS(declaration, std::shared_ptr<acero::ExecNodeOptions>)
+DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
 #endif
 
 namespace internal {
