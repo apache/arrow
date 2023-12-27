@@ -342,7 +342,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval | Duration = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
-        this._values = new DataBufferBuilder(new this.ArrayType(0), this.stride);
+        this._values = new DataBufferBuilder(this.ArrayType, 0, this.stride);
     }
     public setValue(index: number, value: T['TValue']) {
         const values = this._values;

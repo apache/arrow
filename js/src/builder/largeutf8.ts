@@ -25,7 +25,7 @@ import { LargeBinaryBuilder } from './largebinary.js';
 export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf8, TNull> {
     constructor(opts: BuilderOptions<LargeUtf8, TNull>) {
         super(opts);
-        this._values = new BufferBuilder(new Uint8Array(0));
+        this._values = new BufferBuilder(Uint8Array);
     }
     public get byteLength(): number {
         let size = this._pendingLength + (this.length * 4);
