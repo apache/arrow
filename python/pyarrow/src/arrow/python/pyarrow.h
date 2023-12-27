@@ -48,7 +48,7 @@ class Expression;
 
 namespace acero {
 struct Declaration;
-class ExecNodeOption;
+class ExecNodeOptions;
 }  // namespace acero
 
 namespace py {
@@ -83,7 +83,7 @@ DECLARE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
 DECLARE_WRAP_FUNCTIONS(expression, compute::Expression)
 
-#ifdef ARROW_WITH_ACERO
+#ifdef PYARROW_BUILD_ACERO
 DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
 DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
 #endif
