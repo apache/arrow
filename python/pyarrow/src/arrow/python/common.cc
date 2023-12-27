@@ -19,6 +19,7 @@
 
 #include <cstdlib>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 #include "arrow/memory_pool.h"
@@ -153,14 +154,16 @@ class PythonErrorDetail : public StatusDetail {
                                                  exc_value_.obj(), exc_traceback_.obj(),
                                                  NULL));
 
-    std::string result = "Python exception: ";
+    std::stringstream ss;
+    ss << "Python exception: ";
     Py_ssize_t num_lines = PyList_GET_SIZE(formatted.obj());
     for (Py_ssize_t i = 0; i < num_lines; ++i) {
-      std::string line_str;
-      internal::PyObject_StdStringStr(PyList_GET_ITEM(formatted.obj(), i), &line_str);
-      result += line_str;
+      Py_ssize_t line_size;
+      const char* data =
+          PyUnicode_AsUTF8AndSize(PyList_GET_ITEM(formatted.obj(), i), &line_size);
+      ss << std::string_view(data, line_size);
     }
-    return result;
+    return ss.str();
   }
 
   PythonErrorDetail() = default;
