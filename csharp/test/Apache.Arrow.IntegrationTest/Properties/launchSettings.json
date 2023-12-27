@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Apache.Arrow.IntegrationTest": {
-      "commandName": "Project",
-      "commandLineArgs": "--mode validate -j C:\\Users\\curt\\AppData\\Local\\Temp\\arrow-integration-9_cov7dz\\generated_binary_view.json -a C:\\Users\\curt\\AppData\\Local\\Temp\\tmpxicbzqpn\\460a151e_generated_binary_view.json_as_file"
-    }
-  }
-}
