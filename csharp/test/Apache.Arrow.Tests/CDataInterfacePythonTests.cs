@@ -741,7 +741,9 @@ namespace Apache.Arrow.Tests
         [SkippableFact]
         public unsafe void RoundTripTestBatch()
         {
-            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, createDictionaryArray: true);
+            // TODO: Enable these once this the version of pyarrow referenced during testing supports them
+            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView };
+            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, excludedTypes: unsupported);
             RecordBatch batch2 = batch1.Clone();
 
             CArrowArray* cExportArray = CArrowArray.Create();

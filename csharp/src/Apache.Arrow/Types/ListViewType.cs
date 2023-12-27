@@ -13,57 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 namespace Apache.Arrow.Types
 {
-    public enum ArrowTypeId
+    public sealed class ListViewType : NestedType
     {
-        Null,
-        Boolean,
-        UInt8,
-        Int8,
-        UInt16,
-        Int16,
-        UInt32,
-        Int32,
-        UInt64,
-        Int64,
-        HalfFloat,
-        Float,
-        Double,
-        String,
-        Binary,
-        FixedSizedBinary,
-        Date32,
-        Date64,
-        Timestamp,
-        Time32,
-        Time64,
-        Interval,
-        Decimal128,
-        Decimal256,
-        List,
-        Struct,
-        Union,
-        Dictionary,
-        Map,
-        FixedSizeList,
-        Duration,
-        RecordBatch,
-        BinaryView,
-        StringView,
-        ListView,
-    }
+        public override ArrowTypeId TypeId => ArrowTypeId.ListView;
+        public override string Name => "listview";
 
-    public interface IArrowType
-    {
-        ArrowTypeId TypeId { get; }
+        public Field ValueField => Fields[0];
 
-        string Name { get; }
- 
-        void Accept(IArrowTypeVisitor visitor);
+        public IArrowType ValueDataType => Fields[0].DataType;
 
-        bool IsFixedWidth { get; }
-    
+        public ListViewType(Field valueField)
+           : base(valueField) { }
+
+        public ListViewType(IArrowType valueDataType)
+            : this(new Field("item", valueDataType, true)) { }
+
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }
