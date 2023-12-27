@@ -89,10 +89,36 @@ class PythonErrorDetail : public StatusDetail {
   const char* type_id() const override { return kErrorDetailTypeId; }
 
   std::string ToString() const override {
-    // This is simple enough not to need the GIL
-    const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
-    // XXX Should we also print traceback?
-    return std::string("Python exception: ") + ty->tp_name;
+    PyAcquireGIL lock;
+
+    // Use traceback.format_exception()
+    OwnedRef traceback_module;
+    // TODO: what to do with Status?
+    internal::ImportModule("traceback", &traceback_module);
+
+    OwnedRef fmt_exception;
+    internal::ImportFromModule(traceback_module.obj(), "format_exception",
+                               &fmt_exception);
+
+    OwnedRef formatted;
+    formatted.reset(PyObject_CallFunctionObjArgs(fmt_exception.obj(), exc_type_.obj(),
+                                                 exc_value_.obj(), exc_traceback_.obj(),
+                                                 NULL));
+
+    if (formatted) {
+      std::string result = "Python exception: ";
+      Py_ssize_t num_lines = PyList_GET_SIZE(formatted.obj());
+      for (Py_ssize_t i = 0; i < num_lines; ++i) {
+        std::string line_str;
+        internal::PyObject_StdStringStr(PyList_GET_ITEM(formatted.obj(), i), &line_str);
+        result += line_str;
+      }
+      return result;
+    } else {
+      // Fallback to just the exception type
+      const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
+      return std::string("Python exception: ") + ty->tp_name;
+    }
   }
 
   void RestorePyError() const {
