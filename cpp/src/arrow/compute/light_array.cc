@@ -20,6 +20,7 @@
 #include <type_traits>
 
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace compute {
@@ -325,8 +326,8 @@ Status ResizableArrayData::ResizeVaryingLengthBuffer() {
   column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
   if (!column_metadata.is_fixed_length) {
-    int min_new_size = static_cast<int>(reinterpret_cast<const uint32_t*>(
-        buffers_[kFixedLengthBuffer]->data())[num_rows_]);
+    int32_t min_new_size =
+        reinterpret_cast<const int32_t*>(buffers_[kFixedLengthBuffer]->data())[num_rows_];
     ARROW_DCHECK(var_len_buf_size_ > 0);
     if (var_len_buf_size_ < min_new_size) {
       int new_size = var_len_buf_size_;
@@ -465,8 +466,7 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
 
   if (!metadata.is_fixed_length) {
     const uint8_t* ptr_base = column->buffers[2]->data();
-    const uint32_t* offsets =
-        reinterpret_cast<const uint32_t*>(column->buffers[1]->data()) + column->offset;
+    const int32_t* offsets = column->GetValues<int32_t>(1);
     for (int i = 0; i < num_rows; ++i) {
       uint16_t row_id = row_ids[i];
       const uint8_t* field_ptr = ptr_base + offsets[row_id];
@@ -575,18 +575,26 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
 
     // Step 1: calculate target offsets
     //
-    uint32_t* offsets = reinterpret_cast<uint32_t*>(target->mutable_data(1));
-    uint32_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
-    Visit(source, num_rows_to_append, row_ids,
-          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-            offsets[num_rows_before + i] = num_bytes;
-          });
-    for (int i = 0; i < num_rows_to_append; ++i) {
-      uint32_t length = offsets[num_rows_before + i];
-      offsets[num_rows_before + i] = sum;
-      sum += length;
+    int32_t* offsets = reinterpret_cast<int32_t*>(target->mutable_data(1));
+    {
+      int32_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
+      Visit(source, num_rows_to_append, row_ids,
+            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+              offsets[num_rows_before + i] = num_bytes;
+            });
+      for (int i = 0; i < num_rows_to_append; ++i) {
+        int32_t length = offsets[num_rows_before + i];
+        offsets[num_rows_before + i] = sum;
+        if (ARROW_PREDICT_FALSE(static_cast<size_t>(sum) + length >
+                                std::numeric_limits<int32_t>::max())) {
+          return Status::Invalid("ExecBatchBuilder offset overflow detected for the ",
+                                 i + 1, "-th element, last offset ", sum, ", length ",
+                                 length);
+        }
+        sum += length;
+      }
+      offsets[num_rows_before + num_rows_to_append] = sum;
     }
-    offsets[num_rows_before + num_rows_to_append] = sum;
 
     // Step 2: resize output buffers
     //
