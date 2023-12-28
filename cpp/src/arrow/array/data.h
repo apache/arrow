@@ -449,7 +449,8 @@ struct ARROW_EXPORT ArraySpan {
   /// \return A span<const T> of the requested length
   template <typename T>
   util::span<const T> GetSpan(int i, int64_t length) const {
-    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    [[maybe_unused]] const int64_t buffer_length =
+        buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
   }
@@ -464,7 +465,8 @@ struct ARROW_EXPORT ArraySpan {
   /// \return A span<T> of the requested length
   template <typename T>
   util::span<T> GetSpan(int i, int64_t length) {
-    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    [[maybe_unused]] const int64_t buffer_length =
+        buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
   }
