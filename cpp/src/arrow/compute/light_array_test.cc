@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
