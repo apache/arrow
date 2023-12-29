@@ -119,8 +119,17 @@ template <class ArrowType>
     size_t size, std::shared_ptr<Array>* out) {
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
   BuilderType builder;
+  const int kBufferSize = 10;
+  uint8_t buffer[kBufferSize];
   for (size_t i = 0; i < size; i++) {
-    RETURN_NOT_OK(builder.Append("test-string"));
+    if (ArrowType::is_utf8) {
+      // Trivially force data to be valid UTF8 by making it all ASCII
+      ::arrow::random_bytes(kBufferSize, static_cast<uint32_t>(i), buffer);
+      for (auto& byte : buffer) {
+        byte &= 0x7f;
+      }
+    }
+    RETURN_NOT_OK(builder.Append(buffer, kBufferSize));
   }
   return builder.Finish(out);
 }
@@ -129,11 +138,16 @@ template <typename ArrowType>
 ::arrow::enable_if_fixed_size_binary<ArrowType, Status> NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
-  // set byte_width to the length of "fixed": 5
+  // set byte_width to the length of "fixed": 10
   // todo: find a way to generate test data with more diversity.
-  BuilderType builder(::arrow::fixed_size_binary(5));
+  const int byte_width = 10;
+  BuilderType builder(::arrow::fixed_size_binary(byte_width));
+
+  const int kBufferSize = byte_width;
+  uint8_t buffer[kBufferSize];
   for (size_t i = 0; i < size; i++) {
-    RETURN_NOT_OK(builder.Append("fixed"));
+    ::arrow::random_bytes(kBufferSize, static_cast<uint32_t>(i), buffer);
+    RETURN_NOT_OK(builder.Append(buffer));
   }
   return builder.Finish(out);
 }
@@ -517,6 +531,70 @@ inline void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   std::shared_ptr<Array> expected_array;
   ARROW_EXPECT_OK(builder.Finish(&expected_array));
   EXPECT_TRUE(result->Equals(*expected_array));
+}
+
+namespace internal {
+
+template <typename... Types>
+struct TypeList {};
+
+template <typename T>
+void MakeColumn(int64_t num_rows, std::vector<std::shared_ptr<::arrow::Array>>& columns) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> d(0, 1);
+  bool nullable = d(gen) == 1;
+
+  std::shared_ptr<::arrow::Array> values;
+  if (nullable) {
+    ASSERT_OK(arrow::NullableArray<T>(num_rows, num_rows / 2, 0, &values));
+  } else {
+    ASSERT_OK(arrow::NonNullArray<T>(num_rows, &values));
+  }
+
+  columns.push_back(std::move(values));
+}
+
+template <typename... Types>
+void MakeColumns(int64_t num_rows, std::vector<std::shared_ptr<::arrow::Array>>& columns,
+                 TypeList<Types...>) {}
+
+template <typename T, typename... Types>
+void MakeColumns(int64_t num_rows, std::vector<std::shared_ptr<::arrow::Array>>& columns,
+                 TypeList<T, Types...>) {
+  MakeColumn<T>(num_rows, columns);
+  MakeColumns(num_rows, columns, TypeList<Types...>{});
+}
+
+using ColumnTypes = TypeList<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
+                             ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type,
+                             ::arrow::UInt64Type, ::arrow::Int64Type, ::arrow::Date32Type,
+                             ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
+                             ::arrow::BinaryType, ::arrow::FixedSizeBinaryType,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<19>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<20>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<25>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<27>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<29>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<33>,
+                             ::parquet::arrow::DecimalWithPrecisionAndScale<38>>;
+
+}  // namespace internal
+
+[[maybe_unused]] static std::shared_ptr<::arrow::Table> MakeSimpleTable(
+    int64_t num_rows) {
+  std::vector<std::shared_ptr<::arrow::Array>> columns;
+  MakeColumns(num_rows, columns, internal::ColumnTypes{});
+
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
+  for (size_t i = 0; i < columns.size(); i++) {
+    const bool nullable = columns[i]->null_count() > 0;
+    fields.push_back(
+        ::arrow::field("col" + std::to_string(i), columns[i]->type(), nullable));
+  }
+  auto schema = ::arrow::schema(std::move(fields));
+
+  return ::arrow::Table::Make(schema, columns, num_rows);
 }
 
 }  // namespace arrow

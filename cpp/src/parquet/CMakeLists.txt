@@ -424,6 +424,7 @@ add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
+add_parquet_benchmark(arrow/page_pruning_benchmark PREFIX "parquet-arrow")
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)

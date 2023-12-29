@@ -1398,30 +1398,10 @@ class TestReadTableByRowRanges : public TestReadByRowRangesBase, public ::testin
   void PrepareDataAndReader(bool) override {
     auto sink = CreateOutputStream();
 
-    using ColumnTypes =
-        TypeList<::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type,
-                 ::arrow::UInt16Type, ::arrow::Int16Type, ::arrow::Int32Type,
-                 ::arrow::UInt64Type, ::arrow::Int64Type, ::arrow::Date32Type,
-                 ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
-                 ::arrow::BinaryType, ::arrow::FixedSizeBinaryType,
-                 DecimalWithPrecisionAndScale<19>, DecimalWithPrecisionAndScale<20>,
-                 DecimalWithPrecisionAndScale<25>, DecimalWithPrecisionAndScale<27>,
-                 DecimalWithPrecisionAndScale<29>, DecimalWithPrecisionAndScale<33>,
-                 DecimalWithPrecisionAndScale<38>>;
-
     // Prepare data and schema
-    columns_.clear();
-    MakeColumns(ColumnTypes{});
-    ASSERT_EQ(21, columns_.size());
-
-    std::vector<std::shared_ptr<::arrow::Field>> fields;
-    for (size_t i = 0; i < columns_.size(); i++) {
-      const bool nullable = columns_[i]->null_count() > 0;
-      fields.push_back(
-          ::arrow::field("col" + std::to_string(i), columns_[i]->type(), nullable));
-    }
-    schema_ = ::arrow::schema(std::move(fields));
-    table_ = ::arrow::Table::Make(schema_, columns_, num_rows_);
+    table_ = arrow::MakeSimpleTable(num_rows_);
+    schema_ = table_->schema();
+    ASSERT_EQ(21, schema_->num_fields());
 
     // Write data to sink
     ASSERT_OK_NO_THROW(WriteTable(*table_, ::arrow::default_memory_pool(), sink,
@@ -1444,40 +1424,6 @@ class TestReadTableByRowRanges : public TestReadByRowRangesBase, public ::testin
                            ->properties(arrow_reader_properties)
                            ->Build(&reader_));
   }
-
- private:
-  template <typename... Types>
-  struct TypeList {};
-
-  template <typename T>
-  void MakeColumn() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> d(0, 1);
-    bool nullable = d(gen) == 1;
-
-    std::shared_ptr<::arrow::Array> values;
-    if (nullable) {
-      ASSERT_OK(NullableArray<T>(num_rows_, num_rows_ / 2, 0, &values));
-    } else {
-      ASSERT_OK(NonNullArray<T>(num_rows_, &values));
-    }
-
-    columns_.push_back(std::move(values));
-  }
-
-  template <typename... Types>
-  void MakeColumns(TypeList<Types...>) {}
-
-  template <typename T, typename... Types>
-  void MakeColumns(TypeList<T, Types...>) {
-    MakeColumn<T>();
-    MakeColumns(TypeList<Types...>{});
-  }
-
-  void MakeColumns() {}
-
-  std::vector<std::shared_ptr<::arrow::Array>> columns_;
 };
 
 TEST_F(TestReadTableByRowRanges, RandomReadByRowRanges) { this->ReadNullableData(); }

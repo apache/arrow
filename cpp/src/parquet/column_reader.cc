@@ -35,6 +35,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
+#include "arrow/io/buffered.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
@@ -55,7 +56,6 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
 #include "parquet/windows_fixup.h"    // for OPTIONAL
-#include "arrow/io/buffered.h"
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
