@@ -59,6 +59,8 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+using ReadRanges = std::vector<::arrow::io::ReadRange>;
+
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
@@ -67,7 +69,8 @@ class PARQUET_EXPORT ReaderProperties {
   MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
-                                              int64_t start, int64_t num_bytes);
+                                              int64_t start, int64_t num_bytes,
+                                              const ReadRanges* read_ranges = NULLPTR);
 
   /// Buffered stream reading allows the user to control the memory usage of
   /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are

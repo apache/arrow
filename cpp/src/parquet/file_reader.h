@@ -36,6 +36,10 @@ class PageIndexReader;
 class BloomFilterReader;
 class PageReader;
 class RowGroupMetaData;
+class RowGroupPageIndexReader;
+class RowRanges;
+
+struct PageLocation;
 
 namespace internal {
 class RecordReader;
@@ -48,7 +52,9 @@ class PARQUET_EXPORT RowGroupReader {
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     virtual ~Contents() {}
-    virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
+    virtual std::unique_ptr<PageReader> GetColumnPageReader(
+        int i, const std::optional<RowRanges>& row_ranges,
+        const std::shared_ptr<RowGroupPageIndexReader>& index_reader) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -81,6 +87,10 @@ class PARQUET_EXPORT RowGroupReader {
       int i, ExposedEncoding encoding_to_expose);
 
   std::unique_ptr<PageReader> GetColumnPageReader(int i);
+
+  std::unique_ptr<PageReader> GetColumnPageReader(
+      int i, const RowRanges& row_ranges,
+      const std::shared_ptr<RowGroupPageIndexReader>& index_reader);
 
  private:
   // Holds a pointer to an instance of Contents implementation

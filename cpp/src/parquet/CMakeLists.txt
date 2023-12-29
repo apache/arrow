@@ -182,6 +182,7 @@ set(PARQUET_SRCS
     platform.cc
     printer.cc
     properties.cc
+    row_ranges.cc
     schema.cc
     statistics.cc
     stream_reader.cc
@@ -367,7 +368,8 @@ add_parquet_test(reader-test
                  column_scanner_test.cc
                  reader_test.cc
                  stream_reader_test.cc
-                 test_util.cc)
+                 test_util.cc
+                 row_ranges_test.cc)
 
 add_parquet_test(writer-test
                  SOURCES
@@ -381,7 +383,8 @@ add_parquet_test(arrow-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
                  arrow/arrow_statistics_test.cc
-                 test_util.cc)
+                 test_util.cc
+                 arrow/read_by_row_ranges_test.cc)
 
 add_parquet_test(arrow-internals-test
                  SOURCES

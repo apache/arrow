@@ -30,8 +30,10 @@
 #include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/row_ranges.h"
 
 namespace arrow {
 
@@ -45,6 +47,8 @@ class Schema;
 }  // namespace arrow
 
 using arrow::Status;
+
+using RowRangesOpt = std::optional<std::unordered_map<int, ::parquet::RowRanges>>;
 
 namespace parquet {
 
@@ -68,6 +72,14 @@ class FileColumnIterator {
         schema_(reader->metadata()->schema()),
         row_groups_(row_groups.begin(), row_groups.end()) {}
 
+  explicit FileColumnIterator(int column_index, ParquetFileReader* reader,
+                              std::vector<int> row_groups, RowRangesOpt row_ranges)
+      : column_index_(column_index),
+        reader_(reader),
+        schema_(reader->metadata()->schema()),
+        row_groups_(row_groups.begin(), row_groups.end()),
+        row_ranges_(std::move(row_ranges)) {}
+
   virtual ~FileColumnIterator() {}
 
   std::unique_ptr<::parquet::PageReader> NextChunk() {
@@ -75,8 +87,19 @@ class FileColumnIterator {
       return nullptr;
     }
 
-    auto row_group_reader = reader_->RowGroup(row_groups_.front());
+    const int row_group_ordinal = row_groups_.front();
+    auto row_group_reader = reader_->RowGroup(row_group_ordinal);
     row_groups_.pop_front();
+    if (row_ranges_.has_value()) {
+      auto row_ranges_map = row_ranges_.value();
+      auto it = row_ranges_map.find(row_group_ordinal);
+      if (it != row_ranges_map.end()) {
+        auto index_reader = reader_->GetPageIndexReader()->RowGroup(row_group_ordinal);
+        return row_group_reader->GetColumnPageReader(column_index_, it->second,
+                                                     index_reader);
+      }
+    }
+
     return row_group_reader->GetColumnPageReader(column_index_);
   }
 
@@ -93,6 +116,8 @@ class FileColumnIterator {
   ParquetFileReader* reader_;
   const SchemaDescriptor* schema_;
   std::deque<int> row_groups_;
+
+  RowRangesOpt row_ranges_;
 };
 
 using FileColumnIteratorFactory =

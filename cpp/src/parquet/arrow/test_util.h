@@ -416,7 +416,7 @@ template <class ArrowType>
 /// Wrap an Array into a ListArray by splitting it up into size lists.
 ///
 /// This helper function only supports (size/2) nulls.
-Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
+inline Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
                      int64_t null_count, const std::string& item_name,
                      bool nullable_values, std::shared_ptr<::arrow::ListArray>* out) {
   // We always include an empty list
@@ -454,7 +454,7 @@ Status MakeListArray(const std::shared_ptr<Array>& values, int64_t size,
 }
 
 // Make an array containing only empty lists, with a null values array
-Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
+inline Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   // Allocate an offsets buffer containing only zeroes
   const int64_t offsets_nbytes = (size + 1) * sizeof(int32_t);
   ARROW_ASSIGN_OR_RAISE(auto offsets_buffer, ::arrow::AllocateBuffer(offsets_nbytes));
@@ -478,13 +478,13 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
   return Status::OK();
 }
 
-std::shared_ptr<::arrow::Table> MakeSimpleTable(
+inline std::shared_ptr<::arrow::Table> MakeSimpleTable(
     const std::shared_ptr<ChunkedArray>& values, bool nullable) {
   auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)});
   return ::arrow::Table::Make(schema, {values});
 }
 
-std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
+inline std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
                                                 bool nullable) {
   auto carr = std::make_shared<::arrow::ChunkedArray>(values);
   return MakeSimpleTable(carr, nullable);
@@ -499,7 +499,7 @@ void ExpectArray(T* expected, Array* result) {
 }
 
 template <typename ArrowType>
-void ExpectArrayT(void* expected, Array* result) {
+inline void ExpectArrayT(void* expected, Array* result) {
   ::arrow::PrimitiveArray* p_array = static_cast<::arrow::PrimitiveArray*>(result);
   for (int64_t i = 0; i < result->length(); i++) {
     EXPECT_EQ(reinterpret_cast<typename ArrowType::c_type*>(expected)[i],
@@ -509,7 +509,7 @@ void ExpectArrayT(void* expected, Array* result) {
 }
 
 template <>
-void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
+inline void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   ::arrow::BooleanBuilder builder;
   ARROW_EXPECT_OK(
       builder.AppendValues(reinterpret_cast<uint8_t*>(expected), result->length()));

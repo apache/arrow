@@ -26,6 +26,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/row_ranges.h"
 
 namespace arrow {
 
@@ -178,6 +179,11 @@ class PARQUET_EXPORT FileReader {
   ///     contains an invalid index
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      const std::optional<std::unordered_map<int, RowRanges>>& row_ranges,
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from
@@ -198,6 +204,10 @@ class PARQUET_EXPORT FileReader {
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
   ::arrow::Status GetRecordBatchReader(std::shared_ptr<::arrow::RecordBatchReader>* out);
+  ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      const std::optional<std::unordered_map<int, RowRanges>>& row_ranges,
+      std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a generator of record batches.
   ///
@@ -241,6 +251,11 @@ class PARQUET_EXPORT FileReader {
                                        std::shared_ptr<::arrow::Table>* out) = 0;
 
   virtual ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out) = 0;
+
+  virtual ::arrow::Status ReadRowGroups(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      const std::optional<std::unordered_map<int, RowRanges>>& row_ranges,
+      std::shared_ptr<::arrow::Table>* out) = 0;
 
   virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
                                         const std::vector<int>& column_indices,

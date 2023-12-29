@@ -25,8 +25,10 @@
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/row_ranges.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
@@ -118,6 +120,110 @@ struct CryptoContext {
   std::shared_ptr<Decryptor> data_decryptor;
 };
 
+struct PageSkipInfo {
+  PageSkipInfo() = default;
+
+  const RowRanges::Range& Range() { return ranges_[index_]; }
+
+  int64_t SkipRowNum() const { return skip_row_nums_[index_]; }
+
+  int64_t LastRowIndex() const { return last_row_indices_[index_]; }
+
+  bool HasNext() const {
+    if (index_ != ranges_.size() - 1) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  ::arrow::Status Next() {
+    ARROW_RETURN_IF(!HasNext(), ::arrow::Status::Invalid("No more range to read"));
+    index_++;
+    return ::arrow::Status::OK();
+  }
+
+  int64_t EndRowIndex() const { return last_row_indices_.back(); }
+
+  bool operator==(const PageSkipInfo& other) const {
+    if (ranges_ != other.ranges_) {
+      return false;
+    }
+    if (last_row_indices_ != other.last_row_indices_) {
+      return false;
+    }
+    if (skip_row_nums_ != other.skip_row_nums_) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool operator!=(const PageSkipInfo& other) const { return !(*this == other); }
+
+  //
+  //   | <--------------------------- column chunk -------------------------------> |
+  //             | <-------------------- page N -----------------------> |
+  //        first_row_idx                                          last_row_idx
+  //   |-- ... --|-------------------------------------------------------|--- ... ---|
+  //                       |---- range0 ----|         |---- range1 ----|
+  //             |--skip0--|                |--skip1--|
+  //             |------last_row_index0-----|
+  //             |-------------------last_row_index1-------------------|
+  //
+
+  // Row ranges for this page, start counting from within column chunk
+  std::vector<RowRanges::Range> ranges_;
+
+  // The num of rows to skip before reading each row range
+  std::vector<int64_t> skip_row_nums_;
+
+  // The last row index for echo row range, start counting from within the page
+  std::vector<int64_t> last_row_indices_;
+
+  // The ordinal for current row range
+  size_t index_{0};
+};
+
+struct PageReadStates {
+  PageReadStates() = default;
+
+  PageReadStates(RowRanges raw_row_ranges, ReadRanges read_ranges,
+                 std::vector<PageSkipInfo> skip_infos)
+      : raw_row_ranges_(std::move(raw_row_ranges)),
+        read_ranges_(std::move(read_ranges)),
+        skip_infos_(std::move(skip_infos)) {}
+
+  PageSkipInfo& NextPageSkipInfo() { return skip_infos_[page_index_++]; }
+
+  bool operator==(const PageReadStates& other) const {
+    if (raw_row_ranges_ != other.raw_row_ranges_) {
+      return false;
+    }
+    if (read_ranges_ != other.read_ranges_) {
+      return false;
+    }
+    if (skip_infos_ != other.skip_infos_) {
+      return false;
+    }
+
+    return true;
+  }
+
+  bool operator!=(const PageReadStates& other) const { return !(*this == other); }
+
+  // Original row ranges passed by invoker
+  RowRanges raw_row_ranges_;
+
+  // Read ranges of corresponding hit pages
+  ReadRanges read_ranges_;
+  size_t read_ranges_index_{0};
+
+  // Skip info for every hit page
+  std::vector<PageSkipInfo> skip_infos_;
+  size_t page_index_{0};
+};
+
 // Abstract page iterator interface. This way, we can feed column pages to the
 // ColumnReader through whatever mechanism we choose
 class PARQUET_EXPORT PageReader {
@@ -131,12 +237,12 @@ class PARQUET_EXPORT PageReader {
       Compression::type codec, bool always_compressed = false,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
-  static std::unique_ptr<PageReader> Open(std::shared_ptr<ArrowInputStream> stream,
-                                          int64_t total_num_values,
-                                          Compression::type codec,
-                                          const ReaderProperties& properties,
-                                          bool always_compressed = false,
-                                          const CryptoContext* ctx = NULLPTR);
+
+  static std::unique_ptr<PageReader> Open(
+      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
+      Compression::type codec, const ReaderProperties& properties,
+      bool always_compressed = false, const CryptoContext* ctx = NULLPTR,
+      std::shared_ptr<PageReadStates> read_states = NULLPTR);
 
   // If data_page_filter is present (not null), NextPage() will call the
   // callback function exactly once per page in the order the pages appear in
@@ -156,6 +262,8 @@ class PARQUET_EXPORT PageReader {
   // The returned Page may contain references that aren't guaranteed to live
   // beyond the next call to NextPage().
   virtual std::shared_ptr<Page> NextPage() = 0;
+
+  virtual std::shared_ptr<PageReadStates> GetPageReadStates() const { return nullptr; }
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
 
@@ -487,5 +595,11 @@ using FloatReader = TypedColumnReader<FloatType>;
 using DoubleReader = TypedColumnReader<DoubleType>;
 using ByteArrayReader = TypedColumnReader<ByteArrayType>;
 using FixedLenByteArrayReader = TypedColumnReader<FLBAType>;
+
+/// \brief Build page read states from given page locations and row ranges
+PARQUET_EXPORT
+::arrow::Result<std::shared_ptr<PageReadStates>> BuildPageReadStates(
+    int64_t num_rows, const ::arrow::io::ReadRange& chunk_range,
+    const std::vector<PageLocation>& page_locations, const RowRanges& row_ranges);
 
 }  // namespace parquet

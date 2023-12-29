@@ -55,11 +55,13 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
 #include "parquet/windows_fixup.h"    // for OPTIONAL
+#include "arrow/io/buffered.h"
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
+using arrow::io::ChunkBufferedInputStream;
 
 namespace bit_util = arrow::bit_util;
 
@@ -259,14 +261,16 @@ class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_values,
                        Compression::type codec, const ReaderProperties& properties,
-                       const CryptoContext* crypto_ctx, bool always_compressed)
+                       const CryptoContext* crypto_ctx, bool always_compressed,
+                       std::shared_ptr<PageReadStates> read_states)
       : properties_(properties),
         stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
         page_ordinal_(0),
         seen_num_values_(0),
         total_num_values_(total_num_values),
-        decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)) {
+        decryption_buffer_(AllocateBuffer(properties_.memory_pool(), 0)),
+        read_states_(std::move(read_states)) {
     if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
@@ -283,6 +287,8 @@ class SerializedPageReader : public PageReader {
   // decryption and decompression buffers internally, so if NextPage() is
   // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
+
+  virtual std::shared_ptr<PageReadStates> GetPageReadStates() const override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
@@ -342,6 +348,8 @@ class SerializedPageReader : public PageReader {
   std::string data_page_header_aad_;
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
+
+  std::shared_ptr<PageReadStates> read_states_;
 };
 
 void SerializedPageReader::InitDecryption() {
@@ -574,6 +582,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
+std::shared_ptr<PageReadStates> SerializedPageReader::GetPageReadStates() const {
+  return read_states_;
+}
+
 std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     std::shared_ptr<Buffer> page_buffer, int compressed_len, int uncompressed_len,
     int levels_byte_len) {
@@ -617,9 +629,11 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              Compression::type codec,
                                              const ReaderProperties& properties,
                                              bool always_compressed,
-                                             const CryptoContext* ctx) {
+                                             const CryptoContext* ctx,
+                                             std::shared_ptr<PageReadStates> read_states) {
   return std::unique_ptr<PageReader>(new SerializedPageReader(
-      std::move(stream), total_num_values, codec, properties, ctx, always_compressed));
+      std::move(stream), total_num_values, codec, properties, ctx, always_compressed,
+      std::move(read_states)));
 }
 
 std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
@@ -630,7 +644,7 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
                                              const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
       new SerializedPageReader(std::move(stream), total_num_values, codec,
-                               ReaderProperties(pool), ctx, always_compressed));
+                               ReaderProperties(pool), ctx, always_compressed, nullptr));
 }
 
 namespace {
@@ -693,7 +707,7 @@ class ColumnReaderImplBase {
     return definition_level_decoder_.Decode(static_cast<int>(batch_size), levels);
   }
 
-  bool HasNextInternal() {
+  virtual bool HasNextInternal() {
     // Either there is no data page available yet, or the data page has been
     // exhausted
     if (num_buffered_values_ == 0 || num_decoded_values_ == num_buffered_values_) {
@@ -793,6 +807,10 @@ class ColumnReaderImplBase {
     // Read a data page.
     num_buffered_values_ = page.num_values();
 
+    // Reset skip info
+    skip_info_ = nullptr;
+    last_row_index_ = -1;
+
     // Have not decoded any values from the data page yet
     num_decoded_values_ = 0;
 
@@ -829,6 +847,10 @@ class ColumnReaderImplBase {
   int64_t InitializeLevelDecodersV2(const DataPageV2& page) {
     // Read a data page.
     num_buffered_values_ = page.num_values();
+
+    // Reset skip info
+    skip_info_ = nullptr;
+    last_row_index_ = -1;
 
     // Have not decoded any values from the data page yet
     num_decoded_values_ = 0;
@@ -934,7 +956,11 @@ class ColumnReaderImplBase {
   }
 
   int64_t available_values_current_page() const {
-    return num_buffered_values_ - num_decoded_values_;
+    if (skip_info_ != nullptr) {
+      return this->last_row_index_ - num_decoded_values_ + 1;
+    } else {
+      return num_buffered_values_ - num_decoded_values_;
+    }
   }
 
   const ColumnDescriptor* descr_;
@@ -979,6 +1005,12 @@ class ColumnReaderImplBase {
   // column chunk's data pages may include both dictionary-encoded and
   // plain-encoded data.
   std::unordered_map<int, std::unique_ptr<DecoderType>> decoders_;
+
+  // Skip info for current page
+  PageSkipInfo* skip_info_{nullptr};
+
+  // Last row index of current read row range in current page
+  int64_t last_row_index_{-1};
 
   void ConsumeBufferedValues(int64_t num_values) { num_decoded_values_ += num_values; }
 };
@@ -1368,6 +1400,54 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       throw ParquetException("Total size of items too large");
     }
     return bytes_for_values;
+  }
+
+  // Two parts different from original HasNextInternal:
+  //   1. When reading a new page, the corresponding skip info will be updated;
+  //   2. When current page has more data to read, it will check skip info
+  //   inside current page;
+  bool HasNextInternal() override {
+    // Either there is no data page available yet, or the data page has been
+    // exhausted
+    if (this->num_buffered_values_ == 0 ||
+        this->num_decoded_values_ == this->num_buffered_values_) {
+      if (!this->ReadNewPage() || this->num_buffered_values_ == 0) {
+        return false;
+      }
+
+      // Skip header rows and hide last rows for this page
+      auto read_states = this->pager_->GetPageReadStates();
+      if (read_states != nullptr) {
+        PageSkipInfo& skip_info = read_states->NextPageSkipInfo();
+        const int64_t records_to_skip = skip_info.SkipRowNum();
+        const int64_t skipped_records = SkipRecords(records_to_skip);
+        ARROW_CHECK_EQ(skipped_records, records_to_skip);
+        this->skip_info_ = &skip_info;
+        this->last_row_index_ = this->skip_info_->LastRowIndex();
+
+        const int64_t end_row_index = skip_info.EndRowIndex();
+        ARROW_DCHECK(end_row_index < this->num_buffered_values_);
+        this->num_buffered_values_ = end_row_index + 1;
+
+        // Should return immediately, otherwise, header skip rows
+        // will be skipped twice.
+        return true;
+      }
+    }
+
+    // Check should switch to next row range in this page
+    if (this->skip_info_ != nullptr) {
+      if (this->num_decoded_values_ == this->last_row_index_ + 1) {
+        ARROW_CHECK(this->skip_info_->HasNext());
+        PARQUET_THROW_NOT_OK(this->skip_info_->Next());
+        this->last_row_index_ = this->skip_info_->LastRowIndex();
+        const int64_t records_to_skip = this->skip_info_->SkipRowNum();
+        const int64_t skipped_records = SkipRecords(records_to_skip);
+        ARROW_CHECK_EQ(skipped_records, records_to_skip);
+      }
+    }
+
+    return true;
   }
 
   int64_t ReadRecords(int64_t num_records) override {
@@ -2317,4 +2397,100 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
 }
 
 }  // namespace internal
+
+::arrow::Result<std::shared_ptr<PageReadStates>> BuildPageReadStates(
+    int64_t num_rows, const ::arrow::io::ReadRange& chunk_range,
+    const std::vector<PageLocation>& page_locations, const RowRanges& row_ranges) {
+  const std::vector<RowRanges::Range>& ranges = row_ranges.GetRanges();
+  if (ranges.front().from < page_locations[0].first_row_index ||
+      ranges.back().to >= num_rows) {
+    std::stringstream ss;
+    ss << "Row range exceeded, allowable: [" << page_locations[0].first_row_index;
+    ss << "," << (num_rows - 1) << "], actually: " << row_ranges.ToString();
+    return ::arrow::Status::Invalid(ss.str());
+  }
+
+  if (row_ranges.GetRowCount() == num_rows) {
+    return nullptr;
+  }
+
+  auto last_row_index = [&page_locations, num_rows](size_t page_index) -> int64_t {
+    const size_t next_page_index = page_index + 1;
+    if (next_page_index >= page_locations.size()) {
+      return num_rows - 1;
+    } else {
+      return page_locations[next_page_index].first_row_index - 1;
+    }
+  };
+
+  ReadRanges read_ranges;
+  std::vector<RowRanges::Range> page_row_ranges;
+  // Add a range for dictionary page if required
+  if (chunk_range.offset < page_locations[0].offset) {
+    read_ranges.push_back(
+        {chunk_range.offset, page_locations[0].offset - chunk_range.offset});
+  }
+  for (size_t i = 0; i < page_locations.size(); i++) {
+    const auto from = page_locations[i].first_row_index;
+    const auto to = last_row_index(i);
+    if (row_ranges.IsOverlapping(from, to)) {
+      read_ranges.push_back(
+          {page_locations[i].offset, page_locations[i].compressed_page_size});
+      page_row_ranges.push_back({from, to});
+    }
+  }
+
+  // Skip info for this page contains three parts:
+  //   1. The intersection of the passed-in row ranges and the row ranges of the
+  //   hit page determines the actual row ranges to be read;
+  //   2. Skip row nums indicate the number of rows to be skipped between the
+  //   current actual row range and the previous actual row range;
+  //   3. Last row indices represent the last row offset for each actual row
+  //   range within the current page;
+  std::vector<PageSkipInfo> skip_info(page_row_ranges.size());
+
+  size_t right_index = 0;
+  for (size_t i = 0; i < page_row_ranges.size(); i++) {
+    const auto& left = page_row_ranges[i];
+    for (size_t j = right_index; j < ranges.size();) {
+      const auto& right = ranges[j];
+      if (left.IsBefore(right)) {
+        break;
+      } else if (left.IsAfter(right)) {
+        right_index = ++j;
+        continue;
+      }
+      auto range = RowRanges::Range::Intersection(left, right);
+      ARROW_CHECK(range != RowRanges::EMPTY_RANGE);
+      skip_info[i].ranges_.push_back(range);
+      if (right.to > range.to) {
+        break;
+      } else {
+        j++;
+      }
+    }
+  }
+
+  for (size_t i = 0; i < page_row_ranges.size(); i++) {
+    ARROW_DCHECK(skip_info[i].ranges_.size() > 0);
+    ARROW_DCHECK(skip_info[i].ranges_.front().from >= page_row_ranges[i].from);
+    ARROW_DCHECK(skip_info[i].ranges_.back().to <= page_row_ranges[i].to);
+
+    for (size_t j = 0; j < skip_info[i].ranges_.size(); j++) {
+      if (j == 0) {
+        skip_info[i].skip_row_nums_.push_back(skip_info[i].ranges_[j].from -
+                                              page_row_ranges[i].from);
+      } else {
+        skip_info[i].skip_row_nums_.push_back(skip_info[i].ranges_[j].from -
+                                              skip_info[i].ranges_[j - 1].to - 1);
+      }
+      skip_info[i].last_row_indices_.push_back(skip_info[i].ranges_[j].to -
+                                               page_row_ranges[i].from);
+    }
+  }
+
+  return std::make_shared<PageReadStates>(row_ranges, std::move(read_ranges),
+                                          std::move(skip_info));
+}
+
 }  // namespace parquet

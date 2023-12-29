@@ -27,8 +27,44 @@
 
 namespace parquet {
 
+namespace {
+
+static void CheckReadPosition(int64_t offset, int64_t length,
+                              const std::shared_ptr<ArrowInputFile>& source) {
+  PARQUET_ASSIGN_OR_THROW(auto size, source->GetSize());
+
+  if (offset < 0) {
+    throw ParquetException("Invalid read  offset ", offset);
+  }
+
+  if (length < 0) {
+    throw ParquetException("Invalid read  length ", length);
+  }
+
+  if (offset + length > size) {
+    std::stringstream ss;
+    ss << "Tried reading " << length << " bytes starting at position " << offset
+       << " from file but only got " << (size - offset);
+    throw ParquetException(ss.str());
+  }
+}
+
+}  // namespace
+
 std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
-    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {
+    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes,
+    const ReadRanges* read_ranges) {
+  if (read_ranges != nullptr) {
+    CheckReadPosition(start, num_bytes, source);
+
+    // Prefetch data
+    PARQUET_THROW_NOT_OK(source->WillNeed(*read_ranges));
+    PARQUET_ASSIGN_OR_THROW(auto input, ::arrow::io::ChunkBufferedInputStream::Create(
+                                            start, num_bytes, source, *read_ranges,
+                                            buffer_size_, io_merge_threshold_, pool_));
+    return std::move(input);
+  }
+
   if (buffered_stream_enabled_) {
     // ARROW-6180 / PARQUET-1636 Create isolated reader that references segment
     // of source
