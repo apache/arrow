@@ -1062,11 +1062,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
-      for (int64_t i = 0; i < *num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++(*values_to_read);
-        }
-      }
+      *values_to_read +=
+          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
       *values_to_read = batch_size;
