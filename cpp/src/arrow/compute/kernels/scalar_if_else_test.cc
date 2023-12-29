@@ -2485,16 +2485,14 @@ TEST(TestCaseWhen, UnionBoolString) {
   }
 }
 
-// FIXME(GH-15192): enabling this test produces test failures
-
-// TEST(TestCaseWhen, UnionBoolStringRandom) {
-//   for (const auto& type : std::vector<std::shared_ptr<DataType>>{
-//            sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
-//            dense_union({field("a", boolean()), field("b", utf8())}, {2, 7})}) {
-//     ARROW_SCOPED_TRACE(type->ToString());
-//     TestCaseWhenRandom(type);
-//   }
-// }
+TEST(TestCaseWhen, UnionBoolStringRandom) {
+  for (const auto& type : std::vector<std::shared_ptr<DataType>>{
+           sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
+           dense_union({field("a", boolean()), field("b", utf8())}, {2, 7})}) {
+    ARROW_SCOPED_TRACE(type->ToString());
+    TestCaseWhenRandom(type);
+  }
+}
 
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},

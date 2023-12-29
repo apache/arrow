@@ -26,6 +26,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"

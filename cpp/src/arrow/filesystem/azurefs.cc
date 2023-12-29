@@ -58,7 +58,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
                       blob_storage_scheme == other.blob_storage_scheme &&
                       dfs_storage_scheme == other.dfs_storage_scheme &&
                       default_metadata == other.default_metadata &&
-                      account_name_ == other.account_name_ &&
+                      account_name == other.account_name &&
                       credential_kind_ == other.credential_kind_;
   if (!equals) {
     return false;
@@ -104,31 +104,57 @@ std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
   return BuildBaseUrl(dfs_storage_scheme, dfs_storage_authority, account_name);
 }
 
-Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_name,
-                                                   const std::string& account_key) {
+Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_key) {
   credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
-  account_name_ = account_name;
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
   return Status::OK();
 }
 
-Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
+Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_id,
+                                                     const std::string& client_id,
+                                                     const std::string& client_secret) {
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
+      tenant_id, client_id, client_secret);
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureDefaultCredential() {
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& client_id) {
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ =
+      std::make_shared<Azure::Identity::ManagedIdentityCredential>(client_id);
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureWorkloadIdentityCredential() {
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
+  return Status::OK();
+}
+
 Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceClient()
     const {
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
     case CredentialKind::kTokenCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
@@ -136,15 +162,18 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
 
 Result<std::unique_ptr<DataLake::DataLakeServiceClient>>
 AzureOptions::MakeDataLakeServiceClient() const {
+  if (account_name.empty()) {
+    return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
     case CredentialKind::kTokenCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name_), token_credential_);
+          AccountDfsUrl(account_name), token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name_), storage_shared_key_credential_);
+          AccountDfsUrl(account_name), storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -934,14 +963,38 @@ class AzureFileSystem::Impl {
         break;
     }
     ARROW_ASSIGN_OR_RAISE(
-        cached_hns_support_,
+        auto hns_support,
         internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
-    DCHECK_NE(cached_hns_support_, HNSSupport::kUnknown);
-    // Caller should handle kContainerNotFound case appropriately.
-    return cached_hns_support_;
+    DCHECK_NE(hns_support, HNSSupport::kUnknown);
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      // Caller should handle kContainerNotFound case appropriately as it knows the
+      // container this refers to, but the cached value in that case should remain
+      // kUnknown before we get a CheckIfHierarchicalNamespaceIsEnabled result that
+      // is not kContainerNotFound.
+      cached_hns_support_ = HNSSupport::kUnknown;
+    } else {
+      cached_hns_support_ = hns_support;
+    }
+    return hns_support;
   }
 
  public:
+  /// This is used from unit tests to ensure we perform operations on all the
+  /// possible states of cached_hns_support_.
+  void ForceCachedHierarchicalNamespaceSupport(int support) {
+    auto hns_support = static_cast<HNSSupport>(support);
+    switch (hns_support) {
+      case HNSSupport::kUnknown:
+      case HNSSupport::kContainerNotFound:
+      case HNSSupport::kDisabled:
+      case HNSSupport::kEnabled:
+        cached_hns_support_ = hns_support;
+        return;
+    }
+    // This is reachable if an invalid int is cast to enum class HNSSupport.
+    DCHECK(false) << "Invalid enum HierarchicalNamespaceSupport value.";
+  }
+
   Result<FileInfo> GetFileInfo(const AzureLocation& location) {
     if (location.container.empty()) {
       DCHECK(location.path.empty());
@@ -1551,6 +1604,10 @@ class AzureFileSystem::Impl {
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {
   default_async_is_sync_ = false;
+}
+
+void AzureFileSystem::ForceCachedHierarchicalNamespaceSupport(int hns_support) {
+  impl_->ForceCachedHierarchicalNamespaceSupport(hns_support);
 }
 
 Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(

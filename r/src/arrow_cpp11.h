@@ -27,6 +27,18 @@
 
 #include "./nameof.h"
 
+// Simple dcheck that doesn't use assert (i.e., won't crash the R session)
+// Condition this on our own debug flag to avoid this ending up in any CRAN
+// checks.
+#if defined(ARROW_R_DEBUG)
+#define ARROW_R_DCHECK(EXPR)                                              \
+  do {                                                                    \
+    if (!(EXPR)) Rf_error("Failed DCHECK: %s evaluated to false", #EXPR); \
+  } while (false)
+#else
+#define ARROW_R_DCHECK(EXPR)
+#endif
+
 // borrowed from enc package
 // because R does not make these macros available (i.e. from Defn.h)
 #define UTF8_MASK (1 << 3)
@@ -465,7 +477,7 @@ inline SEXP as_sexp(r_vec_size size) {
   if (x > std::numeric_limits<int>::max()) {
     return Rf_ScalarReal(x);
   } else {
-    return Rf_ScalarInteger(x);
+    return Rf_ScalarInteger(static_cast<int>(x));
   }
 }
 
