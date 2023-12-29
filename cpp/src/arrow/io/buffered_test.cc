@@ -938,4 +938,164 @@ TEST_F(TestBufferedInputStreamRandom, ReadsWithReadBound) {
   }
 }
 
+class TestChunkBufferedInputStream : public FileTestFixture<ChunkBufferedInputStream> {
+ public:
+  void SetUp() override {
+    FileTestFixture<ChunkBufferedInputStream>::SetUp();
+    pool_ = default_memory_pool();
+  }
+
+  void MakeExample() {
+    test_data_ = GenerateRandomData(nbytes_);
+
+    ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
+    ASSERT_OK(file_out->Write(test_data_));
+    ASSERT_OK(file_out->Close());
+
+    ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
+    raw_ = file_in;
+    tracked_ = TrackedRandomAccessFile::Make(dynamic_cast<RandomAccessFile*>(raw_.get()));
+
+    // clang-format off
+    //  file content:
+    // ...-----------------------------------------------------------------------> footer
+    //    |  512k  |  200K  |   1M  |  512K  |  400K  |  208K  |  332K  | 630K  |
+    // 1048576  1572864  1777664 2826240  3350528  3760128  3973120  4313088  4958208
+    //
+    read_ranges_ =
+        {ReadRange{1048576, 524288},  // 512k  |
+         ReadRange{1572864, 204800},  // 200k  | consecutive read range will be in same io block
+         ReadRange{1777664, 319488},  // 312K  |
+         ReadRange{2826240, 114688},  // 112K     | single io block
+         ReadRange{3350528, 196608},  // 192K        | single io block
+         ReadRange{3760128, 204800},  // 200K  |
+         ReadRange{3973120, 329728},  // 322K  | distance <= 64K, merge into same io block
+         ReadRange{4313088, 634880},  // 620K     |
+         ReadRange{4958208, 102400}}; // 100K     | can merge to pre io block but exceed threshold
+
+    actual_io_range_  = {
+        ReadRange{1048576, (1777664 - 1048576) + 319488},
+        ReadRange{2826240, 114688},
+        ReadRange{3350528, 196608},
+        ReadRange{3760128, (3973120 - 3760128) + 329728},
+        ReadRange{4313088, (4958208 - 4313088) + 102400}
+    };
+    // clang-format on
+
+    ASSERT_OK_AND_ASSIGN(buffered_, ChunkBufferedInputStream::Create(
+                                        0, nbytes_, tracked_, read_ranges_, buffer_size_,
+                                        io_merge_threshold_, pool_));
+  }
+
+  std::tuple<int64_t, int64_t, int64_t> MakeReadInfo(int64_t length) {
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<int64_t> d(0, length);
+    const int64_t point0 = d(gen);
+    int64_t point1 = d(gen);
+    while (point0 == point1) {
+      point1 = d(gen);
+    }
+
+    int64_t peek_length, advance_length;
+    if (point0 > point1) {
+      peek_length = point1;
+      advance_length = point0;
+    } else {
+      peek_length = point0;
+      advance_length = point1;
+    }
+
+    return std::make_tuple(peek_length, advance_length, length - advance_length);
+  }
+
+  void CheckResult(const std::shared_ptr<Buffer>& buffer, int64_t offset,
+                   int64_t length) {
+    auto val = test_data_.substr(offset, length);
+    for (int i = 0; i < length; i++) {
+      ASSERT_EQ(buffer->data()[i], (uint8_t)val[i]);
+    }
+  }
+
+ protected:
+  const int nbytes_ = 10 * 1024 * 1024;           // 10MB
+  const int64_t buffer_size_ = 1024 * 1024L;      // 1MB
+  const int32_t io_merge_threshold_ = 64 * 1024;  // 64KB
+
+  std::vector<ReadRange> read_ranges_;
+  std::vector<ReadRange> actual_io_range_;
+
+  std::string test_data_;
+  ::arrow::MemoryPool* pool_;
+  std::shared_ptr<InputStream> raw_;
+  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+};
+
+TEST_F(TestChunkBufferedInputStream, NormalRead) {
+  MakeExample();
+
+  for (const auto read_range : read_ranges_) {
+    const auto& read_info = MakeReadInfo(read_range.length);
+    ASSERT_OK(buffered_->Peek(std::get<0>(read_info)));
+
+    const int64_t advance_length = std::get<1>(read_info);
+    ASSERT_OK(buffered_->Advance(advance_length));
+
+    const int64_t length = std::get<2>(read_info);
+    ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(length));
+    ASSERT_EQ(length, buf->size());
+    CheckResult(buf, read_range.offset + advance_length, length);
+  }
+
+  EXPECT_EQ(tracked_->get_read_ranges(), actual_io_range_);
+}
+
+TEST_F(TestChunkBufferedInputStream, InvalidRead) {
+  MakeExample();
+
+  // First invoke read interface and passed-in length is bigger than expected
+  ASSERT_OK_AND_ASSIGN(auto str, buffered_->Peek(read_ranges_[0].length + 10));
+  ASSERT_EQ(read_ranges_[0].length, str.length());
+
+  // Current read range is loaded, then passed-in length is bigger than the
+  // remaining bytes for current read range.
+  auto read_info = MakeReadInfo(read_ranges_[0].length);
+  ASSERT_OK(buffered_->Advance(std::get<1>(read_info)));
+  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Read length is illegal",
+                             buffered_->Advance(std::get<2>(read_info) + 1));
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(std::get<2>(read_info)));
+  ASSERT_EQ(std::get<2>(read_info), buf->size());
+  CheckResult(buf, read_ranges_[0].offset + std::get<1>(read_info),
+              std::get<2>(read_info));
+
+  // Read multiple times and the last read length is bigger than the remaining
+  // bytes for current read range.
+  read_info = MakeReadInfo(read_ranges_[1].length);
+  while (std::get<2>(read_info) < 10) {
+    read_info = MakeReadInfo(read_ranges_[1].length);
+  }
+  ASSERT_OK(buffered_->Peek(std::get<0>(read_info)));
+  ASSERT_OK(buffered_->Advance(std::get<1>(read_info)));
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(std::get<2>(read_info) - 10));
+  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Read length is illegal",
+                             buffered_->Read(20));
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(10));
+  ASSERT_EQ(10, buf->size());
+  CheckResult(buf, read_ranges_[1].offset + read_ranges_[1].length - 10, 10);
+
+  // Read more than given read ranges
+  for (size_t i = 2; i < read_ranges_.size(); i++) {
+    read_info = MakeReadInfo(read_ranges_[i].length);
+    ASSERT_OK(buffered_->Peek(std::get<0>(read_info)));
+    ASSERT_OK(buffered_->Advance(std::get<1>(read_info)));
+    ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(std::get<2>(read_info)));
+    ASSERT_EQ(std::get<2>(read_info), buf->size());
+    CheckResult(buf, read_ranges_[i].offset + std::get<1>(read_info),
+                std::get<2>(read_info));
+  }
+
+  ASSERT_OK_AND_ASSIGN(str, buffered_->Peek(100));
+  ASSERT_EQ(0, str.size());
+}
+
 }  // namespace arrow::io

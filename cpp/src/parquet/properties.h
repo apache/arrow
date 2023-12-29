@@ -50,6 +50,9 @@ enum class ParquetDataPageVersion { V1, V2 };
 /// Align the default buffer size to a small multiple of a page size.
 constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
+/// Merge two io blocks into one when their distance is lower then the threshold.
+constexpr int32_t kDefaultIoMergeThreshold = 4096 * 2;
+
 constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // Structs in the thrift definition are relatively large (at least 300 bytes).
 // This limits total memory to the same order of magnitude as
@@ -88,6 +91,11 @@ class PARQUET_EXPORT ReaderProperties {
   /// Set the size of the buffered stream buffer in bytes.
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
+  /// Return the threshold of the merging two io blocks.
+  int32_t io_merge_threshold() const { return io_merge_threshold_; }
+  /// Set the threshold of merging two io blocks.
+  void set_io_merge_threshold(int32_t threshold) { io_merge_threshold_ = threshold; }
+
   /// \brief Return the size limit on thrift strings.
   ///
   /// This limit helps prevent space and time bombs in files, but may need to
@@ -123,6 +131,7 @@ class PARQUET_EXPORT ReaderProperties {
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
+  int32_t io_merge_threshold_ = kDefaultIoMergeThreshold;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;

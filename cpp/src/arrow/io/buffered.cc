@@ -497,5 +497,141 @@ Future<std::shared_ptr<const KeyValueMetadata>> BufferedInputStream::ReadMetadat
   return impl_->raw()->ReadMetadataAsync(io_context);
 }
 
+// ----------------------------------------------------------------------
+// ChunkBufferedInputStream implementation
+
+ChunkBufferedInputStream::ChunkBufferedInputStream(
+    int64_t start, int64_t length, std::shared_ptr<RandomAccessFile> raw,
+    std::vector<ReadRange> read_ranges, int64_t buffer_size, int32_t io_merge_threshold,
+    std::shared_ptr<ResizableBuffer> buffer)
+    : is_open_(true),
+      raw_pos_(start),
+      raw_end_(start + length),
+      raw_(std::move(raw)),
+      read_ranges_(std::move(read_ranges)),
+      current_range_available_bytes_(read_ranges_[read_ranges_idx_].length),
+      buffer_size_(buffer_size),
+      io_merge_threshold_(io_merge_threshold),
+      buffer_(std::move(buffer)) {}
+
+Result<std::shared_ptr<ChunkBufferedInputStream>> ChunkBufferedInputStream::Create(
+    int64_t start, int64_t length, std::shared_ptr<RandomAccessFile> impl,
+    std::vector<ReadRange> read_ranges, int64_t buffer_size, int32_t io_merge_threshold,
+    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ::arrow::AllocateResizableBuffer(0, pool));
+  return std::shared_ptr<ChunkBufferedInputStream>(
+      new ChunkBufferedInputStream(start, length, std::move(impl), std::move(read_ranges),
+                                   buffer_size, io_merge_threshold, std::move(buffer)));
+}
+
+Status ChunkBufferedInputStream::Advance(int64_t nbytes) {
+  RETURN_NOT_OK(BufferIfNeeded(nbytes));
+  auto bytes_read = std::min(current_range_available_bytes_, nbytes);
+  ConsumeBuffer(bytes_read);
+  return Status::OK();
+}
+
+Result<std::string_view> ChunkBufferedInputStream::Peek(int64_t nbytes) {
+  RETURN_NOT_OK(BufferIfNeeded(nbytes));
+  auto bytes_read = std::min(current_range_available_bytes_, nbytes);
+  return std::string_view(reinterpret_cast<const char*>(buffer_->data() + buffer_pos_),
+                          bytes_read);
+}
+
+Result<int64_t> ChunkBufferedInputStream::Read(int64_t nbytes, void* out) {
+  RETURN_NOT_OK(BufferIfNeeded(nbytes));
+  auto bytes_read = std::min(current_range_available_bytes_, nbytes);
+  std::memcpy(out, buffer_->data() + buffer_pos_, bytes_read);
+  ConsumeBuffer(bytes_read);
+  return nbytes;
+}
+
+Result<std::shared_ptr<Buffer>> ChunkBufferedInputStream::Read(int64_t nbytes) {
+  RETURN_NOT_OK(BufferIfNeeded(nbytes));
+  auto bytes_read = std::min(current_range_available_bytes_, nbytes);
+  auto buffer = SliceBuffer(buffer_, buffer_pos_, bytes_read);
+  ConsumeBuffer(bytes_read);
+  return std::move(buffer);
+}
+
+Status ChunkBufferedInputStream::Close() {
+  is_open_ = false;
+  return Status::OK();
+}
+
+Result<int64_t> ChunkBufferedInputStream::Tell() const {
+  RETURN_NOT_OK(CheckClosed());
+  return raw_pos_;
+}
+
+bool ChunkBufferedInputStream::closed() const { return !is_open_; }
+
+Status ChunkBufferedInputStream::BufferIfNeeded(int64_t nbytes) {
+  RETURN_NOT_OK(CheckClosed());
+  RETURN_NOT_OK(CheckReadRange(nbytes));
+
+  if (ARROW_PREDICT_TRUE(bytes_buffered_ > 0)) {
+    return Status::OK();
+  }
+
+  if (read_ranges_idx_ == read_ranges_.size()) {
+    ARROW_DCHECK(current_range_available_bytes_ == 0);
+    return Status::OK();
+  }
+
+  read_gaps_.clear();
+  read_gaps_idx_ = 0;
+  buffer_pos_ = 0;
+
+  // Read range has been checked, so get read range by idx is safe
+  auto next_read_range = read_ranges_[read_ranges_idx_];
+  raw_pos_ = next_read_range.offset;
+  int64_t to_read = next_read_range.length;
+  read_gaps_.push_back(0);
+
+  // Try to coalesce read ranges according to io_merge_threshold_ and buffer_size_
+  int64_t next_raw_pos = raw_pos_ + to_read;
+  for (size_t i = read_ranges_idx_ + 1; i < read_ranges_.size(); i++) {
+    next_read_range = read_ranges_[i];
+    if (next_raw_pos == next_read_range.offset) {
+      // For consecutive read ranges, we can merge them if the total bytes to read
+      // is less than buffer_size_
+      if (to_read + next_read_range.length > buffer_size_) {
+        break;
+      }
+
+      to_read += next_read_range.length;
+      next_raw_pos += next_read_range.length;
+      read_gaps_.push_back(0);
+    } else if (next_read_range.offset - next_raw_pos < io_merge_threshold_) {
+      // For non-consecutive read ranges, we can merge them if the gap between them
+      // is less than io_merge_threshold_ and the total bytes to read is less than
+      // buffer_size_
+      auto gap = next_read_range.offset - next_raw_pos;
+      if (to_read + gap + next_read_range.length > buffer_size_) {
+        break;
+      }
+
+      to_read += (gap + next_read_range.length);
+      next_raw_pos += (gap + next_read_range.length);
+      read_gaps_.push_back(static_cast<int32_t>(gap));
+    } else {
+      break;
+    }
+  }
+
+  ARROW_DCHECK(to_read > 0);
+  RETURN_NOT_OK(CheckPosition(to_read));
+  RETURN_NOT_OK(EnsureBufferCapacity(to_read));
+  ARROW_ASSIGN_OR_RAISE(auto bytes_read,
+                        raw_->ReadAt(raw_pos_, to_read, buffer_->mutable_data()));
+  ARROW_CHECK(bytes_read == to_read);
+  raw_pos_ += bytes_read;
+  bytes_buffered_ = bytes_read;
+  current_range_available_bytes_ = read_ranges_[read_ranges_idx_].length;
+
+  return Status::OK();
+}
+
 }  // namespace io
 }  // namespace arrow
