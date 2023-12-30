@@ -458,6 +458,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       list_view(utf8()),
       large_list_view(utf8()),
       dictionary(int32(), utf8()),
+      struct_({}),
       struct_({field("a", utf8()), field("b", int32())}),
       sparse_union(union_fields1, union_type_codes),
       sparse_union(union_fields2, union_type_codes),
@@ -471,6 +472,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
 
 TEST_F(TestArray, TestMakeArrayOfNull) {
   for (int64_t length : {0, 1, 16, 133}) {
+    ARROW_SCOPED_TRACE("length = ", length);
     for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
@@ -498,6 +500,29 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
         ASSERT_FALSE(array->IsValid(i));
       }
     }
+  }
+
+  for (int64_t length : {0, 16}) {
+    ARROW_SCOPED_TRACE("length = ", length, " (required fields)");
+
+    auto req = [](auto type) { return field("", std::move(type), /*nullable=*/false); };
+
+    // union with no nullable fields cannot represent a null
+    ASSERT_RAISES(TypeError, MakeArrayOfNull(dense_union({req(int8())}), length));
+    // run end encoded with non nullable child cannot represent a null
+    // (not directly constructible, but not invalid per Columnar.rst)
+    auto ree = run_end_encoded(int16(), utf8());
+    const_cast<FieldVector&>(ree->fields())[1] = req(utf8());
+    ASSERT_RAISES(TypeError, MakeArrayOfNull(ree, length));
+
+    // struct with no nullable fields has a top level bitmap and can mask them
+    ASSERT_OK_AND_ASSIGN(auto s, MakeArrayOfNull(struct_({req(int8())}), length));
+    ASSERT_OK(s->ValidateFull());
+
+    // dictionary with non-nullable indices can use a 1-long dict of null
+    ASSERT_OK_AND_ASSIGN(
+        s, MakeArrayOfNull(struct_({req(dictionary(int8(), int8()))}), length));
+    ASSERT_OK(s->ValidateFull());
   }
 }
 

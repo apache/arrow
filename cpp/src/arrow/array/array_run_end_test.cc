@@ -475,9 +475,7 @@ TEST_P(TestRunEndEncodedArray, Validate) {
   BitmapFromVector<bool>({true, false}, &null_bitmap);
   has_null_buffer->data()->buffers[0] = null_bitmap;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          std::string("Invalid: Run end encoded array should not have a null bitmap.")),
+      Invalid, ::testing::HasSubstr(std::string("should not have a null bitmap")),
       has_null_buffer->Validate());
 
   auto too_many_children = MakeArray(good_array->data()->Copy());
@@ -503,7 +501,7 @@ TEST_P(TestRunEndEncodedArray, Validate) {
       values_nullptr->Validate());
 
   auto run_ends_string = MakeArray(good_array->data()->Copy());
-  run_ends_string->data()->child_data[0] = values->data();
+  run_ends_string->data()->child_data[0] = MakeEmptyArray(utf8()).ValueOrDie()->data();
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
@@ -529,10 +527,9 @@ TEST_P(TestRunEndEncodedArray, Validate) {
     malformed_array->data()->buffers.emplace_back(NULLPTR);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        ::testing::HasSubstr(
-            std::string(
-                "Invalid: Run ends array invalid: Expected 2 buffers in array of type ") +
-            run_end_type->ToString() + ", got 3"),
+        ::testing::HasSubstr(std::string("Invalid: Run ends array invalid: Invalid: "
+                                         "Expected 2 buffers in array of type ") +
+                             run_end_type->ToString() + ", got 3"),
         run_ends_malformed->Validate());
   }
 
@@ -543,8 +540,9 @@ TEST_P(TestRunEndEncodedArray, Validate) {
     malformed_array->data()->buffers.emplace_back(NULLPTR);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        ::testing::HasSubstr("Invalid: Values array invalid: Expected 2 buffers in array "
-                             "of type int32, got 3"),
+        ::testing::HasSubstr(
+            "Invalid: Values array invalid: Invalid: Expected 2 buffers in array "
+            "of type int32, got 3"),
         values_malformed->Validate());
   }
 

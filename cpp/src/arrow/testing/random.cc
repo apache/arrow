@@ -46,6 +46,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
+#include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
@@ -54,6 +55,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
+using internal::Zip;
 
 namespace random {
 
@@ -1153,14 +1155,11 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
 
     case Type::type::STRUCT: {
       ArrayVector child_arrays(field.type()->num_fields());
-      FieldVector child_fields(field.type()->num_fields());
-      for (int i = 0; i < field.type()->num_fields(); i++) {
-        const auto& child_field = field.type()->field(i);
-        child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
-        child_fields[i] = child_field;
+      for (auto [field, child_array] : Zip(field.type()->fields(), child_arrays)) {
+        child_array = ArrayOf(*field, length, alignment, memory_pool);
       }
-      return *StructArray::Make(
-          child_arrays, child_fields,
+      return std::make_shared<StructArray>(
+          field.type(), length, std::move(child_arrays),
           NullBitmap(length, null_probability, alignment, memory_pool));
     }
 

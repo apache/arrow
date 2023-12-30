@@ -106,6 +106,7 @@ struct BoundsChecker {
 struct ValidateArrayImpl {
   const ArrayData& data;
   const bool full_validation;
+  int64_t null_count = kUnknownNullCount;
 
   Status Validate() {
     if (data.type == nullptr) {
@@ -286,26 +287,16 @@ struct ValidateArrayImpl {
                              ") multiplied by the value size (", list_size, ")");
     }
 
-    const Status child_valid = RecurseInto(values);
-    if (!child_valid.ok()) {
-      return Status::Invalid("Fixed size list child array invalid: ",
-                             child_valid.ToString());
-    }
-
+    RETURN_NOT_OK(RecurseIntoField(0, "Fixed size list child array"));
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     for (int i = 0; i < type.num_fields(); ++i) {
-      const auto& field_data = *data.child_data[i];
-
       // Validate child first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
-      if (!field_valid.ok()) {
-        return Status::Invalid("Struct child array #", i,
-                               " invalid: ", field_valid.ToString());
-      }
+      RETURN_NOT_OK(RecurseIntoField(i, "Struct child array #", i));
 
+      const auto& field_data = *data.child_data[i];
       if (field_data.length < data.length + data.offset) {
         return Status::Invalid("Struct child array #", i,
                                " has length smaller than expected for struct array (",
@@ -324,15 +315,10 @@ struct ValidateArrayImpl {
 
   Status Visit(const UnionType& type) {
     for (int i = 0; i < type.num_fields(); ++i) {
-      const auto& field_data = *data.child_data[i];
-
       // Validate children first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
-      if (!field_valid.ok()) {
-        return Status::Invalid("Union child array #", i,
-                               " invalid: ", field_valid.ToString());
-      }
+      RETURN_NOT_OK(RecurseIntoField(i, "Union child array #", i));
 
+      const auto& field_data = *data.child_data[i];
       if (type.mode() == UnionMode::SPARSE &&
           field_data.length < data.length + data.offset) {
         return Status::Invalid("Sparse union child array #", i,
@@ -410,10 +396,7 @@ struct ValidateArrayImpl {
       return Status::Invalid("Dictionary values must be non-null");
     }
     // Validate dictionary
-    const Status dict_valid = RecurseInto(*data.dictionary);
-    if (!dict_valid.ok()) {
-      return Status::Invalid("Dictionary array invalid: ", dict_valid.ToString());
-    }
+    RETURN_NOT_OK(RecurseInto(*data.dictionary, /*nullable=*/true, "Dictionary array"));
     // Validate indices
     RETURN_NOT_OK(ValidateWithType(*type.index_type()));
 
@@ -454,9 +437,36 @@ struct ValidateArrayImpl {
     return data.buffers[index] != nullptr && data.buffers[index]->address() != 0;
   }
 
-  Status RecurseInto(const ArrayData& related_data) {
-    ValidateArrayImpl impl{related_data, full_validation};
-    return impl.Validate();
+  template <typename... FieldDescription>
+  Status RecurseIntoField(int field_index, const FieldDescription&... description) {
+    const auto& related_data = *data.child_data[field_index];
+
+    return RecurseInto(related_data,
+                       data.type->storage_type()->field(field_index)->nullable(),
+                       description...);
+  }
+
+  template <typename... FieldDescription>
+  Status RecurseInto(const ArrayData& related_data, bool nullable,
+                     const FieldDescription&... description) {
+    ValidateArrayImpl related_validator{related_data, full_validation};
+
+    if (!nullable) {
+      int64_t related_null_count = related_data.null_count;
+      if (full_validation && related_null_count == kUnknownNullCount) {
+        related_null_count = related_validator.GetNullCount();
+      }
+
+      if (related_null_count != 0 && related_null_count != kUnknownNullCount) {
+        return Status::Invalid(description..., " invalid: was non-nullable but had ",
+                               related_null_count, " nulls");
+      }
+    }
+
+    if (Status st = related_validator.Validate(); !st.ok()) {
+      return st.WithMessage(description..., " invalid: ", st.ToString());
+    }
+    return Status::OK();
   }
 
   Status ValidateLayout(const DataType& type) {
@@ -511,7 +521,7 @@ struct ValidateArrayImpl {
           }
           break;
         case DataTypeLayout::ALWAYS_NULL:
-          // XXX Should we raise on non-null buffer?
+          // Raising on non-null buffer is handled in ValidateNulls.
           continue;
         default:
           continue;
@@ -535,10 +545,17 @@ struct ValidateArrayImpl {
   }
 
   Status ValidateNulls(const DataType& type) {
-    if (type.storage_id() != Type::NA && data.null_count > 0 &&
-        data.buffers[0] == nullptr) {
-      return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
-                             " nulls but no null bitmap");
+    if (!HasValidityBitmap(type.storage_id())) {
+      if (data.buffers[0] != nullptr) {
+        return Status::Invalid("Array of type ", type.ToString(),
+                               " should not have a null bitmap, but one was present");
+      }
+    }
+    if (type.storage_id() != Type::NA) {
+      if (data.null_count > 0 && data.buffers[0] == nullptr) {
+        return Status::Invalid("Array of type ", type.ToString(), " has ",
+                               data.null_count, " nulls but no null bitmap");
+      }
     }
     if (data.null_count > data.length) {
       return Status::Invalid("Null count exceeds array length");
@@ -549,24 +566,30 @@ struct ValidateArrayImpl {
 
     if (full_validation) {
       if (data.null_count != kUnknownNullCount) {
-        int64_t actual_null_count;
-        if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
-          // Do not call GetNullCount() as it would also set the `null_count` member
-          actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
-                                                         data.offset, data.length);
-        } else if (data.type->storage_id() == Type::NA) {
-          actual_null_count = data.length;
-        } else {
-          actual_null_count = 0;
-        }
-        if (actual_null_count != data.null_count) {
+        if (GetNullCount() != data.null_count) {
           return Status::Invalid("null_count value (", data.null_count,
                                  ") doesn't match actual number of nulls in array (",
-                                 actual_null_count, ")");
+                                 null_count, ")");
         }
       }
     }
     return Status::OK();
+  }
+
+  int64_t GetNullCount() {
+    if (null_count != kUnknownNullCount) return null_count;
+
+    if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
+      // Do not call GetNullCount() as it would also set the `null_count` member
+      null_count =
+          data.length - CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+    } else if (data.type->storage_id() == Type::NA) {
+      null_count = data.length;
+    } else {
+      null_count = 0;
+    }
+
+    return null_count;
   }
 
   Status ValidateFixedWidthBuffers() {
@@ -697,13 +720,10 @@ struct ValidateArrayImpl {
 
   template <typename ListType>
   Status ValidateListLike(const ListType& type) {
-    const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values);
-    if (!child_valid.ok()) {
-      return Status::Invalid("List child array invalid: ", child_valid.ToString());
-    }
+    RETURN_NOT_OK(RecurseIntoField(0, "List child array"));
 
     // First validate offsets, to make sure the accesses below are valid
+    const ArrayData& values = *data.child_data[0];
     RETURN_NOT_OK(ValidateOffsetsAndSizes(type, values.offset + values.length));
 
     // An empty list array can have 0 offsets
@@ -739,14 +759,9 @@ struct ValidateArrayImpl {
 
   template <typename ListViewType>
   Status ValidateListView(const ListViewType& type) {
-    const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values);
-    if (!child_valid.ok()) {
-      return Status::Invalid("List-view child array is invalid: ",
-                             child_valid.ToString());
-    }
+    RETURN_NOT_OK(RecurseIntoField(0, "List-view child array"));
     // For list-views, sizes are validated together with offsets.
-    return ValidateOffsetsAndSizes(type, /*offset_limit=*/values.length);
+    return ValidateOffsetsAndSizes(type, /*offset_limit=*/data.child_data[0]->length);
   }
 
   template <typename RunEndCType>
@@ -755,10 +770,6 @@ struct ValidateArrayImpl {
       return Status::Invalid(
           "Run end encoded array should have 2 children; this array has ",
           data.child_data.size());
-    }
-
-    if (data.buffers.size() > 0 && data.buffers[0] != nullptr) {
-      return Status::Invalid("Run end encoded array should not have a null bitmap.");
     }
 
     const auto& run_ends_data = data.child_data[0];
@@ -770,15 +781,10 @@ struct ValidateArrayImpl {
     if (!values_data) {
       return Status::Invalid("Values array is null pointer");
     }
+
     // We must validate child array buffers are valid before making additional checks.
-    const Status run_ends_valid = RecurseInto(*run_ends_data);
-    if (!run_ends_valid.ok()) {
-      return Status::Invalid("Run ends array invalid: ", run_ends_valid.message());
-    }
-    const Status values_valid = RecurseInto(*values_data);
-    if (!values_valid.ok()) {
-      return Status::Invalid("Values array invalid: ", values_valid.message());
-    }
+    RETURN_NOT_OK(RecurseIntoField(0, "Run ends array"));
+    RETURN_NOT_OK(RecurseIntoField(1, "Values array"));
 
     RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
         type, data.length, run_ends_data, values_data, data.GetNullCount(), data.offset));
