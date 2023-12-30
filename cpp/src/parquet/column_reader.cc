@@ -1192,12 +1192,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     const bool has_spaced_values = HasSpacedValues(this->descr_);
     int64_t null_count = 0;
     if (!has_spaced_values) {
-      int values_to_read = 0;
-      for (int64_t i = 0; i < num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++values_to_read;
-        }
-      }
+      int values_to_read =
+          std::count(def_levels, def_levels + num_def_levels, this->max_def_level_);
       total_values = this->ReadValues(values_to_read, values);
       ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
                                    /*length=*/total_values,
@@ -1906,11 +1902,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // When reading dense we need to figure out number of values to read.
     const int16_t* def_levels = this->def_levels();
-    for (int64_t i = start_levels_position; i < levels_position_; ++i) {
-      if (def_levels[i] == this->max_def_level_) {
-        ++(*values_to_read);
-      }
-    }
+    *values_to_read += std::count(def_levels + start_levels_position,
+                                  def_levels + levels_position_, this->max_def_level_);
     ReadValuesDense(*values_to_read);
   }
 
