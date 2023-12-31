@@ -1090,12 +1090,12 @@ void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to
 
 std::tuple<StatusCode, std::string> GetExpectedError(
     const std::shared_ptr<DataType>& type,
-    const std::shared_ptr<DataType>& invalidCastType) {
+    const std::shared_ptr<DataType>& invalid_cast_type) {
   if (type->id() == Type::FIXED_SIZE_LIST) {
     return std::make_tuple(
         StatusCode::TypeError,
         "Size of FixedSizeList is not the same. input list: " + type->ToString() +
-            " output list: " + invalidCastType->ToString());
+            " output list: " + invalid_cast_type->ToString());
   } else {
     return std::make_tuple(
         StatusCode::Invalid,
@@ -1196,10 +1196,10 @@ class TestListLikeScalar : public ::testing::Test {
     CheckListCast(
         scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
 
-    auto invalidCastType = fixed_size_list(value_->type(), 5);
-    auto [expectedCode, expectedMessage] = GetExpectedError(type_, invalidCastType);
+    auto invalid_cast_type = fixed_size_list(value_->type(), 5);
+    auto [expectedCode, expectedMessage] = GetExpectedError(type_, invalid_cast_type);
 
-    CheckListCastError(scalar, invalidCastType, expectedCode, expectedMessage);
+    CheckListCastError(scalar, invalid_cast_type, expectedCode, expectedMessage);
   }
 
  protected:
@@ -1256,10 +1256,10 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, large_list(key_value_type));
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 
-  auto invalidCastType = fixed_size_list(key_value_type, 5);
-  auto [expectedCode, expectedMessage] = GetExpectedError(scalar.type, invalidCastType);
+  auto invalid_cast_type = fixed_size_list(key_value_type, 5);
+  auto [expectedCode, expectedMessage] = GetExpectedError(scalar.type, invalid_cast_type);
 
-  CheckListCastError(scalar, invalidCastType, expectedCode, expectedMessage);
+  CheckListCastError(scalar, invalid_cast_type, expectedCode, expectedMessage);
 }
 
 TEST(TestStructScalar, FieldAccess) {
