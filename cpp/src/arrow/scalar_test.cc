@@ -1088,26 +1088,24 @@ void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to
                       *checked_cast<const BaseListScalar&>(*cast_scalar).value);
 }
 
-std::tuple<StatusCode, std::string> GetExpectedError(
-    const std::shared_ptr<DataType>& type,
-    const std::shared_ptr<DataType>& invalid_cast_type) {
-  if (type->id() == Type::FIXED_SIZE_LIST) {
-    return std::make_tuple(
-        StatusCode::TypeError,
-        "Size of FixedSizeList is not the same. input list: " + type->ToString() +
-            " output list: " + invalid_cast_type->ToString());
-  } else {
-    return std::make_tuple(
-        StatusCode::Invalid,
-        "ListType can only be casted to FixedSizeListType if the lists are all the "
-        "expected size.");
-  }
-}
-
 template <typename ScalarType>
 void CheckListCastError(const ScalarType& scalar,
-                        const std::shared_ptr<DataType>& to_type, const StatusCode code,
-                        const std::string& expected_message) {
+                        const std::shared_ptr<DataType>& from_type,
+                        const std::shared_ptr<DataType>& to_type) {
+  StatusCode code;
+  std::string expected_message;
+  if (from_type->id() == Type::FIXED_SIZE_LIST) {
+    code = StatusCode::TypeError;
+    expected_message =
+        "Size of FixedSizeList is not the same. input list: " + from_type->ToString() +
+        " output list: " + to_type->ToString();
+  } else {
+    code = StatusCode::Invalid;
+    expected_message =
+        "ListType can only be casted to FixedSizeListType if the lists are all the "
+        "expected size.";
+  }
+
   EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, ::testing::HasSubstr(expected_message),
                                            Cast(scalar, to_type));
 }
@@ -1197,9 +1195,7 @@ class TestListLikeScalar : public ::testing::Test {
         scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
 
     auto invalid_cast_type = fixed_size_list(value_->type(), 5);
-    auto [expectedCode, expectedMessage] = GetExpectedError(type_, invalid_cast_type);
-
-    CheckListCastError(scalar, invalid_cast_type, expectedCode, expectedMessage);
+    CheckListCastError(scalar, type_, invalid_cast_type);
   }
 
  protected:
@@ -1257,9 +1253,7 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 
   auto invalid_cast_type = fixed_size_list(key_value_type, 5);
-  auto [expectedCode, expectedMessage] = GetExpectedError(scalar.type, invalid_cast_type);
-
-  CheckListCastError(scalar, invalid_cast_type, expectedCode, expectedMessage);
+  CheckListCastError(scalar, scalar.type, invalid_cast_type);
 }
 
 TEST(TestStructScalar, FieldAccess) {
