@@ -207,7 +207,7 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReader(
       int i, const std::shared_ptr<std::unordered_set<int>>& included_leaves,
       const std::vector<int>& row_groups,
-      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      const std::map<int, RowRangesPtr>& row_ranges_map,
       std::unique_ptr<ColumnReaderImpl>* out) {
     // Should be covered by GetRecordBatchReader checks but
     // manifest_.schema_fields is a separate variable so be extra careful.
@@ -224,13 +224,13 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
-    ctx->row_ranges_map = row_ranges_map;
+    ctx->row_ranges_map = row_ranges_map; // it will be shared by all field readers, so copy instead of std::move()
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
   Status GetFieldReaders(
       const std::vector<int>& column_indices, const std::vector<int>& row_groups,
-      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      const std::map<int, RowRangesPtr>& row_ranges_map,
       std::vector<std::shared_ptr<ColumnReaderImpl>>* out,
       std::shared_ptr<::arrow::Schema>* out_schema) {
     // We only need to read schema fields which have columns indicated
@@ -272,7 +272,7 @@ class FileReaderImpl : public FileReader {
     std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
 
     std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, NULLPTR, &reader));
+    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, {}, &reader));
 
     return ReadColumn(i, row_groups, reader.get(), out);
   }
@@ -345,24 +345,24 @@ class FileReaderImpl : public FileReader {
 
   Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      const std::map<int, RowRangesPtr>& row_ranges_map,
       std::unique_ptr<RecordBatchReader>* out) override;
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               const std::vector<int>& column_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
-    return GetRecordBatchReader(row_group_indices, column_indices, NULLPTR, out);
+    return GetRecordBatchReader(row_group_indices, column_indices, {}, out);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
     return GetRecordBatchReader(row_group_indices,
-                                Iota(reader_->metadata()->num_columns()), NULLPTR, out);
+                                Iota(reader_->metadata()->num_columns()), {}, out);
   }
 
   Status GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) override {
     return GetRecordBatchReader(Iota(num_row_groups()),
-                                Iota(reader_->metadata()->num_columns()), NULLPTR, out);
+                                Iota(reader_->metadata()->num_columns()), {}, out);
   }
 
   ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
@@ -614,13 +614,13 @@ class LeafReader : public ColumnReaderImpl {
     std::unique_ptr<PageReader> page_reader = input_->NextChunk();
 
     /// using page index to reduce cost
-    if (page_reader != nullptr && ctx_->row_ranges_map) {
+    if (page_reader != nullptr) {
       // reset skipper
       record_reader_->set_record_skipper(NULLPTR);
 
       // if specific row range is provided for this rg
-      if (const auto iter = ctx_->row_ranges_map->find(input_->current_row_group());
-          iter != ctx_->row_ranges_map->end()) {
+      if (const auto iter = ctx_->row_ranges_map.find(input_->current_row_group());
+          iter != ctx_->row_ranges_map.end()) {
         if (iter->second != nullptr && iter->second->RowCount() != 0) {
           std::shared_ptr<RowRanges> page_ranges;
           checkAndGetPageRanges(iter->second, page_ranges);
@@ -1113,7 +1113,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
 Status FileReaderImpl::GetRecordBatchReader(
     const std::vector<int>& row_groups, const std::vector<int>& column_indices,
-    const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+    const std::map<int, RowRangesPtr>& row_ranges_map,
     std::unique_ptr<RecordBatchReader>* out) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
@@ -1384,7 +1384,7 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> result_schema;
   RETURN_NOT_OK(
-      GetFieldReaders(column_indices, row_groups, NULLPTR, &readers, &result_schema));
+      GetFieldReaders(column_indices, row_groups, {}, &readers, &result_schema));
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
@@ -1449,7 +1449,7 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
 
 Status FileReader::GetRecordBatchReader(
     const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-    const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+    const std::map<int, RowRangesPtr>& row_ranges_map,
     std::shared_ptr<RecordBatchReader>* out) {
   std::unique_ptr<RecordBatchReader> tmp;
   RETURN_NOT_OK(

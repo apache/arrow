@@ -113,7 +113,7 @@ struct ReaderContext {
   FileColumnIteratorFactory iterator_factory;
   bool filter_leaves;
   std::shared_ptr<std::unordered_set<int>> included_leaves;
-  std::shared_ptr<std::map<int, RowRangesPtr>> row_ranges_map;
+  std::map<int, RowRangesPtr> row_ranges_map;
 
   bool IncludesLeaf(int leaf_index) const {
     if (this->filter_leaves) {

@@ -190,7 +190,7 @@ class PARQUET_EXPORT FileReader {
 
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      const std::map<int, RowRangesPtr>& row_ranges_map,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from
@@ -207,7 +207,7 @@ class PARQUET_EXPORT FileReader {
   ///     contains an invalid index
   ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
-      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      const std::map<int, RowRangesPtr>& row_ranges_map,
       std::shared_ptr<::arrow::RecordBatchReader>* out);
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,

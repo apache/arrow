@@ -274,13 +274,13 @@ class TestRecordBatchReaderWithRanges : public testing::Test {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-  const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-  row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
-  row_ranges_map->insert(
+  auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+  row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+  row_ranges_map.insert(
       {1, std::make_shared<parquet::RowRanges>(parquet::Range{10, 19})});
-  row_ranges_map->insert(
+  row_ranges_map.insert(
       {2, std::make_shared<parquet::RowRanges>(parquet::Range{20, 29})});
-  row_ranges_map->insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+  row_ranges_map.insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
@@ -292,13 +292,13 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-  const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-  row_ranges_map->insert(
-      {0, std::make_shared<parquet::RowRanges>(
-              std::vector<parquet::Range>{parquet::Range{0, 7}, parquet::Range{16, 23}})});
-  row_ranges_map->insert({1, nullptr});
-  row_ranges_map->insert({2, nullptr});
-  row_ranges_map->insert({3, nullptr});
+  auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+  row_ranges_map.insert(
+      {0, std::make_shared<parquet::RowRanges>(std::vector<parquet::Range>{
+              parquet::Range{0, 7}, parquet::Range{16, 23}})});
+  row_ranges_map.insert({1, nullptr});
+  row_ranges_map.insert({2, nullptr});
+  row_ranges_map.insert({3, nullptr});
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
@@ -310,14 +310,11 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-  const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-  row_ranges_map->insert(
-      {0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
-  row_ranges_map->insert(
-      {1, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
-  row_ranges_map->insert(
-      {2, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
-  row_ranges_map->insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+  auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+  row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map.insert({1, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map.insert({2, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map.insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
@@ -329,15 +326,15 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-  const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+  auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
   // here we test four kinds of empty range:
 
   // rg 0 not put into map -> will read
-  row_ranges_map->insert({1, nullptr});  // value is nullptr -> will skip
-  row_ranges_map->insert(
+  row_ranges_map.insert({1, nullptr});  // value is nullptr -> will skip
+  row_ranges_map.insert(
       {2, std::make_shared<parquet::RowRanges>(
               std::vector<parquet::Range>())});  // value is empty -> will skip
-  row_ranges_map->insert(
+  row_ranges_map.insert(
       {3, std::make_shared<parquet::RowRanges>()});  // value is empty -> will skip
 
   const std::vector column_indices{0, 1, 2, 3, 4};
@@ -352,15 +349,15 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   // case 1: only care about RG 0
   {
     std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
     std::vector<parquet::Range> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
-    row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
-    row_ranges_map->insert({1, nullptr});
-    row_ranges_map->insert({2, nullptr});
-    row_ranges_map->insert({3, nullptr});
+    row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map.insert({1, nullptr});
+    row_ranges_map.insert({2, nullptr});
+    row_ranges_map.insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
@@ -371,15 +368,15 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   // case 2: care about RG 0 and 2
   {
     std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
     std::vector<parquet::Range> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
-    row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
-    row_ranges_map->insert({1, nullptr});
-    row_ranges_map->insert({2, std::make_shared<parquet::RowRanges>(ranges)});
-    row_ranges_map->insert({3, nullptr});
+    row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map.insert({1, nullptr});
+    row_ranges_map.insert({2, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map.insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
@@ -391,8 +388,8 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
 TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
   {
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-    row_ranges_map->insert(
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+    row_ranges_map.insert(
         {0, std::make_shared<parquet::RowRanges>(parquet::Range{-1, 5})});
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status = arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
@@ -404,9 +401,9 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   }
 
   {
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-    row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(std::vector{
-                                   parquet::Range{0, 4}, parquet::Range{2, 5}})});
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+    row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(std::vector{
+                                  parquet::Range{0, 4}, parquet::Range{2, 5}})});
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status = arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                            row_ranges_map, &rb_reader);
@@ -416,8 +413,8 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
                               "non-interleaving: [(0, 4), (2, 5)]") != std::string::npos);
   }
   {
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-    row_ranges_map->insert(
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+    row_ranges_map.insert(
         {0, std::make_shared<parquet::RowRanges>(std::vector{parquet::Range{0, 30}})});
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status = arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
@@ -467,9 +464,8 @@ TEST(TestRecordBatchReaderWithRangesBadCases, NoPageIndex) {
   ASSERT_OK_AND_ASSIGN(auto arrow_reader, reader_builder.Build());
 
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-  auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-  row_ranges_map->insert(
-      {0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
+  row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
   std::vector column_indices{0, 1, 2, 3, 4};
   auto status = arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                    row_ranges_map, &rb_reader);
@@ -510,15 +506,15 @@ class TestRecordBatchReaderWithRangesWithNulls : public testing::Test {
 TEST_F(TestRecordBatchReaderWithRangesWithNulls, SelectOneRowSkipOneRow) {
   {
     std::shared_ptr<arrow::RecordBatchReader> rb_reader;
-    const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+    auto row_ranges_map = std::map<int, parquet::RowRangesPtr>();
     std::vector<parquet::Range> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
-    row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
-    row_ranges_map->insert({1, nullptr});
-    row_ranges_map->insert({2, std::make_shared<parquet::RowRanges>(ranges)});
-    row_ranges_map->insert({3, nullptr});
+    row_ranges_map.insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map.insert({1, nullptr});
+    row_ranges_map.insert({2, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map.insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
