@@ -74,8 +74,7 @@ using arrow::internal::Iota;
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
 
-using parquet::Range;
-using parquet::RowRangesPtr;
+using parquet::IntervalRange;
 using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
@@ -359,7 +358,7 @@ class FileReaderImpl : public FileReader {
                              rows_to_return.ToString());
     }
     // check if the row ranges are within the row group boundaries
-    if (rows_to_return.RowCount() != 0 && rows_to_return.GetRanges().back().to >= metadata->num_rows()) {
+    if (rows_to_return.RowCount() != 0 && rows_to_return.GetRanges().back().end >= metadata->num_rows()) {
       return Status::Invalid("The provided row range " + rows_to_return.ToString() +
                              " exceeds the number of rows in the file: " +
                              std::to_string(metadata->num_rows()));
@@ -507,16 +506,18 @@ class RowGroupReaderImpl : public RowGroupReader {
 
 struct RowRangesPageFilter {
   explicit RowRangesPageFilter(const RowRanges& row_ranges_,
-                               const RowRangesPtr& page_ranges_)
+                               const std::shared_ptr<RowRanges>& page_ranges_)
       : row_ranges(row_ranges_), page_ranges(page_ranges_) {
-    assert(page_ranges != nullptr);
-    assert(page_ranges->GetRanges().size() > 0);
+
+    if (page_ranges == nullptr || page_ranges->GetRanges().size() == 0) {
+      throw ParquetException("Page ranges is empty");
+    }
   }
 
   bool operator()(const DataPageStats& stats) {
     ++page_range_idx;
 
-    Range current_page_range = (*page_ranges)[page_range_idx];
+    IntervalRange current_page_range = (*page_ranges)[page_range_idx];
 
     while (row_range_idx < row_ranges.GetRanges().size() &&
            current_page_range.IsAfter(row_ranges[row_range_idx])) {
@@ -534,7 +535,7 @@ struct RowRangesPageFilter {
   const RowRanges & row_ranges;
 
   int page_range_idx = -1;
-  const RowRangesPtr page_ranges;
+  const std::shared_ptr<RowRanges> page_ranges;
 };
 
 // Leaf reader is for primitive arrays and primitive children of nested arrays
@@ -624,19 +625,17 @@ class LeafReader : public ColumnReaderImpl {
     page_ranges = std::make_shared<RowRanges>();
     for (size_t i = 0; i < page_locations.size() - 1; i++) {
       page_ranges->Add(
-          {page_locations[i].first_row_index, page_locations[i + 1].first_row_index - 1},
-          false);
+          {page_locations[i].first_row_index, page_locations[i + 1].first_row_index - 1});
     }
     if (page_locations.size() >= 1) {
       page_ranges->Add(
           {page_locations[page_locations.size() - 1].first_row_index,
            ctx_->reader->metadata()->RowGroup(input_->current_row_group())->num_rows() -
-               1},
-          false);
+               1});
     }
 
     if (row_ranges.GetRanges().size() > 0) {
-      if (row_ranges.GetRanges().back().to > page_ranges->GetRanges().back().to) {
+      if (row_ranges.GetRanges().back().end > page_ranges->GetRanges().back().end) {
         throw ParquetException(
             "The provided row range " + row_ranges.ToString() +
             " exceeds last page :" + page_ranges->GetRanges().back().ToString());

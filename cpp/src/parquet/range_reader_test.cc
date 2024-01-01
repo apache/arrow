@@ -33,7 +33,7 @@
 #include <random>
 #include <string>
 
-using parquet::Range;
+using parquet::IntervalRange;
 using parquet::RowRanges;
 
 std::string random_string(std::string::size_type length) {
@@ -279,7 +279,7 @@ TEST_F(TestRecordBatchReaderWithRanges, TestRangesSplit) {}
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{Range{0, 9}, Range{40, 49}, Range{80, 89}, Range{90, 99}}};
+  RowRanges rows{{IntervalRange{0, 9}, IntervalRange{40, 49}, IntervalRange{80, 89}, IntervalRange{90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -290,7 +290,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{Range{0, 7}, Range{16, 23}}};
+  RowRanges rows{{IntervalRange{0, 7}, IntervalRange{16, 23}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -301,7 +301,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{Range{0, 29}, Range{30, 59}, Range{60, 89}, Range{90, 99}}};
+  RowRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89}, IntervalRange{90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -325,7 +325,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   // case 1: only care about RG 0
   {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-    std::vector<parquet::Range> ranges;
+    std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
@@ -339,7 +339,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   // case 2: care about RG 0 and 2
   {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-    std::vector<parquet::Range> ranges;
+    std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
@@ -359,7 +359,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
 TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   {
-    RowRanges rows{{Range{-1, 5}}};
+    RowRanges rows{{IntervalRange{-1, 5}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -370,7 +370,7 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   }
 
   {
-    RowRanges rows{{Range{0, 4}, {2, 5}}};
+    RowRanges rows{{IntervalRange{0, 4}, {2, 5}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -381,7 +381,7 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   }
   {
     // will treat as {0,99}
-    RowRanges rows{{Range{0, 100}}};
+    RowRanges rows{{IntervalRange{0, 100}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -430,7 +430,7 @@ TEST(TestRecordBatchReaderWithRangesBadCases, NoPageIndex) {
   ASSERT_OK_AND_ASSIGN(auto arrow_reader, reader_builder.Build());
 
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{Range{0, 29}}};
+  RowRanges rows{{IntervalRange{0, 29}}};
   std::vector column_indices{0, 1, 2, 3, 4};
   auto status = arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
   ASSERT_NOT_OK(status);
@@ -470,7 +470,7 @@ class TestRecordBatchReaderWithRangesWithNulls : public testing::Test {
 TEST_F(TestRecordBatchReaderWithRangesWithNulls, SelectOneRowSkipOneRow) {
   {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-    std::vector<parquet::Range> ranges;
+    std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
