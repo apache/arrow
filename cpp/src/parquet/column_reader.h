@@ -343,11 +343,15 @@ namespace parquet {
 
         bool IsOverlap(const Range&other) const { return !IsBefore(other) && !IsAfter(other); }
 
+        bool IsValid() const { return from >= 0 && to >= 0 && to >= from; }
+
         std::string ToString() const {
             return "[" + std::to_string(from) + ", " + std::to_string(to) + "]";
         }
 
+        // inclusive
         int64_t from;
+        // inclusive
         int64_t to;
     };
 
@@ -363,6 +367,26 @@ namespace parquet {
         RowRanges(const RowRanges&other) { ranges = other.ranges; }
 
         RowRanges(RowRanges&&other) noexcept { ranges = std::move(other.ranges); }
+
+        static RowRanges Intersection(const RowRanges& left, const RowRanges& right) {
+            RowRanges result;
+
+            size_t rightIndex = 0;
+            for (const Range& l : left.ranges) {
+                for (size_t i = rightIndex, n = right.ranges.size(); i < n; ++i) {
+                    const Range& r = right.ranges[i];
+                    if (l.IsBefore(r)) {
+                        break;
+                    } else if (l.IsAfter(r)) {
+                        rightIndex = i + 1;
+                        continue;
+                    }
+                    result.Add(Range::Intersection(l, r));
+                }
+            }
+
+            return result;
+        }
 
         void Add(const Range&range, bool merge = true) {
             Range rangeToAdd = range;
@@ -423,9 +447,55 @@ namespace parquet {
 
         std::vector<Range>& GetRanges() { return ranges; }
 
+        const std::vector<Range>& GetRanges() const { return ranges; }
+
+        // Split the ranges into N+1 parts at the given split point, where N = split_points.size()
+        // The RowRows object itself is not modified
+        std::vector<RowRanges> SplitAt(const std::vector<int64_t>&split_points) const {
+            if (split_points.size() == 0) {
+                return {*this};
+            }
+
+            std::vector<RowRanges> result;
+            int64_t last_split_point = -1;
+            for (const int64_t split_point: split_points) {
+                if (split_point <= 0) {
+                    throw ParquetException("Invalid split point " + std::to_string(split_point));
+                }
+                if (split_point <= last_split_point) {
+                    throw ParquetException("Split points must be in ascending order");
+                }
+                last_split_point = split_point;
+            }
+
+            RowRanges spaces;
+            for (size_t i = 0 ; i < split_points.size(); ++i) {
+                auto start = i == 0 ? 0 : split_points[i - 1];
+                auto end = split_points[i] - 1;
+                spaces.Add({start, end}, false);
+            }
+            spaces.Add({split_points[split_points.size() - 1], std::numeric_limits<int64_t>::max()},
+                       false);
+
+            for(Range space : spaces.GetRanges()) {
+                RowRanges intersection = RowRanges::Intersection(RowRanges(space), *this);
+                result.push_back(intersection);
+            }
+
+            return result;
+        }
+
         const Range& operator[](size_t index) const {
             assert(index < ranges.size());
             return ranges[index];
+        }
+
+        RowRanges shift(const int64_t offset) const {
+            RowRanges result;
+            for (const Range&range: ranges) {
+                result.Add({range.from + offset, range.to + offset});
+            }
+            return result;
         }
 
         std::string ToString() const {
@@ -450,7 +520,7 @@ namespace parquet {
     namespace internal {
         class PARQUET_EXPORT RecordSkipper {
         public:
-            RecordSkipper(RowRanges&pages, RowRanges&row_ranges_)
+            RecordSkipper(RowRanges&pages, const RowRanges&row_ranges_)
                 : row_ranges(row_ranges_) {
                 // copy row_ranges
                 RowRanges will_process_pages, skip_pages;
@@ -496,7 +566,7 @@ namespace parquet {
             }
 
         private:
-            void adjust_ranges(RowRanges& skip_pages, RowRanges& to_adjust) {
+            void adjust_ranges(RowRanges&skip_pages, RowRanges&to_adjust) {
                 size_t skipped_rows = 0;
                 auto iter = to_adjust.GetRanges().begin();
                 auto skip_iter = skip_pages.GetRanges().begin();
