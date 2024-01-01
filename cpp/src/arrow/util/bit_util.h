@@ -167,10 +167,8 @@ constexpr int64_t CoveringBytes(int64_t offset, int64_t length) {
 
 // Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
-  if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
   if (ARROW_PREDICT_FALSE(num_bits >= 64)) return v;
-  int n = 64 - num_bits;
-  return (v << n) >> n;
+  return ((v >> num_bits) << num_bits) ^ v;
 }
 
 /// \brief Count the number of leading zeros in an unsigned integer.
