@@ -1192,7 +1192,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     const bool has_spaced_values = HasSpacedValues(this->descr_);
     int64_t null_count = 0;
     if (!has_spaced_values) {
-      int values_to_read =
+      int64_t values_to_read =
           std::count(def_levels, def_levels + num_def_levels, this->max_def_level_);
       total_values = this->ReadValues(values_to_read, values);
       ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
