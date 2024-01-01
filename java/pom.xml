@@ -44,7 +44,7 @@
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.22.0</error_prone_core.version>
+    <error_prone_core.version>2.24.0</error_prone_core.version>
     <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
     <mockito.core.version>5.5.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
@@ -844,7 +844,7 @@
                 <path>
                   <groupId>com.google.errorprone</groupId>
                   <artifactId>error_prone_core</artifactId>
-                  <version>2.4.0</version>
+                  <version>2.24.0</version>
                 </path>
               </annotationProcessorPaths>
             </configuration>
