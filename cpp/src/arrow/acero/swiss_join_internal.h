@@ -736,6 +736,33 @@ class JoinMatchIterator {
   int current_match_for_row_;
 };
 
+class JoinResidualFilter {
+ public:
+  Status FilterMatchBitVector(const ExecBatch& keypayload_batch, int batch_start_row,
+                              int num_batch_rows, int bit_match,
+                              const uint8_t* match_bitvector, const uint32_t* key_ids,
+                              bool no_duplicate_keys,
+                              arrow::util::TempVectorStack* temp_stack,
+                              int* num_passing_ids, uint16_t* passing_batch_row_ids,
+                              uint32_t* passing_key_ids_maybe_null);
+
+  Status FilterMatchRowIds(const ExecBatch& keypayload_batch, int num_batch_rows,
+                           uint16_t* batch_row_ids, uint32_t* key_ids,
+                           uint32_t* payload_ids, bool output_key_ids,
+                           bool output_payload_ids,
+                           arrow::util::TempVectorStack* temp_stack,
+                           int* num_passing_rows);
+
+ private:
+  Result<Datum> EvalFilter() { return Datum(); }
+
+ private:
+  // int64_t hardware_flags_;
+  int minibatch_size_;
+  Expression filter_;
+  const uint32_t* key_to_payload_;
+};
+
 // Implements entire processing of a probe side exec batch,
 // provided the join hash table is already built and available.
 //
@@ -760,6 +787,7 @@ class JoinProbeProcessor {
   JoinType join_type_;
 
   SwissTableForJoin* hash_table_;
+  JoinResidualFilter* residual_filter_;
   // One element per thread
   //
   std::vector<JoinResultMaterialize*> materialize_;
