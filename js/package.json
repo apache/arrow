@@ -81,7 +81,7 @@
     "cross-env": "7.0.3",
     "del": "7.1.0",
     "del-cli": "5.1.0",
-    "esbuild": "0.19.2",
+    "esbuild": "0.19.11",
     "esbuild-plugin-alias": "0.2.1",
     "eslint": "8.52.0",
     "eslint-plugin-jest": "27.4.2",
