@@ -470,7 +470,7 @@ struct RowRangesPageFilter {
                                const RowRangesPtr& page_ranges_)
       : row_ranges(row_ranges_), page_ranges(page_ranges_) {
     assert(page_ranges != nullptr);
-    assert(page_ranges->getRanges().size() > 0);
+    assert(page_ranges->GetRanges().size() > 0);
   }
 
   bool operator()(const DataPageStats& stats) {
@@ -478,16 +478,16 @@ struct RowRangesPageFilter {
 
     Range current_page_range = (*page_ranges)[page_range_idx];
 
-    while (row_range_idx < row_ranges->getRanges().size() &&
-           current_page_range.isAfter((*row_ranges)[row_range_idx])) {
+    while (row_range_idx < row_ranges->GetRanges().size() &&
+           current_page_range.IsAfter((*row_ranges)[row_range_idx])) {
       row_range_idx++;
     }
 
-    if (row_range_idx >= row_ranges->getRanges().size()) {
+    if (row_range_idx >= row_ranges->GetRanges().size()) {
       return true;
     }
 
-    return current_page_range.isBefore((*row_ranges)[row_range_idx]);
+    return current_page_range.IsBefore((*row_ranges)[row_range_idx]);
   }
 
   size_t row_range_idx = 0;
@@ -580,32 +580,32 @@ class LeafReader : public ColumnReaderImpl {
           field_->name());
     }
 
-    if (!row_ranges->isValid()) {
+    if (!row_ranges->IsValid()) {
       throw ParquetException(
           "The provided row range is invalid, keep it monotone and non-interleaving: " +
-          row_ranges->toString());
+          row_ranges->ToString());
     }
 
     const auto page_locations = offset_index->page_locations();
     page_ranges = std::make_shared<RowRanges>();
     for (size_t i = 0; i < page_locations.size() - 1; i++) {
-      page_ranges->add(
+      page_ranges->Add(
           {page_locations[i].first_row_index, page_locations[i + 1].first_row_index - 1},
           false);
     }
     if (page_locations.size() >= 1) {
-      page_ranges->add(
+      page_ranges->Add(
           {page_locations[page_locations.size() - 1].first_row_index,
            ctx_->reader->metadata()->RowGroup(input_->current_row_group())->num_rows() -
                1},
           false);
     }
 
-    if (row_ranges->getRanges().size() > 0) {
-      if ((*row_ranges).getRanges().back().to > page_ranges->getRanges().back().to) {
+    if (row_ranges->GetRanges().size() > 0) {
+      if ((*row_ranges).GetRanges().back().to > page_ranges->GetRanges().back().to) {
         throw ParquetException(
-            "The provided row range " + row_ranges->toString() +
-            " exceeds last page :" + page_ranges->getRanges().back().toString());
+            "The provided row range " + row_ranges->ToString() +
+            " exceeds last page :" + page_ranges->GetRanges().back().ToString());
       }
     }
   }
@@ -621,7 +621,7 @@ class LeafReader : public ColumnReaderImpl {
       // if specific row range is provided for this rg
       if (const auto iter = ctx_->row_ranges_map->find(input_->current_row_group());
           iter != ctx_->row_ranges_map->end()) {
-        if (iter->second != nullptr && iter->second->rowCount() != 0) {
+        if (iter->second != nullptr && iter->second->RowCount() != 0) {
           std::shared_ptr<RowRanges> page_ranges;
           checkAndGetPageRanges(iter->second, page_ranges);
 
