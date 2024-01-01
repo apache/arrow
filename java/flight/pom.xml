@@ -60,7 +60,7 @@
                 <jdk>1.8</jdk>
             </activation>
             <properties>
-                <mockito.core.version>4.11.0</mockito.core.version>
+                <mockito.core.version>5.8.0</mockito.core.version>
                 <mockito.inline.version>4.11.0</mockito.inline.version>
             </properties>
         </profile>
