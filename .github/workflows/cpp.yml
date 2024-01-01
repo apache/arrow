@@ -340,8 +340,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - msystem_lower: mingw32
-            msystem_upper: MINGW32
           - msystem_lower: mingw64
             msystem_upper: MINGW64
           - msystem_lower: clang64
