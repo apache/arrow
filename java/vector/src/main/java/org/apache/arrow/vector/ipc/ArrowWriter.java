@@ -101,7 +101,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.compressionFactory = compressionFactory;
     this.codecType = codecType;
     this.compressionLevel = compressionLevel;
-    this.codec = getCodec();
+    this.codec = this.compressionLevel.isPresent() ?
+            this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
+            this.compressionFactory.createCodec(this.codecType);
     this.unloader = new VectorUnloader(root, /*includeNullCount*/ true, codec,
         /*alignBuffers*/ true);
 
@@ -179,12 +181,6 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   public long bytesWritten() {
     return out.getCurrentPosition();
-  }
-
-  private CompressionCodec getCodec() {
-    return this.compressionLevel.isPresent() ?
-        this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
-        this.compressionFactory.createCodec(this.codecType);
   }
 
   private void ensureStarted() throws IOException {
