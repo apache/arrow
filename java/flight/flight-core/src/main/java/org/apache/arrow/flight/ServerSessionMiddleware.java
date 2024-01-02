@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +72,12 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       return newSession;
     }
 
+    private void closeSession(String id) {
+      if (sessionStore.remove(id) == null) {
+        throw CallStatus.NOT_FOUND.withDescription("Session id '" + id + "' not found.").toRuntimeException();
+      }
+    }
+
     @Override
     public ServerSessionMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                 RequestContext context) {
@@ -113,7 +120,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
    */
   public static class Session {
     public final String id;
-    private Map<String, SessionOptionValue> session_data =
+    private Map<String, SessionOptionValue> sessionData =
         new ConcurrentHashMap<String, SessionOptionValue>();
 
     /**
@@ -127,17 +134,22 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
 
     /** Get session option by name, or null if it does not exist. */
     public SessionOptionValue getSessionOption(String name) {
-      return session_data.get(name);
+      return sessionData.get(name);
+    }
+
+    /** Get an immutable copy of the session options map. */
+    public Map<String, SessionOptionValue> getSessionOptions() {
+      return Collections.unmodifiableMap(new HashMap(sessionData));
     }
 
     /** Set session option by name to given value. */
     public void setSessionOption(String name, SessionOptionValue value) {
-      session_data.put(name, value);
+      sessionData.put(name, value);
     }
 
     /** Idempotently  remove name from this session. */
     public void eraseSessionOption(String name) {
-      session_data.remove(name);
+      sessionData.remove(name);
     }
   }
 
@@ -162,6 +174,14 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     }
 
     return session;
+  }
+
+  public synchronized void closeSession() {
+    if (session == null) {
+      throw CallStatus.NOT_FOUND.withDescription("No session found for the current call.").toRuntimeException();
+    }
+    factory.closeSession(session.id);
+    session = null;
   }
 
   public CallHeaders getCallHeaders() {

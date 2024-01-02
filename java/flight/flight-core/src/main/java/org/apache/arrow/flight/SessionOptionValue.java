@@ -37,6 +37,11 @@ public abstract class SessionOptionValue {
     return b.build();
   }
 
+  /** Check whether the SessionOptionValue is empty/valueless. */
+  public boolean isEmpty() {
+    return false;
+  }
+
   private class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
     final Flight.SessionOptionValue.Builder b;
 

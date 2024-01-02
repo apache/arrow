@@ -183,5 +183,10 @@ public class SessionOptionValueFactory {
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit((Void) null);
     }
+
+    @Override
+    public boolean isEmpty() {
+      return true;
+    }
   }
 }
