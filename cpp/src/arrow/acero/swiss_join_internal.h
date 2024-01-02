@@ -738,6 +738,13 @@ class JoinMatchIterator {
 
 class JoinResidualFilter {
  public:
+  void Init(Expression filter, int minibatch_size, QueryContext* ctx, MemoryPool* pool,
+            int64_t hardware_flags, const HashJoinProjectionMaps* probe_schemas,
+            const HashJoinProjectionMaps* build_schemas);
+
+  void SetBuildSide(const RowArray* build_keys, const RowArray* build_payloads,
+                    const uint32_t* key_to_payload);
+
   bool IsTrivial() const { return filter_ == literal(true); }
 
   Status FilterMatchBitVector(const ExecBatch& keypayload_batch, int batch_start_row,
@@ -768,21 +775,23 @@ class JoinResidualFilter {
                                            const uint32_t* payload_ids_maybe_null) const;
 
  private:
-  QueryContext* ctx_;
-  int64_t hardware_flags_;
-  MemoryPool* pool_;
-  int minibatch_size_;
-  // const HashJoinProjectionMaps* probe_schemas_;
-  const HashJoinProjectionMaps* build_schemas_;
   Expression filter_;
+  int minibatch_size_;
+
+  QueryContext* ctx_;
+  MemoryPool* pool_;
+  int64_t hardware_flags_;
+
+  const HashJoinProjectionMaps* probe_schemas_;
+  const HashJoinProjectionMaps* build_schemas_;
 
   std::vector<int> probe_filter_to_key_and_payload_;
-  std::vector<int> build_filter_to_key_;
-  std::vector<int> build_filter_to_payload_;
+  int num_build_keys_referred_ = 0;
+  int num_build_payloads_referred_ = 0;
 
-  const uint32_t* key_to_payload_;
   const RowArray* build_keys_;
   const RowArray* build_payloads_;
+  const uint32_t* key_to_payload_;
 };
 
 // Implements entire processing of a probe side exec batch,
@@ -793,6 +802,7 @@ class JoinProbeProcessor {
   using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
   void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
+            JoinResidualFilter* residual_filter,
             std::vector<JoinResultMaterialize*> materialize,
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
@@ -809,7 +819,7 @@ class JoinProbeProcessor {
   JoinType join_type_;
 
   SwissTableForJoin* hash_table_;
-  const JoinResidualFilter* residual_filter_;
+  JoinResidualFilter* residual_filter_;
   // One element per thread
   //
   std::vector<JoinResultMaterialize*> materialize_;
