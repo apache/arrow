@@ -1860,12 +1860,39 @@ Status JoinResidualFilter::FilterMatchBitVector(
     int bit_match, const uint8_t* match_bitvector, const uint32_t* key_ids,
     bool no_duplicate_keys, arrow::util::TempVectorStack* temp_stack,
     int* num_passing_ids, uint16_t* passing_batch_row_ids,
-    uint32_t* passing_key_ids_maybe_null) {
+    uint32_t* passing_key_ids_maybe_null) const {
   ARROW_DCHECK(filter_ != literal(true));
   *num_passing_ids = 0;
   if (filter_.IsNullLiteral() || filter_ == literal(false)) {
     return Status::OK();
   }
+
+  if (build_filter_to_key_.empty() && build_filter_to_payload_.empty()) {
+    arrow::util::bit_util::bits_to_indexes(bit_match, hardware_flags_, num_batch_rows,
+                                           match_bitvector, num_passing_ids,
+                                           passing_batch_row_ids);
+    if (passing_key_ids_maybe_null) {
+      // Collect key ids of passing rows.
+      //
+      for (int i = 0; i < *num_passing_ids; ++i) {
+        uint16_t id = passing_batch_row_ids[i];
+        passing_key_ids_maybe_null[i] = key_ids[id];
+      }
+    }
+
+    // Add base batch row index.
+    //
+    for (int i = 0; i < *num_passing_ids; ++i) {
+      passing_batch_row_ids[i] += static_cast<uint16_t>(batch_start_row);
+    }
+
+    RETURN_NOT_OK(FilterMatchRowIds(keypayload_batch, *num_passing_ids,
+                                    passing_batch_row_ids, passing_key_ids_maybe_null,
+                                    NULLPTR, passing_key_ids_maybe_null, false,
+                                    temp_stack, num_passing_ids));
+    return Status::OK();
+  }
+
   auto materialize_batch_ids_buf =
       arrow::util::TempVectorHolder<uint16_t>(temp_stack, minibatch_size_);
   auto materialize_key_ids_buf =
@@ -1907,16 +1934,23 @@ Status JoinResidualFilter::FilterMatchBitVector(
 
 Status JoinResidualFilter::FilterMatchRowIds(const ExecBatch& keypayload_batch,
                                              int num_batch_rows, uint16_t* batch_row_ids,
-                                             uint32_t* key_ids, uint32_t* payload_ids,
+                                             uint32_t* key_ids_maybe_null,
+                                             uint32_t* payload_ids_maybe_null,
                                              bool output_key_ids, bool output_payload_ids,
                                              arrow::util::TempVectorStack* temp_stack,
-                                             int* num_passing_rows) {
+                                             int* num_passing_rows) const {
   ARROW_DCHECK(filter_ != literal(true));
+  ARROW_DCHECK(!output_key_ids || key_ids_maybe_null);
+  ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
+
   *num_passing_rows = 0;
   if (filter_.IsNullLiteral() || filter_ == literal(false)) {
     return Status::OK();
   }
-  ARROW_ASSIGN_OR_RAISE(Datum mask, EvalFilter());
+
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
+                                   key_ids_maybe_null, payload_ids_maybe_null));
   if (mask.is_scalar()) {
     const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
     if (mask_scalar.is_valid && mask_scalar.value) {
@@ -1926,6 +1960,7 @@ Status JoinResidualFilter::FilterMatchRowIds(const ExecBatch& keypayload_batch,
       return Status::OK();
     }
   }
+
   ARROW_DCHECK_EQ(mask.array()->offset, 0);
   ARROW_DCHECK_EQ(mask.array()->length, static_cast<int64_t>(num_batch_rows));
   const uint8_t* validity =
@@ -1937,15 +1972,80 @@ Status JoinResidualFilter::FilterMatchRowIds(const ExecBatch& keypayload_batch,
     if (is_valid && is_cmp_true) {
       batch_row_ids[*num_passing_rows] = batch_row_ids[irow];
       if (output_key_ids) {
-        key_ids[*num_passing_rows] = key_ids[irow];
+        key_ids_maybe_null[*num_passing_rows] = key_ids_maybe_null[irow];
       }
       if (output_payload_ids) {
-        payload_ids[*num_passing_rows] = payload_ids[irow];
+        payload_ids_maybe_null[*num_passing_rows] = payload_ids_maybe_null[irow];
       }
       ++(*num_passing_rows);
     }
   }
   return Status::OK();
+}
+
+Result<Datum> JoinResidualFilter::EvalFilter(
+    const ExecBatch& keypayload_batch, int num_batch_rows, const uint16_t* batch_row_ids,
+    const uint32_t* key_ids_maybe_null, const uint32_t* payload_ids_maybe_null) const {
+  ARROW_DCHECK(!filter_.IsNullLiteral() && filter_ != literal(true) &&
+               filter_ != literal(false));
+
+  ARROW_ASSIGN_OR_RAISE(
+      ExecBatch input,
+      MaterializeFilterInput(keypayload_batch, num_batch_rows, batch_row_ids,
+                             key_ids_maybe_null, payload_ids_maybe_null));
+  return ExecuteScalarExpression(filter_, input, ctx_->exec_context());
+}
+
+Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
+    const ExecBatch& keypayload_batch, int num_batch_rows, const uint16_t* batch_row_ids,
+    const uint32_t* key_ids_maybe_null, const uint32_t* payload_ids_maybe_null) const {
+  ExecBatch out;
+  out.length = num_batch_rows;
+  out.values.resize(probe_filter_to_key_and_payload_.size() +
+                    build_filter_to_key_.size() + build_filter_to_payload_.size());
+
+  if (probe_filter_to_key_and_payload_.size() > 0) {
+    ExecBatchBuilder probe_batch_builder;
+    RETURN_NOT_OK(probe_batch_builder.AppendSelected(
+        pool_, keypayload_batch, num_batch_rows, batch_row_ids,
+        static_cast<int>(probe_filter_to_key_and_payload_.size()),
+        probe_filter_to_key_and_payload_.data()));
+    ExecBatch probe_batch = probe_batch_builder.Flush();
+    ARROW_DCHECK(probe_batch.values.size() == probe_filter_to_key_and_payload_.size());
+    for (size_t i = 0; i < probe_batch.values.size(); ++i) {
+      out.values[i] = std::move(probe_batch.values[i]);
+    }
+  }
+
+  if (build_filter_to_key_.size() > 0) {
+    ARROW_DCHECK(key_ids_maybe_null);
+    for (size_t i = 0; i < build_filter_to_key_.size(); ++i) {
+      int key_idx = build_filter_to_key_[i];
+      ResizableArrayData build_key;
+      build_key.Init(build_schemas_->data_type(HashJoinProjection::KEY, key_idx), pool_,
+                     bit_util::Log2(num_batch_rows));
+      RETURN_NOT_OK(build_keys_->DecodeSelected(&build_key, key_idx, num_batch_rows,
+                                                key_ids_maybe_null, pool_));
+      out.values[probe_filter_to_key_and_payload_.size() + i] = build_key.array_data();
+    }
+  }
+
+  if (build_filter_to_payload_.size() > 0) {
+    ARROW_DCHECK(payload_ids_maybe_null);
+    for (size_t i = 0; i < build_filter_to_payload_.size(); ++i) {
+      int payload_idx = build_filter_to_payload_[i];
+      ResizableArrayData build_payload;
+      build_payload.Init(
+          build_schemas_->data_type(HashJoinProjection::PAYLOAD, payload_idx), pool_,
+          bit_util::Log2(num_batch_rows));
+      RETURN_NOT_OK(build_payloads_->DecodeSelected(
+          &build_payload, payload_idx, num_batch_rows, payload_ids_maybe_null, pool_));
+      out.values[probe_filter_to_key_and_payload_.size() + build_filter_to_key_.size() +
+                 i] = build_payload.array_data();
+    }
+  }
+
+  return out;
 }
 
 void JoinProbeProcessor::Init(int num_key_columns, JoinType join_type,
@@ -2019,7 +2119,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
         join_type_ == JoinType::RIGHT_SEMI || join_type_ == JoinType::RIGHT_ANTI) {
       int num_passing_ids = 0;
       int bit_match = join_type_ == JoinType::LEFT_ANTI ? 0 : 1;
-      if (!residual_filter_) {
+      if (residual_filter_->IsTrivial()) {
         arrow::util::bit_util::bits_to_indexes(
             bit_match, hardware_flags, minibatch_size_next,
             match_bitvector_buf.mutable_data(), &num_passing_ids,
@@ -2082,7 +2182,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
                                          materialize_batch_ids_buf.mutable_data(),
                                          materialize_key_ids_buf.mutable_data(),
                                          materialize_payload_ids_buf.mutable_data())) {
-        if (residual_filter_) {
+        if (!residual_filter_->IsTrivial()) {
           RETURN_NOT_OK(residual_filter_->FilterMatchRowIds(
               keypayload_batch, num_matches_next,
               materialize_batch_ids_buf.mutable_data(),
@@ -2302,7 +2402,8 @@ class SwissJoin : public HashJoinImpl {
     //
     const HashJoinProjectionMaps* schema = schema_[1];
     bool reject_duplicate_keys =
-        join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI;
+        (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI) &&
+        (schema->is_empty(HashJoinProjection::FILTER) == 0);
     bool no_payload =
         reject_duplicate_keys || schema->num_cols(HashJoinProjection::PAYLOAD) == 0;
 
@@ -2646,6 +2747,7 @@ class SwissJoin : public HashJoinImpl {
 
   SwissTableForJoin hash_table_;
   JoinProbeProcessor probe_processor_;
+  JoinResidualFilter residual_filter_;
   SwissTableForJoinBuild hash_table_build_;
   AccumulationQueue build_side_batches_;
 

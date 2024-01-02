@@ -738,29 +738,51 @@ class JoinMatchIterator {
 
 class JoinResidualFilter {
  public:
+  bool IsTrivial() const { return filter_ == literal(true); }
+
   Status FilterMatchBitVector(const ExecBatch& keypayload_batch, int batch_start_row,
                               int num_batch_rows, int bit_match,
                               const uint8_t* match_bitvector, const uint32_t* key_ids,
                               bool no_duplicate_keys,
                               arrow::util::TempVectorStack* temp_stack,
                               int* num_passing_ids, uint16_t* passing_batch_row_ids,
-                              uint32_t* passing_key_ids_maybe_null);
+                              uint32_t* passing_key_ids_maybe_null) const;
 
   Status FilterMatchRowIds(const ExecBatch& keypayload_batch, int num_batch_rows,
-                           uint16_t* batch_row_ids, uint32_t* key_ids,
-                           uint32_t* payload_ids, bool output_key_ids,
+                           uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
+                           uint32_t* payload_ids_maybe_null, bool output_key_ids,
                            bool output_payload_ids,
                            arrow::util::TempVectorStack* temp_stack,
-                           int* num_passing_rows);
+                           int* num_passing_rows) const;
 
  private:
-  Result<Datum> EvalFilter() { return Datum(); }
+  Result<Datum> EvalFilter(const ExecBatch& keypayload_batch, int num_batch_rows,
+                           const uint16_t* batch_row_ids,
+                           const uint32_t* key_ids_maybe_null,
+                           const uint32_t* payload_ids_maybe_null) const;
+
+  Result<ExecBatch> MaterializeFilterInput(const ExecBatch& keypayload_batch,
+                                           int num_batch_rows,
+                                           const uint16_t* batch_row_ids,
+                                           const uint32_t* key_ids_maybe_null,
+                                           const uint32_t* payload_ids_maybe_null) const;
 
  private:
-  // int64_t hardware_flags_;
+  QueryContext* ctx_;
+  int64_t hardware_flags_;
+  MemoryPool* pool_;
   int minibatch_size_;
+  // const HashJoinProjectionMaps* probe_schemas_;
+  const HashJoinProjectionMaps* build_schemas_;
   Expression filter_;
+
+  std::vector<int> probe_filter_to_key_and_payload_;
+  std::vector<int> build_filter_to_key_;
+  std::vector<int> build_filter_to_payload_;
+
   const uint32_t* key_to_payload_;
+  const RowArray* build_keys_;
+  const RowArray* build_payloads_;
 };
 
 // Implements entire processing of a probe side exec batch,
@@ -787,7 +809,7 @@ class JoinProbeProcessor {
   JoinType join_type_;
 
   SwissTableForJoin* hash_table_;
-  JoinResidualFilter* residual_filter_;
+  const JoinResidualFilter* residual_filter_;
   // One element per thread
   //
   std::vector<JoinResultMaterialize*> materialize_;
