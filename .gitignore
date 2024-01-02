@@ -100,6 +100,3 @@ __debug_bin
 
 # direnv
 .envrc
-
-# Auto generated pyarrow config
-**/pyarrow_config.h

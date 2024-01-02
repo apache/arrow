@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/python/visibility.h"
+#include "arrow/python/wrap_macros.h"
 
 // Work around ARROW-2317 (C linkage warning from Cython)
 extern "C++" {
@@ -34,6 +35,12 @@ namespace py {
 
 ARROW_PYTHON_EXPORT int import_pyarrow_acero();
 
+DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
+DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
+
+// If status is ok, return 0.
+// If status is not ok, set Python error indicator and return -1.
+ARROW_PYTHON_EXPORT int check_status(const Status& status);
 }  // namespace py
 }  // namespace arrow
 

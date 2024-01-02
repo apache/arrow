@@ -17,8 +17,6 @@
 #include <memory>
 #include <utility>
 
-#include "pyarrow_config.h"
-
 #include "arrow/array.h"
 #include "arrow/compute/expression.h"
 #include "arrow/table.h"
@@ -26,14 +24,11 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
-#ifdef PYARROW_BUILD_ACERO
-#include "arrow/acero/exec_plan.h"
-#endif
-
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/lib_api.h"
 #include "arrow/python/pyarrow.h"
+#include "arrow/python/wrap_macros.h"
 
 namespace {
 #include "arrow/python/pyarrow_api.h"
@@ -48,72 +43,34 @@ int import_pyarrow() {
 #else
   internal::InitDatetime();
 #endif
-  return ::import_pyarrow__lib() && ::import_pyarrow__lib_compute();
+  return ::import_pyarrow__lib();
 }
 
-#define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
-  bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
-                                                                                        \
-  PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME& src) {                                  \
-    return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
-  }                                                                                     \
-  Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject* obj) {                               \
-    auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
-    if (IS_VALID(out)) {                                                                \
-      return std::move(out);                                                            \
-    } else {                                                                            \
-      return Status::TypeError("Could not unwrap ", #TYPE_NAME,                         \
-                               " from Python object of type '", Py_TYPE(obj)->tp_name,  \
-                               "'");                                                    \
-    }                                                                                   \
-  }
+DEFINE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>, out)
 
-#define IS_VALID(OUT) OUT
+DEFINE_WRAP_FUNCTIONS(data_type, std::shared_ptr<DataType>, out)
+DEFINE_WRAP_FUNCTIONS(field, std::shared_ptr<Field>, out)
+DEFINE_WRAP_FUNCTIONS(schema, std::shared_ptr<Schema>, out)
 
-DEFINE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>)
+DEFINE_WRAP_FUNCTIONS(scalar, std::shared_ptr<Scalar>, out)
 
-DEFINE_WRAP_FUNCTIONS(data_type, std::shared_ptr<DataType>)
-DEFINE_WRAP_FUNCTIONS(field, std::shared_ptr<Field>)
-DEFINE_WRAP_FUNCTIONS(schema, std::shared_ptr<Schema>)
+DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<arrow::Array>, out)
+DEFINE_WRAP_FUNCTIONS(chunked_array, std::shared_ptr<ChunkedArray>, out)
 
-DEFINE_WRAP_FUNCTIONS(scalar, std::shared_ptr<Scalar>)
+DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, std::shared_ptr<SparseCOOTensor>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, std::shared_ptr<SparseCSCMatrix>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, std::shared_ptr<SparseCSFTensor>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, std::shared_ptr<SparseCSRMatrix>, out)
+DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>, out)
 
-DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<arrow::Array>)
-DEFINE_WRAP_FUNCTIONS(chunked_array, std::shared_ptr<ChunkedArray>)
+DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>, out)
+DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>, out)
 
-DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, std::shared_ptr<SparseCOOTensor>)
-DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, std::shared_ptr<SparseCSCMatrix>)
-DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, std::shared_ptr<SparseCSFTensor>)
-DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, std::shared_ptr<SparseCSRMatrix>)
-DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>)
-
-DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
-DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
-
-#ifdef PYARROW_BUILD_ACERO
-DEFINE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
-#endif
-
-#undef IS_VALID
-
-#define IS_VALID(OUT) OUT.is_valid()
-DEFINE_WRAP_FUNCTIONS(expression, compute::Expression)
-#undef IS_VALID
-
-#ifdef PYARROW_BUILD_ACERO
-#define IS_VALID(OUT) OUT.IsValid()
-DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-#undef IS_VALID
-#endif
+DEFINE_WRAP_FUNCTIONS(expression, compute::Expression, out.is_valid())
 
 namespace internal {
 
 int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
-
-PyObject* convert_status(const Status& status) {
-  DCHECK(!status.ok());
-  return ::pyarrow_internal_convert_status(status);
-}
 
 }  // namespace internal
 

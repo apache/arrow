@@ -14,16 +14,20 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/python/pyarrow_acero.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 
-namespace {
 #include "arrow/python/lib_acero_api.h"
-}
+#include "arrow/python/pyarrow_acero.h"
+#include "arrow/python/wrap_macros.h"
 
 namespace arrow {
 namespace py {
 
 int import_pyarrow_acero() { return ::import_pyarrow__lib_acero(); }
+
+DEFINE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>, out)
+DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration, out.IsValid());
 
 }  // namespace py
 }  // namespace arrow

@@ -16,11 +16,5 @@
 // under the License.
 
 // For backward compatibility.
-#include "arrow/python/pyarrow_config.h"
-
 #include "arrow/python/lib_api.h"
 #include "arrow/python/lib_compute_api.h"
-
-#ifdef PYARROW_BUILD_ACERO
-#include "arrow/python/lib_acero_api.h"
-#endif

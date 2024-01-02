@@ -378,13 +378,6 @@ if(NOT PYARROW_CPP_LINK_LIBS)
   endif()
 endif()
 
-# Code generate the pyarrow config so build flags are known
-configure_file("${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h.cmake"
-               "${PROJECT_SOURCE_DIR}/${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
-               ESCAPE_QUOTES)
-install(FILES "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
-
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_BINARY_DIR}/**/*")
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
