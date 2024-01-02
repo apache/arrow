@@ -27,7 +27,7 @@
         <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
         <protobuf.version>2.5.0</protobuf.version>
         <parquet.version>1.11.0</parquet.version>
-        <avro.version>1.8.2</avro.version>
+        <avro.version>1.11.3</avro.version>
     </properties>
 
     <dependencies>
