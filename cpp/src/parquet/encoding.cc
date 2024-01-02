@@ -1080,9 +1080,7 @@ inline int DecodePlain<FixedLenByteArray>(const uint8_t* data, int64_t data_size
     ParquetException::EofException();
   }
   for (int i = 0; i < num_values; ++i) {
-    out[i].ptr = data;
-    data += type_length;
-    data_size -= type_length;
+    out[i].ptr = data + i * type_length;
   }
   return static_cast<int>(bytes_to_decode);
 }
