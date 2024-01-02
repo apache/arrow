@@ -231,7 +231,7 @@ Now, you can run unit tests by the followings:
 
 ```console
 $ cd c_glib.build
-$ bundle exec ../c_glib/test/run-test.sh
+$ BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
 ```
 
 ## Common build problems
