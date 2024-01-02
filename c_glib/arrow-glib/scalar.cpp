@@ -387,7 +387,7 @@ garrow_scalar_cast(GArrowScalar *scalar,
 {
   const auto arrow_scalar = garrow_scalar_get_raw(scalar);
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_casted_scalar_result = arrow::compute::Cast(*arrow_scalar, arrow_data_type);
+  auto arrow_casted_scalar_result = arrow::compute::Cast(arrow_scalar, arrow_data_type);
   if (garrow::check(error, arrow_casted_scalar_result, "[scalar][cast]")) {
     auto arrow_casted_scalar = (*arrow_casted_scalar_result).scalar();
     return garrow_scalar_new_raw(&arrow_casted_scalar,
