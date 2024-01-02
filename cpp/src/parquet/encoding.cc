@@ -1683,7 +1683,7 @@ template <>
 void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictionary) {
   DecodeDict(dictionary);
 
-  ByteArray* dict_values = dictionary_->mutable_data_as<ByteArray>();
+  auto* dict_values = dictionary_->mutable_data_as<ByteArray>();
 
   int total_size = 0;
   for (int i = 0; i < dictionary_length_; ++i) {
@@ -1711,7 +1711,7 @@ template <>
 inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionary) {
   DecodeDict(dictionary);
 
-  auto dict_values = dictionary_->mutable_data_as<FLBA>();
+  auto* dict_values = dictionary_->mutable_data_as<FLBA>();
 
   int fixed_len = descr_->type_length();
   int total_size = dictionary_length_ * fixed_len;
@@ -1759,7 +1759,7 @@ int DictDecoderImpl<DType>::DecodeArrow(
     typename EncodingTraits<DType>::DictAccumulator* builder) {
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  auto dict_values = dictionary_->data_as<typename DType::c_type>();
+  const auto* dict_values = dictionary_->data_as<typename DType::c_type>();
 
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
@@ -1795,7 +1795,7 @@ inline int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  const FLBA* dict_values = dictionary_->data_as<FLBA>();
+  const auto* dict_values = dictionary_->data_as<FLBA>();
 
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
@@ -1828,7 +1828,7 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
 
   PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
-  const FLBA* dict_values = dictionary_->data_as<FLBA>();
+  const auto* dict_values = dictionary_->data_as<FLBA>();
 
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
@@ -1930,7 +1930,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     // space for binary data.
     RETURN_NOT_OK(helper.Prepare());
 
-    const ByteArray* dict_values = dictionary_->data_as<ByteArray>();
+    const auto* dict_values = dictionary_->data_as<ByteArray>();
     int values_decoded = 0;
     int num_indices = 0;
     int pos_indices = 0;
