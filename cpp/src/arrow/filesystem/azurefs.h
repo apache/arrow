@@ -44,8 +44,13 @@ class DataLakeServiceClient;
 
 namespace arrow::fs {
 
+class TestAzureFileSystem;
+
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
+  /// \brief account name of the Azure Storage account.
+  std::string account_name;
+
   /// \brief hostname[:port] of the Azure Blob Storage Service.
   ///
   /// If the hostname is a relative domain name (one that starts with a '.'), then storage
@@ -92,7 +97,6 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKeyCredential,
   } credential_kind_ = CredentialKind::kAnonymous;
 
-  std::string account_name_;
   std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
@@ -101,12 +105,17 @@ struct ARROW_EXPORT AzureOptions {
   AzureOptions();
   ~AzureOptions();
 
-  Status ConfigureDefaultCredential(const std::string& account_name);
+  Status ConfigureDefaultCredential();
 
-  Status ConfigureWorkloadIdentityCredential(const std::string& account_name);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
 
-  Status ConfigureAccountKeyCredential(const std::string& account_name,
-                                       const std::string& account_key);
+  Status ConfigureWorkloadIdentityCredential();
+
+  Status ConfigureAccountKeyCredential(const std::string& account_key);
+
+  Status ConfigureClientSecretCredential(const std::string& tenant_id,
+                                         const std::string& client_id,
+                                         const std::string& client_secret);
 
   bool Equals(const AzureOptions& other) const;
 
@@ -155,6 +164,9 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 
   explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
+
+  friend class TestAzureFileSystem;
+  void ForceCachedHierarchicalNamespaceSupport(int hns_support);
 
  public:
   ~AzureFileSystem() override = default;
