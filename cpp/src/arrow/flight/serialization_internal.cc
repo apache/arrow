@@ -438,7 +438,7 @@ Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
                           auto* string_list_value = pb_val->mutable_string_list_value();
                           for (const std::string& s : v) string_list_value->add_values(s);
                         }},
-            val);
+             val);
   return Status::OK();
 }
 
