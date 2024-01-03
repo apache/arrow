@@ -2183,6 +2183,12 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
+def test_array_from_array_with_pandas_nans():
+    result = pa.array(pa.array([np.nan, None]), from_pandas=True)
+    expected = pa.nulls(2, type=pa.float64())
+    assert result.equals(expected)
+
+
 def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 

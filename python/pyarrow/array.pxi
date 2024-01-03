@@ -240,8 +240,13 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         c_from_pandas = from_pandas
 
     if isinstance(obj, Array):
+        from pyarrow.types import is_floating
         if type is not None and not obj.type.equals(type):
             obj = obj.cast(type, safe=safe, memory_pool=memory_pool)
+        if is_floating(obj.type):
+            mask_nulls_and_nans = obj.is_null(nan_is_null=True)
+            obj = _pc().replace_with_mask(obj, mask_nulls_and_nans, nulls(
+                mask_nulls_and_nans.sum().as_py(), type=obj.type))
         return obj
 
     if hasattr(obj, '__arrow_array__'):
