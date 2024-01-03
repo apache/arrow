@@ -969,22 +969,23 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
   using BuilderType = DictionaryBuilder<ValueType>;
 
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    RETURN_NOT_OK(ExtendSetup(x, size, offset));
-    return ExtendImpl(x, size, offset, GetCharLevels(x));
+    ARROW_ASSIGN_OR_RAISE(cpp11::sexp values_as_factor, ExtendSetup(x, size, offset));
+    return ExtendImpl(values_as_factor, size, offset, GetCharLevels(values_as_factor));
   }
 
   void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
     // the setup runs synchronously first
-    Status setup = ExtendSetup(values, size, /*offset=*/0);
+    auto setup = ExtendSetup(values, size, /*offset=*/0);
 
     if (!setup.ok()) {
       // if that fails, propagate the error
-      tasks.Append(false, [setup]() { return setup; });
+      tasks.Append(false, [setup]() { return setup.status(); });
     } else {
-      auto char_levels = GetCharLevels(values);
+      cpp11::sexp values_as_factor = *setup;
+      auto char_levels = GetCharLevels(values_as_factor);
 
-      tasks.Append(true, [this, values, size, char_levels]() {
-        return this->ExtendImpl(values, size, /*offset=*/0, char_levels);
+      tasks.Append(true, [this, values_as_factor, size, char_levels]() {
+        return this->ExtendImpl(values_as_factor, size, /*offset=*/0, char_levels);
       });
     }
   }
@@ -1017,14 +1018,28 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     return char_levels;
   }
 
-  Status ExtendSetup(SEXP x, int64_t size, int64_t offset) {
+  Result<cpp11::sexp> ExtendSetup(SEXP x, int64_t size, int64_t offset) {
+    // This converter only handles factor(). We could potentially move the
+    // "convert to dictionary" into C++; however, R already "dictionary encodes"
+    // strings with the global string pool and it might not be faster.
     RVectorType rtype = GetVectorType(x);
-    if (rtype != FACTOR) {
-      return Status::Invalid("invalid R type to convert to dictionary");
+    cpp11::sexp values_as_factor;
+
+    switch (rtype) {
+      case FACTOR:
+        values_as_factor = x;
+        break;
+      case STRING: {
+        cpp11::function as_dot_factor = cpp11::package("base")["as.factor"];
+        values_as_factor = as_dot_factor(x);
+        break;
+      }
+      default:
+        return Status::Invalid("invalid R type to convert to dictionary");
     }
 
     // first we need to handle the levels
-    SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
+    SEXP levels = Rf_getAttrib(values_as_factor, R_LevelsSymbol);
     auto memo_chunked_chunked_array =
         arrow::r::vec_to_arrow_ChunkedArray(levels, utf8(), false);
     for (const auto& chunk : memo_chunked_chunked_array->chunks()) {
@@ -1032,7 +1047,9 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
     }
 
     // then we can proceed
-    return this->Reserve(size - offset);
+    RETURN_NOT_OK(this->Reserve(size - offset));
+
+    return values_as_factor;
   }
 
   Status ExtendImpl(SEXP values, int64_t size, int64_t offset,
