@@ -42,6 +42,7 @@ Unit Testing
 Unit tests are run by Maven during the build.
 
 To speed up the build, you can skip them by passing -DskipTests.
+
 .. code-block::
 
     $ cd arrow/java
