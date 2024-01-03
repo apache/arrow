@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.apache.arrow.flight.impl.Flight;
 
@@ -98,6 +99,28 @@ public class SessionOptionValueFactory {
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueString that = (SessionOptionValueString) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return '"' + value + '"';
+    }
   }
 
   private static class SessionOptionValueBoolean extends SessionOptionValue {
@@ -110,6 +133,28 @@ public class SessionOptionValueFactory {
     @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueBoolean that = (SessionOptionValueBoolean) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return Boolean.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
     }
   }
 
@@ -124,6 +169,28 @@ public class SessionOptionValueFactory {
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueInt that = (SessionOptionValueInt) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return Integer.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
   }
 
   private static class SessionOptionValueLong extends SessionOptionValue {
@@ -136,6 +203,28 @@ public class SessionOptionValueFactory {
     @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueLong that = (SessionOptionValueLong) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
     }
   }
 
@@ -150,6 +239,28 @@ public class SessionOptionValueFactory {
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueFloat that = (SessionOptionValueFloat) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return Float.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
   }
 
   private static class SessionOptionValueDouble extends SessionOptionValue {
@@ -162,6 +273,28 @@ public class SessionOptionValueFactory {
     @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueDouble that = (SessionOptionValueDouble) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return Double.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
     }
   }
 
@@ -176,6 +309,31 @@ public class SessionOptionValueFactory {
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SessionOptionValueStringList that = (SessionOptionValueStringList) o;
+      return Arrays.deepEquals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return Boolean.hashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      if (value.length == 0) {
+        return "[]";
+      }
+      return "[\"" + String.join("\", \"", value) + "\"]";
+    }
   }
 
   private static class SessionOptionValueEmpty extends SessionOptionValue {
@@ -187,6 +345,27 @@ public class SessionOptionValueFactory {
     @Override
     public boolean isEmpty() {
       return true;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.deepHashCode(value);
+    }
+
+    @Override
+    public String toString() {
+      return "<empty>";
     }
   }
 }
