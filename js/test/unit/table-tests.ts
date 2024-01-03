@@ -151,6 +151,23 @@ describe(`Table`, () => {
             expect(i32).toEqualVector(makeVector(i32s));
         });
 
+        test(`creates a new Table from a Typed Array and force nullable`, () => {
+            const i32s = new Int32Array(arange(new Array<number>(10)));
+            const i32 = makeVector([i32s]);
+            expect(i32).toHaveLength(i32s.length);
+            expect(i32.nullCount).toBe(0);
+
+            const table = new Table(new Schema([new Field('i32', new Int32, true)]), { i32 });
+            const i32Field = table.schema.fields[0];
+
+            expect(i32Field.name).toBe('i32');
+            expect(i32).toHaveLength(i32s.length);
+            expect(i32Field.nullable).toBe(true);
+            expect(i32.nullCount).toBe(0);
+
+            expect(i32).toEqualVector(makeVector(i32s));
+        });
+
         test(`creates a new Table from Typed Arrays`, () => {
             const i32s = new Int32Array(arange(new Array<number>(10)));
             const f32s = new Float32Array(arange(new Array<number>(10)));
