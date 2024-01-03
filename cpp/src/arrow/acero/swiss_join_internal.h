@@ -746,6 +746,8 @@ class JoinResidualFilter {
                     const uint32_t* key_to_payload);
 
   bool IsTrivial() const { return filter_ == literal(true); }
+  int NumBuildKeysReferred() const { return num_build_keys_referred_; }
+  int NumBuildPayloadsReferred() const { return num_build_payloads_referred_; }
 
   Status FilterMatchBitVector(const ExecBatch& keypayload_batch, int batch_start_row,
                               int num_batch_rows, int bit_match,

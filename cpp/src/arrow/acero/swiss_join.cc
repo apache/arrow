@@ -2483,9 +2483,10 @@ class SwissJoin : public HashJoinImpl {
     const HashJoinProjectionMaps* schema = schema_[1];
     bool reject_duplicate_keys =
         (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI) &&
-        (schema->is_empty(HashJoinProjection::FILTER) == 0);
+        residual_filter_.NumBuildPayloadsReferred() == 0;
     bool no_payload =
-        reject_duplicate_keys || schema->num_cols(HashJoinProjection::PAYLOAD) == 0;
+        reject_duplicate_keys || (schema->num_cols(HashJoinProjection::PAYLOAD) == 0 &&
+                                  residual_filter_.NumBuildPayloadsReferred() == 0);
 
     std::vector<KeyColumnMetadata> key_types;
     for (int i = 0; i < schema->num_cols(HashJoinProjection::KEY); ++i) {
