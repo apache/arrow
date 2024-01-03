@@ -31,6 +31,7 @@ import (
 type StringLike interface {
 	arrow.Array
 	Value(int) string
+	ValueLen(int) int
 }
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -225,6 +226,14 @@ func (a *LargeString) ValueOffset64(i int) int64 {
 	return a.ValueOffset(i)
 }
 
+func (a *LargeString) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.offsets[beg+1] - a.offsets[beg])
+}
+
 func (a *LargeString) ValueOffsets() []int64 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
@@ -362,6 +371,11 @@ func (a *StringView) Value(i int) string {
 	buf := a.dataBuffers[s.BufferIndex()]
 	value := buf.Bytes()[start : start+int32(s.Len())]
 	return *(*string)(unsafe.Pointer(&value))
+}
+
+func (a *StringView) ValueLen(i int) int {
+	s := a.ValueHeader(i)
+	return s.Len()
 }
 
 func (a *StringView) String() string {
@@ -698,4 +712,7 @@ var (
 	_ StringLikeBuilder = (*StringBuilder)(nil)
 	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
 	_ StringLikeBuilder = (*StringViewBuilder)(nil)
+	_ StringLike        = (*String)(nil)
+	_ StringLike        = (*LargeString)(nil)
+	_ StringLike        = (*StringView)(nil)
 )

@@ -30,6 +30,7 @@ import (
 
 type BinaryLike interface {
 	arrow.Array
+	ValueLen(int) int
 	ValueBytes() []byte
 	ValueOffset64(int) int64
 }
@@ -367,6 +368,11 @@ func (a *BinaryView) Value(i int) []byte {
 	return buf.Bytes()[start : start+int32(s.Len())]
 }
 
+func (a *BinaryView) ValueLen(i int) int {
+	s := a.ValueHeader(i)
+	return s.Len()
+}
+
 // ValueString returns the value at index i as a string instead of
 // a byte slice, without copying the underlying data.
 func (a *BinaryView) ValueString(i int) string {
@@ -441,4 +447,7 @@ var (
 	_ arrow.Array = (*Binary)(nil)
 	_ arrow.Array = (*LargeBinary)(nil)
 	_ arrow.Array = (*BinaryView)(nil)
+
+	_ BinaryLike = (*Binary)(nil)
+	_ BinaryLike = (*LargeBinary)(nil)
 )
