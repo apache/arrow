@@ -127,8 +127,14 @@ cdef class ParquetFileFormat(FileFormat):
                             'instance of ParquetReadOptions')
 
         if default_fragment_scan_options is None:
-            default_fragment_scan_options = ParquetFragmentScanOptions(
-                **scan_args)
+            # remove decryption_properties from scan_args as it does not take this parameter
+            decryption_properties = scan_args.pop('decryption_properties', None)
+            default_fragment_scan_options = ParquetFragmentScanOptions(**scan_args)
+            # make sure scan options has decryption properties
+            if decryption_properties is not None:
+                default_fragment_scan_options.set_file_decryption_properties(
+                    decryption_properties)
+
         elif isinstance(default_fragment_scan_options, dict):
             default_fragment_scan_options = ParquetFragmentScanOptions(
                 **default_fragment_scan_options)
@@ -149,6 +155,7 @@ cdef class ParquetFileFormat(FileFormat):
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
+        self._set_default_fragment_scan_options(default_fragment_scan_options)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -811,6 +818,18 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if size <= 0:
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
+
+    def set_file_decryption_properties(self, FileDecryptionProperties decryption_properties):
+        """
+        Set the file decryption properties for the Parquet fragment scan options.
+
+        Parameters
+        ----------
+        decryption_properties : FileDecryptionProperties
+            The decryption properties to be used for reading encrypted Parquet files.
+        """
+        cdef CReaderProperties* reader_props = self.reader_properties()
+        reader_props.file_decryption_properties(decryption_properties.unwrap())
 
     @property
     def parquet_decryption_config(self):
