@@ -793,7 +793,17 @@ class FileMetaData::FileMetaDataImpl {
 
     std::shared_ptr<FileMetaData> out(new FileMetaData());
     out->impl_ = std::make_unique<FileMetaDataImpl>();
-    out->impl_->metadata_ = std::make_unique<format::FileMetaData>(*metadata_);
+    {
+      // GH-39336: Copy the metadata, but only the row groups we need.
+      auto temp_row_groups = std::move(this->metadata_->row_groups);
+      try {
+        out->impl_->metadata_ = std::make_unique<format::FileMetaData>(*metadata_);
+      } catch (...) {
+        this->metadata_->row_groups = std::move(temp_row_groups);
+        throw;
+      }
+      this->metadata_->row_groups = std::move(temp_row_groups);
+    }
     auto output_metadata = out->impl_->metadata_.get();
 
     // Discard row groups that are not in the subset
@@ -1833,7 +1843,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   std::unique_ptr<FileMetaData> Finish(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     int64_t total_rows = 0;
-    for (auto row_group : row_groups_) {
+    for (const auto& row_group : row_groups_) {
       total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
@@ -1852,7 +1862,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         format::KeyValue kv_pair;
         kv_pair.__set_key(key_value_metadata_->key(i));
         kv_pair.__set_value(key_value_metadata_->value(i));
-        metadata_->key_value_metadata.push_back(kv_pair);
+        metadata_->key_value_metadata.push_back(std::move(kv_pair));
       }
       metadata_->__isset.key_value_metadata = true;
     }
