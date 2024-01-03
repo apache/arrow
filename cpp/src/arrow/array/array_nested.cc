@@ -894,7 +894,8 @@ const std::shared_ptr<DataType>& FixedSizeListArray::value_type() const {
 const std::shared_ptr<Array>& FixedSizeListArray::values() const { return values_; }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
-    const std::shared_ptr<Array>& values, int32_t list_size) {
+    const std::shared_ptr<Array>& values, int32_t list_size,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (list_size <= 0) {
     return Status::Invalid("list_size needs to be a strict positive integer");
   }
@@ -905,14 +906,14 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
   }
   int64_t length = values->length() / list_size;
   auto list_type = std::make_shared<FixedSizeListType>(values->type(), list_size);
-  std::shared_ptr<Buffer> validity_buf;
 
-  return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
-                                              /*null_count=*/0, /*offset=*/0);
+  return std::make_shared<FixedSizeListArray>(list_type, length, values, null_bitmap,
+                                              null_count);
 }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
-    const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type) {
+    const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (type->id() != Type::FIXED_SIZE_LIST) {
     return Status::TypeError("Expected fixed size list type, got ", type->ToString());
   }
@@ -926,10 +927,9 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
         "The length of the values Array needs to be a multiple of the list size");
   }
   int64_t length = values->length() / list_type.list_size();
-  std::shared_ptr<Buffer> validity_buf;
 
-  return std::make_shared<FixedSizeListArray>(type, length, values, validity_buf,
-                                              /*null_count=*/0, /*offset=*/0);
+  return std::make_shared<FixedSizeListArray>(type, length, values, null_bitmap,
+                                              null_count);
 }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
