@@ -324,7 +324,7 @@ public class SessionOptionValueFactory {
 
     @Override
     public int hashCode() {
-      return Boolean.hashCode(value);
+      return Arrays.deepHashCode(value);
     }
 
     @Override
@@ -360,7 +360,7 @@ public class SessionOptionValueFactory {
 
     @Override
     public int hashCode() {
-      return Arrays.deepHashCode(value);
+      return SessionOptionValueEmpty.class.hashCode();
     }
 
     @Override

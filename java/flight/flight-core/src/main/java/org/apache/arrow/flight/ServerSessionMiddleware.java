@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -176,6 +177,11 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     return session;
   }
 
+  /**
+   * Close the current session.
+   *
+   * It is an error to call this without a session specified via cookie or equivalent.
+   * */
   public synchronized void closeSession() {
     if (session == null) {
       throw CallStatus.NOT_FOUND.withDescription("No session found for the current call.").toRuntimeException();

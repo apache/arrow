@@ -17,11 +17,19 @@
 
 package org.apache.arrow.flight.integration.tests;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.apache.arrow.flight.*;
+import org.apache.arrow.flight.CloseSessionRequest;
+import org.apache.arrow.flight.CloseSessionResult;
+import org.apache.arrow.flight.FlightServerMiddleware;
+import org.apache.arrow.flight.GetSessionOptionsRequest;
+import org.apache.arrow.flight.GetSessionOptionsResult;
+import org.apache.arrow.flight.ServerSessionMiddleware;
+import org.apache.arrow.flight.SessionOptionValue;
+import org.apache.arrow.flight.SetSessionOptionsRequest;
+import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.sql.NoOpFlightSqlProducer;
-import org.apache.arrow.memory.BufferAllocator;
 
 /** The server used for testing Sessions.
  * <p>
@@ -29,7 +37,6 @@ import org.apache.arrow.memory.BufferAllocator;
  * simple SessionOptionValue store.
  */
 final class SessionOptionsProducer extends NoOpFlightSqlProducer {
-  private final BufferAllocator allocator;
   private final FlightServerMiddleware.Key<ServerSessionMiddleware> sessionMiddlewareKey;
 
   SessionOptionsProducer(FlightServerMiddleware.Key<ServerSessionMiddleware> sessionMiddlewareKey) {
@@ -37,8 +44,8 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   }
 
   @Override
-  void setSessionOptions(SetSessionOptionsRequest request, CallContext context,
-                                 StreamListener<SetSessionOptionsResult> listener) {
+  public void setSessionOptions(SetSessionOptionsRequest request, CallContext context,
+                         StreamListener<SetSessionOptionsResult> listener) {
     Map<String, SetSessionOptionsResult.Error> errors = new HashMap();
 
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
@@ -51,22 +58,25 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
       }
       session.setSessionOption(entry.getKey(), entry.getValue());
     }
-
-    return new SetSessionOptionsResult(errors);
+    listener.onNext(new SetSessionOptionsResult(errors));
+    listener.onCompleted();
   }
 
   @Override
-  void getSessionOptions(GetSessionOptionsRequest request, CallContext context,
-                                 StreamListener<GetSessionOptionsResult> listener) {
+  public void getSessionOptions(GetSessionOptionsRequest request, CallContext context,
+                         StreamListener<GetSessionOptionsResult> listener) {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
     final Map<String, SessionOptionValue> sessionOptions = middleware.getSession().getSessionOptions();
-    return new GetSessionOptionsResult(sessionOptions);
+    listener.onNext(new GetSessionOptionsResult(sessionOptions));
+    listener.onCompleted();
   }
 
   @Override
-  void closeSession(CloseSessionRequest request, CallContext context,
-                            StreamListener<CloseSessionResult> listener) {
+  public void closeSession(CloseSessionRequest request, CallContext context,
+                    StreamListener<CloseSessionResult> listener) {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
     middleware.closeSession();
+    listener.onNext(new CloseSessionResult(CloseSessionResult.Status.CLOSED));
+    listener.onCompleted();
   }
 }
