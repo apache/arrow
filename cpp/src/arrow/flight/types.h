@@ -769,9 +769,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
 ///
 /// By convention, an attempt to set a valueless (std::monostate) SessionOptionValue
 /// should attempt to unset or clear the named option value on the server.
-using SessionOptionValue = std::variant<
-    std::monostate, std::string, bool, int32_t, int64_t, float, double,
-    std::vector<std::string>>;
+using SessionOptionValue = std::variant<std::monostate, std::string, bool, int32_t,
+                                        int64_t, float, double, std::vector<std::string>>;
 
 /// \brief The result of setting a session option.
 enum class SetSessionOptionErrorValue : int8_t {
