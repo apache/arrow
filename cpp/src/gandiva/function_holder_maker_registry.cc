@@ -63,6 +63,7 @@ FunctionHolderMakerRegistry::MakerMap FunctionHolderMakerRegistry::DefaultHolder
       {"rand", HolderMaker<RandomGeneratorHolder>},
       {"regexp_replace", HolderMaker<ReplaceHolder>},
       {"regexp_extract", HolderMaker<ExtractHolder>},
+      {"regexp_like", HolderMaker<RegexpLikeHolder>},
       {"castintervalday", HolderMaker<IntervalDaysHolder>},
       {"castintervalyear", HolderMaker<IntervalYearsHolder>}};
   return maker_map;

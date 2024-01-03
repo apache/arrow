@@ -275,4 +275,79 @@ const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_in
   return result_buffer;
 }
 
+Result<std::shared_ptr<RegexpLikeHolder>> RegexpLikeHolder::Make(
+    const FunctionNode& node) {
+  ARROW_RETURN_IF(
+      node.children().size() < 2,
+      Status::Invalid("'regexp_like' function requires at least two parameters"));
+  ARROW_RETURN_IF(
+      node.children().size() > 3,
+      Status::Invalid("'regexp_like' function requires at most three parameters"));
+  auto pattern = arrow::internal::checked_cast<LiteralNode*>(node.children().at(1).get());
+  ARROW_RETURN_IF(
+      pattern == nullptr,
+      Status::Invalid(
+          "'regexp_like' function requires a literal as the second parameter"));
+
+  auto pattern_type = pattern->return_type()->id();
+  ARROW_RETURN_IF(
+      !(pattern_type == arrow::Type::STRING || pattern_type == arrow::Type::BINARY),
+      Status::Invalid(
+          "'regexp_like' function requires a string literal as the second parameter"));
+
+  if (node.children().size() > 2) {
+    auto parameter =
+        arrow::internal::checked_cast<LiteralNode*>(node.children().at(2).get());
+    if (parameter != nullptr) {
+      auto parameter_type = parameter->return_type()->id();
+      ARROW_RETURN_IF(
+          !arrow::is_binary_like(parameter_type),
+          Status::Invalid(
+              "'regexp_like' function requires a string literal as the third parameter"));
+      return RegexpLikeHolder::Make(std::get<std::string>(pattern->holder()), true,
+                                    std::get<std::string>(parameter->holder()));
+    }
+  }
+  return RegexpLikeHolder::Make(std::get<std::string>(pattern->holder()), false, "");
+}
+
+Result<std::shared_ptr<RegexpLikeHolder>> RegexpLikeHolder::Make(
+    const std::string& pattern, bool used_match_parameter,
+    const std::string& match_parameter) {
+  RE2::Options options;
+  // set RE2 use Posix regex expression which also called ERE in PostgreSQL
+  options.set_posix_syntax(true);
+  // Oracle's regex_like will default treat source string as single line
+  options.set_one_line(true);
+
+  if (used_match_parameter) {
+    for (auto& parameter : match_parameter) {
+      switch (parameter) {
+        case 'i':
+          options.set_case_sensitive(false);
+          break;
+        case 'c':
+          options.set_case_sensitive(true);
+          break;
+        case 'n':
+          options.set_dot_nl(true);
+          break;
+        case 'm':
+          options.set_one_line(false);
+          break;
+        default:
+          ARROW_RETURN_NOT_OK(Status::Invalid("Invalid match parameter '", parameter,
+                                              "':Only 'i', 'c', 'n', 'm' are allowed"));
+      }
+    }
+  }
+
+  auto holder = std::shared_ptr<RegexpLikeHolder>(new RegexpLikeHolder(pattern, options));
+
+  ARROW_RETURN_IF(!holder->regexp_.ok(),
+                  Status::Invalid("Building Posix regular expression '", pattern,
+                                  "' failed with: ", holder->regexp_.error()));
+  return holder;
+}
+
 }  // namespace gandiva
