@@ -600,10 +600,10 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// \param[in] values Array containing list values
   /// \param[in] list_size The fixed length of each list
   /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   /// \return Will have length equal to values.length() / list_size
   static Result<std::shared_ptr<Array>> FromArrays(
-      const std::shared_ptr<Array>& values,
-      int32_t list_size,
+      const std::shared_ptr<Array>& values, int32_t list_size,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
@@ -612,10 +612,10 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// \param[in] values Array containing list values
   /// \param[in] type The fixed sized list type
   /// \param[in] null_bitmap Optional validity bitmap
+  /// \param[in] null_count Optional null count in null_bitmap
   /// \return Will have length equal to values.length() / type.list_size()
   static Result<std::shared_ptr<Array>> FromArrays(
-      const std::shared_ptr<Array>& values,
-      std::shared_ptr<DataType> type,
+      const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type,
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
