@@ -2185,7 +2185,7 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
     if (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI ||
         join_type_ == JoinType::RIGHT_SEMI || join_type_ == JoinType::RIGHT_ANTI) {
       int num_passing_ids = 0;
-      int bit_match = join_type_ == JoinType::LEFT_ANTI ? 0 : 1;
+      int bit_match = (join_type_ == JoinType::LEFT_ANTI) ? 0 : 1;
       if (residual_filter_->IsTrivial()) {
         arrow::util::bit_util::bits_to_indexes(
             bit_match, hardware_flags, minibatch_size_next,
