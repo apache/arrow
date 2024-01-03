@@ -927,6 +927,83 @@ class LargeListColumn(_BaseListColumn, _LargeOffsetsMixin):
     pass
 
 
+class ListViewField(Field):
+
+    def __init__(self, name, value_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable,
+                         metadata=metadata)
+        self.value_field = value_field
+
+    @property
+    def column_class(self):
+        return ListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'listview')
+        ])
+
+    def _get_children(self):
+        return [self.value_field.get_json()]
+
+    def generate_column(self, size, name=None):
+        MAX_LIST_SIZE = 4
+        VALUES_SIZE = size * MAX_LIST_SIZE
+
+        is_valid = self._make_is_valid(size)
+
+        MAX_OFFSET = VALUES_SIZE - MAX_LIST_SIZE
+        offsets = np.random.randint(0, MAX_OFFSET + 1, size=size)
+        sizes = np.random.randint(0, MAX_LIST_SIZE + 1, size=size)
+
+        values = self.value_field.generate_column(VALUES_SIZE)
+
+        if name is None:
+            name = self.name
+        return self.column_class(name, size, is_valid, offsets, sizes, values)
+
+
+class LargeListViewField(ListViewField):
+
+    @property
+    def column_class(self):
+        return LargeListViewColumn
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'largelistview')
+        ])
+
+
+class _BaseListViewColumn(Column):
+
+    def __init__(self, name, count, is_valid, offsets, sizes, values):
+        super().__init__(name, count)
+        self.is_valid = is_valid
+        self.offsets = offsets
+        self.sizes = sizes
+        self.values = values
+
+    def _get_buffers(self):
+        return [
+            ('VALIDITY', [int(v) for v in self.is_valid]),
+            ('OFFSET', self._encode_offsets(self.offsets)),
+            ('SIZE', self._encode_offsets(self.sizes)),
+        ]
+
+    def _get_children(self):
+        return [self.values.get_json()]
+
+
+class ListViewColumn(_BaseListViewColumn, _NarrowOffsetsMixin):
+    pass
+
+
+class LargeListViewColumn(_BaseListViewColumn, _LargeOffsetsMixin):
+    pass
+
+
 class MapField(Field):
 
     def __init__(self, name, key_field, item_field, *, nullable=True,
@@ -1663,6 +1740,15 @@ def generate_binary_view_case():
     return _generate_file("binary_view", fields, batch_sizes)
 
 
+def generate_list_view_case():
+    fields = [
+        ListViewField('lv', get_field('item', 'float32')),
+        LargeListViewField('llv', get_field('item', 'float32')),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("list_view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1846,8 +1932,12 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_binary_view_case()
-        .skip_tester('C#')
-        .skip_tester('Go')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('Rust'),
+
+        generate_list_view_case()
+        .skip_tester('C#')     # Doesn't support large list views
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('Rust'),

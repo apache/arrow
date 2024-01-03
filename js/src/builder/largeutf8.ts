@@ -19,12 +19,13 @@ import { LargeUtf8 } from '../type.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { BufferBuilder } from './buffer.js';
 import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
+import { LargeBinaryBuilder } from './largebinary.js';
 
 /** @ignore */
 export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf8, TNull> {
     constructor(opts: BuilderOptions<LargeUtf8, TNull>) {
         super(opts);
-        this._values = new BufferBuilder(new Uint8Array(0));
+        this._values = new BufferBuilder(Uint8Array);
     }
     public get byteLength(): number {
         let size = this._pendingLength + (this.length * 4);
@@ -36,24 +37,9 @@ export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf
     public setValue(index: number, value: string) {
         return super.setValue(index, encodeUtf8(value) as any);
     }
+
     // @ts-ignore
-    // TODO: move to largeBinaryBuilder when implemented
-    // protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
-    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number) {
-        const offsets = this._offsets;
-        const data = this._values.reserve(pendingLength).buffer;
-        let offset = 0;
-        for (const [index, value] of pending) {
-            if (value === undefined) {
-                offsets.set(index, BigInt(0));
-            } else {
-                const length = value.length;
-                data.set(value, offset);
-                offsets.set(index, BigInt(length));
-                offset += length;
-            }
-        }
-    }
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
 }
 
-// (LargeUtf8Builder.prototype as any)._flushPending = (LargeBinaryBuilder.prototype as any)._flushPending;
+(LargeUtf8Builder.prototype as any)._flushPending = (LargeBinaryBuilder.prototype as any)._flushPending;

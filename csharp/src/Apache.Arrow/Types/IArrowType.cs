@@ -50,6 +50,9 @@ namespace Apache.Arrow.Types
         FixedSizeList,
         Duration,
         RecordBatch,
+        BinaryView,
+        StringView,
+        ListView,
     }
 
     public interface IArrowType

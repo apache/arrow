@@ -609,6 +609,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             dictionary_pagesize_limit=self._properties["dictionary_pagesize_limit"],
             write_page_index=self._properties["write_page_index"],
             write_page_checksum=self._properties["write_page_checksum"],
+            sorting_columns=self._properties["sorting_columns"],
         )
 
     def _set_arrow_properties(self):
@@ -659,6 +660,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_index=False,
             encryption_config=None,
             write_page_checksum=False,
+            sorting_columns=None,
         )
 
         self._set_properties()
