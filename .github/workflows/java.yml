@@ -140,6 +140,12 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
           distribution: 'temurin'
+      - name: Set up Maven
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+          maven-version: ${{ matrix.maven }}
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
