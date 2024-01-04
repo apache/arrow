@@ -69,6 +69,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     /** @nocollapse */ static isInterval(x: any): x is Interval_ { return x?.typeId === Type.Interval; }
     /** @nocollapse */ static isDuration(x: any): x is Duration { return x?.typeId === Type.Duration; }
     /** @nocollapse */ static isList(x: any): x is List { return x?.typeId === Type.List; }
+    /** @nocollapse */ static isLargeList(x: any): x is LargeList { return x?.typeId === Type.LargeList; }
     /** @nocollapse */ static isStruct(x: any): x is Struct { return x?.typeId === Type.Struct; }
     /** @nocollapse */ static isUnion(x: any): x is Union_ { return x?.typeId === Type.Union; }
     /** @nocollapse */ static isFixedSizeBinary(x: any): x is FixedSizeBinary { return x?.typeId === Type.FixedSizeBinary; }
@@ -500,7 +501,9 @@ export class DurationNanosecond extends Duration<Type.DurationNanosecond> { cons
 /** @ignore */
 export interface List<T extends DataType = any> extends DataType<Type.List, { [0]: T }> {
     TArray: Array<T>;
+    TOffsetArray: Int32Array;
     TValue: Vector<T>;
+    OffsetArrayType: TypedArrayConstructor<Int32Array>;
 }
 
 /** @ignore */
@@ -518,6 +521,31 @@ export class List<T extends DataType = any> extends DataType<Type.List, { [0]: T
         (<any>proto).children = null;
         return proto[Symbol.toStringTag] = 'List';
     })(List.prototype);
+}
+
+/** @ignore */
+export interface LargeList<T extends DataType = any> extends DataType<Type.LargeList, { [0]: T }> {
+    TArray: Array<T>;
+    TOffsetArray: BigInt64Array;
+    TValue: Vector<T>;
+    OffsetArrayType: BigIntArrayConstructor<BigInt64Array>;
+}
+
+/** @ignore */
+export class LargeList<T extends DataType = any> extends DataType<Type.LargeList, { [0]: T }> {
+    constructor(child: Field<T>) {
+        super(Type.LargeList);
+        this.children = [child];
+    }
+    public declare readonly children: Field<T>[];
+    public toString() { return `LargeList<${this.valueType}>`; }
+    public get valueType(): T { return this.children[0].type as T; }
+    public get valueField(): Field<T> { return this.children[0] as Field<T>; }
+    public get ArrayType(): T['ArrayType'] { return this.valueType.ArrayType; }
+    protected static [Symbol.toStringTag] = ((proto: LargeList) => {
+        (<any>proto).children = null;
+        return proto[Symbol.toStringTag] = 'LargeList';
+    })(LargeList.prototype);
 }
 
 /** @ignore */

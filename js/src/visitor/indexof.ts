@@ -24,7 +24,8 @@ import { getBool, BitIterator } from '../util/bit.js';
 import { createElementComparator } from '../util/vector.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
+    List, LargeList, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -76,6 +77,7 @@ export interface IndexOfVisitor extends Visitor {
     visitTimeNanosecond<T extends TimeNanosecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDecimal<T extends Decimal>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitList<T extends List>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitLargeList<T extends LargeList>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitStruct<T extends Struct>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitUnion<T extends Union>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDenseUnion<T extends DenseUnion>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
@@ -193,6 +195,7 @@ IndexOfVisitor.prototype.visitTimeMicrosecond = indexOfValue;
 IndexOfVisitor.prototype.visitTimeNanosecond = indexOfValue;
 IndexOfVisitor.prototype.visitDecimal = indexOfValue;
 IndexOfVisitor.prototype.visitList = indexOfValue;
+IndexOfVisitor.prototype.visitLargeList = indexOfValue;
 IndexOfVisitor.prototype.visitStruct = indexOfValue;
 IndexOfVisitor.prototype.visitUnion = indexOfValue;
 IndexOfVisitor.prototype.visitDenseUnion = indexOfUnion;

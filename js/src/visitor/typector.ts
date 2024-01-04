@@ -68,6 +68,7 @@ export class GetDataTypeConstructor extends Visitor {
     public visitTimeNanosecond() { return type.TimeNanosecond; }
     public visitDecimal() { return type.Decimal; }
     public visitList() { return type.List; }
+    public visitLargeList() { return type.LargeList; }
     public visitStruct() { return type.Struct; }
     public visitUnion() { return type.Union; }
     public visitDenseUnion() { return type.DenseUnion; }

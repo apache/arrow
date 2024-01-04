@@ -27,7 +27,7 @@ import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Duration,
     Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
-    List, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
+    List, LargeList, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
 } from '../type.js';
 import { bigIntToNumber } from '../util/bigint.js';
 
@@ -44,6 +44,7 @@ export interface GetByteLengthVisitor extends Visitor {
     visitUtf8<T extends Utf8>(data: Data<T>, index: number): number;
     visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number): number;
     visitList<T extends List>(data: Data<T>, index: number): number;
+    visitLargeList<T extends LargeList>(data: Data<T>, index: number): number;
     visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): number;
     visitSparseUnion<T extends SparseUnion>(data: Data<T>, index: number): number;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, index: number): number;
@@ -116,6 +117,19 @@ const getListByteLength = <T extends List>({ valueOffsets, stride, children }: D
 };
 
 /** @ignore */
+const getLargeListByteLength = <T extends LargeList>({ valueOffsets, stride, children }: Data<T>, index: number): number => {
+    const child: Data<T['valueType']> = children[0];
+    const { [index * stride]: start, [index * stride + 1]: end } = valueOffsets;
+    const visit = instance.getVisitFn(child.type);
+    const slice = child.slice(Number(start), Number(end - start));
+    let size = 8; // 4 + 4 for the indices
+    for (let idx = -1, len = end - start; ++idx < len;) {
+        size += visit(slice, idx);
+    }
+    return size;
+};
+
+/** @ignore */
 const getFixedSizeListByteLength = <T extends FixedSizeList>({ stride, children }: Data<T>, index: number): number => {
     const child: Data<T['valueType']> = children[0];
     const slice = child.slice(index * stride, stride);
@@ -155,6 +169,7 @@ GetByteLengthVisitor.prototype.visitLargeUtf8 = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitBinary = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitLargeBinary = getBinaryByteLength;
 GetByteLengthVisitor.prototype.visitList = getListByteLength;
+GetByteLengthVisitor.prototype.visitLargeList = getLargeListByteLength;
 GetByteLengthVisitor.prototype.visitFixedSizeList = getFixedSizeListByteLength;
 GetByteLengthVisitor.prototype.visitUnion = getUnionByteLength;
 GetByteLengthVisitor.prototype.visitDenseUnion = getDenseUnionByteLength;

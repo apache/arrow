@@ -27,7 +27,8 @@ import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
-    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
+    List, LargeList, FixedSizeList, Map_, Struct,
 } from '../type.js';
 import { bigIntToNumber } from '../util/bigint.js';
 
@@ -51,6 +52,7 @@ export interface VectorAssembler extends Visitor {
     visitTime<T extends Time>(data: Data<T>): this;
     visitDecimal<T extends Decimal>(data: Data<T>): this;
     visitList<T extends List>(data: Data<T>): this;
+    visitLargeList<T extends LargeList>(data: Data<T>): this;
     visitStruct<T extends Struct>(data: Data<T>): this;
     visitUnion<T extends Union>(data: Data<T>): this;
     visitInterval<T extends Interval>(data: Data<T>): this;
@@ -216,7 +218,7 @@ function assembleFlatListVector<T extends Utf8 | LargeUtf8 | Binary | LargeBinar
 }
 
 /** @ignore */
-function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorAssembler, data: Data<T>) {
+function assembleListVector<T extends Map_ | List | LargeList | FixedSizeList>(this: VectorAssembler, data: Data<T>) {
     const { length, valueOffsets } = data;
     // If we have valueOffsets (MapVector, ListVector), push that buffer first
     if (valueOffsets) {
@@ -247,6 +249,7 @@ VectorAssembler.prototype.visitTimestamp = assembleFlatVector;
 VectorAssembler.prototype.visitTime = assembleFlatVector;
 VectorAssembler.prototype.visitDecimal = assembleFlatVector;
 VectorAssembler.prototype.visitList = assembleListVector;
+VectorAssembler.prototype.visitLargeList = assembleListVector;
 VectorAssembler.prototype.visitStruct = assembleNestedVector;
 VectorAssembler.prototype.visitUnion = assembleUnion;
 VectorAssembler.prototype.visitInterval = assembleFlatVector;

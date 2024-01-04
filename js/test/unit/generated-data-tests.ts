@@ -54,6 +54,7 @@ describe('Generated Test Data', () => {
     describe('TimeNanosecond', () => { validateVector(generate.timeNanosecond()); });
     describe('Decimal', () => { validateVector(generate.decimal()); });
     describe('List', () => { validateVector(generate.list()); });
+    describe('LargeList', () => { validateVector(generate.largeList()); });
     describe('Struct', () => { validateVector(generate.struct()); });
     describe('DenseUnion', () => { validateVector(generate.denseUnion()); });
     describe('SparseUnion', () => { validateVector(generate.sparseUnion()); });
