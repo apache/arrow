@@ -679,6 +679,11 @@ Status ExportArray(const Array& array, struct ArrowArray* out,
   return Status::OK();
 }
 
+Status ExportChunkedArray(const ChunkedArray& chunked_array,
+                          struct ArrowArrayStream* out) {
+  return Status::NotImplemented("even a little bit");
+}
+
 Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
                          struct ArrowSchema* out_schema) {
   // XXX perhaps bypass ToStructArray() for speed?
@@ -1915,6 +1920,11 @@ Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
     return maybe_type.status();
   }
   return ImportArray(array, *maybe_type);
+}
+
+Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
+    struct ArrowArrayStream* stream) {
+  return Status::NotImplemented("even a little bit");
 }
 
 Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,

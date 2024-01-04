@@ -72,6 +72,17 @@ ARROW_EXPORT
 Status ExportArray(const Array& array, struct ArrowArray* out,
                    struct ArrowSchema* out_schema = NULLPTR);
 
+/// \brief Export C++ ChunkedArray using the C data interface format.
+///
+/// The resulting ArrowArray struct keeps the array data and buffers alive
+/// until its release callback is called by the consumer.
+///
+/// \param[in] chunked_array ChunkedArray object to export
+/// \param[out] out C struct where to export the chunked array
+ARROW_EXPORT
+Status ExportChunkedArray(const ChunkedArray& chunked_array,
+                          struct ArrowArrayStream* out);
+
 /// \brief Export C++ RecordBatch using the C data interface format.
 ///
 /// The record batch is exported as if it were a struct array.
@@ -139,6 +150,16 @@ Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
                                            struct ArrowSchema* type);
+
+/// \brief Import C++ array stream from the C data interface as a ChunkedArray
+///
+/// The ArrowArrayStream struct has its contents moved (as per the C stream interface
+/// specification) to a private object held alive by the resulting array.
+///
+/// \param[in,out] stream C stream interface struct holding the stream data
+/// \return Imported chunked array object
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream* stream);
 
 /// \brief Import C++ record batch from the C data interface.
 ///
