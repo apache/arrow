@@ -92,11 +92,13 @@ struct ARROW_EXPORT AzureOptions {
 
  private:
   enum class CredentialKind {
-    kDefaultCredential,
-    kAnonymousCredential,
-    kStorageSharedKeyCredential,
-    kTokenCredential,
-  } credential_kind_ = CredentialKind::kDefaultCredential;
+    kDefault,
+    kAnonymous,
+    kStorageSharedKey,
+    kClientSecret,
+    kManagedIdentity,
+    kWorkloadIdentity,
+  } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;

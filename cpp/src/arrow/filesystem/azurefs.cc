@@ -73,14 +73,17 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
     return false;
   }
   switch (credential_kind_) {
-    case CredentialKind::kDefaultCredential:
-    case CredentialKind::kAnonymousCredential:
+    case CredentialKind::kDefault:
+    case CredentialKind::kAnonymous:
       return true;
-    case CredentialKind::kTokenCredential:
-      return token_credential_ == other.token_credential_;
-    case CredentialKind::kStorageSharedKeyCredential:
+    case CredentialKind::kStorageSharedKey:
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
+    case CredentialKind::kClientSecret:
+    case CredentialKind::kManagedIdentity:
+    case CredentialKind::kWorkloadIdentity:
+      return token_credential_->GetCredentialName() ==
+             other.token_credential_->GetCredentialName();
   }
   DCHECK(false);
   return false;
@@ -115,18 +118,18 @@ std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
 }
 
 Status AzureOptions::ConfigureDefaultCredential() {
-  credential_kind_ = CredentialKind::kDefaultCredential;
+  credential_kind_ = CredentialKind::kDefault;
   token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureAnonymousCredential() {
-  credential_kind_ = CredentialKind::kAnonymousCredential;
+  credential_kind_ = CredentialKind::kAnonymous;
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_key) {
-  credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
+  credential_kind_ = CredentialKind::kStorageSharedKey;
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
@@ -138,21 +141,21 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
 Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_id,
                                                      const std::string& client_id,
                                                      const std::string& client_secret) {
-  credential_kind_ = CredentialKind::kTokenCredential;
+  credential_kind_ = CredentialKind::kClientSecret;
   token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
       tenant_id, client_id, client_secret);
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& client_id) {
-  credential_kind_ = CredentialKind::kTokenCredential;
+  credential_kind_ = CredentialKind::kManagedIdentity;
   token_credential_ =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>(client_id);
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureWorkloadIdentityCredential() {
-  credential_kind_ = CredentialKind::kTokenCredential;
+  credential_kind_ = CredentialKind::kWorkloadIdentity;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
   return Status::OK();
 }
@@ -163,17 +166,19 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
-    case CredentialKind::kAnonymousCredential:
+    case CredentialKind::kAnonymous:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name));
-    case CredentialKind::kDefaultCredential:
+    case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
       }
       [[fallthrough]];
-    case CredentialKind::kTokenCredential:
+    case CredentialKind::kClientSecret:
+    case CredentialKind::kManagedIdentity:
+    case CredentialKind::kWorkloadIdentity:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
-    case CredentialKind::kStorageSharedKeyCredential:
+    case CredentialKind::kStorageSharedKey:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         storage_shared_key_credential_);
   }
@@ -186,18 +191,20 @@ AzureOptions::MakeDataLakeServiceClient() const {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
-    case CredentialKind::kAnonymousCredential:
+    case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name));
-    case CredentialKind::kDefaultCredential:
+    case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
       }
       [[fallthrough]];
-    case CredentialKind::kTokenCredential:
+    case CredentialKind::kClientSecret:
+    case CredentialKind::kManagedIdentity:
+    case CredentialKind::kWorkloadIdentity:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), token_credential_);
-    case CredentialKind::kStorageSharedKeyCredential:
+    case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), storage_shared_key_credential_);
   }
