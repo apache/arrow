@@ -1789,9 +1789,9 @@ void JoinMatchIterator::SetLookupResult(int num_batch_rows, int start_batch_row,
   current_match_for_row_ = 0;
 }
 
-bool JoinMatchIterator::GetNextBatch(int num_rows_max, int* out_num_rows,
-                                     uint16_t* batch_row_ids, uint32_t* key_ids,
-                                     uint32_t* payload_ids) {
+bool JoinMatchIterator::GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_skip,
+                                     int* out_num_rows, uint16_t* batch_row_ids,
+                                     uint32_t* key_ids, uint32_t* payload_ids) {
   *out_num_rows = 0;
 
   if (no_duplicate_keys_) {
@@ -1816,7 +1816,9 @@ bool JoinMatchIterator::GetNextBatch(int num_rows_max, int* out_num_rows,
     // matches to output.
     //
     while (current_row_ < num_batch_rows_ && *out_num_rows < num_rows_max) {
-      if (!bit_util::GetBit(batch_has_match_, current_row_)) {
+      if (!bit_util::GetBit(batch_has_match_, current_row_) ||
+          static_cast<uint32_t>(start_batch_row_ + current_row_) ==
+              batch_row_id_to_skip) {
         ++current_row_;
         current_match_for_row_ = 0;
         continue;
@@ -1924,6 +1926,7 @@ Status JoinResidualFilter::FilterMatchBitVector(
     int* num_passing_ids, uint16_t* passing_batch_row_ids,
     uint32_t* passing_key_ids_maybe_null) const {
   ARROW_DCHECK(filter_ != literal(true));
+
   *num_passing_ids = 0;
   if (filter_.IsNullLiteral() || filter_ == literal(false)) {
     return Status::OK();
@@ -1972,7 +1975,7 @@ Status JoinResidualFilter::FilterMatchBitVector(
   int num_matches_next = 0;
   // Last row id passing the filter, used to filter out duplicate rows.
   uint32_t row_id_last = std::numeric_limits<uint16_t>::max() + 1;
-  while (match_iterator.GetNextBatch(minibatch_size_, &num_matches_next,
+  while (match_iterator.GetNextBatch(minibatch_size_, row_id_last, &num_matches_next,
                                      materialize_batch_ids_buf.mutable_data(),
                                      materialize_key_ids_buf.mutable_data(),
                                      materialize_payload_ids_buf.mutable_data())) {
@@ -1982,17 +1985,19 @@ Status JoinResidualFilter::FilterMatchBitVector(
         materialize_key_ids_buf.mutable_data(),
         materialize_payload_ids_buf.mutable_data(), passing_key_ids_maybe_null,
         /*output_payload_ids=*/false, temp_stack, &num_filtered));
+
+    // There may be multiple matches for a row in batch. Collect distinct row ids.
+    //
     for (int ifiltered = 0; ifiltered < num_filtered; ++ifiltered) {
       if (materialize_batch_ids_buf.mutable_data()[ifiltered] == row_id_last) {
         continue;
       }
-      passing_batch_row_ids[*num_passing_ids] =
+      row_id_last = passing_batch_row_ids[*num_passing_ids] =
           materialize_batch_ids_buf.mutable_data()[ifiltered];
       if (passing_key_ids_maybe_null) {
         passing_key_ids_maybe_null[*num_passing_ids] =
             materialize_key_ids_buf.mutable_data()[ifiltered];
       }
-      row_id_last = materialize_batch_ids_buf.mutable_data()[ifiltered];
       ++(*num_passing_ids);
     }
   }
@@ -2244,25 +2249,29 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       match_iterator.SetLookupResult(
           minibatch_size_next, minibatch_start, match_bitvector_buf.mutable_data(),
           key_ids_buf.mutable_data(), no_duplicate_keys, hash_table_->key_to_payload());
-      if (!residual_filter_->IsTrivial()) {
+      if (!residual_filter_->IsTrivial() &&
+          (join_type_ == JoinType::LEFT_OUTER || join_type_ == JoinType::FULL_OUTER)) {
         std::memset(filtered_bitvector_buf.mutable_data(), 0,
                     bit_util::BytesForBits(minibatch_size_next));
       }
       int num_matches_next;
-      while (match_iterator.GetNextBatch(minibatch_size, &num_matches_next,
-                                         materialize_batch_ids_buf.mutable_data(),
-                                         materialize_key_ids_buf.mutable_data(),
-                                         materialize_payload_ids_buf.mutable_data())) {
+      while (match_iterator.GetNextBatch(
+          minibatch_size, std::numeric_limits<uint16_t>::max() + 1, &num_matches_next,
+          materialize_batch_ids_buf.mutable_data(),
+          materialize_key_ids_buf.mutable_data(),
+          materialize_payload_ids_buf.mutable_data())) {
         if (!residual_filter_->IsTrivial()) {
           RETURN_NOT_OK(residual_filter_->FilterMatchRowIds(
               keypayload_batch, num_matches_next,
               materialize_batch_ids_buf.mutable_data(),
               materialize_key_ids_buf.mutable_data(),
-              materialize_payload_ids_buf.mutable_data(), /*output_payload_ids=*/true,
+              materialize_payload_ids_buf.mutable_data(), /*output_key_ids=*/true,
               !(no_duplicate_keys || no_payload_columns), temp_stack, &num_matches_next));
-          for (int i = 0; i < num_matches_next; ++i) {
-            int bit_idx = materialize_batch_ids_buf.mutable_data()[i] - minibatch_start;
-            bit_util::SetBitTo(filtered_bitvector_buf.mutable_data(), bit_idx, 1);
+          if (join_type_ == JoinType::LEFT_OUTER || join_type_ == JoinType::FULL_OUTER) {
+            for (int i = 0; i < num_matches_next; ++i) {
+              int bit_idx = materialize_batch_ids_buf.mutable_data()[i] - minibatch_start;
+              bit_util::SetBitTo(filtered_bitvector_buf.mutable_data(), bit_idx, 1);
+            }
           }
         }
         const uint16_t* materialize_batch_ids = materialize_batch_ids_buf.mutable_data();

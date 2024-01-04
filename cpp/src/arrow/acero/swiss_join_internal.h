@@ -714,7 +714,7 @@ class JoinMatchIterator {
   void SetLookupResult(int num_batch_rows, int start_batch_row,
                        const uint8_t* batch_has_match, const uint32_t* key_ids,
                        bool no_duplicate_keys, const uint32_t* key_to_payload);
-  bool GetNextBatch(int num_rows_max, int* out_num_rows, uint16_t* batch_row_ids,
+  bool GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_skip, int* out_num_rows, uint16_t* batch_row_ids,
                     uint32_t* key_ids, uint32_t* payload_ids);
 
  private:
