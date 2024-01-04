@@ -1296,9 +1296,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
   }
   auto data = SetUpPreexistingData();
   const auto directory_path = data.RandomDirectoryPath(rng_);
-  // There is only virtual directory without hierarchical namespace
-  // support. So the DeleteDir() for nonexistent directory does nothing.
-  ASSERT_OK(fs()->DeleteDir(directory_path));
+  // DeleteDir() fails if the directory doesn't exist.
+  ASSERT_RAISES(IOError, fs()->DeleteDir(directory_path));
   AssertFileInfo(fs(), directory_path, FileType::NotFound);
 }
 
@@ -1353,8 +1352,7 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessDirectory) {
   HierarchicalPaths paths;
   CreateHierarchicalData(&paths);
   ASSERT_OK(fs()->DeleteDirContents(paths.directory));
-  // GH-38772: We may change this to FileType::Directory.
-  AssertFileInfo(fs(), paths.directory, FileType::NotFound);
+  AssertFileInfo(fs(), paths.directory, FileType::Directory);
   for (const auto& sub_path : paths.sub_paths) {
     AssertFileInfo(fs(), sub_path, FileType::NotFound);
   }
