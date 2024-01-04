@@ -1781,13 +1781,13 @@ Status AzureFileSystem::CreateDir(const std::string& path, bool recursive) {
     RETURN_NOT_OK(CreateContainerIfNotExists(location.container, container_client));
     // Perform a second check for HNS support after creating the container.
     ARROW_ASSIGN_OR_RAISE(hns_support, impl_->HierarchicalNamespaceSupport(adlfs_client));
-  }
-  if (hns_support == HNSSupport::kContainerNotFound) {
-    // We only get kContainerNotFound if we are unable to read the properties of the
-    // container we just created. This is very unlikely, but theoretically possible in
-    // a concurrent system, so the error is handled to avoid infinite recursion.
-    return Status::IOError("Unable to read properties of a newly created container: ",
-                           location.container, ": " + container_client.GetUrl());
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      // We only get kContainerNotFound if we are unable to read the properties of the
+      // container we just created. This is very unlikely, but theoretically possible in
+      // a concurrent system, so the error is handled to avoid infinite recursion.
+      return Status::IOError("Unable to read properties of a newly created container: ",
+                             location.container, ": " + container_client.GetUrl());
+    }
   }
   // CreateDirOnFileSystem and CreateDirOnContainer can handle the container
   // not existing which is useful and necessary here since the only reason
