@@ -72,17 +72,6 @@ ARROW_EXPORT
 Status ExportArray(const Array& array, struct ArrowArray* out,
                    struct ArrowSchema* out_schema = NULLPTR);
 
-/// \brief Export C++ ChunkedArray using the C data interface format.
-///
-/// The resulting ArrowArray struct keeps the array data and buffers alive
-/// until its release callback is called by the consumer.
-///
-/// \param[in] chunked_array ChunkedArray object to export
-/// \param[out] out C struct where to export the chunked array
-ARROW_EXPORT
-Status ExportChunkedArray(const ChunkedArray& chunked_array,
-                          struct ArrowArrayStream* out);
-
 /// \brief Export C++ RecordBatch using the C data interface format.
 ///
 /// The record batch is exported as if it were a struct array.
@@ -312,6 +301,17 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 ARROW_EXPORT
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out);
+
+/// \brief Export C++ ChunkedArray using the C data interface format.
+///
+/// The resulting ArrowArrayStream struct keeps the chunked array data and buffers alive
+/// until its release callback is called by the consumer.
+///
+/// \param[in] chunked_array ChunkedArray object to export
+/// \param[out] out C struct where to export the stream
+ARROW_EXPORT
+Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
+                          struct ArrowArrayStream* out);
 
 /// \brief Import C++ RecordBatchReader from the C stream interface.
 ///

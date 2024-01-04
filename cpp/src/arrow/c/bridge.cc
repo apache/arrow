@@ -679,11 +679,6 @@ Status ExportArray(const Array& array, struct ArrowArray* out,
   return Status::OK();
 }
 
-Status ExportChunkedArray(const ChunkedArray& chunked_array,
-                          struct ArrowArrayStream* out) {
-  return Status::NotImplemented("even a little bit");
-}
-
 Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
                          struct ArrowSchema* out_schema) {
   // XXX perhaps bypass ToStructArray() for speed?
@@ -1984,13 +1979,61 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 
 namespace {
 
+template <typename T>
+static inline Status ExportStreamSchema(const std::shared_ptr<T>& src,
+                                        struct ArrowSchema* out_schema);
+
+template <>
+inline Status ExportStreamSchema(const std::shared_ptr<RecordBatchReader>& src,
+                                 struct ArrowSchema* out_schema) {
+  return ExportSchema(*src->schema(), out_schema);
+}
+
+template <>
+inline Status ExportStreamSchema(const std::shared_ptr<ChunkedArray>& src,
+                                 struct ArrowSchema* out_schema) {
+  return ExportType(*src->type(), out_schema);
+}
+
+template <typename T>
+static inline Status ExportStreamNext(const std::shared_ptr<T>& src, int i,
+                                      struct ArrowArray* out_array);
+
+template <>
+inline Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int i,
+                               struct ArrowArray* out_array) {
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(src->ReadNext(&batch));
+  if (batch == nullptr) {
+    // End of stream
+    ArrowArrayMarkReleased(out_array);
+    return Status::OK();
+  } else {
+    return ExportRecordBatch(*batch, out_array);
+  }
+}
+
+template <>
+inline Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int i,
+                               struct ArrowArray* out_array) {
+  if (i >= src->num_chunks()) {
+    // End of stream
+    ArrowArrayMarkReleased(out_array);
+    return Status::OK();
+  } else {
+    return ExportArray(*src->chunk(i), out_array);
+  }
+}
+
+template <typename T>
 class ExportedArrayStream {
  public:
   struct PrivateData {
-    explicit PrivateData(std::shared_ptr<RecordBatchReader> reader)
-        : reader_(std::move(reader)) {}
+    explicit PrivateData(std::shared_ptr<T> reader)
+        : reader_(std::move(reader)), batch_num_(0) {}
 
-    std::shared_ptr<RecordBatchReader> reader_;
+    std::shared_ptr<T> reader_;
+    int batch_num_;
     std::string last_error_;
 
     PrivateData() = default;
@@ -2000,19 +2043,11 @@ class ExportedArrayStream {
   explicit ExportedArrayStream(struct ArrowArrayStream* stream) : stream_(stream) {}
 
   Status GetSchema(struct ArrowSchema* out_schema) {
-    return ExportSchema(*reader()->schema(), out_schema);
+    return ExportStreamSchema<T>(reader(), out_schema);
   }
 
   Status GetNext(struct ArrowArray* out_array) {
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader()->ReadNext(&batch));
-    if (batch == nullptr) {
-      // End of stream
-      ArrowArrayMarkReleased(out_array);
-      return Status::OK();
-    } else {
-      return ExportRecordBatch(*batch, out_array);
-    }
+    return ExportStreamNext<T>(reader(), next_batch_num(), out_array);
   }
 
   const char* GetLastError() {
@@ -2052,6 +2087,15 @@ class ExportedArrayStream {
     return ExportedArrayStream{stream}.GetLastError();
   }
 
+  static Status Make(const std::shared_ptr<T> reader, struct ArrowArrayStream* out) {
+    out->get_schema = ExportedArrayStream::StaticGetSchema;
+    out->get_next = ExportedArrayStream::StaticGetNext;
+    out->get_last_error = ExportedArrayStream::StaticGetLastError;
+    out->release = ExportedArrayStream::StaticRelease;
+    out->private_data = new ExportedArrayStream::PrivateData{std::move(reader)};
+    return Status::OK();
+  }
+
  private:
   int ToCError(const Status& status) {
     if (ARROW_PREDICT_TRUE(status.ok())) {
@@ -2075,7 +2119,9 @@ class ExportedArrayStream {
     return reinterpret_cast<PrivateData*>(stream_->private_data);
   }
 
-  const std::shared_ptr<RecordBatchReader>& reader() { return private_data()->reader_; }
+  const std::shared_ptr<T>& reader() { return private_data()->reader_; }
+
+  int next_batch_num() { return private_data()->batch_num_++; }
 
   struct ArrowArrayStream* stream_;
 };
@@ -2084,12 +2130,12 @@ class ExportedArrayStream {
 
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out) {
-  out->get_schema = ExportedArrayStream::StaticGetSchema;
-  out->get_next = ExportedArrayStream::StaticGetNext;
-  out->get_last_error = ExportedArrayStream::StaticGetLastError;
-  out->release = ExportedArrayStream::StaticRelease;
-  out->private_data = new ExportedArrayStream::PrivateData{std::move(reader)};
-  return Status::OK();
+  return ExportedArrayStream<RecordBatchReader>::Make(std::move(reader), out);
+}
+
+Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
+                          struct ArrowArrayStream* out) {
+  return ExportedArrayStream<ChunkedArray>::Make(std::move(chunked_array), out);
 }
 
 //////////////////////////////////////////////////////////////////////////
