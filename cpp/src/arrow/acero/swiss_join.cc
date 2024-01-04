@@ -2153,8 +2153,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
   auto hashes_buf = arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
   auto match_bitvector_buf = arrow::util::TempVectorHolder<uint8_t>(
       temp_stack, static_cast<uint32_t>(bit_util::BytesForBits(minibatch_size)));
-  auto filtered_bitvector_buf = arrow::util::TempVectorHolder<uint8_t>(
-      temp_stack, static_cast<uint32_t>(bit_util::BytesForBits(minibatch_size)));
   auto key_ids_buf = arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
   auto materialize_batch_ids_buf =
       arrow::util::TempVectorHolder<uint16_t>(temp_stack, minibatch_size);
@@ -2162,6 +2160,8 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
   auto materialize_payload_ids_buf =
       arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
+  auto filtered_bitvector_buf = arrow::util::TempVectorHolder<uint8_t>(
+      temp_stack, static_cast<uint32_t>(bit_util::BytesForBits(minibatch_size)));
 
   for (int minibatch_start = 0; minibatch_start < num_rows;) {
     uint32_t minibatch_size_next = std::min(minibatch_size, num_rows - minibatch_start);
@@ -2296,17 +2296,13 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       // the other side of the join.
       //
       if (join_type_ == JoinType::LEFT_OUTER || join_type_ == JoinType::FULL_OUTER) {
-        if (!residual_filter_->IsTrivial()) {
-          arrow::internal::BitmapAnd(match_bitvector_buf.mutable_data(), 0,
-                                     filtered_bitvector_buf.mutable_data(), 0,
-                                     minibatch_size_next, 0,
-                                     match_bitvector_buf.mutable_data());
-        }
         int num_passing_ids = 0;
+        const uint8_t* match_bitvector = residual_filter_->IsTrivial()
+                                             ? match_bitvector_buf.mutable_data()
+                                             : filtered_bitvector_buf.mutable_data();
         arrow::util::bit_util::bits_to_indexes(
-            /*bit_to_search=*/0, hardware_flags, minibatch_size_next,
-            match_bitvector_buf.mutable_data(), &num_passing_ids,
-            materialize_batch_ids_buf.mutable_data());
+            /*bit_to_search=*/0, hardware_flags, minibatch_size_next, match_bitvector,
+            &num_passing_ids, materialize_batch_ids_buf.mutable_data());
 
         // Add base batch row index.
         //
