@@ -1376,10 +1376,12 @@ class AzureFileSystem::Impl {
             return PathNotFound(parent);
           }
         } catch (const Storage::StorageException& second_exception) {
-          return ExceptionToStatus(second_exception);
+          return ExceptionToStatus(second_exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
         }
       }
-      return ExceptionToStatus(exception);
+      return ExceptionToStatus(exception, "Failed to create directory '", location.all,
+                               "': ", container_client.GetUrl());
     }
   }
 
@@ -1444,7 +1446,7 @@ class AzureFileSystem::Impl {
   /// \pre location.container is not empty.
   /// \pre The location.container container already exists.
   Status EnsureEmptyDirExists(const Blobs::BlobContainerClient& container_client,
-                              const AzureLocation& location) {
+                              const AzureLocation& location, const char* operation_name) {
     DCHECK(!location.container.empty());
     if (location.path.empty()) {
       // Nothing to do. The container already exists per the preconditions.
@@ -1457,7 +1459,9 @@ class AzureFileSystem::Impl {
       block_blob_client.UploadFrom(nullptr, 0);
       return Status::OK();
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception);
+      return ExceptionToStatus(
+          exception, operation_name, " failed to ensure empty directory marker '",
+          location.path, "' exists in container: ", container_client.GetUrl());
     }
   }
 
@@ -1499,10 +1503,12 @@ class AzureFileSystem::Impl {
   /// is preserved (not deleted) or created (before the contents are deleted) if it
   /// doesn't exist explicitly but is implied by the existence of blobs with names
   /// starting with the directory path.
+  /// \param operation_name Used in error messages to accurately describe the operation
   Status DeleteDirContentsOnContainer(const Blobs::BlobContainerClient& container_client,
                                       const AzureLocation& location,
                                       bool require_dir_to_exist,
-                                      bool preserve_dir_marker_blob) {
+                                      bool preserve_dir_marker_blob,
+                                      const char* operation_name) {
     using DeleteBlobResponse = Storage::DeferredResponse<Blobs::Models::DeleteBlobResult>;
     DCHECK(!location.container.empty());
     DCHECK(preserve_dir_marker_blob || !location.path.empty())
@@ -1555,7 +1561,8 @@ class AzureFileSystem::Impl {
             // existence is implied by the existence of blobs with names
             // starting with the directory path.
             if (!deferred_responses.empty()) {
-              RETURN_NOT_OK(EnsureEmptyDirExists(container_client, location));
+              RETURN_NOT_OK(
+                  EnsureEmptyDirExists(container_client, location, operation_name));
             }
           }
           if (!deferred_responses.empty()) {
@@ -1812,7 +1819,8 @@ Status AzureFileSystem::DeleteDir(const std::string& path) {
   auto container_client = impl_->GetBlobContainerClient(location.container);
   return impl_->DeleteDirContentsOnContainer(container_client, location,
                                              /*require_dir_to_exist=*/true,
-                                             /*preserve_dir_marker_blob=*/false);
+                                             /*preserve_dir_marker_blob=*/false,
+                                             "DeleteDir");
 }
 
 Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
@@ -1834,7 +1842,8 @@ Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_
   auto container_client = impl_->GetBlobContainerClient(location.container);
   return impl_->DeleteDirContentsOnContainer(container_client, location,
                                              /*require_dir_to_exist=*/!missing_dir_ok,
-                                             /*preserve_dir_marker_blob=*/true);
+                                             /*preserve_dir_marker_blob=*/true,
+                                             "DeleteDirContents");
 }
 
 Status AzureFileSystem::DeleteRootDirContents() {
