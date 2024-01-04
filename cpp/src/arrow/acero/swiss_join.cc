@@ -2244,6 +2244,10 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       match_iterator.SetLookupResult(
           minibatch_size_next, minibatch_start, match_bitvector_buf.mutable_data(),
           key_ids_buf.mutable_data(), no_duplicate_keys, hash_table_->key_to_payload());
+      if (!residual_filter_->IsTrivial()) {
+        std::memset(filtered_bitvector_buf.mutable_data(), 0,
+                    bit_util::BytesForBits(minibatch_size_next));
+      }
       int num_matches_next;
       while (match_iterator.GetNextBatch(minibatch_size, &num_matches_next,
                                          materialize_batch_ids_buf.mutable_data(),
@@ -2256,8 +2260,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
               materialize_key_ids_buf.mutable_data(),
               materialize_payload_ids_buf.mutable_data(), /*output_payload_ids=*/true,
               !(no_duplicate_keys || no_payload_columns), temp_stack, &num_matches_next));
-          std::memset(filtered_bitvector_buf.mutable_data(), 0,
-                      bit_util::BytesForBits(minibatch_size_next));
           for (int i = 0; i < num_matches_next; ++i) {
             int bit_idx = materialize_batch_ids_buf.mutable_data()[i] - minibatch_start;
             bit_util::SetBitTo(filtered_bitvector_buf.mutable_data(), bit_idx, 1);
