@@ -41,7 +41,7 @@ function addCell (tr, type, value) {
 }
 reader.onload = function (evt) {
 
-  var arrowTable = Arrow.Table.from([new Uint8Array(evt.target.result)]);
+  var arrowTable = Arrow.tableFromIPC(evt.target.result);
   var thead = document.getElementById("thead");
   var tbody = document.getElementById("tbody");
 
