@@ -2488,7 +2488,7 @@ TEST(TestIndicesNonZero, IndicesNonZeroBoolean) {
   Datum actual;
   std::shared_ptr<Array> result;
 
-  // boool
+  // bool
   ASSERT_OK_AND_ASSIGN(
       actual, CallFunction("indices_nonzero",
                            {ArrayFromJSON(boolean(), "[null, true, false, true]")}));

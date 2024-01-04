@@ -1100,7 +1100,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddFirstLastKernels(FirstLastInit, TemporalTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  // Add first/last as convience functions
+  // Add first/last as convenience functions
   func = std::make_shared<ScalarAggregateFunction>("first", Arity::Unary(), first_doc,
                                                    &default_scalar_aggregate_options);
   AddFirstOrLastAggKernel<FirstOrLast::First>(func.get(), first_last_func);
