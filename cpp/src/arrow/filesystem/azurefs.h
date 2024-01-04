@@ -48,7 +48,11 @@ class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief Name of the Azure Storage Account.
+  /// \brief The name of the Azure Storage Account being accessed.
+  ///
+  /// All service URLs will be constructed using this storage account name.
+  /// `ConfigureAccountKeyCredential` assumes the user wants to authenticate
+  /// this account.
   std::string account_name;
 
   /// \brief hostname[:port] of the Azure Blob Storage Service.
