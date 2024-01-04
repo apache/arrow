@@ -73,7 +73,8 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
     return false;
   }
   switch (credential_kind_) {
-    case CredentialKind::kAnonymous:
+    case CredentialKind::kDefaultCredential:
+    case CredentialKind::kAnonymousCredential:
       return true;
     case CredentialKind::kTokenCredential:
       return token_credential_ == other.token_credential_;
@@ -113,6 +114,17 @@ std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
   return BuildBaseUrl(dfs_storage_scheme, dfs_storage_authority, account_name);
 }
 
+Status AzureOptions::ConfigureDefaultCredential() {
+  credential_kind_ = CredentialKind::kDefaultCredential;
+  token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureAnonymousCredential() {
+  credential_kind_ = CredentialKind::kAnonymousCredential;
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_key) {
   credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
   if (account_name.empty()) {
@@ -129,12 +141,6 @@ Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_i
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
       tenant_id, client_id, client_secret);
-  return Status::OK();
-}
-
-Status AzureOptions::ConfigureDefaultCredential() {
-  credential_kind_ = CredentialKind::kTokenCredential;
-  token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
 }
 
@@ -157,8 +163,13 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
-    case CredentialKind::kAnonymous:
-      break;
+    case CredentialKind::kAnonymousCredential:
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name));
+    case CredentialKind::kDefaultCredential:
+      if (!token_credential_) {
+        token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+      }
+      [[fallthrough]];
     case CredentialKind::kTokenCredential:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
@@ -175,8 +186,14 @@ AzureOptions::MakeDataLakeServiceClient() const {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   switch (credential_kind_) {
-    case CredentialKind::kAnonymous:
-      break;
+    case CredentialKind::kAnonymousCredential:
+      return std::make_unique<DataLake::DataLakeServiceClient>(
+          AccountDfsUrl(account_name));
+    case CredentialKind::kDefaultCredential:
+      if (!token_credential_) {
+        token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+      }
+      [[fallthrough]];
     case CredentialKind::kTokenCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), token_credential_);

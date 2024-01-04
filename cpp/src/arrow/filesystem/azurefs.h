@@ -48,7 +48,7 @@ class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief account name of the Azure Storage account.
+  /// \brief Name of the Azure Storage Account.
   std::string account_name;
 
   /// \brief hostname[:port] of the Azure Blob Storage Service.
@@ -92,30 +92,28 @@ struct ARROW_EXPORT AzureOptions {
 
  private:
   enum class CredentialKind {
-    kAnonymous,
-    kTokenCredential,
+    kDefaultCredential,
+    kAnonymousCredential,
     kStorageSharedKeyCredential,
-  } credential_kind_ = CredentialKind::kAnonymous;
+    kTokenCredential,
+  } credential_kind_ = CredentialKind::kDefaultCredential;
 
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
   Status ConfigureDefaultCredential();
-
-  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
-
-  Status ConfigureWorkloadIdentityCredential();
-
+  Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
-
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureWorkloadIdentityCredential();
 
   bool Equals(const AzureOptions& other) const;
 
