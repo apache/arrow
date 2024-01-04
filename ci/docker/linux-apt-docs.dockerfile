@@ -60,7 +60,7 @@ RUN apt-get update -y && \
 
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
-ARG maven=3.5.4
+ARG maven=3.9.6
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
     "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt

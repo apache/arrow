@@ -34,7 +34,7 @@ RUN vcpkg install \
 
 # Install Java
 ARG java=1.8.0
-ARG maven=3.9.3
+ARG maven=3.9.6
 RUN yum install -y java-$java-openjdk-devel && \
       yum clean all && \
       curl \
