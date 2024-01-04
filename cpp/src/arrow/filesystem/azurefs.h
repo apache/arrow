@@ -47,6 +47,17 @@ namespace arrow::fs {
 class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
+///
+/// By default, authentication is handled by the Azure SDK's credential chain
+/// which may read from multiple environment variables, such as:
+/// - `AZURE_TENANT_ID`
+/// - `AZURE_CLIENT_ID`
+/// - `AZURE_CLIENT_SECRET`
+/// - `AZURE_AUTHORITY_HOST`
+/// - `AZURE_CLIENT_CERTIFICATE_PATH`
+/// - `AZURE_FEDERATED_TOKEN_FILE`
+///
+/// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
   /// \brief The name of the Azure Storage Account being accessed.
   ///
