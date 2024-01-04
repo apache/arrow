@@ -1848,8 +1848,8 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     // The merge is asymmetric. "first" from this state gets pick over "first" from other
     // state. "last" from other state gets pick over from this state. This is so that when
-    // using with segmeneted aggregation, we still get the correct "first" and "last"
-    // value for the entire segement.
+    // using with segmented aggregation, we still get the correct "first" and "last"
+    // value for the entire segment.
     auto other = checked_cast<GroupedFirstLastImpl*>(&raw_other);
 
     auto raw_firsts = firsts_.mutable_data();

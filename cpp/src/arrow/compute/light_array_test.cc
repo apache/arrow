@@ -333,7 +333,7 @@ TEST(ResizableArrayData, Binary) {
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
-      // At this point the offets memory has been allocated and needs to be filled
+      // At this point the offsets memory has been allocated and needs to be filled
       // in before we allocate the variable length memory
       int offsets_width =
           static_cast<int>(arrow::internal::checked_pointer_cast<BaseBinaryType>(type)
