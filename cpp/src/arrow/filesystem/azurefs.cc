@@ -1494,7 +1494,7 @@ class AzureFileSystem::Impl {
     }
   }
 
-  /// Deletes and contents of a directory and possibly the directory itself
+  /// Deletes contents of a directory and possibly the directory itself
   /// depending on the value of preserve_dir_marker_blob.
   ///
   /// \pre location.container is not empty.
