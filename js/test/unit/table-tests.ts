@@ -139,30 +139,32 @@ describe(`Table`, () => {
             const i32 = makeVector([i32s]);
             expect(i32).toHaveLength(i32s.length);
             expect(i32.nullCount).toBe(0);
+            expect(i32.nullable).toBe(true);
 
             const table = new Table({ i32 });
             const i32Field = table.schema.fields[0];
 
             expect(i32Field.name).toBe('i32');
             expect(i32).toHaveLength(i32s.length);
-            expect(i32Field.nullable).toBe(false);
+            expect(i32Field.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
             expect(i32).toEqualVector(makeVector(i32s));
         });
 
-        test(`creates a new Table from a Typed Array and force nullable`, () => {
+        test(`creates a new Table from a Typed Array and force not nullable`, () => {
             const i32s = new Int32Array(arange(new Array<number>(10)));
             const i32 = makeVector([i32s]);
             expect(i32).toHaveLength(i32s.length);
             expect(i32.nullCount).toBe(0);
+            expect(i32.nullable).toBe(true);
 
-            const table = new Table(new Schema([new Field('i32', new Int32, true)]), { i32 });
+            const table = new Table(new Schema([new Field('i32', new Int32, false)]), { i32 });
             const i32Field = table.schema.fields[0];
 
             expect(i32Field.name).toBe('i32');
             expect(i32).toHaveLength(i32s.length);
-            expect(i32Field.nullable).toBe(true);
+            expect(i32Field.nullable).toBe(false);
             expect(i32.nullCount).toBe(0);
 
             expect(i32).toEqualVector(makeVector(i32s));
@@ -187,8 +189,8 @@ describe(`Table`, () => {
             expect(f32Field.name).toBe('f32');
             expect(i32).toHaveLength(i32s.length);
             expect(f32).toHaveLength(f32s.length);
-            expect(i32Field.nullable).toBe(false);
-            expect(f32Field.nullable).toBe(false);
+            expect(i32Field.nullable).toBe(true);
+            expect(f32Field.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
             expect(f32.nullCount).toBe(0);
 
@@ -222,7 +224,7 @@ describe(`Table`, () => {
 
             expect(i32Vector).toHaveLength(i32s.length);
             expect(f32Vector).toHaveLength(i32s.length); // new length should be the same as the longest sibling
-            expect(i32Field.nullable).toBe(false);
+            expect(i32Field.nullable).toBe(true);
             expect(f32Field.nullable).toBe(true); // true, with 12 additional nulls
             expect(i32Vector.nullCount).toBe(0);
             expect(f32Vector.nullCount).toBe(i32s.length - f32s.length);
@@ -264,7 +266,7 @@ describe(`Table`, () => {
             expect(f32RenamedField.name).toBe('f32Renamed');
             expect(i32Renamed).toHaveLength(i32s.length);
             expect(f32Renamed).toHaveLength(i32s.length); // new length should be the same as the longest sibling
-            expect(i32RenamedField.nullable).toBe(false);
+            expect(i32RenamedField.nullable).toBe(true);
             expect(f32RenamedField.nullable).toBe(true); // true, with 4 additional nulls
             expect(i32Renamed.nullCount).toBe(0);
             expect(f32Renamed.nullCount).toBe(i32s.length - f32s.length);
