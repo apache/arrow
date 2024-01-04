@@ -37,10 +37,12 @@ class GANDIVA_EXPORT Configuration {
 
   explicit Configuration(bool optimize,
                          std::shared_ptr<FunctionRegistry> function_registry =
-                             gandiva::default_function_registry())
+                             gandiva::default_function_registry(),
+                         bool dump_ir = false)
       : optimize_(optimize),
         target_host_cpu_(true),
-        function_registry_(function_registry) {}
+        function_registry_(std::move(function_registry)),
+        dump_ir_(dump_ir) {}
 
   Configuration() : Configuration(true) {}
 
@@ -50,11 +52,13 @@ class GANDIVA_EXPORT Configuration {
 
   bool optimize() const { return optimize_; }
   bool target_host_cpu() const { return target_host_cpu_; }
+  bool dump_ir() const { return dump_ir_; }
   std::shared_ptr<FunctionRegistry> function_registry() const {
     return function_registry_;
   }
 
   void set_optimize(bool optimize) { optimize_ = optimize; }
+  void set_dump_ir(bool dump_ir) { dump_ir_ = dump_ir; }
   void target_host_cpu(bool target_host_cpu) { target_host_cpu_ = target_host_cpu; }
   void set_function_registry(std::shared_ptr<FunctionRegistry> function_registry) {
     function_registry_ = std::move(function_registry);
@@ -65,6 +69,9 @@ class GANDIVA_EXPORT Configuration {
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
   std::shared_ptr<FunctionRegistry>
       function_registry_; /* function registry that may contain external functions */
+  // flag indicating if IR dumping is needed, defaults to false, and turning it on will
+  // negatively affect performance
+  bool dump_ir_ = false;
 };
 
 /// \brief configuration builder for gandiva
@@ -80,6 +87,12 @@ class GANDIVA_EXPORT ConfigurationBuilder {
 
   std::shared_ptr<Configuration> build(bool optimize) {
     std::shared_ptr<Configuration> configuration(new Configuration(optimize));
+    return configuration;
+  }
+
+  std::shared_ptr<Configuration> build_with_ir_dumping(bool dump_ir) {
+    std::shared_ptr<Configuration> configuration(
+        new Configuration(true, gandiva::default_function_registry(), dump_ir));
     return configuration;
   }
 
