@@ -1443,7 +1443,12 @@ class AzureFileSystem::Impl {
     auto dir_marker_blob_path = internal::EnsureTrailingSlash(path_within_container);
     auto block_blob_client =
         container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
-    block_blob_client.UploadFrom(nullptr, 0);
+    // Attach metadata that other filesystem implementations expect to be present
+    // on directory marker blobs.
+    // https://github.com/fsspec/adlfs/blob/32132c4094350fca2680155a5c236f2e9f991ba5/adlfs/spec.py#L855-L870
+    Blobs::UploadBlockBlobFromOptions blob_options;
+    blob_options.Metadata.emplace("is_directory", "true");
+    block_blob_client.UploadFrom(nullptr, 0, blob_options);
   }
 
  public:
