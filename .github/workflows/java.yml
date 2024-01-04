@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         jdk: [8, 11, 17, 21]
-        maven: [3.9.5]
+        maven: [3.9.6]
         image: [java]
     env:
       JDK: ${{ matrix.jdk }}

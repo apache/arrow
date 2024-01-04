@@ -1678,7 +1678,7 @@ services:
     #   docker-compose build java
     #   docker-compose run java
     # Parameters:
-    #   MAVEN: 3.9.5
+    #   MAVEN: 3.9.6
     #   JDK: 8, 11, 17, 21
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
@@ -1710,7 +1710,7 @@ services:
         jdk: 17
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.9.6
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
@@ -1844,7 +1844,7 @@ services:
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.9.6
         hdfs: ${HDFS}
     links:
       - impala:impala
@@ -1887,7 +1887,7 @@ services:
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.9.6
         spark: ${SPARK}
         numpy: ${NUMPY}
     shm_size: *shm-size

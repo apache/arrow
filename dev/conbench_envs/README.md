@@ -111,7 +111,7 @@ Verify that you have at least these versions of `java`, `javac` and `maven`:
     javac 1.8.0_292
     ...
     # mvn -version
-    Apache Maven 3.6.3
+    Apache Maven 3.9.6
     ...
 
 ### 3. Install Arrow dependencies for Java Script
