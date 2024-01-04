@@ -299,6 +299,13 @@ TEST(AzureFileSystem, InitializeWithDefaultCredentialImplicitly) {
   ASSERT_TRUE(options.Equals(explictly_default_options));
 }
 
+TEST(AzureFileSystem, InitializeWithAnonymousCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureAnonymousCredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeWithClientSecretCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
