@@ -1407,11 +1407,8 @@ class AzureFileSystem::Impl {
                               const AzureLocation& location, bool recursive) {
     return CreateDirTemplate(
         container_client,
-        [](const auto& container_client, const auto& location) {
-          auto dir_marker_blob_path = internal::EnsureTrailingSlash(location.path);
-          auto block_blob_client =
-              container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
-          block_blob_client.UploadFrom(nullptr, 0);
+        [this](const auto& container_client, const auto& location) {
+          EnsureEmptyDirExistsImplThatThrows(container_client, location.path);
         },
         location, recursive);
   }
@@ -1439,6 +1436,17 @@ class AzureFileSystem::Impl {
     return stream;
   }
 
+ private:
+  void EnsureEmptyDirExistsImplThatThrows(
+      const Blobs::BlobContainerClient& container_client,
+      const std::string& path_within_container) {
+    auto dir_marker_blob_path = internal::EnsureTrailingSlash(path_within_container);
+    auto block_blob_client =
+        container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
+    block_blob_client.UploadFrom(nullptr, 0);
+  }
+
+ public:
   /// This function assumes the container already exists. So it can only be
   /// called after that has been verified.
   ///
@@ -1451,11 +1459,8 @@ class AzureFileSystem::Impl {
       // Nothing to do. The container already exists per the preconditions.
       return Status::OK();
     }
-    auto dir_marker_blob_path = internal::EnsureTrailingSlash(location.path);
-    auto block_blob_client =
-        container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
     try {
-      block_blob_client.UploadFrom(nullptr, 0);
+      EnsureEmptyDirExistsImplThatThrows(container_client, location.path);
       return Status::OK();
     } catch (const Storage::StorageException& exception) {
       return ExceptionToStatus(
