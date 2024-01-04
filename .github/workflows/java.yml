@@ -133,6 +133,7 @@ jobs:
       fail-fast: false
       matrix:
         jdk: [11]
+        maven: [3.9.6]
     steps:
       - name: Set up Java
         uses: actions/setup-java@v4
