@@ -22,9 +22,9 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.memory.unsafe.UnsafeAllocationManager;
 import org.junit.Test;
 
 /**
@@ -32,7 +32,7 @@ import org.junit.Test;
  */
 public class TestUnsafeAllocationManager {
 
-  private RootAllocator createUnsafeAllocator() {
+  private BufferAllocator createUnsafeAllocator() {
     return new RootAllocator(RootAllocator.configBuilder().allocationManagerFactory(UnsafeAllocationManager.FACTORY)
         .build());
   }
@@ -56,7 +56,7 @@ public class TestUnsafeAllocationManager {
   @Test
   public void testBufferAllocation() {
     final long bufSize = 4096L;
-    try (RootAllocator allocator = createUnsafeAllocator();
+    try (BufferAllocator allocator = createUnsafeAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
