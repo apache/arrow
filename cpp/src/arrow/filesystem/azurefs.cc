@@ -1343,9 +1343,8 @@ class AzureFileSystem::Impl {
   ///
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  template <class ContainerClient, class GetDirectoryClient, class CreateDirIfNotExists>
+  template <class ContainerClient, class CreateDirIfNotExists>
   Status CreateDirTemplate(const ContainerClient& container_client,
-                           GetDirectoryClient&& get_directory_client,
                            CreateDirIfNotExists&& create_if_not_exists,
                            const AzureLocation& location, bool recursive) {
     DCHECK(!location.container.empty());
@@ -1360,16 +1359,15 @@ class AzureFileSystem::Impl {
       // exists because the operation we perform below will fail if the container
       // doesn't exist and we can handle that error according to the recursive flag.
     }
-    auto directory_client = get_directory_client(container_client, location);
     try {
-      create_if_not_exists(directory_client);
+      create_if_not_exists(container_client, location);
       return Status::OK();
     } catch (const Storage::StorageException& exception) {
       if (IsContainerNotFound(exception)) {
         try {
           if (recursive) {
             container_client.CreateIfNotExists();
-            create_if_not_exists(directory_client);
+            create_if_not_exists(container_client, location);
             return Status::OK();
           } else {
             auto parent = location.parent();
@@ -1394,11 +1392,11 @@ class AzureFileSystem::Impl {
                                const AzureLocation& location, bool recursive) {
     return CreateDirTemplate(
         adlfs_client,
-        [](auto& adlfs_client, auto& location) {
-          return adlfs_client.GetDirectoryClient(location.path);
+        [](const auto& adlfs_client, const auto& location) {
+          auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+          directory_client.CreateIfNotExists();
         },
-        [](auto& directory_client) { directory_client.CreateIfNotExists(); }, location,
-        recursive);
+        location, recursive);
   }
 
   /// This function cannot assume the container already exists.
@@ -1409,11 +1407,12 @@ class AzureFileSystem::Impl {
                               const AzureLocation& location, bool recursive) {
     return CreateDirTemplate(
         container_client,
-        [](auto& container_client, auto& location) {
+        [](const auto& container_client, const auto& location) {
           auto dir_marker_blob_path = internal::EnsureTrailingSlash(location.path);
-          return container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
+          auto block_blob_client =
+              container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
+          block_blob_client.UploadFrom(nullptr, 0);
         },
-        [](auto& block_blob_client) { block_blob_client.UploadFrom(nullptr, 0); },
         location, recursive);
   }
 
