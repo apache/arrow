@@ -1922,11 +1922,6 @@ Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array,
   return ImportArray(array, *maybe_type);
 }
 
-Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
-    struct ArrowArrayStream* stream) {
-  return Status::NotImplemented("even a little bit");
-}
-
 Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
                                                        std::shared_ptr<Schema> schema) {
   auto type = struct_(schema->fields());
@@ -2120,19 +2115,31 @@ class ArrayStreamBatchReader : public RecordBatchReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
+  std::shared_ptr<DataType> data_type() const { return struct_(schema_->fields()); }
+
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     struct ArrowArray c_array;
-    if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid(
-          "Attempt to read from a reader that has already been closed");
-    }
-    RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
+    RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
+
     if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       batch->reset();
       return Status::OK();
     } else {
       return ImportRecordBatch(&c_array, schema_).Value(batch);
+    }
+  }
+
+  Status ReadNextArray(std::shared_ptr<Array>* array,
+                       const std::shared_ptr<DataType> data_type) {
+    struct ArrowArray c_array;
+
+    if (ArrowArrayIsReleased(&c_array)) {
+      // End of stream
+      array->reset();
+      return Status::OK();
+    } else {
+      return ImportArray(&c_array, data_type).Value(array);
     }
   }
 
@@ -2143,7 +2150,7 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     return Status::OK();
   }
 
-  static Result<std::shared_ptr<RecordBatchReader>> Make(
+  static Result<std::shared_ptr<ArrayStreamBatchReader>> Make(
       struct ArrowArrayStream* stream) {
     if (ArrowArrayStreamIsReleased(stream)) {
       return Status::Invalid("Cannot import released ArrowArrayStream");
@@ -2162,6 +2169,15 @@ class ArrayStreamBatchReader : public RecordBatchReader {
   }
 
  private:
+  Status ReadNextArrayInternal(struct ArrowArray* out) {
+    if (ArrowArrayStreamIsReleased(&stream_)) {
+      return Status::Invalid(
+          "Attempt to read from a reader that has already been closed");
+    }
+
+    return StatusFromCError(stream_.get_next(&stream_, out));
+  }
+
   Status StatusFromCError(int errno_like) const {
     return StatusFromCError(&stream_, errno_like);
   }
@@ -2199,6 +2215,27 @@ class ArrayStreamBatchReader : public RecordBatchReader {
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream) {
   return ArrayStreamBatchReader::Make(stream);
+}
+
+Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
+    struct ArrowArrayStream* stream) {
+  ARROW_ASSIGN_OR_RAISE(auto reader, ArrayStreamBatchReader::Make(stream));
+
+  std::shared_ptr<DataType> data_type = reader->data_type();
+
+  ArrayVector chunks;
+  std::shared_ptr<Array> chunk;
+  while (true) {
+    ARROW_RETURN_NOT_OK(reader->ReadNextArray(&chunk, data_type));
+    if (!chunk) {
+      break;
+    }
+
+    chunks.push_back(std::move(chunk));
+  }
+
+  ARROW_RETURN_NOT_OK(reader->Close());
+  return ChunkedArray::Make(chunks, data_type);
 }
 
 }  // namespace arrow
