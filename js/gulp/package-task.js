@@ -55,18 +55,34 @@ const createMainPackageJson = (target, format) => (orig) => ({
     exports: {
         '.': {
             node: {
-                import: `./${mainExport}.node.mjs`,
-                require: `./${mainExport}.node.js`,
-                types: `./${mainExport}.node.d.ts`,
+                import: {
+                    types: `./${mainExport}.node.d.mts`,
+                    default: `./${mainExport}.node.mjs`,
+                },
+                require: {
+                    types: `./${mainExport}.node.d.ts`,
+                    default: `./${mainExport}.node.js`,
+                },
             },
-            import: `./${mainExport}.dom.mjs`,
-            require: `./${mainExport}.dom.js`,
-            types: `./${mainExport}.dom.d.ts`,
+            import: {
+                types: `./${mainExport}.dom.d.mts`,
+                default: `./${mainExport}.dom.mjs`,
+            },
+            require: {
+                types: `./${mainExport}.dom.d.ts`,
+                default: `./${mainExport}.dom.js`,
+            }
         },
         './*': {
-            import: `./*.mjs`,
-            require: `./*.js`,
-        }
+            import: {
+                types: `./*.d.mts`,
+                default: `./*.mjs`,
+            },
+            require: {
+                types: `./*.d.ts`,
+                default: `./*.js`,
+            },
+        },
     },
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true }
