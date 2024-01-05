@@ -205,6 +205,7 @@ function inferDType<T extends DataType>(type: T): Type {
             return Type.Duration;
         case Type.Map: return Type.Map;
         case Type.List: return Type.List;
+        case Type.LargeList: return Type.LargeList;
         case Type.Struct: return Type.Struct;
         case Type.Union:
             switch ((type as any as Union).mode) {
