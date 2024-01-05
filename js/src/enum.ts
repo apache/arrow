@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { MetadataVersion } from './fb/metadata-version.ts';
-export { UnionMode } from './fb/union-mode.ts';
-export { Precision } from './fb/precision.ts';
-export { DateUnit } from './fb/date-unit.ts';
-export { TimeUnit } from './fb/time-unit.ts';
-export { IntervalUnit } from './fb/interval-unit.ts';
-export { MessageHeader } from './fb/message-header.ts';
+export { MetadataVersion } from './fb/metadata-version.js';
+export { UnionMode } from './fb/union-mode.js';
+export { Precision } from './fb/precision.js';
+export { DateUnit } from './fb/date-unit.js';
+export { TimeUnit } from './fb/time-unit.js';
+export { IntervalUnit } from './fb/interval-unit.js';
+export { MessageHeader } from './fb/message-header.js';
 
 /**
  * Main data type enumeration.
