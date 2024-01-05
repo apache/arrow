@@ -66,7 +66,7 @@ namespace Apache.Arrow.Tests
                 ArrowFileReader reader = new ArrowFileReader(stream, memoryPool, leaveOpen: shouldLeaveOpen);
                 reader.ReadNextRecordBatch();
 
-                Assert.Equal(1, memoryPool.Statistics.Allocations);
+                Assert.Equal(2, memoryPool.Statistics.Allocations);
                 Assert.True(memoryPool.Statistics.BytesAllocated > 0);
 
                 reader.Dispose();
@@ -132,8 +132,8 @@ namespace Apache.Arrow.Tests
         [Fact]
         public async Task TestReadMultipleRecordBatchAsync()
         {
-            RecordBatch originalBatch1 = TestData.CreateSampleRecordBatch(length: 100);
-            RecordBatch originalBatch2 = TestData.CreateSampleRecordBatch(length: 50);
+            RecordBatch originalBatch1 = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: false);
+            RecordBatch originalBatch2 = TestData.CreateSampleRecordBatch(length: 50, createDictionaryArray: false);
 
             using (MemoryStream stream = new MemoryStream())
             {

@@ -38,6 +38,7 @@ def _load_clr():
     global _clr_loaded
     if not _clr_loaded:
         _clr_loaded = True
+        os.environ['DOTNET_GCHeapHardLimit'] = '0xC800000'  # 200 MiB
         import pythonnet
         pythonnet.load("coreclr")
         import clr
@@ -77,9 +78,7 @@ class _CDataBase:
     def _read_batch_from_json(self, json_path, num_batch):
         from Apache.Arrow.IntegrationTest import CDataInterface
 
-        jf = CDataInterface.ParseJsonFile(json_path)
-        schema = jf.Schema.ToArrow()
-        return schema, jf.Batches[num_batch].ToArrow(schema)
+        return CDataInterface.ParseJsonFile(json_path).ToArrow(num_batch)
 
     def _run_gc(self):
         from Apache.Arrow.IntegrationTest import CDataInterface

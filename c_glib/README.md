@@ -82,7 +82,7 @@ required packages.
 macOS:
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 $ meson setup c_glib.build c_glib --buildtype=release
 $ meson compile -C c_glib.build
 $ sudo meson install -C c_glib.build
@@ -128,7 +128,7 @@ $ sudo pip3 install meson
 On macOS with [Homebrew](https://brew.sh/):
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 ```
 
 You can build and install Arrow GLib by the followings:

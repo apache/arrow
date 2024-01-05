@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
@@ -57,6 +58,8 @@ namespace dataset {
 using parquet::arrow::SchemaField;
 using parquet::arrow::SchemaManifest;
 using parquet::arrow::StatisticsAsScalars;
+
+using compute::Cast;
 
 namespace {
 
@@ -98,6 +101,10 @@ parquet::ReaderProperties MakeReaderProperties(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
   properties.set_thrift_container_size_limit(
       parquet_scan_options->reader_properties->thrift_container_size_limit());
+
+  properties.set_page_checksum_verification(
+      parquet_scan_options->reader_properties->page_checksum_verification());
+
   return properties;
 }
 
@@ -366,12 +373,12 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return std::nullopt;
   }
 
-  auto maybe_min = min->CastTo(field.type());
-  auto maybe_max = max->CastTo(field.type());
+  auto maybe_min = Cast(min, field.type());
+  auto maybe_max = Cast(max, field.type());
 
   if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
+    min = maybe_min.MoveValueUnsafe().scalar();
+    max = maybe_max.MoveValueUnsafe().scalar();
 
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
@@ -504,11 +511,6 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                                          default_fragment_scan_options));
   auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), source.path(),
                                          source.filesystem(), options->pool);
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
-  auto reader_fut = parquet::ParquetFileReader::OpenAsync(
-      std::move(input), std::move(properties), metadata);
-  auto path = source.path();
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
   return source.OpenAsync().Then(

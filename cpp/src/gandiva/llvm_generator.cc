@@ -36,16 +36,21 @@ namespace gandiva {
     AddTrace(__VA_ARGS__); \
   }
 
-LLVMGenerator::LLVMGenerator(bool cached) : cached_(cached), enable_ir_traces_(false) {}
+LLVMGenerator::LLVMGenerator(bool cached,
+                             std::shared_ptr<FunctionRegistry> function_registry)
+    : cached_(cached),
+      function_registry_(std::move(function_registry)),
+      enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(std::shared_ptr<Configuration> config, bool cached,
-                           std::unique_ptr<LLVMGenerator>* llvm_generator) {
-  std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator(cached));
+Result<std::unique_ptr<LLVMGenerator>> LLVMGenerator::Make(
+    const std::shared_ptr<Configuration>& config, bool cached,
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+  std::unique_ptr<LLVMGenerator> llvm_generator(
+      new LLVMGenerator(cached, config->function_registry()));
 
-  ARROW_RETURN_NOT_OK(Engine::Make(config, cached, &(llvmgen_obj->engine_)));
-  *llvm_generator = std::move(llvmgen_obj);
-
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(llvm_generator->engine_,
+                        Engine::Make(config, cached, object_cache));
+  return llvm_generator;
 }
 
 std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
@@ -57,18 +62,18 @@ LLVMGenerator::GetCache() {
   return shared_cache;
 }
 
-void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  engine_->SetLLVMObjectCache(object_cache);
+Status LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+  return engine_->SetLLVMObjectCache(object_cache);
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.
-  ExprDecomposer decomposer(function_registry_, annotator_);
+  ExprDecomposer decomposer(*function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.
-  std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
+  auto compiled_expr = std::make_unique<CompiledExpr>(value_validity, output);
   std::string fn_name = "expr_" + std::to_string(idx) + "_" +
                         std::to_string(static_cast<int>(selection_vector_mode_));
   if (!cached_) {
@@ -98,7 +103,8 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
     auto fn_name = compiled_expr->GetFunctionName(mode);
-    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(fn_name));
+    ARROW_ASSIGN_OR_RAISE(auto fn_ptr, engine_->CompiledFunction(fn_name));
+    auto jit_fn = reinterpret_cast<EvalFunc>(fn_ptr);
     compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
   }
 

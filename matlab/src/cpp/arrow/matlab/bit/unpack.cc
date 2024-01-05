@@ -20,7 +20,7 @@
 #include "arrow/util/bitmap_visit.h"
 
 namespace arrow::matlab::bit {
-    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length) {
+    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length, int64_t start_offset) {
         const auto packed_buffer_ptr = packed_buffer->data();
 
         ::matlab::data::ArrayFactory factory;
@@ -31,7 +31,6 @@ namespace arrow::matlab::bit {
         auto unpacked_buffer_ptr = unpacked_buffer.get();
         auto visitFcn = [&](const bool is_valid) { *unpacked_buffer_ptr++ = is_valid; };
 
-        const int64_t start_offset = 0;
         arrow::internal::VisitBitsUnrolled(packed_buffer_ptr, start_offset, length, visitFcn);
 
         ::matlab::data::TypedArray<bool> unpacked_matlab_logical_Array = factory.createArrayFromBuffer({array_length, 1}, std::move(unpacked_buffer));

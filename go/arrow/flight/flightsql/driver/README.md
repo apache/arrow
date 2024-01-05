@@ -25,7 +25,7 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 
 ---------------------------------------
 
-* [Prerequisits](#prerequisits)
+* [Prerequisites](#prerequisites)
 * [Usage](#usage)
 * [Data Source Name (DSN)](#data-source-name-dsn)
 * [Driver config usage](#driver-config-usage)
@@ -36,7 +36,7 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 ## Prerequisites
 
 * Go 1.17+
-* Installation via `go get -u github.com/apache/arrow/go/v14/arrow/flight/flightsql`
+* Installation via `go get -u github.com/apache/arrow/go/v15/arrow/flight/flightsql`
 * Backend speaking FlightSQL
 
 ---------------------------------------
@@ -55,7 +55,7 @@ import (
     "database/sql"
     "time"
 
-    _ "github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+    _ "github.com/apache/arrow/go/v15/arrow/flight/flightsql"
 )
 
 // Open the connection to an SQLite backend
@@ -141,7 +141,7 @@ import (
     "log"
     "time"
 
-    "github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+    "github.com/apache/arrow/go/v15/arrow/flight/flightsql"
 )
 
 func main() {
@@ -218,7 +218,7 @@ configuration. In this case you need to call `RegisterTLSConfig()` in your code
     ...
 ```
 
-This will register the custom configuration, constraining the minimim TLS
+This will register the custom configuration, constraining the minimum TLS
 version, as `myconfig` and then references the registered configuration by
 name in the DSN. You can reuse the same TLS configuration by registering once
 and then reference in multiple DSNs. Registering multiple configurations with

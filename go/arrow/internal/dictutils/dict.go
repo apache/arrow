@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type Kind int8
@@ -104,7 +104,7 @@ func (d *Mapper) InsertPath(pos FieldPos) {
 	d.hasher.Reset()
 }
 
-func (d *Mapper) ImportField(pos FieldPos, field *arrow.Field) {
+func (d *Mapper) ImportField(pos FieldPos, field arrow.Field) {
 	dt := field.Type
 	if dt.ID() == arrow.EXTENSION {
 		dt = dt.(arrow.ExtensionType).StorageType()
@@ -126,13 +126,18 @@ func (d *Mapper) ImportField(pos FieldPos, field *arrow.Field) {
 
 func (d *Mapper) ImportFields(pos FieldPos, fields []arrow.Field) {
 	for i := range fields {
-		d.ImportField(pos.Child(int32(i)), &fields[i])
+		d.ImportField(pos.Child(int32(i)), fields[i])
 	}
 }
 
 func (d *Mapper) ImportSchema(schema *arrow.Schema) {
 	d.pathToID = make(map[uint64]int64)
-	d.ImportFields(NewFieldPos(), schema.Fields())
+	// This code path intentionally avoids calling ImportFields with
+	// schema.Fields to avoid allocations.
+	pos := NewFieldPos()
+	for i := 0; i < schema.NumFields(); i++ {
+		d.ImportField(pos.Child(int32(i)), schema.Field(i))
+	}
 }
 
 func hasUnresolvedNestedDict(data arrow.ArrayData) bool {

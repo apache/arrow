@@ -42,6 +42,11 @@ struct ARROW_EXPORT CacheOptions {
   ///   size greater than this, they are not combined
   int64_t range_size_limit;
   /// \brief A lazy cache does not perform any I/O until requested.
+  ///   lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
+  ///   lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+  ///   needs them.
+  ///   lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
+  ///   range that is currently being read.
   bool lazy;
   /// \brief The maximum number of ranges to be prefetched. This is only used
   ///   for lazy cache to asynchronously read some ranges after reading the target range.
@@ -56,9 +61,10 @@ struct ARROW_EXPORT CacheOptions {
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
   ///
   /// \param[in] time_to_first_byte_millis Seek-time or Time-To-First-Byte (TTFB) in
-  ///   milliseconds, also called call setup latency of a new S3 request.
+  ///   milliseconds, also called call setup latency of a new read request.
   ///   The value is a positive integer.
-  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec.
+  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec
+  ///   (per connection).
   ///   The value is a positive integer.
   /// \param[in] ideal_bandwidth_utilization_frac Transfer bandwidth utilization fraction
   ///   (per connection) to maximize the net data load.

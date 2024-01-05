@@ -24,15 +24,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/compute"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v14/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -89,7 +89,7 @@ func (c *CompareSuite) validateCompareScalarArr(op kernels.CompareOperator, dt a
 	c.validateCompareDatum(op, lhs, &compute.ArrayDatum{rhs.Data()}, &compute.ArrayDatum{exp.Data()})
 }
 
-func slowCompare[T exec.NumericTypes | string](op kernels.CompareOperator, lhs, rhs T) bool {
+func slowCompare[T arrow.NumericType | string](op kernels.CompareOperator, lhs, rhs T) bool {
 	switch op {
 	case kernels.CmpEQ:
 		return lhs == rhs
@@ -108,7 +108,7 @@ func slowCompare[T exec.NumericTypes | string](op kernels.CompareOperator, lhs, 
 	}
 }
 
-// func simpleScalarArrayCompare[T exec.NumericTypes](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
+// func simpleScalarArrayCompare[T arrow.NumericType](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
 // 	var (
 // 		swap  = lhs.Kind() == compute.KindArray
 // 		span  exec.ArraySpan
@@ -230,7 +230,7 @@ type valuer[T any] interface {
 	Value(int) T
 }
 
-func simpleArrArrCompare[T exec.NumericTypes | string](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
+func simpleArrArrCompare[T arrow.NumericType | string](mem memory.Allocator, op kernels.CompareOperator, lhs, rhs compute.Datum) compute.Datum {
 	var (
 		lArr   = lhs.(*compute.ArrayDatum).MakeArray()
 		rArr   = rhs.(*compute.ArrayDatum).MakeArray()
@@ -263,7 +263,7 @@ func simpleArrArrCompare[T exec.NumericTypes | string](mem memory.Allocator, op 
 	return compute.NewDatum(result)
 }
 
-type NumericCompareSuite[T exec.NumericTypes] struct {
+type NumericCompareSuite[T arrow.NumericType] struct {
 	CompareSuite
 }
 
@@ -282,7 +282,7 @@ type NumericCompareSuite[T exec.NumericTypes] struct {
 // }
 
 func (n *NumericCompareSuite[T]) TestSimpleCompareArrayScalar() {
-	dt := exec.GetDataType[T]()
+	dt := arrow.GetDataType[T]()
 	one := compute.NewDatum(scalar.MakeScalar(T(1)))
 
 	n.Run(dt.String(), func() {
@@ -361,7 +361,7 @@ func (n *NumericCompareSuite[T]) TestSimpleCompareArrayScalar() {
 }
 
 func (n *NumericCompareSuite[T]) TestSimpleCompareScalarArray() {
-	dt := exec.GetDataType[T]()
+	dt := arrow.GetDataType[T]()
 	one := compute.NewDatum(scalar.MakeScalar(T(1)))
 
 	n.Run(dt.String(), func() {
@@ -440,7 +440,7 @@ func (n *NumericCompareSuite[T]) TestSimpleCompareScalarArray() {
 }
 
 func (n *NumericCompareSuite[T]) TestNullScalar() {
-	dt := exec.GetDataType[T]()
+	dt := arrow.GetDataType[T]()
 	null := compute.NewDatum(scalar.MakeNullScalar(dt))
 
 	n.Run(dt.String(), func() {
@@ -453,7 +453,7 @@ func (n *NumericCompareSuite[T]) TestNullScalar() {
 }
 
 func (n *NumericCompareSuite[T]) TestSimpleCompareArrArr() {
-	dt := exec.GetDataType[T]()
+	dt := arrow.GetDataType[T]()
 
 	n.Run(dt.String(), func() {
 		n.validateCompare(kernels.CmpEQ, dt, `[]`, `[]`, `[]`)

@@ -24,11 +24,11 @@ import (
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 	"golang.org/x/exp/constraints"
 )
 
@@ -81,7 +81,7 @@ const (
 	OpLogbChecked
 )
 
-func mulWithOverflow[T exec.IntTypes | exec.UintTypes](a, b T) (T, error) {
+func mulWithOverflow[T arrow.IntType | arrow.UintType](a, b T) (T, error) {
 	min, max := MinOf[T](), MaxOf[T]()
 	switch {
 	case a > 0:
@@ -107,7 +107,7 @@ func mulWithOverflow[T exec.IntTypes | exec.UintTypes](a, b T) (T, error) {
 	return a * b, nil
 }
 
-func getGoArithmeticBinary[OutT, Arg0T, Arg1T exec.NumericTypes](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
+func getGoArithmeticBinary[OutT, Arg0T, Arg1T arrow.NumericType](op func(a Arg0T, b Arg1T, e *error) OutT) binaryOps[OutT, Arg0T, Arg1T] {
 	return binaryOps[OutT, Arg0T, Arg1T]{
 		arrArr: func(_ *exec.KernelCtx, left []Arg0T, right []Arg1T, out []OutT) error {
 			var err error
@@ -143,7 +143,7 @@ var (
 	errLogNeg        = fmt.Errorf("%w: logarithm of negative number", arrow.ErrInvalid)
 )
 
-func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op ArithmeticOp) exec.ArrayKernelExec {
+func getGoArithmeticOpIntegral[InT, OutT arrow.UintType | arrow.IntType](op ArithmeticOp) exec.ArrayKernelExec {
 	switch op {
 	case OpAdd:
 		return ScalarBinary(getGoArithmeticBinary(func(a, b InT, _ *error) OutT { return OutT(a + b) }))
@@ -178,7 +178,7 @@ func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arit
 
 		if SizeOf[InT]() == SizeOf[OutT]() {
 			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
-				in, output := exec.GetBytes(arg), exec.GetBytes(out)
+				in, output := arrow.GetBytes(arg), arrow.GetBytes(out)
 				copy(output, in)
 				return nil
 			})
@@ -314,7 +314,7 @@ func getGoArithmeticOpIntegral[InT, OutT exec.UintTypes | exec.IntTypes](op Arit
 		}
 		if SizeOf[InT]() == SizeOf[OutT]() {
 			return ScalarUnary(func(_ *exec.KernelCtx, arg []InT, out []OutT) error {
-				in, output := exec.GetBytes(arg), exec.GetBytes(out)
+				in, output := arrow.GetBytes(arg), arrow.GetBytes(out)
 				copy(output, in)
 				return nil
 			})
@@ -795,7 +795,7 @@ func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arithmetic
 			return int64(fns.Sign(arg))
 		})
 	}
-	debug.Assert(false, "unimplemented arithemtic op")
+	debug.Assert(false, "unimplemented arithmetic op")
 	return nil
 }
 
@@ -837,7 +837,7 @@ func ArithmeticExecSameType(ty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec
 	return nil
 }
 
-func arithmeticExec[InT exec.IntTypes | exec.UintTypes](oty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
+func arithmeticExec[InT arrow.IntType | arrow.UintType](oty arrow.Type, op ArithmeticOp) exec.ArrayKernelExec {
 	switch oty {
 	case arrow.INT8:
 		return getArithmeticOpIntegral[InT, int8](op)

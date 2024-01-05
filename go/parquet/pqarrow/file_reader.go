@@ -23,13 +23,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/arrio"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/arrio"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -293,7 +293,7 @@ type resultPair struct {
 	err  error
 }
 
-//! This is Super complicated.  I would simpify the pattern, but it works and hesitant to change what works.
+//! This is Super complicated.  I would simplify the pattern, but it works and hesitant to change what works.
 
 // ReadRowGroups is for generating an array.Table from the file but filtering to only read the requested
 // columns and row groups rather than the entire file which ReadTable does.
@@ -363,7 +363,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	close(ch)
 
 	// output slice of columns
-	columns := make([]arrow.Column, len(sc.Fields()))
+	columns := make([]arrow.Column, sc.NumFields())
 	defer releaseColumns(columns)
 	for data := range results {
 		if data.err != nil {

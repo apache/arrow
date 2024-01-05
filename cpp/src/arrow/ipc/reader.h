@@ -258,7 +258,7 @@ class ARROW_EXPORT Listener {
   virtual Status OnEOS();
 
   /// \brief Called when a record batch is decoded and
-  /// OnRecordBatchWithMetadataDecoded() isn't overrided.
+  /// OnRecordBatchWithMetadataDecoded() isn't overridden.
   ///
   /// The default implementation just returns
   /// arrow::Status::NotImplemented().
@@ -424,6 +424,14 @@ class ARROW_EXPORT StreamDecoder {
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status
   Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \brief Reset the internal status.
+  ///
+  /// You can reuse this decoder for new stream after calling
+  /// this.
+  ///
+  /// \return Status
+  Status Reset();
 
   /// \return the shared schema of the record batches in the stream
   std::shared_ptr<Schema> schema() const;

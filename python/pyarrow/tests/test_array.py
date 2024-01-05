@@ -989,7 +989,7 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
     assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
 
-    # Manually specifiying offsets (with nulls) is same as mask at top level
+    # Manually specifying offsets (with nulls) is same as mask at top level
     reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
     assert arr == reconstructed_arr
     reconstructed_arr = list_array_type.from_arrays(arr.offsets,
@@ -1090,6 +1090,16 @@ def test_fixed_size_list_from_arrays():
     assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
     assert result.type.equals(typ)
     assert result.type.value_field.name == "name"
+
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               type=typ,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
+
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               list_size=4,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
 
     # raise on invalid values / list_size
     with pytest.raises(ValueError):

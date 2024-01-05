@@ -46,10 +46,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -82,6 +82,8 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"Z":   arrow.BinaryTypes.LargeBinary,
 	"u":   arrow.BinaryTypes.String,
 	"U":   arrow.BinaryTypes.LargeString,
+	"vz":  arrow.BinaryTypes.BinaryView,
+	"vu":  arrow.BinaryTypes.StringView,
 	"tdD": arrow.FixedWidthTypes.Date32,
 	"tdm": arrow.FixedWidthTypes.Date64,
 	"tts": arrow.FixedWidthTypes.Time32s,
@@ -263,6 +265,12 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			dt = arrow.ListOfField(childFields[0])
 		case 'L': // large list
 			dt = arrow.LargeListOfField(childFields[0])
+		case 'v': // list view/large list view
+			if f[2] == 'l' {
+				dt = arrow.ListViewOfField(childFields[0])
+			} else if f[2] == 'L' {
+				dt = arrow.LargeListViewOfField(childFields[0])
+			}
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {
@@ -361,6 +369,16 @@ func (imp *cimporter) doImportChildren() error {
 		}
 	case arrow.LARGE_LIST: // only one child to import
 		imp.children[0].dt = imp.dt.(*arrow.LargeListType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+	case arrow.LIST_VIEW: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.ListViewType).Elem()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+	case arrow.LARGE_LIST_VIEW: // only one child to import
+		imp.children[0].dt = imp.dt.(*arrow.LargeListViewType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
@@ -485,10 +503,18 @@ func (imp *cimporter) doImport() error {
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.LargeBinaryType:
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
+	case *arrow.StringViewType:
+		return imp.importBinaryViewLike()
+	case *arrow.BinaryViewType:
+		return imp.importBinaryViewLike()
 	case *arrow.ListType:
 		return imp.importListLike()
 	case *arrow.LargeListType:
 		return imp.importListLike()
+	case *arrow.ListViewType:
+		return imp.importListViewLike()
+	case *arrow.LargeListViewType:
+		return imp.importListViewLike()
 	case *arrow.MapType:
 		return imp.importListLike()
 	case *arrow.FixedSizeListType:
@@ -654,6 +680,33 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
 	return
 }
 
+func (imp *cimporter) importBinaryViewLike() (err error) {
+	if err = imp.checkNoChildren(); err != nil {
+		return
+	}
+
+	buffers := make([]*memory.Buffer, len(imp.cbuffers)-1)
+	defer memory.ReleaseBuffers(buffers)
+
+	if buffers[0], err = imp.importNullBitmap(0); err != nil {
+		return
+	}
+
+	if buffers[1], err = imp.importFixedSizeBuffer(1, int64(arrow.ViewHeaderSizeBytes)); err != nil {
+		return
+	}
+
+	dataBufferSizes := unsafe.Slice((*int64)(unsafe.Pointer(imp.cbuffers[len(buffers)])), len(buffers)-2)
+	for i, size := range dataBufferSizes {
+		if buffers[i+2], err = imp.importVariableValuesBuffer(i+2, 1, size); err != nil {
+			return
+		}
+	}
+
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), buffers, nil, int(imp.arr.null_count), int(imp.arr.offset))
+	return
+}
+
 func (imp *cimporter) importListLike() (err error) {
 	if err = imp.checkNumChildren(1); err != nil {
 		return err
@@ -680,6 +733,43 @@ func (imp *cimporter) importListLike() (err error) {
 	}
 
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
+	return
+}
+
+func (imp *cimporter) importListViewLike() (err error) {
+	offsetSize := int64(imp.dt.Layout().Buffers[1].ByteWidth)
+
+	if err = imp.checkNumChildren(1); err != nil {
+		return err
+	}
+
+	if err = imp.checkNumBuffers(3); err != nil {
+		return err
+	}
+
+	var nulls, offsets, sizes *memory.Buffer
+	if nulls, err = imp.importNullBitmap(0); err != nil {
+		return
+	}
+	if nulls != nil {
+		defer nulls.Release()
+	}
+
+	if offsets, err = imp.importFixedSizeBuffer(1, offsetSize); err != nil {
+		return
+	}
+	if offsets != nil {
+		defer offsets.Release()
+	}
+
+	if sizes, err = imp.importFixedSizeBuffer(2, offsetSize); err != nil {
+		return
+	}
+	if sizes != nil {
+		defer sizes.Release()
+	}
+
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, sizes}, []arrow.ArrayData{imp.children[0].data}, int(imp.arr.null_count), int(imp.arr.offset))
 	return
 }
 

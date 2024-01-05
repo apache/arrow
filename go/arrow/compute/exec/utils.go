@@ -21,96 +21,21 @@ package exec
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
 
-// IntTypes is a type constraint for raw values represented as signed
-// integer types by Arrow. We aren't just using constraints.Signed
-// because we don't want to include the raw `int` type here whose size
-// changes based on the architecture (int32 on 32-bit architectures and
-// int64 on 64-bit architectures).
-//
-// This will also cover types like MonthInterval or the time types
-// as their underlying types are int32 and int64 which will get covered
-// by using the ~
-type IntTypes interface {
-	~int8 | ~int16 | ~int32 | ~int64
-}
-
-// UintTypes is a type constraint for raw values represented as unsigned
-// integer types by Arrow. We aren't just using constraints.Unsigned
-// because we don't want to include the raw `uint` type here whose size
-// changes based on the architecture (uint32 on 32-bit architectures and
-// uint64 on 64-bit architectures). We also don't want to include uintptr
-type UintTypes interface {
-	~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
-// FloatTypes is a type constraint for raw values for representing
-// floating point values in Arrow. This consists of constraints.Float and
-// float16.Num
-type FloatTypes interface {
-	float16.Num | constraints.Float
-}
-
-// NumericTypes is a type constraint for just signed/unsigned integers
-// and float32/float64.
-type NumericTypes interface {
-	IntTypes | UintTypes | constraints.Float
-}
-
-// DecimalTypes is a type constraint for raw values representing larger
-// decimal type values in Arrow, specifically decimal128 and decimal256.
-type DecimalTypes interface {
-	decimal128.Num | decimal256.Num
-}
-
-// FixedWidthTypes is a type constraint for raw values in Arrow that
-// can be represented as FixedWidth byte slices. Specifically this is for
-// using Go generics to easily re-type a byte slice to a properly-typed
-// slice. Booleans are excluded here since they are represented by Arrow
-// as a bitmap and thus the buffer can't be just reinterpreted as a []bool
-type FixedWidthTypes interface {
-	IntTypes | UintTypes |
-		FloatTypes | DecimalTypes |
-		arrow.DayTimeInterval | arrow.MonthDayNanoInterval
-}
-
-type TemporalTypes interface {
-	arrow.Date32 | arrow.Date64 | arrow.Time32 | arrow.Time64 |
-		arrow.Timestamp | arrow.Duration | arrow.DayTimeInterval |
-		arrow.MonthInterval | arrow.MonthDayNanoInterval
-}
-
-func GetValues[T FixedWidthTypes](data arrow.ArrayData, i int) []T {
-	if data.Buffers()[i] == nil || data.Buffers()[i].Len() == 0 {
-		return nil
-	}
-	ret := unsafe.Slice((*T)(unsafe.Pointer(&data.Buffers()[i].Bytes()[0])), data.Offset()+data.Len())
-	return ret[data.Offset():]
-}
-
-func GetOffsets[T int32 | int64](data arrow.ArrayData, i int) []T {
-	ret := unsafe.Slice((*T)(unsafe.Pointer(&data.Buffers()[i].Bytes()[0])), data.Offset()+data.Len()+1)
-	return ret[data.Offset():]
-}
-
 // GetSpanValues returns a properly typed slice by reinterpreting
 // the buffer at index i using unsafe.Slice. This will take into account
 // the offset of the given ArraySpan.
-func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
+func GetSpanValues[T arrow.FixedWidthType](span *ArraySpan, i int) []T {
 	if len(span.Buffers[i].Buf) == 0 {
 		return nil
 	}
@@ -124,16 +49,6 @@ func GetSpanValues[T FixedWidthTypes](span *ArraySpan, i int) []T {
 func GetSpanOffsets[T int32 | int64](span *ArraySpan, i int) []T {
 	ret := unsafe.Slice((*T)(unsafe.Pointer(&span.Buffers[i].Buf[0])), span.Offset+span.Len+1)
 	return ret[span.Offset:]
-}
-
-func GetBytes[T FixedWidthTypes](in []T) []byte {
-	var z T
-	return unsafe.Slice((*byte)(unsafe.Pointer(&in[0])), len(in)*int(unsafe.Sizeof(z)))
-}
-
-func GetData[T FixedWidthTypes](in []byte) []T {
-	var z T
-	return unsafe.Slice((*T)(unsafe.Pointer(&in[0])), len(in)/int(unsafe.Sizeof(z)))
 }
 
 func Min[T constraints.Ordered](a, b T) T {
@@ -165,59 +80,22 @@ func OptionsInit[T any](_ *KernelCtx, args KernelInitArgs) (KernelState, error) 
 		arrow.ErrInvalid)
 }
 
-var typMap = map[reflect.Type]arrow.DataType{
-	reflect.TypeOf(false):           arrow.FixedWidthTypes.Boolean,
-	reflect.TypeOf(int8(0)):         arrow.PrimitiveTypes.Int8,
-	reflect.TypeOf(int16(0)):        arrow.PrimitiveTypes.Int16,
-	reflect.TypeOf(int32(0)):        arrow.PrimitiveTypes.Int32,
-	reflect.TypeOf(int64(0)):        arrow.PrimitiveTypes.Int64,
-	reflect.TypeOf(uint8(0)):        arrow.PrimitiveTypes.Uint8,
-	reflect.TypeOf(uint16(0)):       arrow.PrimitiveTypes.Uint16,
-	reflect.TypeOf(uint32(0)):       arrow.PrimitiveTypes.Uint32,
-	reflect.TypeOf(uint64(0)):       arrow.PrimitiveTypes.Uint64,
-	reflect.TypeOf(float32(0)):      arrow.PrimitiveTypes.Float32,
-	reflect.TypeOf(float64(0)):      arrow.PrimitiveTypes.Float64,
-	reflect.TypeOf(string("")):      arrow.BinaryTypes.String,
-	reflect.TypeOf(arrow.Date32(0)): arrow.FixedWidthTypes.Date32,
-	reflect.TypeOf(arrow.Date64(0)): arrow.FixedWidthTypes.Date64,
-	reflect.TypeOf(true):            arrow.FixedWidthTypes.Boolean,
-	reflect.TypeOf(float16.Num{}):   arrow.FixedWidthTypes.Float16,
-	reflect.TypeOf([]byte{}):        arrow.BinaryTypes.Binary,
-}
-
-// GetDataType returns the appropriate arrow.DataType for the given type T
-// only for non-parametric types. This uses a map and reflection internally
-// so don't call this in a tight loop, instead call this once and then use
-// a closure with the result.
-func GetDataType[T NumericTypes | bool | string | []byte | float16.Num]() arrow.DataType {
-	var z T
-	return typMap[reflect.TypeOf(z)]
-}
-
-// GetType returns the appropriate arrow.Type type T, only for non-parameteric
-// types. This uses a map and reflection internally so don't call this in
-// a tight loop, instead call it once and then use a closure with the result.
-func GetType[T NumericTypes | bool | string]() arrow.Type {
-	var z T
-	return typMap[reflect.TypeOf(z)].ID()
-}
-
-type arrayBuilder[T NumericTypes | bool] interface {
+type arrayBuilder[T arrow.NumericType | bool] interface {
 	array.Builder
 	Append(T)
 	AppendValues([]T, []bool)
 }
 
-func ArrayFromSlice[T NumericTypes | bool](mem memory.Allocator, data []T) arrow.Array {
-	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
+func ArrayFromSlice[T arrow.NumericType | bool](mem memory.Allocator, data []T) arrow.Array {
+	bldr := array.NewBuilder(mem, arrow.GetDataType[T]()).(arrayBuilder[T])
 	defer bldr.Release()
 
 	bldr.AppendValues(data, nil)
 	return bldr.NewArray()
 }
 
-func ArrayFromSliceWithValid[T NumericTypes | bool](mem memory.Allocator, data []T, valid []bool) arrow.Array {
-	bldr := array.NewBuilder(mem, typMap[reflect.TypeOf(data).Elem()]).(arrayBuilder[T])
+func ArrayFromSliceWithValid[T arrow.NumericType | bool](mem memory.Allocator, data []T, valid []bool) arrow.Array {
+	bldr := array.NewBuilder(mem, arrow.GetDataType[T]()).(arrayBuilder[T])
 	defer bldr.Release()
 
 	bldr.AppendValues(data, valid)
@@ -323,7 +201,7 @@ func (c *ChunkResolver) Resolve(idx int64) (chunk, index int64) {
 }
 
 type arrayTypes interface {
-	FixedWidthTypes | TemporalTypes | bool | string | []byte
+	arrow.FixedWidthType | arrow.TemporalType | bool | string | []byte
 }
 
 type ArrayIter[T arrayTypes] interface {
@@ -345,11 +223,11 @@ func (b *BoolIter) Next() (out bool) {
 	return
 }
 
-type PrimitiveIter[T FixedWidthTypes] struct {
+type PrimitiveIter[T arrow.FixedWidthType] struct {
 	Values []T
 }
 
-func NewPrimitiveIter[T FixedWidthTypes](arr *ArraySpan) ArrayIter[T] {
+func NewPrimitiveIter[T arrow.FixedWidthType](arr *ArraySpan) ArrayIter[T] {
 	return &PrimitiveIter[T]{Values: GetSpanValues[T](arr, 1)}
 }
 

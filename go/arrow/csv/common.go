@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 var (
@@ -172,7 +172,7 @@ func WithNullWriter(null string) Option {
 }
 
 // WithBoolWriter override the default bool formatter with a function that returns
-// a string representaton of bool states. i.e. True, False, 1, 0
+// a string representation of bool states. i.e. True, False, 1, 0
 func WithBoolWriter(fmtr func(bool) string) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {

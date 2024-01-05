@@ -24,11 +24,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -172,7 +172,7 @@ func (PlainInt32Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *PlainInt32Decoder) Decode(out []int32) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := utils.Min(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
 		return 0, fmt.Errorf("parquet: eof exception decode plain Int32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
@@ -277,7 +277,7 @@ func (PlainInt64Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *PlainInt64Decoder) Decode(out []int64) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := utils.Min(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Int64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
 		return 0, fmt.Errorf("parquet: eof exception decode plain Int64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
@@ -382,7 +382,7 @@ func (PlainInt96Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *PlainInt96Decoder) Decode(out []parquet.Int96) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := utils.Min(len(out), dec.nvals)
 	nbytes := int64(max) * int64(parquet.Int96SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
 		return 0, fmt.Errorf("parquet: eof exception decode plain Int96, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
@@ -487,7 +487,7 @@ func (PlainFloat32Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *PlainFloat32Decoder) Decode(out []float32) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := utils.Min(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float32SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
 		return 0, fmt.Errorf("parquet: eof exception decode plain Float32, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))
@@ -592,7 +592,7 @@ func (PlainFloat64Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *PlainFloat64Decoder) Decode(out []float64) (int, error) {
-	max := utils.MinInt(len(out), dec.nvals)
+	max := utils.Min(len(out), dec.nvals)
 	nbytes := int64(max) * int64(arrow.Float64SizeBytes)
 	if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
 		return 0, fmt.Errorf("parquet: eof exception decode plain Float64, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))

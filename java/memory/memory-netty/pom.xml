@@ -13,7 +13,7 @@
   <parent>
     <artifactId>arrow-memory</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>14.0.0-SNAPSHOT</version>
+    <version>15.0.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -41,7 +41,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-core</artifactId>
-      <version>1.2.12</version>
+      <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>

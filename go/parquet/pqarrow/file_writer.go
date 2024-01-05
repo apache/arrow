@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -130,6 +130,23 @@ func (fw *FileWriter) RowGroupTotalCompressedBytes() int64 {
 func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 	if fw.rgw != nil {
 		return fw.rgw.TotalBytesWritten()
+	}
+	return 0
+}
+
+// RowGroupNumRows returns the number of rows written to the current row group.
+// Returns an error if they are unequal between columns that have been written so far.
+func (fw *FileWriter) RowGroupNumRows() (int, error) {
+	if fw.rgw != nil {
+		return fw.rgw.NumRows()
+	}
+	return 0, nil
+}
+
+// NumRows returns the total number of rows that have been written so far.
+func (fw *FileWriter) NumRows() int {
+	if fw.wr != nil {
+		return fw.wr.NumRows()
 	}
 	return 0
 }
@@ -305,7 +322,7 @@ func (fw *FileWriter) Close() error {
 // building of writing columns to a file via arrow data without needing to already have
 // a record or table.
 func (fw *FileWriter) WriteColumnChunked(data *arrow.Chunked, offset, size int64) error {
-	acw, err := NewArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
+	acw, err := newArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
 	if err != nil {
 		return err
 	}

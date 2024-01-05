@@ -101,11 +101,16 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withTrustStorePath(config.getTrustStorePath())
           .withTrustStorePassword(config.getTrustStorePassword())
           .withSystemTrustStore(config.useSystemTrustStore())
+          .withTlsRootCertificates(config.getTlsRootCertificatesPath())
+          .withClientCertificate(config.getClientCertificatePath())
+          .withClientKey(config.getClientKeyPath())
           .withBufferAllocator(allocator)
           .withEncryption(config.useEncryption())
           .withDisableCertificateVerification(config.getDisableCertificateVerification())
           .withToken(config.getToken())
           .withCallOptions(config.toCallOption())
+          .withRetainCookies(config.retainCookies())
+          .withRetainAuth(config.retainAuth())
           .build();
     } catch (final SQLException e) {
       try {

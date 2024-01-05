@@ -14,9 +14,9 @@
 // limitations under the License.
 
 using System;
-#if !NETSTANDARD1_3
+using System.Collections.Generic;
 using System.Data.SqlTypes;
-#endif
+using System.Linq;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -24,7 +24,6 @@ namespace Apache.Arrow.Tests
 {
     public class Decimal128ArrayTests
     {
-#if !NETSTANDARD1_3
         static SqlDecimal? Convert(decimal? value)
         {
             return value == null ? null : new SqlDecimal(value.Value);
@@ -34,7 +33,6 @@ namespace Apache.Arrow.Tests
         {
             return value == null ? null : value.Value.Value;
         }
-#endif
 
         public class Builder
         {
@@ -60,11 +58,9 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(1));
                     Assert.Null(array.GetValue(2));
 
-#if !NETSTANDARD1_3
                     Assert.Null(array.GetSqlDecimal(0));
                     Assert.Null(array.GetSqlDecimal(1));
                     Assert.Null(array.GetSqlDecimal(2));
-#endif
                 }
             }
 
@@ -98,9 +94,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < count; i++)
                     {
                         Assert.Equal(testData[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(testData[i]), array.GetSqlDecimal(i));
-#endif
                     }
                 }
 
@@ -119,10 +113,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(large, array.GetValue(0));
                     Assert.Equal(-large, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(large), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(-large), array.GetSqlDecimal(1));
-#endif
                 }
 
                 [Fact]
@@ -144,12 +136,10 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(Decimal.MaxValue - 10, array.GetValue(2));
                     Assert.Equal(Decimal.MinValue + 10, array.GetValue(3));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(Decimal.MaxValue), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(Decimal.MinValue), array.GetSqlDecimal(1));
                     Assert.Equal(Convert(Decimal.MaxValue) - 10, array.GetSqlDecimal(2));
                     Assert.Equal(Convert(Decimal.MinValue) + 10, array.GetSqlDecimal(3));
-#endif
                 }
 
                 [Fact]
@@ -167,10 +157,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(fraction, array.GetValue(0));
                     Assert.Equal(-fraction, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(fraction), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(-fraction), array.GetSqlDecimal(1));
-#endif
                 }
 
                 [Fact]
@@ -189,9 +177,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < range.Length; i++)
                     {
                         Assert.Equal(range[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(range[i]), array.GetSqlDecimal(i));
-#endif
                     }
 
                     Assert.Null(array.GetValue(range.Length));
@@ -300,7 +286,6 @@ namespace Apache.Arrow.Tests
                 }
             }
 
-#if !NETSTANDARD1_3
             public class SqlDecimals
             {
                 [Theory]
@@ -333,6 +318,12 @@ namespace Apache.Arrow.Tests
                     {
                         Assert.Equal(testData[i], array.GetSqlDecimal(i));
                         Assert.Equal(Convert(testData[i]), array.GetValue(i));
+                    }
+
+                    IReadOnlyList<SqlDecimal?> asList = array;
+                    for (int i = 0; i < asList.Count; i++)
+                    {
+                        Assert.Equal(testData[i], asList[i]);
                     }
                 }
 
@@ -378,7 +369,94 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(range.Length));
                 }
             }
-#endif
+
+            public class Strings
+            {
+                [Theory]
+                [InlineData(200)]
+                public void AppendString(int count)
+                {
+                    // Arrange
+                    const int precision = 10;
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(14, precision));
+
+                    // Act
+                    string[] testData = new string[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (i == count - 2)
+                        {
+                            builder.AppendNull();
+                            testData[i] = null;
+                            continue;
+                        }
+                        SqlDecimal rnd = i * (SqlDecimal)Math.Round(new Random().NextDouble(), 10);
+                        builder.Append(rnd);
+                        testData[i] = SqlDecimal.Round(rnd, precision).ToString();
+                    }
+
+                    // Assert
+                    var array = builder.Build();
+                    Assert.Equal(count, array.Length);
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (testData[i] == null)
+                        {
+                            Assert.Null(array.GetString(i));
+                            Assert.Null(array.GetSqlDecimal(i));
+                        }
+                        else
+                        {
+                            Assert.Equal(testData[i].TrimEnd('0'), array.GetString(i).TrimEnd('0'));
+                            Assert.Equal(SqlDecimal.Parse(testData[i]), array.GetSqlDecimal(i));
+                        }
+                    }
+                }
+
+                [Fact]
+                public void AppendMaxAndMinSqlDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(38, 0));
+
+                    // Act
+                    builder.Append(SqlDecimal.MaxValue.ToString());
+                    builder.Append(SqlDecimal.MinValue.ToString());
+                    string maxMinusTen = (SqlDecimal.MaxValue - 10).ToString();
+                    string minPlusTen = (SqlDecimal.MinValue + 10).ToString();
+                    builder.Append(maxMinusTen);
+                    builder.Append(minPlusTen);
+
+                    // Assert
+                    var array = builder.Build();
+                    Assert.Equal(SqlDecimal.MaxValue.ToString(), array.GetString(0));
+                    Assert.Equal(SqlDecimal.MinValue.ToString(), array.GetString(1));
+                    Assert.Equal(maxMinusTen, array.GetString(2));
+                    Assert.Equal(minPlusTen, array.GetString(3));
+                }
+
+                [Fact]
+                public void AppendRangeSqlDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(24, 8));
+                    var range = new SqlDecimal[] { 2.123M, 1.5984M, -0.0000001M, 9878987987987987.1235407M };
+
+                    // Act
+                    builder.AppendRange(range.Select(d => d.ToString()));
+                    builder.AppendNull();
+
+                    // Assert
+                    var array = builder.Build();
+                    for (int i = 0; i < range.Length; i++)
+                    {
+                        Assert.Equal(range[i], array.GetSqlDecimal(i));
+                        Assert.Equal(range[i].ToString(), array.GetString(i).TrimEnd('0'));
+                    }
+
+                    Assert.Null(array.GetValue(range.Length));
+                }
+            }
         }
     }
 }

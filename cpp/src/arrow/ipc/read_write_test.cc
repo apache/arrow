@@ -140,7 +140,7 @@ TEST_P(TestMessage, SerializeTo) {
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-    // chech whether length is written in little endian
+    // check whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
               bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
@@ -363,7 +363,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
@@ -376,10 +376,12 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeListViewRecordBatch,
     &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
+    &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
     &MakeUnion,
@@ -518,7 +520,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
+  // Verify UBSAN is ok with casting out of range metadata version.
   EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
 }
 
@@ -974,6 +976,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   ASSERT_OK(MakeListRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
+  ASSERT_OK(MakeListViewRecordBatch(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
   ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
@@ -981,6 +986,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
+  ASSERT_OK(MakeDeeplyNestedListView(&batch));
   TestGetRecordBatchSize(options_, batch);
 }
 
@@ -2164,6 +2172,43 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
+namespace {
+class EndlessCollectListener : public CollectListener {
+ public:
+  EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
+
+  void SetDecoder(StreamDecoder* decoder) { decoder_ = decoder; }
+
+  arrow::Status OnEOS() override { return decoder_->Reset(); }
+
+ private:
+  StreamDecoder* decoder_;
+};
+};  // namespace
+
+TEST(TestStreamDecoder, Reset) {
+  auto listener = std::make_shared<EndlessCollectListener>();
+  StreamDecoder decoder(listener);
+  listener->SetDecoder(&decoder);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto all_buffer, ConcatenateBuffers({writer_helper.buffer_,
+                                                            writer_helper.buffer_}));
+  // Consume by Buffer
+  ASSERT_OK(decoder.Consume(all_buffer));
+  ASSERT_EQ(2, listener->num_record_batches());
+
+  // Consume by raw data
+  ASSERT_OK(decoder.Consume(all_buffer->data(), all_buffer->size()));
+  ASSERT_EQ(4, listener->num_record_batches());
+}
+
 TEST(TestStreamDecoder, NextRequiredSize) {
   auto listener = std::make_shared<CollectListener>();
   StreamDecoder decoder(listener);
@@ -2974,14 +3019,14 @@ TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
   GetReadRecordBatchReadRanges({0, 2}, {1, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFields) {
   // read the int32 field and the int64 field
   // + 5 int32: 5 * 4 bytes
   // + 5 int64: 5 * 8 bytes
   GetReadRecordBatchReadRanges({1, 2}, {20, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFieldsWithIoMerged) {
   // change the array length to 64 so that bool field and int32 are continuous without
   // padding
   // read the bool field and the int32 field since the bool field's aligned offset

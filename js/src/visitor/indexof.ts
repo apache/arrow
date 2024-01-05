@@ -24,7 +24,7 @@ import { getBool, BitIterator } from '../util/bit.js';
 import { createElementComparator } from '../util/vector.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -57,7 +57,9 @@ export interface IndexOfVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitFloat64<T extends Float64>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitUtf8<T extends Utf8>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitBinary<T extends Binary>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDate<T extends Date_>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDateDay<T extends DateDay>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
@@ -144,7 +146,7 @@ function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TVal
 function indexOfUnion<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     // Unions are special -- they do have a nullBitmap, but so can their children.
     // If the searchElement is null, we don't know whether it came from the Union's
-    // bitmap or one of its childrens'. So we don't interrogate the Union's bitmap,
+    // bitmap or one of its children's. So we don't interrogate the Union's bitmap,
     // since that will report the wrong index if a child has a null before the Union.
     const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
@@ -172,7 +174,9 @@ IndexOfVisitor.prototype.visitFloat16 = indexOfValue;
 IndexOfVisitor.prototype.visitFloat32 = indexOfValue;
 IndexOfVisitor.prototype.visitFloat64 = indexOfValue;
 IndexOfVisitor.prototype.visitUtf8 = indexOfValue;
+IndexOfVisitor.prototype.visitLargeUtf8 = indexOfValue;
 IndexOfVisitor.prototype.visitBinary = indexOfValue;
+IndexOfVisitor.prototype.visitLargeBinary = indexOfValue;
 IndexOfVisitor.prototype.visitFixedSizeBinary = indexOfValue;
 IndexOfVisitor.prototype.visitDate = indexOfValue;
 IndexOfVisitor.prototype.visitDateDay = indexOfValue;

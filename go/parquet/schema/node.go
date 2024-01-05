@@ -19,8 +19,8 @@ package schema
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v14/parquet"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 	"github.com/apache/thrift/lib/go/thrift"
 	"golang.org/x/xerrors"
 )
@@ -148,7 +148,7 @@ type PrimitiveNode struct {
 	decimalMetaData DecimalMetadata
 }
 
-// NewPrimitiveNodeLogical constructs a Primtive node using the provided logical type for a given
+// NewPrimitiveNodeLogical constructs a Primitive node using the provided logical type for a given
 // physical type and typelength.
 func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logicalType LogicalType, physicalType parquet.Type, typeLen int, id int32) (*PrimitiveNode, error) {
 	n := &PrimitiveNode{
@@ -165,7 +165,7 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 				return nil, fmt.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType)
 			}
 		} else {
-			return nil, fmt.Errorf("nested logical type %s can not be applied to a non-group node", logicalType)
+			return nil, fmt.Errorf("nested logical type %s cannot be applied to a non-group node", logicalType)
 		}
 	} else {
 		n.logicalType = NoLogicalType{}
@@ -373,7 +373,7 @@ type FieldList []Node
 // Len is equivalent to len(fieldlist)
 func (f FieldList) Len() int { return len(f) }
 
-// GroupNode is for mananging nested nodes like List, Map, etc.
+// GroupNode is for managing nested nodes like List, Map, etc.
 type GroupNode struct {
 	node
 	fields    FieldList

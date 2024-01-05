@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/exp/rand"
@@ -494,7 +494,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 
 func (r *RLERandomSuite) checkRoundTripSpaced(vals arrow.Array, width int) {
 	nvalues := vals.Len()
-	bufsize := utils.MaxBufferSize(width, nvalues)
+	bufsize := utils.MaxRLEBufferSize(width, nvalues)
 
 	buffer := make([]byte, bufsize)
 	encoder := utils.NewRleEncoder(utils.NewWriterAtBuffer(buffer), width)

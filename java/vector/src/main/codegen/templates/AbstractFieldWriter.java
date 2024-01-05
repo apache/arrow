@@ -27,6 +27,9 @@ package org.apache.arrow.vector.complex.impl;
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
+ * Note that changes to the AbstractFieldWriter template should also get reflected in the
+ * AbstractPromotableFieldWriter, ComplexWriters, UnionFixedSizeListWriter, UnionListWriter
+ * and UnionWriter templates and the PromotableWriter concrete code.
  */
 @SuppressWarnings("unused")
 abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWriter {
@@ -125,19 +128,19 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   </#if>
 
   <#if minor.class?ends_with("VarBinary")>
-  public void writeTo${minor.class}(byte[] value) {
+  public void write${minor.class}(byte[] value) {
     fail("${name}");
   }
 
-  public void writeTo${minor.class}(byte[] value, int offset, int length) {
+  public void write${minor.class}(byte[] value, int offset, int length) {
     fail("${name}");
   }
 
-  public void writeTo${minor.class}(ByteBuffer value) {
+  public void write${minor.class}(ByteBuffer value) {
     fail("${name}");
   }
 
-  public void writeTo${minor.class}(ByteBuffer value, int offset, int length) {
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
     fail("${name}");
   }
   </#if>

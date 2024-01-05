@@ -229,7 +229,7 @@ def test_python_file_read_buffer():
         buf = f.read_buffer(length)
         assert len(buf) == length
         assert memoryview(buf).tobytes() == dst_buf[:length]
-        # buf should point to the same memory, so modyfing it
+        # buf should point to the same memory, so modifying it
         memoryview(buf)[0] = ord(b'x')
         # should modify the original
         assert dst_buf[0] == ord(b'x')
@@ -662,6 +662,65 @@ def test_allocate_buffer_resizable():
 
     buf.resize(200)
     assert buf.size == 200
+
+
+def test_cache_options():
+    opts1 = pa.CacheOptions()
+    opts2 = pa.CacheOptions(hole_size_limit=1024)
+    opts3 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
+    opts4 = pa.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, prefetch_limit=5)
+    opts5 = pa.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, lazy=False)
+    opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100,
+                                                 transfer_bandwidth_mib_per_sec=200,
+                                                 ideal_bandwidth_utilization_frac=0.9,
+                                                 max_ideal_request_size_mib=64)
+
+    assert opts1.hole_size_limit == 8192
+    assert opts1.range_size_limit == 32 * 1024 * 1024
+    assert opts1.lazy is True
+    assert opts1.prefetch_limit == 0
+
+    assert opts2.hole_size_limit == 1024
+    assert opts2.range_size_limit == 32 * 1024 * 1024
+    assert opts2.lazy is True
+    assert opts2.prefetch_limit == 0
+
+    assert opts3.hole_size_limit == 4096
+    assert opts3.range_size_limit == 8192
+    assert opts3.lazy is True
+    assert opts3.prefetch_limit == 0
+
+    assert opts4.hole_size_limit == 4096
+    assert opts4.range_size_limit == 8192
+    assert opts4.lazy is True
+    assert opts4.prefetch_limit == 5
+
+    assert opts5.hole_size_limit == 4096
+    assert opts5.range_size_limit == 8192
+    assert opts5.lazy is False
+    assert opts5.prefetch_limit == 0
+
+    assert opts6.lazy is False
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+    assert opts2 != opts3
+    assert opts3 != opts4
+    assert opts4 != opts5
+    assert opts6 != opts1
+
+
+def test_cache_options_pickling(pickle_module):
+    options = [
+        pa.CacheOptions(),
+        pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192,
+                        lazy=True, prefetch_limit=5),
+    ]
+
+    for option in options:
+        assert pickle_module.loads(pickle_module.dumps(option)) == option
 
 
 @pytest.mark.parametrize("compression", [
@@ -1114,6 +1173,13 @@ def test_os_file_writer(tmpdir):
 
     with pytest.raises(IOError):
         f2.read(5)
+    f2.close()
+
+    # Append
+    with pa.OSFile(path, mode='ab') as f4:
+        f4.write(b'bar')
+    with pa.OSFile(path) as f5:
+        assert f5.size() == 6  # foo + bar
 
 
 def test_native_file_write_reject_unicode():
@@ -1148,6 +1214,18 @@ def test_native_file_modes(tmpdir):
 
     with pa.OSFile(path, mode='wb') as f:
         assert f.mode == 'wb'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
+    with pa.OSFile(path, mode='ab') as f:
+        assert f.mode == 'ab'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
+    with pa.OSFile(path, mode='a') as f:
+        assert f.mode == 'ab'
         assert not f.readable()
         assert f.writable()
         assert not f.seekable()

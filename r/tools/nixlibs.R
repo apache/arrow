@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#### Fuctions #### check end of file for main logic
+#### Functions #### check end of file for main logic
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
 # Log messages in the style of the configure script
@@ -35,7 +35,9 @@ exit <- function(..., .status = 1) {
 
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
-find_latest_nightly <- function(description_version) {
+find_latest_nightly <- function(description_version,
+                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES",
+                                hush = quietly) {
   if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
     lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
     return(description_version)
@@ -44,31 +46,49 @@ find_latest_nightly <- function(description_version) {
   res <- try(
     {
       # Binaries are only uploaded if all jobs pass so can just look at the source versions.
-      urls <- readLines("https://nightlies.apache.org/arrow/r/src/contrib")
-      versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
-      versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
-      versions <- sapply(versions, package_version)
-      versions <- data.frame(do.call(rbind, versions))
-      matching_major <- versions[versions$X1 == description_version[1, 1], ]
-      latest <- matching_major[which.max(matching_major$X4), ]
-      package_version(paste0(latest, collapse = "."))
+      urls <- readLines(list_uri)
+      versions <- grep("Version:\\s*.*?", urls, value = TRUE)
+      versions <- sort(package_version(sub("Version:\\s*", "\\1", versions)))
+      major_versions <- versions$major
+
+      description_version_major <- as.integer(description_version[1, 1])
+      matching_major <- major_versions == description_version_major
+      if (!any(matching_major)) {
+        lg(
+          "No nightly binaries were found for version %s: falling back to libarrow build from source",
+          description_version
+        )
+
+        return(description_version)
+      }
+
+      versions <- versions[matching_major]
+      max(versions)
     },
-    silent = quietly
+    silent = hush
   )
+
   if (inherits(res, "try-error")) {
     lg("Failed to find latest nightly for %s", description_version)
     latest <- description_version
   } else {
-    lg("Found latest nightly for %s: %s", description_version, res)
+    lg("Latest available nightly for %s: %s", description_version, res)
     latest <- res
   }
   latest
 }
 
 try_download <- function(from_url, to_file, hush = quietly) {
+  # We download some fairly large files, so ensure the timeout is set appropriately.
+  # This assumes a static library size of 100 MB (generous) and a download speed
+  # of .3 MB/s (slow). This is to anticipate slower user connections or load on
+  # artifactory servers.
+  opts <- options(timeout = max(300, getOption("timeout")))
+  on.exit(options(opts))
+
   status <- try(
     suppressWarnings(
-      download.file(from_url, to_file, quiet = hush)
+      download.file(from_url, to_file, quiet = hush, mode = "wb")
     ),
     silent = hush
   )
@@ -80,16 +100,12 @@ download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
-    if (!quietly) {
-      lg("Successfully retrieved C++ binaries (%s)", lib)
-    }
+      lg("Successfully retrieved libarrow (%s)", lib)
   } else {
-    if (!quietly) {
       lg(
-        "Downloading libarrow binary failed for version %s (%s)\n    at %s",
+        "Downloading libarrow failed for version %s (%s)\n    at %s",
         VERSION, lib, binary_url
       )
-    }
     libfile <- NULL
   }
   # Explicitly setting the env var to "false" will skip checksum validation
@@ -121,11 +137,11 @@ download_binary <- function(lib) {
     checksum_ok <- system2(checksum_cmd, args = checksum_args)
 
     if (checksum_ok != 0) {
-      cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
+      lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
       unlink(libfile)
       libfile <- NULL
     } else {
-      cat("*** Checksum validated successfully for libarrow binary: ", libfile, "\n")
+      lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
     }
   }
 
@@ -198,7 +214,11 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
         errs <- compile_test_program(test_program)
         openssl_version <- determine_binary_from_stderr(errs)
         arch <- ifelse(identical(os, "darwin"), paste0("-", arch, "-"), "-")
-        ifelse(is.null(openssl_version), NULL, paste0(os, arch, openssl_version))
+        if (is.null(openssl_version)) {
+          NULL
+        } else {
+          paste0(os, arch, openssl_version)
+        }
       },
       error = function(e) {
         lg("Unable to find libcurl and openssl")
@@ -210,7 +230,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
     lg("Building on %s %s", os, arch)
     binary <- NULL
   }
-  return(binary)
+  binary
 }
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
@@ -268,7 +288,7 @@ get_macos_openssl_dir <- function() {
       openssl_root_dir <- "/usr/local"
     }
   }
-  return(openssl_root_dir)
+  openssl_root_dir
 }
 
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
@@ -834,10 +854,13 @@ if (is_release) {
 } else {
   not_cran <- TRUE
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+if (!is_release && !test_mode) {
   VERSION <- find_latest_nightly(VERSION)
 }
 
-# To collect dirs to rm on exit, use del() to add dirs
+# To collect dirs to rm on exit, use cleanup() to add dirs
 # we reset it to avoid errors on reruns in the same session.
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
@@ -863,6 +886,8 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 
+download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
+
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
 # manually before running make build.
@@ -871,7 +896,7 @@ download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 arrow_versioned <- paste0("arrow-", VERSION)
-# configure.win uses a different libarrow dir and and the zip is already nested
+# configure.win uses a different libarrow dir and the zip is already nested
 if (on_windows) {
   lib_dir <- "windows"
   dst_dir <- lib_dir
@@ -900,7 +925,7 @@ if (!test_mode && !file.exists(api_h)) {
       lg("File not found: %s ($ARROW_DOWNLOADED_BINARIES)", bin_zip)
       bin_file <- NULL
     }
-  } else if (download_ok) {
+  } else if (download_libarrow_ok) {
     binary_flavor <- identify_binary()
     if (!is.null(binary_flavor)) {
       # The env vars say we can, and we've determined a lib that should work

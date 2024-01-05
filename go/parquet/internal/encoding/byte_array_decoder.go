@@ -19,12 +19,12 @@ package encoding
 import (
 	"encoding/binary"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	pqutils "github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	pqutils "github.com/apache/arrow/go/v15/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -49,7 +49,7 @@ func (PlainByteArrayDecoder) Type() parquet.Type {
 //
 // Returns the number of values that were decoded.
 func (pbad *PlainByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), pbad.nvals)
+	max := utils.Min(len(out), pbad.nvals)
 
 	for i := 0; i < max; i++ {
 		// there should always be at least four bytes which is the length of the

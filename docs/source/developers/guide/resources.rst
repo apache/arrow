@@ -62,7 +62,7 @@ Additional information
 
 Other resources
 ---------------
-Github
+GitHub
 
 - `GitHub docs: Fork a repo <https://docs.github.com/en/get-started/quickstart/fork-a-repo>`_
 - `GitHub: Creating a pull request from a fork <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork>`_

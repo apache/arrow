@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
 	"golang.org/x/exp/constraints"
 )
 
@@ -37,9 +37,9 @@ import (
 // which will receive a slice containing the raw input data along with
 // a slice to populate for the output data.
 //
-// Note that bool is not included in exec.FixedWidthTypes since it is
+// Note that bool is not included in arrow.FixedWidthType since it is
 // represented as a bitmap, not as a slice of bool.
-func ScalarUnary[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Arg0T, []OutT) error) exec.ArrayKernelExec {
+func ScalarUnary[OutT, Arg0T arrow.FixedWidthType](op func(*exec.KernelCtx, []Arg0T, []OutT) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		arg0 := in.Values[0].Array
 		inData := exec.GetSpanValues[Arg0T](&arg0, 1)
@@ -51,7 +51,7 @@ func ScalarUnary[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Ar
 // ScalarUnaryNotNull is for generating a kernel to operate only on the
 // non-null values in the input array. The zerovalue of the output type
 // is used for any null input values.
-func ScalarUnaryNotNull[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, Arg0T, *error) OutT) exec.ArrayKernelExec {
+func ScalarUnaryNotNull[OutT, Arg0T arrow.FixedWidthType](op func(*exec.KernelCtx, Arg0T, *error) OutT) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0     = &in.Values[0].Array
@@ -78,7 +78,7 @@ func ScalarUnaryNotNull[OutT, Arg0T exec.FixedWidthTypes](op func(*exec.KernelCt
 // ScalarUnaryBoolOutput is like ScalarUnary only it is for cases of boolean
 // output. The function should take in a slice of the input type and a slice
 // of bytes to fill with the output boolean bitmap.
-func ScalarUnaryBoolOutput[Arg0T exec.FixedWidthTypes](op func(*exec.KernelCtx, []Arg0T, []byte) error) exec.ArrayKernelExec {
+func ScalarUnaryBoolOutput[Arg0T arrow.FixedWidthType](op func(*exec.KernelCtx, []Arg0T, []byte) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		arg0 := in.Values[0].Array
 		inData := exec.GetSpanValues[Arg0T](&arg0, 1)
@@ -127,7 +127,7 @@ func ScalarUnaryNotNullBinaryArgBoolOut[OffsetT int32 | int64](defVal bool, op f
 // It implements the handling to iterate the offsets and values calling
 // the provided function on each byte slice. The zero value of the OutT
 // will be used as the output for elements of the input that are null.
-func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte, *error) OutT) exec.ArrayKernelExec {
+func ScalarUnaryNotNullBinaryArg[OutT arrow.FixedWidthType, OffsetT int32 | int64](op func(*exec.KernelCtx, []byte, *error) OutT) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, in *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			arg0        = &in.Values[0].Array
@@ -156,14 +156,14 @@ func ScalarUnaryNotNullBinaryArg[OutT exec.FixedWidthTypes, OffsetT int32 | int6
 // ScalarUnaryBoolArg is like ScalarUnary except it specifically expects a
 // function that takes a byte slice since booleans arrays are represented
 // as a bitmap.
-func ScalarUnaryBoolArg[OutT exec.FixedWidthTypes](op func(*exec.KernelCtx, []byte, []OutT) error) exec.ArrayKernelExec {
+func ScalarUnaryBoolArg[OutT arrow.FixedWidthType](op func(*exec.KernelCtx, []byte, []OutT) error) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, input *exec.ExecSpan, out *exec.ExecResult) error {
 		outData := exec.GetSpanValues[OutT](out, 1)
 		return op(ctx, input.Values[0].Array.Buffers[1].Buf, outData)
 	}
 }
 
-func UnboxScalar[T exec.FixedWidthTypes](val scalar.PrimitiveScalar) T {
+func UnboxScalar[T arrow.FixedWidthType](val scalar.PrimitiveScalar) T {
 	return *(*T)(unsafe.Pointer(&val.Data()[0]))
 }
 
@@ -174,11 +174,11 @@ func UnboxBinaryScalar(val scalar.BinaryScalar) []byte {
 	return val.Data()
 }
 
-type arrArrFn[OutT, Arg0T, Arg1T exec.FixedWidthTypes] func(*exec.KernelCtx, []Arg0T, []Arg1T, []OutT) error
-type arrScalarFn[OutT, Arg0T, Arg1T exec.FixedWidthTypes] func(*exec.KernelCtx, []Arg0T, Arg1T, []OutT) error
-type scalarArrFn[OutT, Arg0T, Arg1T exec.FixedWidthTypes] func(*exec.KernelCtx, Arg0T, []Arg1T, []OutT) error
+type arrArrFn[OutT, Arg0T, Arg1T arrow.FixedWidthType] func(*exec.KernelCtx, []Arg0T, []Arg1T, []OutT) error
+type arrScalarFn[OutT, Arg0T, Arg1T arrow.FixedWidthType] func(*exec.KernelCtx, []Arg0T, Arg1T, []OutT) error
+type scalarArrFn[OutT, Arg0T, Arg1T arrow.FixedWidthType] func(*exec.KernelCtx, Arg0T, []Arg1T, []OutT) error
 
-type binaryOps[OutT, Arg0T, Arg1T exec.FixedWidthTypes] struct {
+type binaryOps[OutT, Arg0T, Arg1T arrow.FixedWidthType] struct {
 	arrArr    arrArrFn[OutT, Arg0T, Arg1T]
 	arrScalar arrScalarFn[OutT, Arg0T, Arg1T]
 	scalarArr scalarArrFn[OutT, Arg0T, Arg1T]
@@ -190,7 +190,7 @@ type binaryBoolOps struct {
 	scalarArr func(ctx *exec.KernelCtx, lhs bool, rhs, out bitutil.Bitmap) error
 }
 
-func ScalarBinary[OutT, Arg0T, Arg1T exec.FixedWidthTypes](ops binaryOps[OutT, Arg0T, Arg1T]) exec.ArrayKernelExec {
+func ScalarBinary[OutT, Arg0T, Arg1T arrow.FixedWidthType](ops binaryOps[OutT, Arg0T, Arg1T]) exec.ArrayKernelExec {
 	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
 		var (
 			a0      = exec.GetSpanValues[Arg0T](arg0, 1)
@@ -281,7 +281,7 @@ func ScalarBinaryBools(ops *binaryBoolOps) exec.ArrayKernelExec {
 	}
 }
 
-func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.KernelCtx, Arg0T, Arg1T, *error) OutT) exec.ArrayKernelExec {
+func ScalarBinaryNotNull[OutT, Arg0T, Arg1T arrow.FixedWidthType](op func(*exec.KernelCtx, Arg0T, Arg1T, *error) OutT) exec.ArrayKernelExec {
 	arrayArray := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) (err error) {
 		// fast path if one side is entirely null
 		if arg0.UpdateNullCount() == arg0.Len || arg1.UpdateNullCount() == arg1.Len {
@@ -379,7 +379,7 @@ func ScalarBinaryNotNull[OutT, Arg0T, Arg1T exec.FixedWidthTypes](op func(*exec.
 	}
 }
 
-type binaryBinOp[T exec.FixedWidthTypes | bool] func(ctx *exec.KernelCtx, arg0, arg1 []byte) T
+type binaryBinOp[T arrow.FixedWidthType | bool] func(ctx *exec.KernelCtx, arg0, arg1 []byte) T
 
 func ScalarBinaryBinaryArgsBoolOut(itrFn func(*exec.ArraySpan) exec.ArrayIter[[]byte], op binaryBinOp[bool]) exec.ArrayKernelExec {
 	arrArr := func(ctx *exec.KernelCtx, arg0, arg1 *exec.ArraySpan, out *exec.ExecResult) error {
@@ -577,7 +577,7 @@ func intsCanFit(data *exec.ArraySpan, target arrow.Type) error {
 	}
 }
 
-func intsInRange[T exec.IntTypes | exec.UintTypes](data *exec.ArraySpan, lowerBound, upperBound T) error {
+func intsInRange[T arrow.IntType | arrow.UintType](data *exec.ArraySpan, lowerBound, upperBound T) error {
 	if MinOf[T]() >= lowerBound && MaxOf[T]() <= upperBound {
 		return nil
 	}
@@ -653,7 +653,7 @@ func intsInRange[T exec.IntTypes | exec.UintTypes](data *exec.ArraySpan, lowerBo
 }
 
 type numeric interface {
-	exec.IntTypes | exec.UintTypes | constraints.Float
+	arrow.IntType | arrow.UintType | constraints.Float
 }
 
 func memCpySpan[T numeric](in, out *exec.ArraySpan) {
@@ -883,12 +883,12 @@ func (bldr *execBufBuilder) finish() (buf *memory.Buffer) {
 	return
 }
 
-type bufferBuilder[T exec.FixedWidthTypes] struct {
+type bufferBuilder[T arrow.FixedWidthType] struct {
 	execBufBuilder
 	zero T
 }
 
-func newBufferBuilder[T exec.FixedWidthTypes](mem memory.Allocator) *bufferBuilder[T] {
+func newBufferBuilder[T arrow.FixedWidthType](mem memory.Allocator) *bufferBuilder[T] {
 	return &bufferBuilder[T]{
 		execBufBuilder: execBufBuilder{
 			mem: mem,
@@ -901,11 +901,11 @@ func (b *bufferBuilder[T]) reserve(additional int) {
 }
 
 func (b *bufferBuilder[T]) unsafeAppend(value T) {
-	b.execBufBuilder.unsafeAppend(exec.GetBytes([]T{value}))
+	b.execBufBuilder.unsafeAppend(arrow.GetBytes([]T{value}))
 }
 
 func (b *bufferBuilder[T]) unsafeAppendSlice(values []T) {
-	b.execBufBuilder.unsafeAppend(exec.GetBytes(values))
+	b.execBufBuilder.unsafeAppend(arrow.GetBytes(values))
 }
 
 func (b *bufferBuilder[T]) len() int { return b.sz / int(unsafe.Sizeof(b.zero)) }
@@ -914,7 +914,7 @@ func (b *bufferBuilder[T]) cap() int {
 	return cap(b.data) / int(unsafe.Sizeof(b.zero))
 }
 
-func checkIndexBoundsImpl[T exec.IntTypes | exec.UintTypes](values *exec.ArraySpan, upperLimit uint64) error {
+func checkIndexBoundsImpl[T arrow.IntType | arrow.UintType](values *exec.ArraySpan, upperLimit uint64) error {
 	// for unsigned integers, if the values array is larger
 	// than the maximum index value, then there's no need to bounds check
 	isSigned := !arrow.IsUnsignedInteger(values.Type.ID())

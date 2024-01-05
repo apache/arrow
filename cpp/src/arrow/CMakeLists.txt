@@ -192,6 +192,7 @@ set(ARROW_SRCS
     type_traits.cc
     visitor.cc
     c/bridge.cc
+    c/dlpack.cc
     io/buffered.cc
     io/caching.cc
     io/compressed.cc
@@ -223,11 +224,14 @@ set(ARROW_SRCS
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
+    util/dict_util.cc
+    util/float16.cc
     util/formatting.cc
     util/future.cc
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
+    util/list_util.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -596,7 +600,7 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
                       IMPORTED_LOCATION)
   install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
           DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
+  string(PREPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
 
@@ -789,6 +793,7 @@ add_arrow_test(array_test
                array/array_binary_test.cc
                array/array_dict_test.cc
                array/array_list_test.cc
+               array/array_list_view_test.cc
                array/array_run_end_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc

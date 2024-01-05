@@ -493,7 +493,7 @@ cdef class CudaBuffer(Buffer):
                     raise ValueError(
                         'requested more to copy than available from '
                         'device buffer')
-                # copy nbytes starting from position to new host buffeer
+                # copy nbytes starting from position to new host buffer
                 c_nbytes = nbytes
             buf = allocate_buffer(c_nbytes, memory_pool=memory_pool,
                                   resizable=resizable)

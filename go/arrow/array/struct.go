@@ -23,11 +23,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // Struct represents an ordered sequence of relative types.
@@ -224,7 +224,7 @@ func NewStructBuilder(mem memory.Allocator, dtype *arrow.StructType) *StructBuil
 	b := &StructBuilder{
 		builder: builder{refCount: 1, mem: mem},
 		dtype:   dtype,
-		fields:  make([]Builder, len(dtype.Fields())),
+		fields:  make([]Builder, dtype.NumFields()),
 	}
 	for i, f := range dtype.Fields() {
 		b.fields[i] = NewBuilder(b.mem, f.Type)

@@ -17,11 +17,10 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/float16"
 )
 
 // Float16 traits
@@ -46,16 +45,12 @@ func (float16Traits) PutValue(b []byte, v float16.Num) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (float16Traits) CastFromBytes(b []byte) []float16.Num {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*float16.Num)(unsafe.Pointer(h.Data)), cap(b)/Float16SizeBytes)[:len(b)/Float16SizeBytes]
+	return GetData[float16.Num](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (float16Traits) CastToBytes(b []float16.Num) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Float16SizeBytes)[:len(b)*Float16SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.

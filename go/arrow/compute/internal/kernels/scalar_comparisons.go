@@ -23,34 +23,34 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 type binaryKernel func(left, right, out []byte, offset int)
 
-type cmpFn[LeftT, RightT exec.FixedWidthTypes] func([]LeftT, []RightT, []uint32)
-type cmpScalarLeft[LeftT, RightT exec.FixedWidthTypes] func(LeftT, []RightT, []uint32)
-type cmpScalarRight[LeftT, RightT exec.FixedWidthTypes] func([]LeftT, RightT, []uint32)
+type cmpFn[LeftT, RightT arrow.FixedWidthType] func([]LeftT, []RightT, []uint32)
+type cmpScalarLeft[LeftT, RightT arrow.FixedWidthType] func(LeftT, []RightT, []uint32)
+type cmpScalarRight[LeftT, RightT arrow.FixedWidthType] func([]LeftT, RightT, []uint32)
 
-type cmpOp[T exec.FixedWidthTypes] struct {
+type cmpOp[T arrow.FixedWidthType] struct {
 	arrArr    cmpFn[T, T]
 	arrScalar cmpScalarRight[T, T]
 	scalarArr cmpScalarLeft[T, T]
 }
 
-func comparePrimitiveArrayArray[T exec.FixedWidthTypes](op cmpFn[T, T]) binaryKernel {
+func comparePrimitiveArrayArray[T arrow.FixedWidthType](op cmpFn[T, T]) binaryKernel {
 	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
-			left      = exec.GetData[T](leftBytes)
-			right     = exec.GetData[T](rightBytes)
+			left      = arrow.GetData[T](leftBytes)
+			right     = arrow.GetData[T](rightBytes)
 			nvals     = len(left)
 			nbatches  = nvals / batchSize
 			tmpOutput [batchSize]uint32
@@ -83,11 +83,11 @@ func comparePrimitiveArrayArray[T exec.FixedWidthTypes](op cmpFn[T, T]) binaryKe
 	}
 }
 
-func comparePrimitiveArrayScalar[T exec.FixedWidthTypes](op cmpScalarRight[T, T]) binaryKernel {
+func comparePrimitiveArrayScalar[T arrow.FixedWidthType](op cmpScalarRight[T, T]) binaryKernel {
 	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
-			left      = exec.GetData[T](leftBytes)
+			left      = arrow.GetData[T](leftBytes)
 			rightVal  = *(*T)(unsafe.Pointer(&rightBytes[0]))
 			nvals     = len(left)
 			nbatches  = nvals / batchSize
@@ -121,12 +121,12 @@ func comparePrimitiveArrayScalar[T exec.FixedWidthTypes](op cmpScalarRight[T, T]
 	}
 }
 
-func comparePrimitiveScalarArray[T exec.FixedWidthTypes](op cmpScalarLeft[T, T]) binaryKernel {
+func comparePrimitiveScalarArray[T arrow.FixedWidthType](op cmpScalarLeft[T, T]) binaryKernel {
 	return func(leftBytes, rightBytes, out []byte, offset int) {
 		const batchSize = 32
 		var (
 			leftVal = *(*T)(unsafe.Pointer(&leftBytes[0]))
-			right   = exec.GetData[T](rightBytes)
+			right   = arrow.GetData[T](rightBytes)
 
 			nvals     = len(right)
 			nbatches  = nvals / batchSize
@@ -181,7 +181,7 @@ func getOffsetSpanBytes(span *exec.ArraySpan) []byte {
 	return buf[start : start+(span.Len*byteWidth)]
 }
 
-func compareKernel[T exec.FixedWidthTypes](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+func compareKernel[T arrow.FixedWidthType](ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 	kn := ctx.Kernel.(*exec.ScalarKernel)
 	knData := kn.Data.(CompareFuncData).Funcs()
 
@@ -202,7 +202,7 @@ func compareKernel[T exec.FixedWidthTypes](ctx *exec.KernelCtx, batch *exec.Exec
 	return nil
 }
 
-func genGoCompareKernel[T exec.FixedWidthTypes](op *cmpOp[T]) *CompareData {
+func genGoCompareKernel[T arrow.FixedWidthType](op *cmpOp[T]) *CompareData {
 	return &CompareData{
 		funcAA: comparePrimitiveArrayArray(op.arrArr),
 		funcAS: comparePrimitiveArrayScalar(op.arrScalar),
@@ -376,7 +376,7 @@ func genDecimalCompareKernel[T decimal128.Num | decimal256.Num](op CompareOperat
 	return
 }
 
-func getCmpOp[T exec.NumericTypes](op CompareOperator) *cmpOp[T] {
+func getCmpOp[T arrow.NumericType](op CompareOperator) *cmpOp[T] {
 	switch op {
 	case CmpEQ:
 		return &cmpOp[T]{
@@ -524,7 +524,7 @@ func getBinaryCmp(op CompareOperator) binaryBinOp[bool] {
 	return nil
 }
 
-func numericCompareKernel[T exec.NumericTypes](ty exec.InputType, op CompareOperator) (kn exec.ScalarKernel) {
+func numericCompareKernel[T arrow.NumericType](ty exec.InputType, op CompareOperator) (kn exec.ScalarKernel) {
 	ex := compareKernel[T]
 	kn = exec.NewScalarKernelWithSig(&exec.KernelSignature{
 		InputTypes: []exec.InputType{ty, ty},

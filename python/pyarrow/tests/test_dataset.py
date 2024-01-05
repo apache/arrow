@@ -16,16 +16,16 @@
 # under the License.
 
 import contextlib
-import os
-import posixpath
 import datetime
+import os
 import pathlib
+import posixpath
 import sys
-import textwrap
 import tempfile
+import textwrap
 import threading
 import time
-
+from shutil import copytree
 from urllib.parse import quote
 
 import numpy as np
@@ -34,12 +34,12 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
-import pyarrow.json
 import pyarrow.feather
 import pyarrow.fs as fs
-from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler,
-                                _configure_s3_limited_user)
+import pyarrow.json
+from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user, _filesystem_uri,
+                                change_cwd)
 
 try:
     import pandas as pd
@@ -137,7 +137,8 @@ def mockfs():
 
 @pytest.fixture
 def open_logging_fs(monkeypatch):
-    from pyarrow.fs import PyFileSystem, LocalFileSystem
+    from pyarrow.fs import LocalFileSystem, PyFileSystem
+
     from .test_fs import ProxyHandler
 
     localfs = LocalFileSystem()
@@ -788,12 +789,18 @@ def test_parquet_scan_options():
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
+    opts6 = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
+    cache_opts = pa.CacheOptions(
+        hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
+    opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
+    assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -810,11 +817,19 @@ def test_parquet_scan_options():
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
 
+    assert opts6.page_checksum_verification is True
+
+    assert opts7.pre_buffer is True
+    assert opts7.cache_options == cache_opts
+    assert opts7.cache_options != opts1.cache_options
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
     assert opts5 != opts1
+    assert opts6 != opts1
+    assert opts7 != opts1
 
 
 def test_file_format_pickling(pickle_module):
@@ -981,6 +996,64 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == [0]
 
 
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_make_fragment_with_size(s3_example_simple):
+    """
+    Test passing file_size to make_fragment. Not all FS implementations make use
+    of the file size (by implementing an OpenInputFile that takes a FileInfo), but
+    s3 does, which is why it's used here.
+    """
+    table, path, fs, uri, host, port, access_key, secret_key = s3_example_simple
+
+    file_format = ds.ParquetFileFormat()
+    paths = [path]
+
+    fragments = [file_format.make_fragment(path, fs)
+                 for path in paths]
+    dataset = ds.FileSystemDataset(
+        fragments, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # true sizes -> works
+    sizes_true = [dataset.filesystem.get_file_info(x).size for x in dataset.files]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_true)]
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # too small sizes -> error
+    sizes_toosmall = [1 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toosmall)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match='Parquet file size is 1 bytes'):
+        table = dataset_with_size.to_table()
+
+    # too large sizes -> error
+    sizes_toolarge = [1000000 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toolarge)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    # invalid range
+    with pytest.raises(OSError, match='HTTP status 416'):
+        table = dataset_with_size.to_table()
+
+
 def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module):
     content = textwrap.dedent("""
         alpha,num,animal
@@ -1075,7 +1148,6 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
     path = str(tempdir / "test_parquet_dataset")
 
-    # write_to_dataset currently requires pandas
     pq.write_to_dataset(table, path,
                         partition_cols=["part"], chunk_size=chunk_size)
     dataset = ds.dataset(
@@ -1085,10 +1157,7 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
     return table, dataset
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1135,10 +1204,7 @@ def test_fragments_implicit_cast(tempdir):
     assert len(list(fragments)) == 1
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1199,10 +1265,7 @@ def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
         dataset_reader.to_table(new_fragment, filter=ds.field('part') == 'a')
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1253,8 +1316,6 @@ def test_fragments_parquet_num_row_groups(tempdir):
 @pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
-    import pandas as pd
-
     df = pd.DataFrame(dict(col1=['a', 'b'], col2=[1, 2]))
     df['col1'] = df['col1'].astype("category")
 
@@ -1267,10 +1328,7 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
     assert (df.iloc[0] == result.to_pandas()).all().all()
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_module):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
@@ -1311,7 +1369,6 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_modu
         assert row_group.statistics is not None
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
 def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs, pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-15796
@@ -1381,16 +1438,13 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
     path = str(tempdir / "test_parquet_dataset_all_types")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path, use_legacy_dataset=True,
-                        chunk_size=chunk_size)
+    pq.write_to_dataset(table, path, chunk_size=chunk_size)
 
     return table, ds.dataset(path, format="parquet", partitioning="hive")
 
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_fragment_statistics(tempdir):
     table, dataset = _create_dataset_all_types(tempdir)
 
@@ -1456,10 +1510,7 @@ def test_parquet_empty_row_group_statistics(tempdir):
     assert fragments[0].row_groups[0].statistics == {}
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_predicate(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1482,10 +1533,7 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
     assert len(row_group_fragments) == 0
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
                                                   pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
@@ -1527,10 +1575,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
         dataset_reader.to_table(new_fragment)
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
                                       dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1558,10 +1603,7 @@ def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
     assert result.equals(table[:0])
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
                                          dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1593,10 +1635,7 @@ def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
     assert subfrag.num_row_groups == 4
 
 
-@pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_invalid(tempdir):
     _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
@@ -2242,7 +2281,7 @@ def test_construct_from_list_of_files(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     files = [
         'subdir/1/xxx/file0.parquet',
         'subdir/1/xxx/doesnt-exist.parquet',
@@ -2253,7 +2292,7 @@ def test_construct_from_list_of_mixed_paths_fails(mockfs):
 
 @pytest.mark.parquet
 def test_construct_from_mixed_child_datasets(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     a = ds.dataset(['subdir/1/xxx/file0.parquet',
                     'subdir/2/yyy/file1.parquet'], filesystem=mockfs)
     b = ds.dataset('subdir', filesystem=mockfs)
@@ -2646,7 +2685,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     table, path, _, _, host, port, access_key, secret_key = s3_example_simple
     s3fs = pytest.importorskip("s3fs")
 
-    from pyarrow.fs import PyFileSystem, FSSpecHandler
+    from pyarrow.fs import FSSpecHandler, PyFileSystem
 
     fs = s3fs.S3FileSystem(
         key=access_key,
@@ -3518,10 +3557,7 @@ def test_parquet_dataset_factory_fsspec(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
-@pytest.mark.parametrize('use_legacy_dataset', [False, True])
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
+def test_parquet_dataset_factory_roundtrip(tempdir):
     # Simple test to ensure we can roundtrip dataset to
     # _metadata/common_metadata and back.  A more complex test
     # using partitioning will have to wait for ARROW-13269.  The
@@ -3533,7 +3569,6 @@ def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     metadata_collector = []
     pq.write_to_dataset(
         table, str(root_path), metadata_collector=metadata_collector,
-        use_legacy_dataset=use_legacy_dataset
     )
     metadata_path = str(root_path / '_metadata')
     # write _metadata file
@@ -3747,7 +3782,6 @@ def test_dataset_project_only_partition_columns(tempdir, dataset_reader):
 @pytest.mark.parquet
 @pytest.mark.pandas
 def test_dataset_project_null_column(tempdir, dataset_reader):
-    import pandas as pd
     df = pd.DataFrame({"col": np.array([None, None, None], dtype='object')})
 
     f = tempdir / "test_dataset_project_null_column.parquet"
@@ -3857,8 +3891,7 @@ def test_write_to_dataset_given_null_just_works(tempdir):
                       'col': list(range(4))}, schema=schema)
 
     path = str(tempdir / 'test_dataset')
-    pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=False)
+    pq.write_to_dataset(table, path, partition_cols=['part'])
 
     actual_table = pq.read_table(tempdir / 'test_dataset')
     # column.equals can handle the difference in chunking but not the fact
@@ -3866,28 +3899,6 @@ def test_write_to_dataset_given_null_just_works(tempdir):
     assert actual_table.column('part').to_pylist(
     ) == table.column('part').to_pylist()
     assert actual_table.column('col').equals(table.column('col'))
-
-
-@pytest.mark.parquet
-@pytest.mark.pandas
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_legacy_write_to_dataset_drops_null(tempdir):
-    schema = pa.schema([
-        pa.field('col', pa.int64()),
-        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
-    ])
-    table = pa.table({'part': ['a', 'a', None, None],
-                      'col': list(range(4))}, schema=schema)
-    expected = pa.table(
-        {'part': ['a', 'a'], 'col': list(range(2))}, schema=schema)
-
-    path = str(tempdir / 'test_dataset')
-    pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=True)
-
-    actual = pq.read_table(tempdir / 'test_dataset')
-    assert actual == expected
 
 
 def _sort_table(tab, sort_col):
@@ -5490,3 +5501,76 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_checksum_write_dataset_read_dataset_to_table(tempdir):
+    """Check that checksum verification works for datasets created with
+    ds.write_dataset and read with ds.dataset.to_table"""
+
+    table_orig = pa.table({'a': [1, 2, 3, 4]})
+
+    # Write a sample dataset with page checksum enabled
+    pq_write_format = pa.dataset.ParquetFileFormat()
+    write_options = pq_write_format.make_write_options(
+        write_page_checksum=True)
+
+    original_dir_path = tempdir / 'correct_dir'
+    ds.write_dataset(
+        data=table_orig,
+        base_dir=original_dir_path,
+        format=pq_write_format,
+        file_options=write_options,
+    )
+
+    # Open dataset and verify that the data is correct
+    pq_scan_opts_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
+    pq_read_format_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_crc)
+    table_check = ds.dataset(
+        original_dir_path,
+        format=pq_read_format_crc
+    ).to_table()
+    assert table_orig == table_check
+
+    # Copy dataset dir (which should be just one file)
+    corrupted_dir_path = tempdir / 'corrupted_dir'
+    copytree(original_dir_path, corrupted_dir_path)
+
+    # Read the only file in the path as binary and swap the 31-th and 36-th
+    # bytes. This should be equivalent to storing the following data:
+    #    pa.table({'a': [1, 3, 2, 4]})
+    corrupted_file_path_list = list(corrupted_dir_path.iterdir())
+    assert len(corrupted_file_path_list) == 1
+    corrupted_file_path = corrupted_file_path_list[0]
+    bin_data = bytearray(corrupted_file_path.read_bytes())
+
+    # Swap two bytes to emulate corruption. Also, check that the two bytes are
+    # different, otherwise no corruption occurs
+    assert bin_data[31] != bin_data[36]
+    bin_data[31], bin_data[36] = bin_data[36], bin_data[31]
+
+    # Write the corrupted data to the parquet file
+    corrupted_file_path.write_bytes(bin_data)
+
+    # Case 1: Reading the corrupted file with dataset().to_table() and without
+    # page checksum verification succeeds but yields corrupted data
+    pq_scan_opts_no_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=False)
+    pq_read_format_no_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_no_crc)
+    table_corrupt = ds.dataset(
+        corrupted_dir_path, format=pq_read_format_no_crc).to_table()
+
+    # The read should complete without error, but the table has different
+    # content than the original file!
+    assert table_corrupt != table_orig
+    assert table_corrupt == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 2: Reading the corrupted file with read_table() and with page
+    # checksum verification enabled raises an exception
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = ds.dataset(
+            corrupted_dir_path,
+            format=pq_read_format_crc
+        ).to_table()

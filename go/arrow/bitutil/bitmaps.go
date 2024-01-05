@@ -22,9 +22,9 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // BitmapReader is a simple bitmap reader for a byte slice.
@@ -360,7 +360,7 @@ func (bm *BitmapWordWriter) PutNextTrailingByte(b byte, validBits int) {
 		bm.bitmap = bm.bitmap[1:]
 	} else {
 		debug.Assert(validBits > 0 && validBits < 8, "invalid valid bits in bitmap word writer")
-		debug.Assert(BytesForBits(int64(bm.offset+validBits)) <= int64(len(bm.bitmap)), "writing trailiing byte outside of bounds of bitmap")
+		debug.Assert(BytesForBits(int64(bm.offset+validBits)) <= int64(len(bm.bitmap)), "writing trailing byte outside of bounds of bitmap")
 		wr := NewBitmapWriter(bm.bitmap, int(bm.offset), validBits)
 		for i := 0; i < validBits; i++ {
 			if b&0x01 != 0 {

@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -148,7 +148,7 @@ func (DeltaByteArrayDecoder) Type() parquet.Type {
 
 func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 
-// SetData expects the data passed in to be the prefix lengths, followed by the
+// SetData expects the passed in data to be the prefix lengths, followed by the
 // blocks of suffix data in order to initialize the decoder.
 func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{
@@ -172,7 +172,7 @@ func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 
 // Decode decodes byte arrays into the slice provided and returns the number of values actually decoded
 func (d *DeltaByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := utils.Min(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}

@@ -14,18 +14,16 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal128Array : FixedSizeBinaryArray
+    public class Decimal128Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>
     {
         public class Builder : BuilderBase<Decimal128Array, Builder>
         {
@@ -64,7 +62,37 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-#if !NETSTANDARD1_3
+            public Builder Append(string value)
+            {
+                if (value == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                    DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, ByteWidth, bytes);
+                    Append(bytes);
+                }
+
+                return Instance;
+            }
+
+            public Builder AppendRange(IEnumerable<string> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (string s in values)
+                {
+                    Append(s);
+                }
+
+                return Instance;
+            }
+
             public Builder Append(SqlDecimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -87,7 +115,6 @@ namespace Apache.Arrow
 
                 return Instance;
             }
-#endif
 
             public Builder Set(int index, decimal value)
             {
@@ -120,7 +147,39 @@ namespace Apache.Arrow
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
         }
 
-#if !NETSTANDARD1_3
+        public IList<decimal?> ToList(bool includeNulls = false)
+        {
+            var list = new List<decimal?>(Length);
+
+            for (int i = 0; i < Length; i++)
+            {
+                decimal? value = GetValue(i);
+
+                if (value.HasValue)
+                {
+                    list.Add(value.Value);
+                }
+                else
+                {
+                    if (includeNulls)
+                    {
+                        list.Add(null);
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        public string GetString(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+        }
+
         public SqlDecimal? GetSqlDecimal(int index)
         {
             if (IsNull(index))
@@ -130,6 +189,18 @@ namespace Apache.Arrow
 
             return DecimalUtility.GetSqlDecimal128(ValueBuffer, index, Precision, Scale);
         }
-#endif
+
+        int IReadOnlyCollection<SqlDecimal?>.Count => Length;
+        SqlDecimal? IReadOnlyList<SqlDecimal?>.this[int index] => GetSqlDecimal(index);
+
+        IEnumerator<SqlDecimal?> IEnumerable<SqlDecimal?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetSqlDecimal(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<SqlDecimal>)this).GetEnumerator();
     }
 }

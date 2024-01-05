@@ -361,6 +361,18 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<LargeListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type::ListView:
+      if (children.size() != 1) {
+        return Status::Invalid("ListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<ListViewType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type::LargeListView:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListViewType>(children[0]);
+      return Status::OK();
     case flatbuf::Type::Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
@@ -666,6 +678,20 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type::LargeList;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    fb_type_ = flatbuf::Type::ListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    fb_type_ = flatbuf::Type::LargeListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
     return Status::OK();
   }
 
@@ -1397,7 +1423,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
-  // set endianess using the value in flatbuf schema
+  // set endianness using the value in flatbuf schema
   auto endianness = schema->endianness() == flatbuf::Endianness::Little
                         ? Endianness::Little
                         : Endianness::Big;

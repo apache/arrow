@@ -1343,7 +1343,7 @@ class TestConvertDateTimeLikeTypes:
         ex_values[1] = pd.NaT.value
 
         # date32 and date64 convert to [ms] in pandas v2, but
-        # in pandas v1 they are siliently coerced to [ns]
+        # in pandas v1 they are silently coerced to [ns]
         ex_datetime64ms = ex_values.astype('datetime64[ms]')
         expected_pandas = pd.DataFrame({'date32': ex_datetime64ms,
                                         'date64': ex_datetime64ms},
@@ -4096,13 +4096,20 @@ def test_array_protocol():
     assert result.equals(expected2)
 
 
-class DummyExtensionType(pa.PyExtensionType):
+class DummyExtensionType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.DummyExtensionType')
 
-    def __reduce__(self):
-        return DummyExtensionType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == pa.int64()
+        return cls()
 
 
 def PandasArray__arrow_array__(self, type=None):
@@ -4198,13 +4205,14 @@ def test_convert_to_extension_array(monkeypatch):
     assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
 
 
-class MyCustomIntegerType(pa.PyExtensionType):
+class MyCustomIntegerType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.MyCustomIntegerType')
 
-    def __reduce__(self):
-        return MyCustomIntegerType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
 
     def to_pandas_dtype(self):
         return pd.Int64Dtype()

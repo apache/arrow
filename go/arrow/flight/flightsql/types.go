@@ -17,7 +17,7 @@
 package flightsql
 
 import (
-	pb "github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
+	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -525,7 +525,7 @@ const (
 	SqlInfoMaxCharLiteralLen = SqlInfo(pb.SqlInfo_SQL_MAX_CHAR_LITERAL_LENGTH)
 	// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
 	SqlInfoMaxColumnNameLen = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMN_NAME_LENGTH)
-	// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+	// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
 	SqlInfoMaxColumnsInGroupBy = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_GROUP_BY)
 	// Retrieves a int64 value representing the maximum number of columns allowed in an index.
 	SqlInfoMaxColumnsInIndex = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_INDEX)
@@ -705,7 +705,7 @@ const (
 	// - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
-	SqlInfoSupportedConcurrenciesForResultSetScrollInensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
+	SqlInfoSupportedConcurrenciesForResultSetScrollInsensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
 
 	// Retrieves a boolean value indicating whether this database supports batch updates.
 	//

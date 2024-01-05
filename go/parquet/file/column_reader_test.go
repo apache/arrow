@@ -24,12 +24,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -244,7 +244,7 @@ func (p *PrimitiveReaderSuite) checkResults(typ reflect.Type) {
 
 		totalRead += batch
 		batchActual += int(read)
-		batchSize = int32(utils.MinInt(1<<24, utils.MaxInt(int(batchSize*2), 4096)))
+		batchSize = int32(utils.Min(1<<24, utils.Max(int(batchSize*2), 4096)))
 		if batch <= 0 {
 			break
 		}

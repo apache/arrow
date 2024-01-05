@@ -22,13 +22,13 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/compress"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -75,7 +75,7 @@ func (d *DataPageBuilder) appendLevels(lvls []int16, maxLvl int16, e parquet.Enc
 func (d *DataPageBuilder) AppendDefLevels(lvls []int16, maxLvl int16) {
 	d.defLvlBytesLen = d.appendLevels(lvls, maxLvl, parquet.Encodings.RLE)
 
-	d.nvals = utils.MaxInt(len(lvls), d.nvals)
+	d.nvals = utils.Max(len(lvls), d.nvals)
 	d.defLvlEncoding = parquet.Encodings.RLE
 	d.hasDefLvls = true
 }
@@ -83,7 +83,7 @@ func (d *DataPageBuilder) AppendDefLevels(lvls []int16, maxLvl int16) {
 func (d *DataPageBuilder) AppendRepLevels(lvls []int16, maxLvl int16) {
 	d.repLvlBytesLen = d.appendLevels(lvls, maxLvl, parquet.Encodings.RLE)
 
-	d.nvals = utils.MaxInt(len(lvls), d.nvals)
+	d.nvals = utils.Max(len(lvls), d.nvals)
 	d.repLvlEncoding = parquet.Encodings.RLE
 	d.hasRepLvls = true
 }
@@ -122,7 +122,7 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 		panic(err)
 	}
 
-	d.nvals = utils.MaxInt(sz, d.nvals)
+	d.nvals = utils.Max(sz, d.nvals)
 	d.encoding = e
 	d.hasValues = true
 }
@@ -191,7 +191,7 @@ func MakeDataPage(dataPageVersion parquet.DataPageVersion, d *schema.Column, val
 		num = builder.nvals
 	} else {
 		stream.Write(indexBuffer.Bytes())
-		num = utils.MaxInt(builder.nvals, nvals)
+		num = utils.Max(builder.nvals, nvals)
 	}
 
 	buf := stream.Finish()

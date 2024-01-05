@@ -17,11 +17,10 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/endian"
 )
 
 // Decimal256 traits
@@ -44,15 +43,11 @@ func (decimal256Traits) PutValue(b []byte, v decimal256.Num) {
 
 // CastFromBytes reinterprets the slice b to a slice of decimal256
 func (decimal256Traits) CastFromBytes(b []byte) []decimal256.Num {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*decimal256.Num)(unsafe.Pointer(h.Data)), cap(b)/Decimal256SizeBytes)[:len(b)/Decimal256SizeBytes]
+	return GetData[decimal256.Num](b)
 }
 
 func (decimal256Traits) CastToBytes(b []decimal256.Num) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Decimal256SizeBytes)[:len(b)*Decimal256SizeBytes]
+	return GetBytes(b)
 }
 
 func (decimal256Traits) Copy(dst, src []decimal256.Num) { copy(dst, src) }

@@ -69,7 +69,7 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 
 // Append a non-empty stem to an abstract path.
 ARROW_EXPORT
-std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
+std::string ConcatAbstractPath(std::string_view base, std::string_view stem);
 
 // Make path relative to base, if it starts with base.  Otherwise error out.
 ARROW_EXPORT
@@ -94,8 +94,13 @@ std::string_view RemoveTrailingSlash(std::string_view s, bool preserve_root = fa
 ARROW_EXPORT
 Status AssertNoTrailingSlash(std::string_view s);
 
-ARROW_EXPORT
-bool HasLeadingSlash(std::string_view s);
+inline bool HasTrailingSlash(std::string_view s) {
+  return !s.empty() && s.back() == kSep;
+}
+
+inline bool HasLeadingSlash(std::string_view s) {
+  return !s.empty() && s.front() == kSep;
+}
 
 ARROW_EXPORT
 bool IsAncestorOf(std::string_view ancestor, std::string_view descendant);

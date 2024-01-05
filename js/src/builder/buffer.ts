@@ -16,39 +16,44 @@
 // under the License.
 
 import { memcpy } from '../util/buffer.js';
-import {
-    TypedArray, TypedArrayConstructor,
-    BigIntArray, BigIntArrayConstructor
-} from '../interfaces.js';
-
-/** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
-/** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
-/** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
-    T extends TypedArray ? TypedArrayConstructor<T> :
-    T extends BigIntArray ? BigIntArrayConstructor<T> :
-    any;
+import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
+import { DataType } from '../type.js';
 
 /** @ignore */
-const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;
-/** @ignore */
-const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
-    arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
-) as T;
-
-/** @ignore */
-export interface BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
-    readonly offset: number;
+function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
+    const bytesMinus1 = Math.ceil(len) * BPE - 1;
+    return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
 }
 
 /** @ignore */
-export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
+function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
+    // TODO: remove when https://github.com/microsoft/TypeScript/issues/54636 is fixed
+    const buffer = arr.buffer as ArrayBufferLike & { resizable: boolean; resize: (byteLength: number) => void; maxByteLength: number };
+    const byteLength = len * arr.BYTES_PER_ELEMENT;
+    if (buffer.resizable && byteLength <= buffer.maxByteLength) {
+        buffer.resize(byteLength);
+        return arr;
+    }
 
-    constructor(buffer: T, stride = 1) {
-        this.buffer = buffer;
+    // Fallback for non-resizable buffers
+    return arr.length >= len ?
+        arr.subarray(0, len) as T :
+        memcpy(new (arr.constructor as any)(len), arr, 0);
+}
+
+/** @ignore */
+export const SAFE_ARRAY_SIZE = 2 ** 32 - 1;
+
+/** @ignore */
+export class BufferBuilder<T extends TypedArray | BigIntArray> {
+
+    constructor(bufferType: ArrayCtor<T>, initialSize = 0, stride = 1) {
+        this.length = Math.ceil(initialSize / stride);
+        // TODO: remove as any when https://github.com/microsoft/TypeScript/issues/54636 is fixed
+        this.buffer = new bufferType(new (ArrayBuffer as any)(this.length * bufferType.BYTES_PER_ELEMENT, { maxByteLength: SAFE_ARRAY_SIZE })) as T;
         this.stride = stride;
-        this.BYTES_PER_ELEMENT = buffer.BYTES_PER_ELEMENT;
-        this.ArrayType = buffer.constructor as ArrayCtor<T>;
-        this._resize(this.length = Math.ceil(buffer.length / stride));
+        this.BYTES_PER_ELEMENT = bufferType.BYTES_PER_ELEMENT;
+        this.ArrayType = bufferType;
     }
 
     public buffer: T;
@@ -64,8 +69,8 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public get reservedByteLength() { return this.buffer.byteLength; }
 
     // @ts-ignore
-    public set(index: number, value: TValue) { return this; }
-    public append(value: TValue) { return this.set(this.length, value); }
+    public set(index: number, value: T[0]) { return this; }
+    public append(value: T[0]) { return this.set(this.length, value); }
     public reserve(extra: number) {
         if (extra > 0) {
             this.length += extra;
@@ -83,27 +88,26 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     }
     public flush(length = this.length) {
         length = roundLengthUpToNearest64Bytes(length * this.stride, this.BYTES_PER_ELEMENT);
-        const array = sliceOrExtendArray<T>(this.buffer, length);
+        const array = resizeArray<T>(this.buffer, length);
         this.clear();
         return array;
     }
     public clear() {
         this.length = 0;
-        this._resize(0);
+        // TODO: remove as any when https://github.com/microsoft/TypeScript/issues/54636 is fixed
+        this.buffer = new this.ArrayType(new (ArrayBuffer as any)(0, { maxByteLength: SAFE_ARRAY_SIZE })) as T;
         return this;
     }
     protected _resize(newLength: number) {
-        return this.buffer = <T>memcpy(new this.ArrayType(newLength), this.buffer);
+        return this.buffer = resizeArray<T>(this.buffer, newLength);
     }
 }
 
-(BufferBuilder.prototype as any).offset = 0;
-
 /** @ignore */
-export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, number> {
+export class DataBufferBuilder<T extends TypedArray | BigIntArray> extends BufferBuilder<T> {
     public last() { return this.get(this.length - 1); }
-    public get(index: number) { return this.buffer[index]; }
-    public set(index: number, value: number) {
+    public get(index: number): T[0] { return this.buffer[index]; }
+    public set(index: number, value: T[0]) {
         this.reserve(index - this.length + 1);
         this.buffer[index * this.stride] = value;
         return this;
@@ -113,7 +117,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
 /** @ignore */
 export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
-    constructor(data = new Uint8Array(0)) { super(data, 1 / 8); }
+    constructor() { super(Uint8Array, 0, 1 / 8); }
 
     public numValid = 0;
     public get numInvalid() { return this.length - this.numValid; }
@@ -134,15 +138,17 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 }
 
 /** @ignore */
-export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
-    constructor(data = new Int32Array(1)) { super(data, 1); }
-    public append(value: number) {
+export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffsetArray']> {
+    constructor(type: T) {
+        super(type.OffsetArrayType as ArrayCtor<T['TOffsetArray']>, 1, 1);
+    }
+    public append(value: T['TOffsetArray'][0]) {
         return this.set(this.length - 1, value);
     }
-    public set(index: number, value: number) {
+    public set(index: number, value: T['TOffsetArray'][0]) {
         const offset = this.length - 1;
         const buffer = this.reserve(index - offset + 1).buffer;
-        if (offset < index++) {
+        if (offset < index++ && offset >= 0) {
             buffer.fill(buffer[offset], offset, index);
         }
         buffer[index] = buffer[index - 1] + value;
@@ -150,7 +156,7 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     }
     public flush(length = this.length - 1) {
         if (length > this.length) {
-            this.set(length - 1, 0);
+            this.set(length - 1, this.BYTES_PER_ELEMENT > 4 ? BigInt(0) : 0);
         }
         return super.flush(length + 1);
     }

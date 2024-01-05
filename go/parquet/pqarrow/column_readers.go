@@ -26,16 +26,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -517,6 +517,14 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		default:
 			return nil, errors.New("time unit not supported")
 		}
+	case arrow.FLOAT16:
+		if descr.PhysicalType() != parquet.Types.FixedLenByteArray {
+			return nil, errors.New("physical type for float16 must be fixed len byte array")
+		}
+		if len := arrow.Float16SizeBytes; descr.TypeLength() != len {
+			return nil, fmt.Errorf("fixed len byte array length for float16 must be %d", len)
+		}
+		return transferBinary(rdr, valueType), nil
 	default:
 		return nil, fmt.Errorf("no support for reading columns of type: %s", valueType.Name())
 	}
@@ -561,6 +569,14 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	case *arrow.StringType, *arrow.LargeStringType:
 		for idx, chunk := range chunks {
 			chunks[idx] = array.MakeFromData(chunk.Data())
+			chunk.Release()
+		}
+	case *arrow.Float16Type:
+		for idx, chunk := range chunks {
+			data := chunk.Data()
+			f16_data := array.NewData(dt, data.Len(), data.Buffers(), nil, data.NullN(), data.Offset())
+			defer f16_data.Release()
+			chunks[idx] = array.NewFloat16Data(f16_data)
 			chunk.Release()
 		}
 	}
@@ -774,7 +790,7 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	isNeg := int8(buf[0]) < 0
 
 	// 1. extract high bits
-	highBitsOffset := utils.MaxInt(0, len(buf)-8)
+	highBitsOffset := utils.Max(0, len(buf)-8)
 	var (
 		highBits uint64
 		lowBits  uint64
@@ -795,7 +811,7 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	}
 
 	// 2. extract lower bits
-	lowBitsOffset := utils.MinInt(len(buf), 8)
+	lowBitsOffset := utils.Min(len(buf), 8)
 	lowBits = uint64FromBigEndianShifted(buf[highBitsOffset:])
 
 	if lowBitsOffset == 8 {
@@ -834,7 +850,7 @@ func bigEndianToDecimal256(buf []byte) (decimal256.Num, error) {
 	}
 
 	for wordIdx := 0; wordIdx < 4; wordIdx++ {
-		wordLen := utils.MinInt(len(buf), arrow.Uint64SizeBytes)
+		wordLen := utils.Min(len(buf), arrow.Uint64SizeBytes)
 		word := buf[len(buf)-wordLen:]
 
 		if wordLen == 8 {
@@ -879,7 +895,7 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 
 			rec := in.Value(i)
 			if len(rec) <= 0 {
-				return nil, fmt.Errorf("invalud BYTEARRAY length for type: %s", dt)
+				return nil, fmt.Errorf("invalid BYTEARRAY length for type: %s", dt)
 			}
 			out[i], err = bigEndianToDecimal128(rec)
 			if err != nil {

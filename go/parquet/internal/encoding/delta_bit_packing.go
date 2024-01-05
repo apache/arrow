@@ -23,11 +23,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 )
 
 // see the deltaBitPack encoder for a description of the encoding format that is
@@ -158,7 +158,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
-	max := shared_utils.MinInt(len(out), int(d.totalValues))
+	max := shared_utils.Min(len(out), int(d.totalValues))
 	if max == 0 {
 		return 0, nil
 	}
@@ -249,7 +249,7 @@ func (d *DeltaBitPackInt64Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
-	max := shared_utils.MinInt(len(out), d.nvals)
+	max := shared_utils.Min(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}

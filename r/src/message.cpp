@@ -39,8 +39,8 @@ std::shared_ptr<arrow::Buffer> ipc___Message__body(
 }
 
 // [[arrow::export]]
-r_vec_size ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
-  return r_vec_size(message->Verify());
+bool ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
+  return message->Verify();
 }
 
 // [[arrow::export]]

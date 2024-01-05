@@ -120,7 +120,7 @@ struct SortQuantiler {
                 });
 
       // input array is partitioned around data point at `last_index` (pivot)
-      // for next quatile which is smaller, we only consider inputs left of the pivot
+      // for next quantile which is smaller, we only consider inputs left of the pivot
       uint64_t last_index = in_buffer.size();
       if (is_datapoint) {
         CType* out_buffer = out_data->template GetMutableValues<CType>(1);

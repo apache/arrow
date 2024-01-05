@@ -18,6 +18,7 @@
 #pragma once
 
 #include <atomic>  // IWYU pragma: export
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -38,7 +39,7 @@ struct ArrayData;
 
 namespace internal {
 // ----------------------------------------------------------------------
-// Null handling for types without a validity bitmap
+// Null handling for types without a validity bitmap and the dictionary type
 
 ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i);
@@ -46,6 +47,7 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
@@ -280,7 +282,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -324,6 +326,9 @@ struct ARROW_EXPORT ArrayData {
     }
     if (t == Type::RUN_END_ENCODED) {
       return internal::RunEndEncodedMayHaveLogicalNulls(*this);
+    }
+    if (t == Type::DICTIONARY) {
+      return internal::DictionaryMayHaveLogicalNulls(*this);
     }
     return null_count.load() != 0;
   }
@@ -434,6 +439,38 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<const T> of the requested length
+  template <typename T>
+  util::span<const T> GetSpan(int i, int64_t length) const {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
+  }
+
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<T> of the requested length
+  template <typename T>
+  util::span<T> GetSpan(int i, int64_t length) {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
+  }
+
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
   inline bool IsValid(int64_t i) const {
@@ -505,7 +542,7 @@ struct ARROW_EXPORT ArraySpan {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// \see ArrayData::MayHaveLogicalNulls
   bool MayHaveLogicalNulls() const {
@@ -518,6 +555,9 @@ struct ARROW_EXPORT ArraySpan {
     }
     if (t == Type::RUN_END_ENCODED) {
       return RunEndEncodedMayHaveLogicalNulls();
+    }
+    if (t == Type::DICTIONARY) {
+      return DictionaryMayHaveLogicalNulls();
     }
     return null_count != 0;
   }
@@ -560,6 +600,7 @@ struct ARROW_EXPORT ArraySpan {
 
   bool UnionMayHaveLogicalNulls() const;
   bool RunEndEncodedMayHaveLogicalNulls() const;
+  bool DictionaryMayHaveLogicalNulls() const;
 };
 
 namespace internal {

@@ -23,8 +23,8 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 const (
@@ -125,7 +125,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	// math/big library refers to precision in floating point terms
 	// where it refers to the "number of bits of precision in the mantissa".
 	// So we need to figure out how many bits we should use for precision,
-	// based on the input precision. Too much precision and we're not rounding
+	// based on the input precision. Too much precision and we aren't rounding
 	// when we should. Too little precision and we round when we shouldn't.
 	//
 	// In general, the number of decimal digits you get from a given number

@@ -24,8 +24,8 @@ import {
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
     Float, Float16, Float32, Float64,
-    Utf8,
-    Binary,
+    Utf8, LargeUtf8,
+    Binary, LargeBinary,
     FixedSizeBinary,
     Date_, DateDay, DateMillisecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
@@ -52,7 +52,9 @@ interface TestDataVectorGenerator extends Visitor {
     visit<T extends Int>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Float>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Utf8>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
+    visit<T extends LargeUtf8>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Binary>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
+    visit<T extends LargeBinary>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends FixedSizeBinary>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Date_>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Timestamp>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
@@ -75,7 +77,9 @@ interface TestDataVectorGenerator extends Visitor {
     visitUint64: typeof generateBigInt;
     visitFloat: typeof generateFloat;
     visitUtf8: typeof generateUtf8;
+    visitLargeUtf8: typeof generateLargeUtf8;
     visitBinary: typeof generateBinary;
+    visitLargeBinary: typeof generateLargeBinary;
     visitFixedSizeBinary: typeof generateFixedSizeBinary;
     visitDate: typeof generateDate;
     visitTimestamp: typeof generateTimestamp;
@@ -100,7 +104,9 @@ TestDataVectorGenerator.prototype.visitInt64 = generateBigInt;
 TestDataVectorGenerator.prototype.visitUint64 = generateBigInt;
 TestDataVectorGenerator.prototype.visitFloat = generateFloat;
 TestDataVectorGenerator.prototype.visitUtf8 = generateUtf8;
+TestDataVectorGenerator.prototype.visitLargeUtf8 = generateLargeUtf8;
 TestDataVectorGenerator.prototype.visitBinary = generateBinary;
+TestDataVectorGenerator.prototype.visitLargeBinary = generateLargeBinary;
 TestDataVectorGenerator.prototype.visitFixedSizeBinary = generateFixedSizeBinary;
 TestDataVectorGenerator.prototype.visitDate = generateDate;
 TestDataVectorGenerator.prototype.visitTimestamp = generateTimestamp;
@@ -214,7 +220,9 @@ export const float16 = (length = 100, nullCount = Math.trunc(length * 0.2)) => v
 export const float32 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Float32(), length, nullCount);
 export const float64 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Float64(), length, nullCount);
 export const utf8 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Utf8(), length, nullCount);
+export const largeUtf8 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new LargeUtf8(), length, nullCount);
 export const binary = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Binary(), length, nullCount);
+export const largeBinary = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new LargeBinary(), length, nullCount);
 export const fixedSizeBinary = (length = 100, nullCount = Math.trunc(length * 0.2), byteWidth = 8) => vectorGenerator.visit(new FixedSizeBinary(byteWidth), length, nullCount);
 export const dateDay = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DateDay(), length, nullCount);
 export const dateMillisecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DateMillisecond(), length, nullCount);
@@ -242,7 +250,7 @@ export const fixedSizeList = (length = 100, nullCount = Math.trunc(length * 0.2)
 export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = Math.trunc(length * 0.2), child: Field<Struct<{ key: TKey; value: TValue }>> = <any>defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
-    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
+    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, largeUtf8, binary, largeBinary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
 } as { [k: string]: (...args: any[]) => any };
 
 function generateNull<T extends Null>(this: TestDataVectorGenerator, type: T, length = 100): GeneratedVector<T> {
@@ -312,7 +320,7 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
 
 function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, 10, 20, nullCount != 0);
     const values: string[] = new Array(valueOffsets.length - 1).fill(null);
     [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
@@ -332,12 +340,44 @@ function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, le
     return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
 }
 
+function generateLargeUtf8<T extends LargeUtf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
+    const nullBitmap = createBitmap(length, nullCount);
+    const valueOffsets = createVariableWidthOffsets64(length, nullBitmap, 10, 20, nullCount != 0);
+    const values: string[] = new Array(valueOffsets.length - 1).fill(null);
+    [...valueOffsets.slice(1)]
+        .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
+        .reduce((map, length, i) => {
+            if (length !== null) {
+                if (length > 0) {
+                    do {
+                        values[i] = randomString(Number(length));
+                    } while (map.has(values[i]));
+                    return map.set(values[i], i);
+                }
+                values[i] = '';
+            }
+            return map;
+        }, new Map<string, number>());
+    const data = createVariableWidthBytes(length, nullBitmap, valueOffsets, (i) => encodeUtf8(values[i]));
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
+}
+
 function generateBinary<T extends Binary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, 10, 20, nullCount != 0);
     const values = [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
         .map((length) => length == null ? null : randomBytes(length));
+    const data = createVariableWidthBytes(length, nullBitmap, valueOffsets, (i) => values[i]!);
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
+}
+
+function generateLargeBinary<T extends LargeBinary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
+    const nullBitmap = createBitmap(length, nullCount);
+    const valueOffsets = createVariableWidthOffsets64(length, nullBitmap, 10, 20, nullCount != 0);
+    const values = [...valueOffsets.slice(1)]
+        .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
+        .map((length) => length == null ? null : randomBytes(Number(length)));
     const data = createVariableWidthBytes(length, nullBitmap, valueOffsets, (i) => values[i]!);
     return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
 }
@@ -443,7 +483,7 @@ function generateList<T extends List>(this: TestDataVectorGenerator, type: T, le
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues = child.values();
         const values: (T['valueType'] | null)[] = [...valueOffsets.slice(1)]
@@ -581,7 +621,7 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator,
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues: { key: K; value: V }[] = <any>child.values();
         const values: (Record<K, V> | null)[] = [...valueOffsets.slice(1)]
@@ -660,7 +700,7 @@ function createBitmap(length: number, nullCount: number) {
     return bytes;
 }
 
-function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
+function createVariableWidthOffsets32(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
     const offsets = new Int32Array(length + 1);
     iterateBitmap(length, nullBitmap, (i, valid) => {
         if (!valid) {
@@ -674,10 +714,24 @@ function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, min 
     return offsets;
 }
 
-function createVariableWidthBytes(length: number, nullBitmap: Uint8Array, offsets: Int32Array, getBytes: (index: number) => Uint8Array) {
-    const bytes = new Uint8Array(offsets[length]);
+function createVariableWidthOffsets64(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
+    const offsets = new BigInt64Array(length + 1);
     iterateBitmap(length, nullBitmap, (i, valid) => {
-        valid && bytes.set(getBytes(i), offsets[i]);
+        if (!valid) {
+            offsets[i + 1] = offsets[i];
+        } else {
+            do {
+                offsets[i + 1] = offsets[i] + BigInt(Math.min(max, Math.max(min, Math.trunc(rand() * max))));
+            } while (!allowEmpty && offsets[i + 1] === offsets[i]);
+        }
+    });
+    return offsets;
+}
+
+function createVariableWidthBytes(length: number, nullBitmap: Uint8Array, offsets: Int32Array | BigInt64Array, getBytes: (index: number) => Uint8Array) {
+    const bytes = new Uint8Array(Number(offsets[length]));
+    iterateBitmap(length, nullBitmap, (i, valid) => {
+        valid && bytes.set(getBytes(i), Number(offsets[i]));
     });
     return bytes;
 }

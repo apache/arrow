@@ -21,7 +21,7 @@
 // v4 doesn't seem to be able to tree-shake the rest of those exports.
 //
 // We will have to keep these enums in sync when we re-generate the flatbuffers
-// code from the shchemas. See js/DEVELOP.md for info on how to run flatbuffers
+// code from the schemas. See js/DEVELOP.md for info on how to run flatbuffers
 // code generation.
 //
 ////
@@ -137,8 +137,7 @@ export enum MessageHeader {
  * nested type consisting of other data types, or another data type (e.g. a
  * timestamp encoded as an int64).
  *
- * **Note**: Only enum values 0-18 (NONE through Duration) are written to an Arrow
- * IPC payload.
+ * **Note**: Only non-negative enum values are written to an Arrow IPC payload.
  *
  * The rest of the values are specified here so TypeScript can narrow the type
  * signatures further beyond the base Arrow Types. The Arrow DataTypes include
@@ -174,7 +173,9 @@ export enum Type {
     FixedSizeBinary = 15, /** Fixed-size binary. Each value occupies the same number of bytes */
     FixedSizeList = 16, /** Fixed-size list. Each value occupies the same number of bytes */
     Map = 17, /** Map of named logical types */
-    Duration = 18, /** Measure of elapsed time in either seconds, miliseconds, microseconds or nanoseconds. */
+    Duration = 18, /** Measure of elapsed time in either seconds, milliseconds, microseconds or nanoseconds */
+    LargeBinary = 19, /** Large variable-length bytes (no guarantee of UTF8-ness) */
+    LargeUtf8 = 20, /** Large variable-length string as List<Char> */
 
     Dictionary = -1, /** Dictionary aka Category type */
     Int8 = -2,
@@ -205,7 +206,7 @@ export enum Type {
     DurationSecond = -27,
     DurationMillisecond = -28,
     DurationMicrosecond = -29,
-    DurationNanosecond = -30
+    DurationNanosecond = -30,
 }
 
 export enum BufferType {
@@ -215,7 +216,7 @@ export enum BufferType {
     OFFSET = 0,
 
     /**
-     * actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
+     * actual data, either fixed width primitive types in slots or variable width delimited by an OFFSET vector
      */
     DATA = 1,
 

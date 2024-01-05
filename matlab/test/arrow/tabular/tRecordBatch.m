@@ -235,7 +235,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
         function Schema(tc)
-        % Verify that the public Schema property returns an approprate
+        % Verify that the public Schema property returns an appropriate
         % instance of arrow.tabular.Schema.
             t = table(["A"; "B"; "C"], ...
                       [1; 2; 3], ...
@@ -331,7 +331,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
                 ColumnNames=["A", "B", "C"] ...
             );
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             name = "a";
             testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
 
