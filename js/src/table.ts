@@ -38,7 +38,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 import { DataProps } from './data.js';
 import { clampRange } from './util/vector.js';
@@ -216,13 +215,6 @@ export class Table<T extends TypeMap = any> {
     public indexOf(element: Struct<T>['TValue'], offset?: number): number { return -1; }
 
     /**
-     * Get the size in bytes of an element by index.
-     * @param index The index at which to get the byteLength.
-     */
-    // @ts-ignore
-    public getByteLength(index: number): number { return 0; }
-
-    /**
      * Iterator for rows in this Table.
      */
     public [Symbol.iterator]() {
@@ -390,7 +382,6 @@ export class Table<T extends TypeMap = any> {
         (proto as any)['get'] = wrapChunkedCall1(getVisitor.getVisitFn(Type.Struct));
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
-        (proto as any)['getByteLength'] = wrapChunkedCall1(byteLengthVisitor.getVisitFn(Type.Struct));
         return 'Table';
     })(Table.prototype);
 }

@@ -369,13 +369,6 @@ describe(`Table`, () => {
                     }
                 }
             });
-
-            test(`table.getByteLength() returns the byteLength of each row`, () => {
-                const table = datum.table();
-                for (let i = -1, n = table.numRows; ++i < n;) {
-                    expect(table.getByteLength(i)).toBeGreaterThan(0);
-                }
-            });
         });
     }
 });
