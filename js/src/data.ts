@@ -378,7 +378,7 @@ class MakeDataVisitor extends Visitor {
     public visitLargeList<T extends LargeList>(props: LargeListDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0, ['child']: child } = props;
         const nullBitmap = toUint8Array(props['nullBitmap']);
-        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const valueOffsets = toBigInt64Array(props['valueOffsets']);
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
     }
