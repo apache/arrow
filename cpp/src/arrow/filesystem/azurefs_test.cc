@@ -290,9 +290,6 @@ TEST(AzureFileSystem, InitializeWithDefaultCredential) {
 TEST(AzureFileSystem, InitializeWithDefaultCredentialImplicitly) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
-  ARROW_EXPECT_OK(options.ConfigureDefaultCredential());
-  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
-
   AzureOptions explictly_default_options;
   explictly_default_options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(explictly_default_options.ConfigureDefaultCredential());
