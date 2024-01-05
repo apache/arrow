@@ -7,13 +7,13 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
+    "moduleResolution": "NodeNext",
     "isolatedModules": true,
     "noEmit": true,
-    "esModuleInterop": true,
     "baseUrl": "./",
     "rootDir": "./",
     "paths": {
-      "apache-arrow": ["src/Arrow.node"],
+      "apache-arrow": ["src/Arrow.node.js"],
       "apache-arrow/*": ["src/*"]
     },
     "allowImportingTsExtensions": true,

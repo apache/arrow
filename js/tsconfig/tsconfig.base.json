@@ -10,7 +10,7 @@
     },
 
     /* Basic stuff */
-    "moduleResolution": "Node",
+    "moduleResolution": "NodeNext",
     "lib": ["DOM", "ESNext", "ESNext.AsyncIterable"],
     "esModuleInterop": true,
 

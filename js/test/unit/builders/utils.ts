@@ -18,7 +18,7 @@
 import 'web-streams-polyfill';
 
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
-import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
+import { fromNodeStream } from 'ix/asynciterable/fromnodestream.js';
 import 'ix/Ix.node';
 import randstr from 'randomatic';
 

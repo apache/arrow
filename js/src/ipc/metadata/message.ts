@@ -256,7 +256,7 @@ FieldNode['decode'] = decodeFieldNode;
 BufferRegion['encode'] = encodeBufferRegion;
 BufferRegion['decode'] = decodeBufferRegion;
 
-declare module '../../schema' {
+declare module '../../schema.js' {
     namespace Field {
         export { encodeField as encode };
         export { decodeField as decode };
@@ -269,7 +269,7 @@ declare module '../../schema' {
     }
 }
 
-declare module './message' {
+declare module './message.js' {
     namespace RecordBatch {
         export { encodeRecordBatch as encode };
         export { decodeRecordBatch as decode };

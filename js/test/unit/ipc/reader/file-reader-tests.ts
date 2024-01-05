@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { toArray } from 'ix/asynciterable/toarray';
+import { toArray } from 'ix/asynciterable/toarray.js';
 import { generateRandomTables } from '../../../data/tables.js';
 import { ArrowIOTestHelper } from '../helpers.js';
 import {
@@ -103,7 +103,7 @@ function validateRandomAccess(source: any) {
 
 async function validateRandomAccessAsync(source: any) {
     const reader = (await RecordBatchReader.from(source)) as AsyncRecordBatchFileReader;
-    const {schema} = await reader.open({ autoDestroy: false });
+    const { schema } = await reader.open({ autoDestroy: false });
     const batches = await toArray(reader);
     expect(reader.closed).toBe(false);
     expect(reader.schema).toBe(schema);
