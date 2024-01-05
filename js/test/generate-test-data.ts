@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import randomatic from 'randomatic';
-
 import {
     makeData, Vector, Visitor, DataType, TypeMap,
     Table, Schema, Field, RecordBatch,
@@ -42,6 +40,8 @@ import {
     DateUnit, TimeUnit, UnionMode,
     util
 } from 'apache-arrow';
+
+import { randomString } from './random-string.js';
 
 type TKeys = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32;
 
@@ -650,7 +650,6 @@ type TypedArrayConstructor =
 
 const rand = Math.random.bind(Math);
 const randomBytes = (length: number) => fillRandom(Uint8Array, length);
-const randomString = (length: number) => randomatic('?', length, { chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
 const memoize = (fn: () => any) => ((x?: any) => () => x || (x = fn()))();
 
