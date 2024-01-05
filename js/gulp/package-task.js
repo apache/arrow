@@ -45,6 +45,9 @@ const createMainPackageJson = (target, format) => (orig) => ({
     type: 'commonjs',
     main: `${mainExport}.node.js`,
     module: `${mainExport}.node.mjs`,
+    types: `${mainExport}.node.d.ts`,
+    unpkg: `${mainExport}.es2015.min.js`,
+    jsdelivr: `${mainExport}.es2015.min.js`,
     browser: {
         [`./${mainExport}.node.js`]: `./${mainExport}.dom.js`,
         [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
@@ -54,18 +57,17 @@ const createMainPackageJson = (target, format) => (orig) => ({
             node: {
                 import: `./${mainExport}.node.mjs`,
                 require: `./${mainExport}.node.js`,
+                types: `./${mainExport}.node.d.ts`,
             },
             import: `./${mainExport}.dom.mjs`,
             require: `./${mainExport}.dom.js`,
+            types: `./${mainExport}.dom.d.ts`,
         },
         './*': {
             import: `./*.mjs`,
-            require: `./*.js`
+            require: `./*.js`,
         }
     },
-    types: `${mainExport}.node.d.ts`,
-    unpkg: `${mainExport}.es2015.min.js`,
-    jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true }
 });
