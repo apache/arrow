@@ -21,6 +21,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/function.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/key_value_metadata.h"

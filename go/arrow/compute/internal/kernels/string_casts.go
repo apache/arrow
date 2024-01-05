@@ -116,7 +116,7 @@ func CastBinaryToBinary[InOffsetsT, OutOffsetsT int32 | int64](ctx *exec.KernelC
 		outOffsets := exec.GetSpanOffsets[OutOffsetsT](out, 1)
 
 		castNumericUnsafe(arrow.INT64, arrow.INT32,
-			exec.GetBytes(inputOffsets), exec.GetBytes(outOffsets), len(inputOffsets))
+			arrow.GetBytes(inputOffsets), arrow.GetBytes(outOffsets), len(inputOffsets))
 		return nil
 	default:
 		// upcast from int32 -> int64
@@ -127,7 +127,7 @@ func CastBinaryToBinary[InOffsetsT, OutOffsetsT int32 | int64](ctx *exec.KernelC
 		outOffsets := exec.GetSpanOffsets[OutOffsetsT](out, 1)
 
 		castNumericUnsafe(arrow.INT32, arrow.INT64,
-			exec.GetBytes(inputOffsets), exec.GetBytes(outOffsets), len(inputOffsets))
+			arrow.GetBytes(inputOffsets), arrow.GetBytes(outOffsets), len(inputOffsets))
 		return nil
 	}
 }
@@ -201,8 +201,8 @@ func GetFsbCastKernels() []exec.ScalarKernel {
 func float16Formatter(v float16.Num) string                 { return v.String() }
 func date32Formatter(v arrow.Date32) string                 { return v.FormattedString() }
 func date64Formatter(v arrow.Date64) string                 { return v.FormattedString() }
-func numericFormatterSigned[T exec.IntTypes](v T) string    { return strconv.FormatInt(int64(v), 10) }
-func numericFormatterUnsigned[T exec.UintTypes](v T) string { return strconv.FormatUint(uint64(v), 10) }
+func numericFormatterSigned[T arrow.IntType](v T) string    { return strconv.FormatInt(int64(v), 10) }
+func numericFormatterUnsigned[T arrow.UintType](v T) string { return strconv.FormatUint(uint64(v), 10) }
 func float32Formatter(v float32) string                     { return strconv.FormatFloat(float64(v), 'g', -1, 32) }
 func float64Formatter(v float64) string                     { return strconv.FormatFloat(v, 'g', -1, 64) }
 
@@ -247,7 +247,7 @@ func timeToStringCastExec[T timeIntrinsic](ctx *exec.KernelCtx, batch *exec.Exec
 	return nil
 }
 
-func numericToStringCastExec[T exec.IntTypes | exec.UintTypes | exec.FloatTypes](formatter func(T) string) exec.ArrayKernelExec {
+func numericToStringCastExec[T arrow.IntType | arrow.UintType | arrow.FloatType](formatter func(T) string) exec.ArrayKernelExec {
 	return func(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
 		var (
 			input     = &batch.Values[0].Array

@@ -38,7 +38,7 @@ func (PlainFixedLenByteArrayDecoder) Type() parquet.Type {
 // values to decode or the length of out has been filled. Then returns the total number of values
 // that were decoded.
 func (pflba *PlainFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
-	max := utils.MinInt(len(out), pflba.nvals)
+	max := utils.Min(len(out), pflba.nvals)
 	numBytesNeeded := max * pflba.typeLen
 	if numBytesNeeded > len(pflba.data) || numBytesNeeded > math.MaxInt32 {
 		return 0, xerrors.New("parquet: eof exception")

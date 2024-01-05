@@ -155,7 +155,7 @@ func (d *dictDecoder) decodeSpaced(out interface{}, nullCount int, validBits []b
 }
 
 func (d *dictDecoder) DecodeIndices(numValues int, bldr array.Builder) (int, error) {
-	n := shared_utils.MinInt(numValues, d.nvals)
+	n := shared_utils.Min(numValues, d.nvals)
 	if cap(d.idxScratchSpace) < n {
 		d.idxScratchSpace = make([]uint64, n, bitutil.NextPowerOf2(n))
 	} else {

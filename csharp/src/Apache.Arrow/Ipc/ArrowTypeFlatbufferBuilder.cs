@@ -50,9 +50,13 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<UInt16Type>,
             IArrowTypeVisitor<UInt32Type>,
             IArrowTypeVisitor<UInt64Type>,
+#if NET5_0_OR_GREATER
+            IArrowTypeVisitor<HalfFloatType>,
+#endif
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
@@ -60,8 +64,10 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
@@ -106,12 +112,28 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Binary.EndBinary(Builder));
             }
 
+            public void Visit(BinaryViewType type)
+            {
+                Flatbuf.BinaryView.StartBinaryView(Builder);
+                Offset<BinaryView> offset = Flatbuf.BinaryView.EndBinaryView(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.BinaryView, offset);
+            }
+
             public void Visit(ListType type)
             {
                 Flatbuf.List.StartList(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.List,
                     Flatbuf.List.EndList(Builder));
+            }
+
+            public void Visit(ListViewType type)
+            {
+                Flatbuf.ListView.StartListView(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.ListView,
+                    Flatbuf.ListView.EndListView(Builder));
             }
 
             public void Visit(FixedSizeListType type)
@@ -134,6 +156,14 @@ namespace Apache.Arrow.Ipc
                 Offset<Utf8> offset = Flatbuf.Utf8.EndUtf8(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.Utf8, offset);
+            }
+
+            public void Visit(StringViewType type)
+            {
+                Flatbuf.Utf8View.StartUtf8View(Builder);
+                Offset<Utf8View> offset = Flatbuf.Utf8View.EndUtf8View(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.Utf8View, offset);
             }
 
             public void Visit(TimestampType type)
@@ -168,6 +198,15 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Type.Time,
                     Flatbuf.Time.CreateTime(Builder, ToFlatBuffer(type.Unit)));
             }
+
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FloatingPoint,
+                    Flatbuf.FloatingPoint.CreateFloatingPoint(Builder, Precision.HALF));
+            }
+#endif
 
             public void Visit(FloatType type)
             {

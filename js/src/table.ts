@@ -72,6 +72,8 @@ export class Table<T extends TypeMap = any> {
     constructor(...batches: readonly RecordBatch<T>[]);
     constructor(...columns: { [P in keyof T]: Vector<T[P]> }[]);
     constructor(...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
+    constructor(schema: Schema<T>, ...columns: { [P in keyof T]: Vector<T[P]> }[]);
+    constructor(schema: Schema<T>, ...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[], offsets?: Uint32Array);
     constructor(...args: any[]) {
@@ -111,8 +113,8 @@ export class Table<T extends TypeMap = any> {
                 } else if (typeof x === 'object') {
                     const keys = Object.keys(x) as (keyof T)[];
                     const vecs = keys.map((k) => new Vector([x[k]]));
-                    const schema = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
-                    const [, batches] = distributeVectorsIntoRecordBatches(schema, vecs);
+                    const batchSchema = schema ?? new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type, vecs[i].nullable)));
+                    const [, batches] = distributeVectorsIntoRecordBatches(batchSchema, vecs);
                     return batches.length === 0 ? [new RecordBatch(x)] : batches;
                 }
             }

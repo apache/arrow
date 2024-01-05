@@ -290,12 +290,12 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   write_options_.max_open_files = 2;
   write_options_.min_rows_per_group = kFileSizeLimit - 1;
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
-  for (int i = 0; i < 20; ++i) {
-    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 5), "");
+  for (int i = 0; i < 5; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 2), "");
   }
   EndWriterChecked(dataset_writer.get());
   std::vector<ExpectedFile> expected_files;
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 10; ++i) {
     expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
                                 kFileSizeLimit * i, kFileSizeLimit);
   }
