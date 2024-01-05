@@ -36,21 +36,21 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   const CastOptions& options = CastState::Get(ctx);
   const auto& out_type = checked_cast<const DictionaryType&>(*out->type());
 
+  std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
+
   // if out type is same as in type, return input
   if (out_type.Equals(*batch[0].type())) {
     /// XXX: This is the wrong place to do a zero-copy optimization
-    out->value = batch[0].array.ToArrayData();
+    out->value = in_array;
     return Status::OK();
   }
-
-  std::shared_ptr<ArrayData> in_array = batch[0].array.ToArrayData();
 
   // If the input type is STRING, it is first encoded as a dictionary to facilitate
   // processing. This approach allows the subsequent code to uniformly handle STRING
   // inputs as if they were originally provided in dictionary format. Encoding as a
   // dictionary helps in reusing the same logic for dictionary operations.
   if (batch[0].type()->id() == Type::STRING) {
-    in_array = DictionaryEncode(batch[0].array.ToArrayData())->array();
+    in_array = DictionaryEncode(in_array)->array();
   }
   const auto& in_type = checked_cast<const DictionaryType&>(*in_array->type);
 
@@ -92,6 +92,7 @@ void AddDictionaryCast(CastFunction* func) {
   kernel.signature =
       KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 

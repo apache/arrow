@@ -1479,12 +1479,12 @@ TEST(TestDictionaryScalar, Cast) {
       auto alpha =
           dict->IsValid(i) ? MakeScalar(dict->GetString(i)) : MakeNullScalar(utf8());
       // Cast string to dict(..., string)
-      ASSERT_OK_AND_ASSIGN(auto cast_alpha, Cast(alpha, ty));
-      const auto& scalar = cast_alpha.scalar();
-      ASSERT_OK(scalar->ValidateFull());
+      ASSERT_OK_AND_ASSIGN(auto cast_alpha_datum, Cast(alpha, ty));
+      const auto& cast_alpha = cast_alpha_datum.scalar();
+      ASSERT_OK(cast_alpha->ValidateFull());
       ASSERT_OK_AND_ASSIGN(
           auto roundtripped_alpha,
-          checked_cast<const DictionaryScalar&>(*scalar).GetEncodedValue());
+          checked_cast<const DictionaryScalar&>(*cast_alpha).GetEncodedValue());
 
       ASSERT_OK_AND_ASSIGN(auto i_scalar, MakeScalar(index_ty, i));
       auto alpha_dict = DictionaryScalar({i_scalar, dict}, ty);
@@ -1497,7 +1497,7 @@ TEST(TestDictionaryScalar, Cast) {
       AssertScalarsEqual(*encoded_alpha, *roundtripped_alpha);
 
       // dictionaries differ, though encoded values are identical
-      ASSERT_FALSE(alpha_dict.Equals(*scalar));
+      ASSERT_FALSE(alpha_dict.Equals(*cast_alpha));
     }
   }
 }
