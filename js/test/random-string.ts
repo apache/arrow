@@ -15,7 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export function arange<T extends { length: number;[n: number]: number }>(arr: T, n = arr.length) {
-    for (let i = -1; ++i < n; arr[i] = i) { }
-    return arr;
+export const LOWER = 'abcdefghijklmnopqrstuvwxyz';
+export const UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export const NUMBER = '0123456789';
+export const SPECIAL = '~!@#$%^&()_+-={}[];\',.';
+
+export const ALL = LOWER + UPPER + NUMBER + SPECIAL;
+
+/**
+ * Generate random string of specified `length` for the given `pattern`.
+ *
+ * @param `pattern` The pattern to use for generating the random string.
+ * @param `length` The length of the string to generate.
+ * @param `options`
+ */
+export function randomString(length: number, characters: string = `${LOWER + NUMBER}_`) {
+    let result = '';
+
+    while (length--) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
 }
+
+
+10;
+
