@@ -20,9 +20,9 @@ import 'web-streams-polyfill';
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
 import 'ix/Ix.node';
-import randstr from 'randomatic';
 
 import '../../jest-extensions.js';
+import { randomString } from '../../random-string.js';
 
 import { Builder, makeBuilder, builderThroughIterable, DataType, util, Vector } from 'apache-arrow';
 
@@ -30,9 +30,6 @@ const rand = Math.random.bind(Math);
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);
-export const randomString = ((opts) => (length: number) =>
-    randstr('?', length, opts)
-)({ chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
 export const stringsNoNulls = (length = 20) => Array.from({ length }, (_) => randomString(1 + (Math.trunc(Math.random() * 19))));
 export const timestamp32sNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
