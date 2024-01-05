@@ -17,7 +17,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'node:nofs';
+import * as fs from 'node:fs';
 import * as Path from 'node:path';
 import { glob } from 'glob';
 import { zip } from 'ix/iterable/zip.js';
