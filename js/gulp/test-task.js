@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deleteAsync as del } from 'node:del';
+import { deleteAsync as del } from 'del';
 import path from 'node:path';
 import { mkdirp } from 'node:mkdirp';
 import { argv } from './argv.js';
