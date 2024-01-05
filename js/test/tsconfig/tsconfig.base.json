@@ -15,6 +15,7 @@
     "inlineSources": false,
     "inlineSourceMap": false,
     "downlevelIteration": false,
+    "esModuleInterop": true,
     "baseUrl": "../../",
     "paths": {
       "apache-arrow": ["src/Arrow.node"],
