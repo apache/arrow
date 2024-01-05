@@ -881,38 +881,38 @@ func (ps *ParquetIOTestSuite) TestDate64ReadWriteTable() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
-	toWrite := makeDateTypeTable(mem, false, false)
-	defer toWrite.Release()
-	buf := writeTableToBuffer(ps.T(), mem, toWrite, toWrite.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	date64InputTable := makeDateTypeTable(mem, false, false)
+	defer date64InputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTable, date64InputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
 	defer buf.Release()
 
 	reader := ps.createReader(mem, buf.Bytes())
-	tbl := ps.readTable(reader)
-	defer tbl.Release()
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
 
-	expected := makeDateTypeTable(mem, true, false)
-	defer expected.Release()
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, false)
+	defer date32ExpectedOutputTable.Release()
 
-	ps.Truef(array.TableEqual(expected, tbl), "expected table: %s\ngot table: %s", expected, tbl)
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
 }
 
 func (ps *ParquetIOTestSuite) TestDate64ReadWriteTableWithPartialDays() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
-	toWrite := makeDateTypeTable(mem, false, true)
-	defer toWrite.Release()
-	buf := writeTableToBuffer(ps.T(), mem, toWrite, toWrite.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	date64InputTableNotAlignedToDateBoundary := makeDateTypeTable(mem, false, true)
+	defer date64InputTableNotAlignedToDateBoundary.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTableNotAlignedToDateBoundary, date64InputTableNotAlignedToDateBoundary.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
 	defer buf.Release()
 
 	reader := ps.createReader(mem, buf.Bytes())
-	tbl := ps.readTable(reader)
-	defer tbl.Release()
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
 
-	expected := makeDateTypeTable(mem, true, true)
-	defer expected.Release()
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, true)
+	defer date32ExpectedOutputTable.Release()
 
-	ps.Truef(array.TableEqual(expected, tbl), "expected table: %s\ngot table: %s", expected, tbl)
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
 }
 
 func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
