@@ -19,8 +19,8 @@
 
 /* eslint-disable unicorn/no-array-for-each */
 
-import * as fs from 'fs';
-import * as stream from 'stream';
+import * as fs from 'node:fs';
+import * as stream from 'node:stream';
 import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue, util } from '../Arrow.js';
 
 import * as commandLineUsage from 'command-line-usage';

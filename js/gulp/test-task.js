@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deleteAsync as del } from 'del';
-import path from 'path';
-import { mkdirp } from 'mkdirp';
+import { deleteAsync as del } from 'node:del';
+import path from 'node:path';
+import { mkdirp } from 'node:mkdirp';
 import { argv } from './argv.js';
-import { promisify } from 'util';
-import { glob } from 'glob';
-import child_process from 'child_process';
+import { promisify } from 'node:util';
+import { glob } from 'node:glob';
+import child_process from 'node:child_process';
 import { memoizeTask } from './memoize-task.js';
-import fs from 'fs';
+import fs from 'node:fs';
 const readFile = promisify(fs.readFile);
 import asyncDoneSync from 'async-done';
 const asyncDone = promisify(asyncDoneSync);
@@ -31,7 +31,7 @@ const exec = promisify(child_process.exec);
 import xml2js from 'xml2js';
 const parseXML = promisify(xml2js.parseString);
 import { targetAndModuleCombinations, npmPkgName } from './util.js';
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deleteAsync as del } from 'del';
+import { deleteAsync as del } from 'node:del';
 import { targetDir } from './util.js';
 import memoizeTask from './memoize-task.js';
 import { catchError } from 'rxjs/operators';

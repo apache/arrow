@@ -18,10 +18,10 @@
 import { targetDir, tsconfigName, observableFromStreams, shouldRunInChildProcess, spawnGulpCommandInChildProcess } from './util.js';
 
 import gulp from 'gulp';
-import path from 'path';
+import path from 'node:path';
 import tsc from 'typescript';
 import ts from 'gulp-typescript';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import sourcemaps from 'gulp-sourcemaps';
 import { memoizeTask } from './memoize-task.js';
 import { ReplaySubject, forkJoin as ObservableForkJoin, defer as ObservableDefer } from 'rxjs';

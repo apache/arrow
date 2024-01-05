@@ -27,6 +27,11 @@ import {
 import { createIsValidFunction } from './builder/valid.js';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
 
+import type { BuilderDuplexOptions } from './io/node/builder.js';
+import type { BuilderTransform, BuilderTransformOptions } from './io/whatwg/builder.js';
+
+import type { Duplex } from 'node:stream';
+
 /**
  * A set of options required to create a `Builder` instance for a given `DataType`.
  * @see {@link Builder}
@@ -98,12 +103,12 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode<T extends DataType = any, TNull = any>(options: import('./io/node/builder').BuilderDuplexOptions<T, TNull>): import('stream').Duplex {
+    public static throughNode<T extends DataType = any, TNull = any>(options: BuilderDuplexOptions<T, TNull>): Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
     // @ts-ignore
-    public static throughDOM<T extends DataType = any, TNull = any>(options: import('./io/whatwg/builder').BuilderTransformOptions<T, TNull>): import('./io/whatwg/builder').BuilderTransform<T, TNull> {
+    public static throughDOM<T extends DataType = any, TNull = any>(options: BuilderTransformOptions<T, TNull>): BuilderTransform<T, TNull> {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
