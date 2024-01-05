@@ -595,7 +595,7 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
                                "' to '", dfn.ToString(), "'");
   }
 #else
-  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) == -1) {
+  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) != 0) {
     return IOErrorFromErrno(errno, "Failed renaming '", sfn.ToString(), "' to '",
                             dfn.ToString(), "'");
   }
