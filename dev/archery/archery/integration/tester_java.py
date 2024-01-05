@@ -40,7 +40,7 @@ def load_version_from_pom():
 _JAVA_OPTS = [
     "-Dio.netty.tryReflectionSetAccessible=true",
     "-Darrow.struct.conflict.policy=CONFLICT_APPEND",
-    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
     # GH-39113: avoid failures accessing files in `/tmp/hsperfdata_...`
     "-XX:-UsePerfData",
 ]
@@ -247,7 +247,8 @@ class JavaTester(Tester):
         if 'Unrecognized option: --add-opens' not in proc.stderr:
             # Java 9+
             self._java_opts.append(
-                '--add-opens=java.base/java.nio=ALL-UNNAMED')
+                '--add-opens=java.base/java.nio='
+                'org.apache.arrow.memory.core,ALL-UNNAMED')
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = (
