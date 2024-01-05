@@ -136,7 +136,6 @@ module GitRunnable
   def normalize_added_line(line)
     normalize_pom_xml_output_timestamp(line)
   end
-
 end
 
 module VersionDetectable
