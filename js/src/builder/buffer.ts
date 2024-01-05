@@ -151,7 +151,7 @@ export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<
         if (offset < index++ && offset >= 0) {
             buffer.fill(buffer[offset], offset, index);
         }
-        buffer[index] = buffer[index - 1] + value;
+        buffer[index] = buffer[index - 1] + this.BYTES_PER_ELEMENT > 4 ? BigInt(value) : value;
         return this;
     }
     public flush(length = this.length - 1) {

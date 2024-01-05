@@ -75,6 +75,9 @@ export class JSONTypeAssembler extends Visitor {
     public visitList<T extends type.List>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
+    public visitLargeList<T extends type.LargeList>({ typeId }: T) {
+        return { 'name': ArrowType[typeId].toLowerCase() };
+    }
     public visitStruct<T extends type.Struct>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }

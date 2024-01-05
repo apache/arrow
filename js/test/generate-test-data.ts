@@ -31,7 +31,7 @@ import {
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Decimal,
-    List,
+    List, LargeList,
     Struct,
     Union, DenseUnion, SparseUnion,
     Dictionary,
@@ -63,6 +63,7 @@ interface TestDataVectorGenerator extends Visitor {
     visit<T extends Interval>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Duration>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends List>(type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<T>;
+    visit<T extends LargeList>(type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<T>;
     visit<T extends FixedSizeList>(type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<T>;
     visit<T extends Dictionary>(type: T, length?: number, nullCount?: number, dictionary?: Vector): GeneratedVector<T>;
     visit<T extends Union>(type: T, length?: number, nullCount?: number, children?: Vector[]): GeneratedVector<T>;
@@ -86,6 +87,7 @@ interface TestDataVectorGenerator extends Visitor {
     visitTime: typeof generateTime;
     visitDecimal: typeof generateDecimal;
     visitList: typeof generateList;
+    visitLargeList: typeof generateLargeList;
     visitStruct: typeof generateStruct;
     visitUnion: typeof generateUnion;
     visitDictionary: typeof generateDictionary;
@@ -113,6 +115,7 @@ TestDataVectorGenerator.prototype.visitTimestamp = generateTimestamp;
 TestDataVectorGenerator.prototype.visitTime = generateTime;
 TestDataVectorGenerator.prototype.visitDecimal = generateDecimal;
 TestDataVectorGenerator.prototype.visitList = generateList;
+TestDataVectorGenerator.prototype.visitLargeList = generateLargeList;
 TestDataVectorGenerator.prototype.visitStruct = generateStruct;
 TestDataVectorGenerator.prototype.visitUnion = generateUnion;
 TestDataVectorGenerator.prototype.visitDictionary = generateDictionary;
@@ -236,6 +239,7 @@ export const timeMicrosecond = (length = 100, nullCount = Math.trunc(length * 0.
 export const timeNanosecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new TimeNanosecond(), length, nullCount);
 export const decimal = (length = 100, nullCount = Math.trunc(length * 0.2), scale = 2, precision = 9, bitWidth = 128) => vectorGenerator.visit(new Decimal(scale, precision, bitWidth), length, nullCount);
 export const list = (length = 100, nullCount = Math.trunc(length * 0.2), child = defaultListChild) => vectorGenerator.visit(new List(child), length, nullCount);
+export const largeList = (length = 100, nullCount = Math.trunc(length * 0.2), child = defaultListChild) => vectorGenerator.visit(new LargeList(child), length, nullCount);
 export const struct = <T extends TypeMap = any>(length = 100, nullCount = Math.trunc(length * 0.2), children: Field<T[keyof T]>[] = <any>defaultStructChildren()) => vectorGenerator.visit(new Struct<T>(children), length, nullCount);
 export const denseUnion = (length = 100, nullCount = Math.trunc(length * 0.2), children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new DenseUnion(children.map((f) => f.typeId), children), length, nullCount);
 export const sparseUnion = (length = 100, nullCount = Math.trunc(length * 0.2), children: Field[] = defaultUnionChildren()) => vectorGenerator.visit(new SparseUnion(children.map((f) => f.typeId), children), length, nullCount);
@@ -250,7 +254,7 @@ export const fixedSizeList = (length = 100, nullCount = Math.trunc(length * 0.2)
 export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = Math.trunc(length * 0.2), child: Field<Struct<{ key: TKey; value: TValue }>> = <any>defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
-    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, largeUtf8, binary, largeBinary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
+    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, largeUtf8, binary, largeBinary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, largeList, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
 } as { [k: string]: (...args: any[]) => any };
 
 function generateNull<T extends Null>(this: TestDataVectorGenerator, type: T, length = 100): GeneratedVector<T> {
@@ -480,6 +484,21 @@ function generateDuration<T extends Duration>(this: TestDataVectorGenerator, typ
 }
 
 function generateList<T extends List>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2), child = this.visit(type.children[0].type, length * 3, nullCount * 3)): GeneratedVector<T> {
+    const childVec = child.vector;
+    const nullBitmap = createBitmap(length, nullCount);
+    const stride = childVec.length / (length - nullCount);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, stride, stride);
+    const values = memoize(() => {
+        const childValues = child.values();
+        const values: (T['valueType'] | null)[] = [...valueOffsets.slice(1)]
+            .map((offset, i) => isValid(nullBitmap, i) ? offset : null)
+            .map((o, i) => o == null ? null : childValues.slice(valueOffsets[i], o));
+        return values;
+    });
+    return { values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, child: childVec.data[0] })]) };
+}
+
+function generateLargeList<T extends LargeList>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2), child = this.visit(type.children[0].type, length * 3, nullCount * 3)): GeneratedVector<T> {
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);

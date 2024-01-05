@@ -28,7 +28,8 @@ import { uint16ToFloat64 } from '../util/math.js';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
+    List, LargeList, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -80,6 +81,7 @@ export interface GetVisitor extends Visitor {
     visitTimeNanosecond<T extends TimeNanosecond>(data: Data<T>, index: number): T['TValue'] | null;
     visitDecimal<T extends Decimal>(data: Data<T>, index: number): T['TValue'] | null;
     visitList<T extends List>(data: Data<T>, index: number): T['TValue'] | null;
+    visitLargeList<T extends LargeList>(data: Data<T>, index: number): T['TValue'] | null;
     visitStruct<T extends Struct>(data: Data<T>, index: number): T['TValue'] | null;
     visitUnion<T extends Union>(data: Data<T>, index: number): T['TValue'] | null;
     visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): T['TValue'] | null;
@@ -228,6 +230,15 @@ const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
 };
 
 /** @ignore */
+const getLargeList = <T extends LargeList>(data: Data<T>, index: number): T['TValue'] => {
+    const { valueOffsets, stride, children } = data;
+    const { [index * stride]: begin, [index * stride + 1]: end } = valueOffsets;
+    const child: Data<T['valueType']> = children[0];
+    const slice = child.slice(Number(begin), Number(end - begin));
+    return new Vector([slice]) as T['TValue'];
+};
+
+/** @ignore */
 const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
     const { valueOffsets, children } = data;
     const { [index]: begin, [index + 1]: end } = valueOffsets;
@@ -350,6 +361,7 @@ GetVisitor.prototype.visitTimeMicrosecond = wrapGet(getTimeMicrosecond);
 GetVisitor.prototype.visitTimeNanosecond = wrapGet(getTimeNanosecond);
 GetVisitor.prototype.visitDecimal = wrapGet(getDecimal);
 GetVisitor.prototype.visitList = wrapGet(getList);
+GetVisitor.prototype.visitLargeList = wrapGet(getLargeList);
 GetVisitor.prototype.visitStruct = wrapGet(getStruct);
 GetVisitor.prototype.visitUnion = wrapGet(getUnion);
 GetVisitor.prototype.visitDenseUnion = wrapGet(getDenseUnion);

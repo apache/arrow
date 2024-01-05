@@ -60,6 +60,7 @@ describe('Generated Test Data', () => {
     describe('TimeNanosecondBuilder', () => { validateBuilder(generate.timeNanosecond); });
     describe('DecimalBuilder', () => { validateBuilder(generate.decimal); });
     describe('ListBuilder', () => { validateBuilder(generate.list); });
+    describe('LargeListBuilder', () => { validateBuilder(generate.largeList); });
     describe('StructBuilder', () => { validateBuilder(generate.struct); });
     describe('DenseUnionBuilder', () => { validateBuilder(generate.denseUnion); });
     describe('SparseUnionBuilder', () => { validateBuilder(generate.sparseUnion); });

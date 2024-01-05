@@ -18,7 +18,8 @@
 import {
     Field, Visitor,
     DataType, Dictionary,
-    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
+    List, LargeList, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -45,6 +46,7 @@ class BasicVisitor extends Visitor {
     public visitTime<T extends Time>(type: T) { return (this.type = type); }
     public visitDecimal<T extends Decimal>(type: T) { return (this.type = type); }
     public visitList<T extends List>(type: T) { return (this.type = type); }
+    public visitLargeList<T extends LargeList>(type: T) { return (this.type = type); }
     public visitStruct<T extends Struct>(type: T) { return (this.type = type); }
     public visitUnion<T extends Union>(type: T) { return (this.type = type); }
     public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
@@ -86,6 +88,7 @@ class FeatureVisitor extends Visitor {
     public visitTimeNanosecond<T extends TimeNanosecond>(type: T) { return (this.type = type); }
     public visitDecimal<T extends Decimal>(type: T) { return (this.type = type); }
     public visitList<T extends List>(type: T) { return (this.type = type); }
+    public visitLargeList<T extends LargeList>(type: T) { return (this.type = type); }
     public visitStruct<T extends Struct>(type: T) { return (this.type = type); }
     public visitDenseUnion<T extends DenseUnion>(type: T) { return (this.type = type); }
     public visitSparseUnion<T extends SparseUnion>(type: T) { return (this.type = type); }
@@ -117,6 +120,7 @@ describe('Visitor', () => {
         test(`visits Time types`, () => validateBasicVisitor(new Time(0, 64)));
         test(`visits Decimal types`, () => validateBasicVisitor(new Decimal(2, 9, 128)));
         test(`visits List types`, () => validateBasicVisitor(new List(null as any)));
+        test(`visits Large List types`, () => validateBasicVisitor(new LargeList(null as any)));
         test(`visits Struct types`, () => validateBasicVisitor(new Struct([] as any[])));
         test(`visits Union types`, () => validateBasicVisitor(new Union(0, [] as any[], [] as any[])));
         test(`visits Dictionary types`, () => validateBasicVisitor(new Dictionary(null as any, null as any)));
@@ -166,6 +170,7 @@ describe('Visitor', () => {
         test(`visits TimeNanosecond types`, () => validateFeatureVisitor(new TimeNanosecond()));
         test(`visits Decimal types`, () => validateFeatureVisitor(new Decimal(2, 9, 128)));
         test(`visits List types`, () => validateFeatureVisitor(new List(null as any)));
+        test(`visits Large List types`, () => validateFeatureVisitor(new LargeList(null as any)));
         test(`visits Struct types`, () => validateFeatureVisitor(new Struct([] as any[])));
         test(`visits DenseUnion types`, () => validateFeatureVisitor(new DenseUnion([] as any[], [] as any[])));
         test(`visits SparseUnion types`, () => validateFeatureVisitor(new SparseUnion([] as any[], [] as any[])));

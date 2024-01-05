@@ -22,7 +22,7 @@ import * as generate from '../generate-test-data.js';
 
 import { Schema, Field, Dictionary } from 'apache-arrow';
 
-const listVectorGeneratorNames = ['list', 'fixedSizeList'];
+const listVectorGeneratorNames = ['list', 'largeList', 'fixedSizeList'];
 const nestedVectorGeneratorNames = ['struct', 'denseUnion', 'sparseUnion', 'map'];
 const dictionaryKeyGeneratorNames = ['int8', 'int16', 'int32', 'uint8', 'uint16', 'uint32'];
 const valueVectorGeneratorNames = [
