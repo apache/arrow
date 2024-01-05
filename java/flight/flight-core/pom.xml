@@ -24,7 +24,7 @@
   <packaging>jar</packaging>
 
   <properties>
-    <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>1970-01-01T00:00:00Z</project.build.outputTimestamp>
     <forkCount>1</forkCount>
   </properties>
 

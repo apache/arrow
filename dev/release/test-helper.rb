@@ -129,7 +129,7 @@ module GitRunnable
 
   def normalize_pom_xml_output_timestamp(line)
     line.gsub(/<project\.build\.outputTimestamp>.+?</) do
-      "<project.build.outputTimestamp>2023-12-13T00:00:00Z<"
+      "<project.build.outputTimestamp>1970-01-01T00:00:00Z<"
     end
   end
 
