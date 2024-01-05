@@ -84,18 +84,21 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
                                                 RequestContext context) {
       String sessionId = null;
 
-      findIdCookie:
-      for (final String headerValue : incomingHeaders.getAll("cookie")) {
-        for (final String cookie : headerValue.split(" ;")) {
-          final String[] cookiePair = cookie.split("=");
-          if (cookiePair.length != 2) {
-            // Soft failure:  Ignore invalid cookie list field
-            break;
-          }
+      final Iterable<String> it = incomingHeaders.getAll("cookie");
+      if (it != null) {
+        findIdCookie:
+        for (final String headerValue : it) {
+          for (final String cookie : headerValue.split(" ;")) {
+            final String[] cookiePair = cookie.split("=");
+            if (cookiePair.length != 2) {
+              // Soft failure:  Ignore invalid cookie list field
+              break;
+            }
 
-          if (cookiePair[0] == sessionCookieName && cookiePair[1].length() > 0) {
-            sessionId = cookiePair[1];
-            break findIdCookie;
+            if (cookiePair[0] == sessionCookieName && cookiePair[1].length() > 0) {
+              sessionId = cookiePair[1];
+              break findIdCookie;
+            }
           }
         }
       }
@@ -165,6 +168,15 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
   }
 
   /**
+   * Check if there is an open session associated with this call.
+   *
+   * @return True iff there is an open session associated with this call.
+   */
+  public boolean hasSession() {
+    return session != null;
+  }
+
+  /**
    * Get the existing or new session value map for this call.
    *
    * @return The session option value map, or null in case of an id generation collision.
@@ -180,7 +192,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
   /**
    * Close the current session.
    *
-   * It is an error to call this without a session specified via cookie or equivalent.
+   * It is an error to call this without a valid session specified via cookie or equivalent.
    * */
   public synchronized void closeSession() {
     if (session == null) {
