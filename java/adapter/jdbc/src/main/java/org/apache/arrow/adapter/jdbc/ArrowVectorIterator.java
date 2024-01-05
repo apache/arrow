@@ -173,6 +173,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
    * Gets the next vector.
    * If {@link JdbcToArrowConfig#isReuseVectorSchemaRoot()} is false,
    * the client is responsible for freeing its resources.
+   * @throws JdbcConsumerException on error from VectorConsumer
    */
   @Override
   public VectorSchemaRoot next() {
