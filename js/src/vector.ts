@@ -24,6 +24,7 @@ import { BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
 import {
     isChunkedValid,
     computeChunkOffsets,
+    computeChunkNullable,
     computeChunkNullCounts,
     sliceChunks,
     wrapChunkedCall1,
@@ -130,6 +131,13 @@ export class Vector<T extends DataType = any> {
      */
     public get byteLength() {
         return this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
+    }
+
+    /**
+     * Whether this Vector's elements can contain null values.
+     */
+    public get nullable() {
+        return computeChunkNullable(this.data);
     }
 
     /**

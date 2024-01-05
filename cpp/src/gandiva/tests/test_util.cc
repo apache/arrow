@@ -30,6 +30,10 @@ std::shared_ptr<Configuration> TestConfiguration() {
   return ConfigurationBuilder::DefaultConfiguration();
 }
 
+std::shared_ptr<Configuration> TestConfigWithIrDumping() {
+  return ConfigurationBuilder().build_with_ir_dumping(true);
+}
+
 #ifndef GANDIVA_EXTENSION_TEST_DIR
 #define GANDIVA_EXTENSION_TEST_DIR "."
 #endif

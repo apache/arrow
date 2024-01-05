@@ -18,7 +18,16 @@
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
+// idenfity.hpp triggers -Wattributes warnings cause -Werror builds to fail,
+// so disable it for this file with pragmas.
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
 #include <azure/identity.hpp>
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/files/datalake.hpp>
 

@@ -117,7 +117,7 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     vlocal_slot = _mm256_add_epi32(_mm256_and_si256(vlocal_slot, _mm256_set1_epi32(0xff)),
                                    _mm256_and_si256(vgt, _mm256_set1_epi32(4)));
 
-    // Convert slot id relative to the block to slot id relative to the beginnning of the
+    // Convert slot id relative to the block to slot id relative to the beginning of the
     // table
     //
     uint64_t local_slot = _mm256_extract_epi64(
