@@ -5,6 +5,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "rootDir": "../",
+    "esModuleInterop": true,
     "allowJs": true,
     "declaration": false,
     "declarationMap": false,
