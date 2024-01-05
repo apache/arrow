@@ -28,7 +28,7 @@
     <url>https://arrow.apache.org</url>
 
     <properties>
-        <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>1970-01-01T00:00:00Z</project.build.outputTimestamp>
         <org.apache.arrow.flight.name>${project.parent.groupId}:${project.parent.artifactId}</org.apache.arrow.flight.name>
         <org.apache.arrow.flight.version>${project.parent.version}</org.apache.arrow.flight.version>
         <org.apache.arrow.flight.jdbc-driver.name>${project.name}</org.apache.arrow.flight.jdbc-driver.name>
