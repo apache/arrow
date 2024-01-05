@@ -56,12 +56,10 @@
     "@types/command-line-args": "^5.2.1",
     "@types/command-line-usage": "^5.0.2",
     "@types/node": "^20.6.0",
-    "@types/pad-left": "^2.1.1",
     "command-line-args": "^5.2.1",
     "command-line-usage": "^7.0.1",
     "flatbuffers": "^23.5.26",
     "json-bignum": "^0.0.3",
-    "pad-left": "^2.1.0",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
