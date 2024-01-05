@@ -14,31 +14,18 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#include "arrow/compute/expression.h"
 
-#pragma once
-
-#include "arrow/python/visibility.h"
+#include "arrow/python/lib_compute_api.h"
+#include "arrow/python/pyarrow_compute.h"
 #include "arrow/python/wrap_macros.h"
 
-// Work around ARROW-2317 (C linkage warning from Cython)
-extern "C++" {
-
 namespace arrow {
-
-// Forward declarations. Actual wrappers/unwrappers are in pyarrow_acero.{h,cc}
-namespace acero {
-struct Declaration;
-class ExecNodeOptions;
-}  // namespace acero
-
 namespace py {
 
-ARROW_PYTHON_EXPORT int import_pyarrow_acero();
+int import_pyarrow_compute() { return ::import_pyarrow__lib_compute(); }
 
-DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
+DEFINE_WRAP_FUNCTIONS(expression, compute::Expression, out.is_valid())
 
 }  // namespace py
 }  // namespace arrow
-
-}  // extern "C++"

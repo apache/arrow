@@ -41,10 +41,6 @@ class Status;
 class Table;
 class Tensor;
 
-namespace compute {
-class Expression;
-}
-
 namespace py {
 
 // Returns 0 on success, -1 on error.
@@ -69,8 +65,6 @@ DECLARE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>)
 
 DECLARE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
 DECLARE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
-
-DECLARE_WRAP_FUNCTIONS(expression, compute::Expression)
 
 namespace internal {
 

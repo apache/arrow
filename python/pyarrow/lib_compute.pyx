@@ -22,6 +22,8 @@
 from pyarrow.lib cimport *
 from pyarrow._compute cimport Expression
 
+import_pyarrow_compute()
+
 cdef api bint pyarrow_is_expression(object expression):
     return isinstance(expression, Expression)
 

@@ -17,4 +17,3 @@
 
 // For backward compatibility.
 #include "arrow/python/lib_api.h"
-#include "arrow/python/lib_compute_api.h"

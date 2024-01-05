@@ -288,6 +288,7 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
+    ${PYARROW_CPP_SOURCE_DIR}/pyarrow_compute.cc
     ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/init.cc
@@ -379,7 +380,6 @@ if(NOT PYARROW_CPP_LINK_LIBS)
 endif()
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
-file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_BINARY_DIR}/**/*")
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 

@@ -18,7 +18,6 @@
 #include <utility>
 
 #include "arrow/array.h"
-#include "arrow/compute/expression.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
@@ -65,8 +64,6 @@ DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>, out)
 
 DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>, out)
 DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>, out)
-
-DEFINE_WRAP_FUNCTIONS(expression, compute::Expression, out.is_valid())
 
 namespace internal {
 

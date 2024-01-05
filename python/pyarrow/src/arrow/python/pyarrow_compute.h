@@ -25,18 +25,16 @@ extern "C++" {
 
 namespace arrow {
 
-// Forward declarations. Actual wrappers/unwrappers are in pyarrow_acero.{h,cc}
-namespace acero {
-struct Declaration;
-class ExecNodeOptions;
-}  // namespace acero
+// Forward declarations. Actual wrappers/unwrappers are in pyarrow_compute.{h,cc}
+namespace compute {
+class Expression;
+}
 
 namespace py {
 
-ARROW_PYTHON_EXPORT int import_pyarrow_acero();
+ARROW_PYTHON_EXPORT int import_pyarrow_compute();
 
-DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
+DECLARE_WRAP_FUNCTIONS(expression, compute::Expression)
 
 }  // namespace py
 }  // namespace arrow
