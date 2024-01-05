@@ -86,9 +86,9 @@ module GitRunnable
       when /\A-/
         next unless in_hunk
         diffs.last[:hunks].last << line.chomp
-		  when /\A\+/
-		    next unless in_hunk
-			diffs.last[:hunks].last << normalize_added_line(line.chomp)
+      when /\A\+/
+        next unless in_hunk
+        diffs.last[:hunks].last << normalize_added_line(line.chomp)
       end
     end
     diffs.sort_by do |diff|
