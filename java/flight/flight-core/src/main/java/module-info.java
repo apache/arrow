@@ -26,7 +26,6 @@ module org.apache.arrow.flight.core {
   requires com.fasterxml.jackson.databind;
   requires com.google.common;
   requires com.google.errorprone.annotations;
-  requires failureaccess;
   requires io.grpc;
   requires io.grpc.internal;
   requires io.grpc.netty;
