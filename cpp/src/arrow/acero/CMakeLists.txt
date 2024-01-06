@@ -170,11 +170,7 @@ add_arrow_acero_test(plan_test
 add_arrow_acero_test(source_node_test SOURCES source_node_test.cc test_nodes.cc)
 add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc test_nodes.cc)
 add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc test_nodes.cc)
-add_arrow_acero_test(hash_join_node_test
-                     SOURCES
-                     hash_join_node_test.cc
-                     bloom_filter_test.cc
-                     swiss_join_test.cc)
+add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc bloom_filter_test.cc)
 add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
                      test_nodes.cc)
 
