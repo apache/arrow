@@ -300,6 +300,9 @@ class TypedColumnReader : public ColumnReader {
                                           int16_t* rep_levels, int32_t* indices,
                                           int64_t* indices_read, const T** dict,
                                           int32_t* dict_len) = 0;
+
+  virtual void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
+                          int64_t* num_def_levels, int64_t* values_to_read);
 };
 
 namespace internal {

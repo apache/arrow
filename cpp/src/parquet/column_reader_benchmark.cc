@@ -39,11 +39,14 @@ class BenchmarkHelper {
     NodePtr type = schema::Int32("b", repetition);
 
     if (repetition == Repetition::REQUIRED) {
-      descr_ = std::make_unique<ColumnDescriptor>(type, 0, 0);
+      descr_ = std::make_unique<ColumnDescriptor>(type, /*max_definition_level=*/0,
+                                                  /*max_repetition_level=*/0);
     } else if (repetition == Repetition::OPTIONAL) {
-      descr_ = std::make_unique<ColumnDescriptor>(type, 1, 0);
+      descr_ = std::make_unique<ColumnDescriptor>(type, /*max_definition_level=*/1,
+                                                  /*max_repetition_level=*/0);
     } else {
-      descr_ = std::make_unique<ColumnDescriptor>(type, 1, 1);
+      descr_ = std::make_unique<ColumnDescriptor>(type, /*max_definition_level=*/1,
+                                                  /*max_repetition_level=*/1);
     }
 
     // Vectors filled with random rep/defs and values to make pages.
@@ -141,6 +144,35 @@ static void ColumnReaderReadBatchInt32(::benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * helper.total_size());
 }
 
+// Benchmarks ReadBatch for ColumnReader with the following parameters in order:
+// - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
+// - batch_size: sets how many values to read at each call.
+static void ColumnReaderReadLevels(::benchmark::State& state) {
+  const auto repetition = static_cast<Repetition::type>(state.range(0));
+  const auto batch_size = static_cast<int64_t>(state.range(1));
+
+  BenchmarkHelper helper(repetition, /*num_pages=*/1, /*levels_per_page=*/16 * 80000);
+
+  // Vectors to read the values into.
+  std::vector<int32_t> read_values(batch_size, -1);
+  std::vector<int16_t> read_defs(batch_size, -1);
+  std::vector<int16_t> read_reps(batch_size, -1);
+  for (auto _ : state) {
+    state.PauseTiming();
+    Int32Reader* reader = helper.ResetColumnReader();
+    [[maybe_unused]] bool v = reader->HasNext();
+    state.ResumeTiming();
+    int64_t num_levels = 0;
+    do {
+      int64_t values_read = 0;
+      reader->ReadLevels(batch_size, read_defs.data(), read_reps.data(), &num_levels,
+                         &values_read);
+    } while (num_levels != 0);
+  }
+
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
+}
+
 // Benchmarks ReadRecords for RecordReader with the following parameters in order:
 // - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
 // - batch_size: sets how many values to read at each call.
@@ -201,6 +233,11 @@ BENCHMARK(ColumnReaderSkipInt32)
 BENCHMARK(ColumnReaderReadBatchInt32)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 1000})
+    ->Args({1, 1000})
+    ->Args({2, 1000});
+
+BENCHMARK(ColumnReaderReadLevels)
+    ->ArgNames({"Repetition", "BatchSize"})
     ->Args({1, 1000})
     ->Args({2, 1000});
 

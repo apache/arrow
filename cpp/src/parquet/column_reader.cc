@@ -1053,7 +1053,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // Read definition and repetition levels. Also return the number of definition levels
   // and number of values to read. This function is called before reading values.
   void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-                  int64_t* num_def_levels, int64_t* values_to_read) {
+                  int64_t* num_def_levels, int64_t* values_to_read) final {
     batch_size =
         std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
 
@@ -1062,11 +1062,13 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
-      for (int64_t i = 0; i < *num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++(*values_to_read);
-        }
-      }
+      //      for (int64_t i = 0; i < *num_def_levels; ++i) {
+      //        if (def_levels[i] == this->max_def_level_) {
+      //          ++(*values_to_read);
+      //        }
+      //      }
+      *values_to_read +=
+          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
       *values_to_read = batch_size;
