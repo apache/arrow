@@ -31,7 +31,7 @@ func TestTimestampStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dt := &arrow.TimestampType{Unit: arrow.Second}
+	dt := &arrow.TimestampType{Unit: arrow.Second, TimeZone: "EST"}
 	b := array.NewTimestampBuilder(mem, dt)
 	defer b.Release()
 
@@ -234,7 +234,7 @@ func TestTimestampBuilder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
-func TestTimestampValueStr(t *testing.T) {		
+func TestTimestampValueStr(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -250,4 +250,51 @@ func TestTimestampValueStr(t *testing.T) {
 
 	assert.Equal(t, "1968-11-30 13:30:45-0700", arr.ValueStr(0))
 	assert.Equal(t, "2016-02-29 10:42:23-0700", arr.ValueStr(1))
+}
+
+func TestTimestampEquality(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	tsDatatypes := []*arrow.TimestampType{
+		{Unit: arrow.Second},
+		{Unit: arrow.Second, TimeZone: "UTC"},
+		{Unit: arrow.Second, TimeZone: "America/Phoenix"},
+	}
+
+	arrs := make([]*array.Timestamp, 0, len(tsDatatypes))
+	for _, dt := range tsDatatypes {
+		bldr := array.NewTimestampBuilder(mem, dt)
+		defer bldr.Release()
+
+		bldr.Append(-34226955)
+		bldr.Append(1456767743)
+
+		arr := bldr.NewTimestampArray()
+		defer arr.Release()
+
+		arrs = append(arrs, arr)
+	}
+
+	// No timezone, "wall clock" semantics
+	// These timestamps have no actual timezone, but we still represent as UTC per Go conventions
+	assert.Equal(t, "1968-11-30 20:30:45Z", arrs[0].ValueStr(0))
+	assert.Equal(t, "2016-02-29 17:42:23Z", arrs[0].ValueStr(1))
+
+	// UTC timezone, "instant" semantics
+	assert.Equal(t, "1968-11-30 20:30:45Z", arrs[1].ValueStr(0))
+	assert.Equal(t, "2016-02-29 17:42:23Z", arrs[1].ValueStr(1))
+
+	// America/Phoenix timezone, "instant" semantics
+	assert.Equal(t, "1968-11-30 13:30:45-0700", arrs[2].ValueStr(0))
+	assert.Equal(t, "2016-02-29 10:42:23-0700", arrs[2].ValueStr(1))
+
+	// Despite timezone and semantics, the physical values are equivalent
+	assert.Equal(t, arrs[0].Value(0), arrs[0].Value(0))
+	assert.Equal(t, arrs[1].Value(0), arrs[1].Value(0))
+	assert.Equal(t, arrs[2].Value(0), arrs[2].Value(0))
+
+	assert.Equal(t, arrs[0].Value(1), arrs[0].Value(1))
+	assert.Equal(t, arrs[1].Value(1), arrs[1].Value(1))
+	assert.Equal(t, arrs[2].Value(1), arrs[2].Value(1))
 }

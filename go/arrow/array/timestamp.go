@@ -91,16 +91,15 @@ func (a *Timestamp) ValueStr(i int) string {
 		return NullValueStr
 	}
 
-	dt := a.DataType().(*arrow.TimestampType)
-	z, _ := dt.GetZone()
-	return a.values[i].ToTime(dt.Unit).In(z).Format("2006-01-02 15:04:05.999999999Z0700")
+	toTime, _ := a.DataType().(*arrow.TimestampType).GetToTimeFunc()
+	return toTime(a.values[i]).Format("2006-01-02 15:04:05.999999999Z0700")
 }
 
 func (a *Timestamp) GetOneForMarshal(i int) interface{} {
-	if a.IsNull(i) {
-		return nil
+	if val := a.ValueStr(i); val != NullValueStr {
+		return val
 	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
+	return nil
 }
 
 func (a *Timestamp) MarshalJSON() ([]byte, error) {

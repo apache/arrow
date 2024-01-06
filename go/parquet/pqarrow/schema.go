@@ -519,9 +519,12 @@ func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 }
 
 func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error) {
-	tz := "UTC"
-	if logical.IsFromConvertedType() {
-		tz = ""
+	tz := ""
+
+	// ConvertedTypes are adjusted to UTC per backward compatibility guidelines
+	// https://github.com/apache/parquet-format/blob/eb4b31c1d64a01088d02a2f9aefc6c17c54cc6fc/LogicalTypes.md?plain=1#L480-L485
+	if logical.IsAdjustedToUTC() || logical.IsFromConvertedType() {
+		tz = "UTC"
 	}
 
 	switch logical.TimeUnit() {
