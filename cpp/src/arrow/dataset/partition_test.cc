@@ -316,7 +316,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
                                                           ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(DictStr("")->type()));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), DictStr("")->type()));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
@@ -329,7 +329,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
       schema({field("alpha", dict_type)}), ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(dict_type));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), dict_type));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 

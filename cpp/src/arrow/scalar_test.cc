@@ -1490,7 +1490,8 @@ TEST(TestDictionaryScalar, Cast) {
       auto alpha =
           dict->IsValid(i) ? MakeScalar(dict->GetString(i)) : MakeNullScalar(utf8());
       // Cast string to dict(..., string)
-      ASSERT_OK_AND_ASSIGN(auto cast_alpha, alpha->CastTo(ty));
+      ASSERT_OK_AND_ASSIGN(auto cast_alpha_datum, Cast(alpha, ty));
+      const auto& cast_alpha = cast_alpha_datum.scalar();
       ASSERT_OK(cast_alpha->ValidateFull());
       ASSERT_OK_AND_ASSIGN(
           auto roundtripped_alpha,
