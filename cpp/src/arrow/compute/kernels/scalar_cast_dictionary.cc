@@ -87,10 +87,7 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
 template <typename SrcType>
 void AddDictionaryCast(CastFunction* func) {
-  ScalarKernel kernel;
-  kernel.exec = CastToDictionary;
-  kernel.signature =
-      KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
+  ScalarKernel kernel({InputType(SrcType::type_id)}, kOutputTargetType, CastToDictionary);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
