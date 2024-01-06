@@ -626,10 +626,24 @@ class MessageDecoder::MessageDecoderImpl {
             RETURN_NOT_OK(ConsumeMetadataLengthData(data, next_required_size_));
             break;
           case State::METADATA: {
-            auto buffer = std::make_shared<Buffer>(data, next_required_size_);
+            // We need to copy metadata because it's used in
+            // ConsumeBody(). ConsumeBody() may be called from another
+            // ConsumeData(). We can't assume that the given data for
+            // the current ConsumeData() call is still valid in the
+            // next ConsumeData() call. So we need to copy metadata
+            // here.
+            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
+                                  AllocateBuffer(next_required_size_, pool_));
+            memcpy(buffer->mutable_data(), data, next_required_size_);
             RETURN_NOT_OK(ConsumeMetadataBuffer(buffer));
           } break;
           case State::BODY: {
+            // We don't need to copy the given data for body because
+            // we can assume that a decoded record batch should be
+            // valid only in a listener_->OnMessageDecoded() call. If
+            // the passed message is needed to be valid after the
+            // call, it's a listener_'s responsibility. The listener_
+            // may copy the data for it.
             auto buffer = std::make_shared<Buffer>(data, next_required_size_);
             RETURN_NOT_OK(ConsumeBodyBuffer(buffer));
           } break;
@@ -645,7 +659,12 @@ class MessageDecoder::MessageDecoderImpl {
       return Status::OK();
     }
 
-    chunks_.push_back(std::make_shared<Buffer>(data, size));
+    // We need to copy unused data because the given data for the
+    // current ConsumeData() call may be invalid in the next
+    // ConsumeData() call.
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> chunk, AllocateBuffer(size, pool_));
+    memcpy(chunk->mutable_data(), data, size);
+    chunks_.push_back(std::move(chunk));
     buffered_size_ += size;
     return ConsumeChunks();
   }
@@ -830,8 +849,7 @@ class MessageDecoder::MessageDecoderImpl {
       }
       buffered_size_ -= next_required_size_;
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto metadata, AllocateBuffer(next_required_size_, pool_));
-      metadata_ = std::shared_ptr<Buffer>(metadata.release());
+      ARROW_ASSIGN_OR_RAISE(metadata_, AllocateBuffer(next_required_size_, pool_));
       RETURN_NOT_OK(ConsumeDataChunks(next_required_size_, metadata_->mutable_data()));
     }
     return ConsumeMetadata();
@@ -846,9 +864,8 @@ class MessageDecoder::MessageDecoderImpl {
     next_required_size_ = skip_body_ ? 0 : body_length;
     RETURN_NOT_OK(listener_->OnBody());
     if (next_required_size_ == 0) {
-      ARROW_ASSIGN_OR_RAISE(auto body, AllocateBuffer(0, pool_));
-      std::shared_ptr<Buffer> shared_body(body.release());
-      return ConsumeBody(&shared_body);
+      auto body = std::make_shared<Buffer>(nullptr, 0);
+      return ConsumeBody(&body);
     } else {
       return Status::OK();
     }
@@ -872,10 +889,10 @@ class MessageDecoder::MessageDecoderImpl {
       buffered_size_ -= used_size;
       return Status::OK();
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto body, AllocateBuffer(next_required_size_, pool_));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> body,
+                            AllocateBuffer(next_required_size_, pool_));
       RETURN_NOT_OK(ConsumeDataChunks(next_required_size_, body->mutable_data()));
-      std::shared_ptr<Buffer> shared_body(body.release());
-      return ConsumeBody(&shared_body);
+      return ConsumeBody(&body);
     }
   }
 
