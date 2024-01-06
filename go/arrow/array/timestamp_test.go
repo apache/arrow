@@ -31,7 +31,7 @@ func TestTimestampStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dt := &arrow.TimestampType{Unit: arrow.Second, TimeZone: "EST"}
+	dt := &arrow.TimestampType{Unit: arrow.Second}
 	b := array.NewTimestampBuilder(mem, dt)
 	defer b.Release()
 
