@@ -290,11 +290,11 @@ func TestTimestampEquality(t *testing.T) {
 	assert.Equal(t, "2016-02-29 10:42:23-0700", arrs[2].ValueStr(1))
 
 	// Despite timezone and semantics, the physical values are equivalent
-	assert.Equal(t, arrs[0].Value(0), arrs[0].Value(0))
-	assert.Equal(t, arrs[1].Value(0), arrs[1].Value(0))
-	assert.Equal(t, arrs[2].Value(0), arrs[2].Value(0))
+	assert.Equal(t, arrs[0].Value(0), arrs[1].Value(0))
+	assert.Equal(t, arrs[0].Value(0), arrs[2].Value(0))
+	assert.Equal(t, arrs[1].Value(0), arrs[2].Value(0))
 
-	assert.Equal(t, arrs[0].Value(1), arrs[0].Value(1))
-	assert.Equal(t, arrs[1].Value(1), arrs[1].Value(1))
-	assert.Equal(t, arrs[2].Value(1), arrs[2].Value(1))
+	assert.Equal(t, arrs[0].Value(1), arrs[1].Value(1))
+	assert.Equal(t, arrs[0].Value(1), arrs[2].Value(1))
+	assert.Equal(t, arrs[1].Value(1), arrs[2].Value(1))
 }
