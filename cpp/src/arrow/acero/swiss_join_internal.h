@@ -367,7 +367,11 @@ class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
+  // TODO
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
+  // TODO
+  void UpdateHasMatchForPayloads(int64_t thread_id, int num_rows,
+                                 const uint32_t* payload_ids);
   void MergeHasMatch();
 
   const SwissTableWithKeys* keys() const { return &map_; }
@@ -385,10 +389,6 @@ class SwissTableForJoin {
   }
 
   uint32_t payload_id_to_key_id(uint32_t payload_id) const;
-  // Input payload ids must form an increasing sequence.
-  //
-  void payload_ids_to_key_ids(int num_rows, const uint32_t* payload_ids,
-                              uint32_t* key_ids) const;
 
  private:
   uint8_t* local_has_match(int64_t thread_id);
@@ -397,8 +397,10 @@ class SwissTableForJoin {
   int dop_;
 
   struct ThreadLocalState {
+    // Bit-vector for keeping track of whether each payload in the hash table had a match
     std::vector<uint8_t> has_match;
   };
+  // Bit-vector for keeping track of whether each payload in the hash table had a match
   std::vector<ThreadLocalState> local_states_;
   std::vector<uint8_t> has_match_;
 
@@ -714,8 +716,15 @@ class JoinMatchIterator {
   void SetLookupResult(int num_batch_rows, int start_batch_row,
                        const uint8_t* batch_has_match, const uint32_t* key_ids,
                        bool no_duplicate_keys, const uint32_t* key_to_payload);
-  bool GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_skip, int* out_num_rows, uint16_t* batch_row_ids,
-                    uint32_t* key_ids, uint32_t* payload_ids);
+  // TODO: row_id_to_skip
+  bool GetNextBatch(int num_rows_max, int* out_num_rows, uint16_t* batch_row_ids,
+                    uint32_t* key_ids, uint32_t* payload_ids,
+                    int row_id_to_skip = kInvalidRowId);
+
+  // The row id that will never exist in an ExecBatch.
+  // Used to indicate that there is no row to skip.
+  //
+  static constexpr uint32_t kInvalidRowId = std::numeric_limits<uint16_t>::max() + 1;
 
  private:
   int num_batch_rows_;
@@ -738,31 +747,36 @@ class JoinMatchIterator {
 
 class JoinResidualFilter {
  public:
-  void Init(Expression filter, int minibatch_size, QueryContext* ctx, MemoryPool* pool,
+  void Init(Expression filter, QueryContext* ctx, MemoryPool* pool,
             int64_t hardware_flags, const HashJoinProjectionMaps* probe_schemas,
             const HashJoinProjectionMaps* build_schemas);
 
-  void SetBuildSide(const RowArray* build_keys, const RowArray* build_payloads,
-                    const uint32_t* key_to_payload);
+  void SetBuildSide(int minibatch_size, const RowArray* build_keys,
+                    const RowArray* build_payloads, const uint32_t* key_to_payload);
 
   bool IsTrivial() const { return filter_ == literal(true); }
+
   int NumBuildKeysReferred() const { return num_build_keys_referred_; }
   int NumBuildPayloadsReferred() const { return num_build_payloads_referred_; }
 
-  Status FilterMatchBitVector(const ExecBatch& keypayload_batch, int batch_start_row,
-                              int num_batch_rows, int bit_match,
-                              const uint8_t* match_bitvector, const uint32_t* key_ids,
-                              bool no_duplicate_keys,
-                              arrow::util::TempVectorStack* temp_stack,
-                              int* num_passing_ids, uint16_t* passing_batch_row_ids,
-                              uint32_t* passing_key_ids_maybe_null) const;
+  Status FilterLeftSemi(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
 
-  Status FilterMatchRowIds(const ExecBatch& keypayload_batch, int num_batch_rows,
-                           uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
-                           uint32_t* payload_ids_maybe_null, bool output_key_ids,
-                           bool output_payload_ids,
-                           arrow::util::TempVectorStack* temp_stack,
-                           int* num_passing_rows) const;
+  using OutputPayloadIdsCallback = std::function<void(int, const uint32_t*)>;
+  Status FilterRightSemi(const ExecBatch& keypayload_batch, int batch_start_row,
+                         int num_batch_rows, const uint8_t* match_bitvector,
+                         const uint32_t* key_ids, bool no_duplicate_keys,
+                         arrow::util::TempVectorStack* temp_stack,
+                         OutputPayloadIdsCallback output_payload_ids) const;
+
+  Status FilterInner(const ExecBatch& keypayload_batch, int num_batch_rows,
+                     uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
+                     uint32_t* payload_ids_maybe_null, bool output_key_ids,
+                     bool output_payload_ids, arrow::util::TempVectorStack* temp_stack,
+                     int* num_passing_rows) const;
 
  private:
   Result<Datum> EvalFilter(const ExecBatch& keypayload_batch, int num_batch_rows,
@@ -778,7 +792,6 @@ class JoinResidualFilter {
 
  private:
   Expression filter_;
-  int minibatch_size_;
 
   QueryContext* ctx_;
   MemoryPool* pool_;
@@ -791,6 +804,7 @@ class JoinResidualFilter {
   int num_build_keys_referred_ = 0;
   int num_build_payloads_referred_ = 0;
 
+  int minibatch_size_;
   const RowArray* build_keys_;
   const RowArray* build_payloads_;
   const uint32_t* key_to_payload_;

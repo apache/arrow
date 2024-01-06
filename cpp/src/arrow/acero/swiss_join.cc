@@ -1085,10 +1085,30 @@ void SwissTableForJoin::UpdateHasMatchForKeys(int64_t thread_id, int num_ids,
   if (num_ids == 0 || !bit_vector) {
     return;
   }
+  for (int ikey = 0; ikey < num_ids; ++ikey) {
+    // Mark row in hash table as having a match
+    //
+    uint32_t key_id = key_ids[ikey];
+    uint32_t first_payload_for_key = key_to_payload() ? key_to_payload()[key_id] : key_id;
+    uint32_t last_payload_for_key =
+        key_to_payload() ? key_to_payload()[key_id + 1] - 1 : key_id;
+    for (uint32_t ipayload = first_payload_for_key; ipayload <= last_payload_for_key;
+         ++ipayload) {
+      bit_util::SetBit(bit_vector, ipayload);
+    }
+  }
+}
+
+void SwissTableForJoin::UpdateHasMatchForPayloads(int64_t thread_id, int num_ids,
+                                                  const uint32_t* payload_ids) {
+  uint8_t* bit_vector = local_has_match(thread_id);
+  if (num_ids == 0 || !bit_vector) {
+    return;
+  }
   for (int i = 0; i < num_ids; ++i) {
     // Mark row in hash table as having a match
     //
-    bit_util::SetBit(bit_vector, key_ids[i]);
+    bit_util::SetBit(bit_vector, payload_ids[i]);
   }
 }
 
@@ -1121,29 +1141,6 @@ uint32_t SwissTableForJoin::payload_id_to_key_id(uint32_t payload_id) const {
       std::upper_bound(entries, entries + num_entries + 1, payload_id);
   ARROW_DCHECK(first_greater > entries);
   return static_cast<uint32_t>(first_greater - entries) - 1;
-}
-
-void SwissTableForJoin::payload_ids_to_key_ids(int num_rows, const uint32_t* payload_ids,
-                                               uint32_t* key_ids) const {
-  if (num_rows == 0) {
-    return;
-  }
-  if (no_duplicate_keys_) {
-    memcpy(key_ids, payload_ids, num_rows * sizeof(uint32_t));
-    return;
-  }
-
-  const uint32_t* entries = key_to_payload();
-  uint32_t key_id = payload_id_to_key_id(payload_ids[0]);
-  key_ids[0] = key_id;
-  for (int i = 1; i < num_rows; ++i) {
-    ARROW_DCHECK(payload_ids[i] > payload_ids[i - 1]);
-    while (entries[key_id + 1] <= payload_ids[i]) {
-      ++key_id;
-      ARROW_DCHECK(key_id < num_keys());
-    }
-    key_ids[i] = key_id;
-  }
 }
 
 Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t num_rows,
@@ -1789,9 +1786,9 @@ void JoinMatchIterator::SetLookupResult(int num_batch_rows, int start_batch_row,
   current_match_for_row_ = 0;
 }
 
-bool JoinMatchIterator::GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_skip,
-                                     int* out_num_rows, uint16_t* batch_row_ids,
-                                     uint32_t* key_ids, uint32_t* payload_ids) {
+bool JoinMatchIterator::GetNextBatch(int num_rows_max, int* out_num_rows,
+                                     uint16_t* batch_row_ids, uint32_t* key_ids,
+                                     uint32_t* payload_ids, int row_id_to_skip) {
   *out_num_rows = 0;
 
   if (no_duplicate_keys_) {
@@ -1817,8 +1814,7 @@ bool JoinMatchIterator::GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_
     //
     while (current_row_ < num_batch_rows_ && *out_num_rows < num_rows_max) {
       if (!bit_util::GetBit(batch_has_match_, current_row_) ||
-          static_cast<uint32_t>(start_batch_row_ + current_row_) ==
-              batch_row_id_to_skip) {
+          current_row_ == row_id_to_skip) {
         ++current_row_;
         current_match_for_row_ = 0;
         continue;
@@ -1857,8 +1853,8 @@ bool JoinMatchIterator::GetNextBatch(int num_rows_max, uint32_t batch_row_id_to_
   return (*out_num_rows) > 0;
 }
 
-void JoinResidualFilter::Init(Expression filter, int minibatch_size, QueryContext* ctx,
-                              MemoryPool* pool, int64_t hardware_flags,
+void JoinResidualFilter::Init(Expression filter, QueryContext* ctx, MemoryPool* pool,
+                              int64_t hardware_flags,
                               const HashJoinProjectionMaps* probe_schemas,
                               const HashJoinProjectionMaps* build_schemas) {
   filter_ = std::move(filter);
@@ -1866,7 +1862,6 @@ void JoinResidualFilter::Init(Expression filter, int minibatch_size, QueryContex
     return;
   }
 
-  minibatch_size_ = minibatch_size;
   ctx_ = ctx;
   pool_ = pool;
   hardware_flags_ = hardware_flags;
@@ -1911,20 +1906,22 @@ void JoinResidualFilter::Init(Expression filter, int minibatch_size, QueryContex
   }
 }
 
-void JoinResidualFilter::SetBuildSide(const RowArray* build_keys,
+void JoinResidualFilter::SetBuildSide(int minibatch_size, const RowArray* build_keys,
                                       const RowArray* build_payloads,
                                       const uint32_t* key_to_payload) {
+  minibatch_size_ = minibatch_size;
   build_keys_ = build_keys;
   build_payloads_ = build_payloads;
   key_to_payload_ = key_to_payload;
 }
 
-Status JoinResidualFilter::FilterMatchBitVector(
-    const ExecBatch& keypayload_batch, int batch_start_row, int num_batch_rows,
-    int bit_match, const uint8_t* match_bitvector, const uint32_t* key_ids,
-    bool no_duplicate_keys, arrow::util::TempVectorStack* temp_stack,
-    int* num_passing_ids, uint16_t* passing_batch_row_ids,
-    uint32_t* passing_key_ids_maybe_null) const {
+Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
+                                          int batch_start_row, int num_batch_rows,
+                                          const uint8_t* match_bitvector,
+                                          const uint32_t* key_ids, bool no_duplicate_keys,
+                                          arrow::util::TempVectorStack* temp_stack,
+                                          int* num_passing_ids,
+                                          uint16_t* passing_batch_row_ids) const {
   ARROW_DCHECK(filter_ != literal(true));
 
   *num_passing_ids = 0;
@@ -1936,17 +1933,9 @@ Status JoinResidualFilter::FilterMatchBitVector(
     // If filter refers no column in the right table, then we can directly filter on the
     // left rows without inner matching and materializing the right rows.
     //
-    arrow::util::bit_util::bits_to_indexes(bit_match, hardware_flags_, num_batch_rows,
+    arrow::util::bit_util::bits_to_indexes(1, hardware_flags_, num_batch_rows,
                                            match_bitvector, num_passing_ids,
                                            passing_batch_row_ids);
-    if (passing_key_ids_maybe_null) {
-      // Collect key ids of passing rows.
-      //
-      for (int i = 0; i < *num_passing_ids; ++i) {
-        uint16_t id = passing_batch_row_ids[i];
-        passing_key_ids_maybe_null[i] = key_ids[id];
-      }
-    }
 
     // Add base batch row index.
     //
@@ -1954,11 +1943,9 @@ Status JoinResidualFilter::FilterMatchBitVector(
       passing_batch_row_ids[i] += static_cast<uint16_t>(batch_start_row);
     }
 
-    RETURN_NOT_OK(
-        FilterMatchRowIds(keypayload_batch, *num_passing_ids, passing_batch_row_ids,
-                          passing_key_ids_maybe_null, /*payload_ids_maybe_null=*/NULLPTR,
-                          passing_key_ids_maybe_null,
-                          /*output_payload_ids=*/false, temp_stack, num_passing_ids));
+    RETURN_NOT_OK(FilterInner(keypayload_batch, *num_passing_ids, passing_batch_row_ids,
+                              NULLPTR, NULLPTR, false, false, temp_stack,
+                              num_passing_ids));
     return Status::OK();
   }
 
@@ -1973,44 +1960,79 @@ Status JoinResidualFilter::FilterMatchBitVector(
   match_iterator.SetLookupResult(num_batch_rows, batch_start_row, match_bitvector,
                                  key_ids, no_duplicate_keys, key_to_payload_);
   int num_matches_next = 0;
-  // Last row id passing the filter, used to filter out duplicate rows.
-  uint32_t row_id_last = std::numeric_limits<uint16_t>::max() + 1;
-  while (match_iterator.GetNextBatch(minibatch_size_, row_id_last, &num_matches_next,
+  int row_id_to_skip = JoinMatchIterator::kInvalidRowId;
+  while (match_iterator.GetNextBatch(
+      minibatch_size_, &num_matches_next, materialize_batch_ids_buf.mutable_data(),
+      materialize_key_ids_buf.mutable_data(), materialize_payload_ids_buf.mutable_data(),
+      row_id_to_skip)) {
+    int num_filtered = 0;
+    RETURN_NOT_OK(FilterInner(keypayload_batch, num_matches_next,
+                              materialize_batch_ids_buf.mutable_data(),
+                              materialize_key_ids_buf.mutable_data(),
+                              materialize_payload_ids_buf.mutable_data(), false, false,
+                              temp_stack, &num_filtered));
+    // There may be multiple matches for a row in batch. Collect distinct row ids.
+    //
+    for (int ifiltered = 0; ifiltered < num_filtered; ++ifiltered) {
+      if (materialize_batch_ids_buf.mutable_data()[ifiltered] == row_id_to_skip) {
+        continue;
+      }
+      row_id_to_skip = passing_batch_row_ids[*num_passing_ids] =
+          materialize_batch_ids_buf.mutable_data()[ifiltered];
+      ++(*num_passing_ids);
+    }
+  }
+
+  return Status::OK();
+}
+
+Status JoinResidualFilter::FilterRightSemi(
+    const ExecBatch& keypayload_batch, int batch_start_row, int num_batch_rows,
+    const uint8_t* match_bitvector, const uint32_t* key_ids, bool no_duplicate_keys,
+    arrow::util::TempVectorStack* temp_stack,
+    OutputPayloadIdsCallback output_payload_ids) const {
+  ARROW_DCHECK(filter_ != literal(true));
+
+  if (filter_.IsNullLiteral() || filter_ == literal(false)) {
+    return Status::OK();
+  }
+
+  auto materialize_batch_ids_buf =
+      arrow::util::TempVectorHolder<uint16_t>(temp_stack, minibatch_size_);
+  auto materialize_key_ids_buf =
+      arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size_);
+  auto materialize_payload_ids_buf =
+      arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size_);
+
+  JoinMatchIterator match_iterator;
+  match_iterator.SetLookupResult(num_batch_rows, batch_start_row, match_bitvector,
+                                 key_ids, no_duplicate_keys, key_to_payload_);
+  int num_matches_next = 0;
+  while (match_iterator.GetNextBatch(minibatch_size_, &num_matches_next,
                                      materialize_batch_ids_buf.mutable_data(),
                                      materialize_key_ids_buf.mutable_data(),
                                      materialize_payload_ids_buf.mutable_data())) {
     int num_filtered = 0;
-    RETURN_NOT_OK(FilterMatchRowIds(
+    RETURN_NOT_OK(FilterInner(
         keypayload_batch, num_matches_next, materialize_batch_ids_buf.mutable_data(),
         materialize_key_ids_buf.mutable_data(),
-        materialize_payload_ids_buf.mutable_data(), passing_key_ids_maybe_null,
-        /*output_payload_ids=*/false, temp_stack, &num_filtered));
-
-    // There may be multiple matches for a row in batch. Collect distinct row ids.
+        materialize_payload_ids_buf.mutable_data(), /*output_key_ids=*/false,
+        /*output_payload_ids=*/true, temp_stack, &num_filtered));
+    // Output payload ids of passing rows.
     //
-    for (int ifiltered = 0; ifiltered < num_filtered; ++ifiltered) {
-      if (materialize_batch_ids_buf.mutable_data()[ifiltered] == row_id_last) {
-        continue;
-      }
-      row_id_last = passing_batch_row_ids[*num_passing_ids] =
-          materialize_batch_ids_buf.mutable_data()[ifiltered];
-      if (passing_key_ids_maybe_null) {
-        passing_key_ids_maybe_null[*num_passing_ids] =
-            materialize_key_ids_buf.mutable_data()[ifiltered];
-      }
-      ++(*num_passing_ids);
-    }
+    output_payload_ids(num_filtered, materialize_payload_ids_buf.mutable_data());
   }
+
   return Status::OK();
 }
 
-Status JoinResidualFilter::FilterMatchRowIds(const ExecBatch& keypayload_batch,
-                                             int num_batch_rows, uint16_t* batch_row_ids,
-                                             uint32_t* key_ids_maybe_null,
-                                             uint32_t* payload_ids_maybe_null,
-                                             bool output_key_ids, bool output_payload_ids,
-                                             arrow::util::TempVectorStack* temp_stack,
-                                             int* num_passing_rows) const {
+Status JoinResidualFilter::FilterInner(const ExecBatch& keypayload_batch,
+                                       int num_batch_rows, uint16_t* batch_row_ids,
+                                       uint32_t* key_ids_maybe_null,
+                                       uint32_t* payload_ids_maybe_null,
+                                       bool output_key_ids, bool output_payload_ids,
+                                       arrow::util::TempVectorStack* temp_stack,
+                                       int* num_passing_rows) const {
   ARROW_DCHECK(filter_ != literal(true));
   ARROW_DCHECK(!output_key_ids || key_ids_maybe_null);
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
@@ -2052,6 +2074,7 @@ Status JoinResidualFilter::FilterMatchRowIds(const ExecBatch& keypayload_batch,
       ++(*num_passing_rows);
     }
   }
+
   return Status::OK();
 }
 
@@ -2165,6 +2188,8 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
   auto materialize_payload_ids_buf =
       arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size);
+  auto materialize_no_match_batch_ids_buf =
+      arrow::util::TempVectorHolder<uint16_t>(temp_stack, minibatch_size);
   auto filtered_bitvector_buf = arrow::util::TempVectorHolder<uint8_t>(
       temp_stack, static_cast<uint32_t>(bit_util::BytesForBits(minibatch_size)));
 
@@ -2190,8 +2215,9 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
     if (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI ||
         join_type_ == JoinType::RIGHT_SEMI || join_type_ == JoinType::RIGHT_ANTI) {
       int num_passing_ids = 0;
-      int bit_match = (join_type_ == JoinType::LEFT_ANTI) ? 0 : 1;
+      const uint16_t* materialize_batch_ids = materialize_batch_ids_buf.mutable_data();
       if (residual_filter_->IsTrivial()) {
+        int bit_match = (join_type_ == JoinType::LEFT_ANTI) ? 0 : 1;
         arrow::util::bit_util::bits_to_indexes(
             bit_match, hardware_flags, minibatch_size_next,
             match_bitvector_buf.mutable_data(), &num_passing_ids,
@@ -2203,6 +2229,10 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
             uint16_t id = materialize_batch_ids_buf.mutable_data()[i];
             materialize_key_ids_buf.mutable_data()[i] = key_ids_buf.mutable_data()[id];
           }
+          // For right-semi, right-anti joins: update has-match flags for the rows
+          // in hash table.
+          hash_table_->UpdateHasMatchForKeys(thread_id, num_passing_ids,
+                                             materialize_key_ids_buf.mutable_data());
         } else {
           // For left-semi, left-anti joins: add base batch row index.
           //
@@ -2213,27 +2243,51 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
         }
       } else {
         bool no_duplicate_keys = (hash_table_->key_to_payload() == nullptr);
-        RETURN_NOT_OK(residual_filter_->FilterMatchBitVector(
-            keypayload_batch, minibatch_start, minibatch_size_next, bit_match,
-            match_bitvector_buf.mutable_data(), key_ids_buf.mutable_data(),
-            no_duplicate_keys, temp_stack, &num_passing_ids,
-            materialize_batch_ids_buf.mutable_data(),
-            join_type_ == JoinType::RIGHT_SEMI || join_type_ == JoinType::RIGHT_ANTI
-                ? materialize_key_ids_buf.mutable_data()
-                : NULLPTR));
+        if (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI) {
+          RETURN_NOT_OK(residual_filter_->FilterLeftSemi(
+              keypayload_batch, minibatch_start, minibatch_size_next,
+              match_bitvector_buf.mutable_data(), key_ids_buf.mutable_data(),
+              no_duplicate_keys, temp_stack, &num_passing_ids,
+              materialize_batch_ids_buf.mutable_data()));
+          if (join_type_ == JoinType::LEFT_ANTI) {
+            // For left-anti join: collect no match row ids.
+            //
+            int num_no_passing_ids = 0;
+            int imatch = 0;
+            for (int irow = minibatch_start;
+                 irow < minibatch_start + static_cast<int>(minibatch_size_next); ++irow) {
+              while (imatch < num_passing_ids &&
+                     materialize_batch_ids_buf.mutable_data()[imatch] < irow) {
+                ++imatch;
+              }
+              if (imatch == num_passing_ids ||
+                  materialize_batch_ids_buf.mutable_data()[imatch] != irow) {
+                materialize_no_match_batch_ids_buf.mutable_data()[num_no_passing_ids++] =
+                    static_cast<uint16_t>(irow);
+              }
+            }
+            num_passing_ids = num_no_passing_ids;
+            materialize_batch_ids = materialize_no_match_batch_ids_buf.mutable_data();
+          }
+        } else {
+          auto update_has_match = [thread_id, this](int num_passing_ids,
+                                                    const uint32_t* payload_ids) {
+            hash_table_->UpdateHasMatchForPayloads(thread_id, num_passing_ids,
+                                                   payload_ids);
+          };
+          RETURN_NOT_OK(residual_filter_->FilterRightSemi(
+              keypayload_batch, minibatch_start, minibatch_size_next,
+              match_bitvector_buf.mutable_data(), key_ids_buf.mutable_data(),
+              no_duplicate_keys, temp_stack, update_has_match));
+        }
       }
 
-      if (join_type_ == JoinType::RIGHT_SEMI || join_type_ == JoinType::RIGHT_ANTI) {
-        // For right-semi, right-anti joins: update has-match flags for the rows
-        // in hash table.
-        hash_table_->UpdateHasMatchForKeys(thread_id, num_passing_ids,
-                                           materialize_key_ids_buf.mutable_data());
-      } else {
+      if (join_type_ == JoinType::LEFT_SEMI || join_type_ == JoinType::LEFT_ANTI) {
         // For left-semi, left-anti joins: call materialize using match
         // row ids.
         //
         RETURN_NOT_OK(materialize_[thread_id]->AppendProbeOnly(
-            keypayload_batch, num_passing_ids, materialize_batch_ids_buf.mutable_data(),
+            keypayload_batch, num_passing_ids, materialize_batch_ids,
             [&](ExecBatch batch) {
               return output_batch_fn_(thread_id, std::move(batch));
             }));
@@ -2244,7 +2298,6 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
       // matches we use a helper class that implements enumerating all of them.
       //
       bool no_duplicate_keys = (hash_table_->key_to_payload() == nullptr);
-      bool no_payload_columns = (hash_table_->payloads() == nullptr);
       JoinMatchIterator match_iterator;
       match_iterator.SetLookupResult(
           minibatch_size_next, minibatch_start, match_bitvector_buf.mutable_data(),
@@ -2255,18 +2308,17 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
                     bit_util::BytesForBits(minibatch_size_next));
       }
       int num_matches_next;
-      while (match_iterator.GetNextBatch(
-          minibatch_size, std::numeric_limits<uint16_t>::max() + 1, &num_matches_next,
-          materialize_batch_ids_buf.mutable_data(),
-          materialize_key_ids_buf.mutable_data(),
-          materialize_payload_ids_buf.mutable_data())) {
+      while (match_iterator.GetNextBatch(minibatch_size, &num_matches_next,
+                                         materialize_batch_ids_buf.mutable_data(),
+                                         materialize_key_ids_buf.mutable_data(),
+                                         materialize_payload_ids_buf.mutable_data())) {
         if (!residual_filter_->IsTrivial()) {
-          RETURN_NOT_OK(residual_filter_->FilterMatchRowIds(
+          RETURN_NOT_OK(residual_filter_->FilterInner(
               keypayload_batch, num_matches_next,
               materialize_batch_ids_buf.mutable_data(),
               materialize_key_ids_buf.mutable_data(),
               materialize_payload_ids_buf.mutable_data(), /*output_key_ids=*/true,
-              !(no_duplicate_keys || no_payload_columns), temp_stack, &num_matches_next));
+              !no_duplicate_keys, temp_stack, &num_matches_next));
           if (join_type_ == JoinType::LEFT_OUTER || join_type_ == JoinType::FULL_OUTER) {
             for (int i = 0; i < num_matches_next; ++i) {
               int bit_idx = materialize_batch_ids_buf.mutable_data()[i] - minibatch_start;
@@ -2277,16 +2329,15 @@ Status JoinProbeProcessor::OnNextBatch(int64_t thread_id,
         const uint16_t* materialize_batch_ids = materialize_batch_ids_buf.mutable_data();
         const uint32_t* materialize_key_ids = materialize_key_ids_buf.mutable_data();
         const uint32_t* materialize_payload_ids =
-            no_duplicate_keys || no_payload_columns
-                ? materialize_key_ids_buf.mutable_data()
-                : materialize_payload_ids_buf.mutable_data();
+            no_duplicate_keys ? materialize_key_ids_buf.mutable_data()
+                              : materialize_payload_ids_buf.mutable_data();
 
         // For right-outer, full-outer joins we need to update has-match flags
         // for the rows in hash table.
         //
         if (join_type_ == JoinType::RIGHT_OUTER || join_type_ == JoinType::FULL_OUTER) {
-          hash_table_->UpdateHasMatchForKeys(thread_id, num_matches_next,
-                                             materialize_key_ids);
+          hash_table_->UpdateHasMatchForPayloads(thread_id, num_matches_next,
+                                                 materialize_payload_ids);
         }
 
         // Call materialize for resulting id tuples pointing to matching pairs
@@ -2403,9 +2454,8 @@ class SwissJoin : public HashJoinImpl {
       materialize[i] = &local_states_[i].materialize;
     }
 
-    int minibatch_size = hash_table_.keys()->swiss_table()->minibatch_size();
-    residual_filter_.Init(std::move(filter), minibatch_size, ctx_, pool_, hardware_flags_,
-                          proj_map_left, proj_map_right);
+    residual_filter_.Init(std::move(filter), ctx_, pool_, hardware_flags_, proj_map_left,
+                          proj_map_right);
 
     probe_processor_.Init(proj_map_left->num_cols(HashJoinProjection::KEY), join_type_,
                           &hash_table_, &residual_filter_, materialize, &key_cmp_,
@@ -2613,7 +2663,8 @@ class SwissJoin : public HashJoinImpl {
     }
     hash_table_ready_.store(true);
 
-    residual_filter_.SetBuildSide(hash_table_.keys()->keys(), hash_table_.payloads(),
+    residual_filter_.SetBuildSide(hash_table_.keys()->swiss_table()->minibatch_size(),
+                                  hash_table_.keys()->keys(), hash_table_.payloads(),
                                   hash_table_.key_to_payload());
 
     return build_finished_callback_(thread_id);
@@ -2678,24 +2729,25 @@ class SwissJoin : public HashJoinImpl {
           static_cast<uint32_t>(mini_batch_start + mini_batch_size_next - 1));
       int num_output_rows = 0;
       for (uint32_t key_id = first_key_id; key_id <= last_key_id; ++key_id) {
-        if (bit_util::GetBit(hash_table_.has_match(), key_id) == bit_to_output) {
-          uint32_t first_payload_for_key =
-              std::max(static_cast<uint32_t>(mini_batch_start),
-                       hash_table_.key_to_payload() ? hash_table_.key_to_payload()[key_id]
-                                                    : key_id);
-          uint32_t last_payload_for_key = std::min(
-              static_cast<uint32_t>(mini_batch_start + mini_batch_size_next - 1),
-              hash_table_.key_to_payload() ? hash_table_.key_to_payload()[key_id + 1] - 1
-                                           : key_id);
-          uint32_t num_payloads_for_key =
-              last_payload_for_key - first_payload_for_key + 1;
-          for (uint32_t i = 0; i < num_payloads_for_key; ++i) {
-            key_ids_buf.mutable_data()[num_output_rows + i] = key_id;
-            payload_ids_buf.mutable_data()[num_output_rows + i] =
-                first_payload_for_key + i;
+        uint32_t first_payload_for_key = std::max(
+            static_cast<uint32_t>(mini_batch_start),
+            hash_table_.key_to_payload() ? hash_table_.key_to_payload()[key_id] : key_id);
+        uint32_t last_payload_for_key = std::min(
+            static_cast<uint32_t>(mini_batch_start + mini_batch_size_next - 1),
+            hash_table_.key_to_payload() ? hash_table_.key_to_payload()[key_id + 1] - 1
+                                         : key_id);
+        uint32_t num_payloads_for_key = last_payload_for_key - first_payload_for_key + 1;
+        uint32_t num_payloads_match = 0;
+        for (uint32_t i = 0; i < num_payloads_for_key; ++i) {
+          uint32_t payload = first_payload_for_key + i;
+          if (bit_util::GetBit(hash_table_.has_match(), payload) == bit_to_output) {
+            key_ids_buf.mutable_data()[num_output_rows + num_payloads_match] = key_id;
+            payload_ids_buf.mutable_data()[num_output_rows + num_payloads_match] =
+                payload;
+            num_payloads_match++;
           }
-          num_output_rows += num_payloads_for_key;
         }
+        num_output_rows += num_payloads_match;
       }
 
       if (num_output_rows > 0) {
