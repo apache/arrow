@@ -345,9 +345,11 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
     case ConvertedType::DATE:
       return DateLogicalType::Make();
     case ConvertedType::TIME_MILLIS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MILLIS);
     case ConvertedType::TIME_MICROS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MICROS);
     case ConvertedType::TIMESTAMP_MILLIS:
       return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS,
                                         /*is_from_converted_type=*/true,
