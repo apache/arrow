@@ -1086,7 +1086,7 @@ void SwissTableForJoin::UpdateHasMatchForKeys(int64_t thread_id, int num_ids,
     return;
   }
   for (int ikey = 0; ikey < num_ids; ++ikey) {
-    // Mark row in hash table as having a match
+    // Mark all payloads corresponding to this key in hash table as having a match
     //
     uint32_t key_id = key_ids[ikey];
     uint32_t first_payload_for_key = key_to_payload() ? key_to_payload()[key_id] : key_id;
@@ -1106,7 +1106,7 @@ void SwissTableForJoin::UpdateHasMatchForPayloads(int64_t thread_id, int num_ids
     return;
   }
   for (int i = 0; i < num_ids; ++i) {
-    // Mark row in hash table as having a match
+    // Mark payload in hash table as having a match
     //
     bit_util::SetBit(bit_vector, payload_ids[i]);
   }
@@ -1944,8 +1944,10 @@ Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
     }
 
     RETURN_NOT_OK(FilterInner(keypayload_batch, *num_passing_ids, passing_batch_row_ids,
-                              NULLPTR, NULLPTR, false, false, temp_stack,
-                              num_passing_ids));
+                              /*payload_ids_maybe_null=*/NULLPTR,
+                              /*payload_ids_maybe_null=*/NULLPTR,
+                              /*output_payload_ids=*/false, /*output_payload_ids=*/false,
+                              temp_stack, num_passing_ids));
     return Status::OK();
   }
 
@@ -1966,11 +1968,11 @@ Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
       materialize_key_ids_buf.mutable_data(), materialize_payload_ids_buf.mutable_data(),
       row_id_to_skip)) {
     int num_filtered = 0;
-    RETURN_NOT_OK(FilterInner(keypayload_batch, num_matches_next,
-                              materialize_batch_ids_buf.mutable_data(),
-                              materialize_key_ids_buf.mutable_data(),
-                              materialize_payload_ids_buf.mutable_data(), false, false,
-                              temp_stack, &num_filtered));
+    RETURN_NOT_OK(FilterInner(
+        keypayload_batch, num_matches_next, materialize_batch_ids_buf.mutable_data(),
+        materialize_key_ids_buf.mutable_data(),
+        materialize_payload_ids_buf.mutable_data(), /*output_key_ids=*/false,
+        /*output_payload_ids=*/false, temp_stack, &num_filtered));
     // There may be multiple matches for a row in batch. Collect distinct row ids.
     //
     for (int ifiltered = 0; ifiltered < num_filtered; ++ifiltered) {

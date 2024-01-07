@@ -367,9 +367,11 @@ class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
-  // TODO
+  // Update all payloads corresponding to the given keys as having a match
+  //
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
-  // TODO
+  // Update the given payloads as having a match
+  //
   void UpdateHasMatchForPayloads(int64_t thread_id, int num_rows,
                                  const uint32_t* payload_ids);
   void MergeHasMatch();
@@ -716,7 +718,12 @@ class JoinMatchIterator {
   void SetLookupResult(int num_batch_rows, int start_batch_row,
                        const uint8_t* batch_has_match, const uint32_t* key_ids,
                        bool no_duplicate_keys, const uint32_t* key_to_payload);
-  // TODO: row_id_to_skip
+  // Get the next batch of matching rows by outputting the batch row ids, key ids and
+  // payload ids. If the row_id_to_skip is not kInvalidRowId, then the row with that id
+  // will be skipped. This is useful for left-anti and left-semi joins, where we can
+  // safely skip the subsequent matchings of the row that already has a match in the
+  // previous batch.
+  //
   bool GetNextBatch(int num_rows_max, int* out_num_rows, uint16_t* batch_row_ids,
                     uint32_t* key_ids, uint32_t* payload_ids,
                     int row_id_to_skip = kInvalidRowId);
