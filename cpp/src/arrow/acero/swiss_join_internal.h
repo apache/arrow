@@ -761,10 +761,17 @@ class JoinResidualFilter {
   void SetBuildSide(int minibatch_size, const RowArray* build_keys,
                     const RowArray* build_payloads, const uint32_t* key_to_payload);
 
-  bool IsTrivial() const { return filter_ == literal(true); }
+  bool NeedToUpdateMatchBitVector(JoinType join_type) const {
+    return (join_type == JoinType::LEFT_OUTER || join_type == JoinType::FULL_OUTER) &&
+           filter_ != literal(true);
+  }
 
   int NumBuildKeysReferred() const { return num_build_keys_referred_; }
   int NumBuildPayloadsReferred() const { return num_build_payloads_referred_; }
+
+  using OnMatchBatch =
+      std::function<void(int /*num_rows*/, const uint16_t* /*batch_ids*/,
+                         const uint32_t* /*key_ids*/, const uint32_t* /*payload_ids*/)>;
 
   Status FilterLeftSemi(const ExecBatch& keypayload_batch, int batch_start_row,
                         int num_batch_rows, const uint8_t* match_bitvector,
@@ -772,20 +779,31 @@ class JoinResidualFilter {
                         arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
                         uint16_t* passing_batch_row_ids) const;
 
-  using OutputPayloadIdsCallback = std::function<void(int, const uint32_t*)>;
+  Status FilterLeftAnti(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
+
   Status FilterRightSemi(const ExecBatch& keypayload_batch, int batch_start_row,
                          int num_batch_rows, const uint8_t* match_bitvector,
                          const uint32_t* key_ids, bool no_duplicate_keys,
                          arrow::util::TempVectorStack* temp_stack,
-                         OutputPayloadIdsCallback output_payload_ids) const;
+                         OnMatchBatch on_match_batch) const;
 
   Status FilterInner(const ExecBatch& keypayload_batch, int num_batch_rows,
-                     uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
-                     uint32_t* payload_ids_maybe_null, bool output_key_ids,
-                     bool output_payload_ids, arrow::util::TempVectorStack* temp_stack,
+                     uint16_t* batch_row_ids, uint32_t* key_ids,
+                     uint32_t* payload_ids_maybe_null, bool output_payload_ids,
+                     arrow::util::TempVectorStack* temp_stack,
                      int* num_passing_rows) const;
 
  private:
+  Status FilterOneBatch(const ExecBatch& keypayload_batch, int num_batch_rows,
+                        uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
+                        uint32_t* payload_ids_maybe_null, bool output_key_ids,
+                        bool output_payload_ids, arrow::util::TempVectorStack* temp_stack,
+                        int* num_passing_rows, OnMatchBatch on_match_batch = {}) const;
+
   Result<Datum> EvalFilter(const ExecBatch& keypayload_batch, int num_batch_rows,
                            const uint16_t* batch_row_ids,
                            const uint32_t* key_ids_maybe_null,
@@ -836,6 +854,21 @@ class JoinProbeProcessor {
   // of this class. The caller is responsible for ensuring that.
   //
   Status OnFinished();
+
+ private:
+  // For right-* and full-outer joins: we need to update has-match flags
+  // for the rows in hash table.
+  //
+  void UpdateHasMatch(int64_t thread_id, int num_passing_ids,
+                      const uint32_t* key_ids_maybe_null,
+                      const uint32_t* payload_ids_maybe_null);
+
+  // For left-outer and full-outer joins: we need to update match bit-vector if
+  // the residual filter is not a literal true.
+  //
+  void UpdateMatchBitVector(int batch_start_row, int num_batch_rows,
+                            uint8_t* match_bitvector, int num_passing_rows,
+                            const uint16_t* batch_ids);
 
  private:
   int num_key_columns_;
