@@ -21,6 +21,7 @@ package csv
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/v15/arrow"
 	"github.com/apache/arrow/go/v15/arrow/memory"
@@ -219,6 +220,22 @@ func WithIncludeColumns(cols []string) Option {
 			cfg.columnFilter = cols
 		default:
 			panic(fmt.Errorf("%w: WithIncludeColumns only allowed on csv Reader", arrow.ErrInvalid))
+		}
+	}
+}
+
+// WithStringReplacer receives a list of old/new strings to be replaced in the
+// CSV file.
+//
+// Will panic if the number of arguments is odd.
+func WithStringReplacer(oldNewList ...string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Writer:
+			replacer := strings.NewReplacer(oldNewList...)
+			cfg.stringReplacer = replacer.Replace
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
 	}
 }
