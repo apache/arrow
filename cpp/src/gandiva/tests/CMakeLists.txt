@@ -30,6 +30,7 @@ add_gandiva_test(projector-test
                  in_expr_test.cc
                  literal_test.cc
                  null_validity_test.cc
+                 pre_eval_in_expr_test.cc
                  projector_build_validation_test.cc
                  projector_test.cc
                  test_util.cc

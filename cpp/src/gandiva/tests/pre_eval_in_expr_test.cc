@@ -31,7 +31,7 @@ using arrow::float32;
 using arrow::float64;
 using arrow::int32;
 
-class TestIn : public ::testing::Test {
+class TestPreEvalIn : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -39,7 +39,7 @@ class TestIn : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestIn, TestInSimple) {
+TEST_F(TestPreEvalIn, TestInSimple) {
   // schema for input fields
   auto field0 = field("f0", int32());
   auto field1 = field("f1", int32());
@@ -50,9 +50,13 @@ TEST_F(TestIn, TestInSimple) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
-  std::unordered_set<int32_t> in_constants({6, 11});
-  auto in_expr = TreeExprBuilder::MakeInExpressionInt32(sum_func, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+
+  auto literal_11_int32 = TreeExprBuilder::MakeLiteral(11);
+  auto literal_6_int32 = TreeExprBuilder::MakeLiteral(6);
+
+  auto pre_eval_expr = TreeExprBuilder::MakePreEvalInExpression(
+      sum_func, {literal_6_int32, literal_11_int32});
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_expr);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
@@ -80,7 +84,58 @@ TEST_F(TestIn, TestInSimple) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInFloat) {
+TEST_F(TestPreEvalIn, TestIntWithEval) {
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", int32());
+  auto field3 = field("f3", int32());
+  auto schema = arrow::schema({field0, field1, field2, field3});
+
+  // Build In f0 + f1 in (6, 11)
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto node_f1 = TreeExprBuilder::MakeField(field1);
+  auto sum_func =
+      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
+
+  auto sum_func_condition = TreeExprBuilder::MakeFunction(
+      "add", {TreeExprBuilder::MakeField(field2), TreeExprBuilder::MakeField(field3)},
+      int32());
+  auto literal_17_int32 = TreeExprBuilder::MakeLiteral(17);
+  auto pre_eval_expr = TreeExprBuilder::MakePreEvalInExpression(
+      sum_func, {sum_func_condition, literal_17_int32});
+
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_expr);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4, 6}, {true, true, true, false, true});
+  auto array1 = MakeArrowArrayInt32({5, 9, 6, 17, 5}, {true, true, false, true, false});
+  auto array2 = MakeArrowArrayInt32({3, 8, 7, 7, 2}, {true, true, true, true, true});
+  auto array3 = MakeArrowArrayInt32({3, 3, 3, 3, 9}, {true, true, true, true, false});
+
+  auto exp = MakeArrowArrayUint16({0, 1});
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
+TEST_F(TestPreEvalIn, TestFloat) {
   // schema for input fields
   auto field0 = field("f0", float32());
   auto schema = arrow::schema({field0});
@@ -88,9 +143,13 @@ TEST_F(TestIn, TestInFloat) {
   // Build In f0 + f1 in (6, 11)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
 
-  std::unordered_set<float> in_constants({6.5f, 12.0f, 11.5f});
-  auto in_expr = TreeExprBuilder::MakeInExpressionFloat(node_f0, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+  auto literal_1 = TreeExprBuilder::MakeLiteral(6.5f);
+  auto literal_2 = TreeExprBuilder::MakeLiteral(12.0f);
+  auto literal_3 = TreeExprBuilder::MakeLiteral(11.5f);
+
+  auto pre_eval_in_expr = TreeExprBuilder::MakePreEvalInExpression(
+      node_f0, {literal_1, literal_2, literal_3});
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_in_expr);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
@@ -118,7 +177,7 @@ TEST_F(TestIn, TestInFloat) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInDouble) {
+TEST_F(TestPreEvalIn, TestDoube) {
   // schema for input fields
   auto field0 = field("double0", float64());
   auto field1 = field("double1", float64());
@@ -128,9 +187,12 @@ TEST_F(TestIn, TestInDouble) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::float64());
-  std::unordered_set<double> in_constants({3.14159265359, 15.5555555});
-  auto in_expr = TreeExprBuilder::MakeInExpressionDouble(sum_func, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+  auto literal_1 = TreeExprBuilder::MakeLiteral(3.14159265359);
+  auto literal_2 = TreeExprBuilder::MakeLiteral(15.5555555);
+  auto literal_3 = TreeExprBuilder::MakeLiteral(15.5555556);
+  auto pre_eval_expr =
+      TreeExprBuilder::MakePreEvalInExpression(sum_func, {literal_1, literal_2});
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_expr);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
@@ -160,7 +222,7 @@ TEST_F(TestIn, TestInDouble) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInDecimal) {
+TEST_F(TestPreEvalIn, TestInDecimal) {
   int32_t precision = 38;
   int32_t scale = 5;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
@@ -175,9 +237,15 @@ TEST_F(TestIn, TestInDecimal) {
   gandiva::DecimalScalar128 d0("6", precision, scale);
   gandiva::DecimalScalar128 d1("12", precision, scale);
   gandiva::DecimalScalar128 d2("11", precision, scale);
-  std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1, d2});
-  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+
+  auto literal_1 = TreeExprBuilder::MakeDecimalLiteral(d0);
+  auto literal_2 = TreeExprBuilder::MakeDecimalLiteral(d1);
+  auto literal_3 = TreeExprBuilder::MakeDecimalLiteral(d2);
+
+  auto pre_eval_in_expr = TreeExprBuilder::MakePreEvalInExpression(
+      node_f0, {literal_1, literal_2, literal_3});
+
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_in_expr);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
@@ -206,15 +274,17 @@ TEST_F(TestIn, TestInDecimal) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInString) {
+TEST_F(TestPreEvalIn, TestInString) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
 
   // Build f0 in ("test" ,"me")
   auto node_f0 = TreeExprBuilder::MakeField(field0);
-  std::unordered_set<std::string> in_constants({"test", "me"});
-  auto in_expr = TreeExprBuilder::MakeInExpressionString(node_f0, in_constants);
+  auto literal_1 = TreeExprBuilder::MakeStringLiteral("test");
+  auto literal_2 = TreeExprBuilder::MakeStringLiteral("me");
+  auto in_expr =
+      TreeExprBuilder::MakePreEvalInExpression(node_f0, {literal_1, literal_2});
 
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -244,48 +314,32 @@ TEST_F(TestIn, TestInString) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInStringValidationError) {
-  // schema for input fields
-  auto field0 = field("f0", arrow::int32());
-  auto schema = arrow::schema({field0});
-
-  // Build f0 in ("test" ,"me")
-  auto node_f0 = TreeExprBuilder::MakeField(field0);
-  std::unordered_set<std::string> in_constants({"test", "me"});
-  auto in_expr = TreeExprBuilder::MakeInExpressionString(node_f0, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
-
-  std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
-
-  EXPECT_TRUE(status.IsExpressionValidationError());
-  std::string expected_error = "Evaluation expression for IN clause returns ";
-  EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
-}
-
-// Test that timestamp types work as inputs to in expressions
 template <typename Type>
-void TestDateOrTimeInExpression(
-    arrow::MemoryPool* pool, const DataTypePtr& type,
-    std::function<NodePtr(NodePtr, std::unordered_set<typename Type::c_type>)>
-        expression_factory) {
+void TestDateOrTimePreEvalInExpression(arrow::MemoryPool* pool, const DataTypePtr& type) {
   using c_type = typename Type::c_type;
+
+  std::vector<c_type> in_constants({717629471, 717630471});
 
   // schema for input fields
   auto field0 = field("f0", type);
   auto schema = arrow::schema({field0});
 
-  // Build f0 in (717629471, 717630471)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
-  std::unordered_set<c_type> in_constants({717629471, 717630471});
-  auto in_expr = expression_factory(node_f0, in_constants);
-  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+  NodeVector literal_nodes;
+  literal_nodes.reserve(in_constants.size());
+  for (auto num : in_constants) {
+    auto literal_node = std::make_shared<LiteralNode>(type, LiteralHolder(num), false);
+    literal_nodes.emplace_back(literal_node);
+  }
+
+  auto pre_eval_in_expr =
+      TreeExprBuilder::MakePreEvalInExpression(node_f0, literal_nodes);
+  auto condition = TreeExprBuilder::MakeCondition(pre_eval_in_expr);
 
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
   ASSERT_TRUE(status.ok()) << status.message();
 
-  // Create a row-batch with some sample data
   int num_records = 5;
   auto array0 = MakeArrowArray<Type, c_type>(
       type, {717629471, 717630471, 717729471, 717629471, 717629571},
@@ -308,39 +362,24 @@ void TestDateOrTimeInExpression(
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
-TEST_F(TestIn, TestInDate32) {
-  TestDateOrTimeInExpression<arrow::Date32Type>(
-      pool_, date32(), [](auto node, auto in_constants) {
-        return TreeExprBuilder::MakeInExpressionDate32(node, in_constants);
-      });
+TEST_F(TestPreEvalIn, TestDa32) {
+  TestDateOrTimePreEvalInExpression<arrow::Date32Type>(pool_, arrow::date32());
 }
 
-TEST_F(TestIn, TestInDate64) {
-  TestDateOrTimeInExpression<arrow::Date64Type>(
-      pool_, date64(), [](auto node, auto in_constants) {
-        return TreeExprBuilder::MakeInExpressionDate64(node, in_constants);
-      });
+TEST_F(TestPreEvalIn, TestDate64) {
+  TestDateOrTimePreEvalInExpression<arrow::Date64Type>(pool_, arrow::date64());
 }
 
-TEST_F(TestIn, TestInTimeStamp) {
-  TestDateOrTimeInExpression<arrow::TimestampType>(
-      pool_, timestamp(), [](auto node, auto in_constants) {
-        return TreeExprBuilder::MakeInExpressionTimeStamp(node, in_constants);
-      });
+TEST_F(TestPreEvalIn, TestInTimeStamp) {
+  TestDateOrTimePreEvalInExpression<arrow::TimestampType>(pool_, timestamp());
 }
 
-TEST_F(TestIn, TestInTime32) {
-  TestDateOrTimeInExpression<arrow::Time32Type>(
-      pool_, time32(), [](auto node, auto in_constants) {
-        return TreeExprBuilder::MakeInExpressionTime32(node, in_constants);
-      });
+TEST_F(TestPreEvalIn, TestInTime32) {
+  TestDateOrTimePreEvalInExpression<arrow::Time32Type>(pool_, time32());
 }
 
-TEST_F(TestIn, TestInTime64) {
-  TestDateOrTimeInExpression<arrow::Time64Type>(
-      pool_, time64(), [](auto node, auto in_constants) {
-        return TreeExprBuilder::MakeInExpressionTime64(node, in_constants);
-      });
+TEST_F(TestPreEvalIn, TestTime64) {
+  TestDateOrTimePreEvalInExpression<arrow::Time64Type>(pool_, time64());
 }
 
 }  // namespace gandiva

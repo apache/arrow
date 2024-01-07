@@ -71,6 +71,8 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Status Visit(const InExpressionNode<double>& node) override;
   Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) override;
   Status Visit(const InExpressionNode<std::string>& node) override;
+  Status Visit(const PreEvalInExpressionNode& node) override;
+  Status Visit(const ReadProxyNode& node) override;
 
   template <typename ctype>
   Status VisitInGeneric(const InExpressionNode<ctype>& node);
@@ -125,6 +127,7 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Annotator& annotator_;
   std::stack<std::unique_ptr<IfStackEntry>> if_entries_stack_;
   ValueValidityPairPtr result_;
+  ValueValidityPairPtr read_proxy_result_;
   bool nested_if_else_;
 };
 

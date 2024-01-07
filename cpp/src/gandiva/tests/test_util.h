@@ -124,5 +124,6 @@ std::shared_ptr<Configuration> TestConfigWithContextFunction(
 
 std::string GetTestFunctionLLVMIRPath();
 NativeFunction GetTestExternalFunction();
+std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values);
 
 }  // namespace gandiva
