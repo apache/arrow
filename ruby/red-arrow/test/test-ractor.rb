@@ -15,27 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Helper
-  module Omittable
-    def require_ruby(major, minor, micro=0)
-      return if (RUBY_VERSION <=> "#{major}.#{minor}.#{micro}") >= 0
-      omit("Require Ruby #{major}.#{minor}.#{micro} or later: #{RUBY_VERSION}")
-    end
+class RactorTest < Test::Unit::TestCase
+  include Helper::Omittable
 
-    def require_gi_bindings(major, minor, micro)
-      return if GLib.check_binding_version?(major, minor, micro)
-      message =
-        "Require gobject-introspection #{major}.#{minor}.#{micro} or later: " +
-        GLib::BINDING_VERSION.join(".")
-      omit(message)
+  ractor
+  test("ChunkedArray") do
+    require_ruby(3, 1, 0)
+    array = Arrow::Array.new([1, 2, 3])
+    chunked_array = Arrow::ChunkedArray.new([array])
+    Ractor.make_shareable(chunked_array)
+    ractor = Ractor.new do
+      recived_chunked_array = Ractor.receive
+      recived_chunked_array.chunks
     end
-
-    def require_gi(major, minor, micro)
-      return if GObjectIntrospection::Version.or_later?(major, minor, micro)
-      message =
-        "Require GObject Introspection #{major}.#{minor}.#{micro} or later: " +
-        GObjectIntrospection::Version::STRING
-      omit(message)
-    end
+    ractor.send(chunked_array)
+    assert_equal([array], ractor.take)
   end
 end
