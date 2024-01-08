@@ -561,7 +561,8 @@ def test_slice_compatibility():
 
 
 def test_binary_slice_compatibility():
-    arr = pa.array([b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"])
+    data = [b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"]
+    arr = pa.array(data)
     for start, stop, step in itertools.product(range(-6, 6),
                                                range(-6, 6),
                                                range(-3, 4)):
@@ -574,6 +575,16 @@ def test_binary_slice_compatibility():
         assert expected.equals(result)
         # Positional options
         assert pc.binary_slice(arr, start, stop, step) == result
+        # Fixed size binary input / output
+        for item in data:
+            print(item)
+            print(start, stop, step)
+            fsb_scalar = pa.scalar(item, type=pa.binary(len(item)))
+            expected = item[start:stop:step]
+            print(expected)
+            actual = pc.binary_slice(fsb_scalar, start, stop, step)
+            assert actual.type == pa.binary(len(expected))
+            assert actual.as_py() == expected
 
 
 def test_split_pattern():

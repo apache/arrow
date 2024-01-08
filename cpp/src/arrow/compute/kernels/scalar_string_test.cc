@@ -814,6 +814,32 @@ TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegPos) {
              R"(["fdb", "zbo"])", &options_step_neg);
 }
 
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceConsistentyWithVarLenBinary) {
+  std::string source_str = "abcdef";
+  for (size_t str_len = 0; str_len < source_str.size(); ++str_len) {
+    auto input_str = source_str.substr(0, str_len);
+    auto fixed_input =
+        ArrayFromJSON(fixed_size_binary(str_len), R"([")" + input_str + R"("])");
+    auto varlen_input = ArrayFromJSON(binary(), R"([")" + input_str + R"("])");
+    for (auto start = -6; start <= 6; ++start) {
+      for (auto stop = -6; stop <= 6; ++stop) {
+        for (auto step = -3; step <= 4; ++step) {
+          if (step == 0) {
+            continue;
+          }
+          SliceOptions options{start, stop, step};
+          auto expected =
+              CallFunction("binary_slice", {varlen_input}, &options).ValueOrDie();
+          auto actual =
+              CallFunction("binary_slice", {fixed_input}, &options).ValueOrDie();
+          actual = Cast(actual, binary()).ValueOrDie();
+          AssertDatumsEqual(expected, actual);
+        }
+      }
+    }
+  }
+}
+
 TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);
