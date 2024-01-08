@@ -156,6 +156,7 @@ using internal::ToURLEncodedAwsString;
 
 static const char kSep = '/';
 constexpr char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+constexpr char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -366,9 +367,15 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
   } else {
     options.ConfigureDefaultCredentials();
   }
-  auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
-  if (endpoint_env.ok()) {
-    options.endpoint_override = *endpoint_env;
+  // Prefer AWS service-specific endpoint url
+  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
+  if (s3_endpoint_env.ok()) {
+    options.endpoint_override = *s3_endpoint_env;
+  } else {
+    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
+    if (endpoint_env.ok()) {
+      options.endpoint_override = *endpoint_env;
+    }
   }
 
   bool region_set = false;
