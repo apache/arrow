@@ -95,14 +95,18 @@ def setup_jpype():
 class _CDataBase:
 
     def __init__(self, debug, args):
-        import jpype
         self.debug = debug
         self.args = args
         self.ffi = cdata.ffi()
-        setup_jpype()
-        # JPype pointers to java.io, org.apache.arrow...
-        self.java_io = jpype.JPackage("java").io
-        self.java_arrow = jpype.JPackage("org").apache.arrow
+        try:
+            import jpype
+        except ImportError:
+            log("jpype is not installed. Skipping setup.")
+        else:
+            setup_jpype()
+            # JPype pointers to java.io, org.apache.arrow...
+            self.java_io = jpype.JPackage("java").io
+            self.java_arrow = jpype.JPackage("org").apache.arrow
         self.java_allocator = self._make_java_allocator()
 
     def _pointer_to_int(self, c_ptr):
