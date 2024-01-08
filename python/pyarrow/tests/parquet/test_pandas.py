@@ -504,9 +504,11 @@ def test_categories_with_string_pyarrow_dtype(tempdir):
     df2 = df2.astype("category")
 
     # categories should be converted to pa.Array
-    assert pa.array(df1["x"]) == pa.array(df2["x"])
+    assert pa.array(df1["x"]) == pa.array(df2["x"],
+                                          type=pa.dictionary(pa.int8(),
+                                                             pa.large_string()))
     assert pa.array(df1["x"].cat.categories.values) == pa.array(
-        df2["x"].cat.categories.values)
+        df2["x"].cat.categories.values, type=pa.large_string())
 
     path = str(tempdir / 'cat.parquet')
     pq.write_table(pa.table(df1), path)
