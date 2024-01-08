@@ -92,7 +92,7 @@ def setup_jpype():
                    *_JAVA_OPTS)
 
 
-functools.lru_cache
+@functools.lru_cache
 def _enable_c_data_tests():
     try:
         import jpype
