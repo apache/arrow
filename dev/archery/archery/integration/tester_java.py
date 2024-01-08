@@ -105,7 +105,7 @@ def setup_jpype():
 @functools.lru_cache
 def _enable_c_data_tests():
     try:
-        import jpype
+        import jpype      # noqa: F401  # ignore unused
     except ImportError as error:
         log(f"Skipping C data tests, jpype is not available: {error}")
         return False
