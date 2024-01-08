@@ -157,7 +157,7 @@ public class TestPerf {
                 aSum += a.get(i);
               }
             }
-            r.bytes += rows * 32;
+            r.bytes += rows * 32L;
             r.rows += rows;
             r.aSum = aSum;
             r.batches++;
@@ -173,7 +173,7 @@ public class TestPerf {
 
   }
 
-  private final class Result {
+  private static final class Result {
     private long rows;
     private long aSum;
     private long bytes;

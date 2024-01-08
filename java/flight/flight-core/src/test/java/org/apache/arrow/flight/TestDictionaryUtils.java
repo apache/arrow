@@ -17,9 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.TreeSet;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -35,6 +32,10 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Test cases for {@link DictionaryUtils}.
@@ -54,7 +55,7 @@ public class TestDictionaryUtils {
     Schema newSchema = DictionaryUtils.generateSchema(schema, null, new TreeSet<>());
 
     // assert that no new schema is created.
-    assertTrue(schema == newSchema);
+    assertSame(schema, newSchema);
   }
 
   @Test
@@ -78,7 +79,7 @@ public class TestDictionaryUtils {
       Schema newSchema = DictionaryUtils.generateSchema(schema, dictProvider, dictionaryUsed);
 
       // assert that a new schema is created.
-      assertTrue(schema != newSchema);
+      assertNotEquals(schema, newSchema);
 
       // assert the column is converted as expected
       ArrowType newColType = newSchema.getFields().get(0).getType();

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
@@ -28,7 +29,6 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -114,11 +114,11 @@ public class TestBasicOperation {
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
     final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
-            .setAppMetadata("foo".getBytes()).build();
+            .setAppMetadata("foo".getBytes(UTF_8)).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
         Collections.singletonList(
                 FlightEndpoint.builder(new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))
-                        .setAppMetadata("bar".getBytes()).build()
+                        .setAppMetadata("bar".getBytes(UTF_8)).build()
         ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(
@@ -150,7 +150,7 @@ public class TestBasicOperation {
 
   @Test
   public void roundTripDescriptor() throws Exception {
-    final FlightDescriptor cmd = FlightDescriptor.command("test command".getBytes(StandardCharsets.UTF_8));
+    final FlightDescriptor cmd = FlightDescriptor.command("test command".getBytes(UTF_8));
     Assertions.assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
     final FlightDescriptor path = FlightDescriptor.path("foo", "bar", "test.arrow");
     Assertions.assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
@@ -160,7 +160,7 @@ public class TestBasicOperation {
   public void getDescriptors() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(Criteria.ALL)) {
+      for (FlightInfo unused : c.listFlights(Criteria.ALL)) {
         count += 1;
       }
       Assertions.assertEquals(1, count);
@@ -171,7 +171,8 @@ public class TestBasicOperation {
   public void getDescriptorsWithCriteria() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+      for (FlightInfo unused : c.listFlights(new Criteria(new byte[]{1}))) {
+
         count += 1;
       }
       Assertions.assertEquals(0, count);
@@ -460,7 +461,7 @@ public class TestBasicOperation {
    * An example FlightProducer for test purposes.
    */
   public static class Producer implements FlightProducer, AutoCloseable {
-    static final byte[] TICKET_LARGE_BATCH = "large-batch".getBytes(StandardCharsets.UTF_8);
+    static final byte[] TICKET_LARGE_BATCH = "large-batch".getBytes(UTF_8);
 
     private final BufferAllocator allocator;
 

@@ -105,7 +105,7 @@ public class TestTls {
     });
   }
 
-  void test(Consumer<Builder> testFn) {
+  void test(Consumer<FlightClient.Builder> testFn) {
     final FlightTestUtil.CertKeyPair certKey = FlightTestUtil.exampleTlsCerts().get(0);
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
