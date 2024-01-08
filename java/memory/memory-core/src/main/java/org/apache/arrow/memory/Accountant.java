@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import org.apache.arrow.memory.util.CheckerFrameworkUtil;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -75,7 +74,9 @@ class Accountant implements AutoCloseable {
     this.allocationLimit.set(maxAllocation);
 
     if (reservation != 0) {
-      CheckerFrameworkUtil.assertMethod(parent != null);
+      if (parent == null) {
+        throw new IllegalArgumentException(String.valueOf("Accountant(parent) must not be null"));
+      }
       // we will allocate a reservation from our parent.
       final AllocationOutcome outcome = parent.allocateBytes(reservation);
       if (!outcome.isOk()) {

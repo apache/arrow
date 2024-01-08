@@ -17,7 +17,6 @@
 
 package org.apache.arrow.memory;
 
-import org.apache.arrow.memory.util.CheckerFrameworkUtil;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -138,7 +137,9 @@ public abstract class AllocationManager {
     Preconditions.checkState(map.containsKey(allocator),
             "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
-    CheckerFrameworkUtil.assertMethod(oldLedger != null);
+    if (oldLedger == null) {
+      throw new IllegalArgumentException(String.valueOf("BufferLedger(oldLedger) must not be null"));
+    }
     BufferAllocator oldAllocator = oldLedger.getAllocator();
     if (oldAllocator instanceof BaseAllocator) {
       // needed for debug only: tell the allocator that AllocationManager is removing a
