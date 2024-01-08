@@ -80,7 +80,7 @@
     </dependencies>
 
     <properties>
-        <project.build.outputTimestamp>1970-01-01T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jmh.version>1.37</jmh.version>
         <javac.target>1.8</javac.target>

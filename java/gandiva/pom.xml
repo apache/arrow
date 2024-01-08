@@ -23,7 +23,7 @@
     <name>Arrow Gandiva</name>
     <description>Java wrappers around the native Gandiva SQL expression compiler.</description>
     <properties>
-        <project.build.outputTimestamp>1970-01-01T00:00:00Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <protobuf.version>3.25.1</protobuf.version>
