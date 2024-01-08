@@ -466,6 +466,10 @@ func (enc *deltaBitPackEncoder) FlushValues() (Buffer, error) {
 
 // EstimatedDataEncodedSize returns the current amount of data actually flushed out and written
 func (enc *deltaBitPackEncoder) EstimatedDataEncodedSize() int64 {
+	if enc.bitWriter == nil {
+		return 0
+	}
+
 	return int64(enc.bitWriter.Written())
 }
 

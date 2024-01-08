@@ -1983,3 +1983,40 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 
 	require.Zero(t, mem.CurrentAlloc())
 }
+
+func TestEmptyListDeltaBinaryPacked(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "ts", Type: arrow.ListOf(arrow.PrimitiveTypes.Uint64),
+			Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})}}, nil)
+	builder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer builder.Release()
+
+	listBuilder := builder.Field(0).(*array.ListBuilder)
+	listBuilder.Append(true)
+	arrowRec := builder.NewRecord()
+	defer arrowRec.Release()
+
+	var buf bytes.Buffer
+	wr, err := pqarrow.NewFileWriter(schema, &buf,
+		parquet.NewWriterProperties(
+			parquet.WithDictionaryFor("ts.list.element", false),
+			parquet.WithEncodingFor("ts.list.element", parquet.Encodings.DeltaBinaryPacked)),
+		pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	require.NoError(t, wr.WriteBuffered(arrowRec))
+	require.NoError(t, wr.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	reader, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+	require.NoError(t, err)
+	defer rdr.Close()
+
+	tbl, err := reader.ReadTable(context.Background())
+	require.NoError(t, err)
+	defer tbl.Release()
+
+	assert.True(t, schema.Equal(tbl.Schema()))
+	assert.EqualValues(t, 1, tbl.NumRows())
+}
