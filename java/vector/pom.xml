@@ -21,7 +21,7 @@
   <description>An off-heap reference implementation for Arrow columnar data format.</description>
 
   <properties>
-    <project.build.outputTimestamp>1970-01-01T00:00:00Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
   </properties>
 
   <dependencies>
