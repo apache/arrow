@@ -1503,6 +1503,7 @@ struct ISOCalendar {
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), IsoCalendarType(), &array_builder));
     StructBuilder* struct_builder = checked_cast<StructBuilder*>(array_builder.get());
+    RETURN_NOT_OK(struct_builder->Reserve(in.length));
 
     std::vector<BuilderType*> field_builders;
     field_builders.reserve(3);

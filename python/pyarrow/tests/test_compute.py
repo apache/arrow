@@ -2223,8 +2223,19 @@ def _check_datetime_components(timestamps, timezone=None):
         first_week_is_fully_in_year=False)
     assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
+
+def _test_iso_calendar_regression(timezone=None):
     # Test for iso_calendar regression
     # https://github.com/apache/arrow/issues/38655
+
+    from pyarrow.vendored.version import Version
+
+    iso_calendar_fields = [
+        pa.field('iso_year', pa.int64()),
+        pa.field('iso_week', pa.int64()),
+        pa.field('iso_day_of_week', pa.int64())
+    ]
+
     ts = (pd.date_range("2019-01-01", periods=33, freq="21D")
             .tz_localize("UTC")
             .tz_convert(timezone).to_series())
@@ -2269,6 +2280,7 @@ def test_extract_datetime_components():
 
     # Test timezone naive timestamp array
     _check_datetime_components(timestamps)
+    _test_iso_calendar_regression()
 
     # Test timezone aware timestamp array
     if sys.platform == "win32" and not util.windows_has_tzdata():
@@ -2276,6 +2288,7 @@ def test_extract_datetime_components():
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
+            _test_iso_calendar_regression(timezone)
 
 
 @pytest.mark.pandas
