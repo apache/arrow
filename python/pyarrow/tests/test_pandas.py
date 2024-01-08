@@ -255,18 +255,18 @@ class TestConvertMetadata:
         tm.assert_frame_equal(restored, df)
 
     def test_rangeindex_doesnt_warn(self):
-        if Version("2.2.0") <= Version(pd.__version__):
-            # make_block deprecation in pandas, still under discussion
-            # https://github.com/pandas-dev/pandas/pull/56422
-            # https://github.com/pandas-dev/pandas/issues/40226
-            pytest.skip("make_block deprecated in pandas 2.2.0")
-
         # ARROW-5606: pandas 0.25 deprecated private _start/stop/step
         # attributes -> can be removed if support < pd 0.25 is dropped
         df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
@@ -311,18 +311,18 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_doesnt_warn(self):
-        if Version("2.2.0") <= Version(pd.__version__):
-            # make_block deprecation in pandas, still under discussion
-            # https://github.com/pandas-dev/pandas/pull/56422
-            # https://github.com/pandas-dev/pandas/issues/40226
-            pytest.skip("make_block deprecated in pandas 2.2.0")
-
         # ARROW-3953: pandas 0.24 rename of MultiIndex labels to codes
         columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
