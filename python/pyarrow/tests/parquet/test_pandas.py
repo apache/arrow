@@ -406,7 +406,7 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 def test_backwards_compatible_column_metadata_handling(datadir):
     if Version("2.2.0") <= Version(pd.__version__):
         # TODO: regression in pandas
-        # add a link to the issue
+        # https://github.com/pandas-dev/pandas/issues/56775
         pytest.skip("Regression in pandas 2.2.0")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
