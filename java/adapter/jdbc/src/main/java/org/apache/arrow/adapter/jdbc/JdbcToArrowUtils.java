@@ -45,6 +45,7 @@ import org.apache.arrow.adapter.jdbc.consumer.BinaryConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DateConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.Decimal256Consumer;
 import org.apache.arrow.adapter.jdbc.consumer.DecimalConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
@@ -64,6 +65,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -170,7 +172,11 @@ public class JdbcToArrowUtils {
       case Types.DECIMAL:
         int precision = fieldInfo.getPrecision();
         int scale = fieldInfo.getScale();
-        return new ArrowType.Decimal(precision, scale, 128);
+        if (precision > 38) {
+          return new ArrowType.Decimal(precision, scale, 256);
+        } else {
+          return new ArrowType.Decimal(precision, scale, 128);
+        }
       case Types.REAL:
       case Types.FLOAT:
         return new ArrowType.FloatingPoint(SINGLE);
@@ -465,7 +471,12 @@ public class JdbcToArrowUtils {
         }
       case Decimal:
         final RoundingMode bigDecimalRoundingMode = config.getBigDecimalRoundingMode();
-        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
+        if (((ArrowType.Decimal) arrowType).getBitWidth() == 256) {
+          return Decimal256Consumer.createConsumer((Decimal256Vector) vector, columnIndex, nullable,
+                  bigDecimalRoundingMode);
+        } else {
+          return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
+        }
       case FloatingPoint:
         switch (((ArrowType.FloatingPoint) arrowType).getPrecision()) {
           case SINGLE:
