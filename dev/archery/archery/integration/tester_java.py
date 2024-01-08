@@ -84,10 +84,10 @@ def setup_jpype():
     # XXX Didn't manage to tone down the logging level here (DEBUG -> INFO)
     java_opts = _JAVA_OPTS[:]
     proc = subprocess.run(
-            ['java', '--add-opens'],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True)
+        ['java', '--add-opens'],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True)
     if 'Unrecognized option: --add-opens' not in proc.stderr:
         # Java 9+
         java_opts.append(
