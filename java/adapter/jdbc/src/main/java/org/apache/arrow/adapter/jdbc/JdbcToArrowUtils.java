@@ -58,6 +58,7 @@ import org.apache.arrow.adapter.jdbc.consumer.TimestampConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimestampTZConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TinyIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
@@ -386,6 +387,7 @@ public class JdbcToArrowUtils {
    * @param root   Arrow {@link VectorSchemaRoot} object to populate
    * @param config The configuration to use when reading the data.
    * @throws SQLException on error
+   * @throws JdbcConsumerException on error from VectorConsumer
    */
   public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, JdbcToArrowConfig config)
       throws SQLException, IOException {
