@@ -1004,6 +1004,10 @@ func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
 	}
 }
 
+func (b *dictionaryBuilder) DictionarySize() int {
+	return b.memoTable.Size()
+}
+
 type NullDictionaryBuilder struct {
 	dictionaryBuilder
 }

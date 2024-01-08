@@ -92,6 +92,9 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderBasic() {
 	p.EqualValues(4, bldr.Len())
 	p.EqualValues(1, bldr.NullN())
 
+	dictionarySizeFn := builder.MethodByName("DictionarySize")
+	p.EqualValues(2, dictionarySizeFn.Call([]reflect.Value{})[0].Int())
+
 	arr := bldr.NewArray().(*array.Dictionary)
 	defer arr.Release()
 
