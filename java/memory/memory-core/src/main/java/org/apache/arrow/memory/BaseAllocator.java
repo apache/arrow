@@ -1008,7 +1008,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         final ArrowBuf arrowBuf = BaseAllocator.this.bufferWithoutReservation(nBytes, null);
 
         listener.onAllocation(nBytes);
-        if (DEBUG && historicalLog != null) {
+        if (historicalLog != null) {
           historicalLog.recordEvent("allocate() => %s", String.format("ArrowBuf[%d]", arrowBuf
               .getId()));
         }
@@ -1031,7 +1031,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
       releaseBytes(nBytes);
 
-      if (DEBUG && historicalLog != null) {
+      if (historicalLog != null) {
         historicalLog.recordEvent("releaseReservation(%d)", nBytes);
       }
     }
