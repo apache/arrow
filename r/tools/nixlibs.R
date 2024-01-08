@@ -629,10 +629,18 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
     cleanup(cmake_dir)
+    # the bin dir is slightly different on macos
+    if (on_macos) {
+      bin_dir <- "CMake.app/Contents/bin"
+    } else {
+      bin_dir <- "bin"
+    }
     cmake <- paste0(
       cmake_dir,
       "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
-      "/bin/cmake"
+      "/",
+      bin_dir,
+      "/cmake"
     )
   } else {
     # Show which one we found

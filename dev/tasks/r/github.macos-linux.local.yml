@@ -44,6 +44,8 @@ jobs:
           # disable sccache on macos as it timesout for unknown reasons
           # see GH-33721
           # brew install sccache
+          # remove cmake so that we can test our cmake downloading abilities
+          brew uninstall cmake
       - name: Configure dependencies (linux)
         if: contains(matrix.os, 'ubuntu')
         run: |
@@ -71,6 +73,7 @@ jobs:
           FORCE_BUNDLED_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
+          LIBARROW_BINARY: false
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           sccache --start-server || echo 'sccache not found'
