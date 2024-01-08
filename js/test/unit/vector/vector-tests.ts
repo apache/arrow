@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, util, Vector, vectorFromArray
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, LargeUtf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -180,6 +180,28 @@ describe(`Utf8Vector`, () => {
 
     test(`has utf8 type`, () => {
         expect(vector.type).toBeInstanceOf(Utf8);
+    });
+
+    test(`is not memoized`, () => {
+        expect(vector.isMemoized).toBe(false);
+        const memoizedVector = vector.memoize();
+        expect(memoizedVector.isMemoized).toBe(true);
+        const unMemoizedVector = vector.unmemoize();
+        expect(unMemoizedVector.isMemoized).toBe(false);
+    });
+
+    basicVectorTests(vector, values, ['abc', '123']);
+    describe(`sliced`, () => {
+        basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
+    });
+});
+
+describe(`LargeUtf8Vector`, () => {
+    const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'];
+    const vector = vectorFromArray(values, new LargeUtf8);
+
+    test(`has largeUtf8 type`, () => {
+        expect(vector.type).toBeInstanceOf(LargeUtf8);
     });
 
     test(`is not memoized`, () => {

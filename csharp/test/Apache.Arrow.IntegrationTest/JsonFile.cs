@@ -15,15 +15,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.IntegrationTest
@@ -31,8 +33,10 @@ namespace Apache.Arrow.IntegrationTest
     public class JsonFile
     {
         public JsonSchema Schema { get; set; }
+
+        public List<JsonDictionary> Dictionaries { get; set; }
+
         public List<JsonRecordBatch> Batches { get; set; }
-        //public List<DictionaryBatch> Dictionaries {get;set;}
 
         public static async ValueTask<JsonFile> ParseAsync(FileInfo fileInfo)
         {
@@ -46,6 +50,33 @@ namespace Apache.Arrow.IntegrationTest
             using var fileStream = fileInfo.OpenRead();
             var options = GetJsonOptions();
             return JsonSerializer.Deserialize<JsonFile>(fileStream, options);
+        }
+
+        public Schema GetSchemaAndDictionaries(out Func<DictionaryType, IArrowArray> dictionaries)
+        {
+            Schema schema = Schema.ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes);
+
+            Func<DictionaryType, IArrowArray> lookup = null;
+            lookup = type => Dictionaries.Single(d => d.Id == dictionaryIndexes[type]).Data.ToArrow(type.ValueType, lookup);
+            dictionaries = lookup;
+
+            return schema;
+        }
+
+        /// <summary>
+        /// Return both the schema and a specific batch number.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow(int batchNumber, out RecordBatch batch)
+        {
+            Schema schema = Schema.ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes);
+
+            Func<DictionaryType, IArrowArray> lookup = null;
+            lookup = type => Dictionaries.Single(d => d.Id == dictionaryIndexes[type]).Data.ToArrow(type.ValueType, lookup);
+
+            batch = Batches[batchNumber].ToArrow(schema, lookup);
+
+            return schema;
         }
 
         private static JsonSerializerOptions GetJsonOptions()
@@ -67,22 +98,39 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON schema as a Schema instance.
         /// </summary>
-        public Schema ToArrow()
+        public Schema ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes)
         {
-            return CreateSchema(this);
+            dictionaryIndexes = new Dictionary<DictionaryType, int>();
+            return CreateSchema(this, dictionaryIndexes);
         }
 
-        private static Schema CreateSchema(JsonSchema jsonSchema)
+        /// <summary>
+        /// Decode this JSON schema as a Schema instance without computing dictionaries.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow()
+        {
+            Dictionary<DictionaryType, int> dictionaryIndexes = new Dictionary<DictionaryType, int>();
+            return CreateSchema(this, dictionaryIndexes);
+        }
+
+        private static Schema CreateSchema(JsonSchema jsonSchema, Dictionary<DictionaryType, int> dictionaryIndexes)
         {
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < jsonSchema.Fields.Count; i++)
             {
-                builder.Field(f => CreateField(f, jsonSchema.Fields[i]));
+                builder.Field(f => CreateField(f, jsonSchema.Fields[i], dictionaryIndexes));
             }
+
+            if (jsonSchema.Metadata != null)
+            {
+                builder.Metadata(jsonSchema.Metadata);
+            }
+
             return builder.Build();
         }
 
-        private static void CreateField(Field.Builder builder, JsonField jsonField)
+        private static void CreateField(Field.Builder builder, JsonField jsonField, Dictionary<DictionaryType, int> dictionaryIndexes)
         {
             Field[] children = null;
             if (jsonField.Children?.Count > 0)
@@ -91,13 +139,26 @@ namespace Apache.Arrow.IntegrationTest
                 for (int i = 0; i < jsonField.Children.Count; i++)
                 {
                     Field.Builder field = new Field.Builder();
-                    CreateField(field, jsonField.Children[i]);
+                    CreateField(field, jsonField.Children[i], dictionaryIndexes);
                     children[i] = field.Build();
                 }
             }
 
+            IArrowType type = ToArrowType(jsonField.Type, children);
+
+            if (jsonField.Dictionary != null)
+            {
+                DictionaryType dictType = new DictionaryType(
+                    ToArrowType(jsonField.Dictionary.IndexType, new Field[0]),
+                    type,
+                    jsonField.Dictionary.IsOrdered);
+
+                dictionaryIndexes[dictType] = jsonField.Dictionary.Id;
+                type = dictType;
+            }
+
             builder.Name(jsonField.Name)
-                .DataType(ToArrowType(jsonField.Type, children))
+                .DataType(type)
                 .Nullable(jsonField.Nullable);
 
             if (jsonField.Metadata != null)
@@ -115,13 +176,18 @@ namespace Apache.Arrow.IntegrationTest
                 "floatingpoint" => ToFloatingPointArrowType(type),
                 "decimal" => ToDecimalArrowType(type),
                 "binary" => BinaryType.Default,
+                "binaryview" => BinaryViewType.Default,
                 "utf8" => StringType.Default,
+                "utf8view" => StringViewType.Default,
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "duration" => ToDurationArrowType(type),
+                "interval" => ToIntervalArrowType(type),
+                "interval_mdn" => ToIntervalArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
+                "listview" => ToListViewArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
@@ -204,6 +270,17 @@ namespace Apache.Arrow.IntegrationTest
             };
         }
 
+        private static IArrowType ToIntervalArrowType(JsonArrowType type)
+        {
+            return type.Unit switch
+            {
+                "YEAR_MONTH" => IntervalType.YearMonth,
+                "DAY_TIME" => IntervalType.DayTime,
+                "MONTH_DAY_NANO" => IntervalType.MonthDayNanosecond,
+                _ => throw new NotSupportedException($"Interval type not supported: {type.Unit}")
+            };
+        }
+
         private static IArrowType ToTimestampArrowType(JsonArrowType type)
         {
             return type.Unit switch
@@ -219,6 +296,11 @@ namespace Apache.Arrow.IntegrationTest
         private static IArrowType ToListArrowType(JsonArrowType type, Field[] children)
         {
             return new ListType(children[0]);
+        }
+
+        private static IArrowType ToListViewArrowType(JsonArrowType type, Field[] children)
+        {
+            return new ListViewType(children[0]);
         }
 
         private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
@@ -300,8 +382,16 @@ namespace Apache.Arrow.IntegrationTest
     public class JsonDictionaryIndex
     {
         public int Id { get; set; }
-        public JsonArrowType Type { get; set; }
+        public JsonArrowType IndexType { get; set; }
         public bool IsOrdered { get; set; }
+    }
+
+    public class JsonDictionary
+    {
+        public int Id { get; set; }
+
+        [JsonPropertyName("data")]
+        public JsonRecordBatch Data { get; set; }
     }
 
     public class JsonMetadata : List<KeyValuePair<string, string>>
@@ -316,12 +406,19 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON record batch as a RecordBatch instance.
         /// </summary>
-        public RecordBatch ToArrow(Schema schema)
+        public RecordBatch ToArrow(Schema schema, Func<DictionaryType, IArrowArray> dictionaries)
         {
-            return CreateRecordBatch(schema, this);
+            return CreateRecordBatch(schema, dictionaries, this);
         }
 
-        private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
+        public IArrowArray ToArrow(IArrowType arrowType, Func<DictionaryType, IArrowArray> dictionaries)
+        {
+            ArrayCreator creator = new ArrayCreator(this.Columns[0], dictionaries);
+            arrowType.Accept(creator);
+            return creator.Array;
+        }
+
+        private RecordBatch CreateRecordBatch(Schema schema, Func<DictionaryType, IArrowArray> dictionaries, JsonRecordBatch jsonRecordBatch)
         {
             if (schema.FieldsList.Count != jsonRecordBatch.Columns.Count)
             {
@@ -333,7 +430,7 @@ namespace Apache.Arrow.IntegrationTest
             {
                 JsonFieldData data = jsonRecordBatch.Columns[i];
                 Field field = schema.FieldsList[i];
-                ArrayCreator creator = new ArrayCreator(data);
+                ArrayCreator creator = new ArrayCreator(data, dictionaries);
                 field.DataType.Accept(creator);
                 arrays.Add(creator.Array);
             }
@@ -360,23 +457,31 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<DurationType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<MapType>,
+            IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; set; }
             public IArrowArray Array { get; private set; }
 
-            public ArrayCreator(JsonFieldData jsonFieldData)
+            private readonly Func<DictionaryType, IArrowArray> dictionaries;
+
+            public ArrayCreator(JsonFieldData jsonFieldData, Func<DictionaryType, IArrowArray> dictionaries)
             {
                 JsonFieldData = jsonFieldData;
+                this.dictionaries = dictionaries;
             }
 
             public void Visit(BooleanType type)
@@ -411,6 +516,31 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Time32Type type) => GenerateArray<int, Time32Array>((v, n, c, nc, o) => new Time32Array(type, v, n, c, nc, o));
             public void Visit(Time64Type type) => GenerateLongArray<long, Time64Array>((v, n, c, nc, o) => new Time64Array(type, v, n, c, nc, o), s => long.Parse(s));
             public void Visit(DurationType type) => GenerateLongArray<long, DurationArray>((v, n, c, nc, o) => new DurationArray(type, v, n, c, nc, o), s => long.Parse(s));
+
+            public void Visit(IntervalType type)
+            {
+                switch (type.Unit)
+                {
+                    case IntervalUnit.YearMonth:
+                        GenerateArray((v, n, c, nc, o) => new YearMonthIntervalArray(v, n, c, nc, o), e => new YearMonthInterval(e.GetInt32()));
+                        break;
+                    case IntervalUnit.DayTime:
+                        GenerateArray(
+                            (v, n, c, nc, o) => new DayTimeIntervalArray(v, n, c, nc, o),
+                            e => new DayTimeInterval(e.GetProperty("days").GetInt32(), e.GetProperty("milliseconds").GetInt32()));
+                        break;
+                    case IntervalUnit.MonthDayNanosecond:
+                        GenerateArray(
+                            (v, n, c, nc, o) => new MonthDayNanosecondIntervalArray(v, n, c, nc, o),
+                            e => new MonthDayNanosecondInterval(
+                                e.GetProperty("months").GetInt32(),
+                                e.GetProperty("days").GetInt32(),
+                                e.GetProperty("nanoseconds").GetInt64()));
+                        break;
+                    default:
+                        throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
+                }
+            }
 
             public void Visit(Decimal128Type type)
             {
@@ -534,6 +664,38 @@ namespace Apache.Arrow.IntegrationTest
                 Array = new StringArray(JsonFieldData.Count, offsetBuffer, valueBuffer, validityBuffer, nullCount);
             }
 
+            public void Visit(StringViewType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                // ArrowBuffer viewsBuffer = GetViewsBuffer();
+                ArrowBuffer viewsBuffer = ArrowBuffer.Empty;
+                if (JsonFieldData.Views != null)
+                {
+                    ArrowBuffer.Builder<BinaryView> viewBuilder = new ArrowBuffer.Builder<BinaryView>(JsonFieldData.Views.Count);
+                    foreach (JsonView jsonView in JsonFieldData.Views)
+                    {
+                        BinaryView view = (jsonView.BufferIndex == null) ?
+                            new BinaryView(Encoding.UTF8.GetBytes(jsonView.Inlined)) :
+                            new BinaryView(jsonView.Size, Convert.FromHexString(jsonView.PrefixHex), jsonView.BufferIndex.Value, jsonView.Offset.Value);
+                        viewBuilder.Append(view);
+                    }
+                    viewsBuffer = viewBuilder.Build();
+                }
+
+                int bufferCount = JsonFieldData.VariadicDataBuffers?.Count ?? 0;
+                ArrowBuffer[] buffers = new ArrowBuffer[2 + bufferCount];
+                buffers[0] = validityBuffer;
+                buffers[1] = viewsBuffer;
+                for (int i = 0; i < bufferCount; i++)
+                {
+                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i])).Clone();
+                }
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers);
+                Array = new StringViewArray(arrayData);
+            }
+
             public void Visit(BinaryType type)
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
@@ -551,6 +713,38 @@ namespace Apache.Arrow.IntegrationTest
 
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, new[] { validityBuffer, offsetBuffer, valueBuffer });
                 Array = new BinaryArray(arrayData);
+            }
+
+            public void Visit(BinaryViewType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                // ArrowBuffer viewsBuffer = GetViewsBuffer();
+                ArrowBuffer viewsBuffer = ArrowBuffer.Empty;
+                if (JsonFieldData.Views != null)
+                {
+                    ArrowBuffer.Builder<BinaryView> viewBuilder = new ArrowBuffer.Builder<BinaryView>(JsonFieldData.Views.Count);
+                    foreach (JsonView jsonView in JsonFieldData.Views)
+                    {
+                        BinaryView view = (jsonView.BufferIndex == null) ?
+                            new BinaryView(Convert.FromHexString(jsonView.Inlined)) :
+                            new BinaryView(jsonView.Size, Convert.FromHexString(jsonView.PrefixHex), jsonView.BufferIndex.Value, jsonView.Offset.Value);
+                        viewBuilder.Append(view);
+                    }
+                    viewsBuffer = viewBuilder.Build();
+                }
+
+                int bufferCount = JsonFieldData.VariadicDataBuffers?.Count ?? 0;
+                ArrowBuffer[] buffers = new ArrowBuffer[2 + bufferCount];
+                buffers[0] = validityBuffer;
+                buffers[1] = viewsBuffer;
+                for (int i = 0; i < bufferCount; i++)
+                {
+                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i])).Clone();
+                }
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers);
+                Array = new BinaryViewArray(arrayData);
             }
 
             public void Visit(FixedSizeBinaryType type)
@@ -584,6 +778,22 @@ namespace Apache.Arrow.IntegrationTest
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
                     new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
                 Array = new ListArray(arrayData);
+            }
+
+            public void Visit(ListViewType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+                ArrowBuffer sizeBuffer = GetSizeBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer, sizeBuffer }, new[] { Array.Data });
+                Array = new ListViewArray(arrayData);
             }
 
             public void Visit(FixedSizeListType type)
@@ -654,6 +864,12 @@ namespace Apache.Arrow.IntegrationTest
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
                     new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
                 Array = new MapArray(arrayData);
+            }
+
+            public void Visit(DictionaryType type)
+            {
+                type.IndexType.Accept(this);
+                Array = new DictionaryArray(type, Array, this.dictionaries(type));
             }
 
             private ArrayData[] GetChildren(NestedType type)
@@ -733,11 +949,37 @@ namespace Apache.Arrow.IntegrationTest
                     JsonFieldData.Count, nullCount, 0);
             }
 
+            private void GenerateArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray, Func<JsonElement, T> construct)
+                where TArray : PrimitiveArray<T>
+                where T : struct
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<T> valueBuilder = new ArrowBuffer.Builder<T>(JsonFieldData.Count);
+
+                foreach (JsonElement element in JsonFieldData.Data.EnumerateArray())
+                {
+                    valueBuilder.Append(construct(element));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = createArray(
+                    valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
+            }
+
             private ArrowBuffer GetOffsetBuffer()
             {
-                ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Length);
-                valueOffsets.AppendRange(JsonFieldData.Offset);
+                ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Count);
+                valueOffsets.AppendRange(JsonFieldData.IntOffset);
                 return valueOffsets.Build(default);
+            }
+
+            private ArrowBuffer GetSizeBuffer()
+            {
+                ArrowBuffer.Builder<int> valueSizes = new ArrowBuffer.Builder<int>(JsonFieldData.Size.Count);
+                valueSizes.AppendRange(JsonFieldData.IntSize);
+                return valueSizes.Build(default);
             }
 
             private ArrowBuffer GetTypeIdBuffer()
@@ -777,10 +1019,61 @@ namespace Apache.Arrow.IntegrationTest
         public string Name { get; set; }
         public int Count { get; set; }
         public bool[] Validity { get; set; }
-        public int[] Offset { get; set; }
+        public JsonArray Offset { get; set; }
+
+        [JsonPropertyName("SIZE")]
+        public JsonArray Size { get; set; }
         public int[] TypeId { get; set; }
         public JsonElement Data { get; set; }
         public List<JsonFieldData> Children { get; set; }
+
+        [JsonPropertyName("VIEWS")]
+        public List<JsonView> Views { get; set; }
+
+        [JsonPropertyName("VARIADIC_DATA_BUFFERS")]
+        public List<string> VariadicDataBuffers { get; set; }
+
+        [JsonIgnore]
+        public IEnumerable<int> IntOffset
+        {
+            get { return Offset.Select(GetInt); }
+        }
+
+        [JsonIgnore]
+        public IEnumerable<int> IntSize
+        {
+            get { return Size.Select(GetInt); }
+        }
+
+        static int GetInt(JsonNode node)
+        {
+            try
+            {
+                return node.GetValue<int>();
+            }
+            catch
+            {
+                return int.Parse(node.GetValue<string>());
+            }
+        }
+    }
+
+    public class JsonView
+    {
+        [JsonPropertyName("SIZE")]
+        public int Size { get; set; }
+
+        [JsonPropertyName("INLINED")]
+        public string Inlined { get; set; }
+
+        [JsonPropertyName("PREFIX_HEX")]
+        public string PrefixHex { get; set; }
+
+        [JsonPropertyName("BUFFER_INDEX")]
+        public int? BufferIndex { get; set; }
+
+        [JsonPropertyName("OFFSET")]
+        public int? Offset { get; set; }
     }
 
     internal sealed class ValidityConverter : JsonConverter<bool>

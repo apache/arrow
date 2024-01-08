@@ -37,7 +37,7 @@ libraries in the Python ecosystem. See more about the
 standard in the
 `protocol documentation <https://data-apis.org/dataframe-protocol/latest/index.html>`_.
 
-From pyarrow to other libraries: ``__dataframe__()`` method
+From PyArrow to other libraries: ``__dataframe__()`` method
 -----------------------------------------------------------
 
 The ``__dataframe__()`` method creates a new exchange object that
@@ -54,7 +54,7 @@ This is meant to be used by the consumer library when calling
 the ``from_dataframe()`` function and is not meant to be used manually
 by the user.
 
-From other libraries to pyarrow: ``from_dataframe()``
+From other libraries to PyArrow: ``from_dataframe()``
 -----------------------------------------------------
 
 With the ``from_dataframe()`` function, we can construct a :class:`pyarrow.Table`
@@ -63,7 +63,7 @@ from any dataframe object that implements the
 protocol.
 
 We can for example take a pandas dataframe and construct a
-pyarrow table with the use of the interchange protocol:
+PyArrow table with the use of the interchange protocol:
 
 .. code-block::
 

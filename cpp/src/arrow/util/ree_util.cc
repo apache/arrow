@@ -69,7 +69,7 @@ int64_t FindPhysicalIndexImpl(PhysicalIndexFinder<RunEndCType>& self, int64_t i)
   DCHECK_LT(i, self.array_span.length);
   const int64_t run_ends_size = ree_util::RunEndsArray(self.array_span).length;
   DCHECK_LT(self.last_physical_index, run_ends_size);
-  // This access to self.run_ends[last_physical_index] is alwas safe because:
+  // This access to self.run_ends[last_physical_index] is always safe because:
   // 1. 0 <= i < array_span.length() implies there is at least one run and the initial
   //    value 0 will be safe to index with.
   // 2. last_physical_index > 0 is always the result of a valid call to

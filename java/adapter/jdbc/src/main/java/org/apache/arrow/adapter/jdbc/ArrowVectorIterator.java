@@ -53,7 +53,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final int targetBatchSize;
 
-  // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
+  // This is used to track whether the ResultSet has been fully read, and is needed specifically for cases where there
   // is a ResultSet having zero rows (empty):
   private boolean readComplete = false;
 

@@ -662,7 +662,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
       ReferenceManager refManager = slicedBuffer.getReferenceManager();
       to.typeBuffer = refManager.transferOwnership(slicedBuffer, to.allocator).getTransferredBuffer();
 
-      // transfer offset byffer
+      // transfer offset buffer
       while (to.offsetBuffer.capacity() < (long) length * OFFSET_WIDTH) {
         to.reallocOffsetBuffer();
       }

@@ -16,6 +16,7 @@
 # under the License.
 
 add_arrow_test(bridge_test PREFIX "arrow-c")
+add_arrow_test(dlpack_test)
 
 add_arrow_benchmark(bridge_benchmark)
 

@@ -14,10 +14,9 @@
 // limitations under the License.
 
 using System;
-#if !NETSTANDARD1_3
+using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Linq;
-#endif
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -25,7 +24,6 @@ namespace Apache.Arrow.Tests
 {
     public class Decimal128ArrayTests
     {
-#if !NETSTANDARD1_3
         static SqlDecimal? Convert(decimal? value)
         {
             return value == null ? null : new SqlDecimal(value.Value);
@@ -35,7 +33,6 @@ namespace Apache.Arrow.Tests
         {
             return value == null ? null : value.Value.Value;
         }
-#endif
 
         public class Builder
         {
@@ -61,11 +58,9 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(1));
                     Assert.Null(array.GetValue(2));
 
-#if !NETSTANDARD1_3
                     Assert.Null(array.GetSqlDecimal(0));
                     Assert.Null(array.GetSqlDecimal(1));
                     Assert.Null(array.GetSqlDecimal(2));
-#endif
                 }
             }
 
@@ -99,9 +94,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < count; i++)
                     {
                         Assert.Equal(testData[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(testData[i]), array.GetSqlDecimal(i));
-#endif
                     }
                 }
 
@@ -120,10 +113,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(large, array.GetValue(0));
                     Assert.Equal(-large, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(large), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(-large), array.GetSqlDecimal(1));
-#endif
                 }
 
                 [Fact]
@@ -145,12 +136,10 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(Decimal.MaxValue - 10, array.GetValue(2));
                     Assert.Equal(Decimal.MinValue + 10, array.GetValue(3));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(Decimal.MaxValue), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(Decimal.MinValue), array.GetSqlDecimal(1));
                     Assert.Equal(Convert(Decimal.MaxValue) - 10, array.GetSqlDecimal(2));
                     Assert.Equal(Convert(Decimal.MinValue) + 10, array.GetSqlDecimal(3));
-#endif
                 }
 
                 [Fact]
@@ -168,10 +157,8 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(fraction, array.GetValue(0));
                     Assert.Equal(-fraction, array.GetValue(1));
 
-#if !NETSTANDARD1_3
                     Assert.Equal(Convert(fraction), array.GetSqlDecimal(0));
                     Assert.Equal(Convert(-fraction), array.GetSqlDecimal(1));
-#endif
                 }
 
                 [Fact]
@@ -190,9 +177,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < range.Length; i++)
                     {
                         Assert.Equal(range[i], array.GetValue(i));
-#if !NETSTANDARD1_3
                         Assert.Equal(Convert(range[i]), array.GetSqlDecimal(i));
-#endif
                     }
 
                     Assert.Null(array.GetValue(range.Length));
@@ -301,7 +286,6 @@ namespace Apache.Arrow.Tests
                 }
             }
 
-#if !NETSTANDARD1_3
             public class SqlDecimals
             {
                 [Theory]
@@ -334,6 +318,12 @@ namespace Apache.Arrow.Tests
                     {
                         Assert.Equal(testData[i], array.GetSqlDecimal(i));
                         Assert.Equal(Convert(testData[i]), array.GetValue(i));
+                    }
+
+                    IReadOnlyList<SqlDecimal?> asList = array;
+                    for (int i = 0; i < asList.Count; i++)
+                    {
+                        Assert.Equal(testData[i], asList[i]);
                     }
                 }
 
@@ -467,7 +457,6 @@ namespace Apache.Arrow.Tests
                     Assert.Null(array.GetValue(range.Length));
                 }
             }
-#endif
         }
     }
 }

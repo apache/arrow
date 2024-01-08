@@ -276,7 +276,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
     if (!children.isEmpty()) {
-      throw new IllegalArgumentException("primitive type vector can not have children");
+      throw new IllegalArgumentException("primitive type vector cannot have children");
     }
   }
 

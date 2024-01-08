@@ -447,7 +447,7 @@ class GitHubAPI(object):
         response = requests.get(url, headers=self.headers)
         labels = response.json()
         for label in labels:
-            # All PR workflow state labes starts with "awaiting"
+            # All PR workflow state labels starts with "awaiting"
             if label['name'].startswith('awaiting'):
                 label_url = f"{url}/{label['name']}"
                 requests.delete(label_url, headers=self.headers)

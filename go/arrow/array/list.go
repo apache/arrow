@@ -19,7 +19,6 @@ package array
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"strings"
 	"sync/atomic"
 
@@ -1411,17 +1410,19 @@ func (b *baseListViewBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+// Find the minimum offset+size in a LIST_VIEW/LARGE_LIST_VIEW array.
+//
 // Pre-conditions:
 //
-//	input.DataType() is ListViewType
+//	input.DataType() is ListViewType if Offset=int32 or LargeListViewType if Offset=int64
 //	input.Len() > 0 && input.NullN() != input.Len()
-func minListViewOffset32(input arrow.ArrayData) int32 {
+func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
 	var bitmap []byte
 	if input.Buffers()[0] != nil {
 		bitmap = input.Buffers()[0].Bytes()
 	}
-	offsets := arrow.Int32Traits.CastFromBytes(input.Buffers()[1].Bytes())[input.Offset():]
-	sizes := arrow.Int32Traits.CastFromBytes(input.Buffers()[2].Bytes())[input.Offset():]
+	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[input.Offset():]
+	sizes := arrow.GetData[Offset](input.Buffers()[2].Bytes())[input.Offset():]
 
 	isNull := func(i int) bool {
 		return bitmap != nil && bitutil.BitIsNotSet(bitmap, input.Offset()+i)
@@ -1456,128 +1457,25 @@ func minListViewOffset32(input arrow.ArrayData) int32 {
 	return minOffset
 }
 
-// Find the maximum offset+size in a LIST_VIEW array.
+// Find the maximum offset+size in a LIST_VIEW/LARGE_LIST_VIEW array.
 //
 // Pre-conditions:
 //
-//	input.DataType() is ListViewType
+//	input.DataType() is ListViewType if Offset=int32 or LargeListViewType if Offset=int64
 //	input.Len() > 0 && input.NullN() != input.Len()
-func maxListViewOffset32(input arrow.ArrayData) int {
+func maxListViewEnd[Offset int32 | int64](input arrow.ArrayData) Offset {
 	inputOffset := input.Offset()
 	var bitmap []byte
 	if input.Buffers()[0] != nil {
 		bitmap = input.Buffers()[0].Bytes()
 	}
-	offsets := arrow.Int32Traits.CastFromBytes(input.Buffers()[1].Bytes())[inputOffset:]
-	sizes := arrow.Int32Traits.CastFromBytes(input.Buffers()[2].Bytes())[inputOffset:]
+	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[inputOffset:]
+	sizes := arrow.GetData[Offset](input.Buffers()[2].Bytes())[inputOffset:]
 
 	isNull := func(i int) bool {
 		return bitmap != nil && bitutil.BitIsNotSet(bitmap, inputOffset+i)
 	}
 
-	i := input.Len() - 1 // safe because input.Len() > 0
-	for i != 0 && (isNull(i) || sizes[i] == 0) {
-		i -= 1
-	}
-	offset := offsets[i]
-	size := sizes[i]
-	if i == 0 {
-		if isNull(i) || sizes[i] == 0 {
-			return 0
-		} else {
-			return int(offset + size)
-		}
-	}
-
-	values := input.Children()[0]
-	maxEnd := int(offsets[i] + sizes[i])
-	if maxEnd == values.Len() {
-		// Early-exit: maximum possible view-end found already.
-		return maxEnd
-	}
-
-	// Slow path: scan the buffers entirely.
-	for ; i >= 0; i -= 1 {
-		offset := offsets[i]
-		size := sizes[i]
-		if size > 0 && !isNull(i) {
-			if int(offset+size) > maxEnd {
-				maxEnd = int(offset + size)
-				if maxEnd == values.Len() {
-					return maxEnd
-				}
-			}
-		}
-	}
-	return maxEnd
-}
-
-// Pre-conditions:
-//
-//	input.DataType() is LargeListViewType
-//	input.Len() > 0 && input.NullN() != input.Len()
-func minLargeListViewOffset64(input arrow.ArrayData) int64 {
-	var bitmap []byte
-	if input.Buffers()[0] != nil {
-		bitmap = input.Buffers()[0].Bytes()
-	}
-	offsets := arrow.Int64Traits.CastFromBytes(input.Buffers()[1].Bytes())[input.Offset():]
-	sizes := arrow.Int64Traits.CastFromBytes(input.Buffers()[2].Bytes())[input.Offset():]
-
-	isNull := func(i int) bool {
-		return bitmap != nil && bitutil.BitIsNotSet(bitmap, input.Offset()+i)
-	}
-
-	// It's very likely that the first non-null non-empty list-view starts at
-	// offset 0 of the child array.
-	i := 0
-	for i < input.Len() && (isNull(i) || sizes[i] == 0) {
-		i += 1
-	}
-	if i >= input.Len() {
-		return 0
-	}
-	minOffset := offsets[i]
-	if minOffset == 0 {
-		// early exit: offset 0 found already
-		return 0
-	}
-
-	// Slow path: scan the buffers entirely.
-	i += 1
-	for ; i < input.Len(); i += 1 {
-		if isNull(i) {
-			continue
-		}
-		offset := offsets[i]
-		if offset < minOffset && sizes[i] > 0 {
-			minOffset = offset
-		}
-	}
-	return minOffset
-}
-
-// Find the maximum offset+size in a LARGE_LIST_VIEW array.
-//
-// Pre-conditions:
-//
-//	input.DataType() is LargeListViewType
-//	input.Len() > 0 && input.NullN() != input.Len()
-func maxLargeListViewOffset64(input arrow.ArrayData) int64 {
-	inputOffset := input.Offset()
-	var bitmap []byte
-	if input.Buffers()[0] != nil {
-		bitmap = input.Buffers()[0].Bytes()
-	}
-	offsets := arrow.Int64Traits.CastFromBytes(input.Buffers()[1].Bytes())[inputOffset:]
-	sizes := arrow.Int64Traits.CastFromBytes(input.Buffers()[2].Bytes())[inputOffset:]
-
-	isNull := func(i int) bool {
-		return bitmap != nil && bitutil.BitIsNotSet(bitmap, inputOffset+i)
-	}
-
-	// It's very likely that the first non-null non-empty list-view starts at
-	// offset zero, so we check that first and potentially early-return a 0.
 	i := input.Len() - 1 // safe because input.Len() > 0
 	for i != 0 && (isNull(i) || sizes[i] == 0) {
 		i -= 1
@@ -1592,15 +1490,9 @@ func maxLargeListViewOffset64(input arrow.ArrayData) int64 {
 		}
 	}
 
-	if offset > math.MaxInt64-size {
-		// Early-exit: 64-bit overflow detected. This is not possible on a
-		// valid list-view, but we return the maximum possible value to
-		// avoid undefined behavior.
-		return math.MaxInt64
-	}
 	values := input.Children()[0]
 	maxEnd := offsets[i] + sizes[i]
-	if maxEnd == int64(values.Len()) {
+	if maxEnd == Offset(values.Len()) {
 		// Early-exit: maximum possible view-end found already.
 		return maxEnd
 	}
@@ -1611,14 +1503,8 @@ func maxLargeListViewOffset64(input arrow.ArrayData) int64 {
 		size := sizes[i]
 		if size > 0 && !isNull(i) {
 			if offset+size > maxEnd {
-				if offset > math.MaxInt64-size {
-					// 64-bit overflow detected. This is not possible on a valid list-view,
-					// but we saturate maxEnd to the maximum possible value to avoid
-					// undefined behavior.
-					return math.MaxInt64
-				}
 				maxEnd = offset + size
-				if maxEnd == int64(values.Len()) {
+				if maxEnd == Offset(values.Len()) {
 					return maxEnd
 				}
 			}
@@ -1634,11 +1520,11 @@ func rangeOfValuesUsed(input arrow.ArrayData) (int, int) {
 	var minOffset, maxEnd int
 	switch input.DataType().(type) {
 	case *arrow.ListViewType:
-		minOffset = int(minListViewOffset32(input))
-		maxEnd = maxListViewOffset32(input)
+		minOffset = int(minListViewOffset[int32](input))
+		maxEnd = int(maxListViewEnd[int32](input))
 	case *arrow.LargeListViewType:
-		minOffset = int(minLargeListViewOffset64(input))
-		maxEnd = int(maxLargeListViewOffset64(input))
+		minOffset = int(minListViewOffset[int64](input))
+		maxEnd = int(maxListViewEnd[int64](input))
 	case *arrow.ListType:
 		offsets := arrow.Int32Traits.CastFromBytes(input.Buffers()[1].Bytes())[input.Offset():]
 		minOffset = int(offsets[0])

@@ -165,7 +165,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (format == "+l")
+                if (format == "+l" || format == "+vl")
                 {
                     if (_cSchema->n_children != 1)
                     {
@@ -180,7 +180,7 @@ namespace Apache.Arrow.C
 
                     Field childField = childSchema.GetAsField();
 
-                    return new ListType(childField);
+                    return format[1] == 'v' ? new ListViewType(childField) : new ListType(childField);
                 }
                 else if (format == "+s")
                 {
@@ -303,8 +303,10 @@ namespace Apache.Arrow.C
                     "g" => DoubleType.Default,
                     // Binary data
                     "z" => BinaryType.Default,
+                    "vz" => BinaryViewType.Default,
                     //"Z" => new LargeBinaryType() // Not yet implemented
                     "u" => StringType.Default,
+                    "vu" => StringViewType.Default,
                     //"U" => new LargeStringType(), // Not yet implemented
                     // Date and time
                     "tdD" => Date32Type.Default,
@@ -319,7 +321,7 @@ namespace Apache.Arrow.C
                     "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
-                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

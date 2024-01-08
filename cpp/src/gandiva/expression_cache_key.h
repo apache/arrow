@@ -34,19 +34,19 @@ class ExpressionCacheKey {
  public:
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
                      ExpressionVector expression_vector, SelectionVector::Mode mode)
-      : schema_(schema), mode_(mode), uniqifier_(0), configuration_(configuration) {
+      : schema_(schema), mode_(mode), uniquifier_(0), configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     for (auto& expr : expression_vector) {
       std::string expr_as_string = expr->ToString();
       expressions_as_strings_.push_back(expr_as_string);
       arrow::internal::hash_combine(result, expr_as_string);
-      UpdateUniqifier(expr_as_string);
+      UpdateUniquifier(expr_as_string);
     }
     arrow::internal::hash_combine(result, static_cast<size_t>(mode));
     arrow::internal::hash_combine(result, configuration->Hash());
     arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniqifier_);
+    arrow::internal::hash_combine(result, uniquifier_);
     hash_code_ = result;
   }
 
@@ -54,25 +54,25 @@ class ExpressionCacheKey {
                      Expression& expression)
       : schema_(schema),
         mode_(SelectionVector::MODE_NONE),
-        uniqifier_(0),
+        uniquifier_(0),
         configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     expressions_as_strings_.push_back(expression.ToString());
-    UpdateUniqifier(expression.ToString());
+    UpdateUniquifier(expression.ToString());
 
     arrow::internal::hash_combine(result, configuration->Hash());
     arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniqifier_);
+    arrow::internal::hash_combine(result, uniquifier_);
     hash_code_ = result;
   }
 
-  void UpdateUniqifier(const std::string& expr) {
-    if (uniqifier_ == 0) {
+  void UpdateUniquifier(const std::string& expr) {
+    if (uniquifier_ == 0) {
       // caching of expressions with re2 patterns causes lock contention. So, use
       // multiple instances to reduce contention.
       if (expr.find(" like(") != std::string::npos) {
-        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+        uniquifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
       }
     }
   }
@@ -100,7 +100,7 @@ class ExpressionCacheKey {
       return false;
     }
 
-    if (uniqifier_ != other.uniqifier_) {
+    if (uniquifier_ != other.uniquifier_) {
       return false;
     }
 
@@ -114,7 +114,7 @@ class ExpressionCacheKey {
   SchemaPtr schema_;
   std::vector<std::string> expressions_as_strings_;
   SelectionVector::Mode mode_;
-  uint32_t uniqifier_;
+  uint32_t uniquifier_;
   std::shared_ptr<Configuration> configuration_;
 };
 

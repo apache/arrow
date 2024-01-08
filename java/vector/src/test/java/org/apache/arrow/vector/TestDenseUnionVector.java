@@ -610,9 +610,9 @@ public class TestDenseUnionVector {
       assertEquals(8L, longVector.get(0));
       assertEquals(12L, longVector.get(1));
 
-      Float4Vector floagVector = (Float4Vector) vector.getVectorByType(floatTypeId);
-      assertEquals(1, floagVector.getValueCount());
-      assertEquals(9.0f, floagVector.get(0), 0);
+      Float4Vector floatVector = (Float4Vector) vector.getVectorByType(floatTypeId);
+      assertEquals(1, floatVector.getValueCount());
+      assertEquals(9.0f, floatVector.get(0), 0);
     }
   }
 

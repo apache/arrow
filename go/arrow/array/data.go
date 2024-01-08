@@ -190,7 +190,7 @@ func (d *Data) SetDictionary(dict arrow.ArrayData) {
 	}
 }
 
-// SizeInBytes returns the size of the Data and any children and/or dictionary in bytes by 
+// SizeInBytes returns the size of the Data and any children and/or dictionary in bytes by
 // recursively examining the nested structures of children and/or dictionary.
 // The value returned is an upper-bound since offset is not taken into account.
 func (d *Data) SizeInBytes() uint64 {
@@ -206,8 +206,8 @@ func (d *Data) SizeInBytes() uint64 {
 	for _, c := range d.Children() {
 		size += c.SizeInBytes()
 	}
-	if dict := d.Dictionary(); dict != nil {
-		size += dict.SizeInBytes()
+	if d.dictionary != nil {
+		size += d.dictionary.SizeInBytes()
 	}
 
 	return size

@@ -38,27 +38,57 @@ internal struct RecordBatch : IFlatbufferObject
   public int BuffersLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
   /// Optional compression of the message body
   public BodyCompression? Compression { get { int o = __p.__offset(10); return o != 0 ? (BodyCompression?)(new BodyCompression()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
+  /// Some types such as Utf8View are represented using a variable number of buffers.
+  /// For each such Field in the pre-ordered flattened logical schema, there will be
+  /// an entry in variadicBufferCounts to indicate the number of number of variadic
+  /// buffers which belong to that Field in the current RecordBatch.
+  ///
+  /// For example, the schema
+  ///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+  ///     col2: Utf8View
+  /// contains two Fields with variadic buffers so variadicBufferCounts will have
+  /// two entries, the first counting the variadic buffers of `col1.beta` and the
+  /// second counting `col2`'s.
+  ///
+  /// This field may be omitted if and only if the schema contains no Fields with
+  /// a variable number of buffers, such as BinaryView and Utf8View.
+  public long VariadicBufferCounts(int j) { int o = __p.__offset(12); return o != 0 ? __p.bb.GetLong(__p.__vector(o) + j * 8) : (long)0; }
+  public int VariadicBufferCountsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<long> GetVariadicCountsBytes() { return __p.__vector_as_span<long>(12, 8); }
+#else
+  public ArraySegment<byte>? GetVariadicCountsBytes() { return __p.__vector_as_arraysegment(12); }
+#endif
+  public long[] GetVariadicCountsArray() { return __p.__vector_as_array<long>(12); }
 
   public static Offset<RecordBatch> CreateRecordBatch(FlatBufferBuilder builder,
       long length = 0,
       VectorOffset nodesOffset = default(VectorOffset),
       VectorOffset buffersOffset = default(VectorOffset),
-      Offset<BodyCompression> compressionOffset = default(Offset<BodyCompression>)) {
-    builder.StartTable(4);
+      Offset<BodyCompression> compressionOffset = default(Offset<BodyCompression>),
+      VectorOffset variadicCountsOffset = default(VectorOffset)) {
+    builder.StartTable(5);
     RecordBatch.AddLength(builder, length);
+    RecordBatch.AddVariadicCounts(builder, variadicCountsOffset);
     RecordBatch.AddCompression(builder, compressionOffset);
     RecordBatch.AddBuffers(builder, buffersOffset);
     RecordBatch.AddNodes(builder, nodesOffset);
     return RecordBatch.EndRecordBatch(builder);
   }
 
-  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddLength(FlatBufferBuilder builder, long length) { builder.AddLong(0, length, 0); }
   public static void AddNodes(FlatBufferBuilder builder, VectorOffset nodesOffset) { builder.AddOffset(1, nodesOffset.Value, 0); }
   public static void StartNodesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(16, numElems, 8); }
   public static void AddBuffers(FlatBufferBuilder builder, VectorOffset buffersOffset) { builder.AddOffset(2, buffersOffset.Value, 0); }
   public static void StartBuffersVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(16, numElems, 8); }
   public static void AddCompression(FlatBufferBuilder builder, Offset<BodyCompression> compressionOffset) { builder.AddOffset(3, compressionOffset.Value, 0); }
+  public static void AddVariadicCounts(FlatBufferBuilder builder, VectorOffset variadicCountsOffset) { builder.AddOffset(4, variadicCountsOffset.Value, 0); }
+  public static VectorOffset CreateVariadicCountsVector(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddLong(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateVariadicCountsVectorBlock(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVariadicCountsVectorBlock(FlatBufferBuilder builder, ArraySegment<long> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVariadicCountsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<long>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartVariadicCountsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static Offset<RecordBatch> EndRecordBatch(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<RecordBatch>(o);
@@ -75,6 +105,7 @@ static internal class RecordBatchVerify
       && verifier.VerifyVectorOfData(tablePos, 6 /*Nodes*/, 16 /*FieldNode*/, false)
       && verifier.VerifyVectorOfData(tablePos, 8 /*Buffers*/, 16 /*Buffer*/, false)
       && verifier.VerifyTable(tablePos, 10 /*Compression*/, BodyCompressionVerify.Verify, false)
+      && verifier.VerifyVectorOfData(tablePos, 12 /*VariadicCounts*/, 8 /*long*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

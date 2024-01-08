@@ -1206,8 +1206,9 @@ cdef class Array(_PandasConvertible):
         cdef:
             CResult[int64_t] c_size_res
 
-        c_size_res = ReferencedBufferSize(deref(self.ap))
-        size = GetResultValue(c_size_res)
+        with nogil:
+            c_size_res = ReferencedBufferSize(deref(self.ap))
+            size = GetResultValue(c_size_res)
         return size
 
     def get_total_buffer_size(self):
@@ -1777,6 +1778,44 @@ cdef class Array(_PandasConvertible):
             array = GetResultValue(ImportArray(c_array, c_schema))
 
         return pyarrow_wrap_array(array)
+
+    def __dlpack__(self, stream=None):
+        """Export a primitive array as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the array, pointing to a DLManagedTensor.
+        """
+        if stream is None:
+            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this arrays resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        device = GetResultValue(ExportDevice(self.sp_array))
+        return device.device_type, device.device_id
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
@@ -2445,7 +2484,7 @@ cdef class MapArray(ListArray):
 
         Examples
         --------
-        First, let's understand the structure of our dataset when viewed in a rectangular data model. 
+        First, let's understand the structure of our dataset when viewed in a rectangular data model.
         The total of 5 respondents answered the question "How much did you like the movie x?".
         The value -1 in the integer array means that the value is missing. The boolean array
         represents the null bitmask corresponding to the missing values in the integer array.
@@ -2551,7 +2590,7 @@ cdef class FixedSizeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(values, list_size=None, DataType type=None):
+    def from_arrays(values, list_size=None, DataType type=None, mask=None):
         """
         Construct FixedSizeListArray from array of values and a list length.
 
@@ -2563,6 +2602,9 @@ cdef class FixedSizeListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type and
             `list_size` length is used.
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
 
         Returns
         -------
@@ -2613,19 +2655,21 @@ cdef class FixedSizeListArray(BaseListArray):
 
         _values = asarray(values)
 
+        c_mask = c_mask_inverted_from_obj(mask, None)
+
         if type is not None:
             if list_size is not None:
                 raise ValueError("Cannot specify both list_size and type")
             with nogil:
                 c_result = CFixedSizeListArray.FromArraysAndType(
-                    _values.sp_array, type.sp_type)
+                    _values.sp_array, type.sp_type, c_mask)
         else:
             if list_size is None:
                 raise ValueError("Should specify one of list_size and type")
             _list_size = <int32_t>list_size
             with nogil:
                 c_result = CFixedSizeListArray.FromArrays(
-                    _values.sp_array, _list_size)
+                    _values.sp_array, _list_size, c_mask)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result

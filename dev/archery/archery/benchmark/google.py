@@ -37,9 +37,10 @@ class GoogleBenchmarkCommand(Command):
     notably `--benchmark_filter`, `--benchmark_format`, etc...
     """
 
-    def __init__(self, benchmark_bin, benchmark_filter=None):
+    def __init__(self, benchmark_bin, benchmark_filter=None, benchmark_extras=None):
         self.bin = benchmark_bin
         self.benchmark_filter = benchmark_filter
+        self.benchmark_extras = benchmark_extras or []
 
     def list_benchmarks(self):
         argv = ["--benchmark_list_tests"]
@@ -49,16 +50,19 @@ class GoogleBenchmarkCommand(Command):
                           stderr=subprocess.PIPE)
         return str.splitlines(result.stdout.decode("utf-8"))
 
-    def results(self, repetitions=1):
+    def results(self, repetitions=1, repetition_min_time=None):
         with NamedTemporaryFile() as out:
-            argv = ["--benchmark_repetitions={}".format(repetitions),
-                    "--benchmark_out={}".format(out.name),
+            argv = [f"--benchmark_repetitions={repetitions}",
+                    f"--benchmark_out={out.name}",
                     "--benchmark_out_format=json"]
 
+            if repetition_min_time is not None:
+                argv.append(f"--benchmark_min_time={repetition_min_time:.6f}")
+
             if self.benchmark_filter:
-                argv.append(
-                    "--benchmark_filter={}".format(self.benchmark_filter)
-                )
+                argv.append(f"--benchmark_filter={self.benchmark_filter}")
+
+            argv += self.benchmark_extras
 
             self.run(*argv, check=True)
             return json.load(out)

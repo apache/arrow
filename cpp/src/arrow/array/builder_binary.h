@@ -524,16 +524,11 @@ class ARROW_EXPORT StringHeapBuilder {
           "strings larger than 2GB");
     }
     if (num_bytes > current_remaining_bytes_) {
-      // Ensure the buffer is fully overwritten to avoid leaking uninitialized
-      // bytes from the allocator
-      if (current_remaining_bytes_ > 0) {
-        std::memset(current_out_buffer_, 0, current_remaining_bytes_);
-        blocks_.back() = SliceBuffer(blocks_.back(), 0,
-                                     blocks_.back()->size() - current_remaining_bytes_);
-      }
+      ARROW_RETURN_NOT_OK(FinishLastBlock());
       current_remaining_bytes_ = num_bytes > blocksize_ ? num_bytes : blocksize_;
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> new_block,
-                            AllocateBuffer(current_remaining_bytes_, alignment_, pool_));
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<ResizableBuffer> new_block,
+          AllocateResizableBuffer(current_remaining_bytes_, alignment_, pool_));
       current_offset_ = 0;
       current_out_buffer_ = new_block->mutable_data();
       blocks_.emplace_back(std::move(new_block));
@@ -550,7 +545,10 @@ class ARROW_EXPORT StringHeapBuilder {
 
   int64_t current_remaining_bytes() const { return current_remaining_bytes_; }
 
-  std::vector<std::shared_ptr<Buffer>> Finish() {
+  Result<std::vector<std::shared_ptr<ResizableBuffer>>> Finish() {
+    if (!blocks_.empty()) {
+      ARROW_RETURN_NOT_OK(FinishLastBlock());
+    }
     current_offset_ = 0;
     current_out_buffer_ = NULLPTR;
     current_remaining_bytes_ = 0;
@@ -558,10 +556,21 @@ class ARROW_EXPORT StringHeapBuilder {
   }
 
  private:
+  Status FinishLastBlock() {
+    if (current_remaining_bytes_ > 0) {
+      // Avoid leaking uninitialized bytes from the allocator
+      ARROW_RETURN_NOT_OK(
+          blocks_.back()->Resize(blocks_.back()->size() - current_remaining_bytes_,
+                                 /*shrink_to_fit=*/true));
+      blocks_.back()->ZeroPadding();
+    }
+    return Status::OK();
+  }
+
   MemoryPool* pool_;
   int64_t alignment_;
   int64_t blocksize_ = kDefaultBlocksize;
-  std::vector<std::shared_ptr<Buffer>> blocks_;
+  std::vector<std::shared_ptr<ResizableBuffer>> blocks_;
 
   int32_t current_offset_ = 0;
   uint8_t* current_out_buffer_ = NULLPTR;

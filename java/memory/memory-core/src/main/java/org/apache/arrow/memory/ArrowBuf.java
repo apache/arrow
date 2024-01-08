@@ -1210,7 +1210,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
+   * Returns <code>this</code> if size is less than {@link #capacity()}, otherwise
    * delegates to {@link BufferManager#replace(ArrowBuf, long)} to get a new buffer.
    */
   public ArrowBuf reallocIfNeeded(final long size) {

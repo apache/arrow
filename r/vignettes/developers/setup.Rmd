@@ -46,18 +46,18 @@ not possible to link to a system version of libarrow during development).
 
 ## Option 1: Using nightly libarrow binaries
 
-On Linux, MacOS, and Windows you can use the same workflow you might use for another
+On Linux, macOS, and Windows you can use the same workflow you might use for another
 package that contains compiled code (e.g., `R CMD INSTALL .` from
 a terminal, `devtools::load_all()` from an R prompt, or `Install & Restart` from
 RStudio). If the `arrow/r/libarrow` directory is not populated, the configure script will
 attempt to download the latest nightly libarrow binary, extract it to the
-`arrow/r/libarrow` directory (MacOS, Linux) or `arrow/r/windows`
+`arrow/r/libarrow` directory (macOS, Linux) or `arrow/r/windows`
 directory (Windows), and continue building the R package as usual.
 
 Most of the time, you won't need to update your version of libarrow because
 the R package rarely changes with updates to the C++ library; however, if you
 start to get errors when rebuilding the R package, you may have to remove the
-`libarrow` directory (MacOS, Linux) or `windows` directory (Windows)
+`libarrow` directory (macOS, Linux) or `windows` directory (Windows)
 and do a "clean" rebuild. You can do this from a terminal with
 `R CMD INSTALL . --preclean`, from RStudio using the "Clean and Install"
 option from "Build" tab, or using `make clean` if you are using the `Makefile`

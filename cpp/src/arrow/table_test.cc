@@ -179,7 +179,7 @@ TEST_F(TestTable, Equals) {
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
 
-  // Differring schema metadata
+  // Differing schema metadata
   other_schema = schema_->WithMetadata(::arrow::key_value_metadata({"key"}, {"value"}));
   other = Table::Make(other_schema, columns_);
   ASSERT_TRUE(table_->Equals(*other));
@@ -635,8 +635,8 @@ TEST_F(TestTable, SelectColumns) {
   ASSERT_OK_AND_ASSIGN(auto subset, table->SelectColumns({0, 2}));
   ASSERT_OK(subset->ValidateFull());
 
-  auto expexted_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
-  auto expected = Table::Make(expexted_schema, {table->column(0), table->column(2)});
+  auto expected_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
+  auto expected = Table::Make(expected_schema, {table->column(0), table->column(2)});
   ASSERT_TRUE(subset->Equals(*expected));
 
   // Out of bounds indices

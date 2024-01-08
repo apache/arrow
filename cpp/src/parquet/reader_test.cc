@@ -88,7 +88,7 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
-std::string overflow_i16_page_oridinal() {
+std::string overflow_i16_page_ordinal() {
   return data_file("overflow_i16_page_cnt.parquet");
 }
 
@@ -429,7 +429,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_FALSE(col->HasNext());
 }
 
-TEST_F(TestAllTypesPlain, RowGroupColumnBoundchecking) {
+TEST_F(TestAllTypesPlain, RowGroupColumnBoundsChecking) {
   // Part of PARQUET-1857
   ASSERT_THROW(reader_->RowGroup(reader_->metadata()->num_row_groups()),
                ParquetException);
@@ -540,6 +540,83 @@ TEST(TestFileReader, GetRecordReader) {
   ASSERT_EQ(4, col_record_reader_->values_written());
   ASSERT_EQ(4, col_record_reader_->levels_position());
   ASSERT_EQ(8, col_record_reader_->levels_written());
+}
+
+TEST(TestFileReader, RecordReaderWithExposingDictionary) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  ByteArrayWriter* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+  std::vector<std::string> raw_unique_data = {"a", "bc", "defg"};
+  std::vector<ByteArray> col_typed;
+  for (int i = 0; i < num_rows; i++) {
+    std::string_view chosed_data = raw_unique_data[i % raw_unique_data.size()];
+    col_typed.emplace_back(chosed_data);
+  }
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.data());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto record_reader = std::dynamic_pointer_cast<internal::DictionaryRecordReader>(
+      row_group->RecordReaderWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  ASSERT_NE(record_reader, nullptr);
+  ASSERT_TRUE(record_reader->read_dictionary());
+
+  int32_t dict_len = 0;
+  auto dict =
+      reinterpret_cast<const ByteArray*>(record_reader->ReadDictionary(&dict_len));
+  ASSERT_NE(dict, nullptr);
+  ASSERT_EQ(dict_len, raw_unique_data.size());
+  ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+  std::shared_ptr<::arrow::ChunkedArray> result_array = record_reader->GetResult();
+  ASSERT_EQ(result_array->num_chunks(), 1);
+  const std::shared_ptr<::arrow::Array> chunk = result_array->chunk(0);
+  auto dictionary_array = std::dynamic_pointer_cast<::arrow::DictionaryArray>(chunk);
+  const int32_t* indices =
+      (std::dynamic_pointer_cast<::arrow::Int32Array>(dictionary_array->indices()))
+          ->raw_values();
+
+  // Verify values based on the dictionary from ReadDictionary().
+  int64_t indices_read = chunk->length();
+  ASSERT_EQ(indices_read, num_rows);
+  for (int i = 0; i < indices_read; ++i) {
+    ASSERT_LT(indices[i], dict_len);
+    ASSERT_EQ(std::string_view(reinterpret_cast<const char* const>(dict[indices[i]].ptr),
+                               dict[indices[i]].len),
+              col_typed[i]);
+  }
 }
 
 class TestLocalFile : public ::testing::Test {
@@ -1064,6 +1141,56 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
   }
 }
 
+TEST(TestFileReader, PartiallyDictionaryEncodingNotExposed) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::DOUBLE,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages. Explicitly set the dictionary page size
+  // limit such that the column chunk will not be fully dictionary encoded.
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->dictionary_pagesize_limit(4)
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  DoubleWriter* writer = static_cast<DoubleWriter*>(rg_writer->NextColumn());
+  std::shared_ptr<::arrow::Array> col = rag.Float64(num_rows, 0, 100);
+  const auto& col_typed = static_cast<const ::arrow::DoubleArray&>(*col);
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.raw_values());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<DoubleReader>(
+      row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  EXPECT_NE(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
+}
+
 TEST(TestFileReader, BufferedReads) {
   // PARQUET-1636: Buffered reads were broken before introduction of
   // RandomAccessFile::GetStream
@@ -1311,7 +1438,7 @@ INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_code
 // INT16_MAX pages. (GH-15074).
 TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
   ReaderProperties reader_props;
-  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_ordinal(),
                                                  /*memory_map=*/false, reader_props);
   auto metadata_ptr = file_reader->metadata();
   EXPECT_EQ(1, metadata_ptr->num_row_groups());

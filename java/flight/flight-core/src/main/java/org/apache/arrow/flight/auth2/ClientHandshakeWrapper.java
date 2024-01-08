@@ -61,7 +61,7 @@ public class ClientHandshakeWrapper {
         throw wrappedException;
       }
     } catch (StatusRuntimeException sre) {
-      logger.error("Failed with SREe", sre);
+      logger.error("Failed with SRE", sre);
       throw StatusUtils.fromGrpcRuntimeException(sre);
     } catch (Throwable ex) {
       logger.error("Failed with unknown", ex);

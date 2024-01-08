@@ -53,6 +53,7 @@ files into Arrow structures.
    numpy
    pandas
    interchange_protocol
+   dlpack
    timestamps
    orc
    csv

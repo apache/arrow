@@ -261,7 +261,7 @@ Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
     return struct_arr;
   }
 
-  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
+  // The exec plan may reorder the output rows.  The tests are all setup to expect output
   // in ascending order of keys.  So we need to sort the result by the key columns.  To do
   // that we create a table using the key columns, calculate the sort indices from that
   // table (sorting on all fields) and then use those indices to calculate our result.
