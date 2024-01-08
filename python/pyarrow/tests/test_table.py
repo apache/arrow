@@ -558,8 +558,8 @@ def test_recordbatch_c_array_interface():
         def __init__(self, batch):
             self.batch = batch
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.batch.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.batch.__arrow_c_array__(requested_schema)
 
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
@@ -586,8 +586,8 @@ def test_table_c_array_interface():
         def __init__(self, batch):
             self.batch = batch
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.batch.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.batch.__arrow_c_array__(requested_schema)
 
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
@@ -615,10 +615,10 @@ def test_table_c_stream_interface():
         def __init__(self, batches):
             self.batches = batches
 
-        def __arrow_c_stream__(self, requested_type=None):
+        def __arrow_c_stream__(self, requested_schema=None):
             reader = pa.RecordBatchReader.from_batches(
                 self.batches[0].schema, self.batches)
-            return reader.__arrow_c_stream__(requested_type)
+            return reader.__arrow_c_stream__(requested_schema)
 
     data = [
         pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
