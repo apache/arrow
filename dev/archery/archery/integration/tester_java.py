@@ -107,7 +107,7 @@ class _CDataBase:
             # JPype pointers to java.io, org.apache.arrow...
             self.java_io = jpype.JPackage("java").io
             self.java_arrow = jpype.JPackage("org").apache.arrow
-        self.java_allocator = self._make_java_allocator()
+            self.java_allocator = self._make_java_allocator()
 
     def _pointer_to_int(self, c_ptr):
         return int(self.ffi.cast('uintptr_t', c_ptr))
