@@ -44,7 +44,7 @@ class IoCtxInterface {
   /// \param[in] cls the name of the object class.
   /// \param[in] method the name of the object class method.
   /// \param[in] in a bufferlist to send data to the object class method.
-  /// \param[in] out a bufferlist to recieve data from the object class method.
+  /// \param[in] out a bufferlist to receive data from the object class method.
   arrow::Status exec(const std::string& oid, const char* cls, const char* method,
                      ceph::bufferlist& in, ceph::bufferlist& out);
   /// \brief Execute POSIX stat on a RADOS object.

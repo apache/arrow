@@ -248,8 +248,9 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):
@@ -2386,8 +2387,9 @@ cdef class RecordBatch(_Tabular):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.batch))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.batch))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):
@@ -4337,8 +4339,9 @@ cdef class Table(_Tabular):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.table))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.table))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):

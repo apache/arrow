@@ -239,7 +239,7 @@ QT_AUTOBRIEF           = NO
 # tag to YES if you prefer the old behavior instead.
 #
 # Note that setting this tag to YES also means that rational rose comments are
-# not recognized any more.
+# not recognized anymore.
 # The default value is: NO.
 
 MULTILINE_CPP_IS_BRIEF = NO
@@ -569,7 +569,7 @@ INTERNAL_DOCS          = NO
 # If the CASE_SENSE_NAMES tag is set to NO then doxygen will only generate file
 # names in lower-case letters. If set to YES, upper-case letters are also
 # allowed. This is useful if you have classes or files whose names only differ
-# in case and if your file system supports case sensitive file names. Windows
+# in case and if your file system supports case-sensitive file names. Windows
 # (including Cygwin) ands Mac users are advised to set this option to NO.
 # The default value is: system dependent.
 
@@ -734,7 +734,7 @@ SHOW_NAMESPACES        = YES
 # The FILE_VERSION_FILTER tag can be used to specify a program or script that
 # doxygen should invoke to get the current version for each file (typically from
 # the version control system). Doxygen will invoke the program by executing (via
-# popen()) the command command input-file, where command is the value of the
+# popen()) the command input-file, where command is the value of the
 # FILE_VERSION_FILTER tag, and input-file is the name of an input file provided
 # by doxygen. Whatever the program writes to standard output is used as the file
 # version. For an example see the documentation.

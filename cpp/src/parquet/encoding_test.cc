@@ -1634,7 +1634,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   }
 }
 
-// Test that the DELTA_BINARY_PACKED encoding works properply in the presence of values
+// Test that the DELTA_BINARY_PACKED encoding works properly in the presence of values
 // that will cause integer overflow (see GH-37939).
 TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
   using T = typename TypeParam::c_type;

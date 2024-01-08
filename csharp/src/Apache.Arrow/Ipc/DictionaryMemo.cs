@@ -33,6 +33,9 @@ namespace Apache.Arrow.Ipc
             _fieldToId = new Dictionary<Field, long>();
         }
 
+        public int DictionaryCount => _fieldToId.Count;
+        public int LoadedDictionaryCount => _idToDictionary.Count;
+
         public IArrowType GetDictionaryType(long id)
         {
             if (!_idToValueType.TryGetValue(id, out IArrowType type))
@@ -72,9 +75,12 @@ namespace Apache.Arrow.Ipc
                     throw new ArgumentException($"Field type {field.DataType.Name} does not match the existing type {valueTypeInDic})");
                 }
             }
+            else
+            {
+                _idToValueType.Add(id, valueType);
+            }
 
             _fieldToId.Add(field, id);
-            _idToValueType.Add(id, valueType);
         }
 
         public long GetId(Field field)
@@ -90,7 +96,7 @@ namespace Apache.Arrow.Ipc
         {
             if (!_fieldToId.TryGetValue(field, out long id))
             {
-                id = _fieldToId.Count + 1;
+                id = _fieldToId.Count;
                 AddField(id, field);
             }
             return id;

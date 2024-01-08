@@ -2171,6 +2171,22 @@ TEST(Cast, StringToString) {
   }
 }
 
+TEST(Cast, BinaryOrStringToFixedSizeBinary) {
+  for (auto in_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quu"])");
+    auto invalid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quux"])");
+
+    CheckCast(valid_input, ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+          "baz", "quu"])"));
+    CheckCastFails(invalid_input, CastOptions::Safe(fixed_size_binary(3)));
+    CheckCastFails(valid_input, CastOptions::Safe(fixed_size_binary(5)));
+
+    auto empty_input = ArrayFromJSON(in_type, "[]");
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(3), "[]"));
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(5), "[]"));
+  }
+}
+
 TEST(Cast, IntToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
@@ -2826,19 +2842,19 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options1_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullble);
+    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
     const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options2_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullble);
+    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
     const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,

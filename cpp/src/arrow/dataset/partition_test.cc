@@ -28,6 +28,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util_internal.h"
@@ -39,6 +40,8 @@
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using compute::Cast;
 
 using internal::checked_pointer_cast;
 
@@ -313,7 +316,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
                                                           ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(DictStr("")->type()));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), DictStr("")->type()));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
@@ -326,7 +329,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
       schema({field("alpha", dict_type)}), ArrayVector{dictionary});
   written_schema_ = partitioning_->schema();
 
-  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(dict_type));
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, Cast(MakeScalar("hello"), dict_type));
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
@@ -335,7 +338,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
     partitioning_ = std::make_shared<DirectoryPartitioning>(
         schema({field("year", int32()), field("month", int8()), field("day", temporal)}));
 
-    ASSERT_OK_AND_ASSIGN(auto day, StringScalar("2020-06-08").CastTo(temporal));
+    ASSERT_OK_AND_ASSIGN(auto day, Cast(StringScalar("2020-06-08"), temporal));
     AssertParse("/2020/06/2020-06-08/",
                 and_({equal(field_ref("year"), literal(2020)),
                       equal(field_ref("month"), literal<int8_t>(6)),

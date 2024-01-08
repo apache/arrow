@@ -20,11 +20,14 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/utf8_internal.h"
@@ -284,9 +287,8 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
 }
 
 template <typename O, typename I>
-enable_if_base_binary<I, Status> BinaryToBinaryCastExec(KernelContext* ctx,
-                                                        const ExecSpan& batch,
-                                                        ExecResult* out) {
+enable_if_t<is_base_binary_type<I>::value && !is_fixed_size_binary_type<O>::value, Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -387,6 +389,33 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
+template <typename O, typename I>
+enable_if_t<is_base_binary_type<I>::value && std::is_same<O, FixedSizeBinaryType>::value,
+            Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  FixedSizeBinaryBuilder builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
+  const ArraySpan& input = batch[0].array;
+  RETURN_NOT_OK(builder.Reserve(input.length));
+
+  RETURN_NOT_OK(VisitArraySpanInline<I>(
+      input,
+      [&](std::string_view v) {
+        if (v.size() != static_cast<size_t>(builder.byte_width())) {
+          return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                                 options.to_type.ToString(), ": widths must match");
+        }
+        builder.UnsafeAppend(v);
+        return Status::OK();
+      },
+      [&] {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }));
+
+  return builder.FinishInternal(&std::get<std::shared_ptr<ArrayData>>(out->value));
+}
+
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
@@ -452,6 +481,26 @@ void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
 }
 
+template <typename InType>
+void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
+  auto resolver_fsb = [](KernelContext* ctx, const std::vector<TypeHolder>&) {
+    const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+    return options.to_type;
+  };
+
+  DCHECK_OK(func->AddKernel(InType::type_id, {InputType(InType::type_id)}, resolver_fsb,
+                            BinaryToBinaryCastExec<FixedSizeBinaryType, InType>,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+}
+
+void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
+  AddBinaryToFixedSizeBinaryCast<StringType>(func);
+  AddBinaryToFixedSizeBinaryCast<BinaryType>(func);
+  AddBinaryToFixedSizeBinaryCast<LargeStringType>(func);
+  AddBinaryToFixedSizeBinaryCast<LargeBinaryType>(func);
+  AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
@@ -483,11 +532,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
   AddCommonCasts(Type::FIXED_SIZE_BINARY, OutputType(ResolveOutputFromOptions),
                  cast_fsb.get());
-  DCHECK_OK(cast_fsb->AddKernel(
-      Type::FIXED_SIZE_BINARY, {InputType(Type::FIXED_SIZE_BINARY)},
-      OutputType(FirstType),
-      BinaryToBinaryCastExec<FixedSizeBinaryType, FixedSizeBinaryType>,
-      NullHandling::COMPUTED_NO_PREALLOCATE));
+  AddBinaryToFixedSizeBinaryCast(cast_fsb.get());
 
   return {cast_binary, cast_large_binary, cast_string, cast_large_string, cast_fsb};
 }

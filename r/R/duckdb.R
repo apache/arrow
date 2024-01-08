@@ -89,7 +89,7 @@ arrow_duck_connection <- function() {
     # but if we don't explicitly run dbDisconnect() the user gets a warning
     # that they may not expect (since they did not open a duckdb connection).
     # This bit of code will run when the package namespace is cleaned up (i.e.,
-    # at exit). This is more reliable than .onUnload() or .onDetatch(), which
+    # at exit). This is more reliable than .onUnload() or .onDetach(), which
     # don't necessarily run on exit.
     reg.finalizer(arrow_duck_finalizer, function(...) {
       con <- getOption("arrow_duck_con")

@@ -2410,7 +2410,7 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
-// Use coalesced reads and non-coaleasced reads for different column chunks.
+// Use coalesced reads and non-coalesced reads for different column chunks.
 TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
   constexpr int num_columns = 5;
   constexpr int num_rows = 128;
@@ -2918,7 +2918,7 @@ TEST(ArrowReadWrite, DecimalStats) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_grop_size=*/100,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
@@ -5222,6 +5222,47 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   std::shared_ptr<::arrow::RecordBatch> read_record_batch;
   ASSERT_OK(batch_reader->ReadNext(&read_record_batch));
   EXPECT_TRUE(record_batch->Equals(*read_record_batch));
+}
+
+TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
+  // GH-39211: WriteRecordBatch should prevent from writing a empty row group
+  // in the end of the file.
+  auto pool = ::arrow::default_memory_pool();
+  auto sink = CreateOutputStream();
+  // Limit the max number of rows in a row group to 2
+  auto writer_properties = WriterProperties::Builder().max_row_group_length(2)->build();
+  auto arrow_writer_properties = default_arrow_writer_properties();
+
+  // Prepare schema
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::int64())});
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  auto gen = ::arrow::random::RandomArrayGenerator(/*seed=*/42);
+
+  // Create writer to write data via RecordBatch.
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  // NewBufferedRowGroup() is not called explicitly and it will be called
+  // inside WriteRecordBatch().
+  // Write 20 rows for two times
+  for (int i = 0; i < 2; ++i) {
+    auto record_batch =
+        gen.BatchOf({::arrow::field("a", ::arrow::int64())}, /*length=*/20);
+    ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
+  }
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_metadata = arrow_writer->metadata();
+  EXPECT_EQ(20, file_metadata->num_row_groups());
+  for (int i = 0; i < 20; ++i) {
+    EXPECT_EQ(2, file_metadata->RowGroup(i)->num_rows());
+  }
 }
 
 TEST(TestArrowReadWrite, MultithreadedWrite) {

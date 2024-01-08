@@ -115,7 +115,7 @@ public final class NativeUtil {
    * Get the address of a buffer or {@value #NULL} if the input buffer is null.
    * 
    * @param buf Buffer to get the address of
-   * @return Memory addresss or {@value #NULL}
+   * @return Memory address or {@value #NULL}
    */
   public static long addressOrNull(ArrowBuf buf) {
     if (buf == null) {
@@ -129,7 +129,7 @@ public final class NativeUtil {
    * struct is null.
    * 
    * @param struct C Data Interface struct to get the address of
-   * @return Memory addresss or {@value #NULL}
+   * @return Memory address or {@value #NULL}
    */
   public static long addressOrNull(BaseStruct struct) {
     if (struct == null) {

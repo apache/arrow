@@ -26,7 +26,7 @@ extension metadata as a UTF-8 encoded string.
 with this extension type.
 }
 
-In addition, subclasses may override the following methos to customize
+In addition, subclasses may override the following methods to customize
 the behaviour of extension classes.
 \itemize{
 \item \verb{$deserialize_instance()}: This method is called when a new \link{ExtensionType}

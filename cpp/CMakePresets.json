@@ -428,7 +428,7 @@
         "base-benchmarks",
         "features-maximal"
       ],
-      "displayName": "Benchmarking build with with everything enabled",
+      "displayName": "Benchmarking build with everything enabled",
       "cacheVariables": {}
     },
     {

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#### Fuctions #### check end of file for main logic
+#### Functions #### check end of file for main logic
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
 # Log messages in the style of the configure script
@@ -81,8 +81,9 @@ find_latest_nightly <- function(description_version,
 try_download <- function(from_url, to_file, hush = quietly) {
   # We download some fairly large files, so ensure the timeout is set appropriately.
   # This assumes a static library size of 100 MB (generous) and a download speed
-  # of 1 MB/s (slow).
-  opts <- options(timeout = max(100, getOption("timeout")))
+  # of .3 MB/s (slow). This is to anticipate slower user connections or load on
+  # artifactory servers.
+  opts <- options(timeout = max(300, getOption("timeout")))
   on.exit(options(opts))
 
   status <- try(
@@ -895,7 +896,7 @@ download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 arrow_versioned <- paste0("arrow-", VERSION)
-# configure.win uses a different libarrow dir and and the zip is already nested
+# configure.win uses a different libarrow dir and the zip is already nested
 if (on_windows) {
   lib_dir <- "windows"
   dst_dir <- lib_dir

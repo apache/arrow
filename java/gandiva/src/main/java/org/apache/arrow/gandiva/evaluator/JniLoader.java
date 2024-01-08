@@ -158,10 +158,10 @@ class JniLoader {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
           JniLoader.getInstance(); // setup
-          ConfigurationBuilder.ConfigOptions defaultConfigOptons = ConfigurationBuilder.ConfigOptions.getDefault();
+          ConfigurationBuilder.ConfigOptions defaultConfigOptions = ConfigurationBuilder.ConfigOptions.getDefault();
           defaultConfiguration = new ConfigurationBuilder()
-            .buildConfigInstance(defaultConfigOptons);
-          configurationMap.put(defaultConfigOptons, defaultConfiguration);
+            .buildConfigInstance(defaultConfigOptions);
+          configurationMap.put(defaultConfigOptions, defaultConfiguration);
         }
       }
     }

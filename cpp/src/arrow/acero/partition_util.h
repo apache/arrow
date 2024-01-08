@@ -33,11 +33,11 @@ class PartitionSort {
  public:
   /// \brief Bucket sort rows on partition ids in O(num_rows) time.
   ///
-  /// Include in the output exclusive cummulative sum of bucket sizes.
+  /// Include in the output exclusive cumulative sum of bucket sizes.
   /// This corresponds to ranges in the sorted array containing all row ids for
   /// each of the partitions.
   ///
-  /// prtn_ranges must be initailized and have at least prtn_ranges + 1 elements
+  /// prtn_ranges must be initialized and have at least prtn_ranges + 1 elements
   /// when this method returns prtn_ranges[i] will contains the total number of
   /// elements in partitions 0 through i.  prtn_ranges[0] will be 0.
   ///

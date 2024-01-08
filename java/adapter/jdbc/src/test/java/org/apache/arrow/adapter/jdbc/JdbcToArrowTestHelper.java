@@ -334,16 +334,6 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static byte[] hexStringToByteArray(String s) {
-    int len = s.length();
-    byte[] data = new byte[len / 2];
-    for (int i = 0; i < len; i += 2) {
-      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) +
-              Character.digit(s.charAt(i + 1), 16));
-    }
-    return data;
-  }
-
   public static Integer[] getIntValues(String[] values, String dataType) {
     String[] dataArr = getValues(values, dataType);
     Integer[] valueArr = new Integer[dataArr.length];
@@ -429,7 +419,7 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = "null".equals(data.trim()) ? null : hexStringToByteArray(data.trim());
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
     }
     return valueArr;
   }

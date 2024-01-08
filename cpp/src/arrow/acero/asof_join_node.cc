@@ -472,7 +472,7 @@ class BackpressureController : public BackpressureControl {
 };
 
 class InputState {
-  // InputState correponds to an input
+  // InputState corresponds to an input
   // Input record batches are queued up in InputState until processed and
   // turned into output record batches.
 
@@ -1453,7 +1453,7 @@ class AsofJoinNode : public ExecNode {
   bool must_hash_;
   bool may_rehash_;
   // InputStates
-  // Each input state correponds to an input table
+  // Each input state corresponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
   std::mutex gate_;
   TolType tolerance_;

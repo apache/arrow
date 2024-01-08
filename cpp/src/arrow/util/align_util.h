@@ -74,7 +74,7 @@ namespace util {
 /// \brief Special alignment value to use data type-specific alignment
 ///
 /// If this is passed as the `alignment` in one of the CheckAlignment or EnsureAlignment
-/// functions, then the function will ensure ensure each buffer is suitably aligned
+/// functions, then the function will ensure each buffer is suitably aligned
 /// for the data type of the array.  For example, given an int32 buffer the values
 /// buffer's address must be a multiple of 4.  Given a large_string buffer the offsets
 /// buffer's address must be a multiple of 8.

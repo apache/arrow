@@ -27,7 +27,7 @@ import pyarrow as pa
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import _test_dataframe
 from pyarrow.tests.parquet.test_dataset import (
-    _test_read_common_metadata_files, _test_write_to_dataset_with_partitions,
+    _test_write_to_dataset_with_partitions,
     _test_write_to_dataset_no_partitions
 )
 from pyarrow.util import guid
@@ -309,6 +309,9 @@ class HdfsTestCases:
         expected = pa.concat_tables(test_data)
         return expected
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset "
+                       "due to legacy path being removed in PyArrow 15.0.0.",
+                       raises=TypeError)
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_multiple_parquet_files(self):
@@ -343,6 +346,9 @@ class HdfsTestCases:
             expected.to_pandas()
         )
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset "
+                       "due to legacy path being removed in PyArrow 15.0.0.",
+                       raises=TypeError)
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_write_parquet_files_with_uri(self):
@@ -360,19 +366,13 @@ class HdfsTestCases:
 
         pq.write_table(table, path, filesystem=self.hdfs)
 
-        result = pq.read_table(
-            path, filesystem=self.hdfs, use_legacy_dataset=True
-        ).to_pandas()
+        result = pq.read_table(path, filesystem=self.hdfs).to_pandas()
 
         assert_frame_equal(result, df)
 
-    @pytest.mark.parquet
-    @pytest.mark.pandas
-    def test_read_common_metadata_files(self):
-        tmpdir = pjoin(self.tmp_path, 'common-metadata-' + guid())
-        self.hdfs.mkdir(tmpdir)
-        _test_read_common_metadata_files(self.hdfs, tmpdir)
-
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset "
+                       "due to legacy path being removed in PyArrow 15.0.0.",
+                       raises=TypeError)
     @pytest.mark.parquet
     @pytest.mark.pandas
     def test_write_to_dataset_with_partitions(self):
@@ -381,6 +381,9 @@ class HdfsTestCases:
         _test_write_to_dataset_with_partitions(
             tmpdir, filesystem=self.hdfs)
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset "
+                       "due to legacy path being removed in PyArrow 15.0.0.",
+                       raises=TypeError)
     @pytest.mark.parquet
     @pytest.mark.pandas
     def test_write_to_dataset_no_partitions(self):

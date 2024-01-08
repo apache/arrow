@@ -62,7 +62,11 @@ namespace Apache.Arrow.Tests
 
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
-            Assert.Equal(27, table1.ColumnCount);
+#if NET5_0_OR_GREATER
+            Assert.Equal(35, table1.ColumnCount);
+#else
+            Assert.Equal(34, table1.ColumnCount);
+#endif
             Assert.Equal("ChunkedArray: Length=20, DataType=list", table1.Column(0).Data.ToString());
 
             FixedSizeBinaryType type = new FixedSizeBinaryType(17);

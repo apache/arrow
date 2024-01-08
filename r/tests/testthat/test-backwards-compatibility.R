@@ -22,7 +22,7 @@
 # To write a new version of a test file for an old version, use docker(-compose)
 # to setup a linux distribution and use RStudio's public package manager binary
 # repo to install the old version. The following commands should be run at the
-# root of the arrow repo directory and might need slight adjusments.
+# root of the arrow repo directory and might need slight adjustments.
 # R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker-compose build --no-cache r
 # R_ORG=rstudio R_IMAGE=r-base R_TAG=4.0-focal docker-compose run r /bin/bash
 # R

@@ -266,7 +266,7 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	for i < length {
 		// grab byte-aligned bits in a loop since it's more efficient than going
 		// bit by bit when you can grab 8 bools at a time.
-		unpackSize := utils.MinInt(blen, length-i) / 8 * 8
+		unpackSize := utils.Min(blen, length-i) / 8 * 8
 		n, err := b.reader.Read(buf[:bitutil.BytesForBits(int64(unpackSize))])
 		if err != nil {
 			return i, err
@@ -314,7 +314,7 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	b.reader.Seek(b.byteoffset, io.SeekStart)
 	for i < length {
 		// unpack groups of 32 bytes at a time into a buffer since it's more efficient
-		unpackSize := utils.MinInt(buflen, length-i)
+		unpackSize := utils.Min(buflen, length-i)
 		numUnpacked := unpack32(b.reader, b.unpackBuf[:unpackSize], int(bits))
 		if numUnpacked == 0 {
 			break
