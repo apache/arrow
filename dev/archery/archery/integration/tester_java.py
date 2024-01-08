@@ -92,22 +92,27 @@ def setup_jpype():
                    *_JAVA_OPTS)
 
 
+functools.lru_cache
+def _enable_c_data_tests():
+    try:
+        import jpype
+    except ImportError as error:
+        log(f"Skipping C data tests, jpype is not available: {error}")
+        return False
+    return True
+
 class _CDataBase:
 
     def __init__(self, debug, args):
+        import jpype
         self.debug = debug
         self.args = args
         self.ffi = cdata.ffi()
-        try:
-            import jpype
-        except ImportError:
-            log("jpype is not installed. Skipping setup.")
-        else:
-            setup_jpype()
-            # JPype pointers to java.io, org.apache.arrow...
-            self.java_io = jpype.JPackage("java").io
-            self.java_arrow = jpype.JPackage("org").apache.arrow
-            self.java_allocator = self._make_java_allocator()
+        setup_jpype()
+        # JPype pointers to java.io, org.apache.arrow...
+        self.java_io = jpype.JPackage("java").io
+        self.java_arrow = jpype.JPackage("org").apache.arrow
+        self.java_allocator = self._make_java_allocator()
 
     def _pointer_to_int(self, c_ptr):
         return int(self.ffi.cast('uintptr_t', c_ptr))
@@ -232,10 +237,10 @@ class JavaTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-    C_DATA_SCHEMA_EXPORTER = True
-    C_DATA_SCHEMA_IMPORTER = True
-    C_DATA_ARRAY_EXPORTER = True
-    C_DATA_ARRAY_IMPORTER = True
+    C_DATA_SCHEMA_EXPORTER = _enable_c_data_tests()
+    C_DATA_SCHEMA_IMPORTER = _enable_c_data_tests()
+    C_DATA_ARRAY_EXPORTER = _enable_c_data_tests()
+    C_DATA_ARRAY_IMPORTER = _enable_c_data_tests()
 
     name = 'Java'
 
