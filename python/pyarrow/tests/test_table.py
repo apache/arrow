@@ -878,6 +878,81 @@ def test_recordbatch_from_struct_array():
     ))
 
 
+def test_recordbatch_to_struct_array():
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = batch.to_struct_array()
+    assert result.equals(pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    ))
+
+
+def test_table_from_struct_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.array(range(5)))
+
+
+def test_table_from_struct_array():
+    struct_array = pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.Table.from_struct_array(struct_array)
+    assert result.equals(pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
+
+
+def test_table_from_struct_array_chunked_array():
+    chunked_struct_array = pa.chunked_array(
+        [[{"ints": 1}, {"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.Table.from_struct_array(chunked_struct_array)
+    assert result.equals(pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
+
+
+def test_table_to_struct_array():
+    table = pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = table.to_struct_array()
+    assert result.equals(pa.chunked_array(
+        [[{"ints": 1}, {"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    ))
+
+
+def test_table_to_struct_array_with_max_chunksize():
+    table = pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = table.to_struct_array(max_chunksize=1)
+    assert result.equals(pa.chunked_array(
+        [[{"ints": 1}], [{"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    ))
+
+
 def _table_like_slice_tests(factory):
     data = [
         pa.array(range(5)),
