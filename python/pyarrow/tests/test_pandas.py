@@ -261,6 +261,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
@@ -311,6 +317,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
@@ -465,7 +477,7 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
+        if Version("2.0.0") <= Version(pd.__version__) < Version("2.3.0"):
             # TODO: regression in pandas, hopefully fixed in next version
             # https://issues.apache.org/jira/browse/ARROW-18394
             # https://github.com/pandas-dev/pandas/issues/50127
@@ -3095,7 +3107,7 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
+    if Version("2.0.0") <= Version(pd.__version__) < Version("2.3.0"):
         # TODO: regression in pandas, hopefully fixed in next version
         # https://issues.apache.org/jira/browse/ARROW-18394
         # https://github.com/pandas-dev/pandas/issues/50127
