@@ -76,6 +76,8 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
 
   size_t hash() const;
 
+  std::shared_ptr<Scalar> CastToExplicitScalar() const;
+
   std::string ToString() const;
 
   /// \brief Perform cheap validation checks
@@ -95,9 +97,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
 
   static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
                                                std::string_view repr);
-
-  // TODO(bkietz) add compute::CastOptions
-  Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
 
   /// \brief Apply the ScalarVisitor::Visit() method specialized to the scalar type
   Status Accept(ScalarVisitor* visitor) const;

@@ -19,7 +19,6 @@
 
 #include <memory>
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -27,12 +26,11 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
+#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/decimal.h"
-#include "arrow/util/formatting.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/time.h"
@@ -45,6 +43,9 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+
+using compute::Cast;
+using compute::CastOptions;
 
 bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
   return ScalarEquals(*this, other, options);
@@ -875,6 +876,118 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
   return MakeNullImpl{std::move(type), nullptr}.Finish();
 }
 
+std::shared_ptr<Scalar> Scalar::CastToExplicitScalar() const {
+  switch (this->type->id()) {
+    case Type::BOOL:
+      return std::make_shared<BooleanScalar>(checked_cast<const BooleanScalar&>(*this));
+    case Type::UINT8:
+      return std::make_shared<UInt8Scalar>(checked_cast<const UInt8Scalar&>(*this));
+    case Type::INT8:
+      return std::make_shared<Int8Scalar>(checked_cast<const Int8Scalar&>(*this));
+    case Type::UINT16:
+      return std::make_shared<UInt16Scalar>(checked_cast<const UInt16Scalar&>(*this));
+    case Type::INT16:
+      return std::make_shared<Int16Scalar>(checked_cast<const Int16Scalar&>(*this));
+    case Type::UINT32:
+      return std::make_shared<UInt32Scalar>(checked_cast<const UInt32Scalar&>(*this));
+    case Type::INT32:
+      return std::make_shared<Int32Scalar>(checked_cast<const Int32Scalar&>(*this));
+    case Type::UINT64:
+      return std::make_shared<UInt64Scalar>(checked_cast<const UInt64Scalar&>(*this));
+    case Type::INT64:
+      return std::make_shared<Int64Scalar>(checked_cast<const Int64Scalar&>(*this));
+    case Type::HALF_FLOAT:
+      return std::make_shared<HalfFloatScalar>(
+          checked_cast<const HalfFloatScalar&>(*this));
+    case Type::FLOAT:
+      return std::make_shared<FloatScalar>(checked_cast<const FloatScalar&>(*this));
+    case Type::DOUBLE:
+      return std::make_shared<DoubleScalar>(checked_cast<const DoubleScalar&>(*this));
+    case Type::STRING:
+      return std::make_shared<StringScalar>(checked_cast<const StringScalar&>(*this));
+    case Type::BINARY:
+      return std::make_shared<BinaryScalar>(checked_cast<const BinaryScalar&>(*this));
+    case Type::FIXED_SIZE_BINARY:
+      return std::make_shared<FixedSizeBinaryScalar>(
+          checked_cast<const FixedSizeBinaryScalar&>(*this));
+    case Type::DATE32:
+      return std::make_shared<Date32Scalar>(checked_cast<const Date32Scalar&>(*this));
+    case Type::DATE64:
+      return std::make_shared<Date64Scalar>(checked_cast<const Date64Scalar&>(*this));
+    case Type::TIMESTAMP:
+      return std::make_shared<TimestampScalar>(
+          checked_cast<const TimestampScalar&>(*this));
+    case Type::TIME32:
+      return std::make_shared<Time32Scalar>(checked_cast<const Time32Scalar&>(*this));
+    case Type::TIME64:
+      return std::make_shared<Time64Scalar>(checked_cast<const Time64Scalar&>(*this));
+    case Type::INTERVAL_MONTHS:
+      return std::make_shared<MonthIntervalScalar>(
+          checked_cast<const MonthIntervalScalar&>(*this));
+    case Type::INTERVAL_DAY_TIME:
+      return std::make_shared<DayTimeIntervalScalar>(
+          checked_cast<const DayTimeIntervalScalar&>(*this));
+    case Type::DECIMAL128:
+      return std::make_shared<Decimal128Scalar>(
+          checked_cast<const Decimal128Scalar&>(*this));
+    case Type::DECIMAL256:
+      return std::make_shared<Decimal256Scalar>(
+          checked_cast<const Decimal256Scalar&>(*this));
+    case Type::LIST:
+      return std::make_shared<ListScalar>(checked_cast<const ListScalar&>(*this));
+    case Type::STRUCT:
+      return std::make_shared<StructScalar>(checked_cast<const StructScalar&>(*this));
+    case Type::SPARSE_UNION:
+      return std::make_shared<SparseUnionScalar>(
+          checked_cast<const SparseUnionScalar&>(*this));
+    case Type::DENSE_UNION:
+      return std::make_shared<DenseUnionScalar>(
+          checked_cast<const DenseUnionScalar&>(*this));
+    case Type::DICTIONARY:
+      return std::make_shared<DictionaryScalar>(
+          checked_cast<const DictionaryScalar&>(*this));
+    case Type::MAP:
+      return std::make_shared<MapScalar>(checked_cast<const MapScalar&>(*this));
+    case Type::EXTENSION:
+      return std::make_shared<ExtensionScalar>(
+          checked_cast<const ExtensionScalar&>(*this));
+    case Type::FIXED_SIZE_LIST:
+      return std::make_shared<FixedSizeListScalar>(
+          checked_cast<const FixedSizeListScalar&>(*this));
+    case Type::DURATION:
+      return std::make_shared<DurationScalar>(checked_cast<const DurationScalar&>(*this));
+    case Type::LARGE_STRING:
+      return std::make_shared<LargeStringScalar>(
+          checked_cast<const LargeStringScalar&>(*this));
+    case Type::LARGE_BINARY:
+      return std::make_shared<LargeBinaryScalar>(
+          checked_cast<const LargeBinaryScalar&>(*this));
+    case Type::LARGE_LIST:
+      return std::make_shared<LargeListScalar>(
+          checked_cast<const LargeListScalar&>(*this));
+    case Type::INTERVAL_MONTH_DAY_NANO:
+      return std::make_shared<MonthDayNanoIntervalScalar>(
+          checked_cast<const MonthDayNanoIntervalScalar&>(*this));
+    case Type::RUN_END_ENCODED:
+      return std::make_shared<RunEndEncodedScalar>(
+          checked_cast<const RunEndEncodedScalar&>(*this));
+    case Type::STRING_VIEW:
+      return std::make_shared<StringViewScalar>(
+          checked_cast<const StringViewScalar&>(*this));
+    case Type::BINARY_VIEW:
+      return std::make_shared<BinaryViewScalar>(
+          checked_cast<const BinaryViewScalar&>(*this));
+    case Type::LIST_VIEW:
+      return std::make_shared<ListViewScalar>(checked_cast<const ListViewScalar&>(*this));
+    case Type::LARGE_LIST_VIEW:
+      return std::make_shared<LargeListViewScalar>(
+          checked_cast<const LargeListViewScalar&>(*this));
+    default:
+      DCHECK(false) << "cannot cast to scalar: " << this->type->ToString();
+      return nullptr;
+  }
+}
+
 std::string Scalar::ToString() const {
   if (!this->is_valid) {
     return "null";
@@ -884,9 +997,11 @@ std::string Scalar::ToString() const {
     return dict_scalar->value.dictionary->ToString() + "[" +
            dict_scalar->value.index->ToString() + "]";
   }
-  auto maybe_repr = CastTo(utf8());
+
+  auto maybe_repr = Cast(CastToExplicitScalar(), utf8());
   if (maybe_repr.ok()) {
-    return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie()).value->ToString();
+    return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie().scalar())
+        .value->ToString();
   }
 
   std::string result;
@@ -953,335 +1068,6 @@ Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buf
                                *t);
 }
 }  // namespace internal
-
-namespace {
-// CastImpl(...) assumes `to` points to a non null scalar of the correct type with
-// uninitialized value
-
-// helper for StringFormatter
-template <typename Formatter, typename ScalarType>
-std::shared_ptr<Buffer> FormatToBuffer(Formatter&& formatter, const ScalarType& from) {
-  if (!from.is_valid) {
-    return Buffer::FromString("null");
-  }
-  return formatter(
-      from.value, [&](std::string_view v) { return Buffer::FromString(std::string(v)); });
-}
-
-// error fallback
-Status CastImpl(const Scalar& from, Scalar* to) {
-  return Status::NotImplemented("casting scalars of type ", *from.type, " to type ",
-                                *to->type);
-}
-
-// numeric to numeric
-template <typename From, typename To>
-Status CastImpl(const NumericScalar<From>& from, NumericScalar<To>* to) {
-  to->value = static_cast<typename To::c_type>(from.value);
-  return Status::OK();
-}
-
-// numeric to boolean
-template <typename T>
-Status CastImpl(const NumericScalar<T>& from, BooleanScalar* to) {
-  constexpr auto zero = static_cast<typename T::c_type>(0);
-  to->value = from.value != zero;
-  return Status::OK();
-}
-
-// boolean to numeric
-template <typename T>
-Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
-  to->value = static_cast<typename T::c_type>(from.value);
-  return Status::OK();
-}
-
-// numeric to temporal
-template <typename From, typename To>
-typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value &&
-                            !std::is_same<MonthDayNanoIntervalType, To>::value,
-                        Status>::type
-CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
-  to->value = static_cast<typename To::c_type>(from.value);
-  return Status::OK();
-}
-
-// temporal to numeric
-template <typename From, typename To>
-typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value &&
-                            !std::is_same<MonthDayNanoIntervalType, From>::value,
-                        Status>::type
-CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
-  to->value = static_cast<typename To::c_type>(from.value);
-  return Status::OK();
-}
-
-// timestamp to timestamp
-Status CastImpl(const TimestampScalar& from, TimestampScalar* to) {
-  return util::ConvertTimestampValue(from.type, to->type, from.value).Value(&to->value);
-}
-
-template <typename TypeWithTimeUnit>
-std::shared_ptr<DataType> AsTimestampType(const std::shared_ptr<DataType>& type) {
-  return timestamp(checked_cast<const TypeWithTimeUnit&>(*type).unit());
-}
-
-// duration to duration
-Status CastImpl(const DurationScalar& from, DurationScalar* to) {
-  return util::ConvertTimestampValue(AsTimestampType<DurationType>(from.type),
-                                     AsTimestampType<DurationType>(to->type), from.value)
-      .Value(&to->value);
-}
-
-// time to time
-template <typename F, typename ToScalar, typename T = typename ToScalar::TypeClass>
-enable_if_time<T, Status> CastImpl(const TimeScalar<F>& from, ToScalar* to) {
-  return util::ConvertTimestampValue(AsTimestampType<F>(from.type),
-                                     AsTimestampType<T>(to->type), from.value)
-      .Value(&to->value);
-}
-
-constexpr int64_t kMillisecondsInDay = 86400000;
-
-// date to date
-Status CastImpl(const Date32Scalar& from, Date64Scalar* to) {
-  to->value = from.value * kMillisecondsInDay;
-  return Status::OK();
-}
-Status CastImpl(const Date64Scalar& from, Date32Scalar* to) {
-  to->value = static_cast<int32_t>(from.value / kMillisecondsInDay);
-  return Status::OK();
-}
-
-// timestamp to date
-Status CastImpl(const TimestampScalar& from, Date64Scalar* to) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto millis,
-      util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  to->value = millis - millis % kMillisecondsInDay;
-  return Status::OK();
-}
-Status CastImpl(const TimestampScalar& from, Date32Scalar* to) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto millis,
-      util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  to->value = static_cast<int32_t>(millis / kMillisecondsInDay);
-  return Status::OK();
-}
-
-// date to timestamp
-template <typename D>
-Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
-  int64_t millis = from.value;
-  if (std::is_same<D, Date32Type>::value) {
-    millis *= kMillisecondsInDay;
-  }
-  return util::ConvertTimestampValue(timestamp(TimeUnit::MILLI), to->type, millis)
-      .Value(&to->value);
-}
-
-// string to any
-template <typename ScalarType>
-Status CastImpl(const StringScalar& from, ScalarType* to) {
-  ARROW_ASSIGN_OR_RAISE(auto out, Scalar::Parse(to->type, std::string_view(*from.value)));
-  to->value = std::move(checked_cast<ScalarType&>(*out).value);
-  return Status::OK();
-}
-
-// binary/large binary/large string to string
-template <typename ScalarType>
-enable_if_t<std::is_base_of_v<BaseBinaryScalar, ScalarType> &&
-                !std::is_same<ScalarType, StringScalar>::value,
-            Status>
-CastImpl(const ScalarType& from, StringScalar* to) {
-  to->value = from.value;
-  return Status::OK();
-}
-
-// formattable to string
-template <typename ScalarType, typename T = typename ScalarType::TypeClass,
-          typename Formatter = internal::StringFormatter<T>,
-          // note: Value unused but necessary to trigger SFINAE if Formatter is
-          // undefined
-          typename Value = typename Formatter::value_type>
-Status CastImpl(const ScalarType& from, StringScalar* to) {
-  to->value = FormatToBuffer(Formatter{from.type.get()}, from);
-  return Status::OK();
-}
-
-Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
-  auto from_type = checked_cast<const Decimal128Type*>(from.type.get());
-  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
-  return Status::OK();
-}
-
-Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
-  auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
-  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
-  return Status::OK();
-}
-
-Status CastImpl(const StructScalar& from, StringScalar* to) {
-  std::stringstream ss;
-  ss << '{';
-  for (int i = 0; static_cast<size_t>(i) < from.value.size(); i++) {
-    if (i > 0) ss << ", ";
-    ss << from.type->field(i)->name() << ':' << from.type->field(i)->type()->ToString()
-       << " = " << from.value[i]->ToString();
-  }
-  ss << '}';
-  to->value = Buffer::FromString(ss.str());
-  return Status::OK();
-}
-
-// casts between variable-length and fixed-length list types
-template <typename ToScalar>
-enable_if_list_type<typename ToScalar::TypeClass, Status> CastImpl(
-    const BaseListScalar& from, ToScalar* to) {
-  if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
-    if (from.value->length() >
-        std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
-      return Status::Invalid(from.type->ToString(), " too large to cast to ",
-                             to->type->ToString());
-    }
-  }
-
-  if constexpr (is_fixed_size_list_type<typename ToScalar::TypeClass>::value) {
-    const auto& fixed_size_list_type = checked_cast<const FixedSizeListType&>(*to->type);
-    if (from.value->length() != fixed_size_list_type.list_size()) {
-      return Status::Invalid("Cannot cast ", from.type->ToString(), " of length ",
-                             from.value->length(), " to fixed size list of length ",
-                             fixed_size_list_type.list_size());
-    }
-  }
-
-  DCHECK_EQ(from.is_valid, to->is_valid);
-  to->value = from.value;
-  return Status::OK();
-}
-
-// list based types (list, large list and map (fixed sized list too)) to string
-Status CastImpl(const BaseListScalar& from, StringScalar* to) {
-  std::stringstream ss;
-  ss << from.type->ToString() << "[";
-  for (int64_t i = 0; i < from.value->length(); i++) {
-    if (i > 0) ss << ", ";
-    ARROW_ASSIGN_OR_RAISE(auto value, from.value->GetScalar(i));
-    ss << value->ToString();
-  }
-  ss << ']';
-  to->value = Buffer::FromString(ss.str());
-  return Status::OK();
-}
-
-Status CastImpl(const UnionScalar& from, StringScalar* to) {
-  const auto& union_ty = checked_cast<const UnionType&>(*from.type);
-  std::stringstream ss;
-  const Scalar* selected_value;
-  if (from.type->id() == Type::DENSE_UNION) {
-    selected_value = checked_cast<const DenseUnionScalar&>(from).value.get();
-  } else {
-    const auto& sparse_scalar = checked_cast<const SparseUnionScalar&>(from);
-    selected_value = sparse_scalar.value[sparse_scalar.child_id].get();
-  }
-  ss << "union{" << union_ty.field(union_ty.child_ids()[from.type_code])->ToString()
-     << " = " << selected_value->ToString() << '}';
-  to->value = Buffer::FromString(ss.str());
-  return Status::OK();
-}
-
-struct CastImplVisitor {
-  Status NotImplemented() {
-    return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
-  }
-
-  const Scalar& from_;
-  const std::shared_ptr<DataType>& to_type_;
-  Scalar* out_;
-};
-
-template <typename ToType>
-struct FromTypeVisitor : CastImplVisitor {
-  using ToScalar = typename TypeTraits<ToType>::ScalarType;
-
-  FromTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type,
-                  Scalar* out)
-      : CastImplVisitor{from, to_type, out} {}
-
-  template <typename FromType>
-  Status Visit(const FromType&) {
-    return CastImpl(checked_cast<const typename TypeTraits<FromType>::ScalarType&>(from_),
-                    checked_cast<ToScalar*>(out_));
-  }
-
-  // identity cast only for parameter free types
-  template <typename T1 = ToType>
-  typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
-      const ToType&) {
-    checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
-    return Status::OK();
-  }
-
-  Status CastFromListLike(const BaseListType& base_list_type) {
-    return CastImpl(checked_cast<const BaseListScalar&>(from_),
-                    checked_cast<ToScalar*>(out_));
-  }
-
-  Status Visit(const ListType& list_type) { return CastFromListLike(list_type); }
-
-  Status Visit(const LargeListType& large_list_type) {
-    return CastFromListLike(large_list_type);
-  }
-
-  Status Visit(const FixedSizeListType& fixed_size_list_type) {
-    return CastFromListLike(fixed_size_list_type);
-  }
-
-  Status Visit(const NullType&) { return NotImplemented(); }
-  Status Visit(const DictionaryType&) { return NotImplemented(); }
-  Status Visit(const ExtensionType&) { return NotImplemented(); }
-};
-
-struct ToTypeVisitor : CastImplVisitor {
-  ToTypeVisitor(const Scalar& from, const std::shared_ptr<DataType>& to_type, Scalar* out)
-      : CastImplVisitor{from, to_type, out} {}
-
-  template <typename ToType>
-  Status Visit(const ToType&) {
-    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_, out_};
-    return VisitTypeInline(*from_.type, &unpack_from_type);
-  }
-
-  Status Visit(const NullType&) {
-    if (from_.is_valid) {
-      return Status::Invalid("attempting to cast non-null scalar to NullScalar");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const DictionaryType& dict_type) {
-    auto& out = checked_cast<DictionaryScalar*>(out_)->value;
-    ARROW_ASSIGN_OR_RAISE(auto cast_value, from_.CastTo(dict_type.value_type()));
-    ARROW_ASSIGN_OR_RAISE(out.dictionary, MakeArrayFromScalar(*cast_value, 1));
-    return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
-  }
-
-  Status Visit(const ExtensionType&) { return NotImplemented(); }
-};
-
-}  // namespace
-
-Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) const {
-  std::shared_ptr<Scalar> out = MakeNullScalar(to);
-  if (is_valid) {
-    out->is_valid = true;
-    ToTypeVisitor unpack_to_type{*this, to, out.get()};
-    RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
-  }
-  return out;
-}
 
 void PrintTo(const Scalar& scalar, std::ostream* os) { *os << scalar.ToString(); }
 
