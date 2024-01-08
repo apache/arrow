@@ -461,9 +461,9 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | Function name    | Arity  | Input types             | Output type               | Notes |
 +==================+========+=========================+===========================+=======+
-| abs              | Unary  | Numeric/Temporal        | Numeric/Temporal          |       |
+| abs              | Unary  | Numeric/Duration        | Numeric/Duration          |       |
 +------------------+--------+-------------------------+---------------------------+-------+
-| abs_checked      | Unary  | Numeric/Temporal        | Numeric/Temporal          |       |
+| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration          |       |
 +------------------+--------+-------------------------+---------------------------+-------+
 | add              | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
@@ -479,15 +479,15 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+-------------------------+---------------------------+-------+
 | multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
 +------------------+--------+-------------------------+---------------------------+-------+
-| negate           | Unary  | Numeric/Temporal        | Numeric/Temporal          |       |
+| negate           | Unary  | Numeric/Duration        | Numeric/Duration          |       |
 +------------------+--------+-------------------------+---------------------------+-------+
-| negate_checked   | Unary  | Signed Numeric/Temporal | Signed Numeric/Temporal   |       |
+| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration   |       |
 +------------------+--------+-------------------------+---------------------------+-------+
 | power            | Binary | Numeric                 | Numeric                   |       |
 +------------------+--------+-------------------------+---------------------------+-------+
 | power_checked    | Binary | Numeric                 | Numeric                   |       |
 +------------------+--------+-------------------------+---------------------------+-------+
-| sign             | Unary  | Numeric/Temporal        | Int8/Float32/Float64      | \(2)  |
+| sign             | Unary  | Numeric/Duration        | Int8/Float32/Float64      | \(2)  |
 +------------------+--------+-------------------------+---------------------------+-------+
 | sqrt             | Unary  | Numeric                 | Numeric                   |       |
 +------------------+--------+-------------------------+---------------------------+-------+
