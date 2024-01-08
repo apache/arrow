@@ -26,7 +26,7 @@ add_custom_target(toolchain-tests)
 # Accumulate all bundled targets and we will splice them together later as
 # libarrow_bundled_dependencies.a so that third party libraries have something
 # usable to create statically-linked builds with some BUNDLED dependencies,
-# including allocators like jllemalloc and mimalloc
+# including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
