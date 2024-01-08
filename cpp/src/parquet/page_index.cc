@@ -392,87 +392,6 @@ private:
   std::shared_ptr<::arrow::Buffer> offset_index_buffer_;
 };
 
-
-/// Class to read full set of OffsetIndex pages
-/// Key feature is that this does not require a full set of metadata
-/// Only rowgroup 0 metadata is needed.
-class AllOffsetIndexReader {
-public:
-  AllOffsetIndexReader(::arrow::io::RandomAccessFile* input,
-                       std::shared_ptr<FileMetaData> file_metadata,
-                              std::shared_ptr<RowGroupMetaData> row_group_metadata,
-                              const ReaderProperties& properties,
-                              InternalFileDecryptor* file_decryptor)
-          : input_(input),
-            file_metadata_(std::move(file_metadata)),
-            row_group_metadata_(std::move(row_group_metadata)),
-            properties_(properties),
-            file_decryptor_(file_decryptor) {}
-
-  std::vector<ColumnOffsets> GetAllOffsets() {
-
-    int32_t rowgroup_len = 0; // This rowgroup length is just an estimate, may vary by rowgroup
-    int64_t offset_index_start = -1;
-    int64_t total_rows = file_metadata_->num_rows();
-    int64_t chunk_rows = row_group_metadata_->num_rows();
-    // Don't use row_group count from metadata since may be dummy with only rowgroup 0
-    int num_row_groups = ceil(static_cast<double>(total_rows) / static_cast<double>(chunk_rows));
-    int num_columns = file_metadata_->num_columns();
-    for (int col = 0; col < num_columns; ++col) {
-      auto col_chunk = row_group_metadata_->ColumnChunk(col);
-      auto offset_index_location = col_chunk->GetOffsetIndexLocation();
-      if (offset_index_start < 0) {
-        offset_index_start = offset_index_location->offset;
-      }
-      rowgroup_len += offset_index_location->length;
-    }
-
-    // Retrieve 1.5x the estimated size to allow for variation in storing pages
-    // This is just a guess, but we can go over because metadata comes after offsets
-    // So, we can retrieve a slightly larger buffer here
-    float overhead_factor = 1.5;
-    int32_t est_offset_index_size = num_row_groups * rowgroup_len * overhead_factor;
-    std::shared_ptr<::arrow::Buffer> offset_index_buffer;
-    PARQUET_ASSIGN_OR_THROW(offset_index_buffer,
-                            input_->ReadAt(offset_index_start,
-                                           est_offset_index_size));
-    OffsetIndexReader col_reader(row_group_metadata_, properties_, file_decryptor_, offset_index_buffer);
-
-    std::vector<ColumnOffsets> rowgroup_offsets;
-    int64_t buffer_offset = 0;
-    for (int rg = 0; rg < num_row_groups; ++rg) {
-      ColumnOffsets offset_indexes;
-      for (int col = 0; col < num_columns; ++col) {
-        auto col_chunk = row_group_metadata_->ColumnChunk(col);
-        auto offset_index_location = col_chunk->GetOffsetIndexLocation();
-        uint32_t estimated_length = offset_index_location->length * overhead_factor;
-        uint32_t actual_length = 0;
-        auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length, &actual_length);
-        buffer_offset += actual_length;
-        offset_indexes.push_back(offset_index);
-      }
-      rowgroup_offsets.push_back(offset_indexes);
-    }
-    return rowgroup_offsets;
-  };
-
-private:
-  /// The input stream that can perform random access read.
-  ::arrow::io::RandomAccessFile* input_;
-
-  /// Overall file metadata
-  std::shared_ptr<FileMetaData> file_metadata_;
-
-  /// The row group metadata to get column chunk metadata.
-  std::shared_ptr<RowGroupMetaData> row_group_metadata_;
-
-  /// Reader properties used to deserialize thrift object.
-  const ReaderProperties& properties_;
-
-  /// File-level decryptor.
-  InternalFileDecryptor* file_decryptor_;
-};
-
 class PageIndexReaderImpl : public PageIndexReader {
  public:
   PageIndexReaderImpl(::arrow::io::RandomAccessFile* input,
@@ -517,13 +436,56 @@ class PageIndexReaderImpl : public PageIndexReader {
     return nullptr;
   }
 
+  /// Method to read full set of OffsetIndex pages
+  /// Key feature is that this does not require a full set of metadata
+  /// Only rowgroup 0 metadata is needed.
   std::vector<ColumnOffsets> GetAllOffsets() override{
-    auto row_group_metadata = file_metadata_->RowGroup(0);
-    AllOffsetIndexReader all_offset_reader (
-            input_, file_metadata_, std::move(row_group_metadata), properties_,
-            file_decryptor_);
+    std::shared_ptr<RowGroupMetaData> row_group_metadata = file_metadata_->RowGroup(0);
+    int32_t rowgroup_len = 0; // This rowgroup length is just an estimate, may vary by rowgroup
+    int64_t offset_index_start = -1;
+    int64_t total_rows = file_metadata_->num_rows();
+    int64_t chunk_rows = row_group_metadata->num_rows();
+    // Don't use row_group count from metadata since may be dummy with only rowgroup 0
+    int num_row_groups = ceil(static_cast<double>(total_rows) / static_cast<double>(chunk_rows));
+    int num_columns = file_metadata_->num_columns();
+    for (int col = 0; col < num_columns; ++col) {
+      auto col_chunk = row_group_metadata->ColumnChunk(col);
+      auto offset_index_location = col_chunk->GetOffsetIndexLocation();
+      if (offset_index_start < 0) {
+        offset_index_start = offset_index_location->offset;
+      }
+      rowgroup_len += offset_index_location->length;
+    }
 
-    return all_offset_reader.GetAllOffsets();
+    // Retrieve 1.5x the estimated size to allow for variation in storing pages
+    // This is just a guess, but we can go over because metadata comes after offsets
+    // So, we can retrieve a slightly larger buffer here
+    float overhead_factor = 1.5;
+    int32_t est_offset_index_size = num_row_groups * rowgroup_len * overhead_factor;
+    std::shared_ptr<::arrow::Buffer> offset_index_buffer;
+    PARQUET_ASSIGN_OR_THROW(offset_index_buffer,
+                            input_->ReadAt(offset_index_start,
+                                           est_offset_index_size));
+    OffsetIndexReader col_reader(row_group_metadata, properties_, file_decryptor_, offset_index_buffer);
+
+    std::vector<ColumnOffsets> rowgroup_offsets;
+    rowgroup_offsets.reserve(num_row_groups);
+    int64_t buffer_offset = 0;
+    for (int rg = 0; rg < num_row_groups; ++rg) {
+      ColumnOffsets offset_indexes;
+      offset_indexes.reserve(num_columns);
+      for (int col = 0; col < num_columns; ++col) {
+        auto col_chunk = row_group_metadata->ColumnChunk(col);
+        auto offset_index_location = col_chunk->GetOffsetIndexLocation();
+        uint32_t estimated_length = offset_index_location->length * overhead_factor;
+        uint32_t actual_length = 0;
+        auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length, &actual_length);
+        buffer_offset += actual_length;
+        offset_indexes.emplace_back(offset_index);
+      }
+      rowgroup_offsets.emplace_back(offset_indexes);
+    }
+    return rowgroup_offsets;
   }
 
   void WillNeed(const std::vector<int32_t>& row_group_indices,

@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include <memory>
+#include <filesystem>
 
 #include "arrow/io/file.h"
 #include "arrow/util/float16.h"
@@ -927,6 +928,10 @@ std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
 
 void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize)
 {
+  if(std::filesystem::exists(filename)) {
+    return;
+  }
+
   auto table = GetTable(nColumns, nRows);
   auto result = ::arrow::io::FileOutputStream::Open(filename);
   auto outfile = result.ValueOrDie();
@@ -955,7 +960,6 @@ std::vector<ColumnOffsets> ReadPageIndexes(const std::string &filename) {
     auto row_group_reader = reader->RowGroup(rg);
     ColumnOffsets offset_indexes;
     for (int col = 0; col < metadata->num_columns(); ++col) {
-      auto column_index = row_group_index_reader->GetColumnIndex(col);
       auto offset_index = row_group_index_reader->GetOffsetIndex(col);
       offset_indexes.push_back(offset_index);
     }
@@ -1014,8 +1018,8 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
   // Use indexes to read and check rows
   std::vector<int> row_group_test({3, 9});
   for(auto row_group: row_group_test) {
-    auto indexed_metadata = metadata_row_0->IndexTo(row_group, rowgroup_offsets);
     auto expected_metadata = metadata_all_rows->Subset({row_group});
+    auto indexed_metadata = metadata_row_0->IndexTo(row_group, rowgroup_offsets);
 
     std::string expected_read = ReadIndexedRow(filename, indicies, expected_metadata);
     std::string indexed_read = ReadIndexedRow(filename, indicies, indexed_metadata);
