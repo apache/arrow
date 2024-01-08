@@ -1057,6 +1057,12 @@ def test_map_from_arrays():
 
     assert result.equals(expected)
 
+    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        keys.type,
+        items.type
+    ))
+    assert result.equals(expected)
+
     # check invalid usage
 
     offsets = [0, 1, 3, 5]
