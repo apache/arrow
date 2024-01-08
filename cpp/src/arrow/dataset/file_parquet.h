@@ -177,6 +177,10 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
       const Field& field, const parquet::Statistics& statistics);
 
+  static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
+      const Field& field, const FieldRef& field_ref,
+      const parquet::Statistics& statistics);
+
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       compute::Expression partition_expression,
@@ -207,7 +211,11 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// or std::nullopt if all row groups are selected.
   std::optional<std::vector<int>> row_groups_;
 
+  // the expressions (combined for all columns for which statistics have been
+  // processed) are stored per column group
   std::vector<compute::Expression> statistics_expressions_;
+  // statistics status are kept track of by Parquet Schema column indices
+  // (i.e. not Arrow schema field index)
   std::vector<bool> statistics_expressions_complete_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
