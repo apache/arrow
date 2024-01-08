@@ -121,7 +121,7 @@ public final class JdbcToArrowConfig {
    * @param reuseVectorSchemaRoot Whether to reuse the vector schema root for each data load.
    * @param arraySubTypesByColumnIndex The type of the JDBC array at the column index (1-based).
    * @param arraySubTypesByColumnName  The type of the JDBC array at the column name.
-   * @param targetBatchSize The target batch size to be used in preallcation of the resulting vectors.
+   * @param targetBatchSize The target batch size to be used in preallocation of the resulting vectors.
    * @param jdbcToArrowTypeConverter The function that maps JDBC field type information to arrow type. If set to null,
    *                                 the default mapping will be used, which is defined as:
    *  <ul>

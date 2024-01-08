@@ -419,6 +419,7 @@ class FileWriterImpl : public FileWriter {
     // Max number of rows allowed in a row group.
     const int64_t max_row_group_length = this->properties().max_row_group_length();
 
+    // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
         row_group_writer_->num_rows() >= max_row_group_length) {
       RETURN_NOT_OK(NewBufferedRowGroup());
@@ -461,8 +462,9 @@ class FileWriterImpl : public FileWriter {
       RETURN_NOT_OK(WriteBatch(offset, batch_size));
       offset += batch_size;
 
-      // Flush current row group if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length) {
+      // Flush current row group writer and create a new writer if it is full.
+      if (row_group_writer_->num_rows() >= max_row_group_length &&
+          offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }

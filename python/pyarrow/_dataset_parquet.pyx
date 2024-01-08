@@ -42,6 +42,7 @@ from pyarrow._dataset cimport (
     FileWriteOptions,
     Fragment,
     FragmentScanOptions,
+    CacheOptions,
     Partitioning,
     PartitioningFactory,
     WrittenFile
@@ -608,6 +609,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             dictionary_pagesize_limit=self._properties["dictionary_pagesize_limit"],
             write_page_index=self._properties["write_page_index"],
             write_page_checksum=self._properties["write_page_checksum"],
+            sorting_columns=self._properties["sorting_columns"],
         )
 
     def _set_arrow_properties(self):
@@ -658,6 +660,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_index=False,
             encryption_config=None,
             write_page_checksum=False,
+            sorting_columns=None,
         )
 
         self._set_properties()
@@ -693,6 +696,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         parallel using a background I/O thread pool.
         Set to False if you want to prioritize minimal memory usage
         over maximum speed.
+    cache_options : pyarrow.CacheOptions, default None
+        Cache options used when pre_buffer is enabled. The default values should
+        be good for most use cases. You may want to adjust these for example if
+        you have exceptionally high latency to the file system. 
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -714,6 +721,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
                  bint pre_buffer=True,
+                 cache_options=None,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  decryption_config=None,
@@ -723,6 +731,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         self.pre_buffer = pre_buffer
+        if cache_options is not None:
+            self.cache_options = cache_options
         if thrift_string_size_limit is not None:
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
@@ -769,6 +779,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     @pre_buffer.setter
     def pre_buffer(self, bint pre_buffer):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
+
+    @property
+    def cache_options(self):
+        return CacheOptions.wrap(self.arrow_reader_properties().cache_options())
+
+    @cache_options.setter
+    def cache_options(self, CacheOptions options):
+        self.arrow_reader_properties().set_cache_options(options.unwrap())
 
     @property
     def thrift_string_size_limit(self):
@@ -828,11 +846,11 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         bool
         """
         attrs = (
-            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer, self.cache_options,
             self.thrift_string_size_limit, self.thrift_container_size_limit,
             self.page_checksum_verification)
         other_attrs = (
-            other.use_buffered_stream, other.buffer_size, other.pre_buffer,
+            other.use_buffered_stream, other.buffer_size, other.pre_buffer, other.cache_options,
             other.thrift_string_size_limit,
             other.thrift_container_size_limit, other.page_checksum_verification)
         return attrs == other_attrs
@@ -849,6 +867,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             use_buffered_stream=self.use_buffered_stream,
             buffer_size=self.buffer_size,
             pre_buffer=self.pre_buffer,
+            cache_options=self.cache_options,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
             page_checksum_verification=self.page_checksum_verification

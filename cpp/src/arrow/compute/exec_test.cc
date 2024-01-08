@@ -1232,7 +1232,7 @@ void TestCallScalarFunctionPreallocationCases::DoTest(FunctionCallerMaker caller
     }
 
     // Set the exec_chunksize to be smaller, so now we have several invocations
-    // of the kernel, but still the output is onee array
+    // of the kernel, but still the output is one array
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(80);

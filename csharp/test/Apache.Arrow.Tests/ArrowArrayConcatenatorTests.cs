@@ -64,13 +64,16 @@ namespace Apache.Arrow.Tests
                     FloatType.Default,
                     DoubleType.Default,
                     BinaryType.Default,
+                    BinaryViewType.Default,
                     StringType.Default,
+                    StringViewType.Default,
                     Date32Type.Default,
                     Date64Type.Default,
                     TimestampType.Default,
                     new Decimal128Type(14, 10),
                     new Decimal256Type(14,10),
                     new ListType(Int64Type.Default),
+                    new ListViewType(Int64Type.Default),
                     new StructType(new List<Field>{
                         new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
@@ -122,7 +125,9 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
@@ -131,6 +136,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -368,6 +374,34 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(BinaryViewType type)
+            {
+                BinaryViewArray.Builder resultBuilder = new BinaryViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    BinaryViewArray.Builder builder = new BinaryViewArray.Builder().Reserve(dataList.Count);
+
+                    foreach (byte? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
             public void Visit(StringType type)
             {
                 StringArray.Builder resultBuilder = new StringArray.Builder().Reserve(_baseDataTotalElementCount);
@@ -376,6 +410,26 @@ namespace Apache.Arrow.Tests
                 {
                     List<int?> dataList = _baseData[i];
                     StringArray.Builder builder = new StringArray.Builder().Reserve(dataList.Count);
+
+                    foreach (string value in dataList.Select(_ => _.ToString() ?? null))
+                    {
+                        builder.Append(value);
+                        resultBuilder.Append(value);
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(StringViewType type)
+            {
+                StringViewArray.Builder resultBuilder = new StringViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    StringViewArray.Builder builder = new StringViewArray.Builder().Reserve(dataList.Count);
 
                     foreach (string value in dataList.Select(_ => _.ToString() ?? null))
                     {
@@ -398,6 +452,41 @@ namespace Apache.Arrow.Tests
                     List<int?> dataList = _baseData[i];
 
                     ListArray.Builder builder = new ListArray.Builder(type.ValueField).Reserve(dataList.Count);
+                    Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (long? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(ListViewType type)
+            {
+                ListViewArray.Builder resultBuilder = new ListViewArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
+                Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+
+                    ListViewArray.Builder builder = new ListViewArray.Builder(type.ValueField).Reserve(dataList.Count);
                     Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
 
                     foreach (long? value in dataList)

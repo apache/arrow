@@ -18,7 +18,6 @@
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
@@ -58,16 +57,13 @@ parametrize_test_data = pytest.mark.parametrize(
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_enable(tempdir,
-                                            use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_enable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
     # verify that we can read/write pandas df with new flag (default behaviour)
     _roundtrip_pandas_dataframe(df,
-                                write_kwargs={},
-                                use_legacy_dataset=use_legacy_dataset)
+                                write_kwargs={})
 
     # Write to a parquet file with compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -83,21 +79,17 @@ def test_write_compliant_nested_type_enable(tempdir,
     assert new_table.schema.types[0].value_field.name == 'element'
 
     # Verify that the new table can be read/written correctly
-    _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset)
+    _check_roundtrip(new_table)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_disable(tempdir,
-                                             use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_disable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
     # verify that we can read/write with new flag disabled
     _roundtrip_pandas_dataframe(df, write_kwargs={
-        'use_compliant_nested_type': False},
-        use_legacy_dataset=use_legacy_dataset)
+        'use_compliant_nested_type': False})
 
     # Write to a parquet file while disabling compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -114,5 +106,4 @@ def test_write_compliant_nested_type_disable(tempdir,
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset,
                      use_compliant_nested_type=False)

@@ -25,6 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/compute/api.h"
 
@@ -226,6 +227,33 @@ static void UniqueString100bytes(benchmark::State& state) {
   BenchUnique(state, HashParams<StringType>{general_bench_cases[state.range(0)], 100});
 }
 
+template <typename ParamType>
+void BenchValueCountsDictionaryChunks(benchmark::State& state, const ParamType& params) {
+  std::shared_ptr<Array> arr;
+  params.GenerateTestData(&arr);
+  // chunk arr to 100 slices
+  std::vector<std::shared_ptr<Array>> chunks;
+  const int64_t chunk_size = arr->length() / 100;
+  for (int64_t i = 0; i < 100; ++i) {
+    auto slice = arr->Slice(i * chunk_size, chunk_size);
+    auto datum = DictionaryEncode(slice).ValueOrDie();
+    ARROW_CHECK(datum.is_array());
+    chunks.push_back(datum.make_array());
+  }
+  auto chunked_array = std::make_shared<ChunkedArray>(chunks);
+
+  while (state.KeepRunning()) {
+    ABORT_NOT_OK(ValueCounts(chunked_array).status());
+  }
+  params.SetMetadata(state);
+}
+
+static void ValueCountsDictionaryChunks(benchmark::State& state) {
+  // Dictionary of byte strings with 10 bytes each
+  BenchValueCountsDictionaryChunks(
+      state, HashParams<StringType>{general_bench_cases[state.range(0)], 10});
+}
+
 void HashSetArgs(benchmark::internal::Benchmark* bench) {
   for (int i = 0; i < static_cast<int>(general_bench_cases.size()); ++i) {
     bench->Arg(i);
@@ -238,6 +266,14 @@ BENCHMARK(BuildStringDictionary);
 BENCHMARK(UniqueInt64)->Apply(HashSetArgs);
 BENCHMARK(UniqueString10bytes)->Apply(HashSetArgs);
 BENCHMARK(UniqueString100bytes)->Apply(HashSetArgs);
+
+void DictionaryChunksHashSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int i = 0; i < static_cast<int>(general_bench_cases.size()); ++i) {
+    bench->Arg(i);
+  }
+}
+
+BENCHMARK(ValueCountsDictionaryChunks)->Apply(DictionaryChunksHashSetArgs);
 
 void UInt8SetArgs(benchmark::internal::Benchmark* bench) {
   for (int i = 0; i < static_cast<int>(uint8_bench_cases.size()); ++i) {

@@ -23,8 +23,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util
-from pyarrow.tests.parquet.common import (_check_roundtrip,
-                                          parametrize_legacy_dataset)
+from pyarrow.tests.parquet.common import _check_roundtrip
 
 try:
     import pyarrow.parquet as pq
@@ -54,9 +53,8 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @pytest.mark.parametrize('chunk_size', [None, 1000])
-def test_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
+def test_parquet_2_0_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -65,8 +63,7 @@ def test_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
 
     _write_table(arrow_table, filename, version='2.6',
                  chunk_size=chunk_size)
-    table_read = pq.read_pandas(
-        filename, use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(filename)
     assert table_read.schema.pandas_metadata is not None
 
     read_metadata = table_read.schema.metadata
@@ -77,8 +74,7 @@ def test_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_1_0_roundtrip(tempdir, use_legacy_dataset):
+def test_parquet_1_0_roundtrip(tempdir):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -100,7 +96,7 @@ def test_parquet_1_0_roundtrip(tempdir, use_legacy_dataset):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version='1.0')
-    table_read = _read_table(filename, use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(filename)
     df_read = table_read.to_pandas()
 
     # We pass uint32_t as int64_t if we write Parquet version 1.0
@@ -113,18 +109,17 @@ def test_parquet_1_0_roundtrip(tempdir, use_legacy_dataset):
 # -----------------------------------------------------------------------------
 
 
-def _simple_table_write_read(table, use_legacy_dataset):
+def _simple_table_write_read(table):
     bio = pa.BufferOutputStream()
     pq.write_table(table, bio)
     contents = bio.getvalue()
     return pq.read_table(
-        pa.BufferReader(contents), use_legacy_dataset=use_legacy_dataset
+        pa.BufferReader(contents)
     )
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_direct_read_dictionary(use_legacy_dataset):
+def test_direct_read_dictionary():
     # ARROW-3325
     repeats = 10
     nunique = 5
@@ -140,8 +135,7 @@ def test_direct_read_dictionary(use_legacy_dataset):
     contents = bio.getvalue()
 
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0'],
-                           use_legacy_dataset=use_legacy_dataset)
+                           read_dictionary=['f0'])
 
     # Compute dictionary-encoded subfield
     expected = pa.table([table[0].dictionary_encode()], names=['f0'])
@@ -149,8 +143,7 @@ def test_direct_read_dictionary(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_direct_read_dictionary_subfield(use_legacy_dataset):
+def test_direct_read_dictionary_subfield():
     repeats = 10
     nunique = 5
 
@@ -163,8 +156,7 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     pq.write_table(table, bio)
     contents = bio.getvalue()
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0.list.element'],
-                           use_legacy_dataset=use_legacy_dataset)
+                           read_dictionary=['f0.list.element'])
 
     arr = pa.array(data[0])
     values_as_dict = arr.values.dictionary_encode()
@@ -181,8 +173,7 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     assert result[0].num_chunks == 1
 
 
-@parametrize_legacy_dataset
-def test_dictionary_array_automatically_read(use_legacy_dataset):
+def test_dictionary_array_automatically_read():
     # ARROW-3246
 
     # Make a large dictionary, a little over 4MB of data
@@ -200,7 +191,7 @@ def test_dictionary_array_automatically_read(use_legacy_dataset):
                                                      dict_values))
 
     table = pa.table([pa.chunked_array(chunks)], names=['f0'])
-    result = _simple_table_write_read(table, use_legacy_dataset)
+    result = _simple_table_write_read(table)
 
     assert result.equals(table)
 
@@ -213,8 +204,7 @@ def test_dictionary_array_automatically_read(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_decimal_roundtrip(tempdir, use_legacy_dataset):
+def test_decimal_roundtrip(tempdir):
     num_values = 10
 
     columns = {}
@@ -234,8 +224,7 @@ def test_decimal_roundtrip(tempdir, use_legacy_dataset):
     string_filename = str(filename)
     table = pa.Table.from_pandas(expected)
     _write_table(table, string_filename)
-    result_table = _read_table(
-        string_filename, use_legacy_dataset=use_legacy_dataset)
+    result_table = _read_table(string_filename)
     result = result_table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
@@ -259,14 +248,13 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 # -----------------------------------------------------------------------------
 
 
-@parametrize_legacy_dataset
 @pytest.mark.parametrize('dtype', [int, float])
-def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
+def test_single_pylist_column_roundtrip(tempdir, dtype,):
     filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
     data = [pa.array(list(map(dtype, range(5))))]
     table = pa.Table.from_arrays(data, names=['a'])
     _write_table(table, filename)
-    table_read = _read_table(filename, use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(filename)
     for i in range(table.num_columns):
         col_written = table[i]
         col_read = table_read[i]
@@ -277,16 +265,14 @@ def test_single_pylist_column_roundtrip(tempdir, dtype, use_legacy_dataset):
         assert data_written.equals(data_read)
 
 
-@parametrize_legacy_dataset
-def test_empty_lists_table_roundtrip(use_legacy_dataset):
+def test_empty_lists_table_roundtrip():
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
     table = pa.Table.from_arrays([arr], ["A"])
-    _check_roundtrip(table, use_legacy_dataset=use_legacy_dataset)
+    _check_roundtrip(table)
 
 
-@parametrize_legacy_dataset
-def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
+def test_nested_list_nonnullable_roundtrip_bug():
     # Reproduce failure in ARROW-5630
     typ = pa.list_(pa.field("item", pa.float32(), False))
     num_rows = 10000
@@ -295,26 +281,22 @@ def test_nested_list_nonnullable_roundtrip_bug(use_legacy_dataset):
                   (num_rows // 10)), type=typ)
     ], ['a'])
     _check_roundtrip(
-        t, data_page_size=4096, use_legacy_dataset=use_legacy_dataset)
+        t, data_page_size=4096)
 
 
-@parametrize_legacy_dataset
-def test_nested_list_struct_multiple_batches_roundtrip(
-    tempdir, use_legacy_dataset
-):
+def test_nested_list_struct_multiple_batches_roundtrip(tempdir):
     # Reproduce failure in ARROW-11024
     data = [[{'x': 'abc', 'y': 'abc'}]]*100 + [[{'x': 'abc', 'y': 'gcb'}]]*100
     table = pa.table([pa.array(data)], names=['column'])
     _check_roundtrip(
-        table, row_group_size=20, use_legacy_dataset=use_legacy_dataset)
+        table, row_group_size=20)
 
     # Reproduce failure in ARROW-11069 (plain non-nested structs with strings)
     data = pa.array(
         [{'a': '1', 'b': '2'}, {'a': '3', 'b': '4'}, {'a': '5', 'b': '6'}]*10
     )
     table = pa.table({'column': data})
-    _check_roundtrip(
-        table, row_group_size=10, use_legacy_dataset=use_legacy_dataset)
+    _check_roundtrip(table, row_group_size=10)
 
 
 def test_writing_empty_lists():
@@ -366,8 +348,7 @@ def test_large_list_records():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_parquet_nested_convenience(tempdir, use_legacy_dataset):
+def test_parquet_nested_convenience(tempdir):
     # ARROW-1684
     df = pd.DataFrame({
         'a': [[1, 2, 3], None, [4, 5], []],
@@ -380,11 +361,11 @@ def test_parquet_nested_convenience(tempdir, use_legacy_dataset):
     _write_table(table, path)
 
     read = pq.read_table(
-        path, columns=['a'], use_legacy_dataset=use_legacy_dataset)
+        path, columns=['a'])
     tm.assert_frame_equal(read.to_pandas(), df[['a']])
 
     read = pq.read_table(
-        path, columns=['a', 'b'], use_legacy_dataset=use_legacy_dataset)
+        path, columns=['a', 'b'])
     tm.assert_frame_equal(read.to_pandas(), df)
 
 
@@ -420,17 +401,16 @@ def test_large_table_int32_overflow():
     _write_table(table, f)
 
 
-def _simple_table_roundtrip(table, use_legacy_dataset=False, **write_kwargs):
+def _simple_table_roundtrip(table, **write_kwargs):
     stream = pa.BufferOutputStream()
     _write_table(table, stream, **write_kwargs)
     buf = stream.getvalue()
-    return _read_table(buf, use_legacy_dataset=use_legacy_dataset)
+    return _read_table(buf)
 
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_byte_array_exactly_2gb(use_legacy_dataset):
+def test_byte_array_exactly_2gb():
     # Test edge case reported in ARROW-3762
     val = b'x' * (1 << 10)
 
@@ -444,15 +424,14 @@ def test_byte_array_exactly_2gb(use_legacy_dataset):
         values = pa.chunked_array([base, pa.array(case)])
         t = pa.table([values], names=['f0'])
         result = _simple_table_roundtrip(
-            t, use_legacy_dataset=use_legacy_dataset, use_dictionary=False)
+            t, use_dictionary=False)
         assert t.equals(result)
 
 
 @pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_binary_array_overflow_to_chunked(use_legacy_dataset):
+def test_binary_array_overflow_to_chunked():
     # ARROW-3762
 
     # 2^31 + 1 bytes
@@ -462,8 +441,7 @@ def test_binary_array_overflow_to_chunked(use_legacy_dataset):
     df = pd.DataFrame({'byte_col': values})
 
     tbl = pa.Table.from_pandas(df, preserve_index=False)
-    read_tbl = _simple_table_roundtrip(
-        tbl, use_legacy_dataset=use_legacy_dataset)
+    read_tbl = _simple_table_roundtrip(tbl)
 
     col0_data = read_tbl[0]
     assert isinstance(col0_data, pa.ChunkedArray)
@@ -477,8 +455,7 @@ def test_binary_array_overflow_to_chunked(use_legacy_dataset):
 @pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
-@parametrize_legacy_dataset
-def test_list_of_binary_large_cell(use_legacy_dataset):
+def test_list_of_binary_large_cell():
     # ARROW-4688
     data = []
 
@@ -491,8 +468,7 @@ def test_list_of_binary_large_cell(use_legacy_dataset):
 
     arr = pa.array(data)
     table = pa.Table.from_arrays([arr], ['chunky_cells'])
-    read_table = _simple_table_roundtrip(
-        table, use_legacy_dataset=use_legacy_dataset)
+    read_table = _simple_table_roundtrip(table)
     assert table.equals(read_table)
 
 
