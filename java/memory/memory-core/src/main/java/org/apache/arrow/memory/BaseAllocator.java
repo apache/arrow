@@ -209,7 +209,8 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     assertOpen();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
-        if (!(childLedgers != null && childLedgers.containsKey(ledger))) {
+        Preconditions.checkState(childLedgers != null, "childLedgers must not be null");
+        if (!childLedgers.containsKey(ledger)) {
           throw new IllegalStateException("Trying to remove a child ledger that doesn't exist.");
         }
         childLedgers.remove(ledger);

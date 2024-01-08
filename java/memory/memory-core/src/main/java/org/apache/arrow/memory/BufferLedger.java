@@ -269,9 +269,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
           "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
           allocator.getName(), System.identityHashCode(buf), buf.toString(),
           System.identityHashCode(this));
-      if (buffers == null) {
-        throw new IllegalArgumentException(String.valueOf("IdentityHashMap of buffers must not be null"));
-      }
+      Preconditions.checkState(buffers != null, "IdentityHashMap of buffers must not be null");
       synchronized (buffers) {
         buffers.put(buf, null);
       }
@@ -498,9 +496,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");
     } else {
-      if (buffers == null) {
-        throw new IllegalArgumentException(String.valueOf("buffers must not be null"));
-      }
+      Preconditions.checkArgument(buffers != null, "IdentityHashMap of buffers must not be null");
       synchronized (buffers) {
         sb.append("] holds ")
           .append(buffers.size())

@@ -74,9 +74,7 @@ class Accountant implements AutoCloseable {
     this.allocationLimit.set(maxAllocation);
 
     if (reservation != 0) {
-      if (parent == null) {
-        throw new IllegalArgumentException(String.valueOf("Accountant(parent) must not be null"));
-      }
+      Preconditions.checkArgument(parent != null, "parent must not be null");
       // we will allocate a reservation from our parent.
       final AllocationOutcome outcome = parent.allocateBytes(reservation);
       if (!outcome.isOk()) {

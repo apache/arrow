@@ -137,9 +137,7 @@ public abstract class AllocationManager {
     Preconditions.checkState(map.containsKey(allocator),
             "Expecting a mapping for allocator and reference manager");
     final BufferLedger oldLedger = map.remove(allocator);
-    if (oldLedger == null) {
-      throw new IllegalArgumentException(String.valueOf("BufferLedger(oldLedger) must not be null"));
-    }
+    Preconditions.checkState(oldLedger != null, "Expecting a mapping for allocator and reference manager");
     BufferAllocator oldAllocator = oldLedger.getAllocator();
     if (oldAllocator instanceof BaseAllocator) {
       // needed for debug only: tell the allocator that AllocationManager is removing a
