@@ -818,8 +818,8 @@ TEST_F(TestFixedSizeBinaryKernels, BinarySliceConsistentyWithVarLenBinary) {
   std::string source_str = "abcdef";
   for (size_t str_len = 0; str_len < source_str.size(); ++str_len) {
     auto input_str = source_str.substr(0, str_len);
-    auto fixed_input =
-        ArrayFromJSON(fixed_size_binary(str_len), R"([")" + input_str + R"("])");
+    auto fixed_input = ArrayFromJSON(fixed_size_binary(static_cast<int32_t>(str_len)),
+                                     R"([")" + input_str + R"("])");
     auto varlen_input = ArrayFromJSON(binary(), R"([")" + input_str + R"("])");
     for (auto start = -6; start <= 6; ++start) {
       for (auto stop = -6; stop <= 6; ++stop) {

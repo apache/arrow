@@ -2608,11 +2608,11 @@ struct SliceBytesTransform : StringSliceTransformBase {
     if (step > 0) {
       // forward slice
       auto [begin_index, end_index] = SliceForwardRange(options, input_width_32);
-      return (end_index - begin_index + step - 1) / step;
+      return static_cast<int32_t>((end_index - begin_index + step - 1) / step);
     } else {
       // backward slice
       auto [begin_index, end_index] = SliceBackwardRange(options, input_width_32);
-      return (end_index - begin_index + step + 1) / step;
+      return static_cast<int32_t>((end_index - begin_index + step + 1) / step);
     }
   }
 };
