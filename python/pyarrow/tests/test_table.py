@@ -1286,6 +1286,30 @@ def test_table_add_column():
     assert t4.equals(expected)
 
 
+def test_record_batch_add_column():
+    data_type = pa.int64()
+    data = [
+        range(5),
+        [-10, -5, 0, 5, 10],
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
+
+    new_field = pa.field('d', data_type)
+    t2 = batch.add_column(3, new_field, data[1])
+    t3 = batch.append_column(new_field, data[1])
+
+    expected = pa.RecordBatch.from_arrays(data + [data[1]],
+                                          names=('a', 'b', 'c', 'd'))
+    assert t2.equals(expected)
+    assert t3.equals(expected)
+
+    t4 = batch.add_column(0, new_field, data[1])
+    expected = pa.RecordBatch.from_arrays([data[1]] + data,
+                                          names=('d', 'a', 'b', 'c'))
+    assert t4.equals(expected)
+
+
 def test_table_set_column():
     data = [
         pa.array(range(5)),
@@ -1301,6 +1325,25 @@ def test_table_set_column():
     expected_data[0] = data[1]
     expected = pa.Table.from_arrays(expected_data,
                                     names=('d', 'b', 'c'))
+    assert t2.equals(expected)
+
+
+def test_record_batch_set_column():
+    data_type = pa.int64()
+    data = [
+        range(5),
+        [-10, -5, 0, 5, 10],
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
+
+    new_field = pa.field('d', data_type)
+    t2 = batch.set_column(0, new_field, data[1])
+
+    expected_data = list(data)
+    expected_data[0] = data[1]
+    expected = pa.RecordBatch.from_arrays(expected_data,
+                                          names=('d', 'b', 'c'))
     assert t2.equals(expected)
 
 
@@ -1358,6 +1401,20 @@ def test_table_remove_column():
     assert t2.equals(expected)
 
 
+def test_record_batch_remove_column():
+    data = [
+        range(5),
+        [-10, -5, 0, 5, 10],
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
+
+    t2 = batch.remove_column(0)
+    t2.validate()
+    expected = pa.RecordBatch.from_arrays(data[1:], names=('b', 'c'))
+    assert t2.equals(expected)
+
+
 def test_table_remove_column_empty():
     # ARROW-1865
     data = [
@@ -1372,6 +1429,21 @@ def test_table_remove_column_empty():
     t3 = t2.add_column(0, table.field(0), table[0])
     t3.validate()
     assert t3.equals(table)
+
+
+def test_record_batch_remove_column_empty():
+    data = [
+        range(5),
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=['a'])
+
+    t2 = batch.remove_column(0)
+    t2.validate()
+    assert len(t2) == len(batch)
+
+    t3 = t2.add_column(0, batch.field(0), batch[0])
+    t3.validate()
+    assert t3.equals(batch)
 
 
 def test_empty_table_with_names():

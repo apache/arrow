@@ -2483,6 +2483,213 @@ cdef class RecordBatch(_Tabular):
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
 
+    def add_column(self, int i, field_, column):
+        """
+        Add column to RecordBatch at position.
+
+        A new record batch is returned with the column added, the original record batch
+        object is left unchanged.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Add column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.add_column(0,"year", year)
+        pyarrow.RecordBatch
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [2021,2022,2019,2021]
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+
+        Original record batch is left unchanged:
+
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.AddColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def append_column(self, field_, column):
+        """
+        Append column at end of columns.
+
+        Parameters
+        ----------
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Append column at the end:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.append_column('year', year)
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        year: int64
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        year: [2021,2022,2019,2021]
+        """
+        return self.add_column(self.num_columns, field_, column)
+
+    def remove_column(self, int i):
+        """
+        Create new RecordBatch with the indicated column removed.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to remove.
+
+        Returns
+        -------
+        Table
+            New record batch without the column.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.remove_column(1)
+        pyarrow.RecordBatch
+        n_legs: int64
+        ----
+        n_legs: [2,4,5,100]
+        """
+        cdef shared_ptr[CRecordBatch] c_batch
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RemoveColumn(i))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def set_column(self, int i, field_, column):
+        """
+        Replace column in RecordBatch at position.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column set.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Replace a column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.set_column(1,'year', year)
+        pyarrow.RecordBatch
+        n_legs: int64
+        year: int64
+        ----
+        n_legs: [2,4,5,100]
+        year: [2021,2022,2019,2021]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SetColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
     def serialize(self, memory_pool=None):
         """
         Write RecordBatch to Buffer as encapsulated IPC message, which does not
