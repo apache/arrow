@@ -558,8 +558,8 @@ def test_recordbatch_c_array_interface():
         def __init__(self, batch):
             self.batch = batch
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.batch.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.batch.__arrow_c_array__(requested_schema)
 
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
@@ -586,8 +586,8 @@ def test_table_c_array_interface():
         def __init__(self, batch):
             self.batch = batch
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.batch.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.batch.__arrow_c_array__(requested_schema)
 
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
@@ -615,10 +615,10 @@ def test_table_c_stream_interface():
         def __init__(self, batches):
             self.batches = batches
 
-        def __arrow_c_stream__(self, requested_type=None):
+        def __arrow_c_stream__(self, requested_schema=None):
             reader = pa.RecordBatchReader.from_batches(
                 self.batches[0].schema, self.batches)
-            return reader.__arrow_c_stream__(requested_type)
+            return reader.__arrow_c_stream__(requested_schema)
 
     data = [
         pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
@@ -875,6 +875,81 @@ def test_recordbatch_from_struct_array():
             pa.array([1, None], type=pa.int32()),
             pa.array([None, 1.0], type=pa.float32()),
         ], ["ints", "floats"]
+    ))
+
+
+def test_recordbatch_to_struct_array():
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = batch.to_struct_array()
+    assert result.equals(pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    ))
+
+
+def test_table_from_struct_array_invalid():
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
+        pa.Table.from_struct_array(pa.array(range(5)))
+
+
+def test_table_from_struct_array():
+    struct_array = pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.Table.from_struct_array(struct_array)
+    assert result.equals(pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
+
+
+def test_table_from_struct_array_chunked_array():
+    chunked_struct_array = pa.chunked_array(
+        [[{"ints": 1}, {"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.Table.from_struct_array(chunked_struct_array)
+    assert result.equals(pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
+
+
+def test_table_to_struct_array():
+    table = pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = table.to_struct_array()
+    assert result.equals(pa.chunked_array(
+        [[{"ints": 1}, {"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    ))
+
+
+def test_table_to_struct_array_with_max_chunksize():
+    table = pa.Table.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    )
+    result = table.to_struct_array(max_chunksize=1)
+    assert result.equals(pa.chunked_array(
+        [[{"ints": 1}], [{"floats": 1.0}]],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
     ))
 
 

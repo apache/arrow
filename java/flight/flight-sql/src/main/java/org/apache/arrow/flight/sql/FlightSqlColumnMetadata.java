@@ -145,8 +145,8 @@ public class FlightSqlColumnMetadata {
   }
 
   /**
-   * Returns if the column is case sensitive.
-   * @return True if the column is case sensitive, false otherwise.
+   * Returns if the column is case-sensitive.
+   * @return True if the column is case-sensitive, false otherwise.
    */
   public Boolean isCaseSensitive() {
     String value = metadataMap.get(IS_CASE_SENSITIVE);
@@ -267,8 +267,8 @@ public class FlightSqlColumnMetadata {
     }
 
     /**
-     * Sets if the column is case sensitive.
-     * @param isCaseSensitive If the column is case sensitive.
+     * Sets if the column is case-sensitive.
+     * @param isCaseSensitive If the column is case-sensitive.
      * @return This builder.
      */
     public Builder isCaseSensitive(boolean isCaseSensitive) {

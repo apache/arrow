@@ -65,8 +65,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expression
-  std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
+  ARROW_ASSIGN_OR_RAISE(auto llvm_gen,
+                        LLVMGenerator::Make(configuration, is_cached, obj_cache));
 
   if (!is_cached) {
     // Run the validation on the expression.
@@ -77,7 +77,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   }
 
   // Set the object cache for LLVM
-  llvm_gen->SetLLVMObjectCache(obj_cache);
+  ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(obj_cache));
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 
@@ -119,7 +119,7 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
   return out_selection->PopulateFromBitMap(result, bitmap_size, num_rows - 1);
 }
 
-std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
+const std::string& Filter::DumpIR() { return llvm_generator_->ir(); }
 
 void Filter::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 

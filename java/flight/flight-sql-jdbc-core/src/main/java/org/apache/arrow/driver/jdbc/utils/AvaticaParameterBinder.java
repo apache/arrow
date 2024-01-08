@@ -94,7 +94,7 @@ public class AvaticaParameterBinder {
   }
 
   /**
-   * Bind a TypedValue to the given index on the FieldVctor.
+   * Bind a TypedValue to the given index on the FieldVector.
    *
    * @param vector     FieldVector to bind to.
    * @param typedValue TypedValue to bind to the vector.

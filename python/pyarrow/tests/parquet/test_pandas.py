@@ -23,8 +23,6 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
-from pyarrow.tests.parquet.common import (
-    parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
@@ -101,8 +99,7 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_column_multiindex(tempdir, use_legacy_dataset):
+def test_pandas_parquet_column_multiindex(tempdir):
     df = alltypes_sample(size=10)
     df.columns = pd.MultiIndex.from_tuples(
         list(zip(df.columns, df.columns[::-1])),
@@ -115,17 +112,13 @@ def test_pandas_parquet_column_multiindex(tempdir, use_legacy_dataset):
 
     _write_table(arrow_table, filename)
 
-    table_read = pq.read_pandas(
-        filename, use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(filename)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
-    tempdir, use_legacy_dataset
-):
+def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
     df = alltypes_sample(size=10000)
 
     filename = tempdir / 'pandas_roundtrip.parquet'
@@ -137,8 +130,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     assert js['columns']
 
     _write_table(arrow_table, filename)
-    table_read = pq.read_pandas(
-        filename, use_legacy_dataset=use_legacy_dataset)
+    table_read = pq.read_pandas(filename)
 
     js = table_read.schema.pandas_metadata
     assert not js['index_columns']
@@ -150,52 +142,20 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     tm.assert_frame_equal(df, df_read)
 
 
-# TODO(dataset) duplicate column selection actually gives duplicate columns now
 @pytest.mark.pandas
-@parametrize_legacy_dataset_not_supported
-def test_pandas_column_selection(tempdir, use_legacy_dataset):
-    size = 10000
-    np.random.seed(0)
-    df = pd.DataFrame({
-        'uint8': np.arange(size, dtype=np.uint8),
-        'uint16': np.arange(size, dtype=np.uint16)
-    })
-    filename = tempdir / 'pandas_roundtrip.parquet'
-    arrow_table = pa.Table.from_pandas(df)
-    _write_table(arrow_table, filename)
-    table_read = _read_table(
-        filename, columns=['uint8'], use_legacy_dataset=use_legacy_dataset)
-    df_read = table_read.to_pandas()
-
-    tm.assert_frame_equal(df[['uint8']], df_read)
-
-    # ARROW-4267: Selection of duplicate columns still leads to these columns
-    # being read uniquely.
-    table_read = _read_table(
-        filename, columns=['uint8', 'uint8'],
-        use_legacy_dataset=use_legacy_dataset)
-    df_read = table_read.to_pandas()
-
-    tm.assert_frame_equal(df[['uint8']], df_read)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_native_file_roundtrip(tempdir, use_legacy_dataset):
+def test_pandas_parquet_native_file_roundtrip():
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version='2.6')
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
-    df_read = _read_table(
-        reader, use_legacy_dataset=use_legacy_dataset).to_pandas()
+    df_read = _read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_read_pandas_column_subset(tempdir, use_legacy_dataset):
+def test_read_pandas_column_subset():
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
@@ -204,27 +164,24 @@ def test_read_pandas_column_subset(tempdir, use_legacy_dataset):
     reader = pa.BufferReader(buf)
     df_read = pq.read_pandas(
         reader, columns=['strings', 'uint8'],
-        use_legacy_dataset=use_legacy_dataset
     ).to_pandas()
     tm.assert_frame_equal(df[['strings', 'uint8']], df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_empty_roundtrip(tempdir, use_legacy_dataset):
+def test_pandas_parquet_empty_roundtrip():
     df = _test_dataframe(0)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
     _write_table(arrow_table, imos, version='2.6')
     buf = imos.getvalue()
     reader = pa.BufferReader(buf)
-    df_read = _read_table(
-        reader, use_legacy_dataset=use_legacy_dataset).to_pandas()
+    df_read = _read_table(reader).to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-def test_pandas_can_write_nested_data(tempdir):
+def test_pandas_can_write_nested_data():
     data = {
         "agg_col": [
             {"page_type": 1},
@@ -241,8 +198,7 @@ def test_pandas_can_write_nested_data(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
+def test_pandas_parquet_pyfile_roundtrip(tempdir):
     filename = tempdir / 'pandas_pyfile_roundtrip.parquet'
     size = 5
     df = pd.DataFrame({
@@ -260,14 +216,13 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
 
     data = io.BytesIO(filename.read_bytes())
 
-    table_read = _read_table(data, use_legacy_dataset=use_legacy_dataset)
+    table_read = _read_table(data)
     df_read = table_read.to_pandas()
     tm.assert_frame_equal(df, df_read)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
+def test_pandas_parquet_configuration_options(tempdir):
     size = 10000
     np.random.seed(0)
     df = pd.DataFrame({
@@ -289,16 +244,14 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
     for use_dictionary in [True, False]:
         _write_table(arrow_table, filename, version='2.6',
                      use_dictionary=use_dictionary)
-        table_read = _read_table(
-            filename, use_legacy_dataset=use_legacy_dataset)
+        table_read = _read_table(filename)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
     for write_statistics in [True, False]:
         _write_table(arrow_table, filename, version='2.6',
                      write_statistics=write_statistics)
-        table_read = _read_table(filename,
-                                 use_legacy_dataset=use_legacy_dataset)
+        table_read = _read_table(filename)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
@@ -308,8 +261,7 @@ def test_pandas_parquet_configuration_options(tempdir, use_legacy_dataset):
             continue
         _write_table(arrow_table, filename, version='2.6',
                      compression=compression)
-        table_read = _read_table(
-            filename, use_legacy_dataset=use_legacy_dataset)
+        table_read = _read_table(filename)
         df_read = table_read.to_pandas()
         tm.assert_frame_equal(df, df_read)
 
@@ -327,8 +279,7 @@ def test_spark_flavor_preserves_pandas_metadata():
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
+def test_index_column_name_duplicate(tempdir):
     data = {
         'close': {
             pd.Timestamp('2017-06-30 01:31:00'): 154.99958999999998,
@@ -352,14 +303,13 @@ def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
 
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
-    arrow_table = _read_table(path, use_legacy_dataset=use_legacy_dataset)
+    arrow_table = _read_table(path)
     result_df = arrow_table.to_pandas()
     tm.assert_frame_equal(result_df, dfx)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_multiindex_duplicate_values(tempdir, use_legacy_dataset):
+def test_multiindex_duplicate_values(tempdir):
     num_rows = 3
     numbers = list(range(num_rows))
     index = pd.MultiIndex.from_arrays(
@@ -373,7 +323,7 @@ def test_multiindex_duplicate_values(tempdir, use_legacy_dataset):
     filename = tempdir / 'dup_multi_index_levels.parquet'
 
     _write_table(table, filename)
-    result_table = _read_table(filename, use_legacy_dataset=use_legacy_dataset)
+    result_table = _read_table(filename)
     assert table.equals(result_table)
 
     result_df = result_table.to_pandas()
@@ -381,8 +331,7 @@ def test_multiindex_duplicate_values(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_backwards_compatible_index_naming(datadir, use_legacy_dataset):
+def test_backwards_compatible_index_naming(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -397,17 +346,13 @@ carat        cut  color  clarity  depth  table  price     x     y     z
  0.23  Very Good      H      VS1   59.4   61.0    338  4.00  4.05  2.39"""
     expected = pd.read_csv(io.BytesIO(expected_string), sep=r'\s{2,}',
                            index_col=None, header=0, engine='python')
-    table = _read_table(
-        datadir / 'v0.7.1.parquet', use_legacy_dataset=use_legacy_dataset)
+    table = _read_table(datadir / 'v0.7.1.parquet')
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_backwards_compatible_index_multi_level_named(
-    datadir, use_legacy_dataset
-):
+def test_backwards_compatible_index_multi_level_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -426,17 +371,13 @@ carat        cut  color  clarity  depth  table  price     x     y     z
         header=0, engine='python'
     ).sort_index()
 
-    table = _read_table(datadir / 'v0.7.1.all-named-index.parquet',
-                        use_legacy_dataset=use_legacy_dataset)
+    table = _read_table(datadir / 'v0.7.1.all-named-index.parquet')
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_backwards_compatible_index_multi_level_some_named(
-        datadir, use_legacy_dataset
-):
+def test_backwards_compatible_index_multi_level_some_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
  0.23      Ideal      E      SI2   61.5   55.0    326  3.95  3.98  2.43
@@ -456,17 +397,17 @@ carat        cut  color  clarity  depth  table  price     x     y     z
     ).sort_index()
     expected.index = expected.index.set_names(['cut', None, 'clarity'])
 
-    table = _read_table(datadir / 'v0.7.1.some-named-index.parquet',
-                        use_legacy_dataset=use_legacy_dataset)
+    table = _read_table(datadir / 'v0.7.1.some-named-index.parquet')
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_backwards_compatible_column_metadata_handling(
-    datadir, use_legacy_dataset
-):
+def test_backwards_compatible_column_metadata_handling(datadir):
+    if Version("2.2.0") <= Version(pd.__version__):
+        # TODO: regression in pandas
+        # https://github.com/pandas-dev/pandas/issues/56775
+        pytest.skip("Regression in pandas 2.2.0")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
          'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
@@ -476,19 +417,18 @@ def test_backwards_compatible_column_metadata_handling(
         names=['index', None])
 
     path = datadir / 'v0.7.1.column-metadata-handling.parquet'
-    table = _read_table(path, use_legacy_dataset=use_legacy_dataset)
+    table = _read_table(path)
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected)
 
     table = _read_table(
-        path, columns=['a'], use_legacy_dataset=use_legacy_dataset)
+        path, columns=['a'])
     result = table.to_pandas()
     tm.assert_frame_equal(result, expected[['a']].reset_index(drop=True))
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_categorical_index_survives_roundtrip(use_legacy_dataset):
+def test_categorical_index_survives_roundtrip():
     # ARROW-3652, addressed by ARROW-3246
     df = pd.DataFrame([['a', 'b'], ['c', 'd']], columns=['c1', 'c2'])
     df['c1'] = df['c1'].astype('category')
@@ -497,15 +437,13 @@ def test_categorical_index_survives_roundtrip(use_legacy_dataset):
     table = pa.Table.from_pandas(df)
     bos = pa.BufferOutputStream()
     pq.write_table(table, bos)
-    ref_df = pq.read_pandas(
-        bos.getvalue(), use_legacy_dataset=use_legacy_dataset).to_pandas()
+    ref_df = pq.read_pandas(bos.getvalue()).to_pandas()
     assert isinstance(ref_df.index, pd.CategoricalIndex)
     assert ref_df.index.equals(df.index)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_categorical_order_survives_roundtrip(use_legacy_dataset):
+def test_categorical_order_survives_roundtrip():
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
         ["a", "b", "c", "a"], categories=["b", "c", "d"], ordered=True)})
@@ -515,15 +453,13 @@ def test_categorical_order_survives_roundtrip(use_legacy_dataset):
     pq.write_table(table, bos)
 
     contents = bos.getvalue()
-    result = pq.read_pandas(
-        contents, use_legacy_dataset=use_legacy_dataset).to_pandas()
+    result = pq.read_pandas(contents).to_pandas()
 
     tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
+def test_pandas_categorical_na_type_row_groups():
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
     df_category = df.astype({"col": "category", "int": "category"})
@@ -533,8 +469,7 @@ def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
 
     # it works
     pq.write_table(table_cat, buf, version='2.6', chunk_size=10)
-    result = pq.read_table(
-        buf.getvalue(), use_legacy_dataset=use_legacy_dataset)
+    result = pq.read_table(buf.getvalue())
 
     # Result is non-categorical
     assert result[0].equals(table[0])
@@ -542,8 +477,7 @@ def test_pandas_categorical_na_type_row_groups(use_legacy_dataset):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_pandas_categorical_roundtrip(use_legacy_dataset):
+def test_pandas_categorical_roundtrip():
     # ARROW-5480, this was enabled by ARROW-3246
 
     # Have one of the categories unobserved and include a null (-1)
@@ -555,8 +489,7 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
     buf = pa.BufferOutputStream()
     pq.write_table(pa.table(df), buf)
 
-    result = pq.read_table(
-        buf.getvalue(), use_legacy_dataset=use_legacy_dataset).to_pandas()
+    result = pq.read_table(buf.getvalue()).to_pandas()
     assert result.x.dtype == 'category'
     assert (result.x.cat.categories == categories).all()
     tm.assert_frame_equal(result, df)
@@ -575,9 +508,9 @@ def test_categories_with_string_pyarrow_dtype(tempdir):
     df2 = df2.astype("category")
 
     # categories should be converted to pa.Array
-    assert pa.array(df1["x"]) == pa.array(df2["x"])
-    assert pa.array(df1["x"].cat.categories.values) == pa.array(
-        df2["x"].cat.categories.values)
+    assert pa.array(df1["x"]).to_pylist() == pa.array(df2["x"]).to_pylist()
+    assert pa.array(df1["x"].cat.categories.values).to_pylist() == pa.array(
+        df2["x"].cat.categories.values).to_pylist()
 
     path = str(tempdir / 'cat.parquet')
     pq.write_table(pa.table(df1), path)
@@ -587,41 +520,28 @@ def test_categories_with_string_pyarrow_dtype(tempdir):
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_write_to_dataset_pandas_preserve_extensiondtypes(
-    tempdir, use_legacy_dataset
-):
+def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
     df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
     df['col'] = df['col'].astype("Int64")
     table = pa.table(df)
 
     pq.write_to_dataset(
         table, str(tempdir / "case1"), partition_cols=['part'],
-        use_legacy_dataset=use_legacy_dataset
     )
-    result = pq.read_table(
-        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    result = pq.read_table(str(tempdir / "case1")).to_pandas()
     tm.assert_frame_equal(result[["col"]], df[["col"]])
 
-    pq.write_to_dataset(
-        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(str(tempdir / "case2")).to_pandas()
     tm.assert_frame_equal(result[["col"]], df[["col"]])
 
     pq.write_table(table, str(tempdir / "data.parquet"))
-    result = pq.read_table(
-        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    result = pq.read_table(str(tempdir / "data.parquet")).to_pandas()
     tm.assert_frame_equal(result[["col"]], df[["col"]])
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
+def test_write_to_dataset_pandas_preserve_index(tempdir):
     # ARROW-8251 - preserve pandas index in roundtrip
 
     df = pd.DataFrame({'part': ['a', 'a', 'b'], "col": [1, 2, 3]})
@@ -632,34 +552,24 @@ def test_write_to_dataset_pandas_preserve_index(tempdir, use_legacy_dataset):
 
     pq.write_to_dataset(
         table, str(tempdir / "case1"), partition_cols=['part'],
-        use_legacy_dataset=use_legacy_dataset
     )
-    result = pq.read_table(
-        str(tempdir / "case1"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    result = pq.read_table(str(tempdir / "case1")).to_pandas()
     tm.assert_frame_equal(result, df_cat)
 
-    pq.write_to_dataset(
-        table, str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    )
-    result = pq.read_table(
-        str(tempdir / "case2"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    pq.write_to_dataset(table, str(tempdir / "case2"))
+    result = pq.read_table(str(tempdir / "case2")).to_pandas()
     tm.assert_frame_equal(result, df)
 
     pq.write_table(table, str(tempdir / "data.parquet"))
-    result = pq.read_table(
-        str(tempdir / "data.parquet"), use_legacy_dataset=use_legacy_dataset
-    ).to_pandas()
+    result = pq.read_table(str(tempdir / "data.parquet")).to_pandas()
     tm.assert_frame_equal(result, df)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @pytest.mark.parametrize('preserve_index', [True, False, None])
 @pytest.mark.parametrize('metadata_fname', ["_metadata", "_common_metadata"])
 def test_dataset_read_pandas_common_metadata(
-    tempdir, use_legacy_dataset, preserve_index, metadata_fname
+    tempdir, preserve_index, metadata_fname
 ):
     # ARROW-1103
     nfiles = 5
@@ -696,7 +606,7 @@ def test_dataset_read_pandas_common_metadata(
     )
     pq.write_metadata(table_for_metadata.schema, dirpath / metadata_fname)
 
-    dataset = pq.ParquetDataset(dirpath, use_legacy_dataset=use_legacy_dataset)
+    dataset = pq.ParquetDataset(dirpath)
     columns = ['uint8', 'strings']
     result = dataset.read_pandas(columns=columns).to_pandas()
     expected = pd.concat([x[columns] for x in frames])

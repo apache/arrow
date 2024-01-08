@@ -144,7 +144,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 	var batch []int16
 	for len(defLevels) > 0 {
-		batchSize := shared_utils.MinInt(maxbatch, len(defLevels))
+		batchSize := shared_utils.Min(maxbatch, len(defLevels))
 		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
 		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
 

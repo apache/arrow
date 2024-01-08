@@ -333,7 +333,7 @@ TEST(ResizableArrayData, Binary) {
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
-      // At this point the offets memory has been allocated and needs to be filled
+      // At this point the offsets memory has been allocated and needs to be filled
       // in before we allocate the variable length memory
       int offsets_width =
           static_cast<int>(arrow::internal::checked_pointer_cast<BaseBinaryType>(type)
@@ -466,6 +466,32 @@ TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
     ASSERT_OK(builder.AppendSelected(pool, batch_two, 2, row_ids, /*num_cols=*/2));
     ExecBatch built = builder.Flush();
     ASSERT_EQ(combined, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(ExecBatchBuilder, AppendBatchDupRows) {
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  MemoryPool* pool = owned_pool.get();
+  // Case of cross-word copying for the last row, which may exceed the buffer boundary.
+  // This is a simplified case of GH-32570
+  {
+    // 64-byte data fully occupying one minimal 64-byte aligned memory region.
+    ExecBatch batch_string = JSONToExecBatch({binary()}, R"([["123456789ABCDEF0"],
+      ["123456789ABCDEF0"],
+      ["123456789ABCDEF0"],
+      ["ABCDEF0"],
+      ["123456789"]])");  // 9-byte tail row, larger than a word.
+    ASSERT_EQ(batch_string[0].array()->buffers[1]->capacity(), 64);
+    ASSERT_EQ(batch_string[0].array()->buffers[2]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[2] = {4, 4};
+    ASSERT_OK(builder.AppendSelected(pool, batch_string, 2, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_string_appended =
+        JSONToExecBatch({binary()}, R"([["123456789"], ["123456789"]])");
+    ASSERT_EQ(batch_string_appended, built);
     ASSERT_NE(0, pool->bytes_allocated());
   }
   ASSERT_EQ(0, pool->bytes_allocated());

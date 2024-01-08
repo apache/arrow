@@ -54,6 +54,36 @@ using arrow::internal::AddWithOverflow;
 
 namespace parquet {
 
+namespace {
+bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
+  // Check the encoding_stats to see if all data pages are dictionary encoded.
+  const std::vector<PageEncodingStats>& encoding_stats = col.encoding_stats();
+  if (encoding_stats.empty()) {
+    // Some parquet files may have empty encoding_stats. In this case we are
+    // not sure whether all data pages are dictionary encoded.
+    return false;
+  }
+  // The 1st page should be the dictionary page.
+  if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
+      (encoding_stats[0].encoding != Encoding::PLAIN &&
+       encoding_stats[0].encoding != Encoding::PLAIN_DICTIONARY)) {
+    return false;
+  }
+  // The following pages should be dictionary encoded data pages.
+  for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
+    if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
+         encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
+        (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
+         encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
+      // Return false if any following page is not a dictionary encoded data
+      // page.
+      return false;
+    }
+  }
+  return true;
+}
+}  // namespace
+
 // PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
 static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
 static constexpr uint32_t kFooterSize = 8;
@@ -82,7 +112,8 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
-std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(int i) {
+std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
+    int i, bool read_dictionary) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
@@ -96,8 +127,8 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(int i) {
   internal::LevelInfo level_info = internal::LevelInfo::ComputeLevelInfo(descr);
 
   auto reader = internal::RecordReader::Make(
-      descr, level_info, contents_->properties()->memory_pool(),
-      /* read_dictionary = */ false, contents_->properties()->read_dense_for_nullable());
+      descr, level_info, contents_->properties()->memory_pool(), read_dictionary,
+      contents_->properties()->read_dense_for_nullable());
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }
@@ -106,39 +137,21 @@ std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
     int i, ExposedEncoding encoding_to_expose) {
   std::shared_ptr<ColumnReader> reader = Column(i);
 
-  if (encoding_to_expose == ExposedEncoding::DICTIONARY) {
-    // Check the encoding_stats to see if all data pages are dictionary encoded.
-    std::unique_ptr<ColumnChunkMetaData> col = metadata()->ColumnChunk(i);
-    const std::vector<PageEncodingStats>& encoding_stats = col->encoding_stats();
-    if (encoding_stats.empty()) {
-      // Some parquet files may have empty encoding_stats. In this case we are
-      // not sure whether all data pages are dictionary encoded. So we do not
-      // enable exposing dictionary.
-      return reader;
-    }
-    // The 1st page should be the dictionary page.
-    if (encoding_stats[0].page_type != PageType::DICTIONARY_PAGE ||
-        (encoding_stats[0].encoding != Encoding::PLAIN &&
-         encoding_stats[0].encoding != Encoding::PLAIN_DICTIONARY)) {
-      return reader;
-    }
-    // The following pages should be dictionary encoded data pages.
-    for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
-      if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
-           encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
-          (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
-           encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
-        return reader;
-      }
-    }
-  } else {
-    // Exposing other encodings are not supported for now.
-    return reader;
+  if (encoding_to_expose == ExposedEncoding::DICTIONARY &&
+      IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i))) {
+    // Set exposed encoding.
+    reader->SetExposedEncoding(encoding_to_expose);
   }
 
-  // Set exposed encoding.
-  reader->SetExposedEncoding(encoding_to_expose);
   return reader;
+}
+
+std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReaderWithExposeEncoding(
+    int i, ExposedEncoding encoding_to_expose) {
+  return RecordReader(
+      i,
+      /*read_dictionary=*/encoding_to_expose == ExposedEncoding::DICTIONARY &&
+          IsColumnChunkFullyDictionaryEncoded(*metadata()->ColumnChunk(i)));
 }
 
 std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {

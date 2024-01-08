@@ -83,9 +83,9 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
 }
 
 /** @ignore */
-export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined |
-    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> |
-    ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined>;
+export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined |
+    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined> |
+    ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined>;
 
 /** @ignore */
 export function toArrayBufferView<
@@ -208,7 +208,9 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
 /** @ignore */ export const toUint8ClampedArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8ClampedArray, input);
 
 /** @ignore */
-export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array) {
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array): Int32Array;
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: BigInt64Array): BigInt64Array;
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: any) {
     // If we have a non-zero offset, create a new offsets array with the values
     // shifted by the start offset, such that the new start offset is 0
     if (offset !== 0) {

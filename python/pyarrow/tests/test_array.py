@@ -1091,6 +1091,16 @@ def test_fixed_size_list_from_arrays():
     assert result.type.equals(typ)
     assert result.type.value_field.name == "name"
 
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               type=typ,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
+
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               list_size=4,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
+
     # raise on invalid values / list_size
     with pytest.raises(ValueError):
         pa.FixedSizeListArray.from_arrays(values, -4)
@@ -3341,8 +3351,8 @@ def test_c_array_protocol():
         def __init__(self, data):
             self.data = data
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.data.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.data.__arrow_c_array__(requested_schema)
 
     # Can roundtrip through the C array protocol
     arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))

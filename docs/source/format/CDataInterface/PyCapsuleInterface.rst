@@ -16,6 +16,8 @@
 .. under the License.
 
 
+.. _arrow-pycapsule-interface:
+
 =============================
 The Arrow PyCapsule Interface
 =============================

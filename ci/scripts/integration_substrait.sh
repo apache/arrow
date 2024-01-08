@@ -24,7 +24,7 @@ set -e
 echo "Substrait Integration Tests"
 echo "Validating imports"
 python -c "import pyarrow.substrait"
-python -c "from substrait_consumer.consumers import AceroConsumer"
+python -c "from substrait_consumer.consumers.acero_consumer import AceroConsumer"
 
 echo "Executing pytest"
 cd consumer-testing

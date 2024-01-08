@@ -18,7 +18,7 @@ package bitutil
 
 import (
 	"math/bits"
-        "unsafe"
+	"unsafe"
 )
 
 var toFromLEFunc = bits.ReverseBytes64

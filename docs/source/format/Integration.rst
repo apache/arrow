@@ -223,7 +223,7 @@ considered equivalent to ``[]`` (no metadata). Duplicated keys are not forbidden
 **Type**: ::
 
     {
-      "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
+      "name" : "null|struct|list|largelist|listview|largelistview|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|utf8view|binaryview|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map|runendencoded"
     }
 
 A ``Type`` will have other fields as defined in
@@ -446,12 +446,22 @@ or ``DATA``.
 
 ``BufferData`` is encoded based on the type of buffer:
 
-* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null). Data for  non-nullable
+* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null). Data for non-nullable
   ``Field`` still has a ``VALIDITY`` array, even though all values are 1.
 * ``OFFSET``: a JSON array of integers for 32-bit offsets or
-  string-formatted integers for 64-bit offsets
-* ``TYPE_ID``: a JSON array of integers
-* ``DATA``: a JSON array of encoded values
+  string-formatted integers for 64-bit offsets.
+* ``TYPE_ID``: a JSON array of integers.
+* ``DATA``: a JSON array of encoded values.
+* ``VARIADIC_DATA_BUFFERS``: a JSON array of data buffers represented as
+  hex encoded strings.
+* ``VIEWS``: a JSON array of encoded views, which are JSON objects with:
+  * ``SIZE``: an integer indicating the size of the view,
+  * ``INLINED``: an encoded value (this field will be present if ``SIZE``
+    is smaller than 12, otherwise the next three fields will be present),
+  * ``PREFIX_HEX``: the first four bytes of the view encoded as hex,
+  * ``BUFFER_INDEX``: the index in ``VARIADIC_DATA_BUFFERS`` of the buffer
+    viewed,
+  * ``OFFSET``: the offset in the buffer viewed.
 
 The value encoding for ``DATA`` is different depending on the logical
 type:
@@ -527,6 +537,9 @@ in ``datagen.py``):
   - Signed indices
   - Unsigned indices
   - Nested dictionaries
+* Run end encoded
+* Binary view and string view
+* List view and large list view
 * Extension Types
 
 

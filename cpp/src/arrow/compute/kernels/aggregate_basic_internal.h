@@ -472,7 +472,7 @@ struct FirstLastImpl : public ScalarAggregator {
     this->count += arr.length() - null_count;
 
     if (null_count == 0) {
-      // If there are no null valus, we can just merge
+      // If there are no null values, we can just merge
       // the first and last element
       this->state.MergeOne(arr.GetView(0));
       this->state.MergeOne(arr.GetView(arr.length() - 1));

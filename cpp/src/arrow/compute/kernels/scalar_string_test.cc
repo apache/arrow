@@ -2060,7 +2060,7 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"([""])",
                    &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"(["𝑓öõ"])",
                    &options_edgecase_2);
@@ -2189,7 +2189,7 @@ TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
                    "ds\"]",
                    this->type(), R"([""])", &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("binary_slice",
                    "[\"f\xc2\xa2"

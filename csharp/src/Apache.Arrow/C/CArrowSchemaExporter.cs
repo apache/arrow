@@ -167,7 +167,9 @@ namespace Apache.Arrow.C
                     return $"d:{decimalType.Precision},{decimalType.Scale},256";
                 // Binary
                 case BinaryType _: return "z";
+                case BinaryViewType _: return "vz";
                 case StringType _: return "u";
+                case StringViewType _: return "vu";
                 case FixedSizeBinaryType binaryType:
                     return $"w:{binaryType.ByteWidth}";
                 // Date
@@ -196,6 +198,7 @@ namespace Apache.Arrow.C
                     };
                 // Nested
                 case ListType _: return "+l";
+                case ListViewType _: return "+vl";
                 case FixedSizeListType fixedListType:
                     return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
