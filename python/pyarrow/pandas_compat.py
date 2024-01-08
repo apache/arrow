@@ -717,9 +717,15 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
-        block = _int.make_block(block_arr, placement=placement,
-                                klass=_int.DatetimeTZBlock,
-                                dtype=dtype)
+        if _pandas_api.is_ge_v21():
+            pd_arr = _pandas_api.pd.array(
+                block_arr.view("int64"), dtype=dtype, copy=False
+            )
+            block = _int.make_block(pd_arr, placement=placement)
+        else:
+            block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
+                                    dtype=dtype)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']

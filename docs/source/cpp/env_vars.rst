@@ -163,6 +163,13 @@ that changing their value later will have an effect.
 .. envvar:: AWS_ENDPOINT_URL
 
    Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   Alternatively, one can set :envvar:`AWS_ENDPOINT_URL_S3`.
+
+.. envvar:: AWS_ENDPOINT_URL_S3
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   This takes precedence over :envvar:`AWS_ENDPOINT_URL` if both variables
+   are set.
 
 .. envvar:: GANDIVA_CACHE_SIZE
 
