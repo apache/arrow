@@ -783,6 +783,11 @@
             </reports>
           </reportSet>
         </reportSets>
+        <configuration>
+          <sourceFileExcludes>
+            <exclude>**/module-info.java</exclude>
+          </sourceFileExcludes>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
