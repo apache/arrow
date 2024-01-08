@@ -101,6 +101,7 @@ def _enable_c_data_tests():
         return False
     return True
 
+
 class _CDataBase:
 
     def __init__(self, debug, args):
