@@ -23,7 +23,6 @@ import java.util.List;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
-import org.apache.arrow.flight.FlightClientMiddleware.Factory;
 import org.apache.arrow.flight.FlightMethod;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
@@ -59,7 +58,7 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
     final CallInfo info = new CallInfo(FlightMethod.fromProtocol(method.getFullMethodName()));
 
     try {
-      for (final Factory factory : factories) {
+      for (final FlightClientMiddleware.Factory factory : factories) {
         middleware.add(factory.onCallStarted(info));
       }
     } catch (FlightRuntimeException e) {

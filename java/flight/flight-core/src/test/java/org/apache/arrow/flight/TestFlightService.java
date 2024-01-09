@@ -17,11 +17,11 @@
 
 package org.apache.arrow.flight;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -140,7 +140,7 @@ public class TestFlightService {
       public FlightInfo getFlightInfo(CallContext context,
               FlightDescriptor descriptor) {
         return new FlightInfo(null, descriptor, Collections.emptyList(),
-                0, 0, false, IpcOption.DEFAULT, "foo".getBytes(UTF_8));
+                0, 0, false, IpcOption.DEFAULT, "foo".getBytes(StandardCharsets.UTF_8));
       }
     };
 
@@ -150,12 +150,14 @@ public class TestFlightService {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
       Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
       Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
-      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes(UTF_8));
+      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes(StandardCharsets.UTF_8));
 
       Exception e = Assertions.assertThrows(
           FlightRuntimeException.class,
           () -> client.getSchema(FlightDescriptor.path("test")));
-      Assertions.assertEquals("No schema is present in FlightInfo", e.getMessage());
+      String expectedMessage = "org.apache.arrow.flight.FlightRuntimeException: INVALID_ARGUMENT:" +
+              " No schema is present in FlightInfo";
+      Assertions.assertEquals(expectedMessage, e.getMessage());
     }
   }
 }

@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -76,7 +77,7 @@ public class FlightStream implements AutoCloseable {
   // we don't block forever trying to write to a server that has rejected a call.
   final CompletableFuture<Void> cancelled;
 
-  private volatile int pending = 1;
+  private final AtomicInteger pending = new AtomicInteger();
   private volatile VectorSchemaRoot fulfilledRoot;
   private DictionaryProvider.MapDictionaryProvider dictionaries;
   private volatile VectorLoader loader;
@@ -227,7 +228,7 @@ public class FlightStream implements AutoCloseable {
         return false;
       }
 
-      pending--;
+      pending.decrementAndGet();
       requestOutstanding();
 
       Object data = queue.take();
@@ -359,9 +360,9 @@ public class FlightStream implements AutoCloseable {
   }
 
   private synchronized void requestOutstanding() {
-    if (pending < pendingTarget) {
-      requestor.request(pendingTarget - pending);
-      pending = pendingTarget;
+    if (pending.get() < pendingTarget) {
+      requestor.request(pendingTarget - pending.get());
+      pending.set(pendingTarget);
     }
   }
 
