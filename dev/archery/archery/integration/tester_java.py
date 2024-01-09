@@ -102,16 +102,6 @@ def setup_jpype():
                    *java_opts)
 
 
-@functools.lru_cache
-def _enable_c_data_tests():
-    try:
-        import jpype      # noqa: F401  # ignore unused
-    except ImportError as error:
-        log(f"Skipping C data tests, jpype is not available: {error}")
-        return False
-    return True
-
-
 class _CDataBase:
 
     def __init__(self, debug, args):
@@ -248,10 +238,10 @@ class JavaTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-    C_DATA_SCHEMA_EXPORTER = _enable_c_data_tests()
-    C_DATA_SCHEMA_IMPORTER = _enable_c_data_tests()
-    C_DATA_ARRAY_EXPORTER = _enable_c_data_tests()
-    C_DATA_ARRAY_IMPORTER = _enable_c_data_tests()
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
 
     name = 'Java'
 
