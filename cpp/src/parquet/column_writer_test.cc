@@ -891,7 +891,7 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
-TEST(TestPageWriter, ThrowsOnPagesToLarge) {
+TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
   NodePtr item = schema::Int32("item");  // optional item
   NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
   NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
