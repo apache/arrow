@@ -904,6 +904,7 @@ test_integration() {
   maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
+  pip install jpype1 || :
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
