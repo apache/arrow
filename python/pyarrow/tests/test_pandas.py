@@ -34,6 +34,7 @@ import pytest
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
+import pyarrow.tests.util as test_util
 from pyarrow.vendored.version import Version
 
 import pyarrow as pa
@@ -5008,3 +5009,8 @@ def test_nested_chunking_valid():
     schema = pa.schema([("maps", map_type)])
     roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
               schema=schema)
+
+
+def test_is_data_frame_race_condition():
+    # See https://github.com/apache/arrow/issues/39313
+    test_util.invoke_script('arrow_39313.py')
