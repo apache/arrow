@@ -466,7 +466,11 @@ class PageIndexReaderImpl : public PageIndexReader {
     PARQUET_ASSIGN_OR_THROW(offset_index_buffer,
                             input_->ReadAt(offset_index_start,
                                            est_offset_index_size));
+
     OffsetIndexReader col_reader(row_group_metadata, properties_, file_decryptor_, offset_index_buffer);
+    auto col_chunk = row_group_metadata->ColumnChunk(0);
+    auto offset_index_location = col_chunk->GetOffsetIndexLocation();
+    uint32_t estimated_length_index = offset_index_location->length * overhead_factor;
 
     std::vector<ColumnOffsets> rowgroup_offsets;
     rowgroup_offsets.reserve(num_row_groups);
@@ -475,11 +479,8 @@ class PageIndexReaderImpl : public PageIndexReader {
       ColumnOffsets offset_indexes;
       offset_indexes.reserve(num_columns);
       for (int col = 0; col < num_columns; ++col) {
-        auto col_chunk = row_group_metadata->ColumnChunk(col);
-        auto offset_index_location = col_chunk->GetOffsetIndexLocation();
-        uint32_t estimated_length = offset_index_location->length * overhead_factor;
         uint32_t actual_length = 0;
-        auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length, &actual_length);
+        auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length_index, &actual_length);
         buffer_offset += actual_length;
         offset_indexes.emplace_back(offset_index);
       }
