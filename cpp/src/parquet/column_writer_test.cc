@@ -26,6 +26,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 
+#include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -37,7 +38,6 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
-#include "third_party/parquet_cpp/src2/parquet/column_page.h"
 
 namespace bit_util = arrow::bit_util;
 
