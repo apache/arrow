@@ -412,6 +412,7 @@ type DictionaryBuilder interface {
 	AppendArray(arrow.Array) error
 	AppendIndices([]int, []bool)
 	ResetFull()
+	DictionarySize() int
 }
 
 type dictionaryBuilder struct {
@@ -1002,6 +1003,10 @@ func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
 		}
 		idxbldr.AppendValues(vals, valid)
 	}
+}
+
+func (b *dictionaryBuilder) DictionarySize() int {
+	return b.memoTable.Size()
 }
 
 type NullDictionaryBuilder struct {
