@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,7 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
+#include "third_party/parquet_cpp/src2/parquet/column_page.h"
 
 namespace bit_util = arrow::bit_util;
 
@@ -887,6 +889,44 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   writer->Close();
 
   ASSERT_TRUE(this->metadata_is_stats_set());
+}
+
+TEST(TestPageWriter, ThrowsOnPagesToLarge) {
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  auto sink = CreateOutputStream();
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED,
+                       Codec::UseDefaultCompressionLevel(), metadata.get());
+
+  uint8_t data;
+  std::shared_ptr<Buffer> buffer =
+      std::make_shared<Buffer>(&data, std::numeric_limits<int32_t>::max() + int64_t{1});
+  DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
+                                   Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+                                   /*uncompressed_size=*/100);
+  EXPECT_THROW(pager->WriteDataPage(over_compressed_limit), ParquetException);
+  DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
+                                                  Encoding::PLAIN);
+  EXPECT_THROW(pager->WriteDictionaryPage(dictionary_over_compressed_limit),
+               ParquetException);
+
+  buffer = std::make_shared<Buffer>(&data, 1);
+  DataPageV1 over_uncompressed_limit(
+      buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+      Encoding::BIT_PACKED,
+      /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
+  EXPECT_THROW(pager->WriteDataPage(over_uncompressed_limit), ParquetException);
 }
 
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {

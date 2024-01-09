@@ -271,7 +271,10 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
-    int64_t uncompressed_size = page.size();
+    int64_t uncompressed_size = page.buffer()->size();
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed page size overflows to INT32_MAX.");
+    }
     std::shared_ptr<Buffer> compressed_data;
     if (has_compressor()) {
       auto buffer = std::static_pointer_cast<ResizableBuffer>(
@@ -288,6 +291,9 @@ class SerializedPageWriter : public PageWriter {
     dict_page_header.__set_is_sorted(page.is_sorted());
 
     const uint8_t* output_data_buffer = compressed_data->data();
+    if (compressed_data->size() > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Compressed page size overflows to INT32_MAX.");
+    }
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
     if (data_encryptor_.get()) {
@@ -371,7 +377,7 @@ class SerializedPageWriter : public PageWriter {
     const int64_t uncompressed_size = page.uncompressed_size();
     std::shared_ptr<Buffer> compressed_data = page.buffer();
     const uint8_t* output_data_buffer = compressed_data->data();
-    int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
+    int64_t output_data_len = compressed_data->size();
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
@@ -383,7 +389,14 @@ class SerializedPageWriter : public PageWriter {
     }
 
     format::PageHeader page_header;
+
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed page size overflows to INT32_MAX.");
+    }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
+    if (output_data_len > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Compressed page size overflows to INT32_MAX.");
+    }
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
     if (page_checksum_verification_) {
