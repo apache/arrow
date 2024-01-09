@@ -580,6 +580,17 @@
           </configuration>
         </plugin>
         <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.6.3</version>
+          <configuration>
+            <source>8</source>
+            <sourceFileExcludes>
+              <sourceFileExclude>**/module-info.java</sourceFileExclude>
+            </sourceFileExcludes>
+          </configuration>
+        </plugin>
+        <plugin>
           <groupId>org.apache.arrow.maven.plugins</groupId>
           <artifactId>module-info-compiler-maven-plugin</artifactId>
           <version>${project.version}</version>
@@ -785,7 +796,7 @@
         </reportSets>
         <configuration>
           <sourceFileExcludes>
-            <exclude>**/module-info.java</exclude>
+            <sourceFileExclude>**/module-info.java</sourceFileExclude>
           </sourceFileExcludes>
         </configuration>
       </plugin>
