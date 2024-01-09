@@ -979,7 +979,8 @@ std::vector<ColumnOffsets> ReadPageIndexesDirect(const std::string &filename, st
 }
 
 std::string ReadIndexedRow(const std::string &filename, std::vector<int> indicies,
-                               std::shared_ptr<parquet::FileMetaData> metadata) {
+                               std::shared_ptr<parquet::FileMetaData> metadata,
+                               bool string_result = true) {
   auto readerProperties = parquet::default_reader_properties();
   parquet::arrow::FileReaderBuilder fileReaderBuilder;
   assert(fileReaderBuilder.OpenFile(filename, false, readerProperties, metadata) == Status::OK());
@@ -988,8 +989,11 @@ std::string ReadIndexedRow(const std::string &filename, std::vector<int> indicie
   // Read table layout + data to string
   std::shared_ptr<::arrow::Table> parquet_table;
   assert(reader->get()->ReadTable(indicies, &parquet_table) == Status::OK());
-  std::string values = parquet_table->ToString();
-  return values;
+  if(string_result) {
+    std::string values = parquet_table->ToString();
+    return values;
+  }
+  return "";
 }
 
 void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
@@ -1046,6 +1050,63 @@ TEST_F(PageIndexBuilderTest, OffsetReader) {
   std::iota(indicies.begin(), indicies.end(), 0);
   WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size);
   ReadColumnsUsingOffsetIndex(path.c_str(), indicies);
+}
+
+
+void BenchmarkReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies,
+                                          std::chrono::microseconds *tm_index, std::chrono::microseconds *tm_std)
+{
+  std::vector<int> row_group_test({3, 9});
+  std::shared_ptr<::arrow::io::ReadableFile> infile;
+  PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
+
+  // Slightly cheating.
+  // First to read pays a penalty for file buffering
+  auto std_begin = std::chrono::steady_clock::now();
+  auto metadata_all_rows = parquet::ReadMetaData(infile);
+  auto expected_rowgroup_offsets = ReadPageIndexes(filename);
+  for(auto row_group: row_group_test) {
+    auto expected_metadata = metadata_all_rows->Subset({row_group});
+    ReadIndexedRow(filename, indicies, expected_metadata, false);
+  }
+  auto std_end = std::chrono::steady_clock::now();
+  *tm_std = std::chrono::duration_cast<std::chrono::microseconds>(std_end - std_begin);
+
+  auto index_begin = std::chrono::steady_clock::now();
+  ReaderProperties props = parquet::default_reader_properties();
+  props.set_read_only_rowgroup_0(true);
+  auto metadata_row_0 = parquet::ReadMetaData(infile, props); // only row group 0
+  auto rowgroup_offsets = ReadPageIndexesDirect(filename, metadata_row_0);
+  for(auto row_group: row_group_test) {
+    auto indexed_metadata = metadata_row_0->IndexTo(row_group, rowgroup_offsets);
+    ReadIndexedRow(filename, indicies, indexed_metadata, false);
+  }
+  auto index_end = std::chrono::steady_clock::now();
+  *tm_index = std::chrono::duration_cast<std::chrono::microseconds>(index_end - index_begin);
+}
+
+TEST_F(PageIndexBuilderTest, BenchmarkReader) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/index_reader_bm.parquet";
+
+  int nColumn = 6000;
+  int nRow = 1000;
+  int chunk_size = 10;
+  std::vector<int> indicies(nColumn/2);
+  std::iota(indicies.begin(), indicies.end(), 0);
+  WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size);
+  std::chrono::microseconds tm_index, tm_std;
+  BenchmarkReadColumnsUsingOffsetIndex(path.c_str(), indicies, &tm_index, &tm_std);
+
+  std::cerr << "Benchmark Results: \n"
+            << "(nColumn=" << nColumn << ", nRow=" << nRow << ")"
+            << ", chunk_size=" << chunk_size
+            << ", time with index=" << tm_index.count()/1e+6 << "s"
+          << ", time with full metadata=" << tm_std.count()/1e+6 << "s"
+          << std::endl;
+
+  // Sample Results:
+  // (nColumn=6000, nRow=1000), chunk_size=10, time with index=4.765s, time with full metadata=8.01038s
 }
 
 
