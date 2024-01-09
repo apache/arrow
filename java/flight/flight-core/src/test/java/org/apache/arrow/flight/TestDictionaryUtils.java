@@ -17,6 +17,10 @@
 
 package org.apache.arrow.flight;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import java.util.TreeSet;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -32,10 +36,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Test cases for {@link DictionaryUtils}.

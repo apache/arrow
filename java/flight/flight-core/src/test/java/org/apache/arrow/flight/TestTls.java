@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.function.Consumer;
 
-import org.apache.arrow.flight.FlightClient.Builder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.Assertions;
@@ -113,7 +112,8 @@ public class TestTls {
         FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer)
             .useTls(certKey.cert, certKey.key)
             .build().start()) {
-      final Builder builder = FlightClient.builder(a, Location.forGrpcTls(FlightTestUtil.LOCALHOST, s.getPort()));
+      final FlightClient.Builder builder = FlightClient.builder(a, Location.forGrpcTls(FlightTestUtil.LOCALHOST,
+              s.getPort()));
       testFn.accept(builder);
     } catch (InterruptedException | IOException e) {
       throw new RuntimeException(e);
