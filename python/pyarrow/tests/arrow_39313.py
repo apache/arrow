@@ -28,12 +28,10 @@ if __name__ == "__main__":
     df = pd.DataFrame()
     results = []
 
-
     def rc():
         while wait:
             pass
         results.append(_pandas_api.is_data_frame(df))
-
 
     threads = [Thread(target=rc) for _ in range(num_threads)]
 
