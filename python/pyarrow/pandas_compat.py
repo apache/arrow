@@ -790,7 +790,7 @@ def table_to_dataframe(
 _pandas_supported_numpy_types = {
     "int8", "int16", "int32", "int64",
     "uint8", "uint16", "uint32", "uint64",
-    "float16", "float32", "float64", "float128",
+    "float16", "float32", "float64",
     "object", "bool"
 }
 
