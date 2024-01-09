@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,7 +48,7 @@ public class FlightCallHeaders implements CallHeaders {
     }
 
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return new String((byte[]) Iterables.get(values, 0));
+      return new String((byte[]) Iterables.get(values, 0), UTF_8);
     }
 
     return (String) Iterables.get(values, 0);
@@ -63,13 +65,13 @@ public class FlightCallHeaders implements CallHeaders {
       return (byte[]) Iterables.get(values, 0);
     }
 
-    return ((String) Iterables.get(values, 0)).getBytes();
+    return ((String) Iterables.get(values, 0)).getBytes(UTF_8);
   }
 
   @Override
   public Iterable<String> getAll(String key) {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return this.keysAndValues.get(key).stream().map(o -> new String((byte[]) o)).collect(Collectors.toList());
+      return this.keysAndValues.get(key).stream().map(o -> new String((byte[]) o, UTF_8)).collect(Collectors.toList());
     }
     return (Collection<String>) (Collection<?>) this.keysAndValues.get(key);
   }
@@ -79,7 +81,7 @@ public class FlightCallHeaders implements CallHeaders {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
       return (Collection<byte[]>) (Collection<?>) this.keysAndValues.get(key);
     }
-    return this.keysAndValues.get(key).stream().map(o -> ((String) o).getBytes()).collect(Collectors.toList());
+    return this.keysAndValues.get(key).stream().map(o -> ((String) o).getBytes(UTF_8)).collect(Collectors.toList());
   }
 
   @Override
@@ -105,6 +107,7 @@ public class FlightCallHeaders implements CallHeaders {
     return this.keysAndValues.containsKey(key);
   }
 
+  @Override
   public String toString() {
     return this.keysAndValues.toString();
   }

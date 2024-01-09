@@ -39,7 +39,7 @@ public class FlightRuntimeException extends RuntimeException {
   }
 
   @Override
-  public String toString() {
+  public String getMessage() {
     String s = getClass().getName();
     return String.format("%s: %s: %s", s, status.code(), status.description());
   }

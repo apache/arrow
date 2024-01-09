@@ -46,9 +46,9 @@ import io.grpc.StatusRuntimeException;
  */
 public class ClientInterceptorAdapter implements ClientInterceptor {
 
-  private final List<Factory> factories;
+  private final List<FlightClientMiddleware.Factory> factories;
 
-  public ClientInterceptorAdapter(List<Factory> factories) {
+  public ClientInterceptorAdapter(List<FlightClientMiddleware.Factory> factories) {
     this.factories = factories;
   }
 
