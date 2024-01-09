@@ -883,49 +883,20 @@ class ColumnReaderImplBase {
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {
-        case Encoding::PLAIN: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_, pool_);
+        case Encoding::PLAIN:
+        case Encoding::BYTE_STREAM_SPLIT:
+        case Encoding::RLE:
+        case Encoding::DELTA_BINARY_PACKED:
+        case Encoding::DELTA_BYTE_ARRAY:
+        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
+          auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
           current_decoder_ = decoder.get();
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
-        case Encoding::BYTE_STREAM_SPLIT: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT, descr_, pool_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::RLE: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::RLE, descr_, pool_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
+
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
-
-        case Encoding::DELTA_BINARY_PACKED: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED, descr_, pool_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_BYTE_ARRAY: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::DELTA_BYTE_ARRAY, descr_, pool_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_, pool_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
 
         default:
           throw ParquetException("Unknown encoding type.");
