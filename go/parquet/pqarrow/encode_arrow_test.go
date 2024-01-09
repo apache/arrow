@@ -125,6 +125,52 @@ func makeDateTimeTypesTable(mem memory.Allocator, expected bool, addFieldMeta bo
 	return array.NewTable(arrsc, cols, int64(len(isValid)))
 }
 
+func makeDateTypeTable(mem memory.Allocator, expected bool, partialDays bool) arrow.Table {
+	const (
+		millisPerHour int64 = 1000 * 60 * 60
+		millisPerDay  int64 = millisPerHour * 24
+	)
+	isValid := []bool{true, true, true, false, true, true}
+
+	var field arrow.Field
+	if expected {
+		field = arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date32, Nullable: true}
+	} else {
+		field = arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date64, Nullable: true}
+	}
+
+	field.Metadata = arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"1"})
+
+	arrsc := arrow.NewSchema([]arrow.Field{field}, nil)
+
+	d32Values := []arrow.Date32{1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000}
+
+	d64Values := make([]arrow.Date64, len(d32Values))
+	for i := range d64Values {
+		// Calculate number of milliseconds at date boundary
+		d64Values[i] = arrow.Date64(int64(d32Values[i]) * millisPerDay)
+		if partialDays {
+			// Offset 1 or more hours past the date boundary
+			hoursIntoDay := int64(i) * millisPerHour
+			d64Values[i] += arrow.Date64(hoursIntoDay)
+		}
+	}
+
+	bldr := array.NewRecordBuilder(mem, arrsc)
+	defer bldr.Release()
+
+	if expected {
+		bldr.Field(0).(*array.Date32Builder).AppendValues(d32Values, isValid)
+	} else {
+		bldr.Field(0).(*array.Date64Builder).AppendValues(d64Values, isValid)
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	return array.NewTableFromRecords(arrsc, []arrow.Record{rec})
+}
+
 func TestWriteArrowCols(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -829,6 +875,44 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
 		ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
 		ps.Truef(array.Equal(exChunk.Chunk(0), tblChunk.Chunk(0)), "expected %s\ngot %s", exChunk.Chunk(0), tblChunk.Chunk(0))
 	}
+}
+
+func (ps *ParquetIOTestSuite) TestDate64ReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	date64InputTable := makeDateTypeTable(mem, false, false)
+	defer date64InputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTable, date64InputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, false)
+	defer date32ExpectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
+}
+
+func (ps *ParquetIOTestSuite) TestDate64ReadWriteTableWithPartialDays() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	date64InputTableNotAlignedToDateBoundary := makeDateTypeTable(mem, false, true)
+	defer date64InputTableNotAlignedToDateBoundary.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTableNotAlignedToDateBoundary, date64InputTableNotAlignedToDateBoundary.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, true)
+	defer date32ExpectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
 }
 
 func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
