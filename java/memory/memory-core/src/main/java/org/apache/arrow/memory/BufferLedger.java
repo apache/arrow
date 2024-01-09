@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * The reference manager that binds an {@link AllocationManager} to
@@ -32,7 +33,7 @@ import org.apache.arrow.util.Preconditions;
  * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, ReferenceManager {
-  private final IdentityHashMap<ArrowBuf, Object> buffers =
+  private final @Nullable IdentityHashMap<ArrowBuf, @Nullable Object> buffers =
           BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
   // unique ID assigned to each ledger
@@ -43,7 +44,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   private final long lCreationTime = System.nanoTime();
   private final BufferAllocator allocator;
   private final AllocationManager allocationManager;
-  private final HistoricalLog historicalLog =
+  private final @Nullable HistoricalLog historicalLog =
       BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
         "BufferLedger[%d]", 1) : null;
   private volatile long lDestructionTime = 0;
@@ -122,7 +123,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
           "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt = decrement(decrement);
-    if (BaseAllocator.DEBUG) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("release(%d). original value: %d",
           decrement, refCnt + decrement);
     }
@@ -178,7 +179,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   @Override
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
-    if (BaseAllocator.DEBUG) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("retain(%d)", increment);
     }
     final int originalReferenceCount = bufRefCnt.getAndAdd(increment);
@@ -233,20 +234,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
             );
 
     // logging
-    if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent(
-              "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
-                      "UnsafeDirectLittleEndian[identityHashCode == " +
-                      "%d](%s)) => ledger hc == %d",
-              allocator.getName(), System.identityHashCode(derivedBuf), derivedBuf.toString(),
-              System.identityHashCode(this));
-
-      synchronized (buffers) {
-        buffers.put(derivedBuf, null);
-      }
-    }
-
-    return derivedBuf;
+    return loggingArrowBufHistoricalLog(derivedBuf);
   }
 
   /**
@@ -261,7 +249,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return A new ArrowBuf that shares references with all ArrowBufs associated
    *         with this BufferLedger
    */
-  ArrowBuf newArrowBuf(final long length, final BufferManager manager) {
+  ArrowBuf newArrowBuf(final long length, final @Nullable BufferManager manager) {
     allocator.assertOpen();
 
     // the start virtual address of the ArrowBuf will be same as address of memory chunk
@@ -271,13 +259,17 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     final ArrowBuf buf = new ArrowBuf(this, manager, length, startAddress);
 
     // logging
-    if (BaseAllocator.DEBUG) {
+    return loggingArrowBufHistoricalLog(buf);
+  }
+
+  private ArrowBuf loggingArrowBufHistoricalLog(ArrowBuf buf) {
+    if (historicalLog != null) {
       historicalLog.recordEvent(
           "ArrowBuf(BufferLedger, BufferAllocator[%s], " +
           "UnsafeDirectLittleEndian[identityHashCode == " + "%d](%s)) => ledger hc == %d",
           allocator.getName(), System.identityHashCode(buf), buf.toString(),
           System.identityHashCode(this));
-
+      Preconditions.checkState(buffers != null, "IdentityHashMap of buffers must not be null");
       synchronized (buffers) {
         buffers.put(buf, null);
       }
@@ -306,7 +298,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   @Override
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
 
-    if (BaseAllocator.DEBUG) {
+    if (historicalLog != null) {
       historicalLog.recordEvent("retain(%s)", target.getName());
     }
 
@@ -333,45 +325,48 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param targetReferenceManager The ledger to transfer ownership account to.
    * @return Whether transfer fit within target ledgers limits.
    */
-  boolean transferBalance(final ReferenceManager targetReferenceManager) {
+  boolean transferBalance(final @Nullable ReferenceManager targetReferenceManager) {
     Preconditions.checkArgument(targetReferenceManager != null,
-        "Expecting valid target reference manager");
-    final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
-    Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
-        "You can only transfer between two allocators that share the same root.");
+            "Expecting valid target reference manager");
+    boolean overlimit = false;
+    if (targetReferenceManager != null) {
+      final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
+      Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
+              "You can only transfer between two allocators that share the same root.");
 
-    allocator.assertOpen();
-    targetReferenceManager.getAllocator().assertOpen();
+      allocator.assertOpen();
+      targetReferenceManager.getAllocator().assertOpen();
 
-    // if we're transferring to ourself, just return.
-    if (targetReferenceManager == this) {
-      return true;
-    }
-
-    // since two balance transfers out from the allocation manager could cause incorrect
-    // accounting, we need to ensure
-    // that this won't happen by synchronizing on the allocation manager instance.
-    synchronized (allocationManager) {
-      if (allocationManager.getOwningLedger() != this) {
-        // since the calling reference manager is not the owning
-        // reference manager for the underlying memory, transfer is
-        // a NO-OP
+      // if we're transferring to ourself, just return.
+      if (targetReferenceManager == this) {
         return true;
       }
 
-      if (BaseAllocator.DEBUG) {
-        this.historicalLog.recordEvent("transferBalance(%s)",
-            targetReferenceManager.getAllocator().getName());
-      }
+      // since two balance transfers out from the allocation manager could cause incorrect
+      // accounting, we need to ensure
+      // that this won't happen by synchronizing on the allocation manager instance.
+      synchronized (allocationManager) {
+        if (allocationManager.getOwningLedger() != this) {
+          // since the calling reference manager is not the owning
+          // reference manager for the underlying memory, transfer is
+          // a NO-OP
+          return true;
+        }
 
-      boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
-      allocator.releaseBytes(allocationManager.getSize());
-      // since the transfer can only happen from the owning reference manager,
-      // we need to set the target ref manager as the new owning ref manager
-      // for the chunk of memory in allocation manager
-      allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
-      return overlimit;
+        if (BaseAllocator.DEBUG && this.historicalLog != null) {
+          this.historicalLog.recordEvent("transferBalance(%s)",
+                  targetReferenceManager.getAllocator().getName());
+        }
+
+        overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
+        allocator.releaseBytes(allocationManager.getSize());
+        // since the transfer can only happen from the owning reference manager,
+        // we need to set the target ref manager as the new owning ref manager
+        // for the chunk of memory in allocation manager
+        allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
+      }
     }
+    return overlimit;
   }
 
   /**
@@ -501,6 +496,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");
     } else {
+      Preconditions.checkArgument(buffers != null, "IdentityHashMap of buffers must not be null");
       synchronized (buffers) {
         sb.append("] holds ")
           .append(buffers.size())

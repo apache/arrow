@@ -30,6 +30,10 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.nullness.qual.KeyFor;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.immutables.value.Value;
 
 /**
@@ -64,17 +68,17 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   private final String name;
   private final RootAllocator root;
-  private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
+  private final Object DEBUG_LOCK = new Object();
   private final AllocationListener listener;
-  private final BaseAllocator parentAllocator;
+  private final @Nullable BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
-  private final IdentityHashMap<BufferLedger, Object> childLedgers;
-  private final IdentityHashMap<Reservation, Object> reservations;
-  private final HistoricalLog historicalLog;
+  private final @Nullable IdentityHashMap<BufferLedger, @Nullable Object> childLedgers;
+  private final @Nullable IdentityHashMap<Reservation, Object> reservations;
+  private final @Nullable HistoricalLog historicalLog;
   private final RoundingPolicy roundingPolicy;
-  private final AllocationManager.Factory allocationManagerFactory;
+  private final AllocationManager.@NonNull Factory allocationManagerFactory;
 
   private volatile boolean isClosed = false; // the allocator has been closed
 
@@ -87,8 +91,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    *
    * @see Config
    */
+  @SuppressWarnings({"nullness:method.invocation", "nullness:cast.unsafe"})
+  //{"call to hist(,...) not allowed on the given receiver.", "cast cannot be statically verified"}
   protected BaseAllocator(
-      final BaseAllocator parentAllocator,
+      final @Nullable BaseAllocator parentAllocator,
       final String name,
       final Config config) throws OutOfMemoryException {
     super(parentAllocator, name, config.getInitReservation(), config.getMaxAllocation());
@@ -100,7 +106,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       this.root = parentAllocator.root;
       empty = parentAllocator.empty;
     } else if (this instanceof RootAllocator) {
-      this.root = (RootAllocator) this;
+      this.root = (@Initialized RootAllocator) this;
       empty = createEmpty();
     } else {
       throw new IllegalStateException("An parent allocator must either carry a root or be the " +
@@ -131,7 +137,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   @Override
-  public BaseAllocator getParentAllocator() {
+  public @Nullable BaseAllocator getParentAllocator() {
     return parentAllocator;
   }
 
@@ -187,7 +193,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     assertOpen();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
-        childLedgers.put(ledger, null);
+        if (childLedgers != null) {
+          childLedgers.put(ledger, null);
+        }
       }
     }
   }
@@ -201,6 +209,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     assertOpen();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
+        Preconditions.checkState(childLedgers != null, "childLedgers must not be null");
         if (!childLedgers.containsKey(ledger)) {
           throw new IllegalStateException("Trying to remove a child ledger that doesn't exist.");
         }
@@ -223,7 +232,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       synchronized (DEBUG_LOCK) {
         final Object object = childAllocators.remove(childAllocator);
         if (object == null) {
-          childAllocator.historicalLog.logHistory(logger);
+          if (childAllocator.historicalLog != null) {
+            childAllocator.historicalLog.logHistory(logger);
+          }
           throw new IllegalStateException("Child allocator[" + childAllocator.name +
             "] not found in parent allocator[" + name + "]'s childAllocators");
         }
@@ -280,12 +291,13 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return buffer(initialRequestSize, null);
   }
 
+  @SuppressWarnings("nullness:dereference.of.nullable")//dereference of possibly-null reference allocationManagerFactory
   private ArrowBuf createEmpty() {
     return allocationManagerFactory.empty();
   }
 
   @Override
-  public ArrowBuf buffer(final long initialRequestSize, BufferManager manager) {
+  public ArrowBuf buffer(final long initialRequestSize, @Nullable BufferManager manager) {
     assertOpen();
 
     Preconditions.checkArgument(initialRequestSize >= 0, "the requested size must be non-negative");
@@ -332,7 +344,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    */
   private ArrowBuf bufferWithoutReservation(
       final long size,
-      BufferManager bufferManager) throws OutOfMemoryException {
+      @Nullable BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
     final AllocationManager manager = newAllocationManager(size);
@@ -388,8 +400,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
         childAllocators.put(childAllocator, childAllocator);
-        historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
-            childAllocator.getName());
+        if (historicalLog != null) {
+          historicalLog.recordEvent("allocator[%s] created new child allocator[%s]", name,
+              childAllocator.getName());
+        }
       }
     } else {
       childAllocators.put(childAllocator, childAllocator);
@@ -439,14 +453,14 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         }
 
         // are there outstanding buffers?
-        final int allocatedCount = childLedgers.size();
+        final int allocatedCount = childLedgers != null ? childLedgers.size() : 0;
         if (allocatedCount > 0) {
           throw new IllegalStateException(
             String.format("Allocator[%s] closed with outstanding buffers allocated (%d).\n%s",
               name, allocatedCount, toString()));
         }
 
-        if (reservations.size() != 0) {
+        if (reservations != null && reservations.size() != 0) {
           throw new IllegalStateException(
             String.format("Allocator[%s] closed with outstanding reservations (%d).\n%s", name,
               reservations.size(),
@@ -486,7 +500,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     if (DEBUG) {
-      historicalLog.recordEvent("closed");
+      if (historicalLog != null) {
+        historicalLog.recordEvent("closed");
+      }
       logger.debug(String.format("closed allocator[%s].", name));
     }
 
@@ -517,7 +533,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   private void hist(String noteFormat, Object... args) {
-    historicalLog.recordEvent(noteFormat, args);
+    if (historicalLog != null) {
+      historicalLog.recordEvent(noteFormat, args);
+    }
   }
 
   /**
@@ -567,10 +585,14 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         childTotal += Math.max(childAllocator.getAllocatedMemory(), childAllocator.reservation);
       }
       if (childTotal > getAllocatedMemory()) {
-        historicalLog.logHistory(logger);
+        if (historicalLog != null) {
+          historicalLog.logHistory(logger);
+        }
         logger.debug("allocator[" + name + "] child event logs BEGIN");
         for (final BaseAllocator childAllocator : childSet) {
-          childAllocator.historicalLog.logHistory(logger);
+          if (childAllocator.historicalLog != null) {
+            childAllocator.historicalLog.logHistory(logger);
+          }
         }
         logger.debug("allocator[" + name + "] child event logs END");
         throw new IllegalStateException(
@@ -581,33 +603,39 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       // Furthermore, the amount I've allocated should be that plus buffers I've allocated.
       long bufferTotal = 0;
 
-      final Set<BufferLedger> ledgerSet = childLedgers.keySet();
-      for (final BufferLedger ledger : ledgerSet) {
-        if (!ledger.isOwningLedger()) {
-          continue;
-        }
+      final Set<@KeyFor("this.childLedgers") BufferLedger> ledgerSet = childLedgers != null ?
+              childLedgers.keySet() : null;
+      if (ledgerSet != null) {
+        for (final BufferLedger ledger : ledgerSet) {
+          if (!ledger.isOwningLedger()) {
+            continue;
+          }
 
-        final AllocationManager am = ledger.getAllocationManager();
-        /*
-         * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
-         * twice.
-         */
-        final BaseAllocator otherOwner = buffersSeen.get(am);
-        if (otherOwner != null) {
-          throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
-            "allocator");
-        }
-        buffersSeen.put(am, this);
+          final AllocationManager am = ledger.getAllocationManager();
+          /*
+           * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
+           * twice.
+           */
+          final BaseAllocator otherOwner = buffersSeen.get(am);
+          if (otherOwner != null) {
+            throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
+              "allocator");
+          }
+          buffersSeen.put(am, this);
 
-        bufferTotal += am.getSize();
+          bufferTotal += am.getSize();
+        }
       }
 
       // Preallocated space has to be accounted for
-      final Set<Reservation> reservationSet = reservations.keySet();
+      final Set<@KeyFor("this.reservations") Reservation> reservationSet = reservations != null ?
+              reservations.keySet() : null;
       long reservedTotal = 0;
-      for (final Reservation reservation : reservationSet) {
-        if (!reservation.isUsed()) {
-          reservedTotal += reservation.getSize();
+      if (reservationSet != null) {
+        for (final Reservation reservation : reservationSet) {
+          if (!reservation.isUsed()) {
+            reservedTotal += reservation.getSize();
+          }
         }
       }
 
@@ -644,9 +672,13 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
         if (reservedTotal != 0) {
           sb.append(String.format("reserved total : %d bytes.", reservedTotal));
-          for (final Reservation reservation : reservationSet) {
-            reservation.historicalLog.buildHistory(sb, 0, true);
-            sb.append('\n');
+          if (reservationSet != null) {
+            for (final Reservation reservation : reservationSet) {
+              if (reservation.historicalLog != null) {
+                reservation.historicalLog.buildHistory(sb, 0, true);
+              }
+              sb.append('\n');
+            }
           }
         }
 
@@ -689,16 +721,25 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         child.print(sb, level + 2, verbosity);
       }
 
-      CommonUtil.indent(sb, level + 1).append(String.format("ledgers: %d\n", childLedgers.size()));
-      for (BufferLedger ledger : childLedgers.keySet()) {
-        ledger.print(sb, level + 2, verbosity);
+      CommonUtil.indent(sb, level + 1).append(String.format("ledgers: %d\n", childLedgers != null ?
+              childLedgers.size() : 0));
+      if (childLedgers != null) {
+        for (BufferLedger ledger : childLedgers.keySet()) {
+          ledger.print(sb, level + 2, verbosity);
+        }
       }
 
-      final Set<Reservation> reservations = this.reservations.keySet();
-      CommonUtil.indent(sb, level + 1).append(String.format("reservations: %d\n", reservations.size()));
-      for (final Reservation reservation : reservations) {
-        if (verbosity.includeHistoricalLog) {
-          reservation.historicalLog.buildHistory(sb, level + 3, true);
+      final Set<@KeyFor("this.reservations") Reservation> reservations = this.reservations != null ?
+              this.reservations.keySet() : null;
+      CommonUtil.indent(sb, level + 1).append(String.format("reservations: %d\n",
+              reservations != null ? reservations.size() : 0));
+      if (reservations != null) {
+        for (final Reservation reservation : reservations) {
+          if (verbosity.includeHistoricalLog) {
+            if (reservation.historicalLog != null) {
+              reservation.historicalLog.buildHistory(sb, level + 3, true);
+            }
+          }
         }
       }
 
@@ -706,17 +747,20 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   }
 
-  private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {
-    for (final BufferLedger ledger : ledgerSet) {
-      if (!ledger.isOwningLedger()) {
-        continue;
+  private void dumpBuffers(final StringBuilder sb,
+                           final @Nullable Set<@KeyFor("this.childLedgers") BufferLedger> ledgerSet) {
+    if (ledgerSet != null) {
+      for (final BufferLedger ledger : ledgerSet) {
+        if (!ledger.isOwningLedger()) {
+          continue;
+        }
+        final AllocationManager am = ledger.getAllocationManager();
+        sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
+        sb.append(Integer.toString(System.identityHashCode(am)));
+        sb.append("] size ");
+        sb.append(Long.toString(am.getSize()));
+        sb.append('\n');
       }
-      final AllocationManager am = ledger.getAllocationManager();
-      sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
-      sb.append(Integer.toString(System.identityHashCode(am)));
-      sb.append("] size ");
-      sb.append(Long.toString(am.getSize()));
-      sb.append('\n');
     }
   }
 
@@ -813,7 +857,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    */
   public class Reservation implements AllocationReservation {
 
-    private final HistoricalLog historicalLog;
+    private final @Nullable HistoricalLog historicalLog;
     private int nBytes = 0;
     private boolean used = false;
     private boolean closed = false;
@@ -824,13 +868,16 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      * <p>If {@linkplain #DEBUG} is true this will capture a historical
      * log of events relevant to this Reservation.
      */
+    @SuppressWarnings("nullness:argument")//to handle null assignment on third party dependency: System.identityHashCode
     public Reservation() {
       if (DEBUG) {
         historicalLog = new HistoricalLog("Reservation[allocator[%s], %d]", name, System
           .identityHashCode(this));
         historicalLog.recordEvent("created");
         synchronized (DEBUG_LOCK) {
-          reservations.put(this, this);
+          if (reservations != null) {
+            reservations.put(this, this);
+          }
         }
       } else {
         historicalLog = null;
@@ -901,7 +948,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         if (!isClosed()) {
           final Object object;
           synchronized (DEBUG_LOCK) {
-            object = reservations.remove(this);
+            object = reservations != null ? reservations.remove(this) : null;
           }
           if (object == null) {
             final StringBuilder sb = new StringBuilder();
@@ -911,7 +958,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
               System.identityHashCode(this)));
           }
 
-          historicalLog.recordEvent("closed");
+          if (historicalLog != null) {
+            historicalLog.recordEvent("closed");
+          }
         }
       }
 
@@ -928,7 +977,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
       final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
 
-      if (DEBUG) {
+      if (historicalLog != null) {
         historicalLog.recordEvent("reserve(%d) => %s", nBytes, Boolean.toString(outcome.isOk()));
       }
 
@@ -959,7 +1008,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
         final ArrowBuf arrowBuf = BaseAllocator.this.bufferWithoutReservation(nBytes, null);
 
         listener.onAllocation(nBytes);
-        if (DEBUG) {
+        if (historicalLog != null) {
           historicalLog.recordEvent("allocate() => %s", String.format("ArrowBuf[%d]", arrowBuf
               .getId()));
         }
@@ -982,7 +1031,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
       releaseBytes(nBytes);
 
-      if (DEBUG) {
+      if (historicalLog != null) {
         historicalLog.recordEvent("releaseReservation(%d)", nBytes);
       }
     }

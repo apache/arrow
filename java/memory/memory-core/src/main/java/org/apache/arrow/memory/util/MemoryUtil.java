@@ -25,7 +25,10 @@ import java.nio.ByteOrder;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import sun.misc.Unsafe;
+
 
 /**
  * Utilities for memory related operations.
@@ -33,7 +36,7 @@ import sun.misc.Unsafe;
 public class MemoryUtil {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MemoryUtil.class);
 
-  private static final Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
+  private static final @Nullable Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
   /**
    * The unsafe object from which to access the off-heap memory.
    */
@@ -63,6 +66,9 @@ public class MemoryUtil {
       // try to get the unsafe object
       final Object maybeUnsafe = AccessController.doPrivileged(new PrivilegedAction<Object>() {
         @Override
+        @SuppressWarnings({"nullness:argument", "nullness:return"})
+        // incompatible argument for parameter obj of Field.get
+        // incompatible types in return
         public Object run() {
           try {
             final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
@@ -178,5 +184,12 @@ public class MemoryUtil {
     }
     throw new UnsupportedOperationException(
         "sun.misc.Unsafe or java.nio.DirectByteBuffer.<init>(long, int) not available");
+  }
+
+  @SuppressWarnings("nullness:argument") //to handle null assignment on third party dependency: Unsafe
+  public static void copyMemory(@Nullable Object srcBase, long srcOffset,
+                                @Nullable Object destBase, long destOffset,
+                                long bytes) {
+    UNSAFE.copyMemory(srcBase, srcOffset, destBase, destOffset, bytes);
   }
 }

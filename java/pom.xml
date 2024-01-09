@@ -48,6 +48,7 @@
     <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
     <mockito.core.version>5.5.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
+    <checker.framework.version>3.42.0</checker.framework.version>
   </properties>
 
   <scm>
@@ -354,6 +355,7 @@
                 <!-- source annotations (not kept in compiled code) -->
                 <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
                 <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                <ignoredDependency>org.checkerframework:checker-qual</ignoredDependency>
               </ignoredDependencies>
             </configuration>
           </execution>
@@ -605,6 +607,11 @@
         <version>${project.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>${checker.framework.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>

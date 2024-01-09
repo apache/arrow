@@ -35,6 +35,10 @@
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -86,6 +90,47 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>checkerframework-jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <source>8</source>
+              <target>8</target>
+              <encoding>UTF-8</encoding>
+              <compilerArgs combine.children="append">
+                <arg>-Xmaxerrs</arg> <!-- javac only reports the first 100 errors or warnings -->
+                <arg>10000</arg>
+                <arg>-Xmaxwarns</arg>
+                <arg>10000</arg>
+                <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
+                <arg>-AatfDoNotCache</arg> <!-- not cache results -->
+              </compilerArgs>
+              <annotationProcessorPaths combine.children="append">
+                <path>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checker.framework.version}</version>
+                </path>
+              </annotationProcessorPaths>
+              <annotationProcessors>
+                <!-- To support @Value.Immutable processors -->
+                <annotationProcessor>org.immutables.value.internal.$processor$.$Processor</annotationProcessor>
+                <!-- Add all the checkers you want to enable here -->
+                <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+              </annotationProcessors>
+            </configuration>
           </plugin>
         </plugins>
       </build>
