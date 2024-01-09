@@ -473,6 +473,64 @@ func TestWriteEmptyLists(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWriteAllNullsWithDeltaEncoding(t *testing.T) {
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "f2", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
+		{Name: "f3", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "f4", Type: arrow.ListOf(arrow.BinaryTypes.String)},
+		{Name: "f5", Type: arrow.BinaryTypes.LargeString, Nullable: true},
+		{Name: "f6", Type: arrow.ListOf(arrow.BinaryTypes.LargeString)},
+		{Name: "f7", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "f8", Type: arrow.ListOf(arrow.FixedWidthTypes.Date64)},
+		{Name: "f9", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "f10", Type: arrow.ListOf(arrow.BinaryTypes.LargeString)},
+		{Name: "f11", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		{Name: "f12", Type: arrow.ListOf(arrow.FixedWidthTypes.Boolean)},
+		{Name: "f13", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "f14", Type: arrow.ListOf(arrow.PrimitiveTypes.Float32)},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+		parquet.WithDictionaryDefault(false),
+		parquet.WithDictionaryFor("f9", true),
+		parquet.WithDictionaryFor("f10", true),
+		parquet.WithDictionaryFor("f13", true),
+		parquet.WithDictionaryFor("f14", true),
+		parquet.WithEncodingFor("f1", parquet.Encodings.DeltaBinaryPacked),
+		parquet.WithEncodingFor("f2", parquet.Encodings.DeltaBinaryPacked),
+		parquet.WithEncodingFor("f3", parquet.Encodings.DeltaByteArray),
+		parquet.WithEncodingFor("f4", parquet.Encodings.DeltaByteArray),
+		parquet.WithEncodingFor("f5", parquet.Encodings.DeltaLengthByteArray),
+		parquet.WithEncodingFor("f6", parquet.Encodings.DeltaLengthByteArray),
+		parquet.WithEncodingFor("f7", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f8", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f9", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f10", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f11", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f12", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f13", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f14", parquet.Encodings.RLE),
+	)
+	arrprops := pqarrow.DefaultWriterProps()
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, arrprops)
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+	err = fw.Close()
+	require.NoError(t, err)
+}
+
 func TestArrowReadWriteTableChunkedCols(t *testing.T) {
 	chunkSizes := []int{2, 4, 10, 2}
 	const totalLen = int64(18)
