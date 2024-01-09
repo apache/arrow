@@ -326,8 +326,8 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.Int32
 		logicalType = schema.DateLogicalType{}
 	case arrow.DATE64:
-		typ = parquet.Types.Int64
-		logicalType = schema.NewTimestampLogicalType(true, schema.TimeUnitMillis)
+		typ = parquet.Types.Int32
+		logicalType = schema.DateLogicalType{}
 	case arrow.TIMESTAMP:
 		typ, logicalType, err = getTimestampMeta(field.Type.(*arrow.TimestampType), props, arrprops)
 		if err != nil {
