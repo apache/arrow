@@ -98,17 +98,17 @@ cdef class _PandasAPIShim(object):
         self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
-        if self._tried_importing_pandas:
-            if not self._have_pandas and raise_:
-                self._import_pandas(raise_)
-            return
+        if not self._tried_importing_pandas:
+            with self._lock:
+                if not self._tried_importing_pandas:
+                    try:
+                        self._import_pandas(raise_)
+                    finally:
+                        self._tried_importing_pandas = True
+                    return
 
-        with self._lock:
-            if not self._tried_importing_pandas:
-                try:
-                    self._import_pandas(raise_)
-                finally:
-                    self._tried_importing_pandas = True
+        if not self._have_pandas and raise_:
+            self._import_pandas(raise_)
 
     def series(self, *args, **kwargs):
         self._check_import()
