@@ -412,6 +412,7 @@ type DictionaryBuilder interface {
 	AppendArray(arrow.Array) error
 	AppendIndices([]int, []bool)
 	ResetFull()
+	DictionarySize() int
 }
 
 type dictionaryBuilder struct {
