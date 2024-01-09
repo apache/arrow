@@ -2025,10 +2025,17 @@ macro(build_jemalloc)
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  # Paralleism for Make fails with CMake > 3.28 see #39517
+  if(${CMAKE_GENERATOR} MATCHES "Makefiles")
+    list(APPEND JEMALLOC_BUILD_COMMAND "-j1")
+  endif()
+
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
+
   externalproject_add(jemalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${JEMALLOC_SOURCE_URL}
