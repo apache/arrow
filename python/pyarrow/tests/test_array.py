@@ -1057,14 +1057,25 @@ def test_map_from_arrays():
 
     assert result.equals(expected)
 
+    # pass in the type explicitly
     result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
         keys.type,
         items.type
     ))
     assert result.equals(expected)
 
-    # check invalid usage
+    # pass in invalid types
+    with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.string())
 
+    with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+            keys.type,
+            # Larger than the original i4
+            pa.int64()
+        ))
+
+    # check invalid usage
     offsets = [0, 1, 3, 5]
     keys = np.arange(5)
     items = np.arange(5)
