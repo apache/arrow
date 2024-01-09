@@ -1979,18 +1979,12 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 
 namespace {
 
-template <typename T>
-static inline Status ExportStreamSchema(const std::shared_ptr<T>& src,
-                                        struct ArrowSchema* out_schema);
-
-template <>
-inline Status ExportStreamSchema(const std::shared_ptr<RecordBatchReader>& src,
+Status ExportStreamSchema(const std::shared_ptr<RecordBatchReader>& src,
                                  struct ArrowSchema* out_schema) {
   return ExportSchema(*src->schema(), out_schema);
 }
 
-template <>
-inline Status ExportStreamSchema(const std::shared_ptr<ChunkedArray>& src,
+Status ExportStreamSchema(const std::shared_ptr<ChunkedArray>& src,
                                  struct ArrowSchema* out_schema) {
   return ExportType(*src->type(), out_schema);
 }
@@ -2087,7 +2081,7 @@ class ExportedArrayStream {
     return ExportedArrayStream{stream}.GetLastError();
   }
 
-  static Status Make(const std::shared_ptr<T> reader, struct ArrowArrayStream* out) {
+  static Status Make(std::shared_ptr<T> reader, struct ArrowArrayStream* out) {
     out->get_schema = ExportedArrayStream::StaticGetSchema;
     out->get_next = ExportedArrayStream::StaticGetNext;
     out->get_last_error = ExportedArrayStream::StaticGetLastError;
