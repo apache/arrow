@@ -567,15 +567,21 @@ test_package_java() {
 
   maybe_setup_conda maven openjdk
 
+  pushd java
+
   # Build Java JNI
-  pushd java/c
   mkdir -p build
   pushd build
-  cmake ..
+  # Disable Testing because GTest might not be present
+  # Disable JNI Gandiva because Protobuf might not be present
+  cmake \
+    -DBUILD_TESTING=OFF \
+    -DARROW_JAVA_JNI_ENABLE_GANDIVA=OFF \
+    ..
   cmake --build .
   popd
 
-  pushd java
+  # Build Java JARs
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
   fi
@@ -640,6 +646,7 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_SUBSTRAIT=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
