@@ -1,6 +1,7 @@
 import pyarrow as pa
 from random import randbytes
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import io
 
 schema = pa.schema([
     ('a', pa.int64()),
@@ -34,39 +35,54 @@ def GetPutData():
         records_sent += length
     
     return batches
+
+def make_reader(schema, batches):
+    return pa.RecordBatchReader.from_batches(schema, batches)
+
+def generate_batches(schema, reader):
+    with io.BytesIO() as sink, pa.ipc.new_stream(sink, schema) as writer:
+        yield sink.getvalue()
+        
+        for batch in reader:
+            sink.seek(0)
+            sink.truncate(0)
+            writer.write_batch(batch)
+            yield sink.getvalue()
+        
+        sink.seek(0)
+        sink.truncate(0)
+        writer.close()
+        yield sink.getvalue()
  
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        chunk_size = int(2e9)
-        chunk_splits = len(buffer) // chunk_size
-        
         self.send_response(200)
         self.send_header('Content-Type', 'application/vnd.apache.arrow.stream')
         
-        #######################################################################
-        # include these to enable testing JavaScript client in local browser
-        self.send_header('Access-Control-Allow-Origin', 'http://localhost:8000')
-        self.send_header('Access-Control-Allow-Methods', 'GET')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        #######################################################################
+        # set these headers if testing with a local browser-based client:
+        
+        #self.send_header('Access-Control-Allow-Origin', 'http://localhost:8000')
+        #self.send_header('Access-Control-Allow-Methods', 'GET')
+        #self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         
         self.end_headers()
         
-        for i in range(chunk_splits):
-            self.wfile.write(buffer.slice(i * chunk_size, chunk_size))
+        for buffer in generate_batches(schema, make_reader(schema, batches)):
+            self.wfile.write(buffer)
             self.wfile.flush()
-        self.wfile.write(buffer.slice(chunk_splits * chunk_size))
-        self.wfile.flush()
+            
+            # if any record batch could be larger than 2 GB, split it
+            # into chunks before passing to self.wfile.write():
+            
+            #chunk_size = int(2e9)
+            #chunk_splits = len(buffer) // chunk_size
+            #for i in range(chunk_splits):
+            #    self.wfile.write(buffer[i * chunk_size:i * chunk_size + chunk_size])
+            #    self.wfile.flush()
+            #self.wfile.write(buffer[chunk_splits * chunk_size:])
+            #self.wfile.flush()
 
 batches = GetPutData()
-
-sink = pa.BufferOutputStream()
-
-with pa.ipc.new_stream(sink, schema) as writer:
-   for i in range(len(batches)):
-      writer.write_batch(batches[i])
-
-buffer = sink.getvalue()
 
 server_address = ('localhost', 8000)
 httpd = HTTPServer(server_address, MyServer)
