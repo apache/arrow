@@ -861,7 +861,7 @@ if (is_release) {
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
   # Don't override explictily set NOT_CRAN env var, as it is used in CI.
-  not_cran <- TRUE || !env_is("NOT_CRAN", "false")
+  not_cran <- TRUE && !env_is("NOT_CRAN", "false")
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
 
