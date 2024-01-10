@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
@@ -697,28 +698,88 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
   std::shared_ptr<Array> current_chunk;
 
   // Case 1: `values` has a single chunk, so just use it
-  if (num_chunks == 1) {
-    current_chunk = values.chunk(0);
-  } else {
-    // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
-    // See
-    // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
-    // TODO Case 3: If indices are sorted, can slice them and call Array Take
-
-    // Case 4: Else, concatenate chunks and call Array Take
+  if (num_chunks < 2) {
     if (values.chunks().empty()) {
       ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
                                                            ctx->memory_pool()));
     } else {
-      ARROW_ASSIGN_OR_RAISE(current_chunk,
-                            Concatenate(values.chunks(), ctx->memory_pool()));
+      current_chunk = values.chunk(0);
     }
+    // Call Array Take on our single chunk
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
+                          TakeAA(current_chunk->data(), indices.data(), options, ctx));
+    std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
+    return std::make_shared<ChunkedArray>(std::move(chunks));
+  } else {
+    // For each index, lookup at which chunk it refers to.
+    // We have to do this because the indices are not necessarily sorted.
+    // So we can't simply iterate over chunks and pick the slices we need.
+    std::vector<int64_t> indices_chunks(indices.length());
+    std::vector<int64_t> offsetted_indices(indices.length());
+    std::cout << "INDICES TYPE: " << indices.type()->ToString() << " Width: " << indices.type()->byte_width() << " " << indices.ToString() << std::endl;
+    for(int64_t requested_index=0; requested_index < indices.length(); ++requested_index) {
+      uint64_t index;
+      switch (indices.type()->byte_width()) {
+        case 1:
+          index = static_cast<UInt8Array const &>(indices).Value(requested_index);
+          break;
+        case 2:
+          index = static_cast<UInt16Array const &>(indices).Value(requested_index);
+          break;
+        case 4:
+          index = static_cast<UInt32Array const &>(indices).Value(requested_index);
+          break;
+        case 8:
+          index = static_cast<UInt64Array const &>(indices).Value(requested_index);
+          break;
+        default:
+          DCHECK(false) << "Invalid indices byte width";
+          break;
+      }
+      std::cout << "INDEX: " << requested_index << " -> " << index << std::endl; 
+      uint64_t chunk_offset = 0;
+      uint64_t chunk_length = 0;
+      bool index_found = false;
+      for(int chunk_index = 0; chunk_index < num_chunks; ++chunk_index) {
+          chunk_offset += chunk_length;
+          chunk_length = values.chunk(chunk_index)->length();
+          if (index >= chunk_offset && index < chunk_offset+chunk_length) {
+              indices_chunks[requested_index] = chunk_index;
+              offsetted_indices[requested_index] = index - chunk_offset;
+              index_found = true;
+              break;
+          }
+      }
+      if (!index_found) {
+          return Status::IndexError("Index ", index, " is out of bounds");
+      }
+    }
+
+    std::vector<std::shared_ptr<arrow::Array>> new_chunks;
+    int64_t current_chunk = indices_chunks[0];
+    Int64Builder builder;
+    for(int64_t requested_index=0; requested_index < indices.length(); ++requested_index) {
+      int64_t chunk_index = indices_chunks[requested_index];
+      if (chunk_index != current_chunk) {
+          ARROW_ASSIGN_OR_RAISE(auto indices_array, builder.Finish());
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
+                                TakeAA(values.chunk(current_chunk)->data(), indices_array->data(), options, ctx));
+          new_chunks.push_back(MakeArray(new_chunk));
+          current_chunk = chunk_index;
+          builder.Reset();
+      }
+      ARROW_RETURN_NOT_OK(builder.Append(offsetted_indices[requested_index]));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto indices_array, builder.Finish());
+    if (indices_array->length() > 0) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
+                            TakeAA(values.chunk(current_chunk)->data(), indices_array->data(), options, ctx));
+      new_chunks.push_back(MakeArray(new_chunk));
+    }
+    
+    auto chunked_array = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks), values.type());
+    return chunked_array;
   }
-  // Call Array Take on our single chunk
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                        TakeAA(current_chunk->data(), indices.data(), options, ctx));
-  std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
-  return std::make_shared<ChunkedArray>(std::move(chunks));
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
