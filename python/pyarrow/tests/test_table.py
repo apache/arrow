@@ -1762,6 +1762,28 @@ def test_table_cast_to_incompatible_schema():
         table.cast(target_schema2)
 
 
+def test_record_batch_cast_to_incompatible_schema():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=tuple('ab'))
+
+    target_schema1 = pa.schema([
+        pa.field('A', pa.int32()),
+        pa.field('b', pa.int16()),
+    ])
+    target_schema2 = pa.schema([
+        pa.field('a', pa.int32()),
+    ])
+    message = ("Target schema's field names are not matching the "
+               "record batch's field names:.*")
+    with pytest.raises(ValueError, match=message):
+        batch.cast(target_schema1)
+    with pytest.raises(ValueError, match=message):
+        batch.cast(target_schema2)
+
+
 def test_table_safe_casting():
     data = [
         pa.array(range(5), type=pa.int64()),
@@ -1788,6 +1810,34 @@ def test_table_safe_casting():
     casted_table = table.cast(target_schema)
 
     assert casted_table.equals(expected_table)
+
+
+def test_record_batch_safe_casting():
+    data = [
+        pa.array(range(5), type=pa.int64()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
+        pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=tuple('abcd'))
+
+    expected_data = [
+        pa.array(range(5), type=pa.int32()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
+        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+    ]
+    expected_batch = pa.RecordBatch.from_arrays(expected_data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+    casted_batch = batch.cast(target_schema)
+
+    assert casted_batch.equals(expected_batch)
 
 
 def test_table_unsafe_casting():
@@ -1819,6 +1869,37 @@ def test_table_unsafe_casting():
 
     casted_table = table.cast(target_schema, safe=False)
     assert casted_table.equals(expected_table)
+
+
+def test_record_batch_unsafe_casting():
+    data = [
+        pa.array(range(5), type=pa.int64()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
+        pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=tuple('abcd'))
+
+    expected_data = [
+        pa.array(range(5), type=pa.int32()),
+        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
+        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
+        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+    ]
+    expected_batch = pa.RecordBatch.from_arrays(expected_data, names=tuple('abcd'))
+
+    target_schema = pa.schema([
+        pa.field('a', pa.int32()),
+        pa.field('b', pa.int16()),
+        pa.field('c', pa.int64()),
+        pa.field('d', pa.string())
+    ])
+
+    with pytest.raises(pa.ArrowInvalid, match='truncated'):
+        batch.cast(target_schema)
+
+    casted_batch = batch.cast(target_schema, safe=False)
+    assert casted_batch.equals(expected_batch)
 
 
 def test_invalid_table_construct():
@@ -2688,6 +2769,18 @@ def test_table_cast_invalid():
 
     table = pa.table({'a': [None, 1], 'b': [False, True]})
     assert table.cast(new_schema).schema == new_schema
+
+
+def test_record_batch_cast_invalid():
+    # Casting a nullable field to non-nullable should be invalid!
+    batch = pa.record_batch({'a': [None, 1], 'b': [None, True]})
+    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
+                            pa.field("b", "bool", nullable=False)])
+    with pytest.raises(ValueError):
+        batch.cast(new_schema)
+
+    batch = pa.record_batch({'a': [None, 1], 'b': [False, True]})
+    assert batch.cast(new_schema).schema == new_schema
 
 
 def test_table_sort_by():

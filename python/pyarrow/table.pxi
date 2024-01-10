@@ -3002,6 +3002,69 @@ cdef class RecordBatch(_Tabular):
 
         return result
 
+    def cast(self, Schema target_schema, safe=None, options=None):
+        """
+        Cast record batch values to another schema.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+        safe : bool, default True
+            Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
+
+        Define new schema and cast batch values:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.duration('s')),
+        ...     pa.field('animals', pa.string())]
+        ...     )
+        >>> batch.cast(target_schema=my_schema)
+        pyarrow.RecordBatch
+        n_legs: duration[s]
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            Array column, casted
+            Field field
+            list newcols = []
+
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             "the record batch's field names: {!r}, {!r}"
+                             .format(self.schema.names, target_schema.names))
+
+        for column, field in zip(self.itercolumns(), target_schema):
+            if not field.nullable and column.null_count > 0:
+                raise ValueError("Casting field {!r} with null values to non-nullable"
+                                 .format(field.name))
+            casted = column.cast(field.type, safe=safe, options=options)
+            newcols.append(casted)
+
+        return RecordBatch.from_arrays(newcols, schema=target_schema)
+
     def select(self, object columns):
         """
         Select columns of the RecordBatch.
