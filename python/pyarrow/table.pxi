@@ -2690,6 +2690,67 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def drop_columns(self, columns):
+        """
+        Drop one or more columns and return a new record batch.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Raises
+        ------
+        KeyError
+            If any of the passed column names do not exist.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch without the column(s).
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Drop one column:
+
+        >>> batch.drop_columns("animals")
+        pyarrow.RecordBatch
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop one or more columns:
+
+        >>> batch.drop_columns(["n_legs", "animals"])
+        pyarrow.RecordBatch
+        ...
+        ----
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column {!r} not found".format(col))
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        batch = self
+        for idx in indices:
+            batch = batch.remove_column(idx)
+
+        return batch
+
     def serialize(self, memory_pool=None):
         """
         Write RecordBatch to Buffer as encapsulated IPC message, which does not

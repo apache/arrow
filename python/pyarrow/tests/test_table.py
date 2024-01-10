@@ -1367,6 +1367,26 @@ def test_table_drop_columns():
         table.drop_columns(['d'])
 
 
+def test_record_batch_drop_columns():
+    """ drop one or more columns given labels"""
+    a = pa.array(range(5))
+    b = pa.array([-10, -5, 0, 5, 10])
+    c = pa.array(range(5, 10))
+
+    batch = pa.RecordBatch.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    t2 = batch.drop_columns(['a', 'b'])
+    t3 = batch.drop_columns('a')
+
+    exp_t2 = pa.RecordBatch.from_arrays([c], names=('c',))
+    assert exp_t2.equals(t2)
+    exp_t3 = pa.RecordBatch.from_arrays([b, c], names=('b', 'c',))
+    assert exp_t3.equals(t3)
+
+    # -- raise KeyError if column not in RecordBatch
+    with pytest.raises(KeyError, match="Column 'd' not found"):
+        batch.drop_columns(['d'])
+
+
 def test_table_drop():
     """ verify the alias of drop_columns is working"""
     a = pa.array(range(5))
