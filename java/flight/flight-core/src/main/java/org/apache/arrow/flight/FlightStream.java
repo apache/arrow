@@ -57,9 +57,17 @@ import io.grpc.stub.StreamObserver;
  */
 public class FlightStream implements AutoCloseable {
   // Use AutoCloseable sentinel objects to simplify logic in #close
-  private final AutoCloseable DONE = () -> {
+  private final AutoCloseable DONE = new AutoCloseable() {
+    @Override
+    public void close() throws Exception {
+
+    }
   };
-  private final AutoCloseable DONE_EX = () -> {
+  private final AutoCloseable DONE_EX = new AutoCloseable() {
+    @Override
+    public void close() throws Exception {
+
+    }
   };
 
   private final BufferAllocator allocator;
@@ -170,6 +178,7 @@ public class FlightStream implements AutoCloseable {
    *
    * <p>If the stream isn't complete and is cancellable, this method will cancel and drain the stream first.
    */
+  @Override
   public void close() throws Exception {
     final List<AutoCloseable> closeables = new ArrayList<>();
     Throwable suppressor = null;

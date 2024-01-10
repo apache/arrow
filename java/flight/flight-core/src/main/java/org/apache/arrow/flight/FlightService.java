@@ -433,8 +433,9 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public Map<Key<?>, FlightServerMiddleware> getMiddleware() {
-      final Map<Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
+    public Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> getMiddleware() {
+      final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware =
+          ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
       if (middleware == null) {
         return Collections.emptyMap();
       }
