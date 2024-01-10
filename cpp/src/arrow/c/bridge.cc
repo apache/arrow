@@ -1989,12 +1989,8 @@ Status ExportStreamSchema(const std::shared_ptr<ChunkedArray>& src,
   return ExportType(*src->type(), out_schema);
 }
 
-template <typename T>
-static inline Status ExportStreamNext(const std::shared_ptr<T>& src, int i,
-                                      struct ArrowArray* out_array);
 
-template <>
-inline Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int i,
+Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int i,
                                struct ArrowArray* out_array) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(src->ReadNext(&batch));
@@ -2007,9 +2003,8 @@ inline Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, in
   }
 }
 
-template <>
-inline Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int i,
-                               struct ArrowArray* out_array) {
+Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int i,
+                        struct ArrowArray* out_array) {
   if (i >= src->num_chunks()) {
     // End of stream
     ArrowArrayMarkReleased(out_array);
@@ -2037,11 +2032,11 @@ class ExportedArrayStream {
   explicit ExportedArrayStream(struct ArrowArrayStream* stream) : stream_(stream) {}
 
   Status GetSchema(struct ArrowSchema* out_schema) {
-    return ExportStreamSchema<T>(reader(), out_schema);
+    return ExportStreamSchema(reader(), out_schema);
   }
 
   Status GetNext(struct ArrowArray* out_array) {
-    return ExportStreamNext<T>(reader(), next_batch_num(), out_array);
+    return ExportStreamNext(reader(), next_batch_num(), out_array);
   }
 
   const char* GetLastError() {
