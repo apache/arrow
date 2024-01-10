@@ -2467,7 +2467,7 @@ cdef class MapArray(ListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, keys, items, MemoryPool pool=None):
+    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None):
         """
         Construct MapArray from arrays of int32 offsets and key, item arrays.
 
@@ -2476,6 +2476,8 @@ cdef class MapArray(ListArray):
         offsets : array-like or sequence (int32 type)
         keys : array-like or sequence (any type)
         items : array-like or sequence (any type)
+        type : DataType, optional
+            If not specified, a default MapArray with the keys' and items' type is used.
         pool : MemoryPool
 
         Returns
@@ -2564,11 +2566,18 @@ cdef class MapArray(ListArray):
         _keys = asarray(keys)
         _items = asarray(items)
 
-        with nogil:
-            out = GetResultValue(
-                CMapArray.FromArrays(_offsets.sp_array,
-                                     _keys.sp_array,
-                                     _items.sp_array, cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CMapArray.FromArraysAndType(
+                        type.sp_type, _offsets.sp_array,
+                        _keys.sp_array, _items.sp_array, cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CMapArray.FromArrays(_offsets.sp_array,
+                                         _keys.sp_array,
+                                         _items.sp_array, cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
