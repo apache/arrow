@@ -569,23 +569,54 @@ test_package_java() {
 
   pushd java
 
-  # Build Java JNI
-  mkdir -p build
-  pushd build
-  # Disable Testing because GTest might not be present
-  # Disable JNI Gandiva because Protobuf might not be present
-  cmake \
-    -DBUILD_TESTING=OFF \
-    -DARROW_JAVA_JNI_ENABLE_GANDIVA=OFF \
-    ..
-  cmake --build . --target install
-  popd
+  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
+    # Build JNI for C data interface
+    local -a cmake_options=()
+    # Enable only C data interface.
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
+    # Disable Testing because GTest might not be present.
+    cmake_options+=(-DBUILD_TESTING=OFF)
+    if [ ! -z "${CMAKE_GENERATOR}" ]; then
+      cmake_options+=(-G "${CMAKE_GENERATOR}")
+    fi
+    local build_dir="${ARROW_TMPDIR/java-jni-build}"
+    local install_dir="${ARROW_TMPDIR/java-jni-install}"
+    local dist_dir="${ARROW_TMPDIR/java-jni-dist}"
+    cmake \
+      -S . \
+      -B "${build_dir}" \
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
+      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
+      "${cmake_options[@]}"
+    cmake --build "${build_dir}"
+    cmake --install "${build_dir}"
 
-  # Build Java JARs
+    local normalized_arch=$(arch)
+    case ${normalized_arch} in
+      aarch64|arm64)
+        normalized_arch=aarch_64
+        ;;
+      i386)
+        normalized_arch=x86_64
+        ;;
+    esac
+    mkdir -p ${dist_dir}/${normalized_arch}/
+    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mvn install \
+        -Darrow.c.jni.dist.dir=${dist_dir} \
+        -Parrow-c-data
+  fi
+
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
   fi
+
+  # Build jars
   mvn package
+
   popd
 }
 
