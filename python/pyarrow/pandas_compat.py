@@ -30,7 +30,6 @@ import re
 import warnings
 
 import numpy as np
-from numpy.core.numerictypes import sctypes as _np_sctypes
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes  # noqa
@@ -789,9 +788,10 @@ def table_to_dataframe(
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
-    str(np.dtype(typ))
-    for typ in (_np_sctypes['int'] + _np_sctypes['uint'] + _np_sctypes['float'] +
-                ['object', 'bool'])
+    "int8", "int16", "int32", "int64",
+    "uint8", "uint16", "uint32", "uint64",
+    "float16", "float32", "float64",
+    "object", "bool"
 }
 
 
