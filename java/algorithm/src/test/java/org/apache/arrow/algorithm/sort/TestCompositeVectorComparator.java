@@ -17,6 +17,8 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -67,9 +69,9 @@ public class TestCompositeVectorComparator {
 
       for (int i = 0; i < vectorLength; i++) {
         intVec1.set(i, i);
-        strVec1.set(i, new String("a" + i).getBytes());
+        strVec1.set(i, ("a" + i).getBytes(UTF_8));
         intVec2.set(i, i);
-        strVec2.set(i, new String("a5").getBytes());
+        strVec2.set(i, "a5".getBytes(UTF_8));
       }
 
       VectorValueComparator<IntVector> innerComparator1 =
@@ -86,7 +88,7 @@ public class TestCompositeVectorComparator {
       // verify results
 
       // both elements are equal, the result is equal
-      assertTrue(comparator.compare(5, 5) == 0);
+      assertEquals(0, comparator.compare(5, 5));
 
       // the first element being equal, the second is smaller, and the result is smaller
       assertTrue(comparator.compare(1, 1) < 0);

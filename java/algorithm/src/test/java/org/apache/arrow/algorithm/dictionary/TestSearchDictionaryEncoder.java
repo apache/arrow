@@ -17,12 +17,12 @@
 
 package org.apache.arrow.algorithm.dictionary;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -51,9 +51,9 @@ public class TestSearchDictionaryEncoder {
 
   private BufferAllocator allocator;
 
-  byte[] zero = "000".getBytes(StandardCharsets.UTF_8);
-  byte[] one = "111".getBytes(StandardCharsets.UTF_8);
-  byte[] two = "222".getBytes(StandardCharsets.UTF_8);
+  byte[] zero = "000".getBytes(UTF_8);
+  byte[] one = "111".getBytes(UTF_8);
+  byte[] two = "222".getBytes(UTF_8);
 
   byte[][] data = new byte[][]{zero, one, two};
 
@@ -78,7 +78,7 @@ public class TestSearchDictionaryEncoder {
       dictionary.allocateNew();
       for (int i = 0; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 
@@ -86,7 +86,7 @@ public class TestSearchDictionaryEncoder {
       rawVector.allocateNew(10 * VECTOR_LENGTH, VECTOR_LENGTH);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int val = (random.nextInt() & Integer.MAX_VALUE) % DICTIONARY_LENGTH;
-        rawVector.set(i, String.valueOf(val).getBytes());
+        rawVector.set(i, String.valueOf(val).getBytes(UTF_8));
       }
       rawVector.setValueCount(VECTOR_LENGTH);
 
@@ -101,7 +101,7 @@ public class TestSearchDictionaryEncoder {
       // verify encoding results
       assertEquals(rawVector.getValueCount(), encodedVector.getValueCount());
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes());
+        assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(UTF_8));
       }
 
       // perform decoding
@@ -111,7 +111,7 @@ public class TestSearchDictionaryEncoder {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
-          assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
+          assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(UTF_8), decodedVector.get(i));
         }
       }
     }
@@ -129,7 +129,7 @@ public class TestSearchDictionaryEncoder {
       dictionary.setNull(0);
       for (int i = 1; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 
@@ -140,7 +140,7 @@ public class TestSearchDictionaryEncoder {
           rawVector.setNull(i);
         } else {
           int val = (random.nextInt() & Integer.MAX_VALUE) % (DICTIONARY_LENGTH - 1) + 1;
-          rawVector.set(i, String.valueOf(val).getBytes());
+          rawVector.set(i, String.valueOf(val).getBytes(UTF_8));
         }
       }
       rawVector.setValueCount(VECTOR_LENGTH);
@@ -159,7 +159,7 @@ public class TestSearchDictionaryEncoder {
         if (i % 10 == 0) {
           assertEquals(0, encodedVector.get(i));
         } else {
-          assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes());
+          assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(UTF_8));
         }
       }
 
@@ -173,7 +173,7 @@ public class TestSearchDictionaryEncoder {
           if (i % 10 == 0) {
             assertTrue(decodedVector.isNull(i));
           } else {
-            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
+            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(UTF_8), decodedVector.get(i));
           }
         }
       }
@@ -190,7 +190,7 @@ public class TestSearchDictionaryEncoder {
       dictionary.allocateNew();
       for (int i = 0; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 

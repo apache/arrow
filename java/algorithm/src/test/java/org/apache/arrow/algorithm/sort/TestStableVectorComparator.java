@@ -17,8 +17,11 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -26,6 +29,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 /**
  * Test cases for {@link StableVectorComparator}.
@@ -51,11 +55,11 @@ public class TestStableVectorComparator {
       vec.setValueCount(10);
 
       // fill data to sort
-      vec.set(0, "ba".getBytes());
-      vec.set(1, "abc".getBytes());
-      vec.set(2, "aa".getBytes());
-      vec.set(3, "abc".getBytes());
-      vec.set(4, "a".getBytes());
+      vec.set(0, "ba".getBytes(UTF_8));
+      vec.set(1, "abc".getBytes(UTF_8));
+      vec.set(2, "aa".getBytes(UTF_8));
+      vec.set(3, "abc".getBytes(UTF_8));
+      vec.set(4, "a".getBytes(UTF_8));
 
       VectorValueComparator<VarCharVector> comparator = new TestVarCharSorter();
       VectorValueComparator<VarCharVector> stableComparator = new StableVectorComparator<>(comparator);
@@ -66,7 +70,7 @@ public class TestStableVectorComparator {
       assertTrue(stableComparator.compare(2, 3) < 0);
       assertTrue(stableComparator.compare(1, 3) < 0);
       assertTrue(stableComparator.compare(3, 1) > 0);
-      assertTrue(stableComparator.compare(3, 3) == 0);
+      Assertions.assertEquals(0, stableComparator.compare(3, 3));
     }
   }
 
@@ -77,16 +81,16 @@ public class TestStableVectorComparator {
       vec.setValueCount(10);
 
       // fill data to sort
-      vec.set(0, "a".getBytes());
-      vec.set(1, "abc".getBytes());
-      vec.set(2, "aa".getBytes());
-      vec.set(3, "a1".getBytes());
-      vec.set(4, "abcdefg".getBytes());
-      vec.set(5, "accc".getBytes());
-      vec.set(6, "afds".getBytes());
-      vec.set(7, "0".getBytes());
-      vec.set(8, "01".getBytes());
-      vec.set(9, "0c".getBytes());
+      vec.set(0, "a".getBytes(UTF_8));
+      vec.set(1, "abc".getBytes(UTF_8));
+      vec.set(2, "aa".getBytes(UTF_8));
+      vec.set(3, "a1".getBytes(UTF_8));
+      vec.set(4, "abcdefg".getBytes(UTF_8));
+      vec.set(5, "accc".getBytes(UTF_8));
+      vec.set(6, "afds".getBytes(UTF_8));
+      vec.set(7, "0".getBytes(UTF_8));
+      vec.set(8, "01".getBytes(UTF_8));
+      vec.set(9, "0c".getBytes(UTF_8));
 
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
@@ -103,16 +107,16 @@ public class TestStableVectorComparator {
 
         // verify results
         // the results are stable
-        assertEquals("0", new String(sortedVec.get(0)));
-        assertEquals("01", new String(sortedVec.get(1)));
-        assertEquals("0c", new String(sortedVec.get(2)));
-        assertEquals("a", new String(sortedVec.get(3)));
-        assertEquals("abc", new String(sortedVec.get(4)));
-        assertEquals("aa", new String(sortedVec.get(5)));
-        assertEquals("a1", new String(sortedVec.get(6)));
-        assertEquals("abcdefg", new String(sortedVec.get(7)));
-        assertEquals("accc", new String(sortedVec.get(8)));
-        assertEquals("afds", new String(sortedVec.get(9)));
+        assertEquals("0", new String(Objects.requireNonNull(sortedVec.get(0)), UTF_8));
+        assertEquals("01", new String(Objects.requireNonNull(sortedVec.get(1)), UTF_8));
+        assertEquals("0c", new String(Objects.requireNonNull(sortedVec.get(2)), UTF_8));
+        assertEquals("a", new String(Objects.requireNonNull(sortedVec.get(3)), UTF_8));
+        assertEquals("abc", new String(Objects.requireNonNull(sortedVec.get(4)), UTF_8));
+        assertEquals("aa", new String(Objects.requireNonNull(sortedVec.get(5)), UTF_8));
+        assertEquals("a1", new String(Objects.requireNonNull(sortedVec.get(6)), UTF_8));
+        assertEquals("abcdefg", new String(Objects.requireNonNull(sortedVec.get(7)), UTF_8));
+        assertEquals("accc", new String(Objects.requireNonNull(sortedVec.get(8)), UTF_8));
+        assertEquals("afds", new String(Objects.requireNonNull(sortedVec.get(9)), UTF_8));
       }
     }
   }
