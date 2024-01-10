@@ -140,7 +140,7 @@ public class ArrowFlightJdbcArrayTest {
         Assert.assertEquals((Object) resultSet.getInt(1), dataVector.getObject(count + 3));
         count++;
       }
-      Assert.assertEquals(count, 5);
+      Assert.assertEquals(5, count);
     }
   }
 

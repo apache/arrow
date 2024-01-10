@@ -22,6 +22,8 @@ import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.google.common.base.Splitter;
+
 /**
  * URL Parser for extracting key values from a connection string.
  */
@@ -40,7 +42,7 @@ public final class UrlParser {
   public static Map<String, String> parse(String url, String separator) {
     Map<String, String> resultMap = new HashMap<>();
     if (url != null) {
-      String[] keyValues = url.split(separator);
+      Iterable<String> keyValues = Splitter.onPattern(separator).split(url);
 
       for (String keyValue : keyValues) {
         try {
