@@ -69,6 +69,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -140,6 +141,7 @@ import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.slf4j.Logger;
 
+import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -422,11 +424,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           writer.startList();
 
           if (createParamsValues != null) {
-            String[] split = createParamsValues.split(",");
+            List<String> split = Splitter.on(',').splitToList(createParamsValues);
 
-            range(0, split.length)
+            range(0, split.size())
                 .forEach(i -> {
-                  byte[] bytes = split[i].getBytes(UTF_8);
+                  byte[] bytes = split.get(i).getBytes(UTF_8);
                   Preconditions.checkState(bytes.length < 1024,
                       "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);
@@ -512,7 +514,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         }
       };
     } else {
-      predicate = (resultSet -> true);
+      predicate = resultSet -> true;
     }
 
     int rows = saveToVectors(mapper, typeInfo, true, predicate);
@@ -685,7 +687,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
                                      final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
         preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
       } catch (final Exception e) {
@@ -774,7 +776,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
         final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
