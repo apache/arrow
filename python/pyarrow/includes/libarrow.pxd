@@ -696,6 +696,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& items,
             CMemoryPool* pool)
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
         CMapType* map_type()
