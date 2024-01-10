@@ -649,7 +649,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                 consumer.name, "consuming")
             if exc_info:
                 exc_type, exc_value, exc_tb = exc_info
-                log(f'{exc_type}: {exc_value} \n{exc_tb}')
+                log(f'{exc_type}: {exc_value}')
             log()
 
     log(f"{fail_count} failures, {len(runner.skips)} skips")

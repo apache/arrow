@@ -567,6 +567,14 @@ test_package_java() {
 
   maybe_setup_conda maven openjdk
 
+  # Build Java JNI
+  pushd java/c
+  mkdir -p build
+  pushd build
+  cmake ..
+  cmake --build .
+  popd
+
   pushd java
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
