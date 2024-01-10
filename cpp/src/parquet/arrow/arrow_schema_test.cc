@@ -115,13 +115,13 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
                                                ParquetType::INT64,
                                                ConvertedType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(
-      ::arrow::field("timestamp", ::arrow::timestamp(TimeUnit::MILLI), false));
+      ::arrow::field("timestamp", ::arrow::timestamp(TimeUnit::MILLI, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp[us]", Repetition::REQUIRED,
                                                ParquetType::INT64,
                                                ConvertedType::TIMESTAMP_MICROS));
   arrow_fields.push_back(
-      ::arrow::field("timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO), false));
+      ::arrow::field("timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date", Repetition::REQUIRED,
                                                ParquetType::INT32, ConvertedType::DATE));
