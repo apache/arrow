@@ -578,7 +578,7 @@ test_package_java() {
     -DBUILD_TESTING=OFF \
     -DARROW_JAVA_JNI_ENABLE_GANDIVA=OFF \
     ..
-  cmake --build .
+  cmake --build . --target install
   popd
 
   # Build Java JARs
