@@ -1500,6 +1500,23 @@ def test_table_rename_columns():
     assert t2.equals(expected)
 
 
+def test_record_batch_rename_columns():
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    batch = pa.RecordBatch.from_arrays(data, names=['a', 'b', 'c'])
+    assert batch.column_names == ['a', 'b', 'c']
+
+    t2 = batch.rename_columns(['eh', 'bee', 'sea'])
+    t2.validate()
+    assert t2.column_names == ['eh', 'bee', 'sea']
+
+    expected = pa.RecordBatch.from_arrays(data, names=['eh', 'bee', 'sea'])
+    assert t2.equals(expected)
+
+
 def test_table_flatten():
     ty1 = pa.struct([pa.field('x', pa.int16()),
                      pa.field('y', pa.float32())])

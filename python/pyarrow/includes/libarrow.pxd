@@ -969,6 +969,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         const vector[shared_ptr[CArray]]& columns()
 
+        CResult[shared_ptr[CRecordBatch]] RenameColumns(const vector[c_string]&)
         CResult[shared_ptr[CRecordBatch]] SelectColumns(const vector[int]&)
 
         int num_columns()

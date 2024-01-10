@@ -2690,6 +2690,47 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def rename_columns(self, names):
+        """
+        Create new record batch with columns renamed to provided names.
+
+        Parameters
+        ----------
+        names : list of str
+            List of new column names.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> new_names = ["n", "name"]
+        >>> batch.rename_columns(new_names)
+        pyarrow.RecordBatch
+        n: int64
+        name: string
+        ----
+        n: [2,4,5,100]
+        name: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[c_string] c_names
+
+        for name in names:
+            c_names.push_back(tobytes(name))
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RenameColumns(move(c_names)))
+
+        return pyarrow_wrap_batch(c_batch)
+
     def drop_columns(self, columns):
         """
         Drop one or more columns and return a new record batch.
