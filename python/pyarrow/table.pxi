@@ -2150,6 +2150,72 @@ cdef class _Tabular(_PandasConvertible):
                 pieces.append('...')
         return '\n'.join(pieces)
 
+    def remove_column(self, int i):
+        raise NotImplementedError
+
+    def drop_columns(self, columns):
+        """
+        Drop one or more columns and return a new Table or RecordBatch.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Raises
+        ------
+        KeyError
+            If any of the passed column names do not exist.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object without the column(s).
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Drop one column:
+
+        >>> table.drop_columns("animals")
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop one or more columns:
+
+        >>> table.drop_columns(["n_legs", "animals"])
+        pyarrow.Table
+        ...
+        ----
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column {!r} not found".format(col))
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        res = self
+        for idx in indices:
+            res = res.remove_column(idx)
+
+        return res
+
 
 cdef class RecordBatch(_Tabular):
     """
@@ -2730,67 +2796,6 @@ cdef class RecordBatch(_Tabular):
             c_batch = GetResultValue(self.batch.RenameColumns(move(c_names)))
 
         return pyarrow_wrap_batch(c_batch)
-
-    def drop_columns(self, columns):
-        """
-        Drop one or more columns and return a new record batch.
-
-        Parameters
-        ----------
-        columns : str or list[str]
-            Field name(s) referencing existing column(s).
-
-        Raises
-        ------
-        KeyError
-            If any of the passed column names do not exist.
-
-        Returns
-        -------
-        RecordBatch
-            New record batch without the column(s).
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
-
-        Drop one column:
-
-        >>> batch.drop_columns("animals")
-        pyarrow.RecordBatch
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
-
-        Drop one or more columns:
-
-        >>> batch.drop_columns(["n_legs", "animals"])
-        pyarrow.RecordBatch
-        ...
-        ----
-        """
-        if isinstance(columns, str):
-            columns = [columns]
-
-        indices = []
-        for col in columns:
-            idx = self.schema.get_field_index(col)
-            if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
-            indices.append(idx)
-
-        indices.sort()
-        indices.reverse()
-
-        batch = self
-        for idx in indices:
-            batch = batch.remove_column(idx)
-
-        return batch
 
     def serialize(self, memory_pool=None):
         """
@@ -5132,67 +5137,6 @@ cdef class Table(_Tabular):
             c_table = GetResultValue(self.table.RenameColumns(move(c_names)))
 
         return pyarrow_wrap_table(c_table)
-
-    def drop_columns(self, columns):
-        """
-        Drop one or more columns and return a new table.
-
-        Parameters
-        ----------
-        columns : str or list[str]
-            Field name(s) referencing existing column(s).
-
-        Raises
-        ------
-        KeyError
-            If any of the passed column names do not exist.
-
-        Returns
-        -------
-        Table
-            New table without the column(s).
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Drop one column:
-
-        >>> table.drop_columns("animals")
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
-
-        Drop one or more columns:
-
-        >>> table.drop_columns(["n_legs", "animals"])
-        pyarrow.Table
-        ...
-        ----
-        """
-        if isinstance(columns, str):
-            columns = [columns]
-
-        indices = []
-        for col in columns:
-            idx = self.schema.get_field_index(col)
-            if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
-            indices.append(idx)
-
-        indices.sort()
-        indices.reverse()
-
-        table = self
-        for idx in indices:
-            table = table.remove_column(idx)
-
-        return table
 
     def drop(self, columns):
         """
