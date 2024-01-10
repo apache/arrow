@@ -283,7 +283,6 @@ std::shared_ptr<acero::ExecNode> ExecNode_Scan(
   auto options = std::make_shared<ds::ScanOptions>();
 
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
-  options->dataset_schema = dataset->schema();
 
   // This filter is only used for predicate pushdown;
   // you still need to pass it to a FilterNode after to handle any other components
@@ -301,6 +300,8 @@ std::shared_ptr<acero::ExecNode> ExecNode_Scan(
   options->projection = call(
       "make_struct", std::move(exprs),
       compute::MakeStructOptions{cpp11::as_cpp<std::vector<std::string>>(field_names)});
+
+  options->dataset_schema = GetProjectedSchemaFromExpression(options->projection, dataset->schema());
 
   return MakeExecNodeOrStop("scan", plan.get(), {},
                             ds::ScanNodeOptions{dataset, options});
