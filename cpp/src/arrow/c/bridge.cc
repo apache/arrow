@@ -2152,6 +2152,16 @@ class ArrayStreamReader {
   }
 
  protected:
+  Status ReadNextArrayInternal(struct ArrowArray* array) {
+    ArrowArrayMarkReleased(array);
+    Status status = StatusFromCError(stream_.get_next(&stream_, array));
+    if (!status.ok() && !ArrowArrayIsReleased(array)) {
+      ArrowArrayRelease(array);
+    }
+
+    return status;
+  }
+
   Result<std::shared_ptr<Schema>> ReadSchema() {
     struct ArrowSchema c_schema = {};
     ARROW_RETURN_NOT_OK(
@@ -2166,26 +2176,6 @@ class ArrayStreamReader {
         StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema)));
     ARROW_ASSIGN_OR_RAISE(auto schema, ImportField(&c_schema));
     return schema;
-  }
-
-  template <typename BatchT, typename SchemaT>
-  Status ReadNextArrayInternal(std::shared_ptr<BatchT>* out,
-                               const std::shared_ptr<SchemaT> type) {
-    ARROW_RETURN_NOT_OK(
-        CheckNotReleased("Attempt to read from a stream that has already been released"));
-
-    struct ArrowArray c_array;
-    ARROW_RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
-
-    if (ArrowArrayIsReleased(&c_array)) {
-      // End of stream
-      out->reset();
-      return Status::OK();
-    } else if constexpr (std::is_same<BatchT, RecordBatch>::value) {
-      return ImportRecordBatch(&c_array, type).Value(out);
-    } else {
-      return ImportArray(&c_array, type).Value(out);
-    }
   }
 
   Status CheckNotReleased(const std::string& message) {
@@ -2248,7 +2238,19 @@ class ArrayStreamBatchReader : public RecordBatchReader, public ArrayStreamReade
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    return ReadNextArrayInternal(batch, schema_);
+    ARROW_RETURN_NOT_OK(
+        CheckNotReleased("Attempt to read from a stream that has already been released"));
+
+    struct ArrowArray c_array;
+    ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
+
+    if (ArrowArrayIsReleased(&c_array)) {
+      // End of stream
+      batch->reset();
+      return Status::OK();
+    } else {
+      return ImportRecordBatch(&c_array, schema_).Value(batch);
+    }
   }
 
   Status Close() override {
@@ -2280,7 +2282,19 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
   std::shared_ptr<DataType> data_type() const { return field_->type(); }
 
   Status ReadNext(std::shared_ptr<Array>* array) {
-    return ReadNextArrayInternal(array, field_->type());
+    ARROW_RETURN_NOT_OK(
+        CheckNotReleased("Attempt to read from a stream that has already been released"));
+
+    struct ArrowArray c_array;
+    ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
+
+    if (ArrowArrayIsReleased(&c_array)) {
+      // End of stream
+      array->reset();
+      return Status::OK();
+    } else {
+      return ImportArray(&c_array, field_->type()).Value(array);
+    }
   }
 
   Status Close() {
