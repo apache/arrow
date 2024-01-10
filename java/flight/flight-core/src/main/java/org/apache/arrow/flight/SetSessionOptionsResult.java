@@ -60,7 +60,7 @@ public class SetSessionOptionsResult {
   }
 
   /** Per-option extensible error response container. */
-  public class Error {
+  public static class Error {
     public ErrorValue value;
 
     public Error(ErrorValue value) {

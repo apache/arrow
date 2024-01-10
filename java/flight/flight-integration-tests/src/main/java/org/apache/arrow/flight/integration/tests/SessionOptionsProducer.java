@@ -29,6 +29,7 @@ import org.apache.arrow.flight.GetSessionOptionsRequest;
 import org.apache.arrow.flight.GetSessionOptionsResult;
 import org.apache.arrow.flight.ServerSessionMiddleware;
 import org.apache.arrow.flight.SessionOptionValue;
+import org.apache.arrow.flight.SessionOptionValueFactory;
 import org.apache.arrow.flight.SetSessionOptionsRequest;
 import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.sql.NoOpFlightSqlProducer;
@@ -39,6 +40,8 @@ import org.apache.arrow.flight.sql.NoOpFlightSqlProducer;
  * simple SessionOptionValue store.
  */
 final class SessionOptionsProducer extends NoOpFlightSqlProducer {
+  private static final SessionOptionValue invalidOptionValue =
+      SessionOptionValueFactory.makeSessionOptionValue("lol_invalid");
   private final FlightServerMiddleware.Key<ServerSessionMiddleware> sessionMiddlewareKey;
 
   SessionOptionsProducer(FlightServerMiddleware.Key<ServerSessionMiddleware> sessionMiddlewareKey) {
@@ -53,7 +56,18 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
     ServerSessionMiddleware.Session session = middleware.getSession();
     for (Map.Entry<String, SessionOptionValue> entry : request.getSessionOptions().entrySet()) {
-      // TODO consider adding immutable value collisions, name blacklist, value/value-type whitelists, etc.
+      // Blacklisted value name
+      if (entry.getKey().equals("lol_invalid")) {
+        errors.put(entry.getKey(), new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
+        continue;
+      }
+      // Blacklisted value
+      // Recommend using a visitor to check polymorphic equality, but this check is easy
+      if (entry.getValue().equals(invalidOptionValue)) {
+        errors.put(entry.getKey(), new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
+        continue;
+      }
+      // Business as usual:
       if (entry.getValue().isEmpty()) {
         session.eraseSessionOption(entry.getKey());
         continue;
