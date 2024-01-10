@@ -4590,8 +4590,8 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
   }
 
   void AssertReaderClosed(const std::shared_ptr<RecordBatchReader>& reader) {
-    ASSERT_THAT(reader->Next(),
-                Raises(StatusCode::Invalid, ::testing::HasSubstr("already been released")));
+    ASSERT_THAT(reader->Next(), Raises(StatusCode::Invalid,
+                                       ::testing::HasSubstr("already been released")));
   }
 
   void AssertReaderClose(const std::shared_ptr<RecordBatchReader>& reader) {
