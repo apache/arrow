@@ -15,11 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.unsafe;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.arrow.memory.AllocationManager;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BufferLedger;
+import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
 /**
@@ -27,8 +32,8 @@ import org.junit.Test;
  */
 public class TestUnsafeAllocationManager {
 
-  private BaseAllocator createUnsafeAllocator() {
-    return new RootAllocator(BaseAllocator.configBuilder().allocationManagerFactory(UnsafeAllocationManager.FACTORY)
+  private BufferAllocator createUnsafeAllocator() {
+    return new RootAllocator(RootAllocator.configBuilder().allocationManagerFactory(UnsafeAllocationManager.FACTORY)
         .build());
   }
 
@@ -51,7 +56,7 @@ public class TestUnsafeAllocationManager {
   @Test
   public void testBufferAllocation() {
     final long bufSize = 4096L;
-    try (BaseAllocator allocator = createUnsafeAllocator();
+    try (BufferAllocator allocator = createUnsafeAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();

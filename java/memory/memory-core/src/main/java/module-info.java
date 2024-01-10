@@ -15,24 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
-
-/**
- * The default Allocation Manager Factory for a module.
- *
- */
-public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
-
-  public static final AllocationManager.Factory FACTORY = NettyAllocationManager.FACTORY;
-
-  @Override
-  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-    return FACTORY.create(accountingAllocator, size);
-  }
-
-  @Override
-  public ArrowBuf empty() {
-    return FACTORY.empty();
-  }
-
+module org.apache.arrow.memory.core {
+  exports org.apache.arrow.memory;
+  exports org.apache.arrow.memory.rounding;
+  exports org.apache.arrow.memory.util;
+  exports org.apache.arrow.memory.util.hash;
+  exports org.apache.arrow.util;
+  requires transitive jdk.unsupported;
+  requires jsr305;
+  requires org.immutables.value;
+  requires org.slf4j;
 }

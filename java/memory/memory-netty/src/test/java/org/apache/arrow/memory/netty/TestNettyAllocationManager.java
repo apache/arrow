@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.arrow.memory.AllocationManager;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.BufferLedger;
+import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
 /**
@@ -31,8 +36,8 @@ public class TestNettyAllocationManager {
 
   static int CUSTOMIZED_ALLOCATION_CUTOFF_VALUE = 1024;
 
-  private BaseAllocator createCustomizedAllocator() {
-    return new RootAllocator(BaseAllocator.configBuilder()
+  private RootAllocator createCustomizedAllocator() {
+    return new RootAllocator(RootAllocator.configBuilder()
         .allocationManagerFactory(new AllocationManager.Factory() {
           @Override
           public AllocationManager create(BufferAllocator accountingAllocator, long size) {
@@ -65,7 +70,7 @@ public class TestNettyAllocationManager {
   @Test
   public void testSmallBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE - 512L;
-    try (BaseAllocator allocator = createCustomizedAllocator();
+    try (RootAllocator allocator = createCustomizedAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
 
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
@@ -89,7 +94,7 @@ public class TestNettyAllocationManager {
   @Test
   public void testLargeBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE + 1024L;
-    try (BaseAllocator allocator = createCustomizedAllocator();
+    try (RootAllocator allocator = createCustomizedAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();

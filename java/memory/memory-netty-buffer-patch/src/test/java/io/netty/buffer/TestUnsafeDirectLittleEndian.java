@@ -28,6 +28,11 @@ import java.nio.charset.StandardCharsets;
 
 import org.junit.Test;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.LargeBuffer;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnsafeDirectLittleEndian;
+
 public class TestUnsafeDirectLittleEndian {
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 

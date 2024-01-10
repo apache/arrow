@@ -17,8 +17,6 @@
 
 package io.netty.buffer;
 
-import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,10 +27,12 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.patch.ArrowByteBufAllocator;
+import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 import io.netty.util.internal.PlatformDependent;
 
@@ -264,7 +264,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @return ByteBuffer
    */
   private ByteBuffer getDirectBuffer(long index) {
-    return PlatformDependent.directBuffer(addr(index), checkedCastToInt(length - index));
+    return PlatformDependent.directBuffer(addr(index), LargeMemoryUtil.checkedCastToInt(length - index));
   }
 
   @Override
@@ -580,11 +580,13 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
+  @VisibleForTesting
   protected void _setInt(int index, int value) {
     setInt(index, value);
   }
 
   @Override
+  @VisibleForTesting
   protected void _setIntLE(int index, int value) {
     this.chk(index, 4);
     PlatformDependent.putInt(this.addr(index), Integer.reverseBytes(value));
@@ -620,9 +622,9 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
         buf,
         buf.getReferenceManager().getAllocator(),
-        checkedCastToInt(buf.capacity()));
-    nettyArrowBuf.readerIndex(checkedCastToInt(buf.readerIndex()));
-    nettyArrowBuf.writerIndex(checkedCastToInt(buf.writerIndex()));
+        LargeMemoryUtil.checkedCastToInt(buf.capacity()));
+    nettyArrowBuf.readerIndex(LargeMemoryUtil.checkedCastToInt(buf.readerIndex()));
+    nettyArrowBuf.writerIndex(LargeMemoryUtil.checkedCastToInt(buf.writerIndex()));
     return nettyArrowBuf;
   }
 

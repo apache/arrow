@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
 
+import org.apache.arrow.memory.AllocationManager;
+import org.apache.arrow.memory.DefaultAllocationManagerOption;
 import org.junit.Test;
 
 /**

@@ -148,7 +148,7 @@ public class MemoryUtil {
       // the static fields above get initialized
       final RuntimeException failure = new RuntimeException(
           "Failed to initialize MemoryUtil. You must start Java with " +
-              "`--add-opens=java.base/java.nio=ALL-UNNAMED` " +
+              "`--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED` " +
               "(See https://arrow.apache.org/docs/java/install.html)", e);
       failure.printStackTrace();
       throw failure;

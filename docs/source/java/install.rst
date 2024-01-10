@@ -33,14 +33,14 @@ Java modules are compatible with JDK 8 and above.
 Currently, JDK 8, 11, 17, and 21 are tested in CI.
 
 When using Java 9 or later, some JDK internals must be exposed by
-adding ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the ``java`` command:
+adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
 
 .. code-block:: shell
 
    # Directly on the command line
-   $ java --add-opens=java.base/java.nio=ALL-UNNAMED -jar ...
+   $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
    # Indirectly via environment variables
-   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" java -jar ...
+   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise, you may see errors like ``module java.base does not "opens
 java.nio" to unnamed module``.
