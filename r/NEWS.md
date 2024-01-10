@@ -327,7 +327,7 @@ Arrow query engine. See `?acero`.
 A few new features and bugfixes were implemented for joins:
 
 * Extension arrays are now supported in joins, allowing, for example, joining
-  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+  datasets that contain [geoarrow](https://github.com/geoarrow/geoarrow) data.
 * The `keep` argument is now supported, allowing separate columns for the left
   and right hand side join keys in join output. Full joins now coalesce the
   join keys (when `keep = FALSE`), avoiding the issue where the join keys would
