@@ -697,8 +697,11 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
   auto num_chunks = values.num_chunks();
   std::shared_ptr<Array> current_chunk;
 
-  // Case 1: `values` has a single chunk, so just use it
-  if (num_chunks < 2) {
+  if (indices.length() == 0) {
+    // Case 0: No indices were provided, nothing to take so return an empty chunked array
+    return ChunkedArray::MakeEmpty(values.type());
+  } else if (num_chunks < 2) {
+    // Case 1: `values` is empty or has a single chunk, so just use it
     if (values.chunks().empty()) {
       ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
                                                            ctx->memory_pool()));
@@ -776,7 +779,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                             TakeAA(values.chunk(current_chunk)->data(), indices_array->data(), options, ctx));
       new_chunks.push_back(MakeArray(new_chunk));
     }
-    
+
     auto chunked_array = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks), values.type());
     return chunked_array;
   }

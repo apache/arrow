@@ -1867,7 +1867,7 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
 
   this->AssertTake(schm, table_json, "[]", {"[]"});
   std::vector<std::string> expected_310 = {
-      "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
+      "[{\"a\": 4, \"b\": \"eh\"}]","[{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
 }
