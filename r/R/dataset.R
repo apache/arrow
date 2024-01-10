@@ -427,7 +427,7 @@ Dataset <- R6Class("Dataset",
     # @return A [ScannerBuilder]
     NewScan = function() dataset___Dataset__NewScan(self),
     ToString = function() {
-      n_fields_out <- paste(length(self$schema$fields), "columns", "\n")
+      n_fields_out <- paste0(length(self$schema$fields), " columns", "\n")
       schema <- self$schema$ToString(truncate = TRUE)
       paste0(n_fields_out, schema)
     },

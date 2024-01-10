@@ -101,7 +101,7 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     Close = function() RecordBatchReader__Close(self),
     export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
     ToString = function() {
-      n_fields_out <- paste(length(self$schema$fields), "columns", "\n")
+      n_fields_out <- paste0(length(self$schema$fields), " columns", "\n")
       schema <- self$schema$ToString(truncate = TRUE)
       paste0(n_fields_out, schema)
     },
