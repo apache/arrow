@@ -2145,46 +2145,34 @@ class ArrayStreamReader {
     DCHECK(ArrowArrayStreamIsReleased(&stream_));
   }
 
- protected:
-  Status ReleaseStream() {
+  void ReleaseStream() {
     if (!ArrowArrayStreamIsReleased(&stream_)) {
       ArrowArrayStreamRelease(&stream_);
     }
-    return Status::OK();
   }
 
-  template <typename SchemaT>
-  Result<std::shared_ptr<SchemaT>> ReadSchemaOrType() {
-    if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid("Cannot import released ArrowArrayStream");
-    }
-
-    std::shared_ptr<SchemaT> schema;
+ protected:
+  Result<std::shared_ptr<Schema>> ReadSchema() {
     struct ArrowSchema c_schema = {};
-    auto status = StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema));
-    if (status.ok()) {
-      if constexpr (std::is_same<SchemaT, Schema>::value) {
-        status = ImportSchema(&c_schema).Value(&schema);
-      } else {
-        status = ImportField(&c_schema).Value(&schema);
-      }
-    }
+    ARROW_RETURN_NOT_OK(
+        StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema)));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ImportSchema(&c_schema));
+    return schema;
+  }
 
-    if (!status.ok()) {
-      ArrowArrayStreamRelease(&stream_);
-      return status;
-    }
-
+  Result<std::shared_ptr<Field>> ReadField() {
+    struct ArrowSchema c_schema = {};
+    ARROW_RETURN_NOT_OK(
+        StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema)));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ImportField(&c_schema));
     return schema;
   }
 
   template <typename BatchT, typename SchemaT>
   Status ReadNextArrayInternal(std::shared_ptr<BatchT>* out,
                                const std::shared_ptr<SchemaT> type) {
-    if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid(
-          "Attempt to read from a reader that has already been closed");
-    }
+    ARROW_RETURN_NOT_OK(
+        CheckNotReleased("Attempt to read from a stream that has already been released"));
 
     struct ArrowArray c_array;
     ARROW_RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
@@ -2197,6 +2185,14 @@ class ArrayStreamReader {
       return ImportRecordBatch(&c_array, type).Value(out);
     } else {
       return ImportArray(&c_array, type).Value(out);
+    }
+  }
+
+  Status CheckNotReleased(const std::string& message) {
+    if (ArrowArrayStreamIsReleased(&stream_)) {
+      return Status::Invalid(message);
+    } else {
+      return Status::OK();
     }
   }
 
@@ -2238,8 +2234,15 @@ class ArrayStreamBatchReader : public RecordBatchReader, public ArrayStreamReade
       : ArrayStreamReader(stream) {}
 
   Status Init() {
-    ARROW_ASSIGN_OR_RAISE(schema_, ReadSchemaOrType<Schema>());
-    return Status::OK();
+    ARROW_RETURN_NOT_OK(CheckNotReleased("Cannot import released stream"));
+    auto maybe_schema = ReadSchema();
+    if (!maybe_schema.ok()) {
+      ReleaseStream();
+      return maybe_schema.status();
+    } else {
+      schema_ = *maybe_schema;
+      return Status::OK();
+    }
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
@@ -2248,7 +2251,10 @@ class ArrayStreamBatchReader : public RecordBatchReader, public ArrayStreamReade
     return ReadNextArrayInternal(batch, schema_);
   }
 
-  Status Close() override { return ReleaseStream(); }
+  Status Close() override {
+    ReleaseStream();
+    return Status::OK();
+  }
 
  private:
   std::shared_ptr<Schema> schema_;
@@ -2260,8 +2266,15 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
       : ArrayStreamReader(stream) {}
 
   Status Init() {
-    ARROW_ASSIGN_OR_RAISE(field_, ReadSchemaOrType<Field>());
-    return Status::OK();
+    ARROW_RETURN_NOT_OK(CheckNotReleased("Cannot import released stream"));
+    auto maybe_field = ReadField();
+    if (!maybe_field.ok()) {
+      ReleaseStream();
+      return maybe_field.status();
+    } else {
+      field_ = *maybe_field;
+      return Status::OK();
+    }
   }
 
   std::shared_ptr<DataType> data_type() const { return field_->type(); }
@@ -2270,7 +2283,10 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
     return ReadNextArrayInternal(array, field_->type());
   }
 
-  Status Close() { return ReleaseStream(); }
+  Status Close() {
+    ReleaseStream();
+    return Status::OK();
+  }
 
  private:
   std::shared_ptr<Field> field_;
