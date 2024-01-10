@@ -448,14 +448,12 @@ class PageIndexReaderImpl : public PageIndexReader {
     // Don't use row_group count from metadata since may be dummy with only rowgroup 0
     int num_row_groups = ceil(static_cast<double>(total_rows) / static_cast<double>(chunk_rows));
     int num_columns = file_metadata_->num_columns();
-    for (int col = 0; col < num_columns; ++col) {
-      auto col_chunk = row_group_metadata->ColumnChunk(col);
-      auto offset_index_location = col_chunk->GetOffsetIndexLocation();
-      if (offset_index_start < 0) {
-        offset_index_start = offset_index_location->offset;
-      }
-      rowgroup_len += offset_index_location->length;
-    }
+    // TODO add methods to get offset_index_start and rowgroup_len directly
+    // This is because ColumnChunk creation is super expensive.
+    auto col_chunk = row_group_metadata->ColumnChunk(0);
+    auto offset_index_location = col_chunk->GetOffsetIndexLocation();
+    offset_index_start = offset_index_location->offset;
+    rowgroup_len = offset_index_location->length * num_columns;
 
     // Retrieve 1.5x the estimated size to allow for variation in storing pages
     // This is just a guess, but we can go over because metadata comes after offsets
@@ -468,8 +466,6 @@ class PageIndexReaderImpl : public PageIndexReader {
                                            est_offset_index_size));
 
     OffsetIndexReader col_reader(row_group_metadata, properties_, file_decryptor_, offset_index_buffer);
-    auto col_chunk = row_group_metadata->ColumnChunk(0);
-    auto offset_index_location = col_chunk->GetOffsetIndexLocation();
     uint32_t estimated_length_index = offset_index_location->length * overhead_factor;
 
     std::vector<ColumnOffsets> rowgroup_offsets;
@@ -480,6 +476,8 @@ class PageIndexReaderImpl : public PageIndexReader {
       offset_indexes.reserve(num_columns);
       for (int col = 0; col < num_columns; ++col) {
         uint32_t actual_length = 0;
+        // TODO: Replace with direct read. There is a lot of overhead in creating a read-only buffer each time
+        // Also, this is calling ColumnChunk() every time.
         auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length_index, &actual_length);
         buffer_offset += actual_length;
         offset_indexes.emplace_back(offset_index);

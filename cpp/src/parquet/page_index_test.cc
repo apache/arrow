@@ -1064,7 +1064,6 @@ void BenchmarkReadColumnsUsingOffsetIndex(const std::string &filename, std::vect
   // First to read pays a penalty for file buffering
   auto std_begin = std::chrono::steady_clock::now();
   auto metadata_all_rows = parquet::ReadMetaData(infile);
-  auto expected_rowgroup_offsets = ReadPageIndexes(filename);
   for(auto row_group: row_group_test) {
     auto expected_metadata = metadata_all_rows->Subset({row_group});
     ReadIndexedRow(filename, indicies, expected_metadata, false);
