@@ -9,7 +9,9 @@
   License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
     <artifactId>arrow-memory</artifactId>
     <groupId>org.apache.arrow</groupId>
@@ -17,10 +19,9 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>arrow-memory-unsafe</artifactId>
-  <name>Arrow Memory - Unsafe</name>
-  <description>Allocator and utils for allocating memory in Arrow based on sun.misc.Unsafe</description>
-
+  <artifactId>arrow-memory-netty-buffer-patch</artifactId>
+  <name>Arrow Memory - Netty Buffer</name>
+  <description>Netty Buffer needed to patch that is consumed by Arrow Memory Netty</description>
 
   <dependencies>
     <dependency>
@@ -28,9 +29,16 @@
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-buffer</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
   </dependencies>
-
 </project>

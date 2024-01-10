@@ -15,23 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
-
-/**
- * The default Allocation Manager Factory for a module.
- *
- */
-public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
-
-  public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager.FACTORY;
-
-  @Override
-  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-    return FACTORY.create(accountingAllocator, size);
-  }
-
-  @Override
-  public ArrowBuf empty() {
-    return UnsafeAllocationManager.FACTORY.empty();
-  }
+module org.apache.arrow.memory.unsafe {
+  exports org.apache.arrow.memory.unsafe to org.apache.arrow.memory.core;
+  
+  requires org.apache.arrow.memory.core;
 }
