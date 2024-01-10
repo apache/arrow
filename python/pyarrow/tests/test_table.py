@@ -505,12 +505,14 @@ def test_recordbatch_basics():
     batch.nbytes == (5 * 2) + (5 * 4 + 1)
     assert sys.getsizeof(batch) >= object.__sizeof__(
         batch) + batch.get_total_buffer_size()
+
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
     assert isinstance(pydict, dict)
+    assert batch == pa.record_batch(pydict, schema=batch.schema)
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -1117,12 +1119,14 @@ def test_table_basics():
     assert table.nbytes == 2 * (5 * 8)
     assert sys.getsizeof(table) >= object.__sizeof__(
         table) + table.get_total_buffer_size()
+
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
     assert isinstance(pydict, dict)
+    assert table == pa.table(pydict, schema=table.schema)
 
     columns = []
     for col in table.itercolumns():
