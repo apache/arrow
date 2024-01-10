@@ -20,6 +20,7 @@ package org.apache.arrow.memory;
 import org.apache.arrow.memory.AllocationListener;
 import org.apache.arrow.memory.AllocationOutcome;
 import org.apache.arrow.memory.BufferAllocator;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Counting allocation listener.
@@ -34,6 +35,7 @@ final class CountingAllocationListener implements AllocationListener {
   private long totalMem;
   private long currentMem;
   private boolean expandOnFail;
+  @Nullable
   BufferAllocator expandAlloc;
   long expandLimit;
 
@@ -62,6 +64,10 @@ final class CountingAllocationListener implements AllocationListener {
   @Override
   public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
     if (expandOnFail) {
+      if (expandAlloc == null) {
+        throw new IllegalStateException("expandAlloc must be non-null because this " +
+            "listener is set to expand on failure.");
+      }
       expandAlloc.setLimit(expandLimit);
       return true;
     }
