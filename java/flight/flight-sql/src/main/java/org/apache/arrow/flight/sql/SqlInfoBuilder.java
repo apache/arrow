@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
 
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlNullOrdering;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
@@ -500,6 +501,26 @@ public class SqlInfoBuilder {
    */
   public SqlInfoBuilder withSqlQuotedIdentifierCase(final SqlSupportedCaseSensitivity value) {
     return withBitIntProvider(SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE, value.getNumber());
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlAllTablesAreSelectable(final boolean value) {
+    return withBooleanProvider(SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE, value);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_NULL_ORDERING} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_NULL_ORDERING} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlNullOrdering(final SqlNullOrdering value) {
+    return withBitIntProvider(SqlInfo.SQL_NULL_ORDERING_VALUE, value.getNumber());
   }
 
   /**

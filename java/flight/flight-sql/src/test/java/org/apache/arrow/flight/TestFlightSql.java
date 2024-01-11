@@ -107,6 +107,12 @@ public class TestFlightSql {
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(Integer.toString(FlightSql.SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE), "true");
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(
+            Integer.toString(FlightSql.SqlInfo.SQL_NULL_ORDERING_VALUE),
+            Integer.toString(FlightSql.SqlNullOrdering.SQL_NULLS_SORTED_AT_END_VALUE));
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
         .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE), "true");
@@ -135,6 +141,8 @@ public class TestFlightSql {
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY,
+        FlightSql.SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE,
+        FlightSql.SqlInfo.SQL_NULL_ORDERING,
         FlightSql.SqlInfo.SQL_DDL_CATALOG,
         FlightSql.SqlInfo.SQL_DDL_SCHEMA,
         FlightSql.SqlInfo.SQL_DDL_TABLE,
