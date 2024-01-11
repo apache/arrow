@@ -146,8 +146,8 @@ $ sudo meson install -C c_glib.build
 >
 > When building Arrow GLib, it typically uses the Arrow C++ installed via Homebrew. However, this can lead to build failures
 > if there are mismatches between the changes in Arrow's GLib and C++ libraries. To resolve this, you may need to
-> reference the Arrow C++ library built locally. In such cases, use the `-Darrow_cpp_build_dir`
-> and `-Darrow_cpp_build_type` options with the `meson setup` command to explicitly specify the library path.
+> reference the Arrow C++ library built locally. In such cases, use the `--cmake-prefix-path` option with the `meson setup` 
+> command to explicitly specify the library path.
 >
 > ```bash
 > meson setup c_glib.build c_glib --cmake-prefix-path=${arrow_cpp_install_prefix} -Dgtk_doc=true
