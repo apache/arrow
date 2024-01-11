@@ -20,7 +20,6 @@
 #include <limits>
 #include <memory>
 #include <vector>
-#include <iostream>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
@@ -719,7 +718,6 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // So we can't simply iterate over chunks and pick the slices we need.
     std::vector<int64_t> indices_chunks(indices.length());
     std::vector<int64_t> offsetted_indices(indices.length());
-    std::cout << "INDICES TYPE: " << indices.type()->ToString() << " Width: " << indices.type()->byte_width() << " " << indices.ToString() << std::endl;
     for(int64_t requested_index=0; requested_index < indices.length(); ++requested_index) {
       uint64_t index;
       switch (indices.type()->byte_width()) {
@@ -739,7 +737,6 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
           DCHECK(false) << "Invalid indices byte width";
           break;
       }
-      std::cout << "INDEX: " << requested_index << " -> " << index << std::endl; 
       uint64_t chunk_offset = 0;
       uint64_t chunk_length = 0;
       bool index_found = false;

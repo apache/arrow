@@ -162,8 +162,6 @@ void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& ac
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual,
                         const EqualOptions& options) {
-  std::cout << "ASSERT EQUAL" << expected.ToString() << " == " << actual.ToString()
-            << std::endl;
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
   if (!actual.Equals(expected, options)) {
     std::stringstream diff;
