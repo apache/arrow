@@ -2074,7 +2074,6 @@ macro(build_jemalloc)
   target_link_libraries(jemalloc::jemalloc INTERFACE Threads::Threads)
   target_include_directories(jemalloc::jemalloc BEFORE
                              INTERFACE "${JEMALLOC_INCLUDE_DIR}")
-  add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
 
@@ -2142,7 +2141,6 @@ if(ARROW_MIMALLOC)
   if(WIN32)
     target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
-  add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)

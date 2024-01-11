@@ -351,30 +351,24 @@ set(ARROW_TESTING_SRCS
     testing/util.cc)
 
 # Add dependencies for third-party allocators.
-# If possible we only want memory_pool.cc to wait for allocators to finish building,
+# If possible we only want memory_pool{_jemalloc}.cc to wait for allocators to finish building,
 # but that only works with Ninja
 # (see https://gitlab.kitware.com/cmake/cmake/issues/19677)
 
-set(_allocator_dependencies "") # Empty list
 if(jemalloc_VENDORED)
-  list(APPEND _allocator_dependencies jemalloc_ep)
+  if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
+    set_source_files_properties(memory_pool_jemalloc.cc PROPERTIES OBJECT_DEPENDS jemalloc_ep)
+  else()
+    add_dependencies(arrow_dependencies jemalloc_ep)
+  endif()
 endif()
 if(mimalloc_VENDORED)
-  list(APPEND _allocator_dependencies mimalloc_ep)
-endif()
-
-if(_allocator_dependencies)
   if("${CMAKE_GENERATOR}" STREQUAL "Ninja")
-    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS
-                                                          "${_allocator_dependencies}")
+    set_source_files_properties(memory_pool.cc PROPERTIES OBJECT_DEPENDS mimalloc_ep)
   else()
-    add_dependencies(arrow_dependencies ${_allocator_dependencies})
+    add_dependencies(arrow_dependencies mimalloc_ep)
   endif()
-  set_source_files_properties(memory_pool.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                                        SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
-
-unset(_allocator_dependencies)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE util/io_util.cc
