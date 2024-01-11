@@ -150,9 +150,7 @@ $ sudo meson install -C c_glib.build
 > and `-Darrow_cpp_build_type` options with the `meson setup` command to explicitly specify the library path.
 >
 > ```bash
-> meson setup c_glib.build c_glib -Dgtk_doc=true \
->   -Darrow_cpp_build_dir=${arrow_cpp_build_dir} \
->   -Darrow_cpp_build_type=${arrow_cpp_build_type}
+> meson setup c_glib.build c_glib --cmake-prefix-path=${arrow_cpp_install_prefix} -Dgtk_doc=true
 > ```
 
 Others:
