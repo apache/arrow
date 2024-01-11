@@ -138,8 +138,8 @@ archery linking check-dependencies \
   --allow libncurses \
   --allow libobjc \
   --allow libz \
-  libarrow_cdata_jni.dylib \
-  libarrow_dataset_jni.dylib \
-  libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib
+  arrow_cdata_jni/libarrow_cdata_jni.dylib \
+  arrow_dataset_jni/libarrow_dataset_jni.dylib \
+  arrow_orc_jni/libarrow_orc_jni.dylib \
+  gandiva_jni/libgandiva_jni.dylib
 popd

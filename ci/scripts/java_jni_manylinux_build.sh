@@ -164,8 +164,8 @@ archery linking check-dependencies \
   --allow libstdc++ \
   --allow libz \
   --allow linux-vdso \
-  libarrow_cdata_jni.so \
-  libarrow_dataset_jni.so \
-  libarrow_orc_jni.so \
-  libgandiva_jni.so
+  arrow_cdata_jni/libarrow_cdata_jni.so \
+  arrow_dataset_jni/libarrow_dataset_jni.so \
+  arrow_orc_jni/libarrow_orc_jni.so \
+  gandiva_jni/libgandiva_jni.so
 popd
