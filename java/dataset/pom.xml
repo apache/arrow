@@ -157,7 +157,7 @@
     <build>
         <resources>
             <resource>
-                <directory>${arrow.cpp.build.dir}/arrow_dataset_jni</directory>
+                <directory>${arrow.cpp.build.dir}</directory>
                 <includes>
                     <include>**/*arrow_dataset_jni.*</include>
                 </includes>
@@ -165,23 +165,6 @@
         </resources>
 
         <plugins>
-            <plugin>
-                <groupId>com.coderplus.maven.plugins</groupId>
-                <artifactId>copy-rename-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-file</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <sourceFile>${arrow.cpp.build.dir}</sourceFile>
-                            <destinationFile>${arrow.cpp.build.dir}/arrow_dataset_jni</destinationFile>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
