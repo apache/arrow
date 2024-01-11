@@ -18,7 +18,12 @@
 [build-system]
 requires = [
     "cython >= 0.29.31",
-    "oldest-supported-numpy>=0.14",
+    # Starting with NumPy 1.25, NumPy is (by default) as far back compatible
+    # as oldest-support-numpy was (customizable with a NPY_TARGET_VERSION
+    # define).  For older Python versions (where NumPy 1.25 is not yet avaiable)
+    # continue using oldest-support-numpy.
+    "oldest-supported-numpy>=0.14; python_version<'3.9'",
+    "numpy>=1.25; python_version>='3.9'",
     "setuptools_scm < 8.0.0",
     "setuptools >= 40.1.0",
     "wheel"

@@ -449,7 +449,7 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    'numpy >= 1.16.6, <2',
+    'numpy >= 1.16.6',
 )
 
 
