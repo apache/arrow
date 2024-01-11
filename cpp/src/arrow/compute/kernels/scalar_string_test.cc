@@ -833,6 +833,7 @@ TEST_F(TestFixedSizeBinaryKernels, BinarySliceConsistentyWithVarLenBinary) {
           auto actual =
               CallFunction("binary_slice", {fixed_input}, &options).ValueOrDie();
           actual = Cast(actual, binary()).ValueOrDie();
+          ASSERT_OK(actual.make_array()->ValidateFull());
           AssertDatumsEqual(expected, actual);
         }
       }
