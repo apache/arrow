@@ -128,6 +128,8 @@ public class TestFlightSql {
         .put(
             Integer.toString(FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE),
             Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE));
+    GET_SQL_INFO_EXPECTED_RESULTS_MAP
+        .put(Integer.toString(FlightSql.SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE), "42");
   }
 
   @AfterAll
@@ -148,7 +150,8 @@ public class TestFlightSql {
         FlightSql.SqlInfo.SQL_DDL_TABLE,
         FlightSql.SqlInfo.SQL_IDENTIFIER_CASE,
         FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
-        FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE);
+        FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE,
+        FlightSql.SqlInfo.SQL_MAX_COLUMNS_IN_TABLE);
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(
@@ -160,6 +163,7 @@ public class TestFlightSql {
         final List<String> result = results.get(index);
         final String providedName = result.get(0);
         final String expectedName = Integer.toString(args[index].getNumber());
+        System.err.println(expectedName);
         if (!(GET_SQL_INFO_EXPECTED_RESULTS_MAP.get(providedName).equals(result.get(1)) &&
             providedName.equals(expectedName))) {
           nonConformingResults.add(result);
@@ -611,31 +615,21 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetSqlInfoResultsWithTwoArgs() throws Exception {
-    final FlightSql.SqlInfo[] args = {
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
-        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION};
-    final FlightInfo info = sqlClient.getSqlInfo(args);
-    try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
-          () -> MatcherAssert.assertThat(
-              stream.getSchema(),
-              is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)
-          ),
-          () -> MatcherAssert.assertThat(
-              getNonConformingResultsForGetSqlInfo(getResults(stream), args),
-              is(emptyList())
-          )
-      );
-    }
-  }
-
-  @Test
-  public void testGetSqlInfoResultsWithThreeArgs() throws Exception {
+  public void testGetSqlInfoResultsWithManyArgs() throws Exception {
     final FlightSql.SqlInfo[] args = {
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
         FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION,
-        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR};
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION,
+        FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY,
+        FlightSql.SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE,
+        FlightSql.SqlInfo.SQL_NULL_ORDERING,
+        FlightSql.SqlInfo.SQL_DDL_CATALOG,
+        FlightSql.SqlInfo.SQL_DDL_SCHEMA,
+        FlightSql.SqlInfo.SQL_DDL_TABLE,
+        FlightSql.SqlInfo.SQL_IDENTIFIER_CASE,
+        FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR,
+        FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE,
+        FlightSql.SqlInfo.SQL_MAX_COLUMNS_IN_TABLE};
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       Assertions.assertAll(
