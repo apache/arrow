@@ -594,6 +594,16 @@ public class SqlInfoBuilder {
   }
 
   /**
+   * Sets a value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlMaxColumnsInTable(final long value) {
+    return withBitIntProvider(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE, value);
+  }
+
+  /**
    * Sets a value for {@link SqlInfo#SQL_MAX_CONNECTIONS} in the builder.
    *
    * @param value the value for {@link SqlInfo#SQL_MAX_CONNECTIONS} to be set.
