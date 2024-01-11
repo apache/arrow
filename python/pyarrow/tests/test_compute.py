@@ -577,11 +577,8 @@ def test_binary_slice_compatibility():
         assert pc.binary_slice(arr, start, stop, step) == result
         # Fixed size binary input / output
         for item in data:
-            print(item)
-            print(start, stop, step)
             fsb_scalar = pa.scalar(item, type=pa.binary(len(item)))
             expected = item[start:stop:step]
-            print(expected)
             actual = pc.binary_slice(fsb_scalar, start, stop, step)
             assert actual.type == pa.binary(len(expected))
             assert actual.as_py() == expected
