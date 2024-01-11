@@ -677,7 +677,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   /// \brief Vector append
   ///
-  /// If passed, valid_bytes wil be read and any zero byte
+  /// If passed, valid_bytes will be read and any zero byte
   /// will cause the corresponding slot to be null
   ///
   /// This function affects only the validity bitmap; the child values must be appended

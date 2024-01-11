@@ -221,7 +221,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->null_count = 0;
   }
 
-  // Makes sure any other buffers are seen as null / non-existent
+  // Makes sure any other buffers are seen as null / nonexistent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     this->buffers[i] = {};
   }
