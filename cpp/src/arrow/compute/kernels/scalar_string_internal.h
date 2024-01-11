@@ -250,6 +250,8 @@ struct StringSliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<SliceOptions>;
 
   const SliceOptions* options;
+  StringSliceTransformBase() = default;
+  explicit StringSliceTransformBase(const SliceOptions& options) : options{&options} {}
 
   Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     options = &State::Get(ctx);
