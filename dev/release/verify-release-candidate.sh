@@ -580,9 +580,9 @@ test_package_java() {
     if [ ! -z "${CMAKE_GENERATOR}" ]; then
       cmake_options+=(-G "${CMAKE_GENERATOR}")
     fi
-    local build_dir="${ARROW_TMPDIR/java-jni-build}"
-    local install_dir="${ARROW_TMPDIR/java-jni-install}"
-    local dist_dir="${ARROW_TMPDIR/java-jni-dist}"
+    local build_dir="${ARROW_TMPDIR}/java-jni-build"
+    local install_dir="${ARROW_TMPDIR}/java-jni-install"
+    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
     cmake \
       -S . \
       -B "${build_dir}" \
