@@ -1060,7 +1060,7 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
+                    -DCMAKE_ARCH_DIR=${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
@@ -1133,7 +1133,7 @@
                     -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
+                    -DCMAKE_ARCH_DIR=${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
                   </commandlineArgs>
@@ -1174,7 +1174,7 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
+                    -DCMAKE_ARCH_DIR=${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                     -DProtobuf_USE_STATIC_LIBS=ON
@@ -1253,7 +1253,7 @@
                     -DARROW_WITH_ZLIB=ON
                     -DARROW_WITH_ZSTD=ON
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
+                    -DCMAKE_ARCH_DIR=${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
                     -GNinja
@@ -1295,7 +1295,7 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
+                    -DCMAKE_ARCH_DIR=${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                   </commandlineArgs>
