@@ -994,14 +994,8 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Using make -j in sub-make is fragile
-# see discussion https://github.com/apache/arrow/pull/2779
-if(${CMAKE_GENERATOR} MATCHES "Makefiles")
-  set(MAKE_BUILD_ARGS "")
-else()
-  # limit the maximum number of jobs for ninja
-  set(MAKE_BUILD_ARGS "-j${NPROC}")
-endif()
+# Args for external projects using make.
+set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
 
@@ -2027,10 +2021,6 @@ macro(build_jemalloc)
   endif()
 
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-  # Paralleism for Make fails with CMake > 3.28 see #39517
-  if(${CMAKE_GENERATOR} MATCHES "Makefiles")
-    list(APPEND JEMALLOC_BUILD_COMMAND "-j1")
-  endif()
 
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
