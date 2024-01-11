@@ -72,14 +72,18 @@ func main() {
 	batches := GetPutData()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		hdrs := w.Header()
-		hdrs.Add("access-control-allow-origin", "http://localhost:8000")
-		hdrs.Add("access-control-allow-methods", "GET")
-		hdrs.Add("access-control-allow-headers", "content-type")
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+
+		hdrs := w.Header()
+
+		// set these headers if testing with a local browser-based client:
+
+		//hdrs.Add("access-control-allow-origin", "http://localhost:8000")
+		//hdrs.Add("access-control-allow-methods", "GET")
+		//hdrs.Add("access-control-allow-headers", "content-type")
 
 		hdrs.Add("content-type", "application/vnd.apache.arrow.stream")
 		w.WriteHeader(http.StatusOK)
