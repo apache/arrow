@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -73,7 +74,7 @@ public class SessionOptionValueFactory {
       case STRING_LIST_VALUE:
         // Using ByteString::toByteArray() here otherwise we still somehow get `ByteArray`s with broken .equals(String)
         return new SessionOptionValueStringList(proto.getStringListValue().getValuesList().asByteStringList().stream()
-            .map((e) -> new String(e.toByteArray())).toArray(String[]::new));
+            .map((e) -> new String(e.toByteArray(), StandardCharsets.UTF_8)).toArray(String[]::new));
       case OPTIONVALUE_NOT_SET:
         return new SessionOptionValueEmpty();
       default:

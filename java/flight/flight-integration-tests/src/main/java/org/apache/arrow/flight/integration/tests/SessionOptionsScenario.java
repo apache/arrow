@@ -72,7 +72,7 @@ final class SessionOptionsScenario implements Scenario {
             put("lol_invalid", SessionOptionValueFactory.makeSessionOptionValue("this won't get set"));
             put("key_with_invalid_value", SessionOptionValueFactory.makeSessionOptionValue("lol_invalid"));
             put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
-                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee"}));
+                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}));
           }
       });
       SetSessionOptionsResult res1 = client.setSessionOptions(req1);
@@ -85,14 +85,14 @@ final class SessionOptionsScenario implements Scenario {
           }, res1.getErrors());
 
       GetSessionOptionsResult res2 = client.getSessionOptions(new GetSessionOptionsRequest());
-      IntegrationAssertions.assertEquals(res2.getSessionOptions(), new HashMap<String, SessionOptionValue>() {
+      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>() {
           {
             put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L));
             put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f));
             put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
-                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee"}));
+                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}));
           }
-      });
+          }, res2.getSessionOptions());
     }
   }
 }

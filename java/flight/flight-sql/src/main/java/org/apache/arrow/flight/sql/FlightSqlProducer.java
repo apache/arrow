@@ -390,22 +390,17 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       }
       renewFlightEndpoint(request, context, new FlightEndpointListener(listener));
     } else if (actionType.equals(FlightConstants.SET_SESSION_OPTIONS.getType())) {
+      final SetSessionOptionsRequest request;
       try {
-        final SetSessionOptionsRequest request;
-        try {
-          request = SetSessionOptionsRequest.deserialize(ByteBuffer.wrap(action.getBody()));
-        } catch (IOException e) {
-          listener.onError(CallStatus.INTERNAL
-              .withDescription("Could not unpack SetSessionOptionsRequest: " + e)
-              .withCause(e)
-              .toRuntimeException());
-          return;
-        }
-        setSessionOptions(request, context, new SetSessionOptionsResultListener(listener));
-      } catch (Exception e) { // FIXME PHOXME remove
-        System.err.println("Caught exception outside of setSessionOptions handler:");
-        e.printStackTrace();
+        request = SetSessionOptionsRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack SetSessionOptionsRequest: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
       }
+      setSessionOptions(request, context, new SetSessionOptionsResultListener(listener));
     } else if (actionType.equals(FlightConstants.GET_SESSION_OPTIONS.getType())) {
       final GetSessionOptionsRequest request;
       try {
