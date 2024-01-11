@@ -57,8 +57,6 @@ final class SessionOptionsScenario implements Scenario {
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient ignored) throws Exception {
-    // TODO PHOXME add more interesting cases``
-
     final ClientCookieMiddleware.Factory factory = new ClientCookieMiddleware.Factory();
     try (final FlightClient flightClient = FlightClient.builder(allocator, location).intercept(factory).build()) {
       final FlightSqlClient client = new FlightSqlClient(flightClient);

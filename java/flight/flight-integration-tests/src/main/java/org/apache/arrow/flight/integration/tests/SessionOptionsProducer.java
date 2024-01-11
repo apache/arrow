@@ -51,30 +51,37 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   @Override
   public void setSessionOptions(SetSessionOptionsRequest request, CallContext context,
                          StreamListener<SetSessionOptionsResult> listener) {
-    Map<String, SetSessionOptionsResult.Error> errors = new HashMap();
+    try {
+      Map<String, SetSessionOptionsResult.Error> errors = new HashMap();
 
-    ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
-    ServerSessionMiddleware.Session session = middleware.getSession();
-    for (Map.Entry<String, SessionOptionValue> entry : request.getSessionOptions().entrySet()) {
-      // Blacklisted value name
-      if (entry.getKey().equals("lol_invalid")) {
-        errors.put(entry.getKey(), new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
-        continue;
+      ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
+      ServerSessionMiddleware.Session session = middleware.getSession();
+      for (Map.Entry<String, SessionOptionValue> entry : request.getSessionOptions().entrySet()) {
+        // Blacklisted value name
+        if (entry.getKey().equals("lol_invalid")) {
+          errors.put(entry.getKey(),
+              new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
+          continue;
+        }
+        // Blacklisted value
+        // Recommend using a visitor to check polymorphic equality, but this check is easy
+        if (entry.getValue().equals(invalidOptionValue)) {
+          errors.put(entry.getKey(),
+              new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
+          continue;
+        }
+        // Business as usual:
+        if (entry.getValue().isEmpty()) {
+          session.eraseSessionOption(entry.getKey());
+          continue;
+        }
+        session.setSessionOption(entry.getKey(), entry.getValue());
       }
-      // Blacklisted value
-      // Recommend using a visitor to check polymorphic equality, but this check is easy
-      if (entry.getValue().equals(invalidOptionValue)) {
-        errors.put(entry.getKey(), new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
-        continue;
-      }
-      // Business as usual:
-      if (entry.getValue().isEmpty()) {
-        session.eraseSessionOption(entry.getKey());
-        continue;
-      }
-      session.setSessionOption(entry.getKey(), entry.getValue());
+      listener.onNext(new SetSessionOptionsResult(errors));
+    } catch (Exception e) {
+      System.err.println("Caught exception from somewhere in setSessionOptions handler code:");
+      e.printStackTrace();
     }
-    listener.onNext(new SetSessionOptionsResult(errors));
     listener.onCompleted();
   }
 

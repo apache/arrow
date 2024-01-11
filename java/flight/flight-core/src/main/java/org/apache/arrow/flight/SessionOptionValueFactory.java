@@ -17,13 +17,11 @@
 
 package org.apache.arrow.flight;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 import org.apache.arrow.flight.impl.Flight;
 
-//import com.google.protobuf.ByteString;
-import com.google.protobuf.StringValue;
+import com.google.protobuf.ByteString;
 
 /** Abstract factory for concrete SessionOptionValue instances. */
 public class SessionOptionValueFactory {
@@ -75,15 +73,9 @@ public class SessionOptionValueFactory {
       case DOUBLE_VALUE:
         return new SessionOptionValueDouble(proto.getDoubleValue());
       case STRING_LIST_VALUE:
+        // Using ByteString::toByteArray() here otherwise we still somehow get `ByteArray`s with broken .equals(String)
         return new SessionOptionValueStringList(proto.getStringListValue().getValuesList().asByteStringList().stream()
-          .map((e) -> {
-            try {
-              return StringValue.parseFrom(e).getValue();
-            } catch (IOException ignore) {
-              // Unreachable, notwithstanding Proto bugs
-              return null;
-            }
-          }).toArray(String[]::new));
+            .map(ByteString::toByteArray).toArray(String[]::new));
       case OPTIONVALUE_NOT_SET:
         return new SessionOptionValueEmpty();
       default:
@@ -106,7 +98,6 @@ public class SessionOptionValueFactory {
 
     @Override
     public boolean equals(Object o) {
-      System.err.println("************* TESTING STRING VALUE EQUALITY"); // FIXME PHOXME remove this
       if (this == o) {
         return true;
       }
