@@ -21,8 +21,6 @@ import java.util.Arrays;
 
 import org.apache.arrow.flight.impl.Flight;
 
-import com.google.protobuf.ByteString;
-
 /** Abstract factory for concrete SessionOptionValue instances. */
 public class SessionOptionValueFactory {
   public static SessionOptionValue makeSessionOptionValue(String value) {
@@ -75,7 +73,7 @@ public class SessionOptionValueFactory {
       case STRING_LIST_VALUE:
         // Using ByteString::toByteArray() here otherwise we still somehow get `ByteArray`s with broken .equals(String)
         return new SessionOptionValueStringList(proto.getStringListValue().getValuesList().asByteStringList().stream()
-            .map(ByteString::toByteArray).toArray(String[]::new));
+            .map((e) -> new String(e.toByteArray())).toArray(String[]::new));
       case OPTIONVALUE_NOT_SET:
         return new SessionOptionValueEmpty();
       default:
