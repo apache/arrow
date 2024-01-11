@@ -339,6 +339,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   /**
    * Determine if two VectorSchemaRoots are exactly equal.
    */
+
   public boolean equals(VectorSchemaRoot other) {
     if (other == null) {
       return false;

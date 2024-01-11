@@ -123,7 +123,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     }
 
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
-    newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
+    newAllocationSize = Math.min(newAllocationSize, (long) OFFSET_WIDTH * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= offsetBuffer.capacity()) {
@@ -157,7 +157,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
     if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
       vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
     } else {
@@ -194,7 +194,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
 
     int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
@@ -222,7 +222,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    *                              for in this vector across all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
-    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
     vector.setInitialCapacity(totalNumberOfElements);
   }
 
@@ -355,6 +355,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   /** Return if value at index is null (this implementation is always false). */
+  @Override
   public boolean isNull(int index) {
     return false;
   }
@@ -376,6 +377,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   /** Preallocates the number of repeated values. */
+  @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
     while (valueCount > getOffsetBufferValueCapacity()) {

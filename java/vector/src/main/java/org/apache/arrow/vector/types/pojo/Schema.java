@@ -53,7 +53,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
@@ -96,8 +95,6 @@ public class Schema {
    * @return The deserialized schema.
    */
   @Deprecated
-  @InlineMe(replacement = "Schema.convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer))",
-      imports = "org.apache.arrow.vector.types.pojo.Schema")
   public static Schema deserialize(ByteBuffer buffer) {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }
@@ -162,10 +159,10 @@ public class Schema {
 
   /**
    * Private constructor to bypass automatic collection copy.
-   * @param unsafe an ignored argument. Its only purpose is to prevent using the constructor
+   * @param ignored an ignored argument. Its only purpose is to prevent using the constructor
    *     by accident because of type collisions (List vs Iterable).
    */
-  private Schema(boolean unsafe, List<Field> fields, Map<String, String> metadata) {
+  private Schema(boolean ignored, List<Field> fields, Map<String, String> metadata) {
     this.fields = fields;
     this.metadata = metadata;
   }
@@ -253,8 +250,7 @@ public class Schema {
   public byte[] serializeAsMessage() {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (WriteChannel channel = new WriteChannel(Channels.newChannel(out))) {
-      long size = MessageSerializer.serialize(
-          new WriteChannel(Channels.newChannel(out)), this);
+      MessageSerializer.serialize(channel, this);
       return out.toByteArray();
     } catch (IOException ex) {
       throw new RuntimeException(ex);

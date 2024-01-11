@@ -519,7 +519,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
     long newAllocationSize = getNewAllocationSize(currentBufferCapacity);
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     validityBuffer.getReferenceManager().release(1);
@@ -611,6 +611,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Return the number of null values in the vector.
    */
+  @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
@@ -618,6 +619,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Returns true if the value at the provided index is null.
    */
+  @Override
   public boolean isNull(int index) {
     return isSet(index) == 0;
   }
@@ -647,6 +649,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Marks the value at index as null/not set.
    */
+  @Override
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
