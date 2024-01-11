@@ -153,14 +153,20 @@ class PythonErrorDetail : public StatusDetail {
     formatted.reset(PyObject_CallFunctionObjArgs(fmt_exception.obj(), exc_type_.obj(),
                                                  exc_value_.obj(), exc_traceback_.obj(),
                                                  NULL));
+    RETURN_IF_PYERROR();
 
     std::stringstream ss;
     ss << "Python exception: ";
-    Py_ssize_t num_lines = PyList_GET_SIZE(formatted.obj());
+    Py_ssize_t num_lines = PySequence_Length(formatted.obj());
     for (Py_ssize_t i = 0; i < num_lines; ++i) {
       Py_ssize_t line_size;
-      const char* data =
-          PyUnicode_AsUTF8AndSize(PyList_GET_ITEM(formatted.obj(), i), &line_size);
+
+      PyObject* line = PyList_GET_ITEM(formatted.obj(), i);
+      RETURN_IF_PYERROR();
+
+      const char* data = PyUnicode_AsUTF8AndSize(line, &line_size);
+      RETURN_IF_PYERROR();
+
       ss << std::string_view(data, line_size);
     }
     return ss.str();

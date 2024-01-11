@@ -416,6 +416,7 @@ def test_export_import_batch_reader(reader_factory):
 
 @needs_cffi
 def test_export_import_exception_reader():
+    # See: https://github.com/apache/arrow/issues/37164
     c_stream = ffi.new("struct ArrowArrayStream*")
     ptr_stream = int(ffi.cast("uintptr_t", c_stream))
 
@@ -441,6 +442,8 @@ def test_export_import_exception_reader():
     # inner *and* outer exception should be present
     assert 'ValueError: foo' in str(exc_info.value)
     assert 'NotImplementedError: bar' in str(exc_info.value)
+    # Stacktrace containing line of the raise statement
+    assert 'raise ValueError(\'foo\')' in str(exc_info.value)
 
     assert pa.total_allocated_bytes() == old_allocated
 
