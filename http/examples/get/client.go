@@ -47,7 +47,6 @@ func main() {
 
 	execTime := time.Since(start)
 
-	fmt.Println(resp.ContentLength, " bytes recieved")
-	fmt.Println(len(batches), " record batches received")
-	fmt.Println(execTime.Seconds(), " seconds elapsed")
+	fmt.Printf("%d record batches received\n", len(batches))
+	fmt.Printf("%.2f seconds elapsed\n", execTime.Seconds())
 }

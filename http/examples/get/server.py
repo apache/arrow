@@ -72,7 +72,8 @@ class MyServer(BaseHTTPRequestHandler):
             self.wfile.flush()
             
             # if any record batch could be larger than 2 GB, split it
-            # into chunks before passing to self.wfile.write():
+            # into chunks before passing to self.wfile.write() by 
+            # replacing the two lines above with this:
             
             #chunk_size = int(2e9)
             #chunk_splits = len(buffer) // chunk_size
