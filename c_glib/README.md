@@ -142,6 +142,18 @@ $ meson compile -C c_glib.build
 $ sudo meson install -C c_glib.build
 ```
 
+> [!WARNING]
+>
+> When building GLib, it typically uses the Arrow library installed via brew. However, this can lead to build failures
+> if there are mismatches between the changes in Arrow's GLib and CPP libraries. To resolve this, you may need to
+> reference the Arrow CPP library built locally. In such cases, use the `-Darrow_cpp_build_dir`
+> and `-Darrow_cpp_build_type` options with the `meson setup` command to explicitly specify the library path.
+>
+> ```bash
+> meson setup c_glib.build c_glib -Dgtk_doc=true \
+>   -Darrow_cpp_build_dir=${arrow_cpp_build_dir} \
+>   -Darrow_cpp_build_type=${arrow_cpp_build_type}
+
 Others:
 
 ```console
@@ -233,6 +245,15 @@ Now, you can run unit tests by the followings:
 $ cd c_glib.build
 $ BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
 ```
+
+
+> [!NOTE]
+>
+> If debugging is necessary, you can proceed using the `DEBUGGER` option as follows:
+>
+> ```bash
+> $ DEBUGGER=lldb BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
+> ```
 
 ## Common build problems
 
