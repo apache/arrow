@@ -1893,58 +1893,125 @@ TEST(HashJoin, CheckHashJoinNodeOptionsValidation) {
   }
 }
 
-TEST(HashJoin, ResidualFilter) {
-  for (bool parallel : {false, true}) {
-    SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+class ResidualFilterCaseRunner {
+ public:
+  ResidualFilterCaseRunner(BatchesWithSchema left_input, BatchesWithSchema right_input)
+      : left_input_(std::move(left_input)), right_input_(std::move(right_input)) {}
 
-    BatchesWithSchema input_left;
-    input_left.batches = {ExecBatchFromJSON({int32(), int32(), utf8()}, R"([
+  void Run(JoinType join_type, const std::vector<FieldRef>& left_keys,
+           const std::vector<FieldRef>& right_keys, Expression filter,
+           const std::vector<ExecBatch>& expected) const {
+    RunInternal(HashJoinNodeOptions{join_type, std::move(left_keys),
+                                    std::move(right_keys), std::move(filter)},
+                expected);
+  }
+
+  void Run(JoinType join_type, std::vector<FieldRef> left_keys,
+           const std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+           const std::vector<FieldRef> right_output, Expression filter,
+           const std::vector<ExecBatch>& expected) const {
+    RunInternal(HashJoinNodeOptions{join_type, std::move(left_keys),
+                                    std::move(right_keys), std::move(left_output),
+                                    std::move(right_output), std::move(filter)},
+                expected);
+  }
+
+ private:
+  void RunInternal(const HashJoinNodeOptions& options,
+                   const std::vector<ExecBatch>& expected) const {
+    auto join_type_str = ToString(options.join_type);
+    auto join_cond_str =
+        JoinConditionString(options.left_keys, options.right_keys, options.filter);
+    auto output_str = OutputString(options.left_output, options.right_output);
+    for (bool parallel : {false, true}) {
+      auto parallel_str = parallel ? "parallel" : "serial";
+      SCOPED_TRACE(join_type_str + " " + join_cond_str + " " + output_str + " " +
+                   parallel_str);
+
+      Declaration left{"source",
+                       SourceNodeOptions{left_input_.schema,
+                                         left_input_.gen(parallel, /*slow=*/false)}};
+      Declaration right{"source",
+                        SourceNodeOptions{right_input_.schema,
+                                          right_input_.gen(parallel, /*slow=*/false)}};
+
+      Declaration join{"hashjoin", {std::move(left), std::move(right)}, options};
+
+      ASSERT_OK_AND_ASSIGN(auto result,
+                           DeclarationToExecBatches(std::move(join), parallel));
+      AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, expected);
+    }
+  }
+
+ private:
+  BatchesWithSchema left_input_;
+  BatchesWithSchema right_input_;
+
+ private:
+  static std::string JoinConditionString(const std::vector<FieldRef>& left_keys,
+                                         const std::vector<FieldRef>& right_keys,
+                                         const Expression& filter) {
+    ARROW_DCHECK(left_keys.size() > 0);
+    ARROW_DCHECK(left_keys.size() == right_keys.size());
+    std::stringstream ss;
+    ss << "on (";
+    for (size_t i = 0; i < left_keys.size(); ++i) {
+      ss << left_keys[i].ToString() << " = " << right_keys[i].ToString() << " and ";
+    }
+    ss << filter.ToString();
+    ss << ")";
+    return ss.str();
+  }
+
+  static std::string OutputString(const std::vector<FieldRef>& left_output,
+                                  const std::vector<FieldRef>& right_output) {
+    std::vector<FieldRef> both_output;
+    std::copy(left_output.begin(), left_output.end(), std::back_inserter(both_output));
+    std::copy(right_output.begin(), right_output.end(), std::back_inserter(both_output));
+    std::stringstream ss;
+    ss << "output (";
+    for (size_t i = 0; i < both_output.size(); ++i) {
+      if (i != 0) {
+        ss << ", ";
+      }
+      ss << left_output[i].ToString();
+    }
+    ss << ")";
+    return ss.str();
+  }
+};
+
+TEST(HashJoin, ResidualFilter) {
+  BatchesWithSchema input_left;
+  input_left.batches = {ExecBatchFromJSON({int32(), int32(), utf8()}, R"([
                    [1, 6, "alpha"],
                    [2, 5, "beta"],
                    [3, 4, "alpha"]
                  ])")};
-    input_left.schema =
-        schema({field("l1", int32()), field("l2", int32()), field("l_str", utf8())});
+  input_left.schema =
+      schema({field("l1", int32()), field("l2", int32()), field("l_str", utf8())});
 
-    BatchesWithSchema input_right;
-    input_right.batches = {ExecBatchFromJSON({int32(), int32(), utf8()}, R"([
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON({int32(), int32(), utf8()}, R"([
                    [5, 11, "alpha"],
                    [2, 12, "beta"],
                    [4, 16, "alpha"]
                  ])")};
-    input_right.schema =
-        schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
+  input_right.schema =
+      schema({field("r1", int32()), field("r2", int32()), field("r_str", utf8())});
 
-    Declaration left{
-        "source",
-        SourceNodeOptions{input_left.schema, input_left.gen(parallel, /*slow=*/false)}};
-    Declaration right{
-        "source",
-        SourceNodeOptions{input_right.schema, input_right.gen(parallel, /*slow=*/false)}};
+  const ResidualFilterCaseRunner runner{std::move(input_left), std::move(input_right)};
 
-    Expression mul = call("multiply", {field_ref("l1"), field_ref("l2")});
-    Expression combination = call("add", {mul, field_ref("r1")});
-    Expression residual_filter = less_equal(combination, field_ref("r2"));
+  Expression mul = call("multiply", {field_ref("l1"), field_ref("l2")});
+  Expression combination = call("add", {mul, field_ref("r1")});
+  Expression filter = less_equal(combination, field_ref("r2"));
 
-    HashJoinNodeOptions join_opts{
-        JoinType::FULL_OUTER,
-        /*left_keys=*/{"l_str"},
-        /*right_keys=*/{"r_str"}, std::move(residual_filter), "l_", "r_"};
-
-    Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
-
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         DeclarationToExecBatches(std::move(join), parallel));
-
-    std::vector<ExecBatch> expected = {
-        ExecBatchFromJSON({int32(), int32(), utf8(), int32(), int32(), utf8()}, R"([
+  runner.Run(JoinType::FULL_OUTER, {"l_str"}, {"r_str"}, std::move(filter),
+             {ExecBatchFromJSON({int32(), int32(), utf8(), int32(), int32(), utf8()}, R"([
             [1, 6, "alpha", 4, 16, "alpha"],
             [1, 6, "alpha", 5, 11, "alpha"],
             [2, 5, "beta", 2, 12, "beta"],
-            [3, 4, "alpha", 4, 16, "alpha"]])")};
-
-    AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, expected);
-  }
+            [3, 4, "alpha", 4, 16, "alpha"]])")});
 }
 
 TEST(HashJoin, TrivialResidualFilter) {
@@ -1959,47 +2026,139 @@ TEST(HashJoin, TrivialResidualFilter) {
   std::vector<std::string> expected_strings = {expected_true, expected_false};
   std::vector<Expression> filters = {always_true, always_false};
 
+  BatchesWithSchema input_left;
+  input_left.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
+                   [1, "alpha"]
+                 ])")};
+  input_left.schema = schema({field("l1", int32()), field("l_str", utf8())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
+                   [1, "alpha"]
+                 ])")};
+  input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
+
+  ResidualFilterCaseRunner runner{std::move(input_left), std::move(input_right)};
+
   for (size_t test_id = 0; test_id < 2; test_id++) {
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel/merged" : "serial");
+    runner.Run(JoinType::INNER, {"l_str"}, {"r_str"}, filters[test_id],
+               {ExecBatchFromJSON({int32(), utf8(), int32(), utf8()},
+                                  expected_strings[test_id])});
+  }
+}
 
-      BatchesWithSchema input_left;
-      input_left.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
-                   [1, "alpha"]
-                 ])")};
-      input_left.schema = schema({field("l1", int32()), field("l_str", utf8())});
+TEST(HashJoin, FineGrainedResidualFilter) {
+  struct JoinSchema {
+    std::shared_ptr<Schema> left, right;
 
-      BatchesWithSchema input_right;
-      input_right.batches = {ExecBatchFromJSON({int32(), utf8()}, R"([
-                   [1, "alpha"]
-                 ])")};
-      input_right.schema = schema({field("r1", int32()), field("r_str", utf8())});
+    struct Projector {
+      std::shared_ptr<Schema> left, right;
+      std::vector<int> left_output, right_output;
 
-      auto exec_ctx = std::make_unique<ExecContext>(
-          default_memory_pool(),
-          parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
+      std::vector<FieldRef> LeftOutput() const {
+        std::vector<FieldRef> output;
+        for (int i : left_output) {
+          output.push_back(FieldRef(i));
+        };
+        return output;
+      }
 
-      Declaration left{
-          "source",
-          SourceNodeOptions{input_left.schema, input_left.gen(parallel, /*slow=*/false)}};
-      Declaration right{"source",
-                        SourceNodeOptions{input_right.schema,
-                                          input_right.gen(parallel, /*slow=*/false)}};
+      std::vector<FieldRef> RightOutput() const {
+        std::vector<FieldRef> output;
+        for (int i : right_output) {
+          output.push_back(FieldRef(i));
+        };
+        return output;
+      }
 
-      HashJoinNodeOptions join_opts{
-          JoinType::INNER,
-          /*left_keys=*/{"l_str"},
-          /*right_keys=*/{"r_str"}, filters[test_id], "l_", "r_"};
+      ExecBatch Project(const ExecBatch& batch) const {
+        std::vector<Datum> values;
+        for (int i : left_output) {
+          values.push_back(batch[i]);
+        }
+        for (int i : right_output) {
+          values.push_back(batch[left_output.size() + i]);
+        }
+        return {std::move(values), batch.length};
+      }
+    };
 
-      Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
+    Projector GetProjector(std::vector<int> left_output, std::vector<int> right_output) {
+      return Projector{left, right, std::move(left_output), std::move(right_output)};
+    }
+  };
 
-      ASSERT_OK_AND_ASSIGN(auto result,
-                           DeclarationToExecBatches(std::move(join), parallel));
+  BatchesWithSchema left;
+  left.batches = {ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                   [null, null, "payload"],
+                   [null, 0, "payload"],
+                   [null, 42, "payload"],
+                   ["left_only", null, "payload"],
+                   ["left_only", 0, "payload"],
+                   ["left_only", 42, "payload"],
+                   ["both1", null, "payload"],
+                   ["both1", 0, "payload"],
+                   ["both1", 42, "payload"],
+                   ["both2", null, "payload"],
+                   ["both2", 0, "payload"],
+                   ["both2", 42, "payload"]])")};
+  left.schema = schema(
+      {field("l_key", utf8()), field("l_filter", int32()), field("l_payload", utf8())});
 
-      std::vector<ExecBatch> expected = {ExecBatchFromJSON(
-          {int32(), utf8(), int32(), utf8()}, expected_strings[test_id])};
+  BatchesWithSchema right;
+  right.batches = {ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                   [null, null, "payload"],
+                   [null, 0, "payload"],
+                   [null, 42, "payload"],
+                   ["both1", null, "payload"],
+                   ["both1", 0, "payload"],
+                   ["both1", 42, "payload"],
+                   ["both2", null, "payload"],
+                   ["both2", 0, "payload"],
+                   ["both2", 42, "payload"],
+                   ["right_only", null, "payload"],
+                   ["right_only", 0, "payload"],
+                   ["right_only", 42, "payload"]])")};
+  right.schema = schema(
+      {field("r_key", utf8()), field("r_filter", int32()), field("r_payload", utf8())});
 
-      AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, expected);
+  const ResidualFilterCaseRunner runner{std::move(left), std::move(right)};
+  JoinSchema join_schema{left.schema, right.schema};
+  std::vector<JoinSchema::Projector> projectors{
+      join_schema.GetProjector({0, 1, 2}, {0, 1, 2}),   // Output all.
+      join_schema.GetProjector({0, 1}, {0, 1}),         // Output key columns only.
+      join_schema.GetProjector({0, 1, 2}, {0, 1}),      // Output left payload only.
+      join_schema.GetProjector({0, 1}, {0, 1, 2}),      // Output right payload only.
+      join_schema.GetProjector({0, 1, 2}, {0, 1, 2})};  // Output all.};
+
+  {
+    // Literal true.
+    Expression filter = literal(true);
+    {
+      // Inner join.
+      auto expected =
+          ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()},
+                            R"([
+            ["both1", 0, "payload", "both1", 0, "payload"],
+            ["both1", 42, "payload", "both1", 42, "payload"],
+            ["both2", 0, "payload", "both2", 0, "payload"],
+            ["both2", 42, "payload", "both2", 42, "payload"]])");
+      {
+        // for (const auto& projector : projectors) {
+        //   runner.Run(JoinType::INNER, {"l_key", "l_filter"}, {"r_key", "r_filter"},
+        //              projector.LeftOutput(), projector.RightOutput(), filter,
+        //              {projector.Project(expected)});
+        // }
+        // Output all.
+        // Output all.
+        runner.Run(JoinType::INNER, {"l_key", "l_filter"}, {"r_key", "r_filter"}, filter,
+                   {ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()},
+                                      R"([
+            ["both1", 0, "payload", "both1", 0, "payload"],
+            ["both1", 42, "payload", "both1", 42, "payload"],
+            ["both2", 0, "payload", "both2", 0, "payload"],
+            ["both2", 42, "payload", "both2", 42, "payload"]])")});
+      }
     }
   }
 }
