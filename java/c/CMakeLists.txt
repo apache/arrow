@@ -30,7 +30,8 @@ add_library(arrow_java_jni_cdata SHARED src/main/cpp/jni_wrapper.cc)
 set_property(TARGET arrow_java_jni_cdata PROPERTY OUTPUT_NAME "arrow_cdata_jni")
 target_link_libraries(arrow_java_jni_cdata arrow_java_jni_cdata_headers jni)
 
-set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/arrow_cdata_jni/${CMAKE_ARCH_DIR}")
+set(CMAKE_INSTALL_LIBDIR
+        "${CMAKE_INSTALL_PREFIX}/lib/arrow_cdata_jni/${CMAKE_ARCH_DIR}")
 
 install(TARGETS arrow_java_jni_cdata
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

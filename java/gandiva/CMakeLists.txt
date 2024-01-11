@@ -84,7 +84,8 @@ if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   )
 endif()
 
-set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/gandiva_jni/${CMAKE_ARCH_DIR}")
+set(CMAKE_INSTALL_LIBDIR
+        "${CMAKE_INSTALL_PREFIX}/lib/gandiva_jni/${CMAKE_ARCH_DIR}")
 
 install(TARGETS arrow_java_jni_gandiva
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
