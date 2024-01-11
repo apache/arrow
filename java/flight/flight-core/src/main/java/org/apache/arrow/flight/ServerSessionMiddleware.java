@@ -32,6 +32,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
   Factory factory;
   boolean existingSession;
   private Session session;
+  private String closedSessionId = null;
 
   public static final String sessionCookieName = "arrow_flight_session_id";
 
@@ -199,6 +200,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       throw CallStatus.NOT_FOUND.withDescription("No session found for the current call.").toRuntimeException();
     }
     factory.closeSession(session.id);
+    closedSessionId = session.id;
     session = null;
   }
 
@@ -210,6 +212,9 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
   public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
     if (!existingSession && session != null) {
       outgoingHeaders.insert("set-cookie", sessionCookieName + "=" + session.id);
+    }
+    if (closedSessionId != null) {
+      outgoingHeaders.insert("set-cookie", sessionCookieName + "=" + closedSessionId + "; Max-Age=0");
     }
   }
 
