@@ -56,6 +56,36 @@ func (*testServer) GetFlightInfoStatement(ctx context.Context, q flightsql.State
 	}, nil
 }
 
+func (*testServer) PollFlightInfo(ctx context.Context, fd *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return &flight.PollInfo{
+		Info: &flight.FlightInfo{
+			FlightDescriptor: fd,
+			Endpoint: []*flight.FlightEndpoint{{
+				Ticket: &flight.Ticket{Ticket: []byte{}},
+			}, {
+				Ticket: &flight.Ticket{Ticket: []byte{}},
+			}},
+		},
+		FlightDescriptor: nil,
+	}, nil
+}
+
+func (*testServer) PollFlightInfoStatement(ctx context.Context, q flightsql.StatementQuery, fd *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	ticket, err := flightsql.CreateStatementQueryTicket([]byte(q.GetQuery()))
+	if err != nil {
+		return nil, err
+	}
+	return &flight.PollInfo{
+		Info: &flight.FlightInfo{
+			FlightDescriptor: fd,
+			Endpoint: []*flight.FlightEndpoint{{
+				Ticket: &flight.Ticket{Ticket: ticket},
+			}},
+		},
+		FlightDescriptor: &flight.FlightDescriptor{Cmd: []byte{}},
+	}, nil
+}
+
 func (*testServer) DoGetStatement(ctx context.Context, ticket flightsql.StatementQueryTicket) (sc *arrow.Schema, cc <-chan flight.StreamChunk, err error) {
 	handle := string(ticket.GetStatementHandle())
 	switch handle {
@@ -189,6 +219,20 @@ func (s *FlightSqlServerSuite) TestExecuteChunkError() {
 	}
 }
 
+func (s *FlightSqlServerSuite) TestExecutePoll() {
+	poll, err := s.cl.ExecutePoll(context.TODO(), "1", nil)
+	s.NoError(err)
+	s.NotNil(poll)
+	s.NotNil(poll.GetFlightDescriptor())
+	s.Len(poll.GetInfo().Endpoint, 1)
+
+	poll, err = s.cl.ExecutePoll(context.TODO(), "1", poll.GetFlightDescriptor())
+	s.NoError(err)
+	s.NotNil(poll)
+	s.Nil(poll.GetFlightDescriptor())
+	s.Len(poll.GetInfo().Endpoint, 2)
+}
+
 type UnimplementedFlightSqlServerSuite struct {
 	suite.Suite
 
@@ -312,6 +356,22 @@ func (s *UnimplementedFlightSqlServerSuite) TestGetTypeInfo() {
 	s.Equal(codes.Unimplemented, st.Code())
 	s.Equal(st.Message(), "GetFlightInfoXdbcTypeInfo not implemented")
 	s.Nil(info)
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestPoll() {
+	poll, err := s.cl.ExecutePoll(context.TODO(), "", nil)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("PollFlightInfoStatement not implemented", st.Message())
+	s.Nil(poll)
+
+	poll, err = s.cl.ExecuteSubstraitPoll(context.TODO(), flightsql.SubstraitPlan{}, nil)
+	st, ok = status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("PollFlightInfoSubstraitPlan not implemented", st.Message())
+	s.Nil(poll)
 }
 
 func getTicket(cmd proto.Message) *flight.Ticket {
