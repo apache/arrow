@@ -1795,7 +1795,8 @@ TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
   this->AssertChunkedTake(int8(), {"[]"}, {"[]"}, {"[]"});
   this->AssertChunkedTake(int8(), {"[]"}, {"[null]"}, {"[null]"});
 
-  this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7]", "[8]", "[7]", "[9]"});
+  this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 2]",
+                   {"[7]", "[8]", "[7]", "[9]"});
   this->AssertChunkedTake(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"},
                           {"[7, 8, 7]", "[]", "[9]"});
   this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[2, 1]", {"[9, 8]"});
@@ -1863,7 +1864,8 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
 
   this->AssertTake(schm, table_json, "[]", {"[]"});
   std::vector<std::string> expected_310 = {
-      "[{\"a\": 4, \"b\": \"eh\"}]","[{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
+      "[{\"a\": 4, \"b\": \"eh\"}]",
+      "[{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
 }
