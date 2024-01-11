@@ -47,12 +47,11 @@ int main(void)
   auto time_duration = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
   printf("%.2f seconds elapsed\n", time_duration.count());
 
+  curl_easy_cleanup(curl_handle);
+  curl_global_cleanup();
+
   std::vector<std::shared_ptr<arrow::RecordBatch>> record_batches;
   record_batches = collect_listener->record_batches();
-
-  curl_easy_cleanup(curl_handle);
- 
-  curl_global_cleanup();
  
   return 0;
 }
