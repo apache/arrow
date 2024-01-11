@@ -202,7 +202,9 @@ public class Text extends ReusableByteArray {
   public void set(String string) {
     try {
       ByteBuffer bb = encode(string, true);
-      bytes = bb.array();
+      bytes = new byte[bb.remaining()];
+      bb.get(bytes);
+      bb.position(bb.position() - bytes.length); // move it back so we can decode it
       length = bb.limit();
     } catch (CharacterCodingException e) {
       throw new RuntimeException("Should not have happened ", e);
@@ -210,7 +212,7 @@ public class Text extends ReusableByteArray {
   }
 
   /**
-   * Set to a utf8 byte array.
+   * Set to an utf8 byte array.
    *
    * @param utf8 the byte array to initialize from
    */

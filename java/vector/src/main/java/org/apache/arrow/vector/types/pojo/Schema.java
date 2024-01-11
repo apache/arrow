@@ -53,6 +53,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
@@ -95,6 +96,8 @@ public class Schema {
    * @return The deserialized schema.
    */
   @Deprecated
+  @InlineMe(replacement = "Schema.convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer))",
+      imports = "org.apache.arrow.vector.types.pojo.Schema")
   public static Schema deserialize(ByteBuffer buffer) {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }
@@ -159,7 +162,7 @@ public class Schema {
 
   /**
    * Private constructor to bypass automatic collection copy.
-   * @param unsafe a ignored argument. Its only purpose is to prevent using the constructor
+   * @param unsafe an ignored argument. Its only purpose is to prevent using the constructor
    *     by accident because of type collisions (List vs Iterable).
    */
   private Schema(boolean unsafe, List<Field> fields, Map<String, String> metadata) {
@@ -245,7 +248,7 @@ public class Schema {
 
   /**
    * Returns the serialized flatbuffer bytes of the schema wrapped in a message table.
-   * Use {@link #deserializeMessage() to rebuild the Schema.}
+   * Use {@link #deserializeMessage(ByteBuffer)} to rebuild the Schema.
    */
   public byte[] serializeAsMessage() {
     ByteArrayOutputStream out = new ByteArrayOutputStream();

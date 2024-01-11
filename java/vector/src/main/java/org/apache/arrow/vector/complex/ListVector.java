@@ -291,6 +291,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    *
    * @return false if memory allocation fails, true otherwise.
    */
+  @Override
   public boolean allocateNewSafe() {
     boolean success = false;
     try {

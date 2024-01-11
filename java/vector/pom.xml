@@ -79,6 +79,11 @@
       <artifactId>eclipse-collections</artifactId>
       <version>11.1.0</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_annotations</artifactId>
+      <version>2.23.0</version>
+    </dependency>
   </dependencies>
 
   <pluginRepositories>
@@ -211,6 +216,14 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>9</source>
+          <target>9</target>
+        </configuration>
       </plugin>
     </plugins>
     <pluginManagement>

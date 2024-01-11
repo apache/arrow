@@ -45,6 +45,7 @@
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.24.0</error_prone_core.version>
+    <error_prone_annotations.version>2.24.0</error_prone_annotations.version>
     <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
     <mockito.core.version>5.5.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
@@ -899,6 +900,11 @@
                   <artifactId>error_prone_core</artifactId>
                   <version>2.10.0</version>
                 </path>
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_annotations</artifactId>
+                  <version>2.10.0</version>
+                </path>
               </annotationProcessorPaths>
             </configuration>
           </plugin>
@@ -942,6 +948,11 @@
                   <groupId>com.google.errorprone</groupId>
                   <artifactId>error_prone_core</artifactId>
                   <version>${error_prone_core.version}</version>
+                </path>
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_annotations</artifactId>
+                  <version>${error_prone_annotations.version}</version>
                 </path>
               </annotationProcessorPaths>
             </configuration>

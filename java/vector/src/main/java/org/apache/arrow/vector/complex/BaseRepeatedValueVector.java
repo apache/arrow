@@ -54,7 +54,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public static final byte OFFSET_WIDTH = 4;
   protected ArrowBuf offsetBuffer;
   protected FieldVector vector;
-  protected final CallBack callBack;
+  protected final CallBack repeatedCallBack;
   protected int valueCount;
   protected long offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
   private final String name;
@@ -70,7 +70,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     this.name = name;
     this.offsetBuffer = allocator.getEmpty();
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
-    this.callBack = callBack;
+    this.repeatedCallBack = callBack;
     this.valueCount = 0;
   }
 
@@ -313,13 +313,13 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
     if (vector instanceof NullVector) {
-      vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
+      vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, repeatedCallBack);
       // returned vector must have the same field
       created = true;
-      if (callBack != null &&
+      if (repeatedCallBack != null &&
               // not a schema change if changing from ZeroVector to ZeroVector
               (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
-        callBack.doWork();
+        repeatedCallBack.doWork();
       }
     }
 
