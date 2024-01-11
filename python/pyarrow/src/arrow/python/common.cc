@@ -158,6 +158,8 @@ class PythonErrorDetail : public StatusDetail {
     std::stringstream ss;
     ss << "Python exception: ";
     Py_ssize_t num_lines = PySequence_Length(formatted.obj());
+    RETURN_IF_PYERROR();
+
     for (Py_ssize_t i = 0; i < num_lines; ++i) {
       Py_ssize_t line_size;
 
