@@ -76,12 +76,31 @@
     <build>
         <resources>
             <resource>
-                <directory>${arrow.c.jni.dist.dir}</directory>
+                <directory>${arrow.c.jni.dist.dir}/arrow_cdata_jni</directory>
                 <includes>
                     <include>**/*arrow_cdata_jni.*</include>
                 </includes>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>com.coderplus.maven.plugins</groupId>
+                <artifactId>copy-rename-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-file</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <sourceFile>${arrow.cpp.build.dir}</sourceFile>
+                            <destinationFile>${arrow.cpp.build.dir}/arrow_cdata_jni</destinationFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
 </project>
