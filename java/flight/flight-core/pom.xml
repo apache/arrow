@@ -317,7 +317,7 @@
 
   <profiles>
     <profile>
-      <id>error-prone-jdk11+</id>
+      <id>jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
         <property>
