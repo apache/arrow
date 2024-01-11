@@ -161,7 +161,7 @@ class PythonErrorDetail : public StatusDetail {
     for (Py_ssize_t i = 0; i < num_lines; ++i) {
       Py_ssize_t line_size;
 
-      PyObject* line = PyList_GET_ITEM(formatted.obj(), i);
+      PyObject* line = PySequence_GetItem(formatted.obj(), i);
       RETURN_IF_PYERROR();
 
       const char* data = PyUnicode_AsUTF8AndSize(line, &line_size);
