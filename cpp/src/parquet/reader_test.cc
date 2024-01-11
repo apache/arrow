@@ -120,11 +120,27 @@ std::string concatenated_gzip_members() {
   return data_file("concatenated_gzip_members.parquet");
 }
 
+std::string byte_stream_split() { return data_file("byte_stream_split.zstd.parquet"); }
+
+template <typename DType, typename ValueType = typename DType::c_type>
+std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_group,
+                                        int column, int64_t expected_values_read) {
+  auto column_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      file_reader->RowGroup(row_group)->Column(column));
+  std::vector<ValueType> values(expected_values_read);
+  int64_t values_read;
+  auto levels_read = column_reader->ReadBatch(expected_values_read, nullptr, nullptr,
+                                              values.data(), &values_read);
+  EXPECT_EQ(expected_values_read, levels_read);
+  EXPECT_EQ(expected_values_read, values_read);
+  return values;
+}
+
 // TODO: Assert on definition and repetition levels
-template <typename DType, typename ValueType>
+template <typename DType, typename ValueType = typename DType::c_type>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
                         int64_t expected_levels_read,
-                        std::vector<ValueType>& expected_values,
+                        const std::vector<ValueType>& expected_values,
                         int64_t expected_values_read) {
   std::vector<ValueType> values(batch_size);
   int64_t values_read;
@@ -1412,7 +1428,6 @@ TEST_P(TestCodec, LargeFileValues) {
 
   // column 0 ("a")
   auto col = checked_pointer_cast<ByteArrayReader>(group->Column(0));
-
   std::vector<ByteArray> values(kNumRows);
   int64_t values_read;
   auto levels_read =
@@ -1473,6 +1488,38 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
     EXPECT_EQ(40000, page_ordinal);
   }
 }
+
+#ifdef ARROW_WITH_ZSTD
+TEST(TestByteStreamSplit, FloatIntegrationFile) {
+  auto file_path = byte_stream_split();
+  auto file = ParquetFileReader::OpenFile(file_path);
+
+  const int64_t kNumRows = 300;
+
+  ASSERT_EQ(kNumRows, file->metadata()->num_rows());
+  ASSERT_EQ(2, file->metadata()->num_columns());
+  ASSERT_EQ(1, file->metadata()->num_row_groups());
+
+  // column 0 ("f32")
+  {
+    auto values =
+        ReadColumnValues<FloatType>(file.get(), /*row_group=*/0, /*column=*/0, kNumRows);
+    ASSERT_EQ(values[0], 1.7640524f);
+    ASSERT_EQ(values[1], 0.4001572f);
+    ASSERT_EQ(values[kNumRows - 2], -0.39944902f);
+    ASSERT_EQ(values[kNumRows - 1], 0.37005588f);
+  }
+  // column 1 ("f64")
+  {
+    auto values =
+        ReadColumnValues<DoubleType>(file.get(), /*row_group=*/0, /*column=*/1, kNumRows);
+    ASSERT_EQ(values[0], -1.3065268517353166);
+    ASSERT_EQ(values[1], 1.658130679618188);
+    ASSERT_EQ(values[kNumRows - 2], -0.9301565025243212);
+    ASSERT_EQ(values[kNumRows - 1], -0.17858909208732915);
+  }
+}
+#endif  // ARROW_WITH_ZSTD
 
 struct PageIndexReaderParam {
   std::vector<int32_t> row_group_indices;
