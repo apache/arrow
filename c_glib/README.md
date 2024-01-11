@@ -149,8 +149,8 @@ $ sudo meson install -C c_glib.build
 > reference the Arrow C++ library built locally. In such cases, use the `--cmake-prefix-path` option with the `meson setup` 
 > command to explicitly specify the library path.
 >
-> ```bash
-> meson setup c_glib.build c_glib --cmake-prefix-path=${arrow_cpp_install_prefix} -Dgtk_doc=true
+> ```console
+> $ meson setup c_glib.build c_glib --cmake-prefix-path=${arrow_cpp_install_prefix} -Dgtk_doc=true
 > ```
 
 Others:
@@ -250,7 +250,7 @@ $ BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
 >
 > If debugging is necessary, you can proceed using the `DEBUGGER` option as follows:
 >
-> ```bash
+> ```console
 > $ DEBUGGER=lldb BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
 > ```
 
