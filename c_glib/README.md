@@ -153,6 +153,7 @@ $ sudo meson install -C c_glib.build
 > meson setup c_glib.build c_glib -Dgtk_doc=true \
 >   -Darrow_cpp_build_dir=${arrow_cpp_build_dir} \
 >   -Darrow_cpp_build_type=${arrow_cpp_build_type}
+> ```
 
 Others:
 
