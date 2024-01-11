@@ -89,7 +89,11 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTime64(const LogicalType& logical_ty
 
 Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical_type) {
   const auto& timestamp = checked_cast<const TimestampLogicalType&>(logical_type);
-  const bool utc_normalized = timestamp.is_adjusted_to_utc();
+  // GH-39489: Parquet timestamps should follow the `timestamp.is_adjusted_to_utc()`,
+  //  however, arrow timestamps should not carry this information if it is from
+  //  a converted type and doesn't have `ARROW:schema` annotation set.
+  const bool utc_normalized =
+      timestamp.is_from_converted_type() ? false : timestamp.is_adjusted_to_utc();
   static const char* utc_timezone = "UTC";
   switch (timestamp.time_unit()) {
     case LogicalType::TimeUnit::MILLIS:

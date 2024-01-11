@@ -467,12 +467,12 @@ physical type.
 +-------------------+-----------------------------+----------------------------+---------+
 | DATE              | INT32                       | Date32                     | \(3)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT32                       | Time32 (milliseconds)      |         |
+| TIME              | INT32                       | Time32 (milliseconds)      | \(7)    |
 +-------------------+-----------------------------+----------------------------+---------+
-| TIME              | INT64                       | Time64 (micro- or          |         |
+| TIME              | INT64                       | Time64 (micro- or          | \(7)    |
 |                   |                             | nanoseconds)               |         |
 +-------------------+-----------------------------+----------------------------+---------+
-| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  |         |
+| TIMESTAMP         | INT64                       | Timestamp (milli-, micro-  | \(8)    |
 |                   |                             | or nanoseconds)            |         |
 +-------------------+-----------------------------+----------------------------+---------+
 | STRING            | BYTE_ARRAY                  | Utf8                       | \(4)    |
@@ -498,6 +498,16 @@ physical type.
 * \(6) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the
   `Parquet specification <https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#maps>`__.
+
+* \(7) On the writer side, an Arrow Time32/Time64 will be written as a Parquet
+  Time with LogicalType LogicalType::Time and adjustedToUTC flag set to true.
+
+* \(8) On the writer side, an Arrow Timestamp will be written as a Parquet
+  Timestamp with LogicalType LogicalType::Timestamp and adjustedToUTC flag
+  defined by the arrow timestamp type. On the reader side, the Parquet
+  Timestamp will be read as an Arrow Timestamp with the adjustedToUTC flag.
+  If the parquet file was written with a legacy TIMESTAMP ConvertedType, the
+   adjustedToUTC flag will be set to false in the Arrow Timestamp.
 
 *Unsupported logical types:* JSON, BSON, UUID.  If such a type is encountered
 when reading a Parquet file, the default physical type mapping is used (for
@@ -590,4 +600,4 @@ Miscellaneous
   data read APIs do not currently make any use of them.
 
 * \(2) APIs are provided for creating, serializing and deserializing Bloom
-  Filters, but they are not integrated into data read APIs.
+  Filters, but they are not integrated into data read/write APIs.
