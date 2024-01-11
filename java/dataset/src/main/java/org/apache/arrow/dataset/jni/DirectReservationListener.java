@@ -45,6 +45,7 @@ public class DirectReservationListener implements ReservationListener {
               "`--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED` " +
               "(See https://arrow.apache.org/docs/java/install.html)", e);
       failure.printStackTrace();
+      throw failure;
     }
   }
 
