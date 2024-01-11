@@ -42,7 +42,7 @@ public class DirectReservationListener implements ReservationListener {
     } catch (Exception e) {
       final RuntimeException failure = new RuntimeException(
           "Failed to initialize DirectReservationListener. When starting Java you must include " +
-              "`--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED` " +
+              "`--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED` " +
               "(See https://arrow.apache.org/docs/java/install.html)", e);
       failure.printStackTrace();
       throw failure;
