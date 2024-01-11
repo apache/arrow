@@ -3665,5 +3665,17 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDate) {
   CheckScalarUnary("ceil_temporal", arr_ns, arr_ns, &round_to_2_hours);
 }
 
+TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
+  auto arr = ArrayFromJSON(duration(TimeUnit::SECOND), "[2, -1, null, 3, 0]");
+  CheckScalarUnary("negate", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("negate_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("abs", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("abs_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("sign", arr, ArrayFromJSON(int8(), "[1, -1, null, 1, 0]"));
+}
 }  // namespace compute
 }  // namespace arrow
