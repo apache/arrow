@@ -607,6 +607,7 @@ class MessageDecoder::MessageDecoderImpl {
                               MemoryPool* pool, bool skip_body)
       : listener_(std::move(listener)),
         pool_(pool),
+        memory_manager_(CPUDevice::memory_manager(pool_)),
         state_(initial_state),
         next_required_size_(initial_next_required_size),
         chunks_(),
@@ -822,8 +823,7 @@ class MessageDecoder::MessageDecoderImpl {
     if (buffer->is_cpu()) {
       metadata_ = buffer;
     } else {
-      ARROW_ASSIGN_OR_RAISE(metadata_,
-                            Buffer::ViewOrCopy(buffer, CPUDevice::memory_manager(pool_)));
+      ARROW_ASSIGN_OR_RAISE(metadata_, Buffer::ViewOrCopy(buffer, memory_manager_));
     }
     return ConsumeMetadata();
   }
@@ -834,16 +834,15 @@ class MessageDecoder::MessageDecoderImpl {
         if (chunks_[0]->is_cpu()) {
           metadata_ = std::move(chunks_[0]);
         } else {
-          ARROW_ASSIGN_OR_RAISE(
-              metadata_,
-              Buffer::ViewOrCopy(chunks_[0], CPUDevice::memory_manager(pool_)));
+          ARROW_ASSIGN_OR_RAISE(metadata_,
+                                Buffer::ViewOrCopy(chunks_[0], memory_manager_));
         }
         chunks_.erase(chunks_.begin());
       } else {
         metadata_ = SliceBuffer(chunks_[0], 0, next_required_size_);
         if (!chunks_[0]->is_cpu()) {
-          ARROW_ASSIGN_OR_RAISE(
-              metadata_, Buffer::ViewOrCopy(metadata_, CPUDevice::memory_manager(pool_)));
+          ARROW_ASSIGN_OR_RAISE(metadata_,
+                                Buffer::ViewOrCopy(metadata_, memory_manager_));
         }
         chunks_[0] = SliceBuffer(chunks_[0], next_required_size_);
       }
@@ -911,8 +910,7 @@ class MessageDecoder::MessageDecoderImpl {
     if (buffer->is_cpu()) {
       return util::SafeLoadAs<int32_t>(buffer->data());
     } else {
-      ARROW_ASSIGN_OR_RAISE(auto cpu_buffer,
-                            Buffer::ViewOrCopy(buffer, CPUDevice::memory_manager(pool_)));
+      ARROW_ASSIGN_OR_RAISE(auto cpu_buffer, Buffer::ViewOrCopy(buffer, memory_manager_));
       return util::SafeLoadAs<int32_t>(cpu_buffer->data());
     }
   }
@@ -924,8 +922,7 @@ class MessageDecoder::MessageDecoderImpl {
     std::shared_ptr<Buffer> last_chunk;
     for (auto& chunk : chunks_) {
       if (!chunk->is_cpu()) {
-        ARROW_ASSIGN_OR_RAISE(
-            chunk, Buffer::ViewOrCopy(chunk, CPUDevice::memory_manager(pool_)));
+        ARROW_ASSIGN_OR_RAISE(chunk, Buffer::ViewOrCopy(chunk, memory_manager_));
       }
       auto data = chunk->data();
       auto data_size = chunk->size();
@@ -951,6 +948,7 @@ class MessageDecoder::MessageDecoderImpl {
 
   std::shared_ptr<MessageDecoderListener> listener_;
   MemoryPool* pool_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   State state_;
   int64_t next_required_size_;
   std::vector<std::shared_ptr<Buffer>> chunks_;
