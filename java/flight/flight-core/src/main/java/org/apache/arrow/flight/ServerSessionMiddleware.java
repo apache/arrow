@@ -95,7 +95,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
               break;
             }
 
-            if (cookiePair[0] == sessionCookieName && cookiePair[1].length() > 0) {
+            if (sessionCookieName.equals(cookiePair[0]) && cookiePair[1].length() > 0) {
               sessionId = cookiePair[1];
               break findIdCookie;
             }
@@ -104,6 +104,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       }
 
       if (sessionId == null) {
+        System.err.println("************* No session cookie found");
         // No session cookie, create middleware instance without session.
         return new ServerSessionMiddleware(this, incomingHeaders, null);
       }
@@ -111,10 +112,12 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       Session session = sessionStore.get(sessionId);
       // Cookie provided by caller, but invalid
       if (session == null) {
+        System.err.println("************* Invalid session cookie found, throwing NOT_FOUND");
         // Can't soft-fail/proceed here, clients will get unexpected behaviour without options they thought were set.
         throw CallStatus.NOT_FOUND.withDescription("Invalid " + sessionCookieName + " cookie.").toRuntimeException();
       }
 
+      System.err.println("************* Session found by cookie and loaded into call-local middleware instance");
       return new ServerSessionMiddleware(this, incomingHeaders, session);
     }
   }

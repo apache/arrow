@@ -76,6 +76,23 @@ public class SetSessionOptionsResult {
       b.setValue(value.toProtocol());
       return b.build();
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      Error that = (Error) o;
+      return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
   }
 
   private final Map<String, Error> errors;

@@ -36,7 +36,7 @@ public class SetSessionOptionsRequest {
 
   SetSessionOptionsRequest(Flight.SetSessionOptionsRequest proto) {
     sessionOptions = Collections.unmodifiableMap(
-        proto.getSessionOptions().entrySet().stream().collect(Collectors.toMap(
+        proto.getSessionOptionsMap().entrySet().stream().collect(Collectors.toMap(
             Map.Entry::getKey, (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
   }
 

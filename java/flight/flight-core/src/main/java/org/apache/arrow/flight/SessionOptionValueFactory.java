@@ -55,6 +55,10 @@ public class SessionOptionValueFactory {
     return new SessionOptionValueStringList(value);
   }
 
+  public static SessionOptionValue makeEmptySessionOptionValue() {
+    return new SessionOptionValueEmpty();
+  }
+
   /** Construct a SessionOptionValue from its Protobuf object representation. */
   public static SessionOptionValue makeSessionOptionValue(Flight.SessionOptionValue proto) {
     switch (proto.getOptionValueCase()) {
@@ -102,6 +106,7 @@ public class SessionOptionValueFactory {
 
     @Override
     public boolean equals(Object o) {
+      System.err.println("************* TESTING STRING VALUE EQUALITY"); // FIXME PHOXME remove this
       if (this == o) {
         return true;
       }
@@ -109,7 +114,7 @@ public class SessionOptionValueFactory {
         return false;
       }
       SessionOptionValueString that = (SessionOptionValueString) o;
-      return value == that.value;
+      return value.equals(that.value);
     }
 
     @Override
