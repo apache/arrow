@@ -935,7 +935,7 @@ test_go() {
         go_lib="arrow_go_integration.dll"
         ;;
     esac
-    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
     popd
   fi
   go clean -modcache
