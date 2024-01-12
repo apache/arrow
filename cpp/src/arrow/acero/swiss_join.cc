@@ -1578,6 +1578,10 @@ Status JoinResultMaterialize::AppendProbeOnly(const ExecBatch& key_and_payload,
                                               int num_rows_to_append,
                                               const uint16_t* row_ids,
                                               int* num_rows_appended) {
+  if (num_rows_to_append) {
+    *num_rows_appended = 0;
+    return Status::OK();
+  }
   num_rows_to_append =
       std::min(ExecBatchBuilder::num_rows_max() - num_rows_, num_rows_to_append);
   if (HasProbeOutput()) {
@@ -1604,6 +1608,10 @@ Status JoinResultMaterialize::AppendBuildOnly(int num_rows_to_append,
                                               const uint32_t* key_ids,
                                               const uint32_t* payload_ids,
                                               int* num_rows_appended) {
+  if (num_rows_to_append) {
+    *num_rows_appended = 0;
+    return Status::OK();
+  }
   num_rows_to_append =
       std::min(ExecBatchBuilder::num_rows_max() - num_rows_, num_rows_to_append);
   if (HasProbeOutput()) {
@@ -1631,6 +1639,10 @@ Status JoinResultMaterialize::Append(const ExecBatch& key_and_payload,
                                      int num_rows_to_append, const uint16_t* row_ids,
                                      const uint32_t* key_ids, const uint32_t* payload_ids,
                                      int* num_rows_appended) {
+  if (num_rows_to_append) {
+    *num_rows_appended = 0;
+    return Status::OK();
+  }
   num_rows_to_append =
       std::min(ExecBatchBuilder::num_rows_max() - num_rows_, num_rows_to_append);
   if (HasProbeOutput()) {
