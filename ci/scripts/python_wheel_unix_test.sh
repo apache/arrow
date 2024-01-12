@@ -91,5 +91,5 @@ if [ "${CHECK_UNITTESTS}" == "ON" ]; then
 
   # Execute unittest, test dependencies must be installed
   python -c 'import pyarrow; pyarrow.create_library_symlinks()'
-  python -m pytest -r s --pyargs pyarrow
+  python -m pytest -r s -v -s --pyargs pyarrow
 fi

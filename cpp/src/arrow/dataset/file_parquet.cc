@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -820,6 +821,7 @@ Status ParquetFileFragment::SetMetadata(
   manifest_ = std::move(manifest);
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
+  std::cout << "Manifest number of fields: " << manifest_->descr->num_columns() << "\n";
   statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
 
   for (int row_group : *row_groups_) {
