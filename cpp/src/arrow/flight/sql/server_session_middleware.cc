@@ -18,30 +18,11 @@
 #include <mutex>
 
 #include "arrow/flight/sql/server_session_middleware.h"
+#include "arrow/flight/sql/server_session_middleware_factory.h"
 
 namespace arrow {
 namespace flight {
 namespace sql {
-
-/// \brief A factory for ServerSessionMiddleware, itself storing session data.
-class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
- protected:
-  std::map<std::string, std::shared_ptr<FlightSqlSession>> session_store_;
-  std::shared_mutex session_store_lock_;
-  std::function<std::string()> id_generator_;
-
-  std::vector<std::pair<std::string, std::string>> ParseCookieString(
-      const std::string_view& s);
-
- public:
-  explicit ServerSessionMiddlewareFactory(std::function<std::string()> id_gen)
-      : id_generator_(id_gen) {}
-  Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
-                   std::shared_ptr<ServerMiddleware>* middleware);
-
-  /// \brief Get a new, empty session option map and its id key.
-  std::pair<std::string, std::shared_ptr<FlightSqlSession>> CreateNewSession();
-};
 
 class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
  protected:
