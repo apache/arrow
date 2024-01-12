@@ -1968,6 +1968,7 @@ class ResidualFilterCaseRunner {
         return "FULL_OUTER";
     }
     ARROW_DCHECK(false);
+    return "";
   }
 
   static std::string JoinConditionString(const std::vector<FieldRef>& left_keys,

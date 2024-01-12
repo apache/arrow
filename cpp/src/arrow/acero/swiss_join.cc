@@ -1902,7 +1902,7 @@ void JoinResidualFilter::Init(Expression filter, QueryContext* ctx, MemoryPool* 
       } else if (idx = to_payload.get(i); idx != SchemaProjectionMap::kMissingField) {
         probe_filter_to_key_and_payload_[i] = idx + num_key_cols;
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
       }
     }
   }
@@ -1919,7 +1919,7 @@ void JoinResidualFilter::Init(Expression filter, QueryContext* ctx, MemoryPool* 
       } else if (to_payload.get(i) != SchemaProjectionMap::kMissingField) {
         num_build_payloads_referred_++;
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
       }
     }
   }
