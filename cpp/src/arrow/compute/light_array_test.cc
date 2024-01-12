@@ -499,7 +499,7 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
   }
 
   {
-    // This is a simplified case of GH-39358, using fsb(3) type.
+    // This is a simplified case of GH-39583, using fsb(3) type.
     // 63-byte data occupying almost one minimal 64-byte aligned memory region.
     ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(3)}, R"([
         ["000"],
@@ -536,7 +536,7 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
   }
 
   {
-    // This is a simplified case of GH-39358, using fsb(9) type.
+    // This is a simplified case of GH-39583, using fsb(9) type.
     // 63-byte data occupying almost one minimal 64-byte aligned memory region.
     ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(9)}, R"([
         ["000000000"],
