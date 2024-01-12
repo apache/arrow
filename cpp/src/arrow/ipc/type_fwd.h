@@ -16,6 +16,10 @@
 // under the License.
 
 #pragma once
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
 
 namespace arrow {
 namespace ipc {
@@ -53,7 +57,51 @@ struct IpcWriteOptions;
 class MessageReader;
 
 class RecordBatchStreamReader;
-class RecordBatchFileReader;
+class RecordBatchFileReader {
+  // Function to split a string into tokens based on a delimiter
+std::vector<std::string> splitString(const std::string &input, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::istringstream tokenStream(input);
+    std::string token;
+    while (std::getline(tokenStream, token, delimiter))
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+int ReadTable()
+{
+    std::string filePath;
+    std::cin >> filePath; // Read file path
+
+    std::ifstream inputFile(filePath);
+
+    if (!inputFile.is_open())
+    {
+        std::cerr << "Error opening file: " << filePath << std::endl;
+        return 1;
+    }
+
+    // Read and display the file contents as a table
+    std::string line;
+    while (std::getline(inputFile, line))
+    {
+        // Split the line into columns based on a tab delimiter
+        std::vector<std::string> columns = splitString(line, '\t');
+
+        for (const auto &column : columns)
+        {
+            std::cout << column << "\t";
+        }
+        std::cout << std::endl;
+    }
+
+    inputFile.close();
+    return 0;
+}
+};
 class RecordBatchWriter;
 
 class DictionaryFieldMapper;
