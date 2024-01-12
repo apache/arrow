@@ -564,8 +564,13 @@ build_libarrow <- function(src_dir, dst_dir) {
 
   # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
   if (on_macos) {
-    if (Sys.getenv("Boost_SOURCE") == "") {
-      env_var_list <- c(env_var_list, Boost_SOURCE = "BUNDLED")
+    deps_to_bundle <- c("Boost", "lz4")
+    for (dep_to_bundle in deps_to_bundle) {
+      env_var <- paste0(dep_to_bundle, "_SOURCE")
+      if (Sys.getenv(env_var) == "") {
+        # TODO: env_var_list gets checked for caps, so we need to do that, but maybe it shouldn't?
+        env_var_list <- c(env_var_list, setNames("BUNDLED", toupper(env_var)))
+      }
     }
   }
 
