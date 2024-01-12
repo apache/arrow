@@ -221,7 +221,7 @@ jobs:
           test -f arrow/java-dist/arrow_cdata_jni/x86_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/arrow_dataset_jni/x86_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/arrow_orc_jni/x86_64/libarrow_orc_jni.dylib
-          test -f arrow/java-dist/gandiva-jni/x86_64/libgandiva_jni.dylib
+          test -f arrow/java-dist/gandiva_jni/x86_64/libgandiva_jni.dylib
 
           test -f arrow/java-dist/arrow_cdata_jni/aarch_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/arrow_dataset_jni/aarch_64/libarrow_dataset_jni.dylib
