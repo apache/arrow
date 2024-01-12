@@ -1919,7 +1919,7 @@ class ResidualFilterCaseRunner {
  private:
   void RunInternal(const HashJoinNodeOptions& options,
                    const std::vector<ExecBatch>& expected) const {
-    auto join_type_str = ToString(options.join_type);
+    auto join_type_str = JoinTypeString(options.join_type);
     auto join_cond_str =
         JoinConditionString(options.left_keys, options.right_keys, options.filter);
     auto output_str = OutputString(options.left_output, options.right_output);
@@ -1948,6 +1948,28 @@ class ResidualFilterCaseRunner {
   BatchesWithSchema right_input_;
 
  private:
+  static std::string JoinTypeString(JoinType t) {
+    switch (t) {
+      case JoinType::LEFT_SEMI:
+        return "LEFT_SEMI";
+      case JoinType::RIGHT_SEMI:
+        return "RIGHT_SEMI";
+      case JoinType::LEFT_ANTI:
+        return "LEFT_ANTI";
+      case JoinType::RIGHT_ANTI:
+        return "RIGHT_ANTI";
+      case JoinType::INNER:
+        return "INNER";
+      case JoinType::LEFT_OUTER:
+        return "LEFT_OUTER";
+      case JoinType::RIGHT_OUTER:
+        return "RIGHT_OUTER";
+      case JoinType::FULL_OUTER:
+        return "FULL_OUTER";
+    }
+    ARROW_DCHECK(false);
+  }
+
   static std::string JoinConditionString(const std::vector<FieldRef>& left_keys,
                                          const std::vector<FieldRef>& right_keys,
                                          const Expression& filter) {
