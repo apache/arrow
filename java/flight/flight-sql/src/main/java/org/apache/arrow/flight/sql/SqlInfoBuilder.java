@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
 
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlNullOrdering;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
@@ -503,6 +504,26 @@ public class SqlInfoBuilder {
   }
 
   /**
+   * Sets a value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlAllTablesAreSelectable(final boolean value) {
+    return withBooleanProvider(SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE, value);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_NULL_ORDERING} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_NULL_ORDERING} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlNullOrdering(final SqlNullOrdering value) {
+    return withBitIntProvider(SqlInfo.SQL_NULL_ORDERING_VALUE, value.getNumber());
+  }
+
+  /**
    * Sets a value SqlInf @link SqlInfo#SQL_MAX_BINARY_LITERAL_LENGTH} in the builder.
    *
    * @param value the value for {@link SqlInfo#SQL_MAX_BINARY_LITERAL_LENGTH} to be set.
@@ -570,6 +591,16 @@ public class SqlInfoBuilder {
    */
   public SqlInfoBuilder withSqlMaxColumnsInSelect(final long value) {
     return withBitIntProvider(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT_VALUE, value);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlMaxColumnsInTable(final long value) {
+    return withBitIntProvider(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE, value);
   }
 
   /**
