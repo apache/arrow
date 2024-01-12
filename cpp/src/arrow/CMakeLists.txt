@@ -468,6 +468,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_arithmetic.cc
        compute/kernels/scalar_boolean.cc
        compute/kernels/scalar_compare.cc
+       compute/kernels/scalar_hash.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_random.cc

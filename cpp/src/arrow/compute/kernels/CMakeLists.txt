@@ -69,6 +69,7 @@ add_arrow_compute_test(scalar_utility_test
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
+                       scalar_hash_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
@@ -82,6 +83,7 @@ add_arrow_benchmark(scalar_round_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_hash_benchmark PREFIX "arrow-compute")
 
 # ----------------------------------------------------------------------
 # Vector kernels
