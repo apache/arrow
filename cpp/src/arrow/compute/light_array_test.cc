@@ -286,6 +286,40 @@ TEST(KeyColumnArray, SliceBinaryTest) {
   GenericTestSlice<int64_t>(large_binary(), json_test_strings, testCases);
 }
 
+TEST(KeyColumnArray, TempAllocForHashing) {
+  std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
+
+  for (const auto& type : kSampleFixedDataTypes) {
+    ARROW_SCOPED_TRACE("Type: ", type->ToString());
+    /* TODO
+    int row_count = 12;
+    int byte_width =
+        arrow::internal::checked_pointer_cast<FixedWidthType>(type)->bit_width() / 8;
+
+    {
+      KeyColumnPseudoSpan column_span {pool.get()};
+      ARROW_ASSIGN_OR_RAISE(uint8_t* buf_data,
+                            column_span.CreateBuffer(1, byte_width * row_count));
+
+      // TODO: create a test that uses a KeyColumnArray constructed from a
+      // KeyColumnPseudoSpan
+      KeyColumnMetadata metadata = ColumnMetadataFromDataType(boolean()).ValueOrDie();
+
+      KeyColumnArray column_view {
+        column_span.CreateView(
+
+      int min_bytes_needed_for_values = byte_width;
+      int min_bytes_needed_for_validity = 1;
+      int min_bytes_needed = min_bytes_needed_for_values + min_bytes_needed_for_validity;
+      ASSERT_LT(min_bytes_needed, pool->bytes_allocated());
+      ASSERT_GT(min_bytes_needed * 2, pool->bytes_allocated());
+    }
+    */
+    // After array is destroyed buffers should be freed
+    ASSERT_EQ(0, pool->bytes_allocated());
+  }
+}
+
 TEST(ResizableArrayData, Basic) {
   std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
   for (const auto& type : kSampleFixedDataTypes) {
