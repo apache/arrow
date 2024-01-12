@@ -843,6 +843,10 @@ class FileMetaData::FileMetaDataImpl {
       auto pages = column_offsets[idx++].get()->page_locations();
       for(PageLocation& page: pages) {
         if(chunk.meta_data.dictionary_page_offset > 0) {
+          // TODO: Set dictionary from page 0 of offsets
+          // Need to update index code to write out dictionary pages
+
+          // The hack below does not work reliably.
           // The size of the dictionary depends on the number of rows
           int64_t original_offset = chunk.meta_data.data_page_offset - chunk.meta_data.dictionary_page_offset;
           // Assume dictionary has fixed component of 14 bytes
@@ -858,13 +862,6 @@ class FileMetaData::FileMetaDataImpl {
 
         // The compressed size can be set too large
         // Use the value in row 0
-
-        // The page.compressed_page_size does not correspond exactly
-        // to what is used in the row groups
-        //
-        // int32_t expected_size = page.compressed_page_size*5-54;
-        // chunk.meta_data.__set_total_compressed_size(expected_size);
-        // chunk.meta_data.__set_total_uncompressed_size(expected_size);
       }
     }
   }
@@ -1027,8 +1024,7 @@ std::shared_ptr<FileMetaData> FileMetaData::Subset(
   return impl_->Subset(row_groups);
 }
 
-void FileMetaData::IndexTo(int row_group,
-                                                    const std::vector<ColumnOffsets> &rowgroup_offsets){
+void FileMetaData::IndexTo(int row_group, const std::vector<ColumnOffsets> &rowgroup_offsets){
   std::vector<int> row_groups = {row_group};
   auto target_column_offsets = rowgroup_offsets[row_group];
   int64_t total_rows = this->num_rows();
