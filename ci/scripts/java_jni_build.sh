@@ -24,6 +24,18 @@ arrow_install_dir=${2}
 build_dir=${3}/java_jni
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${4}
+normalized_arch=$(arch)
+case ${normalized_arch} in
+  aarch64)
+    normalized_arch=aarch_64
+    ;;
+  i386)
+    normalized_arch=x86_64
+    ;;
+  arm64)
+    normalized_arch=aarch_64
+    ;;
+  esac
 
 prefix_dir="${build_dir}/java-jni"
 
@@ -56,7 +68,7 @@ cmake \
   -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_ARCH_DIR=${normalized_arch} \
   -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
   -DProtobuf_USE_STATIC_LIBS=ON \
