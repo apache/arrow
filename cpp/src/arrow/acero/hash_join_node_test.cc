@@ -2482,6 +2482,537 @@ TEST(HashJoin, FineGrainedResidualFilter) {
       }
     }
   }
+
+  {
+    // Non-trivial filters referring left columns only.
+    for (Expression filter : {equal(field_ref("l_filter"), literal(42)),
+                              not_equal(literal(0), field_ref("l_filter"))}) {
+      std::vector<FieldRef> left_keys{"l_key"}, right_keys{"r_key"};
+      {
+        // Inner join.
+        JoinType join_type = JoinType::INNER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", 42, "payload", "both1", null, "payload"],
+                ["both1", 42, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 42, "payload", "both2", null, "payload"],
+                ["both2", 42, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left outer join.
+        JoinType join_type = JoinType::LEFT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", null, null, null],
+                ["both1", 0, "payload", null, null, null],
+                ["both2", null, "payload", null, null, null],
+                ["both2", 0, "payload", null, null, null],
+                ["both1", 42, "payload", "both1", null, "payload"],
+                ["both1", 42, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 42, "payload", "both2", null, "payload"],
+                ["both2", 42, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right outer join.
+        JoinType join_type = JoinType::RIGHT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", 42, "payload", "both1", null, "payload"],
+                ["both1", 42, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 42, "payload", "both2", null, "payload"],
+                ["both2", 42, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Full outer join.
+        JoinType join_type = JoinType::FULL_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", null, null, null],
+                ["both1", 0, "payload", null, null, null],
+                ["both2", null, "payload", null, null, null],
+                ["both2", 0, "payload", null, null, null],
+                ["both1", 42, "payload", "both1", null, "payload"],
+                ["both1", 42, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 42, "payload", "both2", null, "payload"],
+                ["both2", 42, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left semi join.
+        JoinType join_type = JoinType::LEFT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", 42, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left anti join.
+        JoinType join_type = JoinType::LEFT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"],
+                            ["left_only", null, "payload"],
+                            ["left_only", 0, "payload"],
+                            ["left_only", 42, "payload"],
+                            ["both1", null, "payload"],
+                            ["both1", 0, "payload"],
+                            ["both2", null, "payload"],
+                            ["both2", 0, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right semi join.
+        JoinType join_type = JoinType::RIGHT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", null, "payload"],
+                            ["both1", 0, "payload"],
+                            ["both1", 42, "payload"],
+                            ["both2", null, "payload"],
+                            ["both2", 0, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right anti join.
+        JoinType join_type = JoinType::RIGHT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"], 
+                            ["right_only", null, "payload"],
+                            ["right_only", 0, "payload"],
+                            ["right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+    }
+  }
+
+  {
+    // Non-trivial filters referring right columns only.
+    for (Expression filter : {equal(field_ref("r_filter"), literal(42)),
+                              not_equal(literal(0), field_ref("r_filter"))}) {
+      std::vector<FieldRef> left_keys{"l_key"}, right_keys{"r_key"};
+      {
+        // Inner join.
+        JoinType join_type = JoinType::INNER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", null, "payload", "both1", 42, "payload"],
+                ["both1", 0, "payload", "both1", 42, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", null, "payload", "both2", 42, "payload"],
+                ["both2", 0, "payload", "both2", 42, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left outer join.
+        JoinType join_type = JoinType::LEFT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", "both1", 42, "payload"],
+                ["both1", 0, "payload", "both1", 42, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", null, "payload", "both2", 42, "payload"],
+                ["both2", 0, "payload", "both2", 42, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right outer join.
+        JoinType join_type = JoinType::RIGHT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", null, "payload", "both1", 42, "payload"],
+                ["both1", 0, "payload", "both1", 42, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", null, "payload", "both2", 42, "payload"],
+                ["both2", 0, "payload", "both2", 42, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, "both1", null, "payload"],
+                [null, null, null, "both1", 0, "payload"],
+                [null, null, null, "both2", null, "payload"],
+                [null, null, null, "both2", 0, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Full outer join.
+        JoinType join_type = JoinType::FULL_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", "both1", 42, "payload"],
+                ["both1", 0, "payload", "both1", 42, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", null, "payload", "both2", 42, "payload"],
+                ["both2", 0, "payload", "both2", 42, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, "both1", null, "payload"],
+                [null, null, null, "both1", 0, "payload"],
+                [null, null, null, "both2", null, "payload"],
+                [null, null, null, "both2", 0, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left semi join.
+        JoinType join_type = JoinType::LEFT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", null, "payload"],
+                            ["both1", 0, "payload"],
+                            ["both1", 42, "payload"],
+                            ["both2", null, "payload"],
+                            ["both2", 0, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left anti join.
+        JoinType join_type = JoinType::LEFT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"],
+                            ["left_only", null, "payload"],
+                            ["left_only", 0, "payload"],
+                            ["left_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right semi join.
+        JoinType join_type = JoinType::RIGHT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", 42, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right anti join.
+        JoinType join_type = JoinType::RIGHT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"], 
+                            ["both1", null, "payload"],
+                            ["both1", 0, "payload"],
+                            ["both2", null, "payload"],
+                            ["both2", 0, "payload"],
+                            ["right_only", null, "payload"],
+                            ["right_only", 0, "payload"],
+                            ["right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+    }
+  }
+
+  {
+    // Non-trivial filters referring both left and right columns.
+    for (Expression filter :
+         {equal(field_ref("l_filter"), field_ref("r_filter")),
+          equal(call("subtract", {field_ref("l_filter"), field_ref("r_filter")}),
+                literal(0))}) {
+      std::vector<FieldRef> left_keys{"l_key"}, right_keys{"r_key"};
+      {
+        // Inner join.
+        JoinType join_type = JoinType::INNER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", 0, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 0, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left outer join.
+        JoinType join_type = JoinType::LEFT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", null, null, null],
+                ["both2", null, "payload", null, null, null],
+                ["both1", 0, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 0, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right outer join.
+        JoinType join_type = JoinType::RIGHT_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                ["both1", 0, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 0, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "both1", null, "payload"],
+                [null, null, null, "both2", null, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Full outer join.
+        JoinType join_type = JoinType::FULL_OUTER;
+        auto expected =
+            ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
+                [null, null, "payload", null, null, null],
+                [null, 0, "payload", null, null, null],
+                [null, 42, "payload", null, null, null],
+                ["left_only", null, "payload", null, null, null],
+                ["left_only", 0, "payload", null, null, null],
+                ["left_only", 42, "payload", null, null, null],
+                ["both1", null, "payload", null, null, null],
+                ["both2", null, "payload", null, null, null],
+                ["both1", 0, "payload", "both1", 0, "payload"],
+                ["both1", 42, "payload", "both1", 42, "payload"],
+                ["both2", 0, "payload", "both2", 0, "payload"],
+                ["both2", 42, "payload", "both2", 42, "payload"],
+                [null, null, null, null, null, "payload"],
+                [null, null, null, null, 0, "payload"],
+                [null, null, null, null, 42, "payload"],
+                [null, null, null, "both1", null, "payload"],
+                [null, null, null, "both2", null, "payload"],
+                [null, null, null, "right_only", null, "payload"],
+                [null, null, null, "right_only", 0, "payload"],
+                [null, null, null, "right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left semi join.
+        JoinType join_type = JoinType::LEFT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", 0, "payload"],
+                            ["both1", 42, "payload"],
+                            ["both2", 0, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Left anti join.
+        JoinType join_type = JoinType::LEFT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"],
+                            ["left_only", null, "payload"],
+                            ["left_only", 0, "payload"],
+                            ["left_only", 42, "payload"],
+                            ["both1", null, "payload"],
+                            ["both2", null, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right semi join.
+        JoinType join_type = JoinType::RIGHT_SEMI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            ["both1", 0, "payload"],
+                            ["both1", 42, "payload"],
+                            ["both2", 0, "payload"],
+                            ["both2", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+
+      {
+        // Right anti join.
+        JoinType join_type = JoinType::RIGHT_ANTI;
+        auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
+                            [null, null, "payload"],
+                            [null, 0, "payload"],
+                            [null, 42, "payload"], 
+                            ["both1", null, "payload"],
+                            ["both2", null, "payload"],
+                            ["right_only", null, "payload"],
+                            ["right_only", 0, "payload"],
+                            ["right_only", 42, "payload"]])");
+        for (const auto& projector : projectors) {
+          runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
+                     projector.RightOutput(join_type), filter,
+                     {projector.Project(join_type, expected)});
+        }
+      }
+    }
+  }
 }
 
 HashJoinNodeOptions GenerateHashJoinNodeOptions(Random64Bit& rng, int num_left_cols,
