@@ -80,6 +80,7 @@ add_arrow_compute_test(scalar_utility_test
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
+                       scalar_hash_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing
                        arrow_compute_testing)
@@ -89,6 +90,7 @@ add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
 add_arrow_compute_benchmark(scalar_arithmetic_benchmark)
 add_arrow_compute_benchmark(scalar_boolean_benchmark)
 add_arrow_compute_benchmark(scalar_compare_benchmark)
+add_arrow_compute_benchmark(scalar_hash_benchmark)
 add_arrow_compute_benchmark(scalar_if_else_benchmark)
 add_arrow_compute_benchmark(scalar_list_benchmark)
 add_arrow_compute_benchmark(scalar_random_benchmark)
