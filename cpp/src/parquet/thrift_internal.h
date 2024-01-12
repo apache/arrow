@@ -396,7 +396,10 @@ class ThriftDeserializer {
 
   ThriftDeserializer(int32_t string_size_limit, int32_t container_size_limit)
       : string_size_limit_(string_size_limit),
-        container_size_limit_(container_size_limit) {}
+        container_size_limit_(container_size_limit),
+        tmem_transport_(nullptr),
+        tproto_(nullptr)
+        {}
 
   // Deserialize a thrift message from buf/len.  buf/len must at least contain
   // all the bytes needed to store the thrift message.  On return, len will be
@@ -427,7 +430,31 @@ class ThriftDeserializer {
     }
   }
 
- private:
+  // Deserialize using a member buffer
+  // This is for efficiency when doing repeated reads against a single memory buffer
+  template <class T>
+  void DeserializeUnencryptedMessageUsingInternalBuffer(T* deserialized_msg) {
+    try {
+      deserialized_msg->read(tproto_.get());
+    } catch (std::exception& e) {
+      std::stringstream ss;
+      ss << "Couldn't deserialize thrift: " << e.what() << "\n";
+      throw ParquetException(ss.str());
+    }
+  }
+
+  void SetInternalBuffer(const uint8_t* buf, uint32_t* len)
+  {
+    tmem_transport_ = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
+    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+    // Protect against CPU and memory bombs
+    tproto_factory.setStringSizeLimit(string_size_limit_);
+    tproto_factory.setContainerSizeLimit(container_size_limit_);
+    tproto_ = tproto_factory.getProtocol(tmem_transport_);
+  }
+
+
+private:
   // On Thrift 0.14.0+, we want to use TConfiguration to raise the max message size
   // limit (ARROW-13655).  If we wanted to protect against huge messages, we could
   // do it ourselves since we know the message size up front.
@@ -464,6 +491,8 @@ class ThriftDeserializer {
 
   const int32_t string_size_limit_;
   const int32_t container_size_limit_;
+  std::shared_ptr<ThriftBuffer> tmem_transport_;
+  std::shared_ptr<apache::thrift::protocol::TProtocol> tproto_;
 };
 
 /// Utility class to serialize thrift objects to a binary format.  This object

@@ -1009,8 +1009,8 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
   // Retrieve and check page offsets
-  auto expected_rowgroup_offsets = ReadPageIndexes(filename);
   auto rowgroup_offsets = ReadPageIndexesDirect(filename, metadata_row_0);
+  auto expected_rowgroup_offsets = ReadPageIndexes(filename);
   for(int rg=0; rg < metadata_all_rows->num_row_groups(); ++rg) {
     for(int col=0; col < metadata_all_rows->num_columns(); ++col) {
       auto expected = expected_rowgroup_offsets[rg][col];
@@ -1060,6 +1060,7 @@ void BenchmarkReadColumnsUsingOffsetIndex(const std::string &filename, std::vect
   std::shared_ptr<::arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
 
+  // Benchmark regular read
   // Slightly cheating.
   // First to read pays a penalty for file buffering
   auto std_begin = std::chrono::steady_clock::now();
@@ -1071,6 +1072,7 @@ void BenchmarkReadColumnsUsingOffsetIndex(const std::string &filename, std::vect
   auto std_end = std::chrono::steady_clock::now();
   *tm_std = std::chrono::duration_cast<std::chrono::microseconds>(std_end - std_begin);
 
+  // Benchmark indexed read
   auto index_begin = std::chrono::steady_clock::now();
   ReaderProperties props = parquet::default_reader_properties();
   props.set_read_only_rowgroup_0(true);

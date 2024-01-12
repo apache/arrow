@@ -465,22 +465,21 @@ class PageIndexReaderImpl : public PageIndexReader {
                             input_->ReadAt(offset_index_start,
                                            est_offset_index_size));
 
-    OffsetIndexReader col_reader(row_group_metadata, properties_, file_decryptor_, offset_index_buffer);
-    uint32_t estimated_length_index = offset_index_location->length * overhead_factor;
+    // Perform a direct read against the buffer for performance
+    ThriftDeserializer deserializer(properties_);
+    uint32_t len_used(est_offset_index_size);
+    deserializer.SetInternalBuffer(const_cast<uint8_t*>(offset_index_buffer->data()), &len_used);
 
     std::vector<ColumnOffsets> rowgroup_offsets;
     rowgroup_offsets.reserve(num_row_groups);
-    int64_t buffer_offset = 0;
     for (int rg = 0; rg < num_row_groups; ++rg) {
       ColumnOffsets offset_indexes;
       offset_indexes.reserve(num_columns);
       for (int col = 0; col < num_columns; ++col) {
-        uint32_t actual_length = 0;
-        // TODO: Replace with direct read. There is a lot of overhead in creating a read-only buffer each time
-        // Also, this is calling ColumnChunk() every time.
-        auto offset_index = col_reader.GetOffsetIndex(col, buffer_offset, estimated_length_index, &actual_length);
-        buffer_offset += actual_length;
-        offset_indexes.emplace_back(offset_index);
+        format::OffsetIndex offset_index;
+        deserializer.DeserializeUnencryptedMessageUsingInternalBuffer(&offset_index);
+        auto offset_index_ptr = std::make_unique<OffsetIndexImpl>(offset_index);
+        offset_indexes.emplace_back(std::move(offset_index_ptr));
       }
       rowgroup_offsets.emplace_back(offset_indexes);
     }
