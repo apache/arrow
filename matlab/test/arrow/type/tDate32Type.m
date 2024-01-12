@@ -15,7 +15,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDate32Type < hFixedWidthType
+% Modified test class for arrow.type.Date32Type and arrow.date32
+
+classdef tDate32Type < tDataTypeTest
 
     properties
         ConstructionFcn = @arrow.date32
@@ -23,6 +25,13 @@ classdef tDate32Type < hFixedWidthType
         TypeID = arrow.type.ID.Date32
         BitWidth = int32(32)
         ClassName = "arrow.type.Date32Type"
+    end
+
+    methods (Access = private)
+        function defaultUnit = getDefaultDateUnit(~)
+            % Define the default DateUnit for Date32Type
+            defaultUnit = arrow.type.DateUnit.Day;
+        end
     end
 
     methods(Test)
@@ -88,7 +97,6 @@ classdef tDate32Type < hFixedWidthType
             typeArray2 = [date32Type date32Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-    
     end
-
 end
+
