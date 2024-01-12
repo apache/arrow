@@ -774,7 +774,7 @@ class JoinResidualFilter {
 
   // Left-outer and full-outer joins can result in a different bit-vector than the one of
   // probing the hash table if the residual filter is not a literal true. If so, caller
-  // should setup a bit-vector for filtering properly and call `UpdateMatchBitVector`
+  // should setup a bit-vector for filtering properly and call `UpdateFilterBitVector`
   // accordingly.
   //
   bool NeedFilterBitVector(JoinType join_type) const {
