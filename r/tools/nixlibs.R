@@ -96,53 +96,76 @@ try_download <- function(from_url, to_file, hush = quietly) {
   !inherits(status, "try-error") && status == 0
 }
 
-download_binary <- function(lib) {
-  libfile <- paste0("arrow-", VERSION, ".zip")
-  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
-  if (try_download(binary_url, libfile)) {
-      lg("Successfully retrieved libarrow (%s)", lib)
-  } else {
-      lg(
-        "Downloading libarrow failed for version %s (%s)\n    at %s",
-        VERSION, lib, binary_url
-      )
-    libfile <- NULL
-  }
+try_checksum <- function(binary_url, libfile, hush = quietly) {
   # Explicitly setting the env var to "false" will skip checksum validation
   # e.g. in case the included checksums are stale.
   skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
   enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
   checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
   # validate binary checksum for CRAN release only
-  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
-    enforce_checksum) {
-    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
-    checksum_file <- file.path(checksum_path, checksum_file)
-    checksum_cmd <- "shasum"
-    checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
+  # we do this in a try so that if it fails for any reason, we don't pollute the log
+  # but then we will return that the checksum failed
+  status <- try(
+    {
+      if (!skip_checksum && dir.exists(checksum_path) && is_release ||
+        enforce_checksum) {
+        checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+        checksum_file <- file.path(checksum_path, checksum_file)
+        checksum_cmd <- "shasum"
+        checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
 
-    # shasum is not available on all linux versions
-    status_shasum <- try(
-      suppressWarnings(
-        system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
-      ),
-      silent = TRUE
+        # shasum is not available on all linux versions, so check help if it exists
+        status_shasum <- try(
+          suppressWarnings(
+            system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
+          ),
+          silent = TRUE
+        )
+
+        # if shasum doens't exist, then change the command to sha512sum
+        if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
+          checksum_cmd <- "sha512sum"
+          checksum_args <- c("--status", "-c", checksum_file)
+        }
+
+        checksum_ok <- system2(checksum_cmd, args = checksum_args)
+
+        if (checksum_ok != 0) {
+          lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
+          unlink(libfile)
+          stop("The checksum failed")
+        } else {
+          lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
+        }
+      }
+    },
+    silent = hush
+  )
+
+  # Return whether the checksum was successful
+  !inherits(status, "try-error")
+}
+
+download_binary <- function(lib) {
+  libfile <- paste0("arrow-", VERSION, ".zip")
+  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  if (try_download(binary_url, libfile) && try_checksum(binary_url, libfile)) {
+    lg("Successfully retrieved libarrow (%s)", lib)
+  } else {
+    # If the download or checksum fail, we will set libfile to NULL this will
+    # normally result in a source build after this.
+    # TODO: should we condense these together and only call them when verbose?
+    lg(
+      "Unable to retrieve libarrow for version %s (%s)",
+      VERSION, lib
     )
-
-    if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
-      checksum_cmd <- "sha512sum"
-      checksum_args <- c("--status", "-c", checksum_file)
+    if (!quietly) {
+      lg(
+        "Attempted to download the libarrow binary from: %s",
+        binary_url
+      )
     }
-
-    checksum_ok <- system2(checksum_cmd, args = checksum_args)
-
-    if (checksum_ok != 0) {
-      lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
-      unlink(libfile)
-      libfile <- NULL
-    } else {
-      lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
-    }
+    libfile <- NULL
   }
 
   libfile
@@ -539,10 +562,20 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
   }
 
+  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
+  if (on_macos) {
+    if (Sys.getenv("Boost_SOURCE") == "") {
+      env_var_list <- c(env_var_list, Boost_SOURCE = "BUNDLED")
+    }
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after
   # with_cloud_support(), since it might turn features ON.
+  # TODO: could we, should we have download_ok also include "download has succeeded"
+  # so we can disable these things if someone's machine is suddenly offline but they
+  # find themselves here and demand a working compilation?
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
