@@ -86,6 +86,7 @@ class ARROW_COMPUTE_EXPORT KeyColumnArray {
  public:
   /// \brief Create an uninitialized KeyColumnArray
   KeyColumnArray() = default;
+
   /// \brief Create a read-only view from buffers
   ///
   /// This is a view only and does not take ownership of the buffers.  The lifetime
@@ -98,10 +99,14 @@ class ARROW_COMPUTE_EXPORT KeyColumnArray {
   ///
   /// This is a view only and does not take ownership of the buffers.  The lifetime
   /// of the buffers must exceed the lifetime of this view
-  KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
-                 uint8_t* validity_buffer, uint8_t* fixed_length_buffer,
-                 uint8_t* var_length_buffer, int bit_offset_validity = 0,
-                 int bit_offset_fixed = 0);
+  KeyColumnArray( const KeyColumnMetadata& metadata
+                 ,int64_t  length
+                 ,uint8_t* validity_buffer
+                 ,uint8_t* fixed_length_buffer
+                 ,uint8_t* var_length_buffer
+                 ,int bit_offset_validity = 0
+                 ,int bit_offset_fixed    = 0
+                 ,const util::TempVectorStack *alloc = nullptr);
   /// \brief Create a sliced view of `this`
   ///
   /// The number of rows used in offset must be divisible by 8
@@ -185,6 +190,7 @@ class ARROW_COMPUTE_EXPORT KeyColumnArray {
   // Starting bit offset within the first byte (between 0 and 7)
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
+  const util::TempVectorStack* arena_alloc;
 
   bool is_bool_type() const {
     return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
@@ -221,6 +227,15 @@ class ARROW_COMPUTE_EXPORT KeyColumnArray {
 /// a non-key column will return Status::TypeError.
 ARROW_COMPUTE_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type);
+
+ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType* type);
+
+/// \brief Create KeyColumnArray from ArraySpan
+///
+/// The caller should ensure this is only called on "key" columns.
+/// \see ColumnMetadataFromDataType for details
+ARROW_EXPORT Result<KeyColumnVector> ColumnArraysFromArraySpan(
+    const ArraySpan& array_span, int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData
 ///
@@ -270,6 +285,7 @@ ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row, int64_t num
 /// \see ColumnArrayFromArrayData for more details
 ARROW_COMPUTE_EXPORT Status ColumnArraysFromExecBatch(
     const ExecBatch& batch, std::vector<KeyColumnArray>* column_arrays);
+
 
 /// A lightweight resizable array for "key" columns
 ///
