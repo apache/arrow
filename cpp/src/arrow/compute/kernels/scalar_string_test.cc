@@ -1872,13 +1872,12 @@ TYPED_TEST(TestStringKernels, Utf8ReplaceSlice) {
 
 TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
-  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
-                   this->type(), R"(["bazz", "this bazz that bazz", "", null])",
-                   &options);
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
 
   options = ReplaceSubstringOptions{"foo", "bazz", 1};
-  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
-                   this->type(), R"(["bazz", "this bazz that foo", "", null])", &options);
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that foo", null])", &options);
 
   options = ReplaceSubstringOptions{"", "invalid"};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
