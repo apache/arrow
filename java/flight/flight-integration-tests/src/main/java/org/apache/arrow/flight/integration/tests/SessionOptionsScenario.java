@@ -20,6 +20,8 @@ package org.apache.arrow.flight.integration.tests;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.arrow.flight.CloseSessionRequest;
+import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -65,6 +67,7 @@ final class SessionOptionsScenario implements Scenario {
       IntegrationAssertions.assertThrows(FlightRuntimeException.class,
           () -> client.getSessionOptions(new GetSessionOptionsRequest()));
 
+      // Set
       SetSessionOptionsRequest req1 = new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>() {
           {
             put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L));
@@ -76,6 +79,7 @@ final class SessionOptionsScenario implements Scenario {
           }
       });
       SetSessionOptionsResult res1 = client.setSessionOptions(req1);
+      // Some errors
       IntegrationAssertions.assertEquals(new HashMap<String, SetSessionOptionsResult.Error>() {
           {
             put("lol_invalid", new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
@@ -83,7 +87,7 @@ final class SessionOptionsScenario implements Scenario {
                 SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
           }
           }, res1.getErrors());
-
+      // Some set, some omitted due to errors
       GetSessionOptionsResult res2 = client.getSessionOptions(new GetSessionOptionsRequest());
       IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>() {
           {
@@ -93,6 +97,36 @@ final class SessionOptionsScenario implements Scenario {
                 new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}));
           }
           }, res2.getSessionOptions());
+      // Update
+      client.setSessionOptions(new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>() {
+          {
+            // Delete
+            put("foolong", SessionOptionValueFactory.makeEmptySessionOptionValue());
+            // Update
+            put("big_ol_string_list",
+                SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"));
+          }
+      }));
+      GetSessionOptionsResult res4 = client.getSessionOptions(new GetSessionOptionsRequest());
+      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>() {
+        {
+          put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f));
+          put("big_ol_string_list",
+              SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"));
+        }
+      }, res4.getSessionOptions());
+      // Close
+      CloseSessionResult res5 = client.closeSession(new CloseSessionRequest());
+      IntegrationAssertions.assertEquals(CloseSessionResult.Status.CLOSED, res5.getStatus());
+      // Session should be defunct and cookie expired from cookie jar.
+      IntegrationAssertions.assertThrows(FlightRuntimeException.class,
+          () -> client.getSessionOptions(new GetSessionOptionsRequest()));
+      // This should create a new, empty session
+      SetSessionOptionsResult res6 =
+          client.setSessionOptions(new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>()));
+      GetSessionOptionsResult res7 = client.getSessionOptions(new GetSessionOptionsRequest());
+      // This should be empty to confirm we have a new session, not reusing the same one somehow
+      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>(), res7.getSessionOptions());
     }
   }
 }

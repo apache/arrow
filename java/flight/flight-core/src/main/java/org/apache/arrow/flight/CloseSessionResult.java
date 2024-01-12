@@ -71,7 +71,7 @@ public class CloseSessionResult {
     }
   }
 
-  Status getStatus() {
+  public Status getStatus() {
     return status;
   }
 
