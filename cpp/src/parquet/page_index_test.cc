@@ -1115,8 +1115,10 @@ TEST_F(PageIndexBuilderTest, BenchmarkReader) {
           << ", time with full metadata=" << tm_std.count()/1e+6 << "s"
           << std::endl;
 
-  // Sample Results:
-  // (nColumn=6000, nRow=1000), chunk_size=10, time with index=4.765s, time with full metadata=8.01038s
+  /*
+  Benchmark Results:
+  (nColumn=6000, nRow=1000), chunk_size=10, time with index=0.813804s, time with full metadata=1.94265s
+  */
 }
 
 
