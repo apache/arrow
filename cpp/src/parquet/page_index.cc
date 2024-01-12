@@ -478,7 +478,7 @@ class PageIndexReaderImpl : public PageIndexReader {
       offset_indexes.reserve(num_columns);
       for (int col = 0; col < num_columns; ++col) {
         deserializer.DeserializeUnencryptedMessageUsingInternalBuffer(&offset_index);
-        auto offset_index_ptr = std::make_unique<OffsetIndexImpl>(offset_index);
+        auto offset_index_ptr = std::make_shared<OffsetIndexImpl>(offset_index);
         offset_indexes.emplace_back(std::move(offset_index_ptr));
       }
       rowgroup_offsets.emplace_back(std::move(offset_indexes));
