@@ -323,6 +323,19 @@ class SerializedPageWriter : public PageWriter {
 
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
+    // Add the dictionary page to the offsets
+    if (offset_index_builder_ != nullptr) {
+      const int64_t compressed_size = output_data_len + header_size;
+      if (compressed_size > std::numeric_limits<int32_t>::max()) {
+        throw ParquetException("Compressed dictionary page size overflows to INT32_MAX.");
+      }
+
+      /// start_pos is a relative offset in the buffered mode. It should be
+      /// adjusted via OffsetIndexBuilder::Finish() after BufferedPageWriter
+      /// has flushed all data pages.
+      offset_index_builder_->AddPage(start_pos, static_cast<int32_t>(compressed_size), -1);
+    }
+
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
     ++dict_encoding_stats_[page.encoding()];

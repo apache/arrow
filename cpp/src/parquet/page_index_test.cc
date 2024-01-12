@@ -926,7 +926,7 @@ std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
   return table;
 }
 
-void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize)
+void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize, bool use_dict)
 {
   if(std::filesystem::exists(filename)) {
     return;
@@ -937,12 +937,12 @@ void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filen
   auto outfile = result.ValueOrDie();
 
   parquet::WriterProperties::Builder builder;
-  auto properties = builder
-          .enable_write_page_index()
-          ->max_row_group_length(chunkSize)
-          ->disable_dictionary()
-                  // ->disable_statistics()
-          ->build();
+  builder.enable_write_page_index()
+          ->max_row_group_length(chunkSize);
+  if(!use_dict) {
+    builder.disable_dictionary();
+  }
+  auto properties = builder.build();
   assert(parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(),
                                     outfile, chunkSize, properties) == Status::OK());
 }
@@ -1020,19 +1020,25 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
   }
 
   // Use indexes to read and check rows
-  std::vector<int> row_group_test({3, 9});
+  std::vector<int> row_group_test({0, 3, 9});
   for(auto row_group: row_group_test) {
     auto expected_metadata = metadata_all_rows->Subset({row_group});
-    metadata_row_0->IndexTo(row_group, rowgroup_offsets);
-
     std::string expected_read = ReadIndexedRow(filename, indicies, expected_metadata);
+
+    metadata_row_0->IndexTo(row_group, rowgroup_offsets);
     std::string indexed_read = ReadIndexedRow(filename, indicies, metadata_row_0);
 
     if(false) {
-      std::cout << "Correct read:\n";
-      std::cout << expected_read;
-      std::cout << "\n\nOffset based read:\n";
-      std::cout << indexed_read;
+      std::cerr << "Row group: " << row_group << "\n";
+      std::cerr << "Correct read:\n";
+      std::cerr << expected_read;
+      std::cerr << "\n\nOffset based read:\n";
+      std::cerr << indexed_read;
+      std::cerr << "\n\n";
+      std::cerr << "Expected metadata:\n";
+      PrintSchema(expected_metadata->schema()->schema_root().get(), std::cerr);
+      std::cerr << "Metadata row 0:\n";
+      PrintSchema(metadata_row_0->schema()->schema_root().get(), std::cerr);
     }
 
     ASSERT_EQ(expected_read, indexed_read);
@@ -1041,15 +1047,22 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
 
 TEST_F(PageIndexBuilderTest, OffsetReader) {
   std::string dir_string(parquet::test::get_data_dir());
-  std::string path = dir_string + "/index_reader_test.parquet";
+  std::string path_no_dict = dir_string + "/index_reader_test.parquet";
+  std::string path_with_dict = dir_string + "/index_reader_test_dict.parquet";
 
   int nColumn = 10;
   int nRow = 95;
   int chunk_size = 10;
   std::vector<int> indicies(nColumn/2);
   std::iota(indicies.begin(), indicies.end(), 0);
-  WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size);
-  ReadColumnsUsingOffsetIndex(path.c_str(), indicies);
+
+  // Test w/0 dictionary
+  WriteTableToParquet(nColumn, nRow, path_no_dict.c_str(), chunk_size, false);
+  ReadColumnsUsingOffsetIndex(path_no_dict.c_str(), indicies);
+
+  // Test with dictionary
+  WriteTableToParquet(nColumn, nRow, path_with_dict.c_str(), chunk_size, true);
+  ReadColumnsUsingOffsetIndex(path_with_dict.c_str(), indicies);
 }
 
 
@@ -1104,7 +1117,7 @@ TEST_F(PageIndexBuilderTest, BenchmarkReader) {
   int chunk_size = 10;
   std::vector<int> indicies(nColumn/2);
   std::iota(indicies.begin(), indicies.end(), 0);
-  WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size);
+  WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size, false);
   std::chrono::microseconds tm_index, tm_std;
   BenchmarkReadColumnsUsingOffsetIndex(path.c_str(), indicies, &tm_index, &tm_std);
 

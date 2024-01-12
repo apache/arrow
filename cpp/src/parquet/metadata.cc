@@ -842,26 +842,16 @@ class FileMetaData::FileMetaDataImpl {
       // Assume a chunk has only 1 page for now
       auto pages = column_offsets[idx++].get()->page_locations();
       for(PageLocation& page: pages) {
-        if(chunk.meta_data.dictionary_page_offset > 0) {
-          // TODO: Set dictionary from page 0 of offsets
-          // Need to update index code to write out dictionary pages
-
-          // The hack below does not work reliably.
-          // The size of the dictionary depends on the number of rows
-          int64_t original_offset = chunk.meta_data.data_page_offset - chunk.meta_data.dictionary_page_offset;
-          // Assume dictionary has fixed component of 14 bytes
-          int64_t fixed_offset = 14;
-          int64_t offset_per_row = (original_offset-fixed_offset)/chunk.meta_data.num_values;
-          int64_t dictionary_offset = expected_num_rows*offset_per_row+fixed_offset;
-          chunk.meta_data.__set_dictionary_page_offset(page.offset-dictionary_offset);
+        if(chunk.meta_data.dictionary_page_offset > 0 && page.first_row_index < 0) {
+          // Offset is a dictionary page
+          // Assumes OffsetIndex code has been updated to output dictionary offsets
+          chunk.meta_data.__set_dictionary_page_offset(page.offset);
+        } else {
+          chunk.meta_data.__set_data_page_offset(page.offset);
+          chunk.meta_data.__set_num_values(expected_num_rows);
+          // The compressed size can be set too large
+          // Use the value in row 0
         }
-
-        chunk.meta_data.__set_data_page_offset(page.offset);
-        chunk.meta_data.__set_num_values(expected_num_rows);
-
-
-        // The compressed size can be set too large
-        // Use the value in row 0
       }
     }
   }
@@ -1028,7 +1018,7 @@ void FileMetaData::IndexTo(int row_group, const std::vector<ColumnOffsets> &rowg
   std::vector<int> row_groups = {row_group};
   auto target_column_offsets = rowgroup_offsets[row_group];
   int64_t total_rows = this->num_rows();
-  int64_t chunk_rows = this->num_rows();
+  int64_t chunk_rows = this->RowGroup(0)->num_rows();
   int64_t num_values = chunk_rows;
   if (row_group >= total_rows / chunk_rows) {
     // last page, set num_values to remainder
