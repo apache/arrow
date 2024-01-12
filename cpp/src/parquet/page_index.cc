@@ -472,16 +472,16 @@ class PageIndexReaderImpl : public PageIndexReader {
 
     std::vector<ColumnOffsets> rowgroup_offsets;
     rowgroup_offsets.reserve(num_row_groups);
+    format::OffsetIndex offset_index;
     for (int rg = 0; rg < num_row_groups; ++rg) {
       ColumnOffsets offset_indexes;
       offset_indexes.reserve(num_columns);
       for (int col = 0; col < num_columns; ++col) {
-        format::OffsetIndex offset_index;
         deserializer.DeserializeUnencryptedMessageUsingInternalBuffer(&offset_index);
         auto offset_index_ptr = std::make_unique<OffsetIndexImpl>(offset_index);
         offset_indexes.emplace_back(std::move(offset_index_ptr));
       }
-      rowgroup_offsets.emplace_back(offset_indexes);
+      rowgroup_offsets.emplace_back(std::move(offset_indexes));
     }
     return rowgroup_offsets;
   }
