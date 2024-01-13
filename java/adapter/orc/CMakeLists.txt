@@ -38,6 +38,7 @@ target_link_libraries(arrow_java_jni_orc arrow_java_jni_orc_headers jni
                       Arrow::arrow_static)
 
 set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/arrow_orc_jni/${CMAKE_ARCH_DIR}")
+set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/bin/arrow_orc_jni/${CMAKE_ARCH_DIR}")
 
 install(TARGETS arrow_java_jni_orc
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

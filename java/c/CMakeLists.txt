@@ -31,6 +31,7 @@ set_property(TARGET arrow_java_jni_cdata PROPERTY OUTPUT_NAME "arrow_cdata_jni")
 target_link_libraries(arrow_java_jni_cdata arrow_java_jni_cdata_headers jni)
 
 set(CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/arrow_cdata_jni/${CMAKE_ARCH_DIR}")
+set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}/bin/arrow_cdata_jni/${CMAKE_ARCH_DIR}")
 
 install(TARGETS arrow_java_jni_cdata
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

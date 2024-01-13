@@ -50,6 +50,9 @@ endif()
 set(CMAKE_INSTALL_LIBDIR
     "${CMAKE_INSTALL_PREFIX}/lib/arrow_dataset_jni/${CMAKE_ARCH_DIR}")
 
+set(CMAKE_INSTALL_BINDIR
+    "${CMAKE_INSTALL_PREFIX}/bin/arrow_dataset_jni/${CMAKE_ARCH_DIR}")
+
 install(TARGETS arrow_java_jni_dataset
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
