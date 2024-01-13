@@ -28,7 +28,7 @@ case ${normalized_arch} in
     ;;
 esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/${normalized_arch}
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
