@@ -243,7 +243,7 @@ class JavaTester(Tester):
     C_DATA_ARRAY_EXPORTER = True
     C_DATA_ARRAY_IMPORTER = True
 
-    name = 'Java'
+    name = 'Java' 
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
