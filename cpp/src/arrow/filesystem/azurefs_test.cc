@@ -890,6 +890,7 @@ class TestAzureFileSystem : public ::testing::Test {
   // Tests for Move()
 
   void TestRenameContainer() {
+    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     auto data = SetUpPreexistingData();
     // Container exists, so renaming to the same name succeeds because it's a no-op.
     ASSERT_OK(fs()->Move(data.container_name, data.container_name));
@@ -919,13 +920,24 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->Move(data.container_name, empty_container));
     // Renaming to a non-existing container creates it
     auto new_container = PreexistingData::RandomContainerName(rng_);
-    // ASSERT_OK(fs()->Move(data.container_name, new_container));
-    // AssertFileInfo(fs(), data.container_name, FileType::Directory);
-    // AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError,
-        ::testing::HasSubstr("The 'rename' operation is not supported on containers."),
-        fs()->Move(data.container_name, new_container));
+    AssertFileInfo(fs(), new_container, FileType::NotFound);
+    if (env->backend() == AzureBackend::kAzurite) {
+      // Azurite returns a 201 Created for RenameBlobContainer, but the created
+      // container doesn't contain the blobs from the source container and
+      // the source container reamins undeleted after the "rename".
+    } else {
+      // See Azure SDK issue/question:
+      // https://github.com/Azure/azure-sdk-for-cpp/issues/5262
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          IOError,
+          ::testing::HasSubstr("The 'rename' operation is not supported on containers."),
+          fs()->Move(data.container_name, new_container));
+      // ASSERT_OK(fs()->Move(data.container_name, new_container));
+      // AssertFileInfo(fs(), new_container, FileType::Directory);
+      // AssertFileInfo(fs(),
+      //                ConcatAbstractPath(new_container, PreexistingData::kObjectName),
+      //                FileType::File);
+    }
     // Renaming to an empty container can work if the source is also empty
     auto new_empty_container = PreexistingData::RandomContainerName(rng_);
     auto new_empty_container_client = CreateContainer(new_empty_container);
