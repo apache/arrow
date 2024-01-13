@@ -1975,6 +1975,163 @@ class AzureFileSystem::Impl {
     return lease_client;
   }
 
+  static constexpr auto kLeaseDuration = std::chrono::seconds{15};
+  static constexpr auto kTimeNeededForContainerDeletion = std::chrono::seconds{3};
+  static constexpr auto kTimeNeededForContainerRename = std::chrono::seconds{3};
+
+  /// The conditions for a successful container rename are derived from the
+  /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
+  /// The numbers here match the list in `Moove`.
+  ///
+  /// 1. `src.container` must exist.
+  /// 2. If `src.container` and `dest.container` are the same, do nothing and
+  ///    return OK.
+  /// 3. N/A.
+  /// 4. N/A.
+  /// 5. `dest.container` doesn't exist or is empty.
+  ///    NOTE: one exception related to container Move is that when the
+  ///    destination is empty we also require the source container to be empty,
+  ///    because the only way to perform the "Move" is by deleting the source
+  ///    instead of deleting the destination and renaming the source.
+  Status RenameContainer(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && src.path.empty());
+    DCHECK(!dest.container.empty() && dest.path.empty());
+    auto src_container_client = GetBlobContainerClient(src.container);
+
+    // If src and dest are the same, we only have to check src exists.
+    if (src.container == dest.container) {
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            GetContainerPropsAsFileInfo(src, src_container_client));
+      if (info.type() == FileType::NotFound) {
+        return PathNotFound(src);
+      }
+      DCHECK(info.type() == FileType::Directory);
+      return Status::OK();
+    }
+
+    // Acquire a lease on the source container because (1) we need the lease
+    // before rename and (2) it works as a way of checking the container exists.
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client,
+                          AcquireContainerLease(src, kLeaseDuration));
+    LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
+    // Check dest.container doesn't exist or is empty.
+    auto dest_container_client = GetBlobContainerClient(dest.container);
+    std::optional<LeaseGuard> dest_lease_guard;
+    bool dest_exists = false;
+    bool dest_is_empty = false;
+    ARROW_ASSIGN_OR_RAISE(
+        auto dest_lease_client,
+        AcquireContainerLease(dest, kLeaseDuration, /*allow_missing_container*/ true));
+    if (dest_lease_client) {
+      dest_lease_guard.emplace(std::move(dest_lease_client), kLeaseDuration);
+      dest_exists = true;
+      // Emptiness check after successful acquisition of the lease.
+      Blobs::ListBlobsOptions list_blobs_options;
+      list_blobs_options.PageSizeHint = 1;
+      try {
+        auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        dest_is_empty = dest_list_response.Blobs.empty();
+        if (!dest_is_empty) {
+          return Status::IOError("Non-empty directory cannot be replaced: '", dest.all,
+                                 "'");
+        }
+      } catch (const Storage::StorageException& exception) {
+        return ExceptionToStatus(exception, "Failed to check that '", dest.container,
+                                 "' is empty: ", dest_container_client.GetUrl());
+      }
+    } else {
+      // dest.container doesn't exist, so we can just proceed.
+    }
+    DCHECK(!dest_exists || dest_is_empty);
+
+    if (!dest_exists) {
+      // Rename the source container.
+      Blobs::RenameBlobContainerOptions options;
+      options.SourceAccessConditions.LeaseId = src_lease_guard.LeaseId();
+      try {
+        src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerRename);
+        blob_service_client_->RenameBlobContainer(src.container, dest.container, options);
+        src_lease_guard.Forget();
+      } catch (const Storage::StorageException& exception) {
+        if (exception.StatusCode == Http::HttpStatusCode::BadRequest &&
+            exception.ErrorCode == "InvalidQueryParameterValue") {
+          auto param_name = exception.AdditionalInformation.find("QueryParameterName");
+          if (param_name != exception.AdditionalInformation.end() &&
+              param_name->second == "comp") {
+            return ExceptionToStatus(
+                exception, "The 'rename' operation is not supported on containers. ",
+                "Attempting a rename of '", src.container, "' to '", dest.container,
+                "': ", blob_service_client_->GetUrl());
+          }
+        }
+        return ExceptionToStatus(exception, "Failed to rename container '", src.container,
+                                 "' to '", dest.container,
+                                 "': ", blob_service_client_->GetUrl());
+      }
+    } else if (dest_is_empty) {
+      // Even if we deleted the empty dest.container, RenameBlobContainer() would still
+      // fail because containers are not immediately deleted by the service -- they are
+      // deleted asynchronously based on retention policies and non-deterministic behavior
+      // of the garbage collection process.
+      //
+      // One way to still match POSIX rename semantics is to delete the src.container if
+      // and only if it's empty because the final state would be equivalent to replacing
+      // the dest.container with the src.container and its contents (which happens
+      // to also be empty).
+      Blobs::ListBlobsOptions list_blobs_options;
+      list_blobs_options.PageSizeHint = 1;
+      try {
+        auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        if (!src_list_response.Blobs.empty()) {
+          return Status::IOError("Unable to replace empty container: '", dest.all, "'");
+        }
+        // Delete the source container now that we know it's empty.
+        Blobs::DeleteBlobContainerOptions options;
+        options.AccessConditions.LeaseId = src_lease_guard.LeaseId();
+        DCHECK(dest_lease_guard.has_value());
+        // Make sure lease on dest is still valid before deleting src. This is to ensure
+        // the destination container is not deleted by another process/client before
+        // Move() returns.
+        if (!dest_lease_guard->StillValidFor(kTimeNeededForContainerDeletion)) {
+          return Status::IOError("Unable to replace empty container: '", dest.all, "'. ",
+                                 "Preparation for the operation took too long and a "
+                                 "container lease expired.");
+        }
+        try {
+          src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerDeletion);
+          src_container_client.DeleteIfExists(options);
+          src_lease_guard.Forget();
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to delete empty container '",
+                                   src.container, "': ", src_container_client.GetUrl());
+        }
+      } catch (const Storage::StorageException& exception) {
+        return ExceptionToStatus(exception, "Unable to replace empty container: '",
+                                 dest.all, "': ", dest_container_client.GetUrl());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status MoveContainerToPath(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  }
+
+  Status CreateContainerFromPath(const AzureLocation& src,
+                                 const std::string& dest_container) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest_container.empty());
+    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  }
+
+  Status MovePaths(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  }
+
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
     RETURN_NOT_OK(ValidateFileLocation(src));
     RETURN_NOT_OK(ValidateFileLocation(dest));
@@ -2152,7 +2309,24 @@ Status AzureFileSystem::DeleteFile(const std::string& path) {
 }
 
 Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto src_location, AzureLocation::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto dest_location, AzureLocation::FromString(dest));
+  if (src_location.container.empty()) {
+    return Status::Invalid("Move requires a non-empty source path.");
+  }
+  if (dest_location.container.empty()) {
+    return Status::Invalid("Move requires a non-empty destination path.");
+  }
+  if (src_location.path.empty()) {
+    if (dest_location.path.empty()) {
+      return impl_->RenameContainer(src_location, dest_location);
+    }
+    return impl_->MoveContainerToPath(src_location, dest_location);
+  }
+  if (dest_location.path.empty()) {
+    return impl_->CreateContainerFromPath(src_location, dest_location.container);
+  }
+  return impl_->MovePaths(src_location, dest_location);
 }
 
 Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest) {

@@ -886,6 +886,54 @@ class TestAzureFileSystem : public ::testing::Test {
     const auto directory_path = data.RandomDirectoryPath(rng_);
     ASSERT_RAISES(IOError, fs()->DeleteDirContents(directory_path, false));
   }
+
+  // Tests for Move()
+
+  void TestRenameContainer() {
+    auto data = SetUpPreexistingData();
+    // Container exists, so renaming to the same name succeeds because it's a no-op.
+    ASSERT_OK(fs()->Move(data.container_name, data.container_name));
+    // Renaming a container that doesn't exist fails.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
+        fs()->Move("missing-container", "missing-container"));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
+        fs()->Move("missing-container", data.container_name));
+    // Renaming a container to an existing non-empty container fails.
+    auto non_empty_container = PreexistingData::RandomContainerName(rng_);
+    auto non_empty_container_client = CreateContainer(non_empty_container);
+    CreateBlob(non_empty_container_client, "object1", PreexistingData::kLoremIpsum);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Non-empty directory cannot be replaced: '" +
+                             non_empty_container + "'"),
+        fs()->Move(data.container_name, non_empty_container));
+    // Renaming to an empty container fails to replace it
+    auto empty_container = PreexistingData::RandomContainerName(rng_);
+    auto empty_container_client = CreateContainer(empty_container);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Unable to replace empty container: '" + empty_container +
+                             "'"),
+        fs()->Move(data.container_name, empty_container));
+    // Renaming to a non-existing container creates it
+    auto new_container = PreexistingData::RandomContainerName(rng_);
+    // ASSERT_OK(fs()->Move(data.container_name, new_container));
+    // AssertFileInfo(fs(), data.container_name, FileType::Directory);
+    // AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("The 'rename' operation is not supported on containers."),
+        fs()->Move(data.container_name, new_container));
+    // Renaming to an empty container can work if the source is also empty
+    auto new_empty_container = PreexistingData::RandomContainerName(rng_);
+    auto new_empty_container_client = CreateContainer(new_empty_container);
+    AssertFileInfo(fs(), empty_container, FileType::Directory);
+    ASSERT_OK(fs()->Move(empty_container, new_empty_container));
+    AssertFileInfo(fs(), empty_container, FileType::NotFound);
+    AssertFileInfo(fs(), new_empty_container, FileType::Directory);
+  }
 };
 
 void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {
@@ -1137,6 +1185,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsSuccessNonexisten
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, RenameContainer) {
+  this->TestRenameContainer();
 }
 
 // Tests using Azurite (the local Azure emulator)
