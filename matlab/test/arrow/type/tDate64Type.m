@@ -15,9 +15,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-% Modified test class for arrow.type.Date64Type and arrow.date64
 
-classdef tDate64Type < tDataTypeTest
+
+classdef tDate64Type < tDateTypeTest
 
     properties
         ConstructionFcn = @arrow.date64
