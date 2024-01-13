@@ -166,7 +166,7 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
+          -DCMAKE_ARCH_DIR=<your system's architecture> ^ \
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ ls -latr java-dist/lib
@@ -186,7 +186,7 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
+          -DCMAKE_ARCH_DIR=x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ dir "java-dist/bin"
