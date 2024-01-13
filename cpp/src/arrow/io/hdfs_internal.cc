@@ -146,7 +146,7 @@ Result<std::vector<PlatformFilename>> get_potential_libhdfs_paths() {
 #elif __APPLE__
   file_name = "libhdfs.dylib";
 #else
-  file_name = "libhdfs.so";
+  file_name = "libhdfs.so.0.0.0";
 #endif
 
   // Common paths
