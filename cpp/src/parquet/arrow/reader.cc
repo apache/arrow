@@ -17,7 +17,7 @@
 
 #include "parquet/arrow/reader.h"
 
-#include <parquet/page_index.h>
+#include "parquet/page_index.h"
 
 #include <algorithm>
 #include <cstring>
@@ -74,7 +74,6 @@ using arrow::internal::Iota;
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
 
-using parquet::IntervalRange;
 using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
@@ -206,7 +205,7 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReader(
       int i, const std::shared_ptr<std::unordered_set<int>>& included_leaves,
       const std::vector<int>& row_groups,
-      const std::shared_ptr<std::vector<RowRanges>> & row_ranges_map,
+      const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
       std::unique_ptr<ColumnReaderImpl>* out) {
     // Should be covered by GetRecordBatchReader checks but
     // manifest_.schema_fields is a separate variable so be extra careful.
@@ -223,13 +222,13 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
-    ctx->row_ranges_map = row_ranges_map;
+    ctx->row_ranges_per_rg = row_ranges_per_rg;
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
   Status GetFieldReaders(
       const std::vector<int>& column_indices, const std::vector<int>& row_groups,
-      const std::shared_ptr<std::vector<RowRanges>> & row_ranges_map,
+      const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
       std::vector<std::shared_ptr<ColumnReaderImpl>>* out,
       std::shared_ptr<::arrow::Schema>* out_schema) {
     // We only need to read schema fields which have columns indicated
@@ -244,7 +243,7 @@ class FileReaderImpl : public FileReader {
     for (size_t i = 0; i < out->size(); ++i) {
       std::unique_ptr<ColumnReaderImpl> reader;
       RETURN_NOT_OK(GetFieldReader(field_indices[i], included_leaves, row_groups,
-                                   row_ranges_map, &reader));
+                                   row_ranges_per_rg, &reader));
 
       out_fields[i] = reader->field();
       out->at(i) = std::move(reader);
@@ -345,10 +344,10 @@ class FileReaderImpl : public FileReader {
   // This is a internal API owned by FileReaderImpl, not exposed in FileReader
   Status GetRecordBatchReaderWithRowRanges(const std::vector<int>& row_group_indices,
                                            const std::vector<int>& column_indices,
-                                           const std::shared_ptr<std::vector<RowRanges>> & row_ranges_map,
+                                           const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
                                            std::unique_ptr<RecordBatchReader>* out);
 
-  Status GetRecordBatchReader(const RowRanges& rows_to_return,
+  Status GetRecordBatchReader(const IntervalRanges& rows_to_return,
                               const std::vector<int>& column_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
     const auto metadata = reader_->metadata();
@@ -358,7 +357,7 @@ class FileReaderImpl : public FileReader {
                              rows_to_return.ToString());
     }
     // check if the row ranges are within the row group boundaries
-    if (rows_to_return.RowCount() != 0 && rows_to_return.GetRanges().back().end >= metadata->num_rows()) {
+    if (rows_to_return.RowCount() != 0 && rows_to_return.LastRow() >= metadata->num_rows()) {
       return Status::Invalid("The provided row range " + rows_to_return.ToString() +
                              " exceeds the number of rows in the file: " +
                              std::to_string(metadata->num_rows()));
@@ -371,20 +370,19 @@ class FileReaderImpl : public FileReader {
       split_points.push_back(rows_so_far);
     }
     // We'll assign a RowRanges for each RG, even if it's not required to return any rows
-    const std::vector<RowRanges> splits = rows_to_return.SplitAt(split_points);
-    // Call row_ranges_map because array index is the row group index
-    const std::shared_ptr<std::vector<RowRanges>> row_ranges_map =
-        std::make_shared<std::vector<RowRanges>>();
+    const std::vector<IntervalRanges> splits = rows_to_return.SplitAt(split_points);
+    const std::shared_ptr<std::vector<IntervalRanges>> row_ranges_per_rg =
+        std::make_shared<std::vector<IntervalRanges>>();
     rows_so_far = 0;
     std::vector<int> row_group_indices;
     for (int i = 0 ; i < metadata->num_row_groups(); i++) {
-      row_ranges_map->push_back(splits[i].shift(-rows_so_far));
+      row_ranges_per_rg->push_back(splits[i].shift(-rows_so_far));
       rows_so_far += metadata->RowGroup(i)->num_rows();
-      if (row_ranges_map->at(i).RowCount() > 0)
+      if (row_ranges_per_rg->at(i).RowCount() > 0)
         row_group_indices.push_back(i);
     }
 
-    return GetRecordBatchReaderWithRowRanges(row_group_indices, column_indices, row_ranges_map, out);
+    return GetRecordBatchReaderWithRowRanges(row_group_indices, column_indices, row_ranges_per_rg, out);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
@@ -504,38 +502,59 @@ class RowGroupReaderImpl : public RowGroupReader {
 // ----------------------------------------------------------------------
 // Column reader implementations
 
-struct RowRangesPageFilter {
-  explicit RowRangesPageFilter(const RowRanges& row_ranges_,
-                               const std::shared_ptr<RowRanges>& page_ranges_)
-      : row_ranges(row_ranges_), page_ranges(page_ranges_) {
+// Only support IntervalRange case for now
+class RowRangesPageFilter {
+ public:
+  RowRangesPageFilter(const RowRanges& row_ranges, const std::shared_ptr<RowRanges>& page_ranges)
+    : row_ranges_(row_ranges), page_ranges_(page_ranges) {
+  }
 
-    if (page_ranges == nullptr || page_ranges->GetRanges().size() == 0) {
-      throw ParquetException("Page ranges is empty");
-    }
+  // To avoid error "std::function target must be copy-constructible", we must define copy constructor
+  RowRangesPageFilter(const RowRangesPageFilter& other)
+    : row_ranges_(other.row_ranges_), page_ranges_(other.page_ranges_) {
   }
 
   bool operator()(const DataPageStats& stats) {
-    ++page_range_idx;
 
-    IntervalRange current_page_range = (*page_ranges)[page_range_idx];
+    if (!initted) {
+      row_ranges_itr_ = row_ranges_.NewIterator();
+      page_ranges_itr_ = page_ranges_->NewIterator();
 
-    while (row_range_idx < row_ranges.GetRanges().size() &&
-           current_page_range.IsAfter(row_ranges[row_range_idx])) {
-      row_range_idx++;
+      current_row_range_ = row_ranges_itr_->NextRange();
+
+      if (current_row_range_.index() != 0) {
+        throw ParquetException("RowRangesPageFilter expects first NextRange() to be a IntervalRange");
+      }
+      initted = true;
     }
 
-    if (row_range_idx >= row_ranges.GetRanges().size()) {
+    current_page_range_ = page_ranges_itr_->NextRange();
+    if (current_page_range_.index() != 0) {
+      throw ParquetException("RowRangesPageFilter expects first NextRange() to be a IntervalRange");
+    }
+
+    while (current_row_range_.index() == 0 &&
+           std::get<IntervalRange>(current_page_range_).IsAfter(
+             std::get<IntervalRange>(current_row_range_))) {
+      current_row_range_ = row_ranges_itr_->NextRange();
+    }
+
+    if (current_row_range_.index() != 0) {
       return true;
     }
 
-    return current_page_range.IsBefore(row_ranges[row_range_idx]);
+    return std::get<IntervalRange>(current_page_range_).IsBefore(
+      std::get<IntervalRange>(current_row_range_));
   }
 
-  size_t row_range_idx = 0;
-  const RowRanges & row_ranges;
-
-  int page_range_idx = -1;
-  const std::shared_ptr<RowRanges> page_ranges;
+ private:
+  const RowRanges& row_ranges_;
+  const std::shared_ptr<RowRanges> page_ranges_;
+  std::unique_ptr<RowRanges::Iterator> row_ranges_itr_ = NULLPTR;
+  std::unique_ptr<RowRanges::Iterator> page_ranges_itr_ = NULLPTR;
+  std::variant<IntervalRange, BitmapRange, End> current_row_range_ = End();
+  std::variant<IntervalRange, BitmapRange, End> current_page_range_ = End();
+  bool initted = false;
 };
 
 // Leaf reader is for primitive arrays and primitive children of nested arrays
@@ -600,8 +619,8 @@ class LeafReader : public ColumnReaderImpl {
  private:
   std::shared_ptr<ChunkedArray> out_;
 
-  void checkAndGetPageRanges(const RowRanges & row_ranges,
-                             std::shared_ptr<RowRanges>& page_ranges) const {
+  void checkAndGetPageRanges(const IntervalRanges& row_ranges,
+                             std::shared_ptr<IntervalRanges>& page_ranges) const {
     // check offset exists
     const auto rg_pg_index_reader =
         ctx_->reader->GetPageIndexReader()->RowGroup(input_->current_row_group());
@@ -622,7 +641,7 @@ class LeafReader : public ColumnReaderImpl {
     }
 
     const auto page_locations = offset_index->page_locations();
-    page_ranges = std::make_shared<RowRanges>();
+    page_ranges = std::make_shared<IntervalRanges>();
     for (size_t i = 0; i < page_locations.size() - 1; i++) {
       page_ranges->Add(
           {page_locations[i].first_row_index, page_locations[i + 1].first_row_index - 1});
@@ -634,8 +653,8 @@ class LeafReader : public ColumnReaderImpl {
                1});
     }
 
-    if (row_ranges.GetRanges().size() > 0) {
-      if (row_ranges.GetRanges().back().end > page_ranges->GetRanges().back().end) {
+    if (row_ranges.RowCount() > 0) {
+      if (row_ranges.LastRow() > page_ranges->LastRow()) {
         throw ParquetException(
             "The provided row range " + row_ranges.ToString() +
             " exceeds last page :" + page_ranges->GetRanges().back().ToString());
@@ -647,14 +666,17 @@ class LeafReader : public ColumnReaderImpl {
     std::unique_ptr<PageReader> page_reader = input_->NextChunk();
 
     /// using page index to reduce cost
-    if (page_reader != nullptr && ctx_->row_ranges_map) {
+    if (page_reader != nullptr && ctx_->row_ranges_per_rg) {
       // reset skipper
       record_reader_->set_record_skipper(NULLPTR);
 
-      const auto & row_ranges = (*ctx_->row_ranges_map)[input_->current_row_group()];
+      const auto & row_ranges = (*ctx_->row_ranges_per_rg)[input_->current_row_group()];
       if (row_ranges.RowCount() != 0) {
+        // BitmapRange is not supported yet, the following implementations
+        // are based on ItervalRanges assumption !!!
+
         // if specific row range is provided for this rg
-        std::shared_ptr<RowRanges> page_ranges;
+        std::shared_ptr<IntervalRanges> page_ranges;
         checkAndGetPageRanges(row_ranges, page_ranges);
 
         // part 1, skip decompressing & decoding unnecessary pages
@@ -1142,7 +1164,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
 Status FileReaderImpl::GetRecordBatchReaderWithRowRanges(
     const std::vector<int>& row_groups, const std::vector<int>& column_indices,
-    const std::shared_ptr<std::vector<RowRanges>> & row_ranges_map,
+    const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
     std::unique_ptr<RecordBatchReader>* out) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
@@ -1156,7 +1178,7 @@ Status FileReaderImpl::GetRecordBatchReaderWithRowRanges(
 
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> batch_schema;
-  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, row_ranges_map, &readers,
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups, row_ranges_per_rg, &readers,
                                 &batch_schema));
 
   if (readers.empty()) {

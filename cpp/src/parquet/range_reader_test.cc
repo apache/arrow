@@ -34,7 +34,7 @@
 #include <string>
 
 using parquet::IntervalRange;
-using parquet::RowRanges;
+using parquet::IntervalRanges;
 
 std::string random_string(std::string::size_type length) {
   static auto& chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -279,7 +279,7 @@ TEST_F(TestRecordBatchReaderWithRanges, TestRangesSplit) {}
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{IntervalRange{0, 9}, IntervalRange{40, 49}, IntervalRange{80, 89}, IntervalRange{90, 99}}};
+  IntervalRanges rows{{IntervalRange{0, 9}, IntervalRange{40, 49}, IntervalRange{80, 89}, IntervalRange{90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -290,7 +290,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{IntervalRange{0, 7}, IntervalRange{16, 23}}};
+  IntervalRanges rows{{IntervalRange{0, 7}, IntervalRange{16, 23}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -301,7 +301,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89}, IntervalRange{90, 99}}};
+  IntervalRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89}, IntervalRange{90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -312,7 +312,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{};
+  IntervalRanges rows{};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   const auto status =
@@ -330,7 +330,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
-    ASSERT_OK(arrow_reader->GetRecordBatchReader(RowRanges(ranges), column_indices,
+    ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
                                                  &rb_reader));
 
     check_rb(std::move(rb_reader), 15, 210);  // 0 + 2 + ... + 28 = 210
@@ -348,7 +348,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
-    ASSERT_OK(arrow_reader->GetRecordBatchReader(RowRanges(ranges), column_indices,
+    ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
                                                  &rb_reader));
 
     check_rb(std::move(rb_reader), 30,
@@ -359,7 +359,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
 TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   {
-    RowRanges rows{{IntervalRange{-1, 5}}};
+    IntervalRanges rows{{IntervalRange{-1, 5}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -370,7 +370,7 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   }
 
   {
-    RowRanges rows{{IntervalRange{0, 4}, {2, 5}}};
+    IntervalRanges rows{{IntervalRange{0, 4}, {2, 5}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -381,7 +381,7 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   }
   {
     // will treat as {0,99}
-    RowRanges rows{{IntervalRange{0, 100}}};
+    IntervalRanges rows{{IntervalRange{0, 100}}};
     const std::vector column_indices{0, 1, 2, 3, 4};
     const auto status =
         arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
@@ -430,7 +430,7 @@ TEST(TestRecordBatchReaderWithRangesBadCases, NoPageIndex) {
   ASSERT_OK_AND_ASSIGN(auto arrow_reader, reader_builder.Build());
 
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  RowRanges rows{{IntervalRange{0, 29}}};
+  IntervalRanges rows{{IntervalRange{0, 29}}};
   std::vector column_indices{0, 1, 2, 3, 4};
   auto status = arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
   ASSERT_NOT_OK(status);
@@ -479,7 +479,7 @@ TEST_F(TestRecordBatchReaderWithRangesWithNulls, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
-    ASSERT_OK(arrow_reader->GetRecordBatchReader(RowRanges(ranges), column_indices,
+    ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
                                                  &rb_reader));
 
     // 0-9 is masked as null, so the ramaining is:

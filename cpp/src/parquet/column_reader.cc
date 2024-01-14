@@ -1998,7 +1998,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     }
 
     while (true) {
-      const auto advise = skipper->advise_next(current_rg_processed_records);
+      const auto advise = skipper->AdviseNext(current_rg_processed_records);
       if (advise == 0) {
         return 0;
       }

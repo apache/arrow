@@ -21,7 +21,7 @@ using namespace parquet;
 
 class RowRangesTest : public ::testing::Test {
  protected:
-  RowRanges rowRanges;
+  IntervalRanges rowRanges;
 };
 
 TEST_F(RowRangesTest, SplitAt_EmptySplitPoints_ReturnsOriginalRowRanges) {
