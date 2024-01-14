@@ -674,7 +674,12 @@ find_cmake <- function(paths = c(
       } else {
         # Keep trying
         lg("Not using cmake found at %s", path, .indent = "****")
-        lg("Version >= %s required; found %s", version_required, found_version,.indent = "*****")
+        if (found_version > 0) {
+          lg("Version >= %s required; found %s", version_required, found_version, .indent = "*****")
+        } else {
+          # If cmake_version() couldn't determine version, it returns 0
+          lg("Could not determine version; >= %s required", version_required, .indent = "*****")
+        }
       }
     }
   }
