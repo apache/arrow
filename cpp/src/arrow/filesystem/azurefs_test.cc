@@ -946,6 +946,19 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), empty_container, FileType::NotFound);
     AssertFileInfo(fs(), new_empty_container, FileType::Directory);
   }
+
+  void TestMoveContainerToPath() {
+    auto data = SetUpPreexistingData();
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
+        fs()->Move("missing-container", data.ContainerPath("new-subdir")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Cannot Move to '" + data.ContainerPath("new-subdir") +
+                             "' and make '" + data.container_name +
+                             "' a sub-directory of itself."),
+        fs()->Move(data.container_name, data.ContainerPath("new-subdir")));
+  }
 };
 
 void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {
@@ -1201,6 +1214,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexisten
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, RenameContainer) {
   this->TestRenameContainer();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, MoveContainerToPath) {
+  this->TestMoveContainerToPath();
 }
 
 // Tests using Azurite (the local Azure emulator)

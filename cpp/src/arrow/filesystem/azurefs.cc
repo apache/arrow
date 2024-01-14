@@ -310,6 +310,18 @@ Status ValidateFileLocation(const AzureLocation& location) {
   return internal::AssertNoTrailingSlash(location.path);
 }
 
+Status InvalidDirMoveToSubdir(const AzureLocation& src, const AzureLocation& dest) {
+  return Status::Invalid("Cannot Move to '", dest.all, "' and make '", src.all,
+                         "' a sub-directory of itself.");
+}
+
+Status CrossContainerMoveNotImplemented(const AzureLocation& src,
+                                        const AzureLocation& dest) {
+  return Status::NotImplemented(
+      "Move of '", src.all, "' to '", dest.all,
+      "' requires moving data between containers, which is not implemented.");
+}
+
 bool IsContainerNotFound(const Storage::StorageException& e) {
   // In some situations, only the ReasonPhrase is set and the
   // ErrorCode is empty, so we check both.
@@ -2116,20 +2128,42 @@ class AzureFileSystem::Impl {
   Status MoveContainerToPath(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    // Check Move pre-condition 1 -- `src` must exist.
+    auto container_client = GetBlobContainerClient(src.container);
+    ARROW_ASSIGN_OR_RAISE(auto src_info,
+                          GetContainerPropsAsFileInfo(src, container_client));
+    if (src_info.type() == FileType::NotFound) {
+      return PathNotFound(src);
+    }
+    // Check Move pre-condition 2.
+    if (src.container == dest.container) {
+      return InvalidDirMoveToSubdir(src, dest);
+    }
+    // Instead of checking more pre-conditions, we just abort with a
+    // NotImplemented status.
+    return CrossContainerMoveNotImplemented(src, dest);
   }
 
-  Status CreateContainerFromPath(const AzureLocation& src,
-                                 const std::string& dest_container) {
+  Status CreateContainerFromPath(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
-    DCHECK(!dest_container.empty());
+    DCHECK(!dest.empty() && dest.path.empty());
+    return CrossContainerMoveNotImplemented(src, dest);
+  }
+
+  Status MovePathsWithinContainer(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    DCHECK_EQ(src.container, dest.container);
     return Status::NotImplemented("The Azure FileSystem is not fully implemented");
   }
 
   Status MovePaths(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    if (src.container == dest.container) {
+      return MovePathsWithinContainer(src, dest);
+    }
+    return CrossContainerMoveNotImplemented(src, dest);
   }
 
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
@@ -2324,7 +2358,7 @@ Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
     return impl_->MoveContainerToPath(src_location, dest_location);
   }
   if (dest_location.path.empty()) {
-    return impl_->CreateContainerFromPath(src_location, dest_location.container);
+    return impl_->CreateContainerFromPath(src_location, dest_location);
   }
   return impl_->MovePaths(src_location, dest_location);
 }
