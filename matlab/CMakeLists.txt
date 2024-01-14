@@ -131,6 +131,14 @@ if(NOT Arrow_FOUND)
   build_arrow()
 endif()
 
+# Identify MATLAB build mode (Debug or Release)
+if(WIN32)
+  execute_process(COMMAND dumpbin /dependents ${Matlab_MAIN_PROGRAM} OUTPUT_VARIABLE DEPENDENTS)
+  if(DEPENDENTS MATCHES "MSVCP\\d+.dll")
+    message(FATAL_ERROR "Error: Building in Debug mode is not allowed because MATLAB is built with Release mode. Please switch to Release mode.")
+  endif()
+endif()
+
 # MATLAB is Required
 find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
 
