@@ -224,8 +224,10 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
             uint64_t key_right = key_right_ptr[i];
             result_or |= key_left ^ key_right;
           }
-          uint64_t key_left = util::SafeLoad(key_left_ptr + i);
-          uint64_t key_right = key_right_ptr[i];
+          uint64_t key_left = 0;
+          memcpy(&key_left, key_left_ptr + i, length - num_loops_less_one * 8);
+          uint64_t key_right = 0;
+          memcpy(&key_right, key_right_ptr + i, length - num_loops_less_one * 8);
           result_or |= tail_mask & (key_left ^ key_right);
           return result_or == 0 ? 0xff : 0;
         });
