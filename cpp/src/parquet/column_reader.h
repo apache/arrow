@@ -340,7 +340,7 @@ struct IntervalRange {
   bool IsValid() const { return start >= 0 && end >= 0 && end >= start; }
 
   std::string ToString() const {
-    return "[" + std::to_string(start) + ", " + std::to_string(end) + "]";
+    return "(" + std::to_string(start) + ", " + std::to_string(end) + ")";
   }
 
   // inclusive
@@ -365,6 +365,7 @@ class RowRanges {
   virtual size_t RowCount() const = 0;
   virtual int64_t LastRow() const = 0;
   virtual bool IsValid() const = 0;
+  virtual std::string ToString() const = 0;
 
   // Returns a vector of PageLocations that must be read all to get values for
   // all included in this range virtual std::vector<PageLocation>
@@ -533,11 +534,10 @@ class IntervalRanges : public RowRanges {
     return result;
   }
 
-  std::string ToString() const {
+  std::string ToString() const override {
     std::string result = "[";
     for (const IntervalRange& range : ranges_) {
-      result +=
-          "(" + std::to_string(range.start) + ", " + std::to_string(range.end) + "), ";
+      result += range.ToString() + ", ";
     }
     if (!ranges_.empty()) {
       result = result.substr(0, result.size() - 2);

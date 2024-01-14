@@ -619,7 +619,7 @@ class LeafReader : public ColumnReaderImpl {
  private:
   std::shared_ptr<ChunkedArray> out_;
 
-  void checkAndGetPageRanges(const IntervalRanges& row_ranges,
+  void checkAndGetPageRanges(const RowRanges& row_ranges,
                              std::shared_ptr<IntervalRanges>& page_ranges) const {
     // check offset exists
     const auto rg_pg_index_reader =
@@ -671,11 +671,10 @@ class LeafReader : public ColumnReaderImpl {
       record_reader_->set_record_skipper(NULLPTR);
 
       const auto & row_ranges = (*ctx_->row_ranges_per_rg)[input_->current_row_group()];
+      // if specific row range is provided for this rg
       if (row_ranges.RowCount() != 0) {
-        // BitmapRange is not supported yet, the following implementations
-        // are based on ItervalRanges assumption !!!
 
-        // if specific row range is provided for this rg
+        // Use IntervalRanges to represent pages
         std::shared_ptr<IntervalRanges> page_ranges;
         checkAndGetPageRanges(row_ranges, page_ranges);
 
