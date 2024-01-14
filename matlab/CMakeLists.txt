@@ -135,7 +135,7 @@ endif()
 if(WIN32)
   execute_process(COMMAND dumpbin /dependents ${Matlab_MAIN_PROGRAM} OUTPUT_VARIABLE DEPENDENTS)
   if(DEPENDENTS MATCHES "MSVCP\\d+.dll")
-    message(FATAL_ERROR "Error: Building in Debug mode is not allowed because MATLAB is built with Release mode. Please switch to Release mode.")
+    message(FATAL_ERROR "You can't build this with Debug because MATLAB is built with Release. You must use Release")
   endif()
 endif()
 
