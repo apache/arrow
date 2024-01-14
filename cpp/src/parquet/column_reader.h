@@ -365,6 +365,7 @@ class RowRanges {
   virtual size_t RowCount() const = 0;
   virtual int64_t LastRow() const = 0;
   virtual bool IsValid() const = 0;
+  virtual bool IsOverlapping(const IntervalRange& searchRange) const = 0;
   virtual std::string ToString() const = 0;
 
   // Returns a vector of PageLocations that must be read all to get values for
@@ -471,7 +472,7 @@ class IntervalRanges : public RowRanges {
     return IsOverlapping(searchRange);
   }
 
-  bool IsOverlapping(const IntervalRange& searchRange) const {
+  bool IsOverlapping(const IntervalRange& searchRange) const override {
     auto it = std::lower_bound(
         ranges_.begin(), ranges_.end(), searchRange,
         [](const IntervalRange& r1, const IntervalRange& r2) { return r1.IsBefore(r2); });
@@ -546,8 +547,6 @@ class IntervalRanges : public RowRanges {
     return result;
   }
 
-
-
  private:
   std::vector<IntervalRange> ranges_;
 };
@@ -555,12 +554,11 @@ class IntervalRanges : public RowRanges {
 namespace internal {
 class PARQUET_EXPORT RecordSkipper {
  public:
-  RecordSkipper(IntervalRanges& pages, const IntervalRanges& row_ranges)
-      : row_ranges_(row_ranges) {
+  RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges) {
     // copy row_ranges
     IntervalRanges skip_pages;
     for (auto& page : pages.GetRanges()) {
-      if (!row_ranges.IsOverlapping(page)) {
+      if (!orig_row_ranges.IsOverlapping(page)) {
         skip_pages.Add(page);
       }
     }
@@ -568,7 +566,9 @@ class PARQUET_EXPORT RecordSkipper {
     /// Since the skipped pages will be silently skipped without updating
     /// current_rg_processed_records or records_read_, we need to pre-process the row
     /// ranges as if these skipped pages never existed
-    AdjustRanges(skip_pages, row_ranges_);
+    AdjustRanges(skip_pages, orig_row_ranges, row_ranges_);
+    range_iter_ = row_ranges_->NewIterator();
+    current_range_variant = range_iter_->NextRange();
 
     total_rows_to_process_ = pages.RowCount() - skip_pages.RowCount();
   }
@@ -578,47 +578,56 @@ class PARQUET_EXPORT RecordSkipper {
   /// if return values is negative, it means to skip N records
   /// if return values is 0, it means end of RG
   int64_t AdviseNext(const int64_t current_rg_processed) {
-    if (row_ranges_.GetRanges().size() == row_range_idx_) {
+    if (current_range_variant.index() == 2) {
       return 0;
     }
 
-    if (row_ranges_[row_range_idx_].end < current_rg_processed) {
-      row_range_idx_++;
-      if (row_ranges_.GetRanges().size() == row_range_idx_) {
+    auto & current_range = std::get<IntervalRange>(current_range_variant);
+
+    if (current_range.end < current_rg_processed) {
+      current_range_variant = range_iter_->NextRange();
+      if (current_range_variant.index() == 2) {
         // negative, skip the ramaining rows
         return current_rg_processed - total_rows_to_process_;
       }
     }
 
-    if (row_ranges_[row_range_idx_].start > current_rg_processed) {
+    current_range = std::get<IntervalRange>(current_range_variant);
+
+    if (current_range.start > current_rg_processed) {
       // negative, skip
-      return current_rg_processed - row_ranges_[row_range_idx_].start;
+      return current_rg_processed - current_range.start;
     }
 
-    const auto ret = row_ranges_[row_range_idx_].end - current_rg_processed + 1;
+    const auto ret = current_range.end - current_rg_processed + 1;
     return ret;
   }
 
- private:
-  void AdjustRanges(IntervalRanges& skip_pages, IntervalRanges& to_adjust) {
+private:
+  void AdjustRanges(IntervalRanges& skip_pages, const RowRanges& orig_row_ranges, std::unique_ptr<RowRanges>& ret) {
+    std::unique_ptr<IntervalRanges> temp = std::make_unique<IntervalRanges>();
+
     size_t skipped_rows = 0;
-    auto iter = to_adjust.GetRanges().begin();
+    const auto orig_range_iter = orig_row_ranges.NewIterator();
+    auto orig_range_variant = orig_range_iter->NextRange();
     auto skip_iter = skip_pages.GetRanges().begin();
-    while (iter != to_adjust.GetRanges().end()) {
-      while (skip_iter != skip_pages.GetRanges().end() && skip_iter->IsBefore(*iter)) {
+    while (orig_range_variant.index() != 2) {
+      const auto & origin_range = std::get<IntervalRange>(orig_range_variant);
+      while (skip_iter != skip_pages.GetRanges().end() && skip_iter->IsBefore(origin_range)) {
         skipped_rows += skip_iter->Count();
         ++skip_iter;
       }
-      iter->start -= skipped_rows;
-      iter->end -= skipped_rows;
-      ++iter;
+
+      temp->Add(IntervalRange(origin_range.start - skipped_rows, origin_range.end - skipped_rows));
+      orig_range_variant = orig_range_iter->NextRange();
     }
+    ret = std::move(temp);
   }
 
-  /// Keep copy of ranges, because AdjustRanges() will modify them
-  IntervalRanges row_ranges_;
+  std::unique_ptr<RowRanges> row_ranges_;
+  std::unique_ptr<RowRanges::Iterator> range_iter_;
+  std::variant<IntervalRange, BitmapRange, End> current_range_variant = End();
 
-  size_t row_range_idx_ = 0;
   size_t total_rows_to_process_ = 0;
 };
 
