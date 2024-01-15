@@ -724,21 +724,25 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     for (int64_t requested_index = 0; requested_index < indices.length();
          ++requested_index) {
       uint64_t index;
-      switch (indices.type()->byte_width()) {
-        case 1:
+      switch (indices.type()->id()) {
+        case Type::UINT8:
+        case Type::INT8:
           index = static_cast<UInt8Array const&>(indices).Value(requested_index);
           break;
-        case 2:
+        case Type::UINT16:
+        case Type::INT16:
           index = static_cast<UInt16Array const&>(indices).Value(requested_index);
           break;
-        case 4:
+        case Type::UINT32:
+        case Type::INT32:
           index = static_cast<UInt32Array const&>(indices).Value(requested_index);
           break;
-        case 8:
+        case Type::UINT64:
+        case Type::INT64:
           index = static_cast<UInt64Array const&>(indices).Value(requested_index);
           break;
         default:
-          DCHECK(false) << "Invalid indices byte width";
+          DCHECK(false) << "Invalid indices types " << indices.type()->ToString();
           break;
       }
 
