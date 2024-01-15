@@ -205,7 +205,7 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReader(
       int i, const std::shared_ptr<std::unordered_set<int>>& included_leaves,
       const std::vector<int>& row_groups,
-      const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
+      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> & row_ranges_per_rg,
       std::unique_ptr<ColumnReaderImpl>* out) {
     // Should be covered by GetRecordBatchReader checks but
     // manifest_.schema_fields is a separate variable so be extra careful.
@@ -222,13 +222,13 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
-    ctx->row_ranges_per_rg = row_ranges_per_rg;
+    ctx->row_ranges_per_rg = row_ranges_per_rg; // copy the shared pointer to extend its lifecycle
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
   Status GetFieldReaders(
       const std::vector<int>& column_indices, const std::vector<int>& row_groups,
-      const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
+      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> & row_ranges_per_rg,
       std::vector<std::shared_ptr<ColumnReaderImpl>>* out,
       std::shared_ptr<::arrow::Schema>* out_schema) {
     // We only need to read schema fields which have columns indicated
@@ -344,10 +344,10 @@ class FileReaderImpl : public FileReader {
   // This is a internal API owned by FileReaderImpl, not exposed in FileReader
   Status GetRecordBatchReaderWithRowRanges(const std::vector<int>& row_group_indices,
                                            const std::vector<int>& column_indices,
-                                           const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
+                                           const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> & row_ranges_per_rg,
                                            std::unique_ptr<RecordBatchReader>* out);
 
-  Status GetRecordBatchReader(const IntervalRanges& rows_to_return,
+  Status GetRecordBatchReader(const RowRanges& rows_to_return,
                               const std::vector<int>& column_indices,
                               std::unique_ptr<RecordBatchReader>* out) override {
     const auto metadata = reader_->metadata();
@@ -362,27 +362,24 @@ class FileReaderImpl : public FileReader {
                              " exceeds the number of rows in the file: " +
                              std::to_string(metadata->num_rows()));
     }
+    if (rows_to_return.RowCount() == 0) {
+      return GetRecordBatchReaderWithRowRanges({}, column_indices, {}, out);
+    }
 
-    std::vector<int64_t> split_points;
-    int64_t rows_so_far = 0;
-    for (int i = 0 ; i < metadata->num_row_groups() - 1; i++) {
-      rows_so_far += metadata->RowGroup(i)->num_rows();
-      split_points.push_back(rows_so_far);
+    std::vector<int64_t> rows_per_rg;
+    for (int i = 0 ; i < metadata->num_row_groups(); i++) {
+      rows_per_rg.push_back( metadata->RowGroup(i)->num_rows());
     }
     // We'll assign a RowRanges for each RG, even if it's not required to return any rows
-    const std::vector<IntervalRanges> splits = rows_to_return.SplitAt(split_points);
-    const std::shared_ptr<std::vector<IntervalRanges>> row_ranges_per_rg =
-        std::make_shared<std::vector<IntervalRanges>>();
-    rows_so_far = 0;
+    std::vector<std::unique_ptr<RowRanges>> row_ranges_per_rg = rows_to_return.SplitByRowGroups(rows_per_rg);
     std::vector<int> row_group_indices;
     for (int i = 0 ; i < metadata->num_row_groups(); i++) {
-      row_ranges_per_rg->push_back(splits[i].shift(-rows_so_far));
-      rows_so_far += metadata->RowGroup(i)->num_rows();
-      if (row_ranges_per_rg->at(i).RowCount() > 0)
+      if (row_ranges_per_rg.at(i)->RowCount() > 0)
         row_group_indices.push_back(i);
     }
 
-    return GetRecordBatchReaderWithRowRanges(row_group_indices, column_indices, row_ranges_per_rg, out);
+    return GetRecordBatchReaderWithRowRanges(row_group_indices, column_indices,
+      std::make_shared<std::vector<std::unique_ptr<RowRanges>>>(std::move(row_ranges_per_rg)), out);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
@@ -502,7 +499,9 @@ class RowGroupReaderImpl : public RowGroupReader {
 // ----------------------------------------------------------------------
 // Column reader implementations
 
-// Only support IntervalRange case for now
+// This class is used to skip decompressing & decoding unnecessary pages by comparing user-specified row_ranges
+// and page_ranges from metadata.
+// Only support IntervalRange case for now.
 class RowRangesPageFilter {
  public:
   RowRangesPageFilter(const RowRanges& row_ranges, const std::shared_ptr<RowRanges>& page_ranges)
@@ -672,20 +671,20 @@ class LeafReader : public ColumnReaderImpl {
 
       const auto & row_ranges = (*ctx_->row_ranges_per_rg)[input_->current_row_group()];
       // if specific row range is provided for this rg
-      if (row_ranges.RowCount() != 0) {
+      if (row_ranges->RowCount() != 0) {
 
         // Use IntervalRanges to represent pages
         std::shared_ptr<IntervalRanges> page_ranges;
-        checkAndGetPageRanges(row_ranges, page_ranges);
+        checkAndGetPageRanges(*row_ranges, page_ranges);
 
         // part 1, skip decompressing & decoding unnecessary pages
         page_reader->set_data_page_filter(
-            RowRangesPageFilter(row_ranges, page_ranges));
+            RowRangesPageFilter(*row_ranges, page_ranges));
 
         // part 2, skip unnecessary rows in necessary pages
         record_reader_->set_record_skipper(
             std::make_shared<parquet::internal::RecordSkipper>(*page_ranges,
-                                                               row_ranges));
+                                                               *row_ranges));
       } else {
         NextRowGroup();
         return;
@@ -1163,7 +1162,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>&
 
 Status FileReaderImpl::GetRecordBatchReaderWithRowRanges(
     const std::vector<int>& row_groups, const std::vector<int>& column_indices,
-    const std::shared_ptr<std::vector<IntervalRanges>> & row_ranges_per_rg,
+    const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> & row_ranges_per_rg,
     std::unique_ptr<RecordBatchReader>* out) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 

@@ -24,79 +24,172 @@ class RowRangesTest : public ::testing::Test {
   IntervalRanges rowRanges;
 };
 
-TEST_F(RowRangesTest, SplitAt_EmptySplitPoints_ReturnsOriginalRowRanges) {
+TEST_F(RowRangesTest, EmptyRG_ReturnsOriginalRowRanges) {
   rowRanges.Add(IntervalRange(0, 10));
-  std::vector<int64_t> split_points;
+  std::vector<int64_t> rows_per_rg;
 
-  auto result = rowRanges.SplitAt(split_points);
-
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 1);
-  ASSERT_EQ(result[0].GetRanges().size(), 1);
-  ASSERT_EQ(result[0][0].start, 0);
-  ASSERT_EQ(result[0][0].end, 10);
+
+  auto iter = result[0]->NewIterator();
+  auto range = std::get<IntervalRange>(iter->NextRange());
+  ASSERT_EQ(range.start, 0);
+  ASSERT_EQ(range.end, 10);
+  ASSERT_EQ(iter->NextRange().index(), 2);
 }
 
-TEST_F(RowRangesTest, SplitAt_SingleSplitPoint_ReturnsTwoRowRanges) {
+TEST_F(RowRangesTest, SingleRG_ReturnsOriginalRowRanges2) {
   rowRanges.Add(IntervalRange(0, 10));
-  std::vector<int64_t> split_points = {5};
+  std::vector<int64_t> rows_per_rg = {11};
 
-  auto result = rowRanges.SplitAt(split_points);
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  ASSERT_EQ(result.size(), 1);
 
+  auto iter = result[0]->NewIterator();
+  auto range = std::get<IntervalRange>(iter->NextRange());
+  ASSERT_EQ(range.start, 0);
+  ASSERT_EQ(range.end, 10);
+  ASSERT_EQ(iter->NextRange().index(), 2);
+}
+
+TEST_F(RowRangesTest, ReturnsTwoRowRanges) {
+  rowRanges.Add(IntervalRange(0, 10));
+  std::vector<int64_t> rows_per_rg = {5, 6};
+
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 2);
-  ASSERT_EQ(result[0].GetRanges().size(), 1);
-  ASSERT_EQ(result[0][0].start, 0);
-  ASSERT_EQ(result[0][0].end, 4);
-  ASSERT_EQ(result[1].GetRanges().size(), 1);
-  ASSERT_EQ(result[1][0].start, 5);
-  ASSERT_EQ(result[1][0].end, 10);
+  {
+    auto iter = result[0]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 4);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[1]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 5);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
 }
 
-TEST_F(RowRangesTest, SplitAt_MultipleSplitPoints_ReturnsMultipleRowRanges) {
-  rowRanges.Add(IntervalRange(0, 10));
-  std::vector<int64_t> split_points = {3, 7};
+TEST_F(RowRangesTest, ReturnsMultipleRowRanges) {
+  rowRanges.Add(IntervalRange(0, 11));
+  std::vector<int64_t> rows_per_rg = {3, 4, 100};
 
-  auto result = rowRanges.SplitAt(split_points);
-
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 3);
-  ASSERT_EQ(result[0].GetRanges().size(), 1);
-  ASSERT_EQ(result[0][0].start, 0);
-  ASSERT_EQ(result[0][0].end, 2);
-  ASSERT_EQ(result[1].GetRanges().size(), 1);
-  ASSERT_EQ(result[1][0].start, 3);
-  ASSERT_EQ(result[1][0].end, 6);
-  ASSERT_EQ(result[2].GetRanges().size(), 1);
-  ASSERT_EQ(result[2][0].start, 7);
-  ASSERT_EQ(result[2][0].end, 10);
+  {
+    auto iter = result[0]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 2);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[1]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 3);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[2]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 4);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
 }
 
-TEST_F(RowRangesTest, SplitAt_MultipleSplitPoints_ReturnWithEmptyRowRanges) {
+TEST_F(RowRangesTest, MultipleInputRange) {
+  rowRanges.Add(IntervalRange(0, 10));
+  rowRanges.Add(IntervalRange(90, 111));
+  rowRanges.Add(IntervalRange(191, 210));
+
+  std::vector<int64_t> rows_per_rg = {100, 100};
+
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  ASSERT_EQ(result.size(), 2);
+  {
+    auto iter = result[0]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 10);
+
+    range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 90);
+    ASSERT_EQ(range.end, 99);
+
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[1]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 11);
+
+    range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 91);
+    ASSERT_EQ(range.end, 99);
+
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+}
+
+TEST_F(RowRangesTest, MultipleSplitPoints_ReturnWithEmptyRowRanges) {
   rowRanges.Add(IntervalRange(11, 18));
-  std::vector<int64_t> split_points = {5, 10, 15, 20};
+  std::vector<int64_t> rows_per_rg = {5, 5, 5, 5, 5};
 
-  auto result = rowRanges.SplitAt(split_points);
-
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 5);
-  ASSERT_EQ(result[0].GetRanges().size(), 0);
-  ASSERT_EQ(result[1].GetRanges().size(), 0);
-  ASSERT_EQ(result[2].GetRanges().size(), 1);
-  ASSERT_EQ(result[2][0].start, 11);
-  ASSERT_EQ(result[2][0].end, 14);
-  ASSERT_EQ(result[3].GetRanges().size(), 1);
-  ASSERT_EQ(result[3][0].start, 15);
-  ASSERT_EQ(result[3][0].end, 18);
-  ASSERT_EQ(result[4].GetRanges().size(), 0);
+  {
+    auto iter = result[0]->NewIterator();
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[1]->NewIterator();
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[2]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 1);
+    ASSERT_EQ(range.end, 4);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[3]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 3);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[4]->NewIterator();
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
 }
 
-TEST_F(RowRangesTest, SplitAt_InvalidSplitPoint_ThrowsException) {
+TEST_F(RowRangesTest, RangeExceedRG) {
   rowRanges.Add(IntervalRange(0, 10));
-  std::vector<int64_t> split_points = {-1};
+  std::vector<int64_t> rows_per_rg = {5, 3};
 
-  ASSERT_THROW(rowRanges.SplitAt(split_points), ParquetException);
-}
-
-TEST_F(RowRangesTest, SplitAt_UnorderedSplitPoints_ThrowsException) {
-  rowRanges.Add(IntervalRange(0, 10));
-  std::vector<int64_t> split_points = {5, 3};
-
-  ASSERT_THROW(rowRanges.SplitAt(split_points), ParquetException);
+  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  ASSERT_EQ(result.size(), 2);
+  {
+    auto iter = result[0]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 4);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
+  {
+    auto iter = result[1]->NewIterator();
+    auto range = std::get<IntervalRange>(iter->NextRange());
+    ASSERT_EQ(range.start, 0);
+    ASSERT_EQ(range.end, 2);
+    ASSERT_EQ(iter->NextRange().index(), 2);
+  }
 }
