@@ -4188,8 +4188,6 @@ def _Int64Dtype__from_arrow__(self, array):
 
 
 def test_convert_to_extension_array(monkeypatch):
-    import pandas.core.internals as _int
-
     # table converted from dataframe with extension types (so pandas_metadata
     # has this information)
     df = pd.DataFrame(
@@ -4241,8 +4239,6 @@ class MyCustomIntegerType(pa.ExtensionType):
 
 def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
-    import pandas.core.internals as _int
-
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
