@@ -113,6 +113,10 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].replace(np.nan, None)
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", "elementwise comparison failed", DeprecationWarning)
@@ -151,6 +155,9 @@ def _check_array_roundtrip(values, expected=None, mask=None,
         else:
             expected = pd.Series(values).copy()
             expected[mask.copy()] = None
+
+    if expected.dtype == 'object':
+        expected = expected.replace(np.nan, None)
 
     tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
@@ -3491,7 +3498,7 @@ def test_table_from_pandas_schema_field_order_metadata():
     # ensure that a different field order in specified schema doesn't
     # mangle metadata
     df = pd.DataFrame({
-        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=2),
         "float": np.random.randn(2)
     })
 
