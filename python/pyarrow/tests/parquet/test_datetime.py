@@ -116,7 +116,7 @@ def test_coerce_timestamps(tempdir):
     df_expected = df.copy()
     for i, x in enumerate(df_expected['datetime64']):
         if isinstance(x, np.ndarray):
-            df_expected['datetime64'][i] = x.astype('M8[us]')
+            df_expected.loc[i, 'datetime64'] = x.astype('M8[us]')
 
     tm.assert_frame_equal(df_expected, df_read)
 
