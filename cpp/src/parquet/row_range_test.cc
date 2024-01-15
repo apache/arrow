@@ -21,14 +21,14 @@ using namespace parquet;
 
 class RowRangesTest : public ::testing::Test {
  protected:
-  IntervalRanges rowRanges;
+  IntervalRanges row_ranges;
 };
 
 TEST_F(RowRangesTest, EmptyRG_ReturnsOriginalRowRanges) {
-  rowRanges.Add(IntervalRange(0, 10));
+  row_ranges.Add(IntervalRange(0, 10));
   std::vector<int64_t> rows_per_rg;
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 1);
 
   auto iter = result[0]->NewIterator();
@@ -39,10 +39,10 @@ TEST_F(RowRangesTest, EmptyRG_ReturnsOriginalRowRanges) {
 }
 
 TEST_F(RowRangesTest, SingleRG_ReturnsOriginalRowRanges2) {
-  rowRanges.Add(IntervalRange(0, 10));
+  row_ranges.Add(IntervalRange(0, 10));
   std::vector<int64_t> rows_per_rg = {11};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 1);
 
   auto iter = result[0]->NewIterator();
@@ -53,10 +53,10 @@ TEST_F(RowRangesTest, SingleRG_ReturnsOriginalRowRanges2) {
 }
 
 TEST_F(RowRangesTest, ReturnsTwoRowRanges) {
-  rowRanges.Add(IntervalRange(0, 10));
+  row_ranges.Add(IntervalRange(0, 10));
   std::vector<int64_t> rows_per_rg = {5, 6};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 2);
   {
     auto iter = result[0]->NewIterator();
@@ -75,10 +75,10 @@ TEST_F(RowRangesTest, ReturnsTwoRowRanges) {
 }
 
 TEST_F(RowRangesTest, ReturnsMultipleRowRanges) {
-  rowRanges.Add(IntervalRange(0, 11));
+  row_ranges.Add(IntervalRange(0, 11));
   std::vector<int64_t> rows_per_rg = {3, 4, 100};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 3);
   {
     auto iter = result[0]->NewIterator();
@@ -104,13 +104,13 @@ TEST_F(RowRangesTest, ReturnsMultipleRowRanges) {
 }
 
 TEST_F(RowRangesTest, MultipleInputRange) {
-  rowRanges.Add(IntervalRange(0, 10));
-  rowRanges.Add(IntervalRange(90, 111));
-  rowRanges.Add(IntervalRange(191, 210));
+  row_ranges.Add(IntervalRange(0, 10));
+  row_ranges.Add(IntervalRange(90, 111));
+  row_ranges.Add(IntervalRange(191, 210));
 
   std::vector<int64_t> rows_per_rg = {100, 100};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 2);
   {
     auto iter = result[0]->NewIterator();
@@ -139,10 +139,10 @@ TEST_F(RowRangesTest, MultipleInputRange) {
 }
 
 TEST_F(RowRangesTest, MultipleSplitPoints_ReturnWithEmptyRowRanges) {
-  rowRanges.Add(IntervalRange(11, 18));
+  row_ranges.Add(IntervalRange(11, 18));
   std::vector<int64_t> rows_per_rg = {5, 5, 5, 5, 5};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 5);
   {
     auto iter = result[0]->NewIterator();
@@ -173,10 +173,10 @@ TEST_F(RowRangesTest, MultipleSplitPoints_ReturnWithEmptyRowRanges) {
 }
 
 TEST_F(RowRangesTest, RangeExceedRG) {
-  rowRanges.Add(IntervalRange(0, 10));
+  row_ranges.Add(IntervalRange(0, 10));
   std::vector<int64_t> rows_per_rg = {5, 3};
 
-  auto result = rowRanges.SplitByRowGroups(rows_per_rg);
+  auto result = row_ranges.SplitByRowGroups(rows_per_rg);
   ASSERT_EQ(result.size(), 2);
   {
     auto iter = result[0]->NewIterator();

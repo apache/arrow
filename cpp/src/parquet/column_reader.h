@@ -569,7 +569,7 @@ class PARQUET_EXPORT RecordReader {
   bool at_record_start_;
   int64_t records_read_;
 
-  int64_t current_rg_processed_records_;  // counting both read and skip records
+  int64_t current_rg_processed_records_ = 0;  // counting both read and skip records
 
   /// \brief Stores values. These values are populated based on each ReadRecords
   /// call. No extra values are buffered for the next call. SkipRecords will not
