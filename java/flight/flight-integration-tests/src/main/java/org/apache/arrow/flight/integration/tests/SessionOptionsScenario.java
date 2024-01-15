@@ -20,6 +20,7 @@ package org.apache.arrow.flight.integration.tests;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightClient;
@@ -68,53 +69,46 @@ final class SessionOptionsScenario implements Scenario {
           () -> client.getSessionOptions(new GetSessionOptionsRequest()));
 
       // Set
-      SetSessionOptionsRequest req1 = new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>() {
-          {
-            put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L));
-            put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f));
-            put("lol_invalid", SessionOptionValueFactory.makeSessionOptionValue("this won't get set"));
-            put("key_with_invalid_value", SessionOptionValueFactory.makeSessionOptionValue("lol_invalid"));
-            put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
-                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}));
-          }
-      });
+      SetSessionOptionsRequest req1 = new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
+          .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))
+          .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+          .put("lol_invalid", SessionOptionValueFactory.makeSessionOptionValue("this won't get set"))
+          .put("key_with_invalid_value", SessionOptionValueFactory.makeSessionOptionValue("lol_invalid"))
+          .put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
+              new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}))
+          .build());
       SetSessionOptionsResult res1 = client.setSessionOptions(req1);
       // Some errors
-      IntegrationAssertions.assertEquals(new HashMap<String, SetSessionOptionsResult.Error>() {
-          {
-            put("lol_invalid", new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
-            put("key_with_invalid_value", new SetSessionOptionsResult.Error(
-                SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
-          }
-          }, res1.getErrors());
+      IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
+            .put("lol_invalid", new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME))
+            .put("key_with_invalid_value", new SetSessionOptionsResult.Error(
+                SetSessionOptionsResult.ErrorValue.INVALID_VALUE))
+            .build(),
+          res1.getErrors());
       // Some set, some omitted due to errors
       GetSessionOptionsResult res2 = client.getSessionOptions(new GetSessionOptionsRequest());
-      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>() {
-          {
-            put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L));
-            put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f));
-            put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
-                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}));
-          }
-          }, res2.getSessionOptions());
+      IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
+            .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))
+            .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+            .put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
+                new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}))
+            .build(),
+          res2.getSessionOptions());
       // Update
-      client.setSessionOptions(new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>() {
-          {
-            // Delete
-            put("foolong", SessionOptionValueFactory.makeEmptySessionOptionValue());
-            // Update
-            put("big_ol_string_list",
-                SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"));
-          }
-      }));
+      client.setSessionOptions(new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
+          // Delete
+          .put("foolong", SessionOptionValueFactory.makeEmptySessionOptionValue())
+          // Update
+          .put("big_ol_string_list",
+              SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"))
+          .build()));
       GetSessionOptionsResult res4 = client.getSessionOptions(new GetSessionOptionsRequest());
-      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>() {
-        {
-          put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f));
-          put("big_ol_string_list",
-              SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"));
-        }
-      }, res4.getSessionOptions());
+      IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
+            .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+            .put("big_ol_string_list",
+                SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"))
+            .build(),
+          res4.getSessionOptions());
       // Close
       CloseSessionResult res5 = client.closeSession(new CloseSessionRequest());
       IntegrationAssertions.assertEquals(CloseSessionResult.Status.CLOSED, res5.getStatus());
