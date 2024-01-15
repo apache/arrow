@@ -23,14 +23,17 @@
 namespace arrow {
 namespace compute {
 
-using namespace arrow::util;
+using arrow::bit_util::BytesForBits;
+using arrow::internal::CpuInfo;
+using arrow::util::MiniBatch;
+using arrow::util::TempVectorStack;
 
 // Specialized case for GH-39577.
 TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   int fsb_length = 9;
   MemoryPool* pool = default_memory_pool();
   TempVectorStack stack;
-  ASSERT_OK(stack.Init(pool, 8 * util::MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
+  ASSERT_OK(stack.Init(pool, 8 * MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
 
   int num_rows = 7;
   auto column_right = ArrayFromJSON(fixed_size_binary(fsb_length), R"([
@@ -79,7 +82,7 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   std::vector<uint32_t> row_ids_left(num_rows);
   std::iota(row_ids_left.begin(), row_ids_left.end(), 0);
 
-  LightContext ctx{arrow::internal::CpuInfo::GetInstance()->hardware_flags(), &stack};
+  LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
 
   {
     uint32_t num_rows_no_match;
@@ -92,7 +95,7 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   }
 
   {
-    std::vector<uint8_t> match_bitvector(arrow::bit_util::BytesForBits(num_rows));
+    std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
     KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
                                      NULLPTR, NULLPTR, column_arrays_left, row_table,
                                      true, match_bitvector.data());
