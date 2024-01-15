@@ -366,6 +366,8 @@ add_parquet_test(reader-test
                  level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
+                 range_reader_test.cc
+                 row_range_test.cc
                  stream_reader_test.cc
                  test_util.cc)
 

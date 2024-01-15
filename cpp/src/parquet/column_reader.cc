@@ -1290,6 +1290,147 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
 }
 
 // ----------------------------------------------------------------------
+// RowRanges and ins implementations
+
+IntervalRanges::IntervalRanges() = default;
+
+IntervalRanges::IntervalRanges(const IntervalRange& range) { ranges_.push_back(range); }
+
+IntervalRanges::IntervalRanges(const std::vector<IntervalRange>& ranges) {
+  this->ranges_ = ranges;
+}
+
+std::unique_ptr<RowRanges::Iterator> IntervalRanges::NewIterator() const {
+  return std::make_unique<IntervalRowRangesIterator>(ranges_);
+}
+
+size_t IntervalRanges::RowCount() const {
+  size_t cnt = 0;
+  for (const IntervalRange& range : ranges_) {
+    cnt += range.Count();
+  }
+  return cnt;
+}
+
+int64_t IntervalRanges::LastRow() const { return ranges_.back().end; }
+
+bool IntervalRanges::IsValid() const {
+  if (ranges_.size() == 0) return true;
+  if (ranges_[0].start < 0) {
+    return false;
+  }
+  for (size_t i = 0; i < ranges_.size(); i++) {
+    if (!ranges_[i].IsValid()) {
+      return false;
+    }
+  }
+  for (size_t i = 1; i < ranges_.size(); i++) {
+    if (ranges_[i].start <= ranges_[i - 1].end) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool IntervalRanges::IsOverlapping(const IntervalRange& searchRange) const {
+  auto it = std::lower_bound(
+      ranges_.begin(), ranges_.end(), searchRange,
+      [](const IntervalRange& r1, const IntervalRange& r2) { return r1.IsBefore(r2); });
+  return it != ranges_.end() && !(*it).IsAfter(searchRange);
+}
+
+std::string IntervalRanges::ToString() const {
+  std::string result = "[";
+  for (const IntervalRange& range : ranges_) {
+    result += range.ToString() + ", ";
+  }
+  if (!ranges_.empty()) {
+    result = result.substr(0, result.size() - 2);
+  }
+  result += "]";
+  return result;
+}
+
+std::vector<std::unique_ptr<RowRanges>> IntervalRanges::SplitByRowGroups(
+    const std::vector<int64_t>& rows_per_rg) const {
+  if (rows_per_rg.size() <= 1) {
+    std::unique_ptr<RowRanges> single =
+        std::make_unique<IntervalRanges>(*this);  // return a copy of itself
+    auto ret = std::vector<std::unique_ptr<RowRanges>>();
+    ret.push_back(std::move(single));
+    return ret;
+  }
+
+  std::vector<std::unique_ptr<RowRanges>> result;
+
+  IntervalRanges spaces;
+  int64_t rows_so_far = 0;
+  for (size_t i = 0; i < rows_per_rg.size(); ++i) {
+    auto start = rows_so_far;
+    rows_so_far += rows_per_rg[i];
+    auto end = rows_so_far - 1;
+    spaces.Add({start, end});
+  }
+
+  // each RG's row range forms a space, we need to adjust RowRanges in each space to
+  // zero based.
+  for (IntervalRange space : spaces.GetRanges()) {
+    auto intersection = Intersection(IntervalRanges(space), *this);
+
+    std::unique_ptr<IntervalRanges> zero_based_ranges =
+        std::make_unique<IntervalRanges>();
+    for (const IntervalRange& range : intersection.GetRanges()) {
+      zero_based_ranges->Add({range.start - space.start, range.end - space.start});
+    }
+    result.push_back(std::move(zero_based_ranges));
+  }
+
+  return result;
+}
+
+IntervalRanges IntervalRanges::Intersection(const IntervalRanges& left,
+                                            const IntervalRanges& right) {
+  IntervalRanges result;
+
+  size_t rightIndex = 0;
+  for (const IntervalRange& l : left.ranges_) {
+    for (size_t i = rightIndex, n = right.ranges_.size(); i < n; ++i) {
+      const IntervalRange& r = right.ranges_[i];
+      if (l.IsBefore(r)) {
+        break;
+      } else if (l.IsAfter(r)) {
+        rightIndex = i + 1;
+        continue;
+      }
+      result.Add(IntervalRange::Intersection(l, r));
+    }
+  }
+
+  return result;
+}
+
+void IntervalRanges::Add(const IntervalRange& range) {
+  const IntervalRange rangeToAdd = range;
+  if (ranges_.size() > 1 && rangeToAdd.start <= ranges_.back().end) {
+    throw ParquetException("Ranges must be added in order");
+  }
+  ranges_.push_back(rangeToAdd);
+}
+
+const std::vector<IntervalRange>& IntervalRanges::GetRanges() const { return ranges_; }
+
+IntervalRowRangesIterator::IntervalRowRangesIterator(
+    const std::vector<IntervalRange>& ranges)
+    : ranges_(ranges) {}
+IntervalRowRangesIterator::~IntervalRowRangesIterator() {}
+
+std::variant<IntervalRange, BitmapRange, End> IntervalRowRangesIterator::NextRange() {
+  if (current_index_ >= ranges_.size()) return End();
+
+  return ranges_[current_index_++];
+}
+
+// ----------------------------------------------------------------------
 // RecordReader
 
 namespace internal {
@@ -1363,7 +1504,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t records_read = 0;
 
     if (has_values_to_process()) {
-      records_read += ReadRecordData(num_records);
+      records_read += ReadRecordDataWithSkipCheck(num_records);
     }
 
     int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -1417,11 +1558,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read);
+        records_read += ReadRecordDataWithSkipCheck(num_records - records_read);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size);
+        records_read += ReadRecordDataWithSkipCheck(batch_size);
       }
     }
 
@@ -1624,10 +1765,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Top level required field. Number of records equals to number of levels,
     // and there is not read-ahead for levels.
-    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
-      return this->Skip(num_records);
-    }
     int64_t skipped_records = 0;
+    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
+      skipped_records = this->Skip(num_records);
+      current_rg_processed_records_ += skipped_records;
+      return skipped_records;
+    }
     if (this->max_rep_level_ == 0) {
       // Non-repeated optional field.
       // First consume whatever is in the buffer.
@@ -1643,6 +1786,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     } else {
       skipped_records += this->SkipRecordsRepeated(num_records);
     }
+
+    current_rg_processed_records_ += skipped_records;
     return skipped_records;
   }
 
@@ -1971,7 +2116,25 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       this->ConsumeBufferedValues(values_to_read);
     }
 
+    current_rg_processed_records_ += records_read;
     return records_read;
+  }
+
+  int64_t ReadRecordDataWithSkipCheck(const int64_t num_records) {
+    if (!skipper_) {
+      return ReadRecordData(num_records);
+    }
+
+    while (true) {
+      const auto advise = skipper_->AdviseNext(current_rg_processed_records_);
+      if (advise == 0) {
+        return 0;
+      }
+      if (advise > 0) {
+        return ReadRecordData(std::min(num_records, advise));
+      }
+      SkipRecords(-advise);
+    }
   }
 
   void DebugPrintState() override {
@@ -2298,6 +2461,73 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
   }
   // Unreachable code, but suppress compiler warning
   return nullptr;
+}
+
+RecordSkipper::RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges) {
+  // copy row_ranges
+  IntervalRanges skip_pages;
+  for (auto& page : pages.GetRanges()) {
+    if (!orig_row_ranges.IsOverlapping(page)) {
+      skip_pages.Add(page);
+    }
+  }
+
+  AdjustRanges(skip_pages, orig_row_ranges, row_ranges_);
+  range_iter_ = row_ranges_->NewIterator();
+  current_range_variant = range_iter_->NextRange();
+
+  total_rows_to_process_ = pages.RowCount() - skip_pages.RowCount();
+}
+
+
+int64_t RecordSkipper::AdviseNext(const int64_t current_rg_processed) {
+  if (current_range_variant.index() == 2) {
+    return 0;
+  }
+
+  auto& current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.end < current_rg_processed) {
+    current_range_variant = range_iter_->NextRange();
+    if (current_range_variant.index() == 2) {
+      // negative, skip the ramaining rows
+      return current_rg_processed - total_rows_to_process_;
+    }
+  }
+
+  current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.start > current_rg_processed) {
+    // negative, skip
+    return current_rg_processed - current_range.start;
+  }
+
+  const auto ret = current_range.end - current_rg_processed + 1;
+  return ret;
+}
+
+void RecordSkipper::AdjustRanges(IntervalRanges& skip_pages,
+                                 const RowRanges& orig_row_ranges,
+                                 std::unique_ptr<RowRanges>& ret) {
+  std::unique_ptr<IntervalRanges> temp = std::make_unique<IntervalRanges>();
+
+  size_t skipped_rows = 0;
+  const auto orig_range_iter = orig_row_ranges.NewIterator();
+  auto orig_range_variant = orig_range_iter->NextRange();
+  auto skip_iter = skip_pages.GetRanges().begin();
+  while (orig_range_variant.index() != 2) {
+    const auto& origin_range = std::get<IntervalRange>(orig_range_variant);
+    while (skip_iter != skip_pages.GetRanges().end() &&
+           skip_iter->IsBefore(origin_range)) {
+      skipped_rows += skip_iter->Count();
+      ++skip_iter;
+    }
+
+    temp->Add(IntervalRange(origin_range.start - skipped_rows,
+                            origin_range.end - skipped_rows));
+    orig_range_variant = orig_range_iter->NextRange();
+  }
+  ret = std::move(temp);
 }
 
 }  // namespace internal

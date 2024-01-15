@@ -76,6 +76,7 @@ class FileColumnIterator {
     }
 
     auto row_group_reader = reader_->RowGroup(row_groups_.front());
+    current_rg_ = row_groups_.front();
     row_groups_.pop_front();
     return row_group_reader->GetColumnPageReader(column_index_);
   }
@@ -88,11 +89,14 @@ class FileColumnIterator {
 
   int column_index() const { return column_index_; }
 
+  int current_row_group() const { return current_rg_; }
+
  protected:
   int column_index_;
   ParquetFileReader* reader_;
   const SchemaDescriptor* schema_;
   std::deque<int> row_groups_;
+  int current_rg_ = 0;
 };
 
 using FileColumnIteratorFactory =
@@ -109,6 +113,7 @@ struct ReaderContext {
   FileColumnIteratorFactory iterator_factory;
   bool filter_leaves;
   std::shared_ptr<std::unordered_set<int>> included_leaves;
+  std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> row_ranges_per_rg;
 
   bool IncludesLeaf(int leaf_index) const {
     if (this->filter_leaves) {

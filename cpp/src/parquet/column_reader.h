@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "page_index.h"
 #include "parquet/exception.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
@@ -302,7 +303,149 @@ class TypedColumnReader : public ColumnReader {
                                           int32_t* dict_len) = 0;
 };
 
+// Represent a range to read. The range is inclusive on both ends.
+struct IntervalRange {
+  static IntervalRange Intersection(const IntervalRange& left,
+                                    const IntervalRange& right) {
+    if (left.start <= right.start) {
+      if (left.end >= right.start) {
+        return {right.start, std::min(left.end, right.end)};
+      }
+    } else if (right.end >= left.start) {
+      return {left.start, std::min(left.end, right.end)};
+    }
+    return {-1, -1};  // Return a default Range object if no intersection range found
+  }
+
+  IntervalRange(const int64_t start_, const int64_t end_) : start(start_), end(end_) {
+    if (start > end) {
+      throw ParquetException("Invalid range with start: " + std::to_string(start) +
+                             " and end: " + std::to_string(end));
+    }
+  }
+
+  size_t Count() const {
+    if(!IsValid()) {
+      throw ParquetException("Invalid range with start: " + std::to_string(start) +
+                             " and end: " + std::to_string(end));
+    }
+    return end - start + 1;
+  }
+
+  bool IsBefore(const IntervalRange& other) const { return end < other.start; }
+
+  bool IsAfter(const IntervalRange& other) const { return start > other.end; }
+
+  bool IsOverlap(const IntervalRange& other) const {
+    return !IsBefore(other) && !IsAfter(other);
+  }
+
+  bool IsValid() const { return start >= 0 && end >= 0 && end >= start; }
+
+  std::string ToString() const {
+    return "(" + std::to_string(start) + ", " + std::to_string(end) + ")";
+  }
+
+  // inclusive
+  int64_t start = -1;
+  // inclusive
+  int64_t end = -1;
+};
+
+struct BitmapRange {
+  int64_t offset;
+  // zero added to, if there are less than 64 elements left in the column.
+  uint64_t bitmap;
+};
+
+struct End {};
+
+// Represent a set of ranges to read. The ranges are sorted and non-overlapping.
+class RowRanges {
+ public:
+  RowRanges() = default;
+  virtual ~RowRanges() = default;
+  virtual size_t RowCount() const = 0;
+  virtual int64_t LastRow() const = 0;
+  virtual bool IsValid() const = 0;
+  virtual bool IsOverlapping(const IntervalRange& searchRange) const = 0;
+  // Given a RowRanges with rows accross all RGs, split it into N RowRanges, where N = number of RGs
+  // e.g.: suppose we have 2 RGs: [0-99] and [100-199], and user is interested in RowRanges [90-110], then
+  // this function will return 2 RowRanges: [90-99] and [0-10]
+  virtual std::vector<std::unique_ptr<RowRanges>> SplitByRowGroups(const std::vector<int64_t>& rows_per_rg) const = 0;
+  virtual std::string ToString() const = 0;
+
+  // Returns a vector of PageLocations that must be read all to get values for
+  // all included in this range virtual std::vector<PageLocation>
+  // PageIndexesToInclude(const std::vector<PageLocation>&  all_pages) = 0;
+
+  class Iterator {
+  public:
+    virtual std::variant<IntervalRange, BitmapRange, End> NextRange() = 0;
+    virtual ~Iterator() = default;
+  };
+  virtual std::unique_ptr<Iterator> NewIterator() const = 0;
+
+};
+
+class IntervalRanges : public RowRanges {
+ public:
+  IntervalRanges();
+  explicit IntervalRanges(const IntervalRange& range);
+  explicit IntervalRanges(const std::vector<IntervalRange>& ranges);
+  std::unique_ptr<Iterator> NewIterator() const override;
+  size_t RowCount() const override;
+  int64_t LastRow() const override;
+  bool IsValid() const override;
+  bool IsOverlapping(const IntervalRange& searchRange) const override;
+  std::string ToString() const override;
+  std::vector<std::unique_ptr<RowRanges>> SplitByRowGroups(
+      const std::vector<int64_t>& rows_per_rg) const override;
+  static IntervalRanges Intersection(const IntervalRanges& left,
+                                     const IntervalRanges& right);
+  void Add(const IntervalRange& range);
+  const std::vector<IntervalRange>& GetRanges() const;
+
+ private:
+  std::vector<IntervalRange> ranges_;
+};
+
+class IntervalRowRangesIterator : public RowRanges::Iterator {
+ public:
+  IntervalRowRangesIterator(const std::vector<IntervalRange>& ranges);
+  ~IntervalRowRangesIterator() override;
+  std::variant<IntervalRange, BitmapRange, End> NextRange() override;
+
+ private:
+  const std::vector<IntervalRange>& ranges_;
+  size_t current_index_ = 0;
+};
+
 namespace internal {
+
+// A RecordSkipper is used to skip uncessary rows within each pages.
+class PARQUET_EXPORT RecordSkipper {
+ public:
+  RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges);
+  /// Return the number of records to read or to skip
+  /// if return values is positive, it means to read N records
+  /// if return values is negative, it means to skip N records
+  /// if return values is 0, it means end of RG
+  int64_t AdviseNext(const int64_t current_rg_processed);
+
+ private:
+  /// Since the skipped pages will be silently skipped without updating
+  /// current_rg_processed_records or records_read_, we need to pre-process the row
+  /// ranges as if these skipped pages never existed
+  static void AdjustRanges(IntervalRanges& skip_pages, const RowRanges& orig_row_ranges,
+                           std::unique_ptr<RowRanges>& ret);
+
+  std::unique_ptr<RowRanges> row_ranges_;
+  std::unique_ptr<RowRanges::Iterator> range_iter_;
+  std::variant<IntervalRange, BitmapRange, End> current_range_variant = End();
+
+  size_t total_rows_to_process_ = 0;
+};
 
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
@@ -424,6 +567,10 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading dense for nullable columns.
   bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
 
+  void reset_current_rg_processed_records() { current_rg_processed_records_ = 0; }
+
+  void set_record_skipper(const std::shared_ptr<RecordSkipper>& skipper) { skipper_ = skipper; }
+
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
   /// may or may not be nullable.
@@ -431,6 +578,8 @@ class PARQUET_EXPORT RecordReader {
 
   bool at_record_start_;
   int64_t records_read_;
+
+  int64_t current_rg_processed_records_ = 0;  // counting both read and skip records
 
   /// \brief Stores values. These values are populated based on each ReadRecords
   /// call. No extra values are buffered for the next call. SkipRecords will not
@@ -473,6 +622,8 @@ class PARQUET_EXPORT RecordReader {
   // If true, we will not leave any space for the null values in the values_
   // vector.
   bool read_dense_for_nullable_ = false;
+
+  std::shared_ptr<RecordSkipper> skipper_ = NULLPTR;
 };
 
 class BinaryRecordReader : virtual public RecordReader {
