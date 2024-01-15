@@ -61,7 +61,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         '.': {
             node: {
                 import: {
-                    types: `./${mainExport}.node.d.mts`,
+                    types: `./${mainExport}.node.d.ts`,
                     default: `./${mainExport}.node.mjs`,
                 },
                 require: {
@@ -70,7 +70,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
                 },
             },
             import: {
-                types: `./${mainExport}.dom.d.mts`,
+                types: `./${mainExport}.dom.d.ts`,
                 default: `./${mainExport}.dom.mjs`,
             },
             require: {
@@ -80,7 +80,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         },
         './*': {
             import: {
-                types: `./*.d.mts`,
+                types: `./*.d.ts`,
                 default: `./*.mjs`,
             },
             require: {
