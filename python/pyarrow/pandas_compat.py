@@ -950,7 +950,7 @@ def _reconstruct_index(table, index_descriptors, all_columns, types_mapper=None)
         index = index_arrays[0]
         if not isinstance(index, pd.Index):
             # Box anything that wasn't boxed above
-            index = pd.Index(index, name=index_names[0])
+            index = pd.Index(index.infer_objects(), name=index_names[0])
     else:
         index = pd.RangeIndex(table.num_rows)
 
