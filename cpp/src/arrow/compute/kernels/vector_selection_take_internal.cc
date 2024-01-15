@@ -721,6 +721,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // So we can't simply iterate over chunks and pick the slices we need.
     ChunkResolver index_resolver(values.chunks());
     std::vector<ChunkLocation> locations;
+    locations.reserve(indices.length());
     for (int64_t requested_index = 0; requested_index < indices.length();
          ++requested_index) {
       uint64_t index;
