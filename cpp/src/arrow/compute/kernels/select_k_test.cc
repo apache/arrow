@@ -659,8 +659,8 @@ TEST_F(TestSelectKWithTable, TopKMultipleColumnKeys) {
   auto options = SelectKOptions::TopKDefault(3, {"a", "b"});
 
   std::vector<std::string> expected = {R"([{"a": 3,    "b": null},
-                                     {"a": 2,    "b": 5},
-                                     {"a": 1,    "b": 5}
+                                     {"a": 2,    "b": 5}])",
+                                       R"([{"a": 1,    "b": 5}
                                     ])"};
   Check(schema, input, options, expected);
 }
@@ -705,8 +705,8 @@ TEST_F(TestSelectKWithTable, BottomKMultipleColumnKeys) {
   auto options = SelectKOptions::BottomKDefault(3, {"a", "b"});
 
   std::vector<std::string> expected = {R"([{"a": 1,    "b": 3},
-                                     {"a": 1,    "b": 5},
-                                     {"a": 2,    "b": 5}
+                                     {"a": 1,    "b": 5}])",
+                                       R"([{"a": 2,    "b": 5}
                                     ])"};
   Check(schema, input, options, expected);
 }
