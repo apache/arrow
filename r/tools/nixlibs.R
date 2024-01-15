@@ -113,16 +113,22 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     # Try `shasum`, and if that doesn't work, fall back to `sha512sum` if not found
     # system2 doesn't generate an R error, so we can't use a tryCatch to
     # move from shasum to sha512sum.
-    checksum_ok <- system2(
-      "shasum",
-      args = c("--status", "-a", "512", "-c", checksum_file),
-    ) == 0
+    # The warnings from system2 if it fails pop up later in the log and thus are
+    # more confusing than they are helpful (so we suppress them)
+    checksum_ok <- suppressWarnings(system2(
+        "shasum",
+        args = c("--status", "-a", "512", "-c", checksum_file),
+        stdout = ifelse(quietly, FALSE, ""),
+        stderr = ifelse(quietly, FALSE, "")
+      )) == 0
 
     if (!checksum_ok) {
-      checksum_ok <- system2(
+      checksum_ok <- suppressWarnings(system2(
         "sha512sum",
-        args = c("--status", "-c", checksum_file)
-      ) == 0
+        args = c("--status", "-c", checksum_file),
+        stdout = ifelse(quietly, FALSE, ""),
+        stderr = ifelse(quietly, FALSE, "")
+      )) == 0
     }
 
     if (checksum_ok) {
