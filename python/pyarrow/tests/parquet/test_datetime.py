@@ -429,7 +429,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
-                      index=pd.date_range('2017-01-01', freq='1n', periods=n))
+                      index=pd.date_range('2017-01-01', freq='ns', periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'
