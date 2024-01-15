@@ -32,6 +32,7 @@
 #include "parquet/types.h"
 
 namespace arrow {
+
 class Array;
 class ChunkedArray;
 
@@ -42,9 +43,11 @@ class BitReader;
 namespace util {
 class RleDecoder;
 }  // namespace util
+
 }  // namespace arrow
 
 namespace parquet {
+
 class Decryptor;
 class Page;
 
@@ -427,6 +430,11 @@ class IntervalRanges : public RowRanges {
     if (ranges_[0].start < 0) {
       return false;
     }
+    for (size_t i = 0; i < ranges_.size(); i++) {
+      if (!ranges_[i].IsValid()) {
+        return false;
+      }
+    }
     for (size_t i = 1; i < ranges_.size(); i++) {
       if (ranges_[i].start <= ranges_[i - 1].end) {
         return false;
@@ -718,9 +726,9 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading dense for nullable columns.
   bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
 
-  void reset_current_rg_processed_records() { current_rg_processed_records = 0; }
+  void reset_current_rg_processed_records() { current_rg_processed_records_ = 0; }
 
-  void set_record_skipper(std::shared_ptr<RecordSkipper> skipper_) { skipper = skipper_; }
+  void set_record_skipper(std::shared_ptr<RecordSkipper> skipper_) { skipper_ = skipper_; }
 
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
@@ -730,7 +738,7 @@ class PARQUET_EXPORT RecordReader {
   bool at_record_start_;
   int64_t records_read_;
 
-  int64_t current_rg_processed_records;  // counting both read and skip records
+  int64_t current_rg_processed_records_;  // counting both read and skip records
 
   /// \brief Stores values. These values are populated based on each ReadRecords
   /// call. No extra values are buffered for the next call. SkipRecords will not
@@ -774,7 +782,7 @@ class PARQUET_EXPORT RecordReader {
   // vector.
   bool read_dense_for_nullable_ = false;
 
-  std::shared_ptr<RecordSkipper> skipper = NULLPTR;
+  std::shared_ptr<RecordSkipper> skipper_ = NULLPTR;
 };
 
 class BinaryRecordReader : virtual public RecordReader {

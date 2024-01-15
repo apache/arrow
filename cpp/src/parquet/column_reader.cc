@@ -1637,7 +1637,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t skipped_records = 0;
     if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
       skipped_records = this->Skip(num_records);
-      current_rg_processed_records += skipped_records;
+      current_rg_processed_records_ += skipped_records;
       return skipped_records;
     }
     if (this->max_rep_level_ == 0) {
@@ -1656,7 +1656,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       skipped_records += this->SkipRecordsRepeated(num_records);
     }
 
-    current_rg_processed_records += skipped_records;
+    current_rg_processed_records_ += skipped_records;
     return skipped_records;
   }
 
@@ -1988,17 +1988,17 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       this->ConsumeBufferedValues(values_to_read);
     }
 
-    current_rg_processed_records += records_read;
+    current_rg_processed_records_ += records_read;
     return records_read;
   }
 
   int64_t ReadRecordDataWithSkipCheck(const int64_t num_records) {
-    if (!skipper) {
+    if (!skipper_) {
       return ReadRecordData(num_records);
     }
 
     while (true) {
-      const auto advise = skipper->AdviseNext(current_rg_processed_records);
+      const auto advise = skipper_->AdviseNext(current_rg_processed_records_);
       if (advise == 0) {
         return 0;
       }

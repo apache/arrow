@@ -205,7 +205,7 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReader(
       int i, const std::shared_ptr<std::unordered_set<int>>& included_leaves,
       const std::vector<int>& row_groups,
-      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> & row_ranges_per_rg,
+      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>>& row_ranges_per_rg,
       std::unique_ptr<ColumnReaderImpl>* out) {
     // Should be covered by GetRecordBatchReader checks but
     // manifest_.schema_fields is a separate variable so be extra careful.
