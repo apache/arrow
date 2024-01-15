@@ -500,7 +500,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     Sys.setenv(MAKEFLAGS = makeflags)
   }
   if (!quietly) {
-    lg("Building with MAKEFLAGS=", makeflags)
+    lg("Building with MAKEFLAGS=%s", makeflags)
   }
   # Check for libarrow build dependencies:
   # * cmake
