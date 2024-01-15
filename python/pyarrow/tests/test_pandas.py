@@ -4200,16 +4200,16 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
-    assert isinstance(_get_mgr(result).blocks[1], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
+    assert _get_mgr(result).blocks[1].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df)
 
     # test with missing values
     df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
     table2 = pa.table(df2)
     result = table2.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
@@ -4222,7 +4222,8 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(_get_mgr(result).blocks) == 1
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
 
 
 class MyCustomIntegerType(pa.ExtensionType):
@@ -4249,12 +4250,12 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
     result = arr.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.Series([1, 2, 3, 4], dtype='Int64')
     tm.assert_series_equal(result, expected)
 
     result = table.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
 
@@ -4268,7 +4269,8 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
 
