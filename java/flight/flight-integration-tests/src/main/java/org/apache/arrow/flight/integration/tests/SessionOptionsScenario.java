@@ -20,7 +20,6 @@ package org.apache.arrow.flight.integration.tests;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightClient;
@@ -39,6 +38,8 @@ import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.client.ClientCookieMiddleware;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.memory.BufferAllocator;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Scenario to exercise Session Options functionality.
@@ -79,7 +80,7 @@ final class SessionOptionsScenario implements Scenario {
           .build());
       SetSessionOptionsResult res1 = client.setSessionOptions(req1);
       // Some errors
-      IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
+      IntegrationAssertions.assertEquals(ImmutableMap.<String, SetSessionOptionsResult.Error>builder()
             .put("lol_invalid", new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME))
             .put("key_with_invalid_value", new SetSessionOptionsResult.Error(
                 SetSessionOptionsResult.ErrorValue.INVALID_VALUE))
