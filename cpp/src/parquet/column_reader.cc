@@ -2447,5 +2447,72 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
   return nullptr;
 }
 
+RecordSkipper::RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges) {
+  // copy row_ranges
+  IntervalRanges skip_pages;
+  for (auto& page : pages.GetRanges()) {
+    if (!orig_row_ranges.IsOverlapping(page)) {
+      skip_pages.Add(page);
+    }
+  }
+
+  AdjustRanges(skip_pages, orig_row_ranges, row_ranges_);
+  range_iter_ = row_ranges_->NewIterator();
+  current_range_variant = range_iter_->NextRange();
+
+  total_rows_to_process_ = pages.RowCount() - skip_pages.RowCount();
+}
+
+
+int64_t RecordSkipper::AdviseNext(const int64_t current_rg_processed) {
+  if (current_range_variant.index() == 2) {
+    return 0;
+  }
+
+  auto& current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.end < current_rg_processed) {
+    current_range_variant = range_iter_->NextRange();
+    if (current_range_variant.index() == 2) {
+      // negative, skip the ramaining rows
+      return current_rg_processed - total_rows_to_process_;
+    }
+  }
+
+  current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.start > current_rg_processed) {
+    // negative, skip
+    return current_rg_processed - current_range.start;
+  }
+
+  const auto ret = current_range.end - current_rg_processed + 1;
+  return ret;
+}
+
+void RecordSkipper::AdjustRanges(IntervalRanges& skip_pages,
+                                 const RowRanges& orig_row_ranges,
+                                 std::unique_ptr<RowRanges>& ret) {
+  std::unique_ptr<IntervalRanges> temp = std::make_unique<IntervalRanges>();
+
+  size_t skipped_rows = 0;
+  const auto orig_range_iter = orig_row_ranges.NewIterator();
+  auto orig_range_variant = orig_range_iter->NextRange();
+  auto skip_iter = skip_pages.GetRanges().begin();
+  while (orig_range_variant.index() != 2) {
+    const auto& origin_range = std::get<IntervalRange>(orig_range_variant);
+    while (skip_iter != skip_pages.GetRanges().end() &&
+           skip_iter->IsBefore(origin_range)) {
+      skipped_rows += skip_iter->Count();
+      ++skip_iter;
+    }
+
+    temp->Add(IntervalRange(origin_range.start - skipped_rows,
+                            origin_range.end - skipped_rows));
+    orig_range_variant = orig_range_iter->NextRange();
+  }
+  ret = std::move(temp);
+}
+
 }  // namespace internal
 }  // namespace parquet
