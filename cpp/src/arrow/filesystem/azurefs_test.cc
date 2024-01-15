@@ -276,6 +276,10 @@ class AzureFileSystemTest : public ::testing::Test {
 
   std::string RandomDirectoryName() { return RandomChars(32); }
 
+  std::string RandomFileName() { return RandomChars(10); }
+
+  std::string RandomFileNameExtension() { return RandomChars(3); }
+
   void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
     const auto path = PreexistingContainerPath() + path_to_file;
@@ -664,6 +668,30 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveDirectory) 
 
 TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
   ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessHaveFile) {
+void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
+  const auto file_name = RandomFileName() + RandomFileNameExtension();
+  ASSERT_OK(CreateFile(fs_.get(), file_name, "abc"));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::File);
+  ASSERT_OK(fs_->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNonexistent) {
+  const auto file_name = RandomFileName() + RandomFileNameExtension();
+  ASSERT_OK(fs_->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNotAFile) {
+  const auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+  ASSERT_RAISES(IOError, fs_->DeleteFile(container_name));
+  ASSERT_OK(fs_->DeleteDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
