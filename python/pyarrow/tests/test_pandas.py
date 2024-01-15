@@ -113,9 +113,9 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            df[col] = df[col].replace(np.nan, None)
+    for col in expected.columns:
+        if expected[col].dtype == 'object':
+            expected[col] = expected[col].replace(np.nan, None)
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
