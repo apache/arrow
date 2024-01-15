@@ -347,9 +347,9 @@ struct IntervalRange {
   }
 
   // inclusive
-  int64_t start;
+  int64_t start = -1;
   // inclusive
-  int64_t end;
+  int64_t end = -1;
 };
 
 struct BitmapRange {
@@ -418,7 +418,7 @@ class IntervalRowRangesIterator : public RowRanges::Iterator {
 
  private:
   const std::vector<IntervalRange>& ranges_;
-  size_t current_index_;
+  size_t current_index_ = 0;
 };
 
 namespace internal {
