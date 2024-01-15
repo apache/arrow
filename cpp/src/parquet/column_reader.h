@@ -390,148 +390,35 @@ class RowRanges {
 
 class IntervalRanges : public RowRanges {
  public:
-  IntervalRanges() = default;
-
-  explicit IntervalRanges(const IntervalRange& range) { ranges_.push_back(range); }
-
-  class IntervalRowRangesIterator : public Iterator {
-   public:
-    IntervalRowRangesIterator(const std::vector<IntervalRange>& ranges)
-        : ranges_(ranges) {}
-    ~IntervalRowRangesIterator() override {}
-
-    std::variant<IntervalRange, BitmapRange, End> NextRange() override {
-      if (current_index_ >= ranges_.size()) return End();
-
-      return ranges_[current_index_++];
-    }
-
-   private:
-    const std::vector<IntervalRange>& ranges_;
-    size_t current_index_ = 0;
-  };
-
-  std::unique_ptr<Iterator> NewIterator() const override {
-    return std::make_unique<IntervalRowRangesIterator>(ranges_);
-  }
-
-  size_t RowCount() const override {
-    size_t cnt = 0;
-    for (const IntervalRange& range : ranges_) {
-      cnt += range.Count();
-    }
-    return cnt;
-  }
-
-  int64_t LastRow() const override { return ranges_.back().end; }
-
-  bool IsValid() const override {
-    if (ranges_.size() == 0) return true;
-    if (ranges_[0].start < 0) {
-      return false;
-    }
-    for (size_t i = 0; i < ranges_.size(); i++) {
-      if (!ranges_[i].IsValid()) {
-        return false;
-      }
-    }
-    for (size_t i = 1; i < ranges_.size(); i++) {
-      if (ranges_[i].start <= ranges_[i - 1].end) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool IsOverlapping(const IntervalRange& searchRange) const override {
-    auto it = std::lower_bound(
-        ranges_.begin(), ranges_.end(), searchRange,
-        [](const IntervalRange& r1, const IntervalRange& r2) { return r1.IsBefore(r2); });
-    return it != ranges_.end() && !(*it).IsAfter(searchRange);
-  }
-
-  std::string ToString() const override {
-    std::string result = "[";
-    for (const IntervalRange& range : ranges_) {
-      result += range.ToString() + ", ";
-    }
-    if (!ranges_.empty()) {
-      result = result.substr(0, result.size() - 2);
-    }
-    result += "]";
-    return result;
-  }
-
+  IntervalRanges();
+  explicit IntervalRanges(const IntervalRange& range);
+  explicit IntervalRanges(const std::vector<IntervalRange>& ranges);
+  std::unique_ptr<Iterator> NewIterator() const override;
+  size_t RowCount() const override;
+  int64_t LastRow() const override;
+  bool IsValid() const override;
+  bool IsOverlapping(const IntervalRange& searchRange) const override;
+  std::string ToString() const override;
   std::vector<std::unique_ptr<RowRanges>> SplitByRowGroups(
-      const std::vector<int64_t>& rows_per_rg) const override {
-    if (rows_per_rg.size() <= 1) {
-      std::unique_ptr<RowRanges> single =
-          std::make_unique<IntervalRanges>(*this);  // return a copy of itself
-      auto ret = std::vector<std::unique_ptr<RowRanges>>();
-      ret.push_back(std::move(single));
-      return ret;
-    }
-
-    std::vector<std::unique_ptr<RowRanges>> result;
-
-    IntervalRanges spaces;
-    int64_t rows_so_far = 0;
-    for (size_t i = 0; i < rows_per_rg.size(); ++i) {
-      auto start = rows_so_far;
-      rows_so_far += rows_per_rg[i];
-      auto end = rows_so_far - 1;
-      spaces.Add({start, end});
-    }
-
-    // each RG's row range forms a space, we need to adjust RowRanges in each space to
-    // zero based.
-    for (IntervalRange space : spaces.GetRanges()) {
-      auto intersection = Intersection(IntervalRanges(space), *this);
-
-      std::unique_ptr<IntervalRanges> zero_based_ranges =
-          std::make_unique<IntervalRanges>();
-      for (const IntervalRange& range : intersection.GetRanges()) {
-        zero_based_ranges->Add({range.start - space.start, range.end - space.start});
-      }
-      result.push_back(std::move(zero_based_ranges));
-    }
-
-    return result;
-  }
-
+      const std::vector<int64_t>& rows_per_rg) const override;
   static IntervalRanges Intersection(const IntervalRanges& left,
-                                     const IntervalRanges& right) {
-    IntervalRanges result;
-
-    size_t rightIndex = 0;
-    for (const IntervalRange& l : left.ranges_) {
-      for (size_t i = rightIndex, n = right.ranges_.size(); i < n; ++i) {
-        const IntervalRange& r = right.ranges_[i];
-        if (l.IsBefore(r)) {
-          break;
-        } else if (l.IsAfter(r)) {
-          rightIndex = i + 1;
-          continue;
-        }
-        result.Add(IntervalRange::Intersection(l, r));
-      }
-    }
-
-    return result;
-  }
-
-  void Add(const IntervalRange& range) {
-    const IntervalRange rangeToAdd = range;
-    if (ranges_.size() > 1 && rangeToAdd.start <= ranges_.back().end) {
-      throw ParquetException("Ranges must be added in order");
-    }
-    ranges_.push_back(rangeToAdd);
-  }
-
-  const std::vector<IntervalRange>& GetRanges() const { return ranges_; }
+                                     const IntervalRanges& right);
+  void Add(const IntervalRange& range);
+  const std::vector<IntervalRange>& GetRanges() const;
 
  private:
   std::vector<IntervalRange> ranges_;
+};
+
+class IntervalRowRangesIterator : public RowRanges::Iterator {
+ public:
+  IntervalRowRangesIterator(const std::vector<IntervalRange>& ranges);
+  ~IntervalRowRangesIterator() override;
+  std::variant<IntervalRange, BitmapRange, End> NextRange() override;
+
+ private:
+  const std::vector<IntervalRange>& ranges_;
+  size_t current_index_;
 };
 
 namespace internal {
@@ -728,7 +615,7 @@ class PARQUET_EXPORT RecordReader {
 
   void reset_current_rg_processed_records() { current_rg_processed_records_ = 0; }
 
-  void set_record_skipper(std::shared_ptr<RecordSkipper> skipper_) { skipper_ = skipper_; }
+  void set_record_skipper(const std::shared_ptr<RecordSkipper>& skipper) { skipper_ = skipper; }
 
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
