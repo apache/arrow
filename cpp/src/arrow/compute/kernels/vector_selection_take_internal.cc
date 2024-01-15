@@ -761,10 +761,12 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     }
 
     std::vector<std::shared_ptr<arrow::Array>> new_chunks;
-    int64_t current_chunk = locations[0].chunk_index;
+    int current_chunk = static_cast<int>(locations[0].chunk_index);
     Int64Builder builder;
     for (ChunkLocation location : locations) {
-      int64_t chunk_index = location.chunk_index;
+      // We know we can safely cast to int because we verified that it's < num_chunks
+      // and num_chunks is an int. So the value is smaller than MAX_INT for sure.
+      int chunk_index = static_cast<int>(location.chunk_index);
       if (chunk_index != current_chunk) {
         ARROW_ASSIGN_OR_RAISE(auto indices_array, builder.Finish());
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
