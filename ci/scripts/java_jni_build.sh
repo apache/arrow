@@ -68,7 +68,7 @@ cmake \
   -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
-  -DCMAKE_ARCH_DIR=${normalized_arch} \
+  -DARROW_JAVA_JNI_ARCH_DIR=${normalized_arch} \
   -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
   -DProtobuf_USE_STATIC_LIBS=ON \
