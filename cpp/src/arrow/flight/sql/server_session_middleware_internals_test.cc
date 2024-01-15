@@ -32,10 +32,9 @@ class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFact
 }
 
 TEST(ServerSessionMiddleware, Dummy) {
-    ASSERT_EQ(1, 1);
+  ASSERT_EQ(1, 1);
 }
 
 }  // namespace sql
 }  // namespace flight
 }  // namespace arrow
-
