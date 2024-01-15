@@ -110,16 +110,24 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
     checksum_file <- file.path(checksum_path, checksum_file)
 
-    # Check for `shasum`, and try `sha512sum` if not found
-    if (nzchar(Sys.which("shasum"))) {
-      checksum_cmd <- "shasum"
-      checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
-    } else {
-      checksum_cmd <- "sha512sum"
-      checksum_args <- c("--status", "-c", checksum_file)
+    # Try `shasum`, and if that doesn't work, fall back to `sha512sum` if not found
+    checksum_ok <- tryCatch({
+      system2(
+        "shasum",
+        args = c("--status", "-a", "512", "-c", checksum_file),
+        stdout = FALSE,
+        stderr = FALSE
+      ) == 0
+    },
+    error = function(e) {
+      system2(
+        "shasum",
+        args = c("--status", "-c", checksum_file),
+        stdout = FALSE,
+        stderr = FALSE
+      ) == 0
     }
-
-    checksum_ok <- system2(checksum_cmd, args = checksum_args) == 0
+    )
 
     if (checksum_ok) {
       lg("Checksum validated successfully for libarrow")
