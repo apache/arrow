@@ -121,7 +121,7 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     },
     error = function(e) {
       system2(
-        "shasum",
+        "sha512sum",
         args = c("--status", "-c", checksum_file),
         stdout = FALSE,
         stderr = FALSE
