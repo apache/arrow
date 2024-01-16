@@ -32,16 +32,8 @@ public class SessionOptionValueFactory {
     return new SessionOptionValueBoolean(value);
   }
 
-  public static SessionOptionValue makeSessionOptionValue(int value) {
-    return new SessionOptionValueInt(value);
-  }
-
   public static SessionOptionValue makeSessionOptionValue(long value) {
     return new SessionOptionValueLong(value);
-  }
-
-  public static SessionOptionValue makeSessionOptionValue(float value) {
-    return new SessionOptionValueFloat(value);
   }
 
   public static SessionOptionValue makeSessionOptionValue(double value) {
@@ -63,12 +55,8 @@ public class SessionOptionValueFactory {
         return new SessionOptionValueString(proto.getStringValue());
       case BOOL_VALUE:
         return new SessionOptionValueBoolean(proto.getBoolValue());
-      case INT32_VALUE:
-        return new SessionOptionValueInt(proto.getInt32Value());
       case INT64_VALUE:
         return new SessionOptionValueLong(proto.getInt64Value());
-      case FLOAT_VALUE:
-        return new SessionOptionValueFloat(proto.getFloatValue());
       case DOUBLE_VALUE:
         return new SessionOptionValueDouble(proto.getDoubleValue());
       case STRING_LIST_VALUE:
@@ -153,41 +141,6 @@ public class SessionOptionValueFactory {
     }
   }
 
-  private static class SessionOptionValueInt extends SessionOptionValue {
-    private final int value;
-
-    SessionOptionValueInt(int value) {
-      this.value = value;
-    }
-
-    @Override
-    public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
-      return v.visit(value);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      SessionOptionValueInt that = (SessionOptionValueInt) o;
-      return value == that.value;
-    }
-
-    @Override
-    public int hashCode() {
-      return Integer.hashCode(value);
-    }
-
-    @Override
-    public String toString() {
-      return String.valueOf(value);
-    }
-  }
-
   private static class SessionOptionValueLong extends SessionOptionValue {
     private final long value;
 
@@ -215,41 +168,6 @@ public class SessionOptionValueFactory {
     @Override
     public int hashCode() {
       return Long.hashCode(value);
-    }
-
-    @Override
-    public String toString() {
-      return String.valueOf(value);
-    }
-  }
-
-  private static class SessionOptionValueFloat extends SessionOptionValue {
-    private final float value;
-
-    SessionOptionValueFloat(Float value) {
-      this.value = value;
-    }
-
-    @Override
-    public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
-      return v.visit(value);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      SessionOptionValueFloat that = (SessionOptionValueFloat) o;
-      return value == that.value;
-    }
-
-    @Override
-    public int hashCode() {
-      return Float.hashCode(value);
     }
 
     @Override

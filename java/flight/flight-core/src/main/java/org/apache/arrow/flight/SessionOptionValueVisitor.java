@@ -34,19 +34,9 @@ public interface SessionOptionValueVisitor<T> {
   T visit(boolean value);
 
   /**
-   * A callback to handle SessionOptionValue containing an int.
-   */
-  T visit(int value);
-
-  /**
    * A callback to handle SessionOptionValue containing a long.
    */
   T visit(long value);
-
-  /**
-   * A callback to handle SessionOptionValue containing a float.
-   */
-  T visit(float value);
 
   /**
    * A callback to handle SessionOptionValue containing a double.

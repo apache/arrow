@@ -540,11 +540,9 @@ message SessionOptionValue {
   oneof option_value {
     string string_value = 1;
     bool bool_value = 2;
-    sfixed32 int32_value = 3;
-    sfixed64 int64_value = 4;
-    float float_value = 5;
-    double double_value = 6;
-    StringListValue string_list_value = 7;
+    sfixed64 int64_value = 3;
+    double double_value = 4;
+    StringListValue string_list_value = 5;
   }
 }
 

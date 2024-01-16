@@ -72,7 +72,7 @@ final class SessionOptionsScenario implements Scenario {
       // Set
       SetSessionOptionsRequest req1 = new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
           .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))
-          .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+          .put("bardouble", SessionOptionValueFactory.makeSessionOptionValue(456.0))
           .put("lol_invalid", SessionOptionValueFactory.makeSessionOptionValue("this won't get set"))
           .put("key_with_invalid_value", SessionOptionValueFactory.makeSessionOptionValue("lol_invalid"))
           .put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
@@ -90,7 +90,7 @@ final class SessionOptionsScenario implements Scenario {
       GetSessionOptionsResult res2 = client.getSessionOptions(new GetSessionOptionsRequest());
       IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
             .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))
-            .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+            .put("bardouble", SessionOptionValueFactory.makeSessionOptionValue(456.0))
             .put("big_ol_string_list", SessionOptionValueFactory.makeSessionOptionValue(
                 new String[]{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}))
             .build(),
@@ -105,7 +105,7 @@ final class SessionOptionsScenario implements Scenario {
           .build()));
       GetSessionOptionsResult res4 = client.getSessionOptions(new GetSessionOptionsRequest());
       IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
-            .put("barfloat", SessionOptionValueFactory.makeSessionOptionValue(456.0f))
+            .put("bardouble", SessionOptionValueFactory.makeSessionOptionValue(456.0))
             .put("big_ol_string_list",
                 SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"))
             .build(),

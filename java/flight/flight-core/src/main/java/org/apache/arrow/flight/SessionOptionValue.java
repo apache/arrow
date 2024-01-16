@@ -62,20 +62,8 @@ public abstract class SessionOptionValue {
     }
 
     @Override
-    public Void visit(int value) {
-      b.setInt32Value(value);
-      return null;
-    }
-
-    @Override
     public Void visit(long value) {
       b.setInt64Value(value);
-      return null;
-    }
-
-    @Override
-    public Void visit(float value) {
-      b.setFloatValue(value);
       return null;
     }
 

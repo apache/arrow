@@ -401,14 +401,8 @@ Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) 
     case pb::SessionOptionValue::kBoolValue:
       *val = pb_val.bool_value();
       break;
-    case pb::SessionOptionValue::kInt32Value:
-      *val = pb_val.int32_value();
-      break;
     case pb::SessionOptionValue::kInt64Value:
       *val = pb_val.int64_value();
-      break;
-    case pb::SessionOptionValue::kFloatValue:
-      *val = pb_val.float_value();
       break;
     case pb::SessionOptionValue::kDoubleValue:
       *val = pb_val.double_value();
@@ -430,9 +424,7 @@ Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
   std::visit(overloaded{[&](std::monostate v) { pb_val->clear_option_value(); },
                         [&](std::string v) { pb_val->set_string_value(v); },
                         [&](bool v) { pb_val->set_bool_value(v); },
-                        [&](int32_t v) { pb_val->set_int32_value(v); },
                         [&](int64_t v) { pb_val->set_int64_value(v); },
-                        [&](float v) { pb_val->set_float_value(v); },
                         [&](double v) { pb_val->set_double_value(v); },
                         [&](std::vector<std::string> v) {
                           auto* string_list_value = pb_val->mutable_string_list_value();
