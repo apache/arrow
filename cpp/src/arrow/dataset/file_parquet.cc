@@ -813,11 +813,17 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::shared_ptr<parquet::FileMetaData> original_metadata) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  original_metadata_ = original_metadata ? std::move(original_metadata) : metadata_;
+  // The SchemaDescriptor needs to be owned by a FileMetaData instance,
+  // because SchemaManifest only stores a raw pointer (GH-39562).
+  DCHECK_EQ(manifest_->descr, original_metadata_->schema())
+      << "SchemaDescriptor should be owned by the original FileMetaData";
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
   statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
@@ -846,7 +852,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_,
+                                        /*original_metadata=*/original_metadata_));
     fragments[i++] = std::move(fragment);
   }
 
@@ -1106,7 +1113,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
                               physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_,
+                                        /*original_metadata=*/metadata_));
     fragments[i++] = std::move(fragment);
   }
 
