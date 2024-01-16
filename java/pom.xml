@@ -496,7 +496,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.7</version>
+          <version>0.8.11</version>
         </plugin>
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
@@ -993,7 +993,7 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.7</version>
+            <version>0.8.11</version>
             <reportSets>
               <reportSet>
                 <inherited>false</inherited><!-- don't run aggregate in child modules -->
