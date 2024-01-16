@@ -1007,7 +1007,7 @@ endif()
 
 # Args for external projects using make
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
-  #Prevent 'bad file descriptor' error
+  # Prevent 'bad file descriptor' error see #39517 #39628
   set(MAKE_BUILD_ARGS "-j1")
 else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
