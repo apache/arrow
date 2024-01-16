@@ -79,6 +79,10 @@ find_latest_nightly <- function(description_version,
 }
 
 try_download <- function(from_url, to_file, hush = quietly) {
+  if (!download_ok) {
+    # Don't even try
+    return(FALSE)
+  }
   # We download some fairly large files, so ensure the timeout is set appropriately.
   # This assumes a static library size of 100 MB (generous) and a download speed
   # of .3 MB/s (slow). This is to anticipate slower user connections or load on
@@ -496,7 +500,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     Sys.setenv(MAKEFLAGS = makeflags)
   }
   if (!quietly) {
-    lg("Building with MAKEFLAGS=", makeflags)
+    lg("Building with MAKEFLAGS=%s", makeflags)
   }
   # Check for libarrow build dependencies:
   # * cmake
@@ -595,7 +599,6 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
 
   if (is.null(cmake)) {
     # If not found, download it
-    lg("cmake", .indent = "****")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
     if (on_macos) {
       postfix <- "-macos-universal.tar.gz"
@@ -642,10 +645,7 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
       bin_dir,
       "/cmake"
     )
-  } else {
-    # Show which one we found
-    # Full source builds will always show "cmake" in the logs
-    lg("cmake: %s", cmake, .indent = "****")
+    lg("cmake %s", CMAKE_VERSION, .indent = "****")
   }
   cmake
 }
@@ -653,6 +653,8 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
 find_cmake <- function(paths = c(
                          Sys.getenv("CMAKE"),
                          Sys.which("cmake"),
+                         # CRAN has it here, not on PATH
+                         if (on_macos) "/Applications/CMake.app/Contents/bin/cmake",
                          Sys.which("cmake3")
                        ),
                        version_required = "3.16") {
@@ -660,10 +662,25 @@ find_cmake <- function(paths = c(
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)
   for (path in paths) {
-    if (nzchar(path) && cmake_version(path) >= version_required) {
+    if (nzchar(path) && file.exists(path)) {
       # Sys.which() returns a named vector, but that plays badly with c() later
       names(path) <- NULL
-      return(path)
+      found_version <- cmake_version(path)
+      if (found_version >= version_required) {
+        # Show which one we found
+        lg("cmake %s: %s", found_version, path, .indent = "****")
+        # Stop searching here
+        return(path)
+      } else {
+        # Keep trying
+        lg("Not using cmake found at %s", path, .indent = "****")
+        if (found_version > 0) {
+          lg("Version >= %s required; found %s", version_required, found_version, .indent = "*****")
+        } else {
+          # If cmake_version() couldn't determine version, it returns 0
+          lg("Could not determine version; >= %s required", version_required, .indent = "*****")
+        }
+      }
     }
   }
   # If none found, return NULL
@@ -890,11 +907,8 @@ if (not_cran || on_macos) {
 # and don't fall back to a full source build
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
-# Check if we're authorized to download (not asked an offline build).
-# (Note that cmake will still be downloaded if necessary
-#  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
+# Check if we're authorized to download
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
-
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
