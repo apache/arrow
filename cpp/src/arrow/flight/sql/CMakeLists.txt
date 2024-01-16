@@ -140,10 +140,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  LABELS
                  "arrow_flight_sql")
 
-  add_arrow_test(flight_sql_server_session_middleware_internals
-                 SOURCES
-                 )
-
   add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
   target_link_libraries(flight-sql-test-server
