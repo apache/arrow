@@ -1413,7 +1413,7 @@ services:
       <<: *common
       ARROW_DEPENDENCY_SOURCE: ''
       ARROW_SOURCE_HOME: '/arrow'
-      FORCE_BUNDLED_BUILD: 'true'
+      LIBARROW_BINARY: 'false'
       LIBARROW_BUILD: 'true'
     extends: ubuntu-r
     command: >
@@ -1443,7 +1443,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
-      LIBARROW_DOWNLOAD: "false"
+      LIBARROW_BINARY: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
