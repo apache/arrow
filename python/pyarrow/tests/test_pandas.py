@@ -4199,7 +4199,6 @@ def test_convert_to_extension_array(monkeypatch):
     # for a proper roundtrip
     result = table.to_pandas()
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
-    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
     assert _get_mgr(result).blocks[1].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df)
 
@@ -4220,7 +4219,6 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(_get_mgr(result).blocks) == 1
-    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
 
 
@@ -4265,7 +4263,6 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
-    assert _get_mgr(result).blocks[0].values.dtype != pd.Int64Dtype()
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
