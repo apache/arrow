@@ -105,7 +105,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc server_session_middleware_internals_test.cc)
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
 
@@ -139,6 +139,10 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  "${CMAKE_CURRENT_BINARY_DIR}/../"
                  LABELS
                  "arrow_flight_sql")
+
+  add_arrow_test(flight_sql_server_session_middleware_internals
+                 SOURCES
+                 )
 
   add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
