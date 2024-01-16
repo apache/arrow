@@ -18,6 +18,8 @@
 // ----------------------------------------------------------------------
 // ServerSessionMiddleware{,Factory} tests not involing a client/server instance
 
+#include <stdio.h>
+
 #include <gtest/gtest.h>
 
 #include <arrow/flight/sql/server_session_middleware_factory.h>
@@ -32,7 +34,7 @@ class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFact
 };
 
 TEST(ServerSessionMiddleware, Dummy) {
-  ASSERT_EQ(1, 1);
+  ASSERT_EQ(1, 0);
 }
 
 }  // namespace sql
