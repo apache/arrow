@@ -1005,8 +1005,13 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Args for external projects using make.
-set(MAKE_BUILD_ARGS "-j${NPROC}")
+# Args for external projects using make
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+  #Prevent 'bad file descriptor' error
+  set(MAKE_BUILD_ARGS "-j1")
+else()
+  set(MAKE_BUILD_ARGS "-j${NPROC}")
+endif()
 
 include(FetchContent)
 set(FC_DECLARE_COMMON_OPTIONS)
