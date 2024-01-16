@@ -19,6 +19,17 @@
 
 # arrow 14.0.2.9000
 
+##  Minor improvements and fixes
+
+* Throw error when `string_replace` is passed vector of values in `pattern` (#39219)
+* Document `open_dataset(format = "json")` (#38258)
+
+##  New features
+
+* Add `prod`-binding for `summarize()` (#38601)
+* Add `dimnames` method to `Dataset` class  (#38377)
+* Allow `code()` to return package name prefix. (#38144)
+
 # arrow 14.0.2
 
 ##  Minor improvements and fixes
