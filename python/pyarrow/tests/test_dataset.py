@@ -3720,8 +3720,8 @@ def test_parquet_dataset_factory_metadata(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
-def test_parquet_dataset_lazy_filtering(tempdir):
-    filesystem = fs.LocalFileSystem()
+def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
+    fs, assert_opens = open_logging_fs
 
     # Test to ensure that no IO happens when filtering a dataset
     # created with ParquetDatasetFactory from a _metadata file
@@ -3730,28 +3730,28 @@ def test_parquet_dataset_lazy_filtering(tempdir):
     metadata_path, _ = _create_parquet_dataset_simple(root_path)
 
     # creating the dataset should only open the metadata file
-    # with assert_opens([metadata_path]):
-    dataset = ds.parquet_dataset(
-        metadata_path,
-        partitioning=ds.partitioning(flavor="hive"),
-        filesystem=filesystem)
+    with assert_opens([metadata_path]):
+        dataset = ds.parquet_dataset(
+            metadata_path,
+            partitioning=ds.partitioning(flavor="hive"),
+            filesystem=fs)
 
     # materializing fragments should not open any file
-    # with assert_opens([]):
-    fragments = list(dataset.get_fragments())
+    with assert_opens([]):
+        fragments = list(dataset.get_fragments())
 
     # filtering fragments should not open any file
-    # with assert_opens([]):
-    list(dataset.get_fragments(ds.field("f1") > 15))
+    with assert_opens([]):
+        list(dataset.get_fragments(ds.field("f1") > 15))
 
     # splitting by row group should still not open any file
-    # with assert_opens([]):
-    fragments[0].split_by_row_group(ds.field("f1") > 15)
+    with assert_opens([]):
+        fragments[0].split_by_row_group(ds.field("f1") > 15)
 
     # ensuring metadata of split fragment should also not open any file
-    # with assert_opens([]):
-    rg_fragments = fragments[0].split_by_row_group()
-    rg_fragments[0].ensure_complete_metadata()
+    with assert_opens([]):
+        rg_fragments = fragments[0].split_by_row_group()
+        rg_fragments[0].ensure_complete_metadata()
 
     # FIXME(bkietz) on Windows this results in FileNotFoundErrors.
     # but actually scanning does open files
