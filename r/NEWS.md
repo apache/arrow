@@ -19,16 +19,19 @@
 
 # arrow 14.0.2.9000
 
-##  Minor improvements and fixes
-
-* Throw error when `string_replace` is passed vector of values in `pattern` (#39219)
-* Document `open_dataset(format = "json")` (#38258)
-
 ##  New features
 
-* Add `prod`-binding for `summarize()` (#38601)
-* Add `dimnames` method to `Dataset` class  (#38377)
-* Allow `code()` to return package name prefix. (#38144)
+* Add binding for `base::prod` (@m-muecke, #38601).
+* Add `dimnames` method to `Dataset` class  (#38377).
+* Allow `code()` to return package name prefix (@orgadish, #38144).
+
+##  Minor improvements and fixes
+
+* Don't download cmake when TEST_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
+* Fallback to source build gracefully if binary download fails (#39587).
+* Throw error when the bindings for `gsub`, `sub`, `str_replace` and 
+  `str_replace_all` are passed a vector of values in `pattern` (@abfleishman, #39219)
+* Document `open_dataset(format = "json")` (#38258)
 
 # arrow 14.0.2
 
