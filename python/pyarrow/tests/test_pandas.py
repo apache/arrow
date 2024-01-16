@@ -4317,7 +4317,13 @@ def test_array_to_pandas():
 def test_roundtrip_empty_table_with_extension_dtype_index():
     df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
     table = pa.table(df)
-    tm.assert_index_equal(table.to_pandas().index, df.index)
+    if Version(pd.__version__) > Version("1.0"):
+        tm.assert_index_equal(table.to_pandas().index, df.index)
+    else:
+        assert table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
+                                                    {'left': 1, 'right': 2},
+                                                    {'left': 2, 'right': 3}],
+                                                   dtype='object')
 
 
 @pytest.mark.parametrize("index", ["a", ["a", "b"]])
