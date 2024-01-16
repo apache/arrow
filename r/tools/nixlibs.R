@@ -100,18 +100,7 @@ try_download <- function(from_url, to_file, hush = quietly) {
   !inherits(status, "try-error") && status == 0
 }
 
-download_binary <- function(lib) {
-  libfile <- paste0("arrow-", VERSION, ".zip")
-  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
-  if (try_download(binary_url, libfile)) {
-      lg("Successfully retrieved libarrow (%s)", lib)
-  } else {
-      lg(
-        "Downloading libarrow failed for version %s (%s)\n    at %s",
-        VERSION, lib, binary_url
-      )
-    libfile <- NULL
-  }
+validate_checksum <- function(binary_url, libfile, hush = quietly) {
   # Explicitly setting the env var to "false" will skip checksum validation
   # e.g. in case the included checksums are stale.
   skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
@@ -120,33 +109,66 @@ download_binary <- function(lib) {
   # validate binary checksum for CRAN release only
   if (!skip_checksum && dir.exists(checksum_path) && is_release ||
     enforce_checksum) {
+    # Munge the path to the correct sha file which we include during the
+    # release process
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
     checksum_file <- file.path(checksum_path, checksum_file)
-    checksum_cmd <- "shasum"
-    checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
 
-    # shasum is not available on all linux versions
-    status_shasum <- try(
-      suppressWarnings(
-        system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
-      ),
-      silent = TRUE
-    )
+    # Try `shasum`, and if that doesn't work, fall back to `sha512sum` if not found
+    # system2 doesn't generate an R error, so we can't use a tryCatch to
+    # move from shasum to sha512sum.
+    # The warnings from system2 if it fails pop up later in the log and thus are
+    # more confusing than they are helpful (so we suppress them)
+    checksum_ok <- suppressWarnings(system2(
+        "shasum",
+        args = c("--status", "-a", "512", "-c", checksum_file),
+        stdout = ifelse(quietly, FALSE, ""),
+        stderr = ifelse(quietly, FALSE, "")
+      )) == 0
 
-    if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
-      checksum_cmd <- "sha512sum"
-      checksum_args <- c("--status", "-c", checksum_file)
+    if (!checksum_ok) {
+      checksum_ok <- suppressWarnings(system2(
+        "sha512sum",
+        args = c("--status", "-c", checksum_file),
+        stdout = ifelse(quietly, FALSE, ""),
+        stderr = ifelse(quietly, FALSE, "")
+      )) == 0
     }
 
-    checksum_ok <- system2(checksum_cmd, args = checksum_args)
-
-    if (checksum_ok != 0) {
-      lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
-      unlink(libfile)
-      libfile <- NULL
+    if (checksum_ok) {
+      lg("Checksum validated successfully for libarrow")
     } else {
-      lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
+      lg("Checksum validation failed for libarrow")
+      unlink(libfile)
     }
+  } else {
+    checksum_ok <- TRUE
+  }
+
+  # Return whether the checksum was successful
+  checksum_ok
+}
+
+download_binary <- function(lib) {
+  libfile <- paste0("arrow-", VERSION, ".zip")
+  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  if (try_download(binary_url, libfile) && validate_checksum(binary_url, libfile)) {
+    lg("Successfully retrieved libarrow (%s)", lib)
+  } else {
+    # If the download or checksum fail, we will set libfile to NULL this will
+    # normally result in a source build after this.
+    # TODO: should we condense these together and only call them when verbose?
+    lg(
+      "Unable to retrieve libarrow for version %s (%s)",
+      VERSION, lib
+    )
+    if (!quietly) {
+      lg(
+        "Attempted to download the libarrow binary from: %s",
+        binary_url
+      )
+    }
+    libfile <- NULL
   }
 
   libfile
@@ -468,7 +490,7 @@ env_vars_as_string <- function(env_var_list) {
   stopifnot(
     length(env_var_list) == length(names(env_var_list)),
     all(grepl("^[^0-9]", names(env_var_list))),
-    all(grepl("^[A-Z0-9_]+$", names(env_var_list))),
+    all(grepl("^[a-zA-Z0-9_]+$", names(env_var_list))),
     !any(grepl("'", env_var_list, fixed = TRUE))
   )
   env_var_string <- paste0(names(env_var_list), "='", env_var_list, "'", collapse = " ")
@@ -541,6 +563,19 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (dep_source %in% c("", "AUTO") && !nzchar(Sys.which("pkg-config"))) {
     lg("pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED", .indent = "****")
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
+  }
+
+  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled 
+  # Necessary due to #39590 for CRAN 
+  if (on_macos) {
+    # Using lowercase (e.g. Boost_SOURCE) to match the cmake args we use already.
+    deps_to_bundle <- c("Boost", "lz4")
+    for (dep_to_bundle in deps_to_bundle) {
+      env_var <- paste0(dep_to_bundle, "_SOURCE")
+      if (Sys.getenv(env_var) == "") {
+        env_var_list <- c(env_var_list, setNames("BUNDLED", env_var))
+      }
+    }
   }
 
   env_var_list <- with_cloud_support(env_var_list)
