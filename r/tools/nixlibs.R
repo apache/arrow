@@ -561,7 +561,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
   }
 
-  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
+  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled 
+  # Necessary due to #39590 for CRAN 
   if (on_macos) {
     # Using lowercase (e.g. Boost_SOURCE) to match the cmake args we use already.
     deps_to_bundle <- c("Boost", "lz4")
@@ -577,9 +578,6 @@ build_libarrow <- function(src_dir, dst_dir) {
 
   # turn_off_all_optional_features() needs to happen after
   # with_cloud_support(), since it might turn features ON.
-  # TODO: could we, should we have download_ok also include "download has succeeded"
-  # so we can disable these things if someone's machine is suddenly offline but they
-  # find themselves here and demand a working compilation?
   thirdparty_deps_unavailable <- !download_ok &&
     !dir.exists(thirdparty_dependency_dir) &&
     !env_is("ARROW_DEPENDENCY_SOURCE", "system")
