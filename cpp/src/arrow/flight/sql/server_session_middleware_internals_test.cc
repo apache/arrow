@@ -29,7 +29,7 @@ namespace sql {
 class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFactory {
  public:
   using ServerSessionMiddlewareFactory::ParseCookieString;
-}
+};
 
 TEST(ServerSessionMiddleware, Dummy) {
   ASSERT_EQ(1, 1);
