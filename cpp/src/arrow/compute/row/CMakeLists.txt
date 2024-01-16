@@ -19,5 +19,3 @@
 # in a row-major order.
 
 arrow_install_all_headers("arrow/compute/row")
-
-add_arrow_compute_test(compare_test SOURCES compare_test.cc)
