@@ -26,6 +26,8 @@
 #include <utility>
 #include <vector>
 
+#include <arrow/flight/sql/server_session_middleware.h>
+
 namespace arrow {
 namespace flight {
 namespace sql {
