@@ -113,9 +113,9 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    for col in expected.columns:
-        if expected[col].dtype == 'object':
-            expected[col] = expected[col].replace(np.nan, None)
+        for col in expected.columns:
+            if expected[col].dtype == 'object':
+                expected[col] = expected[col].replace({np.nan: None})
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -156,8 +156,8 @@ def _check_array_roundtrip(values, expected=None, mask=None,
             expected = pd.Series(values).copy()
             expected[mask.copy()] = None
 
-    if expected.dtype == 'object':
-        expected = expected.replace(np.nan, None)
+        if expected.dtype == 'object':
+            expected = expected.replace({np.nan: None})
 
     tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
