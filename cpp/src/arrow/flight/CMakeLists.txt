@@ -291,6 +291,12 @@ add_arrow_test(flight_test
                LABELS
                "arrow_flight")
 
+add_arrow_test(server_session_middleware_internals_test
+               STATIC_LINK_LIBS
+	       ${ARROW_FLIGHT_TEST_LINK_LIBS}
+	       LABELS
+	       "arrow_flight")
+
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test_server.cc)
