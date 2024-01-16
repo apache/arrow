@@ -1413,6 +1413,7 @@ services:
       <<: *common
       ARROW_DEPENDENCY_SOURCE: ''
       ARROW_SOURCE_HOME: '/arrow'
+      FORCE_BUNDLED_BUILD: 'true'
       LIBARROW_BINARY: 'false'
       LIBARROW_BUILD: 'true'
     extends: ubuntu-r
