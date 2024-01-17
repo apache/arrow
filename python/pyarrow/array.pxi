@@ -66,8 +66,7 @@ cdef shared_ptr[CDataType] _ndarray_to_type(object values,
     dtype = values.dtype
 
     if type is None and dtype != object:
-        with nogil:
-            check_status(NumPyDtypeToArrow(dtype, &c_type))
+        c_type = GetResultValue(NumPyDtypeToArrow(dtype))
 
     if type is not None:
         c_type = type.sp_type
