@@ -1164,7 +1164,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
     // TODO(wesm): this is odd and should be examined soon -- only one state
     // "should" be needed per thread of execution
 
-    // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
+    // FIXME(ARROW-11840) don't merge *any* aggregates for every batch
     ARROW_ASSIGN_OR_RAISE(auto batch_state,
                           kernel_->init(kernel_ctx_, {kernel_, *input_types_, options_}));
 

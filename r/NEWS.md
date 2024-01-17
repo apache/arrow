@@ -19,6 +19,35 @@
 
 # arrow 14.0.2.9000
 
+##  New features
+
+* Bindings for `base::prod` have been added so you can now use it in your dplyr
+  pipelines (i.e., `tbl |> summarize(prod(col))`) without having to pull the
+  data into R (@m-muecke, #38601).
+* Calling `dimnames` or `colnames` on `Dataset` objects now returns a useful
+  result rather than just `NULL` (#38377).
+* The `code()` method on Schema objects now takes an optional `namespace` 
+  argument which, when `TRUE`, prefixes names with `arrow::` which makes
+  the output more portable (@orgadish, #38144).
+
+##  Minor improvements and fixes
+
+* Don't download cmake when TEST_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
+* Fallback to source build gracefully if binary download fails (#39587).
+* An error is now thrown instead of warning and pulling the data into R when any
+  of `sub`, `gsub`, `stringr::str_replace`, `stringr::str_replace_all` are
+  passed a length > 1 vector of values in `pattern` (@abfleishman, #39219).
+* Missing documentation was added to `?open_dataset` documenting how to use the
+  ND-JSON support added in arrow 13.0.0 (@Divyansh200102, #38258).
+* To make debugging problems easier when using arrow with AWS S3
+  (e.g., `s3_bucket`, `S3FileSystem`), the debug log level for S3 can be set
+  with the `AWS_S3_LOG_LEVEL` environment variable. 
+  See `?S3FileSystem` for more information. (#38267)
+* Using arrow with duckdb (i.e., `to_duckdb()`) no longer results in warnings
+  when quitting your R session. (#38495)
+* A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
+* The developer documentation has been updated to match changes made in recent releases (#38220)
+
 # arrow 14.0.2
 
 ##  Minor improvements and fixes
@@ -327,7 +356,7 @@ Arrow query engine. See `?acero`.
 A few new features and bugfixes were implemented for joins:
 
 * Extension arrays are now supported in joins, allowing, for example, joining
-  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+  datasets that contain [geoarrow](https://github.com/geoarrow/geoarrow) data.
 * The `keep` argument is now supported, allowing separate columns for the left
   and right hand side join keys in join output. Full joins now coalesce the
   join keys (when `keep = FALSE`), avoiding the issue where the join keys would

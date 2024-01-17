@@ -241,7 +241,11 @@ bool CPUDevice::Equals(const Device& other) const {
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
-  return CPUMemoryManager::Make(Instance(), pool);
+  if (pool == default_memory_pool()) {
+    return default_cpu_memory_manager();
+  } else {
+    return CPUMemoryManager::Make(Instance(), pool);
+  }
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {

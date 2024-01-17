@@ -1005,12 +1005,11 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Using make -j in sub-make is fragile
-# see discussion https://github.com/apache/arrow/pull/2779
-if(${CMAKE_GENERATOR} MATCHES "Makefiles")
-  set(MAKE_BUILD_ARGS "")
+# Args for external projects using make
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+  # Prevent 'bad file descriptor' error see #39517 #39628
+  set(MAKE_BUILD_ARGS "-j1")
 else()
-  # limit the maximum number of jobs for ninja
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
@@ -2040,10 +2039,13 @@ macro(build_jemalloc)
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
+
   externalproject_add(jemalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${JEMALLOC_SOURCE_URL}
@@ -2637,7 +2639,7 @@ macro(build_bzip2)
                       BUILD_IN_SOURCE 1
                       BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS}
                                     ${BZIP2_EXTRA_ARGS}
-                      INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
+                      INSTALL_COMMAND ${MAKE} install -j1 PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
                       URL ${ARROW_BZIP2_SOURCE_URL}
