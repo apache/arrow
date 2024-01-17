@@ -462,8 +462,7 @@ template <typename ArrowType>
 inline Status NumPyConverter::ConvertData(std::shared_ptr<Buffer>* data) {
   RETURN_NOT_OK(PrepareInputData<ArrowType>(data));
 
-  std::shared_ptr<DataType> input_type;
-  RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+  ARROW_ASSIGN_OR_RAISE(auto input_type, NumPyDtypeToArrow(dtype_));
 
   if (!input_type->Equals(*type_)) {
     RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_, type_,
@@ -490,7 +489,7 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
       RETURN_NOT_OK(s);
     } else {
-      RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+      ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
       if (!input_type->Equals(*type_)) {
         // The null bitmap was already computed in VisitNative()
         RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
@@ -498,7 +497,7 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
       }
     }
   } else {
-    RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+    ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
     if (!input_type->Equals(*type_)) {
       RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
                                type_, cast_options_, pool_, data));
@@ -531,7 +530,7 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
       }
       *data = std::move(result);
     } else {
-      RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+      ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
       if (!input_type->Equals(*type_)) {
         // The null bitmap was already computed in VisitNative()
         RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
@@ -539,7 +538,7 @@ inline Status NumPyConverter::ConvertData<Date64Type>(std::shared_ptr<Buffer>* d
       }
     }
   } else {
-    RETURN_NOT_OK(NumPyDtypeToArrow(reinterpret_cast<PyObject*>(dtype_), &input_type));
+    ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
     if (!input_type->Equals(*type_)) {
       RETURN_NOT_OK(CastBuffer(input_type, *data, length_, null_bitmap_, null_count_,
                                type_, cast_options_, pool_, data));
