@@ -2360,10 +2360,10 @@ def _check_temporal_rounding(ts, values, unit):
     unit_shorthand = {
         "nanosecond": "ns",
         "microsecond": "us",
-        "millisecond": "L",
+        "millisecond": "ms",
         "second": "s",
         "minute": "min",
-        "hour": "H",
+        "hour": "h",
         "day": "D"
     }
     greater_unit = {
@@ -2371,7 +2371,7 @@ def _check_temporal_rounding(ts, values, unit):
         "microsecond": "ms",
         "millisecond": "s",
         "second": "min",
-        "minute": "H",
+        "minute": "h",
         "hour": "d",
     }
     ta = pa.array(ts)
