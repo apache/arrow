@@ -402,10 +402,12 @@ class SortedMergeNode : public ExecNode {
 
  private:
   void EndFromProcessThread(arrow::Status st = arrow::Status::OK()) {
-    ARROW_CHECK(!cleanup_started);
+    ARROW_CHECK(!cleanup_started)
+        << "cleanup has already started. status before was: " << st.message();
     for (size_t i = 0; i < input_counter.size(); ++i) {
       ARROW_CHECK(input_counter[i] == output_counter[i])
-          << input_counter[i] << " != " << output_counter[i];
+          << input_counter[i] << " != " << output_counter[i]
+          << ". status before was: " << st.message();
     }
 
     ARROW_UNUSED(
