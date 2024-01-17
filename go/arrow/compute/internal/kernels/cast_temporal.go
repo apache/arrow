@@ -112,6 +112,10 @@ func TimestampToDate32(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.Exec
 
 	return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg0 arrow.Timestamp, _ *error) arrow.Date32 {
 		tm := fnToTime(arg0)
+		if _, offset := tm.Zone(); offset != 0 {
+			// normalize the tm
+			tm = tm.Add(time.Duration(offset) * time.Second).UTC()
+		}
 		return arrow.Date32FromTime(tm)
 	})(ctx, batch, out)
 }
@@ -125,6 +129,10 @@ func TimestampToDate64(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.Exec
 
 	return ScalarUnaryNotNull(func(_ *exec.KernelCtx, arg0 arrow.Timestamp, _ *error) arrow.Date64 {
 		tm := fnToTime(arg0)
+		if _, offset := tm.Zone(); offset != 0 {
+			// normalize the tm
+			tm = tm.Add(time.Duration(offset) * time.Second).UTC()
+		}
 		return arrow.Date64FromTime(tm)
 	})(ctx, batch, out)
 }
