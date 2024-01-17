@@ -1032,6 +1032,8 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
+      env:
+        UBUNTU: 22.04
       image: {{ image }}
 {% endfor %}
 

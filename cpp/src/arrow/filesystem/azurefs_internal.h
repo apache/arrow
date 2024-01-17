@@ -71,7 +71,7 @@ enum class HierarchicalNamespaceSupport {
 /// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never
 /// returned).
 Result<HierarchicalNamespaceSupport> CheckIfHierarchicalNamespaceIsEnabled(
-    Azure::Storage::Files::DataLake::DataLakeFileSystemClient& adlfs_client,
+    const Azure::Storage::Files::DataLake::DataLakeFileSystemClient& adlfs_client,
     const arrow::fs::AzureOptions& options);
 
 }  // namespace internal

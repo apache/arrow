@@ -237,7 +237,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE :
                   metaData.storesLowerCaseQuotedIdentifiers() ?
                       SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_LOWERCASE :
-                      SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN);
+                      SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN)
+          .withSqlAllTablesAreSelectable(true)
+          .withSqlNullOrdering(SqlNullOrdering.SQL_NULLS_SORTED_AT_END)
+          .withSqlMaxColumnsInTable(42);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }

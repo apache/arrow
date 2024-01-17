@@ -391,7 +391,7 @@ Result<std::shared_ptr<ArrayData>> ListViewFromListImpl(
   const auto* offsets = list_data->template GetValues<offset_type>(1, 0);
   auto* sizes = sizes_buffer->mutable_data_as<offset_type>();
   // Zero the initial padding area to avoid leaking any data when buffers are
-  // sent over IPC or throught the C Data interface.
+  // sent over IPC or through the C Data interface.
   memset(sizes, 0, list_data->offset * sizeof(offset_type));
   for (int64_t i = list_data->offset; i < buffer_length; i++) {
     sizes[i] = offsets[i + 1] - offsets[i];
@@ -776,7 +776,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
   }
 
   if (keys->null_count() != 0) {
-    return Status::Invalid("Map can not contain NULL valued keys");
+    return Status::Invalid("Map cannot contain NULL valued keys");
   }
 
   if (keys->length() != items->length()) {
@@ -894,7 +894,8 @@ const std::shared_ptr<DataType>& FixedSizeListArray::value_type() const {
 const std::shared_ptr<Array>& FixedSizeListArray::values() const { return values_; }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
-    const std::shared_ptr<Array>& values, int32_t list_size) {
+    const std::shared_ptr<Array>& values, int32_t list_size,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (list_size <= 0) {
     return Status::Invalid("list_size needs to be a strict positive integer");
   }
@@ -905,14 +906,14 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
   }
   int64_t length = values->length() / list_size;
   auto list_type = std::make_shared<FixedSizeListType>(values->type(), list_size);
-  std::shared_ptr<Buffer> validity_buf;
 
-  return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
-                                              /*null_count=*/0, /*offset=*/0);
+  return std::make_shared<FixedSizeListArray>(list_type, length, values, null_bitmap,
+                                              null_count);
 }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
-    const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type) {
+    const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   if (type->id() != Type::FIXED_SIZE_LIST) {
     return Status::TypeError("Expected fixed size list type, got ", type->ToString());
   }
@@ -926,10 +927,9 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
         "The length of the values Array needs to be a multiple of the list size");
   }
   int64_t length = values->length() / list_type.list_size();
-  std::shared_ptr<Buffer> validity_buf;
 
-  return std::make_shared<FixedSizeListArray>(type, length, values, validity_buf,
-                                              /*null_count=*/0, /*offset=*/0);
+  return std::make_shared<FixedSizeListArray>(type, length, values, null_bitmap,
+                                              null_count);
 }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(

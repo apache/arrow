@@ -156,7 +156,9 @@ static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp
                                     /*is_from_converted_type=*/false,
                                     /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::NANO:
-      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS);
+      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS,
+                                    /*is_from_converted_type=*/false,
+                                    /*force_set_converted_type=*/false);
     case ::arrow::TimeUnit::SECOND:
       // No equivalent parquet logical type.
       break;

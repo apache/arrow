@@ -304,6 +304,11 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Endpoint from environment variable
   {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL_S3", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
+  {
     EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
     ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
     ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");

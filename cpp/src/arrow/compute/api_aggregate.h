@@ -452,7 +452,7 @@ Result<Datum> TDigest(const Datum& value,
 /// \brief Find the first index of a value in an array.
 ///
 /// \param[in] value The array to search.
-/// \param[in] options The array to search for. See IndexOoptions.
+/// \param[in] options The array to search for. See IndexOptions.
 /// \param[in] ctx the function execution context, optional
 /// \return out a Scalar containing the index (or -1 if not found).
 ///

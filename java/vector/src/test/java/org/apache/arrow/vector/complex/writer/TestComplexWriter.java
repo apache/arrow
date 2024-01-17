@@ -773,7 +773,7 @@ public class TestComplexWriter {
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
       if (i % 5 == 0) {
-        Assert.assertEquals(i, i, unionReader.readInteger());
+        Assert.assertEquals(i, unionReader.readInteger().intValue());
       } else if (i % 5 == 1) {
         NullableTimeStampMilliTZHolder holder = new NullableTimeStampMilliTZHolder();
         unionReader.read(holder);
