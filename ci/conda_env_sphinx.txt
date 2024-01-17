@@ -20,7 +20,7 @@ breathe
 doxygen
 ipython
 numpydoc
-pydata-sphinx-theme=0.14
+pydata-sphinx-theme=0.14.1
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
