@@ -327,8 +327,7 @@ Status ResizableArrayData::ResizeVaryingLengthBuffer() {
   column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
   if (!column_metadata.is_fixed_length) {
-    int64_t min_new_size =
-        reinterpret_cast<const int32_t*>(buffers_[kFixedLengthBuffer]->data())[num_rows_];
+    int64_t min_new_size = buffers_[kFixedLengthBuffer]->data_as<int32_t>()[num_rows_];
     ARROW_DCHECK(var_len_buf_size_ > 0);
     if (var_len_buf_size_ < min_new_size) {
       int64_t new_size = var_len_buf_size_;
