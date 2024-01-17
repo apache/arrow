@@ -552,7 +552,7 @@ public class TestDictionaryVector {
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector.getClass(), decoded.getClass());
-          assertEquals(vector.getValueCount(), (decoded).getValueCount());
+          assertEquals(vector.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
             assertEquals(vector.getObject(i), ((VarCharVector) decoded).getObject(i));
           }
@@ -591,7 +591,7 @@ public class TestDictionaryVector {
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector1.getClass(), decoded.getClass());
-          assertEquals(vector1.getValueCount(), (decoded).getValueCount());
+          assertEquals(vector1.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 5; i++) {
             assertEquals(vector1.getObject(i), ((VarCharVector) decoded).getObject(i));
           }
@@ -611,7 +611,7 @@ public class TestDictionaryVector {
         // now run through the decoder and verify we get the original back
         try (ValueVector decoded = encoder.decode(encoded)) {
           assertEquals(vector2.getClass(), decoded.getClass());
-          assertEquals(vector2.getValueCount(), (decoded).getValueCount());
+          assertEquals(vector2.getValueCount(), decoded.getValueCount());
           for (int i = 0; i < 3; i++) {
             assertEquals(vector2.getObject(i), ((VarCharVector) decoded).getObject(i));
           }

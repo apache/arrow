@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -1084,11 +1085,11 @@ public class TestCopyFrom {
 
       vc1.setSafe(0, "1234567890".getBytes(StandardCharsets.UTF_8));
       assertFalse(vc1.isNull(0));
-      assertEquals(vc1.getObject(0).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc1.getObject(0)).toString());
 
       vc2.copyFromSafe(0, 0, vc1);
       assertFalse(vc2.isNull(0));
-      assertEquals(vc2.getObject(0).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(0)).toString());
 
       vc2.copyFromSafe(0, 5, vc1);
       assertTrue(vc2.isNull(1));
@@ -1096,7 +1097,7 @@ public class TestCopyFrom {
       assertTrue(vc2.isNull(3));
       assertTrue(vc2.isNull(4));
       assertFalse(vc2.isNull(5));
-      assertEquals(vc2.getObject(5).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(5)).toString());
     }
   }
 

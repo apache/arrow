@@ -324,12 +324,12 @@ public class TestVectorReAlloc {
       vector.allocateNewSafe(); // Initial allocation
 
       vector.clear(); // clear vector.
-      vector.setSafe(0, "hello world".getBytes());
+      vector.setSafe(0, "hello world".getBytes(StandardCharsets.UTF_8));
       int savedValueCapacity = vector.getValueCapacity();
 
       for (int i = 0; i < 1024; ++i) {
         vector.clear(); // clear vector.
-        vector.setSafe(0, "hello world".getBytes());
+        vector.setSafe(0, "hello world".getBytes(StandardCharsets.UTF_8));
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
