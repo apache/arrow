@@ -92,8 +92,19 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
       // The cookie header is somewhat malformed; ignore the key and continue parsing
       continue;
     }
-    result.emplace_back(tok.substr(0, val_pos),
-                        tok.substr(val_pos + pair_sep.length(), std::string::npos));
+    const std::string_view cookie_name = tok.substr(0, val_pos);
+    std::string_view cookie_value = tok.substr(val_pos + pair_sep.length(), std::string::npos);
+    if (cookie_name.empty()) {
+      continue;
+    }
+    // Strip doublequotes
+    if (cookie_value.length() >= 2 &&
+        cookie_value.front() == '"' &&
+        cookie_value.back() == '"') {
+      cookie_value.remove_prefix(1);
+      cookie_value.remove_suffix(1);
+    }
+    result.emplace_back(cookie_name, cookie_value);
   }
 
   return result;

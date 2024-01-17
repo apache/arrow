@@ -39,7 +39,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
   std::shared_mutex session_store_lock_;
   std::function<std::string()> id_generator_;
 
-  std::vector<std::pair<std::string, std::string>> ParseCookieString(
+  static std::vector<std::pair<std::string, std::string>> ParseCookieString(
       const std::string_view& s);
 
  public:

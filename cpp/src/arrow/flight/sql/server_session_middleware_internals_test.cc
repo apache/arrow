@@ -18,8 +18,6 @@
 // ----------------------------------------------------------------------
 // ServerSessionMiddleware{,Factory} tests not involing a client/server instance
 
-#include <stdio.h>
-
 #include <gtest/gtest.h>
 
 #include <arrow/flight/sql/server_session_middleware_factory.h>
@@ -33,8 +31,13 @@ class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFact
   using ServerSessionMiddlewareFactory::ParseCookieString;
 };
 
-TEST(ServerSessionMiddleware, Dummy) {
-  ASSERT_EQ(1, 0);
+TEST(ServerSessionMiddleware, ParseCookieString) {
+  std::vector<std::pair<std::string, std::string>> r1 =
+      ServerSessionMiddlewareFactoryPrivate::ParseCookieString(
+        "k1=v1; k2=\"v2\"; kempty=; k3=v3");
+  std::vector<std::pair<std::string, std::string>> e1 = 
+      {{"k1", "v1"}, {"k2", "v2"}, {"kempty", ""}, {"k3", "v3"}};
+  ASSERT_EQ(e1, r1);
 }
 
 }  // namespace sql
