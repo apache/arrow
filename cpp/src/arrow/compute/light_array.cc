@@ -89,7 +89,7 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   sliced.bit_offset_[0] = (bit_offset_[0] + offset) % 8;
 
   if (metadata_.fixed_length == 0 && !metadata_.is_null_type) {
-    ARROW_DCHECK(is_bool_type()) << "Expected BOOL type type but got a different type.";
+    ARROW_DCHECK(is_bool_type()) << "Expected BOOL type but got a different type.";
     sliced.buffers_[1] =
         buffers_[1] ? buffers_[1] + (bit_offset_[1] + offset) / 8 : nullptr;
     sliced.mutable_buffers_[1] = mutable_buffers_[1]
@@ -383,24 +383,22 @@ int ExecBatchBuilder::NumRowsToSkip(const std::shared_ptr<ArrayData>& column,
 
   KeyColumnMetadata column_metadata =
       ColumnMetadataFromDataType(column->type).ValueOrDie();
+  ARROW_DCHECK(!column_metadata.is_fixed_length || column_metadata.fixed_length > 0);
 
   int num_rows_left = num_rows;
   int num_bytes_skipped = 0;
   while (num_rows_left > 0 && num_bytes_skipped < num_tail_bytes_to_skip) {
+    --num_rows_left;
+    int row_id_removed = row_ids[num_rows_left];
     if (column_metadata.is_fixed_length) {
-      if (column_metadata.fixed_length == 0) {
-        num_rows_left = std::max(num_rows_left, 8) - 8;
-        ++num_bytes_skipped;
-      } else {
-        --num_rows_left;
-        num_bytes_skipped += column_metadata.fixed_length;
-      }
+      num_bytes_skipped += column_metadata.fixed_length;
     } else {
-      --num_rows_left;
-      int row_id_removed = row_ids[num_rows_left];
-      const uint32_t* offsets =
-          reinterpret_cast<const uint32_t*>(column->buffers[1]->data());
+      const int32_t* offsets = column->GetValues<int32_t>(1);
       num_bytes_skipped += offsets[row_id_removed + 1] - offsets[row_id_removed];
+    }
+    // Skip consecutive rows with the same id
+    while (num_rows_left > 0 && row_id_removed == row_ids[num_rows_left - 1]) {
+      --num_rows_left;
     }
   }
 

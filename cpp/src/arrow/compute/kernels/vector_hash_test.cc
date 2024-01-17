@@ -687,6 +687,15 @@ TEST_F(TestHashKernel, DictEncodeIntervalMonth) {
       {0, 0, 1, 0, 2});
 }
 
+TEST_F(TestHashKernel, DictEncodeDictInput) {
+  // Dictionary encode a dictionary is a no-op
+  auto dict_ty = dictionary(int32(), utf8());
+  auto dict = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  auto indices = ArrayFromJSON(int32(), "[0, 1, 2, 0, 1, 2, 0, 1, 2]");
+  auto input = std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+  CheckDictEncode(input, dict, indices);
+}
+
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
   auto dict_json = "[10, 20, 30, 40]";
   auto dict = ArrayFromJSON(int64(), dict_json);

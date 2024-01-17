@@ -40,7 +40,7 @@ class ARROW_EXPORT IntegrationJsonWriter {
   /// \brief Create a new JSON writer that writes to memory
   ///
   /// \param[in] schema the schema of record batches
-  /// \return the creater writer object
+  /// \return the creator writer object
   static Result<std::unique_ptr<IntegrationJsonWriter>> Open(
       const std::shared_ptr<Schema>& schema);
 

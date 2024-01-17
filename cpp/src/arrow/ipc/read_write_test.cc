@@ -140,7 +140,7 @@ TEST_P(TestMessage, SerializeTo) {
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-    // chech whether length is written in little endian
+    // check whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
               bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
@@ -363,7 +363,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
@@ -520,7 +520,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
+  // Verify UBSAN is ok with casting out of range metadata version.
   EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
 }
 
@@ -1330,11 +1330,44 @@ struct StreamWriterHelper {
   std::shared_ptr<RecordBatchWriter> writer_;
 };
 
+class CopyCollectListener : public CollectListener {
+ public:
+  CopyCollectListener() : CollectListener() {}
+
+  Status OnRecordBatchWithMetadataDecoded(
+      RecordBatchWithMetadata record_batch_with_metadata) override {
+    auto& record_batch = record_batch_with_metadata.batch;
+    for (auto column_data : record_batch->column_data()) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(column_data));
+    }
+    return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
+  }
+
+ private:
+  Status CopyArrayData(std::shared_ptr<ArrayData> data) {
+    auto& buffers = data->buffers;
+    for (size_t i = 0; i < buffers.size(); ++i) {
+      auto& buffer = buffers[i];
+      if (!buffer) {
+        continue;
+      }
+      ARROW_ASSIGN_OR_RAISE(buffers[i], Buffer::Copy(buffer, buffer->memory_manager()));
+    }
+    for (auto child_data : data->child_data) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(child_data));
+    }
+    if (data->dictionary) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(data->dictionary));
+    }
+    return Status::OK();
+  }
+};
+
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr,
                      MetadataVector* out_metadata_list = nullptr) override {
-    auto listener = std::make_shared<CollectListener>();
+    auto listener = std::make_shared<CopyCollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
@@ -1358,7 +1391,10 @@ struct StreamDecoderWriterHelper : public StreamWriterHelper {
 
 struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
-    return decoder->Consume(buffer_->data(), buffer_->size());
+    // This data is valid only in this function.
+    ARROW_ASSIGN_OR_RAISE(auto temporary_buffer,
+                          Buffer::Copy(buffer_, arrow::default_cpu_memory_manager()));
+    return decoder->Consume(temporary_buffer->data(), temporary_buffer->size());
   }
 };
 
@@ -1369,7 +1405,9 @@ struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
 struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
+      // This data is valid only in this block.
+      ARROW_ASSIGN_OR_RAISE(auto temporary_buffer, buffer_->CopySlice(offset, 1));
+      RETURN_NOT_OK(decoder->Consume(temporary_buffer->data(), temporary_buffer->size()));
     }
     return Status::OK();
   }
@@ -2172,7 +2210,6 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
-namespace {
 class EndlessCollectListener : public CollectListener {
  public:
   EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
@@ -2184,7 +2221,6 @@ class EndlessCollectListener : public CollectListener {
  private:
   StreamDecoder* decoder_;
 };
-};  // namespace
 
 TEST(TestStreamDecoder, Reset) {
   auto listener = std::make_shared<EndlessCollectListener>();
@@ -3019,14 +3055,14 @@ TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
   GetReadRecordBatchReadRanges({0, 2}, {1, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFields) {
   // read the int32 field and the int64 field
   // + 5 int32: 5 * 4 bytes
   // + 5 int64: 5 * 8 bytes
   GetReadRecordBatchReadRanges({1, 2}, {20, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFieldsWithIoMerged) {
   // change the array length to 64 so that bool field and int32 are continuous without
   // padding
   // read the bool field and the int32 field since the bool field's aligned offset

@@ -167,7 +167,9 @@ namespace Apache.Arrow.C
                     return $"d:{decimalType.Precision},{decimalType.Scale},256";
                 // Binary
                 case BinaryType _: return "z";
+                case BinaryViewType _: return "vz";
                 case StringType _: return "u";
+                case StringViewType _: return "vu";
                 case FixedSizeBinaryType binaryType:
                     return $"w:{binaryType.ByteWidth}";
                 // Date
@@ -185,8 +187,18 @@ namespace Apache.Arrow.C
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Interval
+                case IntervalType intervalType:
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => "tiM",
+                        IntervalUnit.DayTime => "tiD",
+                        IntervalUnit.MonthDayNanosecond => "tin",
+                        _ => throw new InvalidDataException($"Unsupported interval unit for export: {intervalType.Unit}"),
+                    };
                 // Nested
                 case ListType _: return "+l";
+                case ListViewType _: return "+vl";
                 case FixedSizeListType fixedListType:
                     return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";

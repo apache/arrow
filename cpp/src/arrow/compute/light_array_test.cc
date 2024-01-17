@@ -333,7 +333,7 @@ TEST(ResizableArrayData, Binary) {
       ASSERT_EQ(0, array.num_rows());
       ASSERT_OK(array.ResizeFixedLengthBuffers(2));
       ASSERT_EQ(2, array.num_rows());
-      // At this point the offets memory has been allocated and needs to be filled
+      // At this point the offsets memory has been allocated and needs to be filled
       // in before we allocate the variable length memory
       int offsets_width =
           static_cast<int>(arrow::internal::checked_pointer_cast<BaseBinaryType>(type)
@@ -468,6 +468,95 @@ TEST(ExecBatchBuilder, AppendBatchesSomeRows) {
     ASSERT_EQ(combined, built);
     ASSERT_NE(0, pool->bytes_allocated());
   }
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+TEST(ExecBatchBuilder, AppendBatchDupRows) {
+  std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
+  MemoryPool* pool = owned_pool.get();
+
+  // Case of cross-word copying for the last row, which may exceed the buffer boundary.
+  //
+  {
+    // This is a simplified case of GH-32570
+    // 64-byte data fully occupying one minimal 64-byte aligned memory region.
+    ExecBatch batch_string = JSONToExecBatch({binary()}, R"([
+        ["123456789ABCDEF0"],
+        ["123456789ABCDEF0"],
+        ["123456789ABCDEF0"],
+        ["ABCDEF0"],
+        ["123456789"]])");  // 9-byte tail row, larger than a word.
+    ASSERT_EQ(batch_string[0].array()->buffers[1]->capacity(), 64);
+    ASSERT_EQ(batch_string[0].array()->buffers[2]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[2] = {4, 4};
+    ASSERT_OK(builder.AppendSelected(pool, batch_string, 2, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_string_appended =
+        JSONToExecBatch({binary()}, R"([["123456789"], ["123456789"]])");
+    ASSERT_EQ(batch_string_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  {
+    // This is a simplified case of GH-39583, using fsb(3) type.
+    // 63-byte data occupying almost one minimal 64-byte aligned memory region.
+    ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(3)}, R"([
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["000"],
+        ["123"]])");  // 3-byte tail row, not aligned to a word.
+    ASSERT_EQ(batch_fsb[0].array()->buffers[1]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[4] = {20, 20, 20,
+                           20};  // Get the last row 4 times, 3 to skip a word.
+    ASSERT_OK(builder.AppendSelected(pool, batch_fsb, 4, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_fsb_appended = JSONToExecBatch(
+        {fixed_size_binary(3)}, R"([["123"], ["123"], ["123"], ["123"]])");
+    ASSERT_EQ(batch_fsb_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
+  {
+    // This is a simplified case of GH-39583, using fsb(9) type.
+    // 63-byte data occupying almost one minimal 64-byte aligned memory region.
+    ExecBatch batch_fsb = JSONToExecBatch({fixed_size_binary(9)}, R"([
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["000000000"],
+        ["123456789"]])");  // 9-byte tail row, not aligned to a word.
+    ASSERT_EQ(batch_fsb[0].array()->buffers[1]->capacity(), 64);
+    ExecBatchBuilder builder;
+    uint16_t row_ids[2] = {6, 6};  // Get the last row 2 times, 1 to skip a word.
+    ASSERT_OK(builder.AppendSelected(pool, batch_fsb, 2, row_ids, /*num_cols=*/1));
+    ExecBatch built = builder.Flush();
+    ExecBatch batch_fsb_appended =
+        JSONToExecBatch({fixed_size_binary(9)}, R"([["123456789"], ["123456789"]])");
+    ASSERT_EQ(batch_fsb_appended, built);
+    ASSERT_NE(0, pool->bytes_allocated());
+  }
+
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 

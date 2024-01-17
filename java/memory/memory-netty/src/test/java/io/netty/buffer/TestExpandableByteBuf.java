@@ -23,6 +23,10 @@ import org.apache.arrow.memory.RootAllocator;
 import org.junit.Assert;
 import org.junit.Test;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ExpandableByteBuf;
+import io.netty.buffer.NettyArrowBuf;
+
 public class TestExpandableByteBuf {
 
   @Test

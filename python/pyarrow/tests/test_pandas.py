@@ -34,6 +34,7 @@ import pytest
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
+import pyarrow.tests.util as test_util
 from pyarrow.vendored.version import Version
 
 import pyarrow as pa
@@ -112,6 +113,10 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
+        for col in expected.columns:
+            if expected[col].dtype == 'object':
+                expected[col] = expected[col].replace({np.nan: None})
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", "elementwise comparison failed", DeprecationWarning)
@@ -150,6 +155,9 @@ def _check_array_roundtrip(values, expected=None, mask=None,
         else:
             expected = pd.Series(values).copy()
             expected[mask.copy()] = None
+
+        if expected.dtype == 'object':
+            expected = expected.replace({np.nan: None})
 
     tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
@@ -261,6 +269,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
@@ -311,6 +325,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
@@ -465,7 +485,7 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
+        if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
             # TODO: regression in pandas, hopefully fixed in next version
             # https://issues.apache.org/jira/browse/ARROW-18394
             # https://github.com/pandas-dev/pandas/issues/50127
@@ -3095,7 +3115,7 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
+    if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
         # TODO: regression in pandas, hopefully fixed in next version
         # https://issues.apache.org/jira/browse/ARROW-18394
         # https://github.com/pandas-dev/pandas/issues/50127
@@ -3478,7 +3498,7 @@ def test_table_from_pandas_schema_field_order_metadata():
     # ensure that a different field order in specified schema doesn't
     # mangle metadata
     df = pd.DataFrame({
-        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=2),
         "float": np.random.randn(2)
     })
 
@@ -4168,8 +4188,6 @@ def _Int64Dtype__from_arrow__(self, array):
 
 
 def test_convert_to_extension_array(monkeypatch):
-    import pandas.core.internals as _int
-
     # table converted from dataframe with extension types (so pandas_metadata
     # has this information)
     df = pd.DataFrame(
@@ -4180,16 +4198,15 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
-    assert isinstance(_get_mgr(result).blocks[1], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[1].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df)
 
     # test with missing values
     df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
     table2 = pa.table(df2)
     result = table2.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
@@ -4202,7 +4219,7 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(_get_mgr(result).blocks) == 1
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
 
 
 class MyCustomIntegerType(pa.ExtensionType):
@@ -4220,8 +4237,6 @@ class MyCustomIntegerType(pa.ExtensionType):
 
 def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
-    import pandas.core.internals as _int
-
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
@@ -4229,12 +4244,12 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
     result = arr.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.Series([1, 2, 3, 4], dtype='Int64')
     tm.assert_series_equal(result, expected)
 
     result = table.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
 
@@ -4248,7 +4263,7 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
 
@@ -4299,10 +4314,14 @@ def test_array_to_pandas():
 def test_roundtrip_empty_table_with_extension_dtype_index():
     df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
     table = pa.table(df)
-    table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
-                                         {'left': 1, 'right': 2},
-                                         {'left': 2, 'right': 3}],
-                                        dtype='object')
+    if Version(pd.__version__) > Version("1.0"):
+        tm.assert_index_equal(table.to_pandas().index, df.index)
+    else:
+        tm.assert_index_equal(table.to_pandas().index,
+                              pd.Index([{'left': 0, 'right': 1},
+                                        {'left': 1, 'right': 2},
+                                        {'left': 2, 'right': 3}],
+                                       dtype='object'))
 
 
 @pytest.mark.parametrize("index", ["a", ["a", "b"]])
@@ -4996,3 +5015,8 @@ def test_nested_chunking_valid():
     schema = pa.schema([("maps", map_type)])
     roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
               schema=schema)
+
+
+def test_is_data_frame_race_condition():
+    # See https://github.com/apache/arrow/issues/39313
+    test_util.invoke_script('arrow_39313.py')

@@ -766,7 +766,7 @@ class FileMetaData::FileMetaDataImpl {
     return metadata_->row_groups[i];
   }
 
-  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+  void AppendRowGroups(FileMetaDataImpl* other) {
     std::ostringstream diff_output;
     if (!schema()->Equals(*other->schema(), &diff_output)) {
       auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
@@ -805,6 +805,7 @@ class FileMetaData::FileMetaDataImpl {
     metadata->schema = metadata_->schema;
 
     metadata->row_groups.resize(row_groups.size());
+
     int i = 0;
     for (int selected_index : row_groups) {
       metadata->num_rows += row_group(selected_index).num_rows;
@@ -827,7 +828,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-    file_decryptor_ = file_decryptor;
+    file_decryptor_ = std::move(file_decryptor);
   }
 
   void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets, int64_t expected_num_rows) {
@@ -917,13 +918,14 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
     const void* metadata, uint32_t* metadata_len,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::shared_ptr<FileMetaData>(new FileMetaData(
-      metadata, metadata_len, default_reader_properties(), file_decryptor));
+      metadata, metadata_len, default_reader_properties(), std::move(file_decryptor)));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
                            const ReaderProperties& properties,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
-    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties, file_decryptor)) {}
+    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
+                                 std::move(file_decryptor))) {}
 
 FileMetaData::FileMetaData() : impl_(new FileMetaDataImpl()) {}
 
@@ -973,7 +975,7 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 
 void FileMetaData::set_file_decryptor(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  impl_->set_file_decryptor(file_decryptor);
+  impl_->set_file_decryptor(std::move(file_decryptor));
 }
 
 ParquetVersion::type FileMetaData::version() const {
@@ -1006,7 +1008,7 @@ const std::shared_ptr<const KeyValueMetadata>& FileMetaData::key_value_metadata(
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
 void FileMetaData::AppendRowGroups(const FileMetaData& other) {
-  impl_->AppendRowGroups(other.impl_);
+  impl_->AppendRowGroups(other.impl_.get());
 }
 
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
@@ -1888,7 +1890,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   std::unique_ptr<FileMetaData> Finish(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     int64_t total_rows = 0;
-    for (auto row_group : row_groups_) {
+    for (const auto& row_group : row_groups_) {
       total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
@@ -1907,7 +1909,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         format::KeyValue kv_pair;
         kv_pair.__set_key(key_value_metadata_->key(i));
         kv_pair.__set_value(key_value_metadata_->value(i));
-        metadata_->key_value_metadata.push_back(kv_pair);
+        metadata_->key_value_metadata.push_back(std::move(kv_pair));
       }
       metadata_->__isset.key_value_metadata = true;
     }

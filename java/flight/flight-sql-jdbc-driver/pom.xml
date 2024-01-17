@@ -23,7 +23,7 @@
 
     <artifactId>flight-sql-jdbc-driver</artifactId>
     <name>Arrow Flight SQL JDBC Driver</name>
-    <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
+    <description>A JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.61</version>
+            <version>1.70</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -114,7 +114,7 @@
         <dependency>
             <groupId>org.apache.calcite.avatica</groupId>
             <artifactId>avatica</artifactId>
-            <version>1.18.0</version>
+            <version>1.24.0</version>
             <scope>runtime</scope>
         </dependency>
 

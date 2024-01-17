@@ -561,7 +561,8 @@ def test_slice_compatibility():
 
 
 def test_binary_slice_compatibility():
-    arr = pa.array([b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"])
+    data = [b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"]
+    arr = pa.array(data)
     for start, stop, step in itertools.product(range(-6, 6),
                                                range(-6, 6),
                                                range(-3, 4)):
@@ -574,6 +575,13 @@ def test_binary_slice_compatibility():
         assert expected.equals(result)
         # Positional options
         assert pc.binary_slice(arr, start, stop, step) == result
+        # Fixed size binary input / output
+        for item in data:
+            fsb_scalar = pa.scalar(item, type=pa.binary(len(item)))
+            expected = item[start:stop:step]
+            actual = pc.binary_slice(fsb_scalar, start, stop, step)
+            assert actual.type == pa.binary(len(expected))
+            assert actual.as_py() == expected
 
 
 def test_split_pattern():
@@ -1781,6 +1789,7 @@ def test_dictionary_decode():
 
     assert array == dictionary_array_decode
     assert array == pc.dictionary_decode(array)
+    assert pc.dictionary_encode(dictionary_array) == dictionary_array
 
 
 def test_cast():
@@ -2351,10 +2360,10 @@ def _check_temporal_rounding(ts, values, unit):
     unit_shorthand = {
         "nanosecond": "ns",
         "microsecond": "us",
-        "millisecond": "L",
+        "millisecond": "ms",
         "second": "s",
         "minute": "min",
-        "hour": "H",
+        "hour": "h",
         "day": "D"
     }
     greater_unit = {
@@ -2362,7 +2371,7 @@ def _check_temporal_rounding(ts, values, unit):
         "microsecond": "ms",
         "millisecond": "s",
         "second": "min",
-        "minute": "H",
+        "minute": "h",
         "hour": "d",
     }
     ta = pa.array(ts)

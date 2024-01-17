@@ -193,6 +193,8 @@ class IntegrationRunner(object):
         ``case_runner`` ran against ``test_cases``
         """
         def case_wrapper(test_case):
+            if serial:
+                return case_runner(test_case)
             with printer.cork():
                 return case_runner(test_case)
 

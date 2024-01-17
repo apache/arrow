@@ -133,7 +133,7 @@ class ARROW_EXPORT DictionaryUnifier {
   static Result<std::unique_ptr<DictionaryUnifier>> Make(
       std::shared_ptr<DataType> value_type, MemoryPool* pool = default_memory_pool());
 
-  /// \brief Unify dictionaries accross array chunks
+  /// \brief Unify dictionaries across array chunks
   ///
   /// The dictionaries in the array chunks will be unified, their indices
   /// accordingly transposed.
@@ -144,7 +144,7 @@ class ARROW_EXPORT DictionaryUnifier {
       const std::shared_ptr<ChunkedArray>& array,
       MemoryPool* pool = default_memory_pool());
 
-  /// \brief Unify dictionaries accross the chunks of each table column
+  /// \brief Unify dictionaries across the chunks of each table column
   ///
   /// The dictionaries in each table column will be unified, their indices
   /// accordingly transposed.

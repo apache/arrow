@@ -23,9 +23,8 @@ import * as fs from 'fs';
 import * as stream from 'stream';
 import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue, util } from '../Arrow.js';
 
-import commandLineUsage from 'command-line-usage';
-import commandLineArgs from 'command-line-args';
-import padLeft from 'pad-left';
+import * as commandLineUsage from 'command-line-usage';
+import * as commandLineArgs from 'command-line-args';
 // @ts-ignore
 import { parse as bignumJSONParse } from 'json-bignum';
 
@@ -190,11 +189,11 @@ function batchesToString(state: ToStringState, schema: Schema) {
 }
 
 function horizontalRule(maxColWidths: number[], hr = '', sep = ' | ') {
-    return ` ${padLeft('', maxColWidths.reduce((x, y) => x + y, -2 + maxColWidths.length * sep.length), hr)}`;
+    return ` ${''.padStart(maxColWidths.reduce((x, y) => x + y, -2 + maxColWidths.length * sep.length), hr)}`;
 }
 
 function formatRow(row: string[] = [], maxColWidths: number[] = [], sep = ' | ') {
-    return `${row.map((x, j) => padLeft(x, maxColWidths[j])).join(sep)}`;
+    return row.map((x, j) => x.padStart(maxColWidths[j])).join(sep);
 }
 
 function formatMetadataValue(value = '') {

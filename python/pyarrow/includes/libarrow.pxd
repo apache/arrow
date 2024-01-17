@@ -673,11 +673,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
+            const shared_ptr[CArray]& values,
+            int32_t list_size,
+            shared_ptr[CBuffer] null_bitmap)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            const shared_ptr[CArray]& values, shared_ptr[CDataType])
+            const shared_ptr[CArray]& values,
+            shared_ptr[CDataType],
+            shared_ptr[CBuffer] null_bitmap)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -687,6 +691,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
@@ -1199,6 +1211,25 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef enum DLDeviceType:
+        kDLCPU = 1
+
+    ctypedef struct DLDevice:
+        DLDeviceType device_type
+        int32_t device_id
+
+    ctypedef struct DLManagedTensor:
+        void (*deleter)(DLManagedTensor*)
+
+
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+        const shared_ptr[CArray]& arr)
+
+    CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
+
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
@@ -1346,6 +1377,22 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus WriteBuffer" Write"(shared_ptr[CBuffer] data)
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
+
+    cdef cppclass CCacheOptions "arrow::io::CacheOptions":
+        int64_t hole_size_limit
+        int64_t range_size_limit
+        c_bool lazy
+        int64_t prefetch_limit
+        c_bool Equals "operator==" (CCacheOptions other)
+
+        @staticmethod
+        CCacheOptions MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
+                                             int64_t transfer_bandwidth_mib_per_sec,
+                                             double ideal_bandwidth_utilization_frac,
+                                             int64_t max_ideal_request_size_mib)
+
+        @staticmethod
+        CCacheOptions LazyDefaults()
 
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
