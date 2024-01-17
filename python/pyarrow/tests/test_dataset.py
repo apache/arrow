@@ -178,12 +178,14 @@ def multisourcefs(request):
 
     # simply split the dataframe into four chunks to construct a data source
     # from each chunk into its own directory
-    df_a, df_b, df_c, df_d = np.array_split(df, 4)
+    n = len(df)
+    df_a, df_b, df_c, df_d = [df.iloc[i:i+n//4] for i in range(0, n, n//4)]
 
     # create a directory containing a flat sequence of parquet files without
     # any partitioning involved
     mockfs.create_dir('plain')
-    for i, chunk in enumerate(np.array_split(df_a, 10)):
+    n = len(df_a)
+    for i, chunk in enumerate([df_a.iloc[i:i+n//10] for i in range(0, n, n//10)]):
         path = 'plain/chunk-{}.parquet'.format(i)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)

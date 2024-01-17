@@ -967,20 +967,9 @@ def _extract_index_level(table, result_table, field_name,
         # The serialized index column was removed by the user
         return result_table, None, None
 
-    pd = _pandas_api.pd
-
     col = table.column(i)
-    values = col.to_pandas(types_mapper=types_mapper).values
-
-    if hasattr(values, 'flags') and not values.flags.writeable:
-        # ARROW-1054: in pandas 0.19.2, factorize will reject
-        # non-writeable arrays when calling MultiIndex.from_arrays
-        values = values.copy()
-
-    if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
-    else:
-        index_level = pd.Series(values, dtype=values.dtype, copy=False)
+    index_level = col.to_pandas(types_mapper=types_mapper)
+    index_level.name = None
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
