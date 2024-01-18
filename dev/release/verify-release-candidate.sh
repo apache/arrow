@@ -1136,7 +1136,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
