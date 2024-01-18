@@ -17,10 +17,10 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -69,9 +69,9 @@ public class TestCompositeVectorComparator {
 
       for (int i = 0; i < vectorLength; i++) {
         intVec1.set(i, i);
-        strVec1.set(i, ("a" + i).getBytes(UTF_8));
+        strVec1.set(i, ("a" + i).getBytes(StandardCharsets.UTF_8));
         intVec2.set(i, i);
-        strVec2.set(i, "a5".getBytes(UTF_8));
+        strVec2.set(i, "a5".getBytes(StandardCharsets.UTF_8));
       }
 
       VectorValueComparator<IntVector> innerComparator1 =

@@ -17,11 +17,11 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -131,7 +131,7 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       if (expected[i] == null) {
         assertTrue(vector.isNull(i));
       } else {
-        assertArrayEquals(((Text) vector.getObject(i)).getBytes(), expected[i].getBytes(UTF_8));
+        assertArrayEquals(((Text) vector.getObject(i)).getBytes(), expected[i].getBytes(StandardCharsets.UTF_8));
       }
     }
   }
@@ -152,8 +152,8 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
         return str1 == null ? -1 : 1;
       }
 
-      byte[] bytes1 = str1.getBytes(UTF_8);
-      byte[] bytes2 = str2.getBytes(UTF_8);
+      byte[] bytes1 = str1.getBytes(StandardCharsets.UTF_8);
+      byte[] bytes2 = str2.getBytes(StandardCharsets.UTF_8);
 
       for (int i = 0; i < bytes1.length && i < bytes2.length; i++) {
         if (bytes1[i] != bytes2[i]) {
