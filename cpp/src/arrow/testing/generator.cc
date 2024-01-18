@@ -38,6 +38,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 
@@ -103,7 +104,13 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float64(int64_t size,
 
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::String(int64_t size,
                                                              std::string value) {
-  return ConstantArray<StringType>(size, value);
+  using BuilderType = typename TypeTraits<StringType>::BuilderType;
+  auto type = TypeTraits<StringType>::type_singleton();
+  auto builder_fn = [&](BuilderType* builder) {
+    DCHECK_OK(builder->Append(std::string_view(value.data())));
+  };
+  return ArrayFromBuilderVisitor(type, value.size() * size, size, builder_fn)
+      .ValueOrDie();
 }
 
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Zeroes(
