@@ -348,8 +348,11 @@ type TemporalWithUnit interface {
 }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
-// The zero-value is a second and time zone neutral. Time zone neutral can be
-// considered UTC without having "UTC" as a time zone.
+// The zero-value is a second and time zone neutral. In Arrow semantics, time zone neutral does not
+// represent a physical point in time, but rather a "wall clock" time that only has meaning within
+// the context that produced it. In Go, time.Time can only represent instants; there is no notion
+// of "wall clock" time. Therefore, time zone neutral timestamps are represented as UTC per Go
+// conventions even though the Arrow type itself has no time zone.
 type TimestampType struct {
 	Unit     TimeUnit
 	TimeZone string
@@ -454,17 +457,7 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 		return nil, err
 	}
 
-	switch t.Unit {
-	case Second:
-		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
-	case Millisecond:
-		return func(v Timestamp) time.Time { return time.UnixMilli(int64(v)).In(tz) }, nil
-	case Microsecond:
-		return func(v Timestamp) time.Time { return time.UnixMicro(int64(v)).In(tz) }, nil
-	case Nanosecond:
-		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
-	}
-	return nil, fmt.Errorf("invalid timestamp unit: %s", t.Unit)
+	return func(v Timestamp) time.Time { return v.ToTime(t.Unit).In(tz) }, nil
 }
 
 // Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.
