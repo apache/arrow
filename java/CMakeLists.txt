@@ -74,6 +74,20 @@ if(BUILD_TESTING)
                                                   GTest::gtest_main)
 endif()
 
+# If the user hasn't set ARROW_JAVA_JNI_ARCH_DIR, derive the normalized
+# operating system from the host processor.
+if("${ARROW_JAVA_JNI_ARCH_DIR}" STREQUAL "")
+  if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+    set(ARROW_JAVA_JNI_ARCH_DIR "aarch_64")
+  elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "i386")
+    set(ARROW_JAVA_JNI_ARCH_DIR "x86_64")
+  elseif("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "arm64")
+    set(ARROW_JAVA_JNI_ARCH_DIR "aarch_64")
+  else()
+    set(ARROW_JAVA_JNI_ARCH_DIR "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+  endif()
+endif()
+
 if(ARROW_JAVA_JNI_ENABLE_C)
   add_subdirectory(c)
 endif()
