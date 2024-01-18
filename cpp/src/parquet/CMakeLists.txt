@@ -360,6 +360,11 @@ add_parquet_test(internals-test
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(rowrange-read-test
+                 SOURCES
+                 row_range_test.cc
+                 range_reader_test.cc
+)
 
 add_parquet_test(reader-test
                  SOURCES
@@ -367,8 +372,6 @@ add_parquet_test(reader-test
                  level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
-                 range_reader_test.cc
-                 row_range_test.cc
                  stream_reader_test.cc
                  test_util.cc)
 

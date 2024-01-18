@@ -30,17 +30,20 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
+#include <arrow/util/future.h>
+#include <cstdlib>
 #include <random>
 #include <string>
 
 using parquet::IntervalRange;
 using parquet::IntervalRanges;
 
-std::string random_string(std::string::size_type length) {
+std::string random_string() {
   static auto& chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-  static std::mt19937 rg = std::mt19937(std::random_device()());
+  static std::mt19937 rg{std::random_device()()};
   static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+
+  int length = std::rand() % 100;
 
   std::string s;
   s.reserve(length);
@@ -51,10 +54,10 @@ std::string random_string(std::string::size_type length) {
 
 /// The table looks like (with_nulls = false):
 // {
-// { a: {x: 0, y: 0}, b: {0, 0, 0}, c: "0", d: 0},
-// { a: {x: 1, y: 1}, b: {1, 1, 1}, c: "1", d: 1},
+// { a: {x: 0, y: 0}, b: {0, 0, 0}, c: "0<random_string>", d: 0},
+// { a: {x: 1, y: 1}, b: {1, 1, 1}, c: "1<random_string>", d: 1},
 // ...
-// { a: {x: 99, y: 99}, b: {99, 99, 99}, c: "99", d: 99}
+// { a: {x: 99, y: 99}, b: {99, 99, 99}, c: "99<random_string>", d: 99}
 // }
 arrow::Result<std::shared_ptr<arrow::Table>> GetTable(bool with_nulls = false) {
   // if with_nulls, the generated table should null values
@@ -117,7 +120,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable(bool with_nulls = false) {
   uint8_t valid_bytes[100];
   for (size_t i = 0; i < 100; i++) {
     // add more chars to make this column unaligned with other columns' page
-    strs.push_back(std::to_string(i) + random_string(20));
+    strs.push_back(std::to_string(i) + random_string());
     valid_bytes[i] = flags[i];
   }
   ARROW_RETURN_NOT_OK(string_builder.AppendValues(strs, &valid_bytes[0]));
@@ -225,8 +228,13 @@ void check_rb(std::unique_ptr<arrow::RecordBatchReader> rb_reader,
           std::dynamic_pointer_cast<arrow::StringArray>(batch->GetColumnByName("c"));
       for (auto iter = c_array->begin(); iter != c_array->end(); ++iter) {
         sum_c += std::stoi(std::string(
-            (*iter).has_value() ? (*iter).value().substr(0, (*iter).value().size() - 20)
-                                : "0"));
+            (*iter).has_value()
+                ? (*iter).value().substr(
+                      0, std::distance(
+                             (*iter).value().begin(),
+                             std::find_if((*iter).value().begin(), (*iter).value().end(),
+                                          [](char c) { return !std::isdigit(c); })))
+                : "0"));
       }
     }
 
@@ -254,9 +262,37 @@ void check_rb(std::unique_ptr<arrow::RecordBatchReader> rb_reader,
   }
 }
 
-class TestRecordBatchReaderWithRanges : public testing::Test {
+class CountingBytesBufferReader : public arrow::io::BufferReader {
+ public:
+  using BufferReader::BufferReader;
+
+  arrow::Future<std::shared_ptr<arrow::Buffer>> ReadAsync(
+      const arrow::io::IOContext& context, int64_t position, int64_t nbytes) override {
+    read_bytes_ += nbytes;
+    return BufferReader::ReadAsync(context, position, nbytes);
+  }
+
+  arrow::Future<int64_t> ReadAsync(const arrow::io::IOContext& ctx,
+                                   std::vector<arrow::io::ReadRange>& ranges,
+                                   void* out) override {
+    read_bytes_ += std::accumulate(ranges.begin(), ranges.end(), 0,
+                                   [](int64_t sum, const arrow::io::ReadRange& range) {
+                                     return sum + range.length;
+                                   });
+    return RandomAccessFile::ReadAsync(ctx, ranges, out);
+  }
+
+  int64_t read_bytes() const { return read_bytes_; }
+
+ private:
+  int64_t read_bytes_ = 0;
+};
+
+class TestRecordBatchReaderWithRanges : public testing::TestWithParam<int> {
  public:
   void SetUp() {
+    int mode = GetParam();
+
     ASSERT_OK_AND_ASSIGN(auto buffer, WriteFullFile());
 
     arrow::MemoryPool* pool = arrow::default_memory_pool();
@@ -267,9 +303,20 @@ class TestRecordBatchReaderWithRanges : public testing::Test {
 
     auto arrow_reader_props = parquet::ArrowReaderProperties();
     arrow_reader_props.set_batch_size(10);  // default 64 * 1024
+    if (mode != 0) {
+      arrow_reader_props.set_pre_buffer(true);
+    }
+
+    if (mode == 2) {
+      arrow::io::CacheOptions cache_options = arrow::io::CacheOptions::Defaults();
+      cache_options.hole_size_limit = 0;
+      cache_options.lazy = true;
+      cache_options.prefetch_limit = 2;
+      arrow_reader_props.set_cache_options(cache_options);
+    }
 
     parquet::arrow::FileReaderBuilder reader_builder;
-    const auto in_file = std::make_shared<arrow::io::BufferReader>(buffer);
+    in_file = std::make_shared<CountingBytesBufferReader>(buffer);
     ASSERT_OK(reader_builder.Open(in_file, /*memory_map=*/reader_properties));
     reader_builder.memory_pool(pool);
     reader_builder.properties(arrow_reader_props);
@@ -281,11 +328,10 @@ class TestRecordBatchReaderWithRanges : public testing::Test {
 
  protected:
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  std::shared_ptr<CountingBytesBufferReader> in_file;
 };
 
-TEST_F(TestRecordBatchReaderWithRanges, TestRangesSplit) {}
-
-TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
+TEST_P(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   IntervalRanges rows{{{0, 9}, {40, 49}, {80, 89}, {90, 99}}};
 
@@ -296,7 +342,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   check_rb(std::move(rb_reader), 40, 2280);
 }
 
-TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
+TEST_P(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   IntervalRanges rows{{IntervalRange{0, 7}, IntervalRange{16, 23}}};
 
@@ -307,7 +353,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
   check_rb(std::move(rb_reader), 16, 184);
 }
 
-TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
+TEST_P(TestRecordBatchReaderWithRanges, SelectAllRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   IntervalRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89},
                        IntervalRange{90, 99}}};
@@ -319,7 +365,24 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
   check_rb(std::move(rb_reader), 100, 4950);
 }
 
-TEST_F(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
+TEST_P(TestRecordBatchReaderWithRanges, CheckSkipIOEffective) {
+  std::unique_ptr<arrow::RecordBatchReader> rb_reader;
+  IntervalRanges rows{{IntervalRange{3, 3}}};
+
+  const std::vector column_indices{0, 1, 2, 3, 4};
+  ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
+
+  check_rb(std::move(rb_reader), 1, 3);
+
+  // only one page should be touched when we enable pre_buffer
+  // the total read bytes should be small (the first RG is about 3000 bytes)
+  auto mode = GetParam();
+  if (mode == 1 || mode == 2) {
+    ASSERT_LT(in_file->read_bytes(), 1000);
+  }
+}
+
+TEST_P(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   IntervalRanges rows{};
 
@@ -330,13 +393,15 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
   check_rb(std::move(rb_reader), 0, 0);
 }
 
-TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
+TEST_P(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   // case 1: only care about RG 0
   {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
     std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
-      if (i % 2 == 0) ranges.push_back({i, i});
+      if (i % 2 == 0) {
+        ranges.push_back({i, i});
+      }
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
@@ -369,7 +434,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
   }
 }
 
-TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
+TEST_P(TestRecordBatchReaderWithRanges, InvalidRanges) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   {
     auto create_ranges = []() -> IntervalRanges {
@@ -396,6 +461,12 @@ TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
                 std::string::npos);
   }
 }
+
+// mode 0: normal read with pre_buffer = false
+// mode 1: normal read with pre_buffer = true
+// mode 2: with pre_buffer = true and set cache options
+INSTANTIATE_TEST_SUITE_P(ParameterizedTestRecordBatchReaderWithRanges,
+                         TestRecordBatchReaderWithRanges, testing::Values(0, 1, 2));
 
 TEST(TestRecordBatchReaderWithRangesBadCases, NoPageIndex) {
   using parquet::ArrowWriterProperties;
@@ -439,8 +510,10 @@ TEST(TestRecordBatchReaderWithRangesBadCases, NoPageIndex) {
   std::vector column_indices{0, 1, 2, 3, 4};
   auto status = arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
   ASSERT_NOT_OK(status);
-  EXPECT_TRUE(status.message().find("Attempting to read with Ranges but Page Index is "
-                                    "not found for Row Group: 0") != std::string::npos);
+
+  EXPECT_TRUE(
+      status.message().find("Page index is required but not found for row group 0") !=
+      std::string::npos);
 }
 
 class TestRecordBatchReaderWithRangesWithNulls : public testing::Test {

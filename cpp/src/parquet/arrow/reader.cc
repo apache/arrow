@@ -223,6 +223,7 @@ class FileReaderImpl : public FileReader {
     ctx->included_leaves = included_leaves;
     ctx->row_ranges_per_rg =
         row_ranges_per_rg;  // copy the shared pointer to extend its lifecycle
+    ctx->pre_buffer_enabled = properties().pre_buffer();
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
@@ -667,7 +668,13 @@ class LeafReader : public ColumnReaderImpl {
         checkAndGetPageRanges(*row_ranges, page_ranges);
 
         // part 1, skip decompressing & decoding unnecessary pages
-        page_reader->set_data_page_filter(RowRangesPageFilter(*row_ranges, page_ranges));
+        if (!ctx_->pre_buffer_enabled) {
+          page_reader->set_data_page_filter(
+              RowRangesPageFilter(*row_ranges, page_ranges));
+        } else {
+          // Pre buffer already skipped useless pages, so should not apply
+          // data_page_filter here again.
+        }
 
         // part 2, skip unnecessary rows in necessary pages
         record_reader_->set_record_skipper(
@@ -1158,7 +1165,7 @@ Status FileReaderImpl::GetRecordBatchReaderWithRowRanges(
     // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     reader_->PreBuffer(row_groups, column_indices, reader_properties_.io_context(),
-                       reader_properties_.cache_options());
+                       reader_properties_.cache_options(), row_ranges_per_rg);
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
@@ -1366,7 +1373,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     reader_->PreBuffer(row_group_indices, column_indices, reader_properties_.io_context(),
-                       reader_properties_.cache_options());
+                       reader_properties_.cache_options(), {});
     END_PARQUET_CATCH_EXCEPTIONS
   }
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
@@ -1403,7 +1410,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     parquet_reader()->PreBuffer(row_groups, column_indices,
                                 reader_properties_.io_context(),
-                                reader_properties_.cache_options());
+                                reader_properties_.cache_options(), {});
     END_PARQUET_CATCH_EXCEPTIONS
   }
 

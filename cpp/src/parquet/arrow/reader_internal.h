@@ -114,6 +114,7 @@ struct ReaderContext {
   bool filter_leaves;
   std::shared_ptr<std::unordered_set<int>> included_leaves;
   std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>> row_ranges_per_rg;
+  bool pre_buffer_enabled;
 
   bool IncludesLeaf(int leaf_index) const {
     if (this->filter_leaves) {

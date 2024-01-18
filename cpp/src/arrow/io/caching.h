@@ -131,7 +131,8 @@ class ARROW_EXPORT ReadRangeCache {
   ///
   /// The caller must ensure that the ranges do not overlap with each other,
   /// nor with previously cached ranges.  Otherwise, behaviour will be undefined.
-  Status Cache(std::vector<ReadRange> ranges);
+  Status Cache(std::vector<ReadRange> ranges,
+               std::vector<std::vector<ReadRange>> holes_foreach_range = {});
 
   /// \brief Read a range previously given to Cache().
   Result<std::shared_ptr<Buffer>> Read(ReadRange range);

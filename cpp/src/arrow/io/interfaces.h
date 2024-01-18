@@ -296,6 +296,10 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                                     int64_t nbytes);
 
+  /// EXPERIMENTAL: Read data asynchronously. The dest is provided by `out`
+  virtual Future<int64_t> ReadAsync(const IOContext& ctx, std::vector<ReadRange>& ranges,
+                                    void* out);
+
   /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
