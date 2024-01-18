@@ -975,6 +975,11 @@ class AzureFileSystem::Impl {
     return blob_service_client_->GetBlobContainerClient(container_name);
   }
 
+  Blobs::BlobClient GetBlobClient(const std::string& container_name,
+                                  const std::string& blob_name) {
+    return GetBlobContainerClient(container_name).GetBlobClient(blob_name);
+  }
+
   /// \param container_name Also known as "filesystem" in the ADLS Gen2 API.
   DataLake::DataLakeFileSystemClient GetFileSystemClient(
       const std::string& container_name) {
@@ -1320,8 +1325,7 @@ class AzureFileSystem::Impl {
                                                          AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
     auto blob_client = std::make_shared<Blobs::BlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlobClient(location.path));
+        GetBlobClient(location.container, location.path));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
                                                  std::move(location));
@@ -1340,8 +1344,7 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(info.path()));
     RETURN_NOT_OK(ValidateFileLocation(location));
     auto blob_client = std::make_shared<Blobs::BlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlobClient(location.path));
+        GetBlobClient(location.container, location.path));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
                                                  std::move(location), info.size());
@@ -1696,11 +1699,8 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
-    auto dest_blob_client = blob_service_client_->GetBlobContainerClient(dest.container)
-                                .GetBlobClient(dest.path);
-    auto src_url = blob_service_client_->GetBlobContainerClient(src.container)
-                       .GetBlobClient(src.path)
-                       .GetUrl();
+    auto dest_blob_client = GetBlobClient(dest.container, dest.path);
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {
