@@ -585,7 +585,8 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
       int32_t length = offsets[num_rows_before + i];
       offsets[num_rows_before + i] = sum;
       int32_t new_sum_maybe_overflow = 0;
-      if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(sum, length, &new_sum_maybe_overflow))) {
+      if (ARROW_PREDICT_FALSE(
+              internal::AddWithOverflow(sum, length, &new_sum_maybe_overflow))) {
         return Status::Invalid("Overflow detected in ExecBatchBuilder when appending ",
                                num_rows_before + i + 1, "-th element of length ", length,
                                " bytes to current length ", sum, " bytes");
