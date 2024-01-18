@@ -125,7 +125,7 @@ func isDictionaryReadSupported(dt arrow.DataType) bool {
 }
 
 func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) schema.LogicalType {
-	utc := typ.TimeZone == "" || typ.TimeZone == "UTC"
+	isAdjustedToUTC := typ.TimeZone != ""
 
 	// for forward compatibility reasons, and because there's no other way
 	// to signal to old readers that values are timestamps, we force
@@ -146,7 +146,7 @@ func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) sche
 		return schema.NoLogicalType{}
 	}
 
-	return schema.NewTimestampLogicalTypeForce(utc, scunit)
+	return schema.NewTimestampLogicalTypeForce(isAdjustedToUTC, scunit)
 }
 
 func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (parquet.Type, schema.LogicalType, error) {
@@ -519,9 +519,12 @@ func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 }
 
 func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error) {
-	tz := "UTC"
-	if logical.IsFromConvertedType() {
-		tz = ""
+	tz := ""
+
+	// ConvertedTypes are adjusted to UTC per backward compatibility guidelines
+	// https://github.com/apache/parquet-format/blob/eb4b31c1d64a01088d02a2f9aefc6c17c54cc6fc/LogicalTypes.md?plain=1#L480-L485
+	if logical.IsAdjustedToUTC() || logical.IsFromConvertedType() {
+		tz = "UTC"
 	}
 
 	switch logical.TimeUnit() {
