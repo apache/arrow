@@ -49,6 +49,8 @@ class ARROW_FLIGHT_EXPORT TracingServerMiddleware : public ServerMiddleware {
   void SendingHeaders(AddCallHeaders*) override;
   void CallCompleted(const Status&) override;
 
+  void HandlingRequest(FlightMethod, const Action&) override;
+
   struct TraceKey {
     std::string key;
     std::string value;
