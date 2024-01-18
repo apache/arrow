@@ -75,7 +75,7 @@ set(ARROW_VERSION "15.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
-# if no build build type is specified, default to release builds
+# if no build type is specified, default to release builds
 if(NOT DEFINED CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE
       Release
@@ -873,9 +873,6 @@ add_dependencies(arrow_test_dependencies toolchain-tests)
 if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
   if(ARROW_HDFS OR ARROW_ORC)
-    if(Protobuf_SOURCE STREQUAL "SYSTEM")
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-    endif()
     if(NOT MSVC_TOOLCHAIN)
       list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
       list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})

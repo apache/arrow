@@ -155,7 +155,7 @@ is signed. For example:
 | float32, int64    | float32              | int64 is wider, still promotes to float32      |
 +-------------------+----------------------+------------------------------------------------+
 
-In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+In particular, note that comparing a ``uint64`` column to an ``int16`` column
 may emit an error if one of the ``uint64`` values cannot be expressed as the
 common type ``int64`` (for example, ``2 ** 63``).
 
@@ -458,45 +458,45 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+-------------------------+----------------------+-------+
-| Function name    | Arity  | Input types             | Output type          | Notes |
-+==================+========+=========================+======================+=======+
-| abs              | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| abs_checked      | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| add              | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| divide           | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| exp              | Unary  | Numeric                 | Float32/Float64      |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| negate           | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| negate_checked   | Unary  | Signed Numeric          | Signed Numeric       |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| power            | Binary | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| power_checked    | Binary | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| sign             | Unary  | Numeric                 | Int8/Float32/Float64 | \(2)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| sqrt             | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| sqrt_checked     | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
++------------------+--------+-------------------------+---------------------------+-------+
+| Function name    | Arity  | Input types             | Output type               | Notes |
++==================+========+=========================+===========================+=======+
+| abs              | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| add              | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| divide           | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| exp              | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| negate           | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| power            | Binary | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| power_checked    | Binary | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| sign             | Unary  | Numeric/Duration        | Int8/Float32/Float64      | \(2)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| sqrt             | Unary  | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| sqrt_checked     | Unary  | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1622,10 +1622,10 @@ Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
 Cumulative functions are vector functions that perform a running accumulation on 
-their input using a given binary associative operation with an identidy element 
+their input using a given binary associative operation with an identity element 
 (a monoid) and output an array containing the corresponding intermediate running 
 values. The input is expected to be of numeric type. By default these functions 
-do not detect overflow. They are alsoavailable in an overflow-checking variant, 
+do not detect overflow. They are also available in an overflow-checking variant, 
 suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
 overflow is detected.
 
@@ -1675,7 +1675,8 @@ Associative transforms
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
 
-* \(1) Output is ``Dictionary(Int32, input type)``.
+* \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
+  already a Dictionary array.
 
 * \(2) Duplicates are removed from the output while the original order is
   maintained.

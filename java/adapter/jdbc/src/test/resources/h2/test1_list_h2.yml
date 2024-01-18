@@ -15,19 +15,19 @@ type: 'list'
 
 vector: 'LIST_FIELD19'
 
-create: 'CREATE TABLE table1 (list_field19 ARRAY);'
+create: 'CREATE TABLE table1 (list_field19 INT ARRAY);'
 
 data:
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
-  - 'INSERT INTO table1 VALUES ((1,2,3));'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
+  - 'INSERT INTO table1 VALUES (ARRAY[1, 2, 3]);'
 
 query: 'select list_field19 from table1;'
 

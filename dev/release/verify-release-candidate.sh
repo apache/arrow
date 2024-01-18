@@ -23,7 +23,7 @@
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
-# - Node.js >= 11.12 (best way is to use nvm)
+# - Node.js >= 18
 # - Go >= 1.19
 # - Docker
 #
@@ -153,17 +153,17 @@ verify_dir_artifact_signatures() {
   # verify the signature and the checksums of each artifact
   find $1 -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
-    gpg --verify $sigfile $artifact || exit 1
+    gpg --verify $sigfile $artifact
 
     # go into the directory because the checksum files contain only the
     # basename of the artifact
     pushd $(dirname $artifact)
     base_artifact=$(basename $artifact)
     if [ -f $base_artifact.sha256 ]; then
-      ${sha256_verify} $base_artifact.sha256 || exit 1
+      ${sha256_verify} $base_artifact.sha256
     fi
     if [ -f $base_artifact.sha512 ]; then
-      ${sha512_verify} $base_artifact.sha512 || exit 1
+      ${sha512_verify} $base_artifact.sha512
     fi
     popd
   done
@@ -171,9 +171,9 @@ verify_dir_artifact_signatures() {
 
 test_binary() {
   show_header "Testing binary artifacts"
-  maybe_setup_conda || exit 1
+  maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -565,13 +565,58 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
-  maybe_setup_conda maven openjdk || exit 1
+  maybe_setup_conda maven openjdk
 
   pushd java
+
+  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
+    # Build JNI for C data interface
+    local -a cmake_options=()
+    # Enable only C data interface.
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
+    # Disable Testing because GTest might not be present.
+    cmake_options+=(-DBUILD_TESTING=OFF)
+    if [ ! -z "${CMAKE_GENERATOR}" ]; then
+      cmake_options+=(-G "${CMAKE_GENERATOR}")
+    fi
+    local build_dir="${ARROW_TMPDIR}/java-jni-build"
+    local install_dir="${ARROW_TMPDIR}/java-jni-install"
+    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
+    cmake \
+      -S . \
+      -B "${build_dir}" \
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
+      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
+      "${cmake_options[@]}"
+    cmake --build "${build_dir}"
+    cmake --install "${build_dir}"
+
+    local normalized_arch=$(arch)
+    case ${normalized_arch} in
+      aarch64|arm64)
+        normalized_arch=aarch_64
+        ;;
+      i386)
+        normalized_arch=x86_64
+        ;;
+    esac
+    mkdir -p ${dist_dir}/${normalized_arch}/
+    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mvn install \
+        -Darrow.c.jni.dist.dir=${dist_dir} \
+        -Parrow-c-data
+  fi
+
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
   fi
+
+  # Build jars
   mvn package
+
   popd
 }
 
@@ -579,7 +624,7 @@ test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
   # Build and test C++
-  maybe_setup_virtualenv numpy || exit 1
+  maybe_setup_virtualenv numpy
   maybe_setup_conda \
     --file ci/conda_env_unix.txt \
     --file ci/conda_env_cpp.txt \
@@ -587,7 +632,7 @@ test_and_install_cpp() {
     ncurses \
     numpy \
     sqlite \
-    compilers || exit 1
+    compilers
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
@@ -632,6 +677,7 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_SUBSTRAIT=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -671,8 +717,8 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools || exit 1
-  maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools
+  maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
@@ -746,8 +792,8 @@ test_glib() {
   show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  maybe_setup_conda glib gobject-introspection meson ninja ruby || exit 1
-  maybe_setup_virtualenv meson || exit 1
+  maybe_setup_conda glib gobject-introspection meson ninja ruby
+  maybe_setup_virtualenv meson
 
   # Install bundler if doesn't exist
   if ! bundle --version; then
@@ -781,8 +827,8 @@ test_ruby() {
   show_header "Build and test Ruby libraries"
 
   # required dependencies are installed by test_glib
-  maybe_setup_conda || exit 1
-  maybe_setup_virtualenv || exit 1
+  maybe_setup_conda
+  maybe_setup_virtualenv
 
   which ruby
   which bundle
@@ -832,10 +878,10 @@ test_csharp() {
   fi
 
   if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourelink verification on local build"
+    echo "Skipping sourcelink verification on local build"
   else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd
@@ -844,8 +890,8 @@ test_csharp() {
 test_js() {
   show_header "Build and test JavaScript libraries"
 
-  maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=18 || exit 1
+  maybe_setup_nodejs
+  maybe_setup_conda nodejs=18
 
   if ! command -v yarn &> /dev/null; then
     npm install yarn
@@ -867,8 +913,8 @@ test_js() {
 test_go() {
   show_header "Build and test Go libraries"
 
-  maybe_setup_go || exit 1
-  maybe_setup_conda compilers go=1.19 || exit 1
+  maybe_setup_go
+  maybe_setup_conda compilers go=1.19
 
   pushd go
   go get -v ./...
@@ -889,7 +935,7 @@ test_go() {
         go_lib="arrow_go_integration.dll"
         ;;
     esac
-    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
     popd
   fi
   go clean -modcache
@@ -900,10 +946,11 @@ test_go() {
 test_integration() {
   show_header "Build and execute integration tests"
 
-  maybe_setup_conda || exit 1
-  maybe_setup_virtualenv || exit 1
+  maybe_setup_conda
+  maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
+  pip install -e dev/archery[integration-java]
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
@@ -1067,8 +1114,10 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
+        continue
+      fi
       pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
@@ -1087,7 +1136,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1100,8 +1149,10 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
-      VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
+        continue
+      fi
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_GCS=${check_gcs} ARROW_S3=${check_s3} \
@@ -1112,7 +1163,7 @@ test_macos_wheels() {
 
 test_wheels() {
   show_header "Downloading Python wheels"
-  maybe_setup_conda python || exit 1
+  maybe_setup_conda python
 
   local wheels_dir=
   if [ "${SOURCE_KIND}" = "local" ]; then
@@ -1151,7 +1202,7 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
-  maybe_setup_conda maven python || exit 1
+  maybe_setup_conda maven python
 
   local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}

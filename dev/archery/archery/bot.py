@@ -280,7 +280,7 @@ class CommentBot:
             # https://developer.github.com/v4/enum/commentauthorassociation/
             # Checking  privileges here enables the bot to respond
             # without relying on the handler.
-            allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR', 'COLLABORATOR'}
+            allowed_roles = {'OWNER', 'MEMBER', 'COLLABORATOR'}
             if payload['comment']['author_association'] not in allowed_roles:
                 raise EventError(
                     "Only contributors can submit requests to this bot. "
@@ -333,7 +333,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
     dest : Path
         Filesystem path to clone the repositories to.
     crossbow_repo : str
-        Github repository name, like kszucs/crossbow.
+        GitHub repository name, like kszucs/crossbow.
     pull_request : pygithub.PullRequest
         Object containing information about the pull request the comment bot
         was triggered from.

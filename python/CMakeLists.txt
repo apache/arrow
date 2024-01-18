@@ -1,5 +1,5 @@
 # Licensed to the Apache Software Foundation (ASF) under one
-# or more cod ntributor license agreements.  See the NOTICE file
+# or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
 # to you under the Apache License, Version 2.0 (the
@@ -332,22 +332,6 @@ if(PYARROW_BUILD_PARQUET OR PYARROW_BUILD_PARQUET_ENCRYPTION)
   find_package(Parquet REQUIRED)
 endif()
 
-if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-  if(PARQUET_REQUIRE_ENCRYPTION)
-    list(APPEND PYARROW_CPP_SRCS ${PYARROW_CPP_SOURCE_DIR}/parquet_encryption.cc)
-    if(ARROW_BUILD_SHARED)
-      list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_shared)
-    else()
-      list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_static)
-    endif()
-    message(STATUS "Parquet Encryption Enabled")
-  else()
-    message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
-  endif()
-else()
-  message(STATUS "Parquet Encryption is NOT Enabled")
-endif()
-
 if(PYARROW_BUILD_HDFS)
   if(NOT ARROW_HDFS)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_HDFS=ON")
@@ -390,6 +374,26 @@ install(TARGETS arrow_python
         ARCHIVE DESTINATION .
         LIBRARY DESTINATION .
         RUNTIME DESTINATION .)
+
+set(PYARROW_CPP_ENCRYPTION_SRCS ${PYARROW_CPP_SOURCE_DIR}/parquet_encryption.cc)
+if(NOT PYARROW_BUILD_PARQUET_ENCRYPTION)
+  message(STATUS "Parquet Encryption is NOT Enabled")
+else()
+  if(PARQUET_REQUIRE_ENCRYPTION)
+    add_library(arrow_python_parquet_encryption SHARED ${PYARROW_CPP_ENCRYPTION_SRCS})
+    target_link_libraries(arrow_python_parquet_encryption PUBLIC arrow_python
+                                                                 ${PARQUET_LINK_LIBS})
+    target_compile_definitions(arrow_python_parquet_encryption
+                               PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+    install(TARGETS arrow_python_parquet_encryption
+            ARCHIVE DESTINATION .
+            LIBRARY DESTINATION .
+            RUNTIME DESTINATION .)
+    message(STATUS "Parquet Encryption Enabled")
+  else()
+    message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
+  endif()
+endif()
 
 set(PYARROW_CPP_FLIGHT_SRCS ${PYARROW_CPP_SOURCE_DIR}/flight.cc)
 if(PYARROW_BUILD_FLIGHT)
@@ -814,6 +818,6 @@ endif()
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
+    target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()

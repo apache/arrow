@@ -189,13 +189,13 @@ void validate_slice_offset(R_xlen_t offset, int64_t len);
 
 void validate_slice_length(R_xlen_t length, int64_t available);
 
-void validate_index(int i, int len);
+void validate_index(int64_t i, int64_t len);
 
 template <typename Lambda>
 void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
   cpp11::strings names(dots.attr(R_NamesSymbol));
 
-  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+  for (int i = 0, j = 0; j < num_fields; i++) {
     auto name_i = names[i];
 
     if (name_i.size() == 0) {

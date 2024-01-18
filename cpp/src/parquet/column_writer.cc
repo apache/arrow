@@ -75,7 +75,7 @@ namespace parquet {
 
 namespace {
 
-// Visitor that exracts the value buffer from a FlatArray at a given offset.
+// Visitor that extracts the value buffer from a FlatArray at a given offset.
 struct ValueBufferSlicer {
   template <typename T>
   ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(
@@ -1313,7 +1313,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  int64_t EstimatedBufferedValueBytes() const override {
+  int64_t estimated_buffered_value_bytes() const override {
     return current_encoder_->EstimatedDataEncodedSize();
   }
 

@@ -328,7 +328,7 @@ class ArrowConan(ConanFile):
             return bool(self.options.with_boost)
 
     def _with_thrift(self, required=False):
-        # No self.options.with_thift exists
+        # No self.options.with_thrift exists
         return bool(required or self._parquet())
 
     def _with_utf8proc(self, required=False):

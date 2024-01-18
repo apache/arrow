@@ -62,7 +62,7 @@ PKG_CONFIG_NAME="arrow"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 
-# Some env vars that control the build (all logical, case insensitive)
+# Some env vars that control the build (all logical, case-insensitive)
 # Development mode, also increases verbosity in the bundled build
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 # The bundled build compiles arrow C++ from source; FORCE ensures we don't pick up
@@ -79,9 +79,6 @@ VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
 : ${PKG_CONFIG:="pkg-config"}
 
-# These will only be set in the bundled build
-S3_LIBS=""
-GCS_LIBS=""
 
 # If in development mode, run the codegen script to render arrowExports.*
 if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
@@ -116,7 +113,9 @@ fi
 # Test if pkg-config is available to use
 if ${PKG_CONFIG} --version >/dev/null 2>&1; then
   PKG_CONFIG_AVAILABLE="true"
+  echo "*** pkg-config found."
 else
+  echo "*** pkg-config not found."
   PKG_CONFIG_AVAILABLE="false"
   ARROW_USE_PKG_CONFIG="false"
 fi
@@ -245,12 +244,6 @@ do_bundled_build () {
           ${LIB_DIR}/pkgconfig/*.pc
         rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
       fi
-    else
-      # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
-      # These would be identified by pkg-config, in Requires.private and Libs.private.
-      # Rather than try to re-implement pkg-config, we can just hard-code them here.
-      S3_LIBS="-lcurl -lssl -lcrypto"
-      GCS_LIBS="-lcurl -lssl -lcrypto"
     fi
   else
     # If the library directory does not exist, the script must not have been successful
@@ -293,15 +286,15 @@ set_pkg_vars () {
 
 # If we have pkg-config, it will tell us what libarrow needs
 set_lib_dir_with_pc () {
-  LIB_DIR="`${PKG_CONFIG} --variable=libdir --silence-errors ${PKG_CONFIG_NAME}`"
+  LIB_DIR="`${PKG_CONFIG} --variable=libdir  ${PKG_CONFIG_NAME}`"
 }
 set_pkg_vars_with_pc () {
   pkg_config_names="${PKG_CONFIG_NAME} ${PKG_CONFIG_NAMES_FEATURES}"
-  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${pkg_config_names}` $PKG_CFLAGS"
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags  ${pkg_config_names}` $PKG_CFLAGS"
   PKG_CFLAGS="$PKG_CFLAGS $PKG_CFLAGS_FEATURES"
-  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${pkg_config_names}`
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other ${pkg_config_names}`
   PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
-  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${pkg_config_names}`
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L  ${pkg_config_names}`
 }
 
 # If we don't have pkg-config, we can make some inferences
@@ -322,7 +315,7 @@ set_pkg_vars_without_pc () {
   if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
     PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
   fi
-  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES $SSL_LIBS_WITHOUT_PC"
 
   # If on Raspberry Pi, need to manually link against latomic
   # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
@@ -380,11 +373,13 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_S3; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
-      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES $S3_LIBS"
     fi
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
-      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES $GCS_LIBS"
+    fi
+    if arrow_built_with ARROW_GCS || arrow_built_with ARROW_S3; then
+      # If pkg-config is available it will handle this for us automatically
+      SSL_LIBS_WITHOUT_PC="-lcurl -lssl -lcrypto"
     fi
   fi
 }
@@ -405,6 +400,18 @@ find_or_build_libarrow
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
 if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
+
+  # If we didn't find any libraries with pkg-config, try again without pkg-config
+  FOUND_PKG_LIBS=`echo "$PKG_LIBS" | tr -d '[:space:]'`
+  if [ -z "$FOUND_PKG_LIBS" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    echo "*** pkg-config failed to find libraries. Running detection without pkg-config."
+    PKG_CONFIG_AVAILABLE="false"
+    set_pkg_vars ${_LIBARROW_FOUND}
+  fi
+else
+  # To make it easier to debug which code path was taken add a specific 
+  # message to the log in addition to the 'NOTE'
+  echo "*** Failed to find Arrow C++ libraries."
 fi
 
 # Test that we can compile something with those flags

@@ -31,6 +31,10 @@
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.immutables</groupId>
+      <artifactId>value</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
     </dependency>
@@ -49,7 +53,7 @@
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.15</version>
+      <version>1.16.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -174,7 +178,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.1.1</version>
+        <!--
+          Downgrade maven-shade-plugin specifically for this module.
+          Using a newer version up to at least 3.5.1 will cause
+          issues in the arrow-tools tests looking up FlatBuffer
+          dependencies.
+         -->
+        <version>3.2.4</version>
         <executions>
           <execution>
             <phase>package</phase>

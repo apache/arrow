@@ -27,7 +27,7 @@ Archery is documented on the Arrow website:
 
 # Installing Archery
 
-See the pages linked aboved for more details. As a general overview, Archery
+See the pages linked above for more details. As a general overview, Archery
 comes in a number of subpackages, each needing to be installed if you want
 to use the functionality of it:
 

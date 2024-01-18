@@ -121,7 +121,7 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::
      {"minutes", /*minutes_in_hours=*/60},
      {"seconds", /*seconds_in_minute=*/60},
      {"milliseconds", /*milliseconds_in_seconds*/ 1000},
-     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"microseconds", /*microseconds_in_milliseconds=*/1000},
      {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
      {nullptr, 0}};
 
@@ -386,8 +386,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
@@ -466,8 +465,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());
@@ -481,7 +479,7 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
@@ -819,7 +817,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  protected:
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
+      return Status::Invalid("Invalid Map: key field cannot contain null values");
     } else {
       return Status::OK();
     }

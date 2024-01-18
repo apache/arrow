@@ -19,6 +19,7 @@ package org.apache.arrow.memory.util.hash;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Implementation of the Murmur hashing algorithm.
@@ -157,7 +158,7 @@ public class MurmurHasher implements ArrowBufHasher {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }

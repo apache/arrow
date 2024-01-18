@@ -487,6 +487,17 @@ def test_timestamp():
             pa.timestamp(invalid_unit)
 
 
+def test_timestamp_print():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas',
+                   'Mars/Mariner_Valley', '-00:42', '+42:00'):
+            ty = pa.timestamp(unit, tz=tz)
+            arr = pa.array([0], ty)
+            assert "Z" in str(arr)
+        arr = pa.array([0], pa.timestamp(unit))
+        assert "Z" not in str(arr)
+
+
 def test_time32_units():
     for valid_unit in ('s', 'ms'):
         ty = pa.time32(valid_unit)
@@ -1019,7 +1030,7 @@ def test_key_value_metadata():
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
     assert md.get_all('b') == [b'beta']
-    assert md.get_all('unkown') == []
+    assert md.get_all('unknown') == []
 
     with pytest.raises(KeyError):
         md = pa.KeyValueMetadata([

@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 14.0.1.9000
+Version: 14.0.2.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -27,7 +27,8 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional)
+SystemRequirements: C++17; for AWS S3 support on Linux, libcurl and openssl (optional);
+    cmake >= 3.16 (build-time only, and only for full source build)
 Biarch: true
 Imports:
     assertthat,

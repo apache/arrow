@@ -193,19 +193,13 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          rm -f /usr/local/bin/2to3* || :
-          rm -f /usr/local/bin/idle3* || :
-          rm -f /usr/local/bin/pydoc3* || :
-          rm -f /usr/local/bin/python3* || :
-          rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall || :
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest /usr/local
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
       - name: Install Google Cloud Storage Testbench
@@ -346,8 +340,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - msystem_lower: mingw32
-            msystem_upper: MINGW32
           - msystem_lower: mingw64
             msystem_upper: MINGW64
           - msystem_lower: clang64
@@ -432,7 +424,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
       - name: Install Google Cloud Storage Testbench

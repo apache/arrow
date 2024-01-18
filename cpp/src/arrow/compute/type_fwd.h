@@ -27,6 +27,7 @@ struct TypeHolder;
 namespace compute {
 
 class Function;
+class ScalarAggregateFunction;
 class FunctionExecutor;
 class FunctionOptions;
 class FunctionRegistry;

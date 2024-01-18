@@ -989,7 +989,7 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
     assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
 
-    # Manually specifiying offsets (with nulls) is same as mask at top level
+    # Manually specifying offsets (with nulls) is same as mask at top level
     reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
     assert arr == reconstructed_arr
     reconstructed_arr = list_array_type.from_arrays(arr.offsets,
@@ -1057,8 +1057,25 @@ def test_map_from_arrays():
 
     assert result.equals(expected)
 
-    # check invalid usage
+    # pass in the type explicitly
+    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        keys.type,
+        items.type
+    ))
+    assert result.equals(expected)
 
+    # pass in invalid types
+    with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.string())
+
+    with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+            keys.type,
+            # Larger than the original i4
+            pa.int64()
+        ))
+
+    # check invalid usage
     offsets = [0, 1, 3, 5]
     keys = np.arange(5)
     items = np.arange(5)
@@ -1090,6 +1107,16 @@ def test_fixed_size_list_from_arrays():
     assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
     assert result.type.equals(typ)
     assert result.type.value_field.name == "name"
+
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               type=typ,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
+
+    result = pa.FixedSizeListArray.from_arrays(values,
+                                               list_size=4,
+                                               mask=pa.array([False, True, False]))
+    assert result.to_pylist() == [[0, 1, 2, 3], None, [8, 9, 10, 11]]
 
     # raise on invalid values / list_size
     with pytest.raises(ValueError):
@@ -3341,8 +3368,8 @@ def test_c_array_protocol():
         def __init__(self, data):
             self.data = data
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.data.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.data.__arrow_c_array__(requested_schema)
 
     # Can roundtrip through the C array protocol
     arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))

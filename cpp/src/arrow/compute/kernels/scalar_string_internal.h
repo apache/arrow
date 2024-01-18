@@ -250,6 +250,8 @@ struct StringSliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<SliceOptions>;
 
   const SliceOptions* options;
+  StringSliceTransformBase() = default;
+  explicit StringSliceTransformBase(const SliceOptions& options) : options{&options} {}
 
   Status PreExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) override {
     options = &State::Get(ctx);
@@ -306,7 +308,7 @@ struct StringSplitExec {
   using ListOffsetsBuilderType = TypedBufferBuilder<list_offset_type>;
   using State = OptionsWrapper<Options>;
 
-  // Keep the temporary storage accross individual values, to minimize reallocations
+  // Keep the temporary storage across individual values, to minimize reallocations
   std::vector<std::string_view> parts;
   Options options;
 

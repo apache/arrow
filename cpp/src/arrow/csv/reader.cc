@@ -389,7 +389,7 @@ namespace {
 // The parsed batch contains a list of offsets for each of the columns so that columns
 // can be individually scanned
 //
-// This operator is not re-entrant
+// This operator is not reentrant
 class BlockParsingOperator {
  public:
   BlockParsingOperator(io::IOContext io_context, ParseOptions parse_options,

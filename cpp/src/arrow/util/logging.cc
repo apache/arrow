@@ -148,7 +148,7 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
 #ifdef ARROW_USE_GLOG
   int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
   google::SetStderrLogging(mapped_severity_threshold);
-  // Enble log file if log_dir is not empty.
+  // Enable log file if log_dir is not empty.
   if (!log_dir.empty()) {
     auto dir_ends_with_slash = log_dir;
     if (log_dir[log_dir.length() - 1] != '/') {

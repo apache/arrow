@@ -1108,6 +1108,9 @@ cdef class Time32Type(DataType):
     """
     Concrete class for time32 data types.
 
+    Supported time unit resolutions are 's' [second]
+    and 'ms' [millisecond].
+
     Examples
     --------
     Create an instance of time32 type:
@@ -1124,7 +1127,7 @@ cdef class Time32Type(DataType):
     @property
     def unit(self):
         """
-        The time unit ('s', 'ms', 'us' or 'ns').
+        The time unit ('s' or 'ms').
 
         Examples
         --------
@@ -1139,6 +1142,9 @@ cdef class Time32Type(DataType):
 cdef class Time64Type(DataType):
     """
     Concrete class for time64 data types.
+
+    Supported time unit resolutions are 'us' [microsecond]
+    and 'ns' [nanosecond].
 
     Examples
     --------
@@ -1156,7 +1162,7 @@ cdef class Time64Type(DataType):
     @property
     def unit(self):
         """
-        The time unit ('s', 'ms', 'us' or 'ns').
+        The time unit ('us' or 'ns').
 
         Examples
         --------
@@ -5134,12 +5140,8 @@ def from_numpy_dtype(object dtype):
     >>> pa.from_numpy_dtype(np.str_)
     DataType(string)
     """
-    cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
-    with nogil:
-        check_status(NumPyDtypeToArrow(dtype, &c_type))
-
-    return pyarrow_wrap_data_type(c_type)
+    return pyarrow_wrap_data_type(GetResultValue(NumPyDtypeToArrow(dtype)))
 
 
 def is_boolean_value(object obj):

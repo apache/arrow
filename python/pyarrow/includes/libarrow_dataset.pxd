@@ -178,6 +178,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
+        const int64_t size() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when

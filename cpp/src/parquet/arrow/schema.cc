@@ -156,7 +156,9 @@ static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp
                                     /*is_from_converted_type=*/false,
                                     /*force_set_converted_type=*/true);
     case ::arrow::TimeUnit::NANO:
-      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS);
+      return LogicalType::Timestamp(utc, LogicalType::TimeUnit::NANOS,
+                                    /*is_from_converted_type=*/false,
+                                    /*force_set_converted_type=*/false);
     case ::arrow::TimeUnit::SECOND:
       // No equivalent parquet logical type.
       break;
@@ -229,7 +231,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   // The user implicitly wants timestamp data to retain its original time units,
-  // however the Arrow seconds time unit can not be represented (annotated) in
+  // however the Arrow seconds time unit cannot be represented (annotated) in
   // any version of Parquet and so must be coerced to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
     *logical_type =
