@@ -752,7 +752,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
            ++requested_index) {
         resolved_index = index_resolver.Resolve(index);
       }
-      if (resolved_index.chunk_index >= values.num_chunks()) {
+      if (resolved_index.chunk_index < 0) {
         // ChunkResolver doesn't throw errors when the index is out of bounds
         // it will just return a chunk index that doesn't exist.
         return Status::IndexError("Index ", index, " is out of bounds");
