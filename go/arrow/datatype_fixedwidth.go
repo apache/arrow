@@ -70,7 +70,6 @@ type (
 
 // Date32FromTime returns a Date32 value from a time object
 func Date32FromTime(t time.Time) Date32 {
-	t = t.In(time.UTC)
 	return Date32(t.Truncate(24*time.Hour).Unix() / int64((time.Hour * 24).Seconds()))
 }
 
@@ -84,7 +83,6 @@ func (d Date32) FormattedString() string {
 
 // Date64FromTime returns a Date64 value from a time object
 func Date64FromTime(t time.Time) Date64 {
-	t = t.In(time.UTC)
 	// truncate to the start of the day to get the correct value
 	t = t.Truncate(24 * time.Hour)
 	return Date64(t.Unix()*1e3 + int64(t.Nanosecond())/1e6)
