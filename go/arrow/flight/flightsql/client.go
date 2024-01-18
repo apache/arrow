@@ -1038,9 +1038,14 @@ func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *fl
 
 	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
 
-	desc, err := descForCommand(cmd)
-	if err != nil {
-		return nil, err
+	desc := retryDescriptor
+	var err error
+
+	if desc == nil {
+		desc, err = descForCommand(cmd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if retryDescriptor == nil {
@@ -1064,9 +1069,8 @@ func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *fl
 				return nil, err
 			}
 		}
-		return p.client.Client.PollFlightInfo(ctx, desc, opts...)
 	}
-	return p.client.Client.PollFlightInfo(ctx, retryDescriptor, opts...)
+	return p.client.Client.PollFlightInfo(ctx, desc, opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
