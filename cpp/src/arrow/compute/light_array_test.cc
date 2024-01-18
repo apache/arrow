@@ -408,7 +408,11 @@ TEST(ExecBatchBuilder, AppendValuesBeyondLimit) {
 }
 
 TEST(ExecBatchBuilder, AppendVarLengthBeyondLimit) {
-  // Corresponds to GH-39332.
+  // GH-39332: check appending variable-length data past 2GB.
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
+
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   constexpr auto eight_mb = 8 * 1024 * 1024;
