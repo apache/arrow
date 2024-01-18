@@ -1388,7 +1388,7 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
 
 TEST_F(AzuriteFileSystemTest, DeleteFileSuccessHaveFile) {
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
-  const auto file_name = RandomFileName() + RandomFileNameExtension();
+  const auto file_name = PreexistingData::RandomFileName() + PreexistingData::RandomFileNameExtension();
   ASSERT_OK(CreateFile(fs_.get(), file_name, "abc"));
   arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::File);
   ASSERT_OK(fs_->DeleteFile(file_name));
@@ -1396,7 +1396,7 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 }
 
 TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNonexistent) {
-  const auto file_name = RandomFileName() + RandomFileNameExtension();
+  const auto file_name = PreexistingData::RandomFileName() + PreexistingData::RandomFileNameExtension();
   ASSERT_OK(fs_->DeleteFile(file_name));
   arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::NotFound);
 }
