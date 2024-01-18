@@ -104,7 +104,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
@@ -119,7 +119,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
@@ -134,7 +134,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
@@ -149,7 +149,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
@@ -184,7 +184,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 

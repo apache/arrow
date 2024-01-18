@@ -27,7 +27,6 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,8 +43,6 @@ import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
 
-import com.google.common.base.Ascii;
-import com.google.common.base.Splitter;
 
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
@@ -103,6 +100,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
+  @SuppressWarnings("StringSplitter")
   protected DriverVersion createDriverVersion() {
     if (version == null) {
       final InputStream flightProperties = this.getClass().getResourceAsStream("/properties/flight.properties");
@@ -115,17 +113,17 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
         final String parentName = properties.getProperty("org.apache.arrow.flight.name");
         final String parentVersion = properties.getProperty("org.apache.arrow.flight.version");
-        final List<String> pVersion = Splitter.on('.').splitToList(parentVersion);
+        final String[] pVersion = parentVersion.split("\\.");
 
-        final int parentMajorVersion = Integer.parseInt(pVersion.get(0));
-        final int parentMinorVersion = Integer.parseInt(pVersion.get(1));
+        final int parentMajorVersion = Integer.parseInt(pVersion[0]);
+        final int parentMinorVersion = Integer.parseInt(pVersion[1]);
 
         final String childName = properties.getProperty("org.apache.arrow.flight.jdbc-driver.name");
         final String childVersion = properties.getProperty("org.apache.arrow.flight.jdbc-driver.version");
-        final List<String> cVersion = Splitter.on('.').splitToList(childVersion);
+        final String[] cVersion = childVersion.split("\\.");
 
-        final int childMajorVersion = Integer.parseInt(cVersion.get(0));
-        final int childMinorVersion = Integer.parseInt(cVersion.get(1));
+        final int childMajorVersion = Integer.parseInt(cVersion[0]);
+        final int childMinorVersion = Integer.parseInt(cVersion[1]);
 
         version = new DriverVersion(
             childName,
@@ -271,7 +269,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   static Properties lowerCasePropertyKeys(final Properties properties) {
     final Properties resultProperty = new Properties();
-    properties.forEach((k, v) -> resultProperty.put(Ascii.toLowerCase(k.toString()), v));
+    properties.forEach((k, v) -> resultProperty.put(k.toString().toLowerCase(), v));
     return resultProperty;
   }
 }

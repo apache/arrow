@@ -141,7 +141,6 @@ import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.slf4j.Logger;
 
-import com.google.common.base.Splitter;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -384,6 +383,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
   }
 
+  @SuppressWarnings("StringSplitter")
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull,
                                                            Predicate<ResultSet> resultSetPredicate)
@@ -424,11 +424,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           writer.startList();
 
           if (createParamsValues != null) {
-            List<String> split = Splitter.on(',').splitToList(createParamsValues);
+            String[] split = createParamsValues.split(",");
 
-            range(0, split.size())
+            range(0, split.length)
                 .forEach(i -> {
-                  byte[] bytes = split.get(i).getBytes(UTF_8);
+                  byte[] bytes = split[i].getBytes(UTF_8);
                   Preconditions.checkState(bytes.length < 1024,
                       "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);

@@ -57,7 +57,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     }
     ConflictPolicy conflictPolicy;
     try {
-      conflictPolicy = ConflictPolicy.valueOf(conflictPolicyStr.toUpperCase(Locale.getDefault()));
+      conflictPolicy = ConflictPolicy.valueOf(conflictPolicyStr.toUpperCase(Locale.ROOT));
     } catch (Exception e) {
       conflictPolicy = ConflictPolicy.CONFLICT_REPLACE;
     }

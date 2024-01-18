@@ -33,7 +33,6 @@ import org.apache.calcite.avatica.ConnectionConfig;
 import org.apache.calcite.avatica.ConnectionConfigImpl;
 import org.apache.calcite.avatica.ConnectionProperty;
 
-import com.google.common.base.Ascii;
 
 /**
  * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
@@ -236,7 +235,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       Preconditions.checkNotNull(properties, "Properties cannot be null.");
       Object value = properties.get(camelName);
       if (value == null) {
-        value = properties.get(Ascii.toLowerCase(camelName));
+        value = properties.get(camelName.toLowerCase());
       }
       if (required) {
         if (value == null) {

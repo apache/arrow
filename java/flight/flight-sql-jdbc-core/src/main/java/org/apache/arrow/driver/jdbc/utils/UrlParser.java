@@ -21,12 +21,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.google.common.base.Splitter;
-
 /**
  * URL Parser for extracting key values from a connection string.
  */
+
 public final class UrlParser {
   private UrlParser() {
   }
@@ -39,10 +37,11 @@ public final class UrlParser {
    * @param url {@link String}
    * @return {@link Map}
    */
+  @SuppressWarnings("StringSplitter")
   public static Map<String, String> parse(String url, String separator) {
     Map<String, String> resultMap = new HashMap<>();
     if (url != null) {
-      Iterable<String> keyValues = Splitter.onPattern(separator).split(url);
+      String[] keyValues = url.split(separator);
 
       for (String keyValue : keyValues) {
         try {

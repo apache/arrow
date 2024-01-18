@@ -309,7 +309,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
-    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(Locale.getDefault()),
+    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(Locale.ROOT),
         vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {

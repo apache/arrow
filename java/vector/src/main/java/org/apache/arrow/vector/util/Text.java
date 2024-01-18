@@ -202,9 +202,7 @@ public class Text extends ReusableByteArray {
   public void set(String string) {
     try {
       ByteBuffer bb = encode(string, true);
-      bytes = new byte[bb.remaining()];
-      bb.get(bytes);
-      bb.position(bb.position() - bytes.length); // move it back so we can decode it
+      bytes = bb.array();
       length = bb.limit();
     } catch (CharacterCodingException e) {
       throw new RuntimeException("Should not have happened ", e);
