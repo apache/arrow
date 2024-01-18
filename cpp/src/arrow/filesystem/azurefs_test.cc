@@ -482,12 +482,35 @@ class TestAzureFileSystem : public ::testing::Test {
     return container_client;
   }
 
+  DataLake::DataLakeFileSystemClient CreateFilesystem(const std::string& name) {
+    auto adlfs_client = datalake_service_client_->GetFileSystemClient(name);
+    (void)adlfs_client.CreateIfNotExists();
+    return adlfs_client;
+  }
+
   Blobs::BlobClient CreateBlob(Blobs::BlobContainerClient& container_client,
                                const std::string& name, const std::string& data = "") {
     auto blob_client = container_client.GetBlockBlobClient(name);
     (void)blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
                                  data.size());
     return blob_client;
+  }
+
+  DataLake::DataLakeFileClient CreateFile(
+      DataLake::DataLakeFileSystemClient& filesystem_client, const std::string& name,
+      const std::string& data = "") {
+    auto file_client = filesystem_client.GetFileClient(name);
+    (void)file_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
+                                 data.size());
+    return file_client;
+  }
+
+  DataLake::DataLakeDirectoryClient CreateDirectory(
+      DataLake::DataLakeFileSystemClient& adlfs_client, const std::string& name) {
+    EXPECT_TRUE(WithHierarchicalNamespace());
+    auto dir_client = adlfs_client.GetDirectoryClient(name);
+    dir_client.Create();
+    return dir_client;
   }
 
   Blobs::Models::BlobProperties GetBlobProperties(const std::string& container_name,
@@ -508,8 +531,13 @@ class TestAzureFileSystem : public ::testing::Test {
 
   PreexistingData SetUpPreexistingData() {
     PreexistingData data(rng_);
-    auto container_client = CreateContainer(data.container_name);
-    CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    if (WithHierarchicalNamespace()) {
+      auto filesystem_client = CreateFilesystem(data.container_name);
+      CreateFile(filesystem_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    } else {
+      auto container_client = CreateContainer(data.container_name);
+      CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    }
     return data;
   }
 
@@ -941,10 +969,9 @@ void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
                  FileType::NotFound);
 
   if (WithHierarchicalNamespace()) {
-    datalake_service_client_->GetFileSystemClient(data.container_name)
-        .GetDirectoryClient("test-empty-object-dir")
-        .Create();
-
+    auto adlfs_client =
+        datalake_service_client_->GetFileSystemClient(data.container_name);
+    CreateDirectory(adlfs_client, "test-empty-object-dir");
     AssertFileInfo(fs(), data.ContainerPath("test-empty-object-dir"),
                    FileType::Directory);
   }
