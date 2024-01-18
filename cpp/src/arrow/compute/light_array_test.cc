@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include <numeric>
 
-#include "arrow/array/builder_binary.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -409,56 +408,59 @@ TEST(ExecBatchBuilder, AppendValuesBeyondLimit) {
 }
 
 TEST(ExecBatchBuilder, AppendVarLengthBeyondLimit) {
+  // Corresponds to GH-39332.
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   constexpr auto eight_mb = 8 * 1024 * 1024;
+  constexpr auto eight_mb_minus_one = eight_mb - 1;
+  // String of size 8mb to repetitively fill the heading multiple of 8mbs of an array
+  // of int32_max bytes.
   std::string str_8mb(eight_mb, 'a');
-  std::string str_8mb_minus_1(eight_mb - 1, 'b');
-  std::string str_8mb_minus_2(eight_mb - 2,
-                              'b');  // BaseBinaryBuilder::memory_limit()
+  // String of size (8mb - 1) to be the last element of an array of int32_max bytes.
+  std::string str_8mb_minus_1(eight_mb_minus_one, 'b');
   std::shared_ptr<Array> values_8mb = ConstantArrayGenerator::String(1, str_8mb);
   std::shared_ptr<Array> values_8mb_minus_1 =
       ConstantArrayGenerator::String(1, str_8mb_minus_1);
-  std::shared_ptr<Array> values_8mb_minus_2 =
-      ConstantArrayGenerator::String(1, str_8mb_minus_2);
 
   ExecBatch batch_8mb({values_8mb}, 1);
   ExecBatch batch_8mb_minus_1({values_8mb_minus_1}, 1);
-  ExecBatch batch_8mb_minus_2({values_8mb_minus_2}, 1);
 
   auto num_rows = std::numeric_limits<int32_t>::max() / eight_mb;
-  StringBuilder values_ref_builder;
-  ASSERT_OK(values_ref_builder.Reserve(num_rows + 1));
-  for (int i = 0; i < num_rows; i++) {
-    ASSERT_OK(values_ref_builder.Append(str_8mb));
-  }
-  ASSERT_OK(values_ref_builder.Append(str_8mb_minus_2));
-  ASSERT_OK_AND_ASSIGN(auto values_ref, values_ref_builder.Finish());
-  auto values_ref_1 = values_ref->Slice(0, num_rows);
-  ExecBatch batch_ref_1({values_ref_1}, num_rows);
-  ExecBatch batch_ref_2({values_ref}, num_rows + 1);
-
-  std::vector<uint16_t> first_set_row_ids(num_rows, 0);
-  std::vector<uint16_t> second_set_row_ids(1, 0);
+  std::vector<uint16_t> body_row_ids(num_rows, 0);
+  std::vector<uint16_t> tail_row_id(1, 0);
 
   {
+    // Building an array of (int32_max + 1) = (8mb * num_rows + 8mb) bytes should raise an
+    // error of overflow.
     ExecBatchBuilder builder;
-    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, first_set_row_ids.data(),
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, body_row_ids.data(),
                                      /*num_cols=*/1));
-    ASSERT_RAISES(Invalid, builder.AppendSelected(pool, batch_8mb_minus_1, 1,
-                                                  second_set_row_ids.data(),
-                                                  /*num_cols=*/1));
+    std::stringstream ss;
+    ss << "Invalid: Overflow detected in ExecBatchBuilder when appending " << num_rows + 1
+       << "-th element of length " << eight_mb << " bytes to current length "
+       << eight_mb * num_rows << " bytes";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, ss.str(),
+        builder.AppendSelected(pool, batch_8mb, 1, tail_row_id.data(),
+                               /*num_cols=*/1));
   }
 
   {
+    // Building an array of int32_max = (8mb * num_rows + 8mb - 1) bytes should succeed.
     ExecBatchBuilder builder;
-    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, first_set_row_ids.data(),
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb, num_rows, body_row_ids.data(),
                                      /*num_cols=*/1));
-    ASSERT_OK(builder.AppendSelected(pool, batch_8mb_minus_2, 1,
-                                     second_set_row_ids.data(),
+    ASSERT_OK(builder.AppendSelected(pool, batch_8mb_minus_1, 1, tail_row_id.data(),
                                      /*num_cols=*/1));
     ExecBatch built = builder.Flush();
-    ASSERT_EQ(batch_ref_2, built);
+    auto datum = built[0];
+    ASSERT_TRUE(datum.is_array());
+    auto array = datum.array_as<StringArray>();
+    ASSERT_EQ(array->length(), num_rows + 1);
+    for (int i = 0; i < num_rows; ++i) {
+      ASSERT_EQ(array->GetString(i), str_8mb);
+    }
+    ASSERT_EQ(array->GetString(num_rows), str_8mb_minus_1);
     ASSERT_NE(0, pool->bytes_allocated());
   }
 

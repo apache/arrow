@@ -19,8 +19,8 @@
 
 #include <type_traits>
 
-#include "arrow/array/builder_binary.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -470,7 +470,7 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
     for (int i = 0; i < num_rows; ++i) {
       uint16_t row_id = row_ids[i];
       const uint8_t* field_ptr = ptr_base + offsets[row_id];
-      uint32_t field_length = offsets[row_id + 1] - offsets[row_id];
+      int32_t field_length = offsets[row_id + 1] - offsets[row_id];
       process_value_fn(i, field_ptr, field_length);
     }
   } else {
@@ -480,7 +480,7 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
       const uint8_t* field_ptr =
           column->buffers[1]->data() +
           (column->offset + row_id) * static_cast<int64_t>(metadata.fixed_length);
-      process_value_fn(i, field_ptr, metadata.fixed_length);
+      process_value_fn(i, field_ptr, static_cast<int32_t>(metadata.fixed_length));
     }
   }
 }
@@ -576,25 +576,23 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
     // Step 1: calculate target offsets
     //
     int32_t* offsets = reinterpret_cast<int32_t*>(target->mutable_data(1));
-    {
-      int64_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
-      Visit(source, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              offsets[num_rows_before + i] = num_bytes;
-            });
-      for (int i = 0; i < num_rows_to_append; ++i) {
-        int32_t length = offsets[num_rows_before + i];
-        offsets[num_rows_before + i] = static_cast<int32_t>(sum);
-        if (ARROW_PREDICT_FALSE(sum + length > BinaryBuilder::memory_limit())) {
-          return Status::Invalid("ExecBatchBuilder cannot contain more than ",
-                                 BinaryBuilder::memory_limit(), " bytes, current ", sum,
-                                 ", appending ", num_rows_before + i + 1,
-                                 "-th element of length ", length);
-        }
-        sum += length;
+    int32_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
+    Visit(source, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            offsets[num_rows_before + i] = num_bytes;
+          });
+    for (int i = 0; i < num_rows_to_append; ++i) {
+      int32_t length = offsets[num_rows_before + i];
+      offsets[num_rows_before + i] = sum;
+      int32_t new_sum_maybe_overflow = 0;
+      if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(sum, length, &new_sum_maybe_overflow))) {
+        return Status::Invalid("Overflow detected in ExecBatchBuilder when appending ",
+                               num_rows_before + i + 1, "-th element of length ", length,
+                               " bytes to current length ", sum, " bytes");
       }
-      offsets[num_rows_before + num_rows_to_append] = static_cast<int32_t>(sum);
+      sum = new_sum_maybe_overflow;
     }
+    offsets[num_rows_before + num_rows_to_append] = sum;
 
     // Step 2: resize output buffers
     //
