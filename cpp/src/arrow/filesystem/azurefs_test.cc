@@ -55,6 +55,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
@@ -335,7 +336,7 @@ TEST(AzureFileSystem, OptionsCompare) {
 
 struct PreexistingData {
  public:
-  using RNG = std::mt19937_64;
+  using RNG = random::pcg32_fast;
 
  public:
   const std::string container_name;
@@ -391,7 +392,7 @@ culpa qui officia deserunt mollit anim id est laborum.
 class TestAzureFileSystem : public ::testing::Test {
  protected:
   // Set in constructor
-  std::mt19937_64 rng_;
+  random::pcg32_fast rng_;
 
   // Set in SetUp()
   int64_t debug_log_start_ = 0;
