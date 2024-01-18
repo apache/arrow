@@ -67,11 +67,11 @@ class ARROW_EXPORT Hashing32 {
   static const int64_t kStripeSize = 4 * sizeof(uint32_t);
 
   static void HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
-                         const uint32_t* offsets, const uint8_t* concatenated_keys,
+                         const int32_t* offsets, const uint8_t* concatenated_keys,
                          uint32_t* hashes, uint32_t* temp_hashes_for_combine);
 
   static void HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
-                         const uint64_t* offsets, const uint8_t* concatenated_keys,
+                         const int64_t* offsets, const uint8_t* concatenated_keys,
                          uint32_t* hashes, uint32_t* temp_hashes_for_combine);
 
   static inline uint32_t Avalanche(uint32_t acc) {
@@ -140,11 +140,11 @@ class ARROW_EXPORT Hashing32 {
                                      const uint8_t* concatenated_keys, uint32_t* hashes,
                                      uint32_t* hashes_temp_for_combine);
   static uint32_t HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
-                                  const uint32_t* offsets,
+                                  const int32_t* offsets,
                                   const uint8_t* concatenated_keys, uint32_t* hashes,
                                   uint32_t* hashes_temp_for_combine);
   static uint32_t HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
-                                  const uint64_t* offsets,
+                                  const int64_t* offsets,
                                   const uint8_t* concatenated_keys, uint32_t* hashes,
                                   uint32_t* hashes_temp_for_combine);
 #endif
@@ -178,10 +178,10 @@ class ARROW_EXPORT Hashing64 {
   static const uint32_t kCombineConst = 0x9e3779b9UL;
   static const int64_t kStripeSize = 4 * sizeof(uint64_t);
 
-  static void HashVarLen(bool combine_hashes, uint32_t num_rows, const uint32_t* offsets,
+  static void HashVarLen(bool combine_hashes, uint32_t num_rows, const int32_t* offsets,
                          const uint8_t* concatenated_keys, uint64_t* hashes);
 
-  static void HashVarLen(bool combine_hashes, uint32_t num_rows, const uint64_t* offsets,
+  static void HashVarLen(bool combine_hashes, uint32_t num_rows, const int64_t* offsets,
                          const uint8_t* concatenated_keys, uint64_t* hashes);
 
   static inline uint64_t Avalanche(uint64_t acc);

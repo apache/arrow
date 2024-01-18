@@ -45,7 +45,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
+    const int32_t* row_offsets = rows.offsets();
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
@@ -140,7 +140,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       // Case 4: This is a fixed length column in varying length row
       //
       const uint8_t* row_ptr_base = rows.data(2);
-      const uint32_t* row_offsets = rows.offsets();
+      const int32_t* row_offsets = rows.offsets();
       for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);

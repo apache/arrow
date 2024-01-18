@@ -288,28 +288,28 @@ uint32_t Hashing32::HashVarLenImp_avx2(uint32_t num_rows, const T* offsets,
 }
 
 uint32_t Hashing32::HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
-                                    const uint32_t* offsets,
+                                    const int32_t* offsets,
                                     const uint8_t* concatenated_keys, uint32_t* hashes,
                                     uint32_t* hashes_temp_for_combine) {
   if (combine_hashes) {
-    return HashVarLenImp_avx2<uint32_t, true>(num_rows, offsets, concatenated_keys,
-                                              hashes, hashes_temp_for_combine);
+    return HashVarLenImp_avx2<int32_t, true>(num_rows, offsets, concatenated_keys, hashes,
+                                             hashes_temp_for_combine);
   } else {
-    return HashVarLenImp_avx2<uint32_t, false>(num_rows, offsets, concatenated_keys,
-                                               hashes, hashes_temp_for_combine);
+    return HashVarLenImp_avx2<int32_t, false>(num_rows, offsets, concatenated_keys,
+                                              hashes, hashes_temp_for_combine);
   }
 }
 
 uint32_t Hashing32::HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
-                                    const uint64_t* offsets,
+                                    const int64_t* offsets,
                                     const uint8_t* concatenated_keys, uint32_t* hashes,
                                     uint32_t* hashes_temp_for_combine) {
   if (combine_hashes) {
-    return HashVarLenImp_avx2<uint64_t, true>(num_rows, offsets, concatenated_keys,
-                                              hashes, hashes_temp_for_combine);
+    return HashVarLenImp_avx2<int64_t, true>(num_rows, offsets, concatenated_keys, hashes,
+                                             hashes_temp_for_combine);
   } else {
-    return HashVarLenImp_avx2<uint64_t, false>(num_rows, offsets, concatenated_keys,
-                                               hashes, hashes_temp_for_combine);
+    return HashVarLenImp_avx2<int64_t, false>(num_rows, offsets, concatenated_keys,
+                                              hashes, hashes_temp_for_combine);
   }
 }
 

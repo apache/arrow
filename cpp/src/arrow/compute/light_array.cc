@@ -470,7 +470,7 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
     for (int i = 0; i < num_rows; ++i) {
       uint16_t row_id = row_ids[i];
       const uint8_t* field_ptr = ptr_base + offsets[row_id];
-      uint32_t field_length = offsets[row_id + 1] - offsets[row_id];
+      int32_t field_length = offsets[row_id + 1] - offsets[row_id];
       process_value_fn(i, field_ptr, field_length);
     }
   } else {
@@ -576,25 +576,23 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
     // Step 1: calculate target offsets
     //
     int32_t* offsets = reinterpret_cast<int32_t*>(target->mutable_data(1));
-    {
-      int64_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
-      Visit(source, num_rows_to_append, row_ids,
-            [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
-              offsets[num_rows_before + i] = num_bytes;
-            });
-      for (int i = 0; i < num_rows_to_append; ++i) {
-        int32_t length = offsets[num_rows_before + i];
-        offsets[num_rows_before + i] = static_cast<int32_t>(sum);
-        if (ARROW_PREDICT_FALSE(sum + length > BinaryBuilder::memory_limit())) {
-          return Status::Invalid("ExecBatchBuilder cannot contain more than ",
-                                 BinaryBuilder::memory_limit(), " bytes, current ", sum,
-                                 ", appending ", num_rows_before + i + 1,
-                                 "-th element of length ", length);
-        }
-        sum += length;
+    int64_t sum = num_rows_before == 0 ? 0 : offsets[num_rows_before];
+    Visit(source, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            offsets[num_rows_before + i] = num_bytes;
+          });
+    for (int i = 0; i < num_rows_to_append; ++i) {
+      int32_t length = offsets[num_rows_before + i];
+      offsets[num_rows_before + i] = static_cast<int32_t>(sum);
+      if (ARROW_PREDICT_FALSE(sum + length > BinaryBuilder::memory_limit())) {
+        return Status::Invalid("ExecBatchBuilder cannot contain more than ",
+                               BinaryBuilder::memory_limit(), " bytes, current ", sum,
+                               ", appending ", num_rows_before + i + 1,
+                               "-th element of length ", length);
       }
-      offsets[num_rows_before + num_rows_to_append] = static_cast<int32_t>(sum);
+      sum += length;
     }
+    offsets[num_rows_before + num_rows_to_append] = static_cast<int32_t>(sum);
 
     // Step 2: resize output buffers
     //

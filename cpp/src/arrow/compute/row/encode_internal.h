@@ -173,7 +173,7 @@ class EncoderBinary {
         copy_fn(dst, src, col_width);
       }
     } else {
-      const uint32_t* row_offsets = rows_const->offsets();
+      const int32_t* row_offsets = rows_const->offsets();
       for (uint32_t i = 0; i < num_rows; ++i) {
         const uint8_t* src;
         uint8_t* dst;
@@ -267,8 +267,8 @@ class EncoderVarBinary {
     ARROW_DCHECK(!rows_const->metadata().is_fixed_length &&
                  !col_const->metadata().is_fixed_length);
 
-    const uint32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
-    const uint32_t* col_offsets = col_const->offsets();
+    const int32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
+    const int32_t* col_offsets = col_const->offsets();
 
     uint32_t col_offset_next = col_offsets[0];
     for (uint32_t i = 0; i < num_rows; ++i) {
