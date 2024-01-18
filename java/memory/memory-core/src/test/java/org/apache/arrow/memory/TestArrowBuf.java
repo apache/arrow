@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.util.Float16;
 import org.junit.Test;
 import org.slf4j.LoggerFactory;
 
@@ -178,6 +179,17 @@ public class TestArrowBuf {
           e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
+    }
+  }
+
+  @Test
+  public void testArrowBufFloat16() {
+    try (BufferAllocator allocator = new RootAllocator();
+         ArrowBuf buf = allocator.buffer(1024)
+    ) {
+      buf.setFloat16(0, +32.875f);
+      assertEquals((short) 0x501c, Float16.toFloat16(+32.875f));
+      assertEquals((short) 0x501c, buf.getFloat16(0));
     }
   }
 }

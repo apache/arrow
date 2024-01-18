@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.arrow.memory.util.Float16;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
@@ -344,6 +345,29 @@ public final class ArrowBuf implements AutoCloseable {
   public void setLong(long index, long value) {
     chk(index, LONG_SIZE);
     MemoryUtil.UNSAFE.putLong(addr(index), value);
+  }
+
+  /**
+   * Get float16 value stored at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be read from
+   * @return 4 byte float value
+   */
+  public short getFloat16(long index) {
+    return getShort(index);
+  }
+
+
+  /**
+   * Set float16 value at a particular index in the
+   * underlying memory chunk this ArrowBuf has access to.
+   * @param index index (0 based relative to this ArrowBuf)
+   *              where the value will be written
+   * @param value value to write
+   */
+  public void setFloat16(long index, float value) {
+    setShort(index, Float16.toFloat16(value));
   }
 
   /**

@@ -333,6 +333,106 @@ public class TestValueVector {
     }
   }
 
+  @Test /* Float2Vector */
+  public void testFixedFloat2() {
+    try (final Float2Vector floatVector = new Float2Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT - 1);
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT);
+
+      try {
+        floatVector.setInitialCapacity(MAX_VALUE_COUNT * 4);
+      } catch (OversizedAllocationException oe) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      floatVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, floatVector.getValueCapacity());
+
+      /* allocate 32 bytes (16 * 2) */
+      floatVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity);
+      initialCapacity = floatVector.getValueCapacity();
+
+      floatVector.zeroVector();
+
+      /* populate the floatVector */
+      floatVector.set(0, +0.00050163269043f); // (short) 0x101c
+      floatVector.set(2, -0.00050163269043f); // (short) 0x901c
+      floatVector.set(4, +0.000502109527588f); // (short) 0x101d
+      floatVector.set(6, -0.000502109527588f); // (short) 0x901d
+      floatVector.set(8, +0.00074577331543f); // (short) 0x121c
+      floatVector.set(10, -0.00074577331543f); // (short) 0x921c
+      floatVector.set(12, +32.875f); // (short) 0x501c
+      floatVector.set(14, -32.875f); // (short) 0xd01c
+
+      try {
+        floatVector.set(initialCapacity, 9.5f);
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals((short) 0x101c, floatVector.get(0), 0);
+      assertEquals((short) 0x901c, floatVector.get(2), 0);
+      assertEquals((short) 0x101d, floatVector.get(4), 0);
+      assertEquals((short) 0x901d, floatVector.get(6), 0);
+      assertEquals((short) 0x121c, floatVector.get(8), 0);
+      assertEquals((short) 0x921c, floatVector.get(10), 0);
+      assertEquals((short) 0x501c, floatVector.get(12), 0);
+      assertEquals((short) 0xd01c, floatVector.get(14), 0);
+
+      try {
+        floatVector.get(initialCapacity);
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* this should trigger a realloc() */
+      floatVector.setSafe(initialCapacity, +0.00100326538086f); // (short) 0x141c
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
+
+      /* vector data should still be intact after realloc */
+      assertEquals((short) 0x101c, floatVector.get(0), 0);
+      assertEquals((short) 0x901c, floatVector.get(2), 0);
+      assertEquals((short) 0x101d, floatVector.get(4), 0);
+      assertEquals((short) 0x901d, floatVector.get(6), 0);
+      assertEquals((short) 0x121c, floatVector.get(8), 0);
+      assertEquals((short) 0x921c, floatVector.get(10), 0);
+      assertEquals((short) 0x501c, floatVector.get(12), 0);
+      assertEquals((short) 0xd01c, floatVector.get(14), 0);
+      assertEquals((short) 0x141c, floatVector.get(initialCapacity), 0);
+
+      /* reset the vector */
+      int capacityBeforeReset = floatVector.getValueCapacity();
+      floatVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(capacityBeforeReset, floatVector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for (int i = 0; i < capacityBeforeReset; i++) {
+        assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
+      }
+    }
+  }
+
   @Test /* Float4Vector */
   public void testFixedType3() {
     try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {

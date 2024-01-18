@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.types;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
+import static org.apache.arrow.vector.types.FloatingPointPrecision.HALF;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.apache.arrow.vector.types.UnionMode.Dense;
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
@@ -33,6 +34,7 @@ import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -79,6 +81,7 @@ import org.apache.arrow.vector.complex.impl.DecimalWriterImpl;
 import org.apache.arrow.vector.complex.impl.DenseUnionWriter;
 import org.apache.arrow.vector.complex.impl.DurationWriterImpl;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryWriterImpl;
+import org.apache.arrow.vector.complex.impl.Float2WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
 import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
@@ -430,6 +433,17 @@ public class Types {
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new IntervalYearWriterImpl((IntervalYearVector) vector);
+      }
+    },
+    FLOAT2(new FloatingPoint(HALF)) {
+      @Override
+      public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new Float2Vector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new Float2WriterImpl((Float2Vector) vector);
       }
     },
     //  4 byte ieee 754
@@ -894,7 +908,7 @@ public class Types {
       public MinorType visit(FloatingPoint type) {
         switch (type.getPrecision()) {
           case HALF:
-            throw new UnsupportedOperationException("NYI: " + type);
+            return MinorType.FLOAT2;
           case SINGLE:
             return MinorType.FLOAT4;
           case DOUBLE:
