@@ -173,7 +173,7 @@ test_binary() {
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
