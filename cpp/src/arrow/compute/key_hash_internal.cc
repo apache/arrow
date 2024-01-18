@@ -235,7 +235,7 @@ void Hashing32::HashVarLenImp(uint32_t num_rows, const T* offsets,
 }
 
 void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
-                           const uint32_t* offsets, const uint8_t* concatenated_keys,
+                           const int32_t* offsets, const uint8_t* concatenated_keys,
                            uint32_t* hashes, uint32_t* hashes_temp_for_combine) {
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -245,16 +245,16 @@ void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t
   }
 #endif
   if (combine_hashes) {
-    HashVarLenImp<uint32_t, true>(num_rows - num_processed, offsets + num_processed,
-                                  concatenated_keys, hashes + num_processed);
+    HashVarLenImp<int32_t, true>(num_rows - num_processed, offsets + num_processed,
+                                 concatenated_keys, hashes + num_processed);
   } else {
-    HashVarLenImp<uint32_t, false>(num_rows - num_processed, offsets + num_processed,
-                                   concatenated_keys, hashes + num_processed);
+    HashVarLenImp<int32_t, false>(num_rows - num_processed, offsets + num_processed,
+                                  concatenated_keys, hashes + num_processed);
   }
 }
 
 void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
-                           const uint64_t* offsets, const uint8_t* concatenated_keys,
+                           const int64_t* offsets, const uint8_t* concatenated_keys,
                            uint32_t* hashes, uint32_t* hashes_temp_for_combine) {
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -264,11 +264,11 @@ void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t
   }
 #endif
   if (combine_hashes) {
-    HashVarLenImp<uint64_t, true>(num_rows - num_processed, offsets + num_processed,
-                                  concatenated_keys, hashes + num_processed);
+    HashVarLenImp<int64_t, true>(num_rows - num_processed, offsets + num_processed,
+                                 concatenated_keys, hashes + num_processed);
   } else {
-    HashVarLenImp<uint64_t, false>(num_rows - num_processed, offsets + num_processed,
-                                   concatenated_keys, hashes + num_processed);
+    HashVarLenImp<int64_t, false>(num_rows - num_processed, offsets + num_processed,
+                                  concatenated_keys, hashes + num_processed);
   }
 }
 
@@ -705,23 +705,21 @@ void Hashing64::HashVarLenImp(uint32_t num_rows, const T* offsets,
   }
 }
 
-void Hashing64::HashVarLen(bool combine_hashes, uint32_t num_rows,
-                           const uint32_t* offsets, const uint8_t* concatenated_keys,
-                           uint64_t* hashes) {
+void Hashing64::HashVarLen(bool combine_hashes, uint32_t num_rows, const int32_t* offsets,
+                           const uint8_t* concatenated_keys, uint64_t* hashes) {
   if (combine_hashes) {
-    HashVarLenImp<uint32_t, true>(num_rows, offsets, concatenated_keys, hashes);
+    HashVarLenImp<int32_t, true>(num_rows, offsets, concatenated_keys, hashes);
   } else {
-    HashVarLenImp<uint32_t, false>(num_rows, offsets, concatenated_keys, hashes);
+    HashVarLenImp<int32_t, false>(num_rows, offsets, concatenated_keys, hashes);
   }
 }
 
-void Hashing64::HashVarLen(bool combine_hashes, uint32_t num_rows,
-                           const uint64_t* offsets, const uint8_t* concatenated_keys,
-                           uint64_t* hashes) {
+void Hashing64::HashVarLen(bool combine_hashes, uint32_t num_rows, const int64_t* offsets,
+                           const uint8_t* concatenated_keys, uint64_t* hashes) {
   if (combine_hashes) {
-    HashVarLenImp<uint64_t, true>(num_rows, offsets, concatenated_keys, hashes);
+    HashVarLenImp<int64_t, true>(num_rows, offsets, concatenated_keys, hashes);
   } else {
-    HashVarLenImp<uint64_t, false>(num_rows, offsets, concatenated_keys, hashes);
+    HashVarLenImp<int64_t, false>(num_rows, offsets, concatenated_keys, hashes);
   }
 }
 

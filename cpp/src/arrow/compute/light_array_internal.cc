@@ -584,7 +584,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
           });
     for (int i = 0; i < num_rows_to_append; ++i) {
       int32_t length = offsets[num_rows_before + i];
-      offsets[num_rows_before + i] = sum;
+      offsets[num_rows_before + i] = static_cast<int32_t>(sum);
       int32_t new_sum_maybe_overflow = 0;
       if (ARROW_PREDICT_FALSE(
               arrow::internal::AddWithOverflow(sum, length, &new_sum_maybe_overflow))) {
@@ -594,6 +594,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
       }
       sum = new_sum_maybe_overflow;
     }
+    offsets[num_rows_before + num_rows_to_append] = static_cast<int32_t>(sum);
 
     // Step 2: resize output buffers
     //

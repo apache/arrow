@@ -269,7 +269,7 @@ class TailSkipForSIMD {
     return num_rows_safe;
   }
   static int64_t FixVarBinaryAccess(int num_bytes_accessed_together, int64_t num_rows,
-                                    const uint32_t* offsets) {
+                                    const int32_t* offsets) {
     // Do not process rows that could read past the end of the buffer using N
     // byte loads/stores.
     //

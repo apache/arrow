@@ -110,7 +110,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
     }
   } else {
     const uint8_t* rows_left = col.data(1);
-    const uint32_t* offsets_right = rows.offsets();
+    const int32_t* offsets_right = rows.offsets();
     const uint8_t* rows_right = rows.data(2);
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
@@ -240,8 +240,8 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
     const RowTableImpl& rows, uint8_t* match_bytevector) {
-  const uint32_t* offsets_left = col.offsets();
-  const uint32_t* offsets_right = rows.offsets();
+  const int32_t* offsets_left = col.offsets();
+  const int32_t* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
   const uint8_t* rows_right = rows.data(2);
   for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {

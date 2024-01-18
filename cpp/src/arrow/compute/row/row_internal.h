@@ -39,7 +39,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// For a varying-length binary, size of all encoded fixed-length key columns,
   /// including lengths of varying-length columns, rounded up to the multiple of string
   /// alignment.
-  uint32_t fixed_length;
+  int32_t fixed_length;
 
   /// Offset within a row to the array of 32-bit offsets within a row of
   /// ends of varbinary fields.
@@ -52,7 +52,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// to obtain the beginning of the next varbinary field.
   /// The first varbinary field starts at offset specified by fixed_length,
   /// which should already be aligned.
-  uint32_t varbinary_end_array_offset;
+  int32_t varbinary_end_array_offset;
 
   /// Fixed number of bytes per row that are used to encode null masks.
   /// Null masks indicate for a single row which of its columns are null.
@@ -76,20 +76,20 @@ struct ARROW_EXPORT RowTableMetadata {
   std::vector<uint32_t> inverse_column_order;
 
   /// Offsets within a row to fields in their encoding order.
-  std::vector<uint32_t> column_offsets;
+  std::vector<int32_t> column_offsets;
 
   /// Rounding up offset to the nearest multiple of alignment value.
   /// Alignment must be a power of 2.
-  static inline uint32_t padding_for_alignment(uint32_t offset, int required_alignment) {
+  static inline int32_t padding_for_alignment(int32_t offset, int required_alignment) {
     ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
-    return static_cast<uint32_t>((-static_cast<int32_t>(offset)) &
-                                 (required_alignment - 1));
+    return static_cast<int32_t>((-static_cast<int32_t>(offset)) &
+                                (required_alignment - 1));
   }
 
   /// Rounding up offset to the beginning of next column,
   /// choosing required alignment based on the data type of that column.
-  static inline uint32_t padding_for_alignment(uint32_t offset, int string_alignment,
-                                               const KeyColumnMetadata& col_metadata) {
+  static inline int32_t padding_for_alignment(int32_t offset, int string_alignment,
+                                              const KeyColumnMetadata& col_metadata) {
     if (!col_metadata.is_fixed_length ||
         ARROW_POPCOUNT64(col_metadata.fixed_length) <= 1) {
       return 0;
@@ -99,15 +99,15 @@ struct ARROW_EXPORT RowTableMetadata {
   }
 
   /// Returns an array of offsets within a row of ends of varbinary fields.
-  inline const uint32_t* varbinary_end_array(const uint8_t* row) const {
+  inline const int32_t* varbinary_end_array(const uint8_t* row) const {
     ARROW_DCHECK(!is_fixed_length);
-    return reinterpret_cast<const uint32_t*>(row + varbinary_end_array_offset);
+    return reinterpret_cast<const int32_t*>(row + varbinary_end_array_offset);
   }
 
   /// \brief An array of mutable offsets within a row of ends of varbinary fields.
-  inline uint32_t* varbinary_end_array(uint8_t* row) const {
+  inline int32_t* varbinary_end_array(uint8_t* row) const {
     ARROW_DCHECK(!is_fixed_length);
-    return reinterpret_cast<uint32_t*>(row + varbinary_end_array_offset);
+    return reinterpret_cast<int32_t*>(row + varbinary_end_array_offset);
   }
 
   /// Returns the offset within the row and length of the first varbinary field.
@@ -125,8 +125,8 @@ struct ARROW_EXPORT RowTableMetadata {
                                               uint32_t* out_length) const {
     ARROW_DCHECK(!is_fixed_length);
     ARROW_DCHECK(varbinary_id > 0);
-    const uint32_t* varbinary_end = varbinary_end_array(row);
-    uint32_t offset = varbinary_end[varbinary_id - 1];
+    const int32_t* varbinary_end = varbinary_end_array(row);
+    int32_t offset = varbinary_end[varbinary_id - 1];
     offset += padding_for_alignment(offset, string_alignment);
     *out_offset = offset;
     *out_length = varbinary_end[varbinary_id] - offset;
@@ -195,8 +195,8 @@ class ARROW_EXPORT RowTableImpl {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     return buffers_[i];
   }
-  const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
-  uint32_t* mutable_offsets() { return reinterpret_cast<uint32_t*>(mutable_data(1)); }
+  const int32_t* offsets() const { return reinterpret_cast<const int32_t*>(data(1)); }
+  int32_t* mutable_offsets() { return reinterpret_cast<int32_t*>(mutable_data(1)); }
   const uint8_t* null_masks() const { return null_masks_->data(); }
   uint8_t* null_masks() { return null_masks_->mutable_data(); }
 

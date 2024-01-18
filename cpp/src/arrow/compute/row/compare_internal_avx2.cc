@@ -218,7 +218,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
     return num_rows_to_compare - (num_rows_to_compare % unroll);
   } else {
     const uint8_t* rows_left = col.data(1);
-    const uint32_t* offsets_right = rows.offsets();
+    const int32_t* offsets_right = rows.offsets();
     const uint8_t* rows_right = rows.data(2);
     constexpr uint32_t unroll = 8;
     __m256i irow_left = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
@@ -504,8 +504,8 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
     uint8_t* match_bytevector) {
-  const uint32_t* offsets_left = col.offsets();
-  const uint32_t* offsets_right = rows.offsets();
+  const int32_t* offsets_left = col.offsets();
+  const int32_t* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
   const uint8_t* rows_right = rows.data(2);
   for (uint32_t i = 0; i < num_rows_to_compare; ++i) {

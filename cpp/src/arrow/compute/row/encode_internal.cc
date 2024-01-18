@@ -188,7 +188,7 @@ struct TransformBoolean {
                                      const KeyColumnArray& temp) {
     // Make sure that the temp buffer is large enough
     DCHECK(temp.length() >= column.length() && temp.metadata().is_fixed_length &&
-           temp.metadata().fixed_length >= sizeof(uint8_t));
+           temp.metadata().fixed_length >= int32_t(sizeof(uint8_t)));
     KeyColumnMetadata metadata;
     metadata.is_fixed_length = true;
     metadata.fixed_length = sizeof(uint8_t);
@@ -288,7 +288,7 @@ void EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
         DCHECK(false);
     }
   } else {
-    const uint32_t* row_offsets = rows.offsets() + start_row;
+    const int32_t* row_offsets = rows.offsets() + start_row;
     const uint8_t* row_base = rows.data(2);
     row_base += offset_within_row;
     uint8_t* col_base = col_prep.mutable_data(1);
@@ -354,14 +354,14 @@ void EncoderBinary::EncodeSelectedImp(uint32_t offset_within_row, RowTableImpl* 
   } else {
     const uint8_t* src_base = col.data(1);
     uint8_t* dst = rows->mutable_data(2) + offset_within_row;
-    const uint32_t* offsets = rows->offsets();
+    const int32_t* offsets = rows->offsets();
     for (uint32_t i = 0; i < num_selected; ++i) {
       copy_fn(dst + offsets[i], src_base, selection[i]);
     }
     if (col.data(0)) {
       const uint8_t* non_null_bits = col.data(0);
       uint8_t* dst = rows->mutable_data(2) + offset_within_row;
-      const uint32_t* offsets = rows->offsets();
+      const int32_t* offsets = rows->offsets();
       for (uint32_t i = 0; i < num_selected; ++i) {
         bool is_null = !bit_util::GetBit(non_null_bits, selection[i] + col.bit_offset(0));
         if (is_null) {
@@ -577,7 +577,7 @@ void EncoderBinaryPair::DecodeImp(uint32_t num_rows_to_skip, uint32_t start_row,
   uint8_t* dst_B = col2->mutable_data(1);
 
   uint32_t fixed_length = rows.metadata().fixed_length;
-  const uint32_t* offsets;
+  const int32_t* offsets;
   const uint8_t* src_base;
   if (is_row_fixed_length) {
     src_base = rows.data(1) + fixed_length * start_row + offset_within_row;
@@ -632,11 +632,11 @@ void EncoderOffsets::Decode(uint32_t start_row, uint32_t num_rows,
   // The Nth element is the sum of all the lengths of varbinary columns data in
   // that row, up to and including Nth varbinary column.
 
-  const uint32_t* row_offsets = rows.offsets() + start_row;
+  const int32_t* row_offsets = rows.offsets() + start_row;
 
   // Set the base offset for each column
   for (size_t col = 0; col < varbinary_cols->size(); ++col) {
-    uint32_t* col_offsets = (*varbinary_cols)[col].mutable_offsets();
+    int32_t* col_offsets = (*varbinary_cols)[col].mutable_offsets();
     col_offsets[0] = varbinary_cols_base_offset[col];
   }
 
@@ -645,7 +645,7 @@ void EncoderOffsets::Decode(uint32_t start_row, uint32_t num_rows,
   for (uint32_t i = 0; i < num_rows; ++i) {
     // Find the beginning of cumulative lengths array for next row
     const uint8_t* row = rows.data(2) + row_offsets[i];
-    const uint32_t* varbinary_ends = rows.metadata().varbinary_end_array(row);
+    const int32_t* varbinary_ends = rows.metadata().varbinary_end_array(row);
 
     // Update the offset of each column
     uint32_t offset_within_row = rows.metadata().fixed_length;
@@ -654,7 +654,7 @@ void EncoderOffsets::Decode(uint32_t start_row, uint32_t num_rows,
           RowTableMetadata::padding_for_alignment(offset_within_row, string_alignment);
       uint32_t length = varbinary_ends[col] - offset_within_row;
       offset_within_row = varbinary_ends[col];
-      uint32_t* col_offsets = (*varbinary_cols)[col].mutable_offsets();
+      int32_t* col_offsets = (*varbinary_cols)[col].mutable_offsets();
       col_offsets[i + 1] = col_offsets[i] + length;
     }
   }
@@ -668,7 +668,7 @@ void EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
     return;
   }
 
-  uint32_t* row_offsets = rows->mutable_offsets();
+  int32_t* row_offsets = rows->mutable_offsets();
   for (uint32_t i = 0; i < num_selected; ++i) {
     row_offsets[i] = rows->metadata().fixed_length;
   }
@@ -676,7 +676,7 @@ void EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
   for (size_t icol = 0; icol < cols.size(); ++icol) {
     bool is_fixed_length = (cols[icol].metadata().is_fixed_length);
     if (!is_fixed_length) {
-      const uint32_t* col_offsets = cols[icol].offsets();
+      const int32_t* col_offsets = cols[icol].offsets();
       for (uint32_t i = 0; i < num_selected; ++i) {
         uint32_t irow = selection[i];
         uint32_t length = col_offsets[irow + 1] - col_offsets[irow];
@@ -686,7 +686,7 @@ void EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
       }
       const uint8_t* non_null_bits = cols[icol].data(0);
       if (non_null_bits) {
-        const uint32_t* col_offsets = cols[icol].offsets();
+        const int32_t* col_offsets = cols[icol].offsets();
         for (uint32_t i = 0; i < num_selected; ++i) {
           uint32_t irow = selection[i];
           bool is_null =
@@ -715,11 +715,11 @@ template <bool has_nulls, bool is_first_varbinary>
 void EncoderOffsets::EncodeSelectedImp(uint32_t ivarbinary, RowTableImpl* rows,
                                        const std::vector<KeyColumnArray>& cols,
                                        uint32_t num_selected, const uint16_t* selection) {
-  const uint32_t* row_offsets = rows->offsets();
+  const int32_t* row_offsets = rows->offsets();
   uint8_t* row_base = rows->mutable_data(2) +
                       rows->metadata().varbinary_end_array_offset +
                       ivarbinary * sizeof(uint32_t);
-  const uint32_t* col_offsets = cols[ivarbinary].offsets();
+  const int32_t* col_offsets = cols[ivarbinary].offsets();
   const uint8_t* col_non_null_bits = cols[ivarbinary].data(0);
 
   for (uint32_t i = 0; i < num_selected; ++i) {
@@ -840,9 +840,9 @@ void EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows, const RowTableI
 void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
                                       const KeyColumnArray& cols, uint32_t num_selected,
                                       const uint16_t* selection) {
-  const uint32_t* row_offsets = rows->offsets();
+  const int32_t* row_offsets = rows->offsets();
   uint8_t* row_base = rows->mutable_data(2);
-  const uint32_t* col_offsets = cols.offsets();
+  const int32_t* col_offsets = cols.offsets();
   const uint8_t* col_base = cols.data(2);
 
   if (ivarbinary == 0) {
