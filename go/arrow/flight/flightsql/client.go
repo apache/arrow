@@ -82,6 +82,17 @@ func flightInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, op
 	return cl.getFlightInfo(ctx, desc, opts...)
 }
 
+func pollInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if retryDescriptor != nil {
+		return cl.Client.PollFlightInfo(ctx, retryDescriptor, opts...)
+	}
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return cl.Client.PollFlightInfo(ctx, desc, opts...)
+}
+
 func schemaForCommand(ctx context.Context, cl *Client, cmd proto.Message, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
 	desc, err := descForCommand(cmd)
 	if err != nil {
@@ -123,6 +134,14 @@ func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOpt
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+// ExecutePoll idempotently starts execution of a query/checks for completion.
+// To check for completion, pass the FlightDescriptor from the previous call
+// to ExecutePoll as the retryDescriptor.
+func (c *Client) ExecutePoll(ctx context.Context, query string, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	cmd := pb.CommandStatementQuery{Query: query}
+	return pollInfoForCommand(ctx, c, &cmd, retryDescriptor, opts...)
+}
+
 // GetExecuteSchema gets the schema of the result set of a query without
 // executing the query itself.
 func (c *Client) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -134,6 +153,12 @@ func (c *Client) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts 
 	cmd := pb.CommandStatementSubstraitPlan{
 		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+func (c *Client) ExecuteSubstraitPoll(ctx context.Context, plan SubstraitPlan, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
+	return pollInfoForCommand(ctx, c, &cmd, retryDescriptor, opts...)
 }
 
 func (c *Client) GetExecuteSubstraitSchema(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -606,6 +631,15 @@ func (tx *Txn) Execute(ctx context.Context, query string, opts ...grpc.CallOptio
 	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
 }
 
+func (tx *Txn) ExecutePoll(ctx context.Context, query string, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	// The server should encode the transaction into the retry descriptor
+	cmd := &pb.CommandStatementQuery{Query: query, TransactionId: tx.txn}
+	return pollInfoForCommand(ctx, tx.c, cmd, retryDescriptor, opts...)
+}
+
 func (tx *Txn) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	if !tx.txn.IsValid() {
 		return nil, ErrInvalidTxn
@@ -614,6 +648,18 @@ func (tx *Txn) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ..
 		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
 		TransactionId: tx.txn}
 	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) ExecuteSubstraitPoll(ctx context.Context, plan SubstraitPlan, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	// The server should encode the transaction into the retry descriptor
+	cmd := &pb.CommandStatementSubstraitPlan{
+		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
+		TransactionId: tx.txn,
+	}
+	return pollInfoForCommand(ctx, tx.c, cmd, retryDescriptor, opts...)
 }
 
 func (tx *Txn) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -979,6 +1025,52 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 	}
 
 	return p.client.getFlightInfo(ctx, desc, opts...)
+}
+
+// ExecutePoll executes the prepared statement on the server and returns a PollInfo
+// indicating the progress of execution.
+//
+// Will error if already closed.
+func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if p.closed {
+		return nil, errors.New("arrow/flightsql: prepared statement already closed")
+	}
+
+	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+
+	desc := retryDescriptor
+	var err error
+
+	if desc == nil {
+		desc, err = descForCommand(cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if retryDescriptor == nil {
+		if p.hasBindParameters() {
+			pstream, err := p.client.Client.DoPut(ctx, opts...)
+			if err != nil {
+				return nil, err
+			}
+
+			wr, err := p.writeBindParameters(pstream, desc)
+			if err != nil {
+				return nil, err
+			}
+			if err = wr.Close(); err != nil {
+				return nil, err
+			}
+			pstream.CloseSend()
+
+			// wait for the server to ack the result
+			if _, err = pstream.Recv(); err != nil && err != io.EOF {
+				return nil, err
+			}
+		}
+	}
+	return p.client.Client.PollFlightInfo(ctx, desc, opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
