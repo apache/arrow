@@ -1649,23 +1649,29 @@ class AzureFileSystem::Impl {
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
   Status DeleteDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
-                               const AzureLocation& location) {
+                               const AzureLocation& location, bool recursive,
+                               bool require_dir_to_exist) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
-    // XXX: should "directory not found" be considered an error?
     try {
-      auto response = directory_client.DeleteRecursive();
-      if (response.Value.Deleted) {
-        return Status::OK();
-      } else {
-        return StatusFromErrorResponse(directory_client.GetUrl(), *response.RawResponse,
-                                       "Failed to delete a directory: " + location.path);
-      }
+      auto response =
+          recursive ? directory_client.DeleteRecursive() : directory_client.DeleteEmpty();
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
+      if (exception.ErrorCode == "FilesystemNotFound" ||
+          exception.ErrorCode == "PathNotFound") {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        }
+        return Status::OK();
+      }
       return ExceptionToStatus(exception, "Failed to delete a directory: ", location.path,
                                ": ", directory_client.GetUrl());
     }
+    return Status::OK();
   }
 
   /// \pre location.container is not empty.
@@ -1855,7 +1861,8 @@ Status AzureFileSystem::DeleteDir(const std::string& path) {
     return PathNotFound(location);
   }
   if (hns_support == HNSSupport::kEnabled) {
-    return impl_->DeleteDirOnFileSystem(adlfs_client, location);
+    return impl_->DeleteDirOnFileSystem(adlfs_client, location, /*recursive=*/true,
+                                        /*require_dir_to_exist=*/true);
   }
   DCHECK_EQ(hns_support, HNSSupport::kDisabled);
   auto container_client = impl_->GetBlobContainerClient(location.container);
