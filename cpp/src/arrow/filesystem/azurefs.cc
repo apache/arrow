@@ -305,30 +305,6 @@ Status ValidateFileLocation(const AzureLocation& location) {
   return internal::AssertNoTrailingSlash(location.path);
 }
 
-std::string_view BodyTextView(const Http::RawResponse& raw_response) {
-  const auto& body = raw_response.GetBody();
-#ifndef NDEBUG
-  auto& headers = raw_response.GetHeaders();
-  auto content_type = headers.find("Content-Type");
-  if (content_type != headers.end()) {
-    DCHECK_EQ(std::string_view{content_type->second}.substr(5), "text/");
-  }
-#endif
-  return std::string_view{reinterpret_cast<const char*>(body.data()), body.size()};
-}
-
-Status StatusFromErrorResponse(const std::string& url,
-                               const Http::RawResponse& raw_response,
-                               const std::string& context) {
-  // There isn't an Azure specification that response body on error
-  // doesn't contain any binary data but we assume it. We hope that
-  // error response body has useful information for the error.
-  auto body_text = BodyTextView(raw_response);
-  return Status::IOError(context, ": ", url, ": ", raw_response.GetReasonPhrase(), " (",
-                         static_cast<int>(raw_response.GetStatusCode()),
-                         "): ", body_text);
-}
-
 bool IsContainerNotFound(const Storage::StorageException& e) {
   if (e.ErrorCode == "ContainerNotFound" ||
       e.ReasonPhrase == "The specified container does not exist." ||
@@ -1515,13 +1491,9 @@ class AzureFileSystem::Impl {
     DCHECK(location.path.empty());
     try {
       auto response = container_client.Delete();
-      if (response.Value.Deleted) {
-        return Status::OK();
-      } else {
-        return StatusFromErrorResponse(
-            container_client.GetUrl(), *response.RawResponse,
-            "Failed to delete a container: " + location.container);
-      }
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
       if (IsContainerNotFound(exception)) {
         return PathNotFound(location);
@@ -1530,6 +1502,7 @@ class AzureFileSystem::Impl {
                                "Failed to delete a container: ", location.container, ": ",
                                container_client.GetUrl());
     }
+    return Status::OK();
   }
 
   /// Deletes contents of a directory and possibly the directory itself
