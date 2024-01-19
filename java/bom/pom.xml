@@ -84,11 +84,6 @@
       </dependency>
       <dependency>
         <groupId>org.apache.arrow</groupId>
-        <artifactId>flight-grpc</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.arrow</groupId>
         <artifactId>flight-integration-tests</artifactId>
         <version>${project.version}</version>
       </dependency>

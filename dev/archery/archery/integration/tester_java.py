@@ -259,6 +259,8 @@ class JavaTester(Tester):
             self._java_opts.append(
                 '--add-opens=java.base/java.nio='
                 'org.apache.arrow.memory.core,ALL-UNNAMED')
+            self._java_opts.append(
+                '--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED')
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = (
