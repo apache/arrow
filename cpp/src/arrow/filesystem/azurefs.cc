@@ -306,6 +306,8 @@ Status ValidateFileLocation(const AzureLocation& location) {
 }
 
 bool IsContainerNotFound(const Storage::StorageException& e) {
+  // In some situations, only the ReasonPhrase is set and the
+  // ErrorCode is empty, so we check both.
   if (e.ErrorCode == "ContainerNotFound" ||
       e.ReasonPhrase == "The specified container does not exist." ||
       e.ReasonPhrase == "The specified filesystem does not exist.") {
