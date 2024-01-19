@@ -98,6 +98,21 @@
           <artifactId>maven-invoker-plugin</artifactId>
           <version>3.1.0</version>
         </plugin>
+        <plugin>
+          <groupId>com.gradle</groupId>
+          <artifactId>gradle-enterprise-maven-extension</artifactId>
+          <configuration>
+            <gradleEnterprise>
+              <normalization>
+                <runtimeClassPath>
+                  <ignoredFiles>
+                    <ignoredFile>arrow-git.properties</ignoredFile>
+                  </ignoredFiles>
+                </runtimeClassPath>
+              </normalization>
+            </gradleEnterprise>
+          </configuration>
+          </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
