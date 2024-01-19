@@ -225,8 +225,9 @@ void GenerateLevels(int level_repeats, int max_level, int num_levels,
   std::default_random_engine gen(/*seed=*/1943);
   std::uniform_int_distribution<int16_t> d(0, max_level);
   for (int i = 0; i < num_levels;) {
+    int16_t current_level = d(gen);  // level repeat `level_repeats` times
     for (int j = 0; j < level_repeats; ++j) {
-      input_levels.push_back(d(gen));
+      input_levels.push_back(current_level);
       ++i;
     }
   }
