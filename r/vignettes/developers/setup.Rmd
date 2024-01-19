@@ -280,7 +280,7 @@ withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(
 * See the user-facing [article on installation](../install.html) for a large number of
   environment variables that determine how the build works and what features
   get built.
-* `TEST_OFFLINE_BUILD`: When set to `true`, the build script will not download
+* `ARROW_OFFLINE_BUILD`: When set to `true`, the build script will not download
   prebuilt the C++ library binary or, if needed, `cmake`.
   It will turn off any features that require a download, unless they're available
   in `ARROW_THIRDPARTY_DEPENDENCY_DIR` or the `tools/thirdparty_download/` subfolder.
