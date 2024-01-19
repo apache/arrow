@@ -120,11 +120,11 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     # The warnings from system2 if it fails pop up later in the log and thus are
     # more confusing than they are helpful (so we suppress them)
     checksum_ok <- suppressWarnings(system2(
-        "shasum",
-        args = c("--status", "-a", "512", "-c", checksum_file),
-        stdout = ifelse(quietly, FALSE, ""),
-        stderr = ifelse(quietly, FALSE, "")
-      )) == 0
+      "shasum",
+      args = c("--status", "-a", "512", "-c", checksum_file),
+      stdout = ifelse(quietly, FALSE, ""),
+      stderr = ifelse(quietly, FALSE, "")
+    )) == 0
 
     if (!checksum_ok) {
       checksum_ok <- suppressWarnings(system2(
@@ -565,8 +565,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
   }
 
-  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled 
-  # Necessary due to #39590 for CRAN 
+  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
+  # Necessary due to #39590 for CRAN
   if (on_macos) {
     # Using lowercase (e.g. Boost_SOURCE) to match the cmake args we use already.
     deps_to_bundle <- c("Boost", "lz4")
