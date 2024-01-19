@@ -75,7 +75,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
  */
 public class ValueVectorDataPopulator {
 
-  private ValueVectorDataPopulator(){}
+  private ValueVectorDataPopulator() {
+  }
 
   /**
    * Populate values for BigIntVector.
