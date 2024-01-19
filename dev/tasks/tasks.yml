@@ -1272,7 +1272,7 @@ tasks:
       r_org: library
       r_image: r-base
       r_tag: latest
-      flags: '-e TEST_OFFLINE_BUILD=true'
+      flags: '-e ARROW_OFFLINE_BUILD=true'
 
   test-r-dev-duckdb:
     ci: github
