@@ -926,8 +926,7 @@ if (!is_release && !test_mode) {
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
-# enable full featured builds for macOS in case of CRAN source builds.
-if (not_cran || on_macos) {
+if (not_cran) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")
@@ -944,6 +943,15 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're authorized to download
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
+# If not forbidden from downloading, check if we are offline and turn off downloading.
+# The default libarrow source build will download its source dependencies and fail
+# if they can't be retrieved.
+# But, don't do this if the user has requested a binary or a non-minimal build:
+# we should error rather than silently succeeding with a minimal build.
+if (Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
+  download_ok <- download_ok && try_download("https://apache.jfrog.io/artifactory/arrow/r/")
+}
+
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
