@@ -165,7 +165,6 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DARROW_JAVA_JNI_ARCH_DIR=<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ ls -latr java-dist/lib
@@ -184,7 +183,6 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DARROW_JAVA_JNI_ARCH_DIR=x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ dir "java-dist/bin"
@@ -220,7 +218,6 @@ CMake
           -DARROW_SUBSTRAIT=ON \
           -DARROW_USE_CCACHE=ON \
           -DCMAKE_BUILD_TYPE=Release \
-          -DARROW_JAVA_JNI_ARCH_DIR=<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
       $ cmake --build cpp-jni --target install --config Release
@@ -231,7 +228,6 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DARROW_JAVA_JNI_ARCH_DIR=<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
           -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
@@ -269,7 +265,6 @@ CMake
           -DARROW_WITH_ZLIB=ON ^
           -DARROW_WITH_ZSTD=ON ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DARROW_JAVA_JNI_ARCH_DIR=x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_UNITY_BUILD=ON ^
           -GNinja
@@ -286,7 +281,6 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_ORC=ON ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DARROW_JAVA_JNI_ARCH_DIR=x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_PREFIX_PATH=$PWD/java-dist
       $ cmake --build java-jni --target install --config Release
