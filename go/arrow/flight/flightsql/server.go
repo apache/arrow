@@ -524,6 +524,22 @@ func (BaseServer) RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpoi
 	return nil, status.Error(codes.Unimplemented, "RenewFlightEndpoint not implemented")
 }
 
+func (BaseServer) PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfo not implemented")
+}
+
+func (BaseServer) PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoStatement not implemented")
+}
+
+func (BaseServer) PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoSubstraitPlan not implemented")
+}
+
+func (BaseServer) PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoPreparedStatement not implemented")
+}
+
 func (BaseServer) EndTransaction(context.Context, ActionEndTransactionRequest) error {
 	return status.Error(codes.Unimplemented, "EndTransaction not implemented")
 }
@@ -652,6 +668,14 @@ type Server interface {
 	CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error)
 	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
 	RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error)
+	// PollFlightInfo is a generic handler for PollFlightInfo requests.
+	PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoStatement handles polling for query execution.
+	PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoSubstraitPlan handles polling for query execution.
+	PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoPreparedStatement handles polling for query execution.
+	PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
 
 	mustEmbedBaseServer()
 }
@@ -727,6 +751,36 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 	}
 
 	return nil, status.Error(codes.InvalidArgument, "requested command is invalid")
+}
+
+func (f *flightSqlServer) PollFlightInfo(ctx context.Context, request *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	var (
+		anycmd anypb.Any
+		cmd    proto.Message
+		err    error
+	)
+	// If we can't parse things, be friendly and defer to the server
+	// implementation. This is especially important for this method since
+	// the server returns a custom FlightDescriptor for future requests.
+	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	if cmd, err = anycmd.UnmarshalNew(); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	switch cmd := cmd.(type) {
+	case *pb.CommandStatementQuery:
+		return f.srv.PollFlightInfoStatement(ctx, cmd, request)
+	case *pb.CommandStatementSubstraitPlan:
+		return f.srv.PollFlightInfoSubstraitPlan(ctx, &statementSubstraitPlan{cmd}, request)
+	case *pb.CommandPreparedStatementQuery:
+		return f.srv.PollFlightInfoPreparedStatement(ctx, cmd, request)
+	}
+	// XXX: for now we won't support the other methods
+
+	return f.srv.PollFlightInfo(ctx, request)
 }
 
 func (f *flightSqlServer) GetSchema(ctx context.Context, request *flight.FlightDescriptor) (*flight.SchemaResult, error) {
