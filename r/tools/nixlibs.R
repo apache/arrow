@@ -912,8 +912,6 @@ if (is_release) {
   VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
-  # Don't override explictily set NOT_CRAN env var, as it is used in CI.
-  not_cran <- !env_is("NOT_CRAN", "false")
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
 
@@ -943,13 +941,19 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're authorized to download
 download_ok <- !test_mode && !env_is("ARROW_OFFLINE_BUILD", "true")
+if (!download_ok) {
+  lg("Dependency downloading disabled. Unset ARROW_OFFLINE_BUILD to enable", .indent = "***")
+}
 # If not forbidden from downloading, check if we are offline and turn off downloading.
 # The default libarrow source build will download its source dependencies and fail
 # if they can't be retrieved.
 # But, don't do this if the user has requested a binary or a non-minimal build:
 # we should error rather than silently succeeding with a minimal build.
-if (Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
-  download_ok <- download_ok && try_download("https://apache.jfrog.io/artifactory/arrow/r/")
+if (download_ok && Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
+  download_ok <- try_download("https://apache.jfrog.io/artifactory/arrow/r/", tempfile())
+  if (!download_ok) {
+    lg("Network connection not available", .indent = "***")
+  }
 }
 
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
