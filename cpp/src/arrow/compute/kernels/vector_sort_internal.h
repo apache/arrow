@@ -336,26 +336,16 @@ NullPartitionResult PartitionNulls(uint64_t* indices_begin, uint64_t* indices_en
 
 struct MergeImpl {
   using MergeNullsFunc = std::function<void(uint64_t* nulls_begin, uint64_t* nulls_middle,
-                                            uint64_t* nulls_end, uint64_t* temp_indices,
-                                            int64_t null_count)>;
+                                            uint64_t* nulls_end, int64_t null_count)>;
 
-  using MergeNonNullsFunc =
-      std::function<void(uint64_t* range_begin, uint64_t* range_middle,
-                         uint64_t* range_end, uint64_t* temp_indices)>;
+  using MergeNonNullsFunc = std::function<void(
+      uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end)>;
 
   MergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
             MergeNonNullsFunc&& merge_non_nulls)
       : null_placement_(null_placement),
         merge_nulls_(std::move(merge_nulls)),
         merge_non_nulls_(std::move(merge_non_nulls)) {}
-
-  Status Init(ExecContext* ctx, int64_t temp_indices_length) {
-    ARROW_ASSIGN_OR_RAISE(
-        temp_buffer_,
-        AllocateBuffer(sizeof(int64_t) * temp_indices_length, ctx->memory_pool()));
-    temp_indices_ = reinterpret_cast<uint64_t*>(temp_buffer_->mutable_data());
-    return Status::OK();
-  }
 
   NullPartitionResult Merge(const NullPartitionResult& left,
                             const NullPartitionResult& right, int64_t null_count) const {
@@ -388,15 +378,14 @@ struct MergeImpl {
     // null-like values (e.g. NaN) are ordered equally.
     if (p.null_count()) {
       merge_nulls_(p.nulls_begin, p.nulls_begin + left.null_count(), p.nulls_end,
-                   temp_indices_, null_count);
+                   null_count);
     }
 
     // Merge the non-null values into temp area
     DCHECK_EQ(right.non_nulls_begin - p.non_nulls_begin, left.non_null_count());
     DCHECK_EQ(p.non_nulls_end - right.non_nulls_begin, right.non_null_count());
     if (p.non_null_count()) {
-      merge_non_nulls_(p.non_nulls_begin, right.non_nulls_begin, p.non_nulls_end,
-                       temp_indices_);
+      merge_non_nulls_(p.non_nulls_begin, right.non_nulls_begin, p.non_nulls_end);
     }
     return p;
   }
@@ -423,15 +412,14 @@ struct MergeImpl {
     // null-like values (e.g. NaN) are ordered equally.
     if (p.null_count()) {
       merge_nulls_(p.nulls_begin, p.nulls_begin + left.null_count(), p.nulls_end,
-                   temp_indices_, null_count);
+                   null_count);
     }
 
     // Merge the non-null values into temp area
     DCHECK_EQ(left.non_nulls_end - p.non_nulls_begin, left.non_null_count());
     DCHECK_EQ(p.non_nulls_end - left.non_nulls_end, right.non_null_count());
     if (p.non_null_count()) {
-      merge_non_nulls_(p.non_nulls_begin, left.non_nulls_end, p.non_nulls_end,
-                       temp_indices_);
+      merge_non_nulls_(p.non_nulls_begin, left.non_nulls_end, p.non_nulls_end);
     }
     return p;
   }
@@ -441,7 +429,6 @@ struct MergeImpl {
   MergeNullsFunc merge_nulls_;
   MergeNonNullsFunc merge_non_nulls_;
   std::unique_ptr<Buffer> temp_buffer_;
-  uint64_t* temp_indices_ = nullptr;
 };
 
 // TODO make this usable if indices are non trivial on input
