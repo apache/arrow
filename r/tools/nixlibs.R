@@ -942,7 +942,7 @@ if (not_cran) {
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're authorized to download
-download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
+download_ok <- !test_mode && !env_is("ARROW_OFFLINE_BUILD", "true")
 # If not forbidden from downloading, check if we are offline and turn off downloading.
 # The default libarrow source build will download its source dependencies and fail
 # if they can't be retrieved.
