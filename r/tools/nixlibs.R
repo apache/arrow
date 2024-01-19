@@ -906,24 +906,12 @@ on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
-not_cran <- env_is("NOT_CRAN", "true")
-
-if (is_release) {
-  VERSION <- VERSION[1, 1:3]
-  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else {
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
-}
-
-if (!is_release && !test_mode) {
-  VERSION <- find_latest_nightly(VERSION)
-}
-
 # To collect dirs to rm on exit, use cleanup() to add dirs
 # we reset it to avoid errors on reruns in the same session.
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
+not_cran <- env_is("NOT_CRAN", "true")
 if (not_cran) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
@@ -957,6 +945,19 @@ if (download_ok && Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is(
 }
 
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
+
+# Set binary repos
+if (is_release) {
+  VERSION <- VERSION[1, 1:3]
+  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
+} else {
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+# If we're on a dev version, look for the most recent libarrow binary version
+if (download_libarrow_ok && !is_release && !test_mode) {
+  VERSION <- find_latest_nightly(VERSION)
+}
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
