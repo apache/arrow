@@ -120,11 +120,11 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     # The warnings from system2 if it fails pop up later in the log and thus are
     # more confusing than they are helpful (so we suppress them)
     checksum_ok <- suppressWarnings(system2(
-        "shasum",
-        args = c("--status", "-a", "512", "-c", checksum_file),
-        stdout = ifelse(quietly, FALSE, ""),
-        stderr = ifelse(quietly, FALSE, "")
-      )) == 0
+      "shasum",
+      args = c("--status", "-a", "512", "-c", checksum_file),
+      stdout = ifelse(quietly, FALSE, ""),
+      stderr = ifelse(quietly, FALSE, "")
+    )) == 0
 
     if (!checksum_ok) {
       checksum_ok <- suppressWarnings(system2(
@@ -565,8 +565,8 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
   }
 
-  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled 
-  # Necessary due to #39590 for CRAN 
+  # On macOS, if not otherwise set, let's override Boost_SOURCE to be bundled
+  # Necessary due to #39590 for CRAN
   if (on_macos) {
     # Using lowercase (e.g. Boost_SOURCE) to match the cmake args we use already.
     deps_to_bundle <- c("Boost", "lz4")
@@ -906,28 +906,13 @@ on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
-not_cran <- env_is("NOT_CRAN", "true")
-
-if (is_release) {
-  VERSION <- VERSION[1, 1:3]
-  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else {
-  # Don't override explictily set NOT_CRAN env var, as it is used in CI.
-  not_cran <- !env_is("NOT_CRAN", "false")
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
-}
-
-if (!is_release && !test_mode) {
-  VERSION <- find_latest_nightly(VERSION)
-}
-
 # To collect dirs to rm on exit, use cleanup() to add dirs
 # we reset it to avoid errors on reruns in the same session.
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
-# enable full featured builds for macOS in case of CRAN source builds.
-if (not_cran || on_macos) {
+not_cran <- env_is("NOT_CRAN", "true")
+if (not_cran) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")
@@ -943,8 +928,36 @@ if (not_cran || on_macos) {
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're authorized to download
-download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
+download_ok <- !test_mode && !env_is("ARROW_OFFLINE_BUILD", "true")
+if (!download_ok) {
+  lg("Dependency downloading disabled. Unset ARROW_OFFLINE_BUILD to enable", .indent = "***")
+}
+# If not forbidden from downloading, check if we are offline and turn off downloading.
+# The default libarrow source build will download its source dependencies and fail
+# if they can't be retrieved.
+# But, don't do this if the user has requested a binary or a non-minimal build:
+# we should error rather than silently succeeding with a minimal build.
+if (download_ok && Sys.getenv("LIBARROW_BINARY") %in% c("false", "") && !env_is("LIBARROW_MINIMAL", "false")) {
+  download_ok <- try_download("https://apache.jfrog.io/artifactory/arrow/r/", tempfile())
+  if (!download_ok) {
+    lg("Network connection not available", .indent = "***")
+  }
+}
+
 download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
+
+# Set binary repos
+if (is_release) {
+  VERSION <- VERSION[1, 1:3]
+  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
+} else {
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+# If we're on a dev version, look for the most recent libarrow binary version
+if (download_libarrow_ok && !is_release && !test_mode) {
+  VERSION <- find_latest_nightly(VERSION)
+}
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
