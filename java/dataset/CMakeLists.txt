@@ -47,6 +47,12 @@ if(BUILD_TESTING)
   add_test(NAME arrow-java-jni-dataset-test COMMAND arrow-java-jni-dataset-test)
 endif()
 
+set(ARROW_JAVA_JNI_DATASET_LIBDIR
+    "${CMAKE_INSTALL_PREFIX}/lib/arrow_dataset_jni/${ARROW_JAVA_JNI_ARCH_DIR}")
+
+set(ARROW_JAVA_JNI_DATASET_BINDIR
+    "${CMAKE_INSTALL_PREFIX}/bin/arrow_dataset_jni/${ARROW_JAVA_JNI_ARCH_DIR}")
+
 install(TARGETS arrow_java_jni_dataset
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        LIBRARY DESTINATION ${ARROW_JAVA_JNI_DATASET_LIBDIR}
+        RUNTIME DESTINATION ${ARROW_JAVA_JNI_DATASET_BINDIR})

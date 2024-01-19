@@ -25,7 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-import org.apache.arrow.vector.util.ArrowTestDataUtil;
+import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 

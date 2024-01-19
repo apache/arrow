@@ -35,6 +35,10 @@
             <artifactId>arrow-compression</artifactId>
         </dependency>
         <dependency>
+          <groupId>org.immutables</groupId>
+          <artifactId>value</artifactId>
+        </dependency>
+        <dependency>
           <groupId>com.google.guava</groupId>
           <artifactId>guava</artifactId>
           <scope>test</scope>
