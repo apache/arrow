@@ -131,10 +131,10 @@ if(NOT Arrow_FOUND)
   build_arrow()
 endif()
 
-# Identify MATLAB build mode (Debug or Release)
+# Check the Build mode on Windows
 if(WIN32)
-  execute_process(COMMAND dumpbin /dependents ${Matlab_MAIN_PROGRAM} OUTPUT_VARIABLE DEPENDENTS)
-  if(DEPENDENTS MATCHES "MSVCP\\d+.dll")
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
+  if(CMAKE_BUILD_TYPE_UPPER STREQUAL DEBUG)
     message(FATAL_ERROR "You can't build this with Debug because MATLAB is built with Release. You must use Release")
   endif()
 endif()
