@@ -486,10 +486,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
   int num_row_groups_;
   int64_t num_rows_;
   std::unique_ptr<FileMetaDataBuilder> metadata_;
+  // GH-39715: file_encryptor_ must be destroyed after page_index_builder_,
+  // and page_index_builder_ must be destroyed after row_group_writer_.
+  std::unique_ptr<InternalFileEncryptor> file_encryptor_;
+  std::unique_ptr<PageIndexBuilder> page_index_builder_;
   // Only one of the row group writers is active at a time
   std::unique_ptr<RowGroupWriter> row_group_writer_;
-  std::unique_ptr<PageIndexBuilder> page_index_builder_;
-  std::unique_ptr<InternalFileEncryptor> file_encryptor_;
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
