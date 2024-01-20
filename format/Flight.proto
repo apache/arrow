@@ -572,7 +572,7 @@ message SetSessionOptionsResult {
     UNSPECIFIED = 0;
     // The given session option name is invalid.
     INVALID_NAME = 1;
-    // The session option value is invalid.
+    // The session option value or type is invalid.
     INVALID_VALUE = 2;
     // The session option cannot be set.
     ERROR = 3;

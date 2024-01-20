@@ -781,7 +781,7 @@ enum class SetSessionOptionErrorValue : int8_t {
   kUnspecified,
   /// \brief The given session option name is invalid.
   kInvalidName,
-  /// \brief The session option value is invalid.
+  /// \brief The session option value or type is invalid.
   kInvalidValue,
   /// \brief The session option cannot be set.
   kError

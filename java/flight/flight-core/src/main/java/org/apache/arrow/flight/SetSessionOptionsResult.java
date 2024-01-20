@@ -41,7 +41,7 @@ public class SetSessionOptionsResult {
      */
     INVALID_NAME,
     /**
-     * The session option value is invalid.
+     * The session option value or type is invalid.
      */
     INVALID_VALUE,
     /**
