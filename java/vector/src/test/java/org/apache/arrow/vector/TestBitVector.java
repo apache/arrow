@@ -23,7 +23,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.stream.IntStream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.hash.MurmurHasher;
@@ -53,7 +52,7 @@ public class TestBitVector {
   public void testBitVectorCopyFromSafe() {
     final int size = 20;
     try (final BitVector src = new BitVector(EMPTY_SCHEMA_PATH, allocator);
-         final BitVector dst = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
+        final BitVector dst = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
       src.allocateNew(size);
       dst.allocateNew(10);
 
@@ -124,8 +123,13 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(
+                "different data values not expected --> sourceVector index: "
+                    + (start + i)
+                    + " toVector index: "
+                    + i,
+                expected,
+                actual);
           }
         }
       }
@@ -167,8 +171,13 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(
+                "different data values not expected --> sourceVector index: "
+                    + (start + i)
+                    + " toVector index: "
+                    + i,
+                expected,
+                actual);
           }
         }
       }
@@ -206,7 +215,9 @@ public class TestBitVector {
       try (final BitVector toVector = new BitVector("toVector", allocator)) {
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{5, 22}, {5, 24}, {5, 25}, {5, 27}, {0, 31}, {5, 7}, {2, 3}};
+        final int[][] transferLengths = {
+          {5, 22}, {5, 24}, {5, 25}, {5, 27}, {0, 31}, {5, 7}, {2, 3}
+        };
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -218,8 +229,13 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(
+                "different data values not expected --> sourceVector index: "
+                    + (start + i)
+                    + " toVector index: "
+                    + i,
+                expected,
+                actual);
           }
         }
       }
@@ -295,8 +311,10 @@ public class TestBitVector {
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i <= valueCapacity * 4) {
-          if (((i & 1) == 1) || (i == valueCapacity) ||
-                  (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
+          if (((i & 1) == 1)
+              || (i == valueCapacity)
+              || (i == valueCapacity * 2)
+              || (i == valueCapacity * 4)) {
             assertEquals("unexpected cleared bit at index: " + i, 1, toVector.get(i));
           } else {
             assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
@@ -379,8 +397,10 @@ public class TestBitVector {
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i <= valueCapacity * 4) {
-          if (((i & 1) == 1) || (i == valueCapacity) ||
-                  (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
+          if (((i & 1) == 1)
+              || (i == valueCapacity)
+              || (i == valueCapacity * 2)
+              || (i == valueCapacity * 4)) {
             assertFalse("unexpected cleared bit at index: " + i, toVector.isNull(i));
           } else {
             assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
@@ -547,7 +567,8 @@ public class TestBitVector {
     final BitVector fromVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final BitVector toVector = (BitVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 }

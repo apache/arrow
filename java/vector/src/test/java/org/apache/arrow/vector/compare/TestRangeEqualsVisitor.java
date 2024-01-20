@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -80,7 +79,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+        final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2);
       setVector(vector2, 1, null);
@@ -92,8 +91,8 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testEqualsWithTypeChange() {
     try (final IntVector vector1 = new IntVector("vector", allocator);
-         final IntVector vector2 = new IntVector("vector", allocator);
-         final BigIntVector vector3 = new BigIntVector("vector", allocator)) {
+        final IntVector vector2 = new IntVector("vector", allocator);
+        final BigIntVector vector3 = new BigIntVector("vector", allocator)) {
 
       setVector(vector1, 1, 2);
       setVector(vector2, 1, 2);
@@ -109,7 +108,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testBaseFixedWidthVectorRangeEqual() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+        final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2, 3, 4, 5);
       setVector(vector2, 11, 2, 3, 4, 55);
@@ -122,7 +121,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testBaseVariableVectorRangeEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       setVector(vector1, STR1, STR2, STR3, STR2, STR1);
       setVector(vector2, STR1, STR2, STR3, STR2, STR1);
@@ -135,7 +134,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testListVectorWithDifferentChild() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-         final ListVector vector2 = ListVector.empty("list", allocator);) {
+        final ListVector vector2 = ListVector.empty("list", allocator); ) {
 
       vector1.allocateNew();
       vector1.initializeChildrenFromFields(
@@ -153,12 +152,12 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testListVectorRangeEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-         final ListVector vector2 = ListVector.empty("list", allocator);) {
+        final ListVector vector2 = ListVector.empty("list", allocator); ) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
-      //set some values
+      // set some values
       writeListVector(writer1, new int[] {1, 2});
       writeListVector(writer1, new int[] {3, 4});
       writeListVector(writer1, new int[] {5, 6});
@@ -169,7 +168,7 @@ public class TestRangeEqualsVisitor {
       UnionListWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      //set some values
+      // set some values
       writeListVector(writer2, new int[] {0, 0});
       writeListVector(writer2, new int[] {3, 4});
       writeListVector(writer2, new int[] {5, 6});
@@ -185,16 +184,16 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testBitVectorRangeEquals() {
     try (final BitVector vector1 = new BitVector("v1", allocator);
-         final BitVector vector2 = new BitVector("v2", allocator);) {
+        final BitVector vector2 = new BitVector("v2", allocator); ) {
 
-      boolean[] v1 = new boolean[]{true, false, true, true, true};
-      boolean[] v2 = new boolean[]{false, true, true, true, false};
+      boolean[] v1 = new boolean[] {true, false, true, true, true};
+      boolean[] v2 = new boolean[] {false, true, true, true, false};
       vector1.setValueCount(5);
-      for (int i = 0; i < 5; i ++) {
+      for (int i = 0; i < 5; i++) {
         vector1.set(i, v1[i] ? 1 : 0);
       }
       vector2.setValueCount(5);
-      for (int i = 0; i < 5; i ++) {
+      for (int i = 0; i < 5; i++) {
         vector2.set(i, v2[i] ? 1 : 0);
       }
 
@@ -207,12 +206,12 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testFixedSizeListVectorRangeEquals() {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("list", 2, allocator);
-         final FixedSizeListVector vector2 = FixedSizeListVector.empty("list", 2, allocator);) {
+        final FixedSizeListVector vector2 = FixedSizeListVector.empty("list", 2, allocator); ) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
-      //set some values
+      // set some values
       writeFixedSizeListVector(writer1, new int[] {1, 2});
       writeFixedSizeListVector(writer1, new int[] {3, 4});
       writeFixedSizeListVector(writer1, new int[] {5, 6});
@@ -223,7 +222,7 @@ public class TestRangeEqualsVisitor {
       UnionFixedSizeListWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      //set some values
+      // set some values
       writeFixedSizeListVector(writer2, new int[] {0, 0});
       writeFixedSizeListVector(writer2, new int[] {3, 4});
       writeFixedSizeListVector(writer2, new int[] {5, 6});
@@ -240,27 +239,35 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testLargeVariableWidthVectorRangeEquals() {
     try (final LargeVarCharVector vector1 = new LargeVarCharVector("vector1", allocator);
-         final LargeVarCharVector vector2 = new LargeVarCharVector("vector2", allocator)) {
+        final LargeVarCharVector vector2 = new LargeVarCharVector("vector2", allocator)) {
       setVector(vector1, "aaa", "bbb", "ccc", null, "ddd");
       setVector(vector2, "ccc", "aaa", "bbb", null, "ddd");
 
-      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2,
-          (v1, v2) -> new TypeEqualsVisitor(v2, /*check name*/ false, /*check metadata*/ false).equals(v1));
+      RangeEqualsVisitor visitor =
+          new RangeEqualsVisitor(
+              vector1,
+              vector2,
+              (v1, v2) ->
+                  new TypeEqualsVisitor(v2, /*check name*/ false, /*check metadata*/ false)
+                      .equals(v1));
 
-      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 1)));
+      assertFalse(
+          visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 1)));
       assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 1)));
-      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 3)));
+      assertFalse(
+          visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 0, /*length*/ 3)));
       assertTrue(visitor.rangeEquals(new Range(/*left start*/ 0, /*right start*/ 1, /*length*/ 2)));
       assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 1)));
       assertTrue(visitor.rangeEquals(new Range(/*left start*/ 3, /*right start*/ 3, /*length*/ 2)));
-      assertFalse(visitor.rangeEquals(new Range(/*left start*/ 2, /*right start*/ 2, /*length*/ 2)));
+      assertFalse(
+          visitor.rangeEquals(new Range(/*left start*/ 2, /*right start*/ 2, /*length*/ 2)));
     }
   }
 
   @Test
   public void testStructVectorRangeEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-         final StructVector vector2 = StructVector.empty("struct", allocator);) {
+        final StructVector vector2 = StructVector.empty("struct", allocator); ) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -293,9 +300,10 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testUnionVectorRangeEquals() {
-    try (final UnionVector vector1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-         final UnionVector vector2 =
-             new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
+    try (final UnionVector vector1 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector vector2 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null); ) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -331,13 +339,13 @@ public class TestRangeEqualsVisitor {
   }
 
   /**
-   * Test comparing two union vectors.
-   * The two vectors are different in total, but have a range with equal values.
+   * Test comparing two union vectors. The two vectors are different in total, but have a range with
+   * equal values.
    */
   @Test
   public void testUnionVectorSubRangeEquals() {
     try (final UnionVector vector1 = new UnionVector("union", allocator, null, null);
-         final UnionVector vector2 = new UnionVector("union", allocator, null, null);) {
+        final UnionVector vector2 = new UnionVector("union", allocator, null, null); ) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -400,15 +408,19 @@ public class TestRangeEqualsVisitor {
     float8Holder.value = 800D;
 
     try (DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
-         DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
+        DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
       vector1.allocateNew();
       vector2.allocateNew();
 
       // populate vector1: {100, 200L, null, 400F, 800D}
-      byte intTypeId = vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
-      byte longTypeId = vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
-      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      byte intTypeId =
+          vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      byte longTypeId =
+          vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      byte floatTypeId =
+          vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId =
+          vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       vector1.setTypeId(0, intTypeId);
       vector1.setSafe(0, intHolder);
@@ -426,9 +438,12 @@ public class TestRangeEqualsVisitor {
 
       // populate vector2: {400F, null, 200L, null, 400F, 800D, 100}
       intTypeId = vector2.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
-      longTypeId = vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
-      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      longTypeId =
+          vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      floatTypeId =
+          vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId =
+          vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       vector2.setTypeId(0, floatTypeId);
       vector2.setSafe(0, float4Holder);
@@ -480,7 +495,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testEqualsWithOutTypeCheck() {
     try (final IntVector intVector = new IntVector("int", allocator);
-         final ZeroVector zeroVector = new ZeroVector("zero")) {
+        final ZeroVector zeroVector = new ZeroVector("zero")) {
 
       assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, null));
       assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, null));
@@ -490,8 +505,8 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testFloat4ApproxEquals() {
     try (final Float4Vector vector1 = new Float4Vector("float", allocator);
-         final Float4Vector vector2 = new Float4Vector("float", allocator);
-         final Float4Vector vector3 = new Float4Vector("float", allocator)) {
+        final Float4Vector vector2 = new Float4Vector("float", allocator);
+        final Float4Vector vector3 = new Float4Vector("float", allocator)) {
 
       final float epsilon = 1.0E-6f;
       setVector(vector1, 1.1f, 2.2f);
@@ -511,8 +526,8 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testFloat8ApproxEquals() {
     try (final Float8Vector vector1 = new Float8Vector("float", allocator);
-         final Float8Vector vector2 = new Float8Vector("float", allocator);
-         final Float8Vector vector3 = new Float8Vector("float", allocator)) {
+        final Float8Vector vector2 = new Float8Vector("float", allocator);
+        final Float8Vector vector3 = new Float8Vector("float", allocator)) {
 
       final float epsilon = 1.0E-6f;
       setVector(vector1, 1.1, 2.2);
@@ -530,18 +545,30 @@ public class TestRangeEqualsVisitor {
     try (final StructVector right = StructVector.empty("struct", allocator);
         final StructVector left1 = StructVector.empty("struct", allocator);
         final StructVector left2 = StructVector.empty("struct", allocator)) {
-      right.addOrGet("f0",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
-      right.addOrGet("f1",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
-      left1.addOrGet("f0",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
-      left1.addOrGet("f1",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
-      left2.addOrGet("f0",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
-      left2.addOrGet("f1",
-          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), Float8Vector.class);
+      right.addOrGet(
+          "f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Float4Vector.class);
+      right.addOrGet(
+          "f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
+          Float8Vector.class);
+      left1.addOrGet(
+          "f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Float4Vector.class);
+      left1.addOrGet(
+          "f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
+          Float8Vector.class);
+      left2.addOrGet(
+          "f0",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Float4Vector.class);
+      left2.addOrGet(
+          "f1",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
+          Float8Vector.class);
 
       final float epsilon = 1.0E-6f;
 
@@ -571,9 +598,12 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testUnionVectorApproxEquals() {
-    try (final UnionVector right = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-         final UnionVector left1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-         final UnionVector left2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
+    try (final UnionVector right =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector left1 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector left2 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null); ) {
 
       final NullableFloat4Holder float4Holder = new NullableFloat4Holder();
       float4Holder.value = 1.01f;
@@ -627,16 +657,18 @@ public class TestRangeEqualsVisitor {
     final double doubleEpsilon = 0.02;
 
     try (final DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
-         final DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null);
-         final DenseUnionVector vector3 = new DenseUnionVector("vector2", allocator, null, null)) {
+        final DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null);
+        final DenseUnionVector vector3 = new DenseUnionVector("vector2", allocator, null, null)) {
 
       vector1.allocateNew();
       vector2.allocateNew();
       vector3.allocateNew();
 
       // populate vector1: {1.0f, 2.0D}
-      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      byte floatTypeId =
+          vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId =
+          vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       float4Holder.value = 1.0f;
       vector1.setTypeId(0, floatTypeId);
@@ -647,8 +679,10 @@ public class TestRangeEqualsVisitor {
       vector1.setValueCount(2);
 
       // populate vector2: {1.01f, 2.01D}
-      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      floatTypeId =
+          vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId =
+          vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       float4Holder.value = 1.01f;
       vector2.setTypeId(0, floatTypeId);
@@ -659,8 +693,10 @@ public class TestRangeEqualsVisitor {
       vector2.setValueCount(2);
 
       // populate vector3: {1.05f, 2.05D}
-      floatTypeId = vector3.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      doubleTypeId = vector3.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      floatTypeId =
+          vector3.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId =
+          vector3.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       float4Holder.value = 1.05f;
       vector3.setTypeId(0, floatTypeId);
@@ -674,19 +710,27 @@ public class TestRangeEqualsVisitor {
       Range range = new Range(0, 0, 2);
 
       // compare vector1 and vector2
-      ApproxEqualsVisitor approxEqualsVisitor = new ApproxEqualsVisitor(
-          vector1, vector2,
-          new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
-          new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
-          (v1, v2) -> new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true).equals(v1));
+      ApproxEqualsVisitor approxEqualsVisitor =
+          new ApproxEqualsVisitor(
+              vector1,
+              vector2,
+              new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
+              new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
+              (v1, v2) ->
+                  new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true)
+                      .equals(v1));
       assertTrue(approxEqualsVisitor.rangeEquals(range));
 
       // compare vector1 and vector3
-      approxEqualsVisitor = new ApproxEqualsVisitor(
-          vector1, vector3,
-          new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
-          new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
-          (v1, v2) -> new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true).equals(v1));
+      approxEqualsVisitor =
+          new ApproxEqualsVisitor(
+              vector1,
+              vector3,
+              new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
+              new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon),
+              (v1, v2) ->
+                  new TypeEqualsVisitor(v2, /* check name */ false, /* check meta */ true)
+                      .equals(v1));
       assertFalse(approxEqualsVisitor.rangeEquals(range));
     }
   }
@@ -694,8 +738,8 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testListVectorApproxEquals() {
     try (final ListVector right = ListVector.empty("list", allocator);
-         final ListVector left1 = ListVector.empty("list", allocator);
-         final ListVector left2 = ListVector.empty("list", allocator);) {
+        final ListVector left1 = ListVector.empty("list", allocator);
+        final ListVector left2 = ListVector.empty("list", allocator); ) {
 
       final float epsilon = 1.0E-6f;
 
@@ -739,7 +783,7 @@ public class TestRangeEqualsVisitor {
 
   private void writeListVector(UnionListWriter writer, int[] values) {
     writer.startList();
-    for (int v: values) {
+    for (int v : values) {
       writer.integer().writeInt(v);
     }
     writer.endList();
@@ -747,7 +791,7 @@ public class TestRangeEqualsVisitor {
 
   private void writeFixedSizeListVector(UnionFixedSizeListWriter writer, int[] values) {
     writer.startList();
-    for (int v: values) {
+    for (int v : values) {
       writer.integer().writeInt(v);
     }
     writer.endList();
@@ -755,7 +799,7 @@ public class TestRangeEqualsVisitor {
 
   private void writeListVector(UnionListWriter writer, double[] values) {
     writer.startList();
-    for (double v: values) {
+    for (double v : values) {
       writer.float8().writeFloat8(v);
     }
     writer.endList();

@@ -29,9 +29,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * This class tests that OversizedAllocationException occurs when a large memory is allocated for a vector.
- * Typically, arrow allows the allocation of the size of at most Integer.MAX_VALUE, but this might cause OOM in tests.
- * Thus, the max allocation size is limited to 1 KB in this class. Please see the surefire option in pom.xml.
+ * This class tests that OversizedAllocationException occurs when a large memory is allocated for a
+ * vector. Typically, arrow allows the allocation of the size of at most Integer.MAX_VALUE, but this
+ * might cause OOM in tests. Thus, the max allocation size is limited to 1 KB in this class. Please
+ * see the surefire option in pom.xml.
  */
 public class TestOversizedAllocationForValueVector {
 
@@ -101,7 +102,6 @@ public class TestOversizedAllocationForValueVector {
       vector.close();
     }
   }
-
 
   @Test(expected = OversizedAllocationException.class)
   public void testVariableVectorReallocation() {

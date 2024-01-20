@@ -29,16 +29,14 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * LargeVarBinaryVector implements a large variable width vector of binary
- * values which could be NULL. A validity buffer (bit vector) is maintained
- * to track which elements in the vector are null.
- * The size of the underlying buffer can be over 2GB.
+ * LargeVarBinaryVector implements a large variable width vector of binary values which could be
+ * NULL. A validity buffer (bit vector) is maintained to track which elements in the vector are
+ * null. The size of the underlying buffer can be over 2GB.
  */
 public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
 
   /**
-   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -48,8 +46,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -60,8 +57,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -76,8 +72,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -86,18 +81,16 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     return MinorType.LARGEVARBINARY;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
    *----------------------------------------------------------------*/
-
 
   /**
    * Get the variable length element at specified index as byte array.
    *
-   * @param index   position of element to get
+   * @param index position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
   public byte[] get(int index) {
@@ -113,8 +106,8 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Read the value at the given position to the given output buffer.
-   * The caller is responsible for checking for nullity first.
+   * Read the value at the given position to the given output buffer. The caller is responsible for
+   * checking for nullity first.
    *
    * @param index position of element.
    * @param buffer the buffer to write into.
@@ -128,7 +121,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index   position of element to get
+   * @param index position of element to get
    * @return byte array for non-null element, null otherwise
    */
   public byte[] getObject(int index) {
@@ -136,11 +129,10 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Get the variable length element at specified index and sets the state
-   * in provided holder.
+   * Get the variable length element at specified index and sets the state in provided holder.
    *
-   * @param index   position of element to get
-   * @param holder  data holder to be populated by this function
+   * @param index position of element to get
+   * @param holder data holder to be populated by this function
    */
   public void get(int index, NullableLargeVarBinaryHolder holder) {
     assert index >= 0;
@@ -154,20 +146,18 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     holder.buffer = valueBuffer;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
    *----------------------------------------------------------------*/
 
-
   /**
-   * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder.
+   * Set the variable length element at the specified index to the data buffer supplied in the
+   * holder.
    *
-   * @param index   position of the element to set
-   * @param holder  holder that carries data buffer.
+   * @param index position of the element to set
+   * @param holder holder that carries data buffer.
    */
   public void set(int index, LargeVarBinaryHolder holder) {
     assert index >= 0;
@@ -181,12 +171,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, LargeVarBinaryHolder)} except that it handles the
-   * case where index and length of new element are beyond the existing
-   * capacity of the vector.
+   * Same as {@link #set(int, LargeVarBinaryHolder)} except that it handles the case where index and
+   * length of new element are beyond the existing capacity of the vector.
    *
-   * @param index   position of the element to set
-   * @param holder  holder that carries data buffer.
+   * @param index position of the element to set
+   * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, LargeVarBinaryHolder holder) {
     assert index >= 0;
@@ -201,11 +190,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Set the variable length element at the specified index to the data
-   * buffer supplied in the holder.
+   * Set the variable length element at the specified index to the data buffer supplied in the
+   * holder.
    *
-   * @param index   position of the element to set
-   * @param holder  holder that carries data buffer.
+   * @param index position of the element to set
+   * @param holder holder that carries data buffer.
    */
   public void set(int index, NullableLargeVarBinaryHolder holder) {
     assert index >= 0;
@@ -223,12 +212,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableLargeVarBinaryHolder)} except that it handles the
-   * case where index and length of new element are beyond the existing
-   * capacity of the vector.
+   * Same as {@link #set(int, NullableLargeVarBinaryHolder)} except that it handles the case where
+   * index and length of new element are beyond the existing capacity of the vector.
    *
-   * @param index   position of the element to set
-   * @param holder  holder that carries data buffer.
+   * @param index position of the element to set
+   * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, NullableLargeVarBinaryHolder holder) {
     assert index >= 0;
@@ -246,16 +234,14 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     lastSet = index;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
    *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising of this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector

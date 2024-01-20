@@ -19,7 +19,6 @@ package org.apache.arrow.vector.util;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -37,9 +36,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link TransferPair}.
- */
+/** Benchmarks for {@link TransferPair}. */
 @State(Scope.Benchmark)
 public class TransferPairBenchmarks {
 
@@ -53,9 +50,7 @@ public class TransferPairBenchmarks {
 
   private VarCharVector varCharVector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -78,9 +73,7 @@ public class TransferPairBenchmarks {
     varCharVector.setValueCount(VECTOR_LENGTH);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     intVector.close();
@@ -112,11 +105,9 @@ public class TransferPairBenchmarks {
     return 0;
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(TransferPairBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder().include(TransferPairBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

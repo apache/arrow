@@ -19,12 +19,9 @@ package org.apache.arrow.vector.types.pojo;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 
-/**
- * A registry of recognized extension types.
- */
+/** A registry of recognized extension types. */
 public final class ExtensionTypeRegistry {
   private static final ConcurrentMap<String, ExtensionType> registry = new ConcurrentHashMap<>();
 

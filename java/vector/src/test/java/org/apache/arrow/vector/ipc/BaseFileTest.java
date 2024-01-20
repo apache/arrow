@@ -32,7 +32,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -90,9 +89,7 @@ import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Helps testing the file formats.
- */
+/** Helps testing the file formats. */
 public class BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(BaseFileTest.class);
   protected static final int COUNT = 10;
@@ -108,13 +105,19 @@ public class BaseFileTest {
     allocator.close();
   }
 
-
-  private static short [] uint1Values = new short[]{0, 255, 1, 128, 2};
-  private static char [] uint2Values = new char[]{0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
-  private static long [] uint4Values = new long[]{0, Integer.MAX_VALUE + 1L, 1, Integer.MAX_VALUE * 2L, 2};
-  private static BigInteger[] uint8Values = new BigInteger[]{BigInteger.valueOf(0),
-      BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)), BigInteger.valueOf(2),
-      BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(1)), BigInteger.valueOf(2)};
+  private static short[] uint1Values = new short[] {0, 255, 1, 128, 2};
+  private static char[] uint2Values =
+      new char[] {0, Character.MAX_VALUE, 1, Short.MAX_VALUE * 2, 2};
+  private static long[] uint4Values =
+      new long[] {0, Integer.MAX_VALUE + 1L, 1, Integer.MAX_VALUE * 2L, 2};
+  private static BigInteger[] uint8Values =
+      new BigInteger[] {
+        BigInteger.valueOf(0),
+        BigInteger.valueOf(Long.MAX_VALUE).multiply(BigInteger.valueOf(2)),
+        BigInteger.valueOf(2),
+        BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.valueOf(1)),
+        BigInteger.valueOf(2)
+      };
 
   protected void writeData(int count, StructVector parent) {
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -132,11 +135,11 @@ public class BaseFileTest {
       uint1Writer.setPosition(i);
       // TODO: Fix add safe write methods on uint methods.
       uint1Writer.setPosition(i);
-      uint1Writer.writeUInt1((byte) uint1Values[i % uint1Values.length] );
+      uint1Writer.writeUInt1((byte) uint1Values[i % uint1Values.length]);
       uint2Writer.setPosition(i);
-      uint2Writer.writeUInt2((char) uint2Values[i % uint2Values.length] );
+      uint2Writer.writeUInt2((char) uint2Values[i % uint2Values.length]);
       uint4Writer.setPosition(i);
-      uint4Writer.writeUInt4((int) uint4Values[i % uint4Values.length] );
+      uint4Writer.writeUInt4((int) uint4Values[i % uint4Values.length]);
       uint8Writer.setPosition(i);
       uint8Writer.writeUInt8(uint8Values[i % uint8Values.length].longValue());
       bigIntWriter.setPosition(i);
@@ -147,17 +150,23 @@ public class BaseFileTest {
     writer.setValueCount(count);
   }
 
-
   protected void validateContent(int count, VectorSchemaRoot root) {
     for (int i = 0; i < count; i++) {
       Assert.assertEquals(i, root.getVector("int").getObject(i));
-      Assert.assertEquals((Short) uint1Values[i % uint1Values.length],
+      Assert.assertEquals(
+          (Short) uint1Values[i % uint1Values.length],
           ((UInt1Vector) root.getVector("uint1")).getObjectNoOverflow(i));
-      Assert.assertEquals("Failed for index: " + i, (Character) uint2Values[i % uint2Values.length],
+      Assert.assertEquals(
+          "Failed for index: " + i,
+          (Character) uint2Values[i % uint2Values.length],
           (Character) ((UInt2Vector) root.getVector("uint2")).get(i));
-      Assert.assertEquals("Failed for index: " + i, (Long) uint4Values[i % uint4Values.length],
+      Assert.assertEquals(
+          "Failed for index: " + i,
+          (Long) uint4Values[i % uint4Values.length],
           ((UInt4Vector) root.getVector("uint4")).getObjectNoOverflow(i));
-      Assert.assertEquals("Failed for index: " + i, uint8Values[i % uint8Values.length],
+      Assert.assertEquals(
+          "Failed for index: " + i,
+          uint8Values[i % uint8Values.length],
           ((UInt8Vector) root.getVector("uint8")).getObjectNoOverflow(i));
       Assert.assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       Assert.assertEquals(i == 0 ? Float.NaN : i, root.getVector("float").getObject(i));
@@ -241,27 +250,33 @@ public class BaseFileTest {
     DateMilliWriter dateWriter = rootWriter.dateMilli("date");
     TimeMilliWriter timeWriter = rootWriter.timeMilli("time");
     TimeStampMilliWriter timeStampMilliWriter = rootWriter.timeStampMilli("timestamp-milli");
-    TimeStampMilliTZWriter timeStampMilliTZWriter = rootWriter.timeStampMilliTZ("timestamp-milliTZ", "Europe/Paris");
+    TimeStampMilliTZWriter timeStampMilliTZWriter =
+        rootWriter.timeStampMilliTZ("timestamp-milliTZ", "Europe/Paris");
     TimeStampNanoWriter timeStampNanoWriter = rootWriter.timeStampNano("timestamp-nano");
     for (int i = 0; i < count; i++) {
       LocalDateTime dt = makeDateTimeFromCount(i);
-      // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is used
+      // Number of days in milliseconds since epoch, stored as 64-bit integer, only date part is
+      // used
       dateWriter.setPosition(i);
       long dateLong = dt.toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
       dateWriter.writeDateMilli(dateLong);
       // Time is a value in milliseconds since midnight, stored as 32-bit integer
       timeWriter.setPosition(i);
-      int milliOfDay = (int) java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(dt.toLocalTime().toNanoOfDay());
+      int milliOfDay =
+          (int) java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(dt.toLocalTime().toNanoOfDay());
       timeWriter.writeTimeMilli(milliOfDay);
       // Timestamp as milliseconds since the epoch, stored as 64-bit integer
       timeStampMilliWriter.setPosition(i);
       timeStampMilliWriter.writeTimeStampMilli(dt.toInstant(ZoneOffset.UTC).toEpochMilli());
       // Timestamp as milliseconds since epoch with timezone
       timeStampMilliTZWriter.setPosition(i);
-      timeStampMilliTZWriter.writeTimeStampMilliTZ(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli());
+      timeStampMilliTZWriter.writeTimeStampMilliTZ(
+          dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli());
       // Timestamp as nanoseconds since epoch
       timeStampNanoWriter.setPosition(i);
-      long tsNanos = dt.toInstant(ZoneOffset.UTC).toEpochMilli() * 1_000_000 + i; // need to add back in nano val
+      long tsNanos =
+          dt.toInstant(ZoneOffset.UTC).toEpochMilli() * 1_000_000
+              + i; // need to add back in nano val
       timeStampNanoWriter.writeTimeStampNano(tsNanos);
     }
     writer.setValueCount(count);
@@ -281,15 +296,15 @@ public class BaseFileTest {
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
       Assert.assertEquals(dtMilli, timestampMilliVal);
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getObject(i);
-      Assert.assertEquals(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli(), timestampMilliTZVal);
+      Assert.assertEquals(
+          dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli(), timestampMilliTZVal);
       Object timestampNanoVal = root.getVector("timestamp-nano").getObject(i);
       Assert.assertEquals(dt, timestampNanoVal);
     }
   }
 
   protected VectorSchemaRoot writeFlatDictionaryData(
-      BufferAllocator bufferAllocator,
-      DictionaryProvider.MapDictionaryProvider provider) {
+      BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define dictionaries and add to provider
     VarCharVector dictionary1Vector = newVarCharVector("D1", bufferAllocator);
@@ -299,7 +314,8 @@ public class BaseFileTest {
     dictionary1Vector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
     dictionary1Vector.setValueCount(3);
 
-    Dictionary dictionary1 = new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
+    Dictionary dictionary1 =
+        new Dictionary(dictionary1Vector, new DictionaryEncoding(1L, false, null));
     provider.put(dictionary1);
 
     VarCharVector dictionary2Vector = newVarCharVector("D2", bufferAllocator);
@@ -309,7 +325,8 @@ public class BaseFileTest {
     dictionary2Vector.set(2, "large".getBytes(StandardCharsets.UTF_8));
     dictionary2Vector.setValueCount(3);
 
-    Dictionary dictionary2 = new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
+    Dictionary dictionary2 =
+        new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
     provider.put(dictionary2);
 
     // Populate the vectors
@@ -346,9 +363,11 @@ public class BaseFileTest {
     FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector2, dictionary2);
     vector2.close(); // Done with this vector after encoding
 
-    List<Field> fields = Arrays.asList(encodedVector1A.getField(), encodedVector1B.getField(),
-        encodedVector2.getField());
-    List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1A, encodedVector1B, encodedVector2);
+    List<Field> fields =
+        Arrays.asList(
+            encodedVector1A.getField(), encodedVector1B.getField(), encodedVector2.getField());
+    List<FieldVector> vectors =
+        Collections2.asImmutableList(encodedVector1A, encodedVector1B, encodedVector2);
 
     return new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
   }
@@ -418,8 +437,7 @@ public class BaseFileTest {
   }
 
   protected VectorSchemaRoot writeNestedDictionaryData(
-      BufferAllocator bufferAllocator,
-      DictionaryProvider.MapDictionaryProvider provider) {
+      BufferAllocator bufferAllocator, DictionaryProvider.MapDictionaryProvider provider) {
 
     // Define the dictionary and add to the provider
     VarCharVector dictionaryVector = newVarCharVector("D2", bufferAllocator);
@@ -428,7 +446,8 @@ public class BaseFileTest {
     dictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.setValueCount(2);
 
-    Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(2L, false, null));
+    Dictionary dictionary =
+        new Dictionary(dictionaryVector, new DictionaryEncoding(2L, false, null));
     provider.put(dictionary);
 
     // Write the vector data using dictionary indices
@@ -498,9 +517,11 @@ public class BaseFileTest {
     decimalVector2.setValueCount(count);
     decimalVector3.setValueCount(count);
 
-    List<Field> fields = Collections2.asImmutableList(decimalVector1.getField(), decimalVector2.getField(),
-        decimalVector3.getField());
-    List<FieldVector> vectors = Collections2.asImmutableList(decimalVector1, decimalVector2, decimalVector3);
+    List<Field> fields =
+        Collections2.asImmutableList(
+            decimalVector1.getField(), decimalVector2.getField(), decimalVector3.getField());
+    List<FieldVector> vectors =
+        Collections2.asImmutableList(decimalVector1, decimalVector2, decimalVector3);
     return new VectorSchemaRoot(fields, vectors, count);
   }
 
@@ -538,7 +559,8 @@ public class BaseFileTest {
     nullVector1.setValueCount(valueCount);
     nullVector2.setValueCount(valueCount);
 
-    List<Field> fields = Collections2.asImmutableList(nullVector1.getField(), nullVector2.getField());
+    List<Field> fields =
+        Collections2.asImmutableList(nullVector1.getField(), nullVector2.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(nullVector1, nullVector2);
     return new VectorSchemaRoot(fields, vectors, valueCount);
   }
@@ -669,7 +691,8 @@ public class BaseFileTest {
     Assert.assertEquals(binaryVector.getLastSet(), numVarBinaryValues - 1);
   }
 
-  protected void writeBatchData(ArrowWriter writer, IntVector vector, VectorSchemaRoot root) throws IOException {
+  protected void writeBatchData(ArrowWriter writer, IntVector vector, VectorSchemaRoot root)
+      throws IOException {
     writer.start();
 
     vector.setNull(0);
@@ -752,7 +775,8 @@ public class BaseFileTest {
     mapWriter.setValueCount(COUNT);
     sortedMapWriter.setValueCount(COUNT);
 
-    List<Field> fields = Collections2.asImmutableList(mapVector.getField(), sortedMapVector.getField());
+    List<Field> fields =
+        Collections2.asImmutableList(mapVector.getField(), sortedMapVector.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(mapVector, sortedMapVector);
     return new VectorSchemaRoot(fields, vectors, count);
   }
@@ -801,9 +825,12 @@ public class BaseFileTest {
     ListVector mapEntryList = ListVector.empty("entryList", bufferAllocator);
     FieldType mapEntryType = new FieldType(false, ArrowType.Struct.INSTANCE, null, null);
     StructVector mapEntryData = new StructVector("entryData", bufferAllocator, mapEntryType, null);
-    mapEntryData.addOrGet("myKey", new FieldType(false, new ArrowType.Int(64, true), null), BigIntVector.class);
-    mapEntryData.addOrGet("myValue", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-    mapEntryList.initializeChildrenFromFields(Collections2.asImmutableList(mapEntryData.getField()));
+    mapEntryData.addOrGet(
+        "myKey", new FieldType(false, new ArrowType.Int(64, true), null), BigIntVector.class);
+    mapEntryData.addOrGet(
+        "myValue", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+    mapEntryList.initializeChildrenFromFields(
+        Collections2.asImmutableList(mapEntryData.getField()));
     UnionListWriter entryWriter = mapEntryList.getWriter();
     entryWriter.allocate();
 

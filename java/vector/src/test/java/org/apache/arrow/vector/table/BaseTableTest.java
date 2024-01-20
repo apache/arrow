@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -174,8 +173,7 @@ class BaseTableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
       assertNotNull(t.getVector(INT_VECTOR_NAME_1));
-      assertThrows(IllegalArgumentException.class,
-          () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
     }
   }
 
@@ -195,8 +193,7 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalArgumentException.class,
-          () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
     }
   }
 
@@ -215,8 +212,7 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalArgumentException.class,
-          () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
     }
   }
 

@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.LocalDateTime;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DateMilliReaderImpl;
@@ -34,16 +33,14 @@ import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * DateMilliVector implements a fixed width vector (8 bytes) of
- * date values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * DateMilliVector implements a fixed width vector (8 bytes) of date values which could be null. A
+ * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class DateMilliVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
 
   /**
-   * Instantiate a DateMilliVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateMilliVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -53,8 +50,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a DateMilliVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateMilliVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -65,8 +61,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a DateMilliVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateMilliVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -81,8 +76,8 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -90,18 +85,16 @@ public final class DateMilliVector extends BaseFixedWidthVector {
     return MinorType.DATEMILLI;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
    *----------------------------------------------------------------*/
-
 
   /**
    * Get the element at the given index from the vector.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
@@ -112,11 +105,10 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
-   * @param index   position of element
+   * @param index position of element
    */
   public void get(int index, NullableDateMilliHolder holder) {
     if (isSet(index) == 0) {
@@ -130,7 +122,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Same as {@link #get(int)}.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public LocalDateTime getObject(int index) {
@@ -143,11 +135,10 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
    *----------------------------------------------------------------*/
-
 
   private void setValue(int index, long value) {
     valueBuffer.setLong((long) index * TYPE_WIDTH, value);
@@ -156,8 +147,8 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void set(int index, long value) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -165,12 +156,11 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void set(int index, NullableDateMilliHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
@@ -186,8 +176,8 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void set(int index, DateMilliHolder holder) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -195,12 +185,11 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, long)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, long)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void setSafe(int index, long value) {
     handleSafe(index);
@@ -208,12 +197,11 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableDateMilliHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableDateMilliHolder)} except that it handles the case when index
+   * is greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void setSafe(int index, NullableDateMilliHolder holder) throws IllegalArgumentException {
     handleSafe(index);
@@ -221,12 +209,11 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, DateMilliHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, DateMilliHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void setSafe(int index, DateMilliHolder holder) {
     handleSafe(index);
@@ -234,8 +221,8 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -250,9 +237,8 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, long)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, long)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -264,8 +250,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Given a data buffer, get the value stored at a particular position in the vector.
    *
    * <p>This method should not be used externally.
    *
@@ -277,17 +262,14 @@ public final class DateMilliVector extends BaseFixedWidthVector {
     return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
    *----------------------------------------------------------------*/
 
-
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -299,8 +281,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

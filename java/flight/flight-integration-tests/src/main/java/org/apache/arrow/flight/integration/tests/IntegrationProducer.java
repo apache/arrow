@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -81,10 +80,14 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
   @Override
   public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
     try {
-      FlightDescriptor descriptor = FlightDescriptor.deserialize(ByteBuffer.wrap(ticket.getBytes()));
+      FlightDescriptor descriptor =
+          FlightDescriptor.deserialize(ByteBuffer.wrap(ticket.getBytes()));
       Dataset dataset = datasets.get(descriptor);
       if (dataset == null) {
-        listener.error(CallStatus.NOT_FOUND.withDescription("Unknown ticket: " + descriptor).toRuntimeException());
+        listener.error(
+            CallStatus.NOT_FOUND
+                .withDescription("Unknown ticket: " + descriptor)
+                .toRuntimeException());
         return;
       }
       dataset.streamTo(allocator, listener);
@@ -97,14 +100,18 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
   public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
     Dataset h = datasets.get(descriptor);
     if (h == null) {
-      throw CallStatus.NOT_FOUND.withDescription("Unknown descriptor: " + descriptor).toRuntimeException();
+      throw CallStatus.NOT_FOUND
+          .withDescription("Unknown descriptor: " + descriptor)
+          .toRuntimeException();
     }
     return h.getFlightInfo(location);
   }
 
   @Override
-  public Runnable acceptPut(CallContext context,
-      final FlightStream flightStream, final StreamListener<PutResult> ackStream) {
+  public Runnable acceptPut(
+      CallContext context,
+      final FlightStream flightStream,
+      final StreamListener<PutResult> ackStream) {
     return () -> {
       List<ArrowRecordBatch> batches = new ArrayList<>();
       try {
@@ -115,7 +122,8 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
             batches.add(unloader.getRecordBatch());
           }
           // Closing the stream will release the dictionaries, take ownership
-          final Dataset dataset = new Dataset(
+          final Dataset dataset =
+              new Dataset(
                   flightStream.getDescriptor(),
                   flightStream.getSchema(),
                   flightStream.takeDictionaryOwnership(),
@@ -143,10 +151,11 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
     private final DictionaryProvider dictionaryProvider;
     private final List<ArrowRecordBatch> batches;
 
-    private Dataset(FlightDescriptor descriptor,
-                    Schema schema,
-                    DictionaryProvider dictionaryProvider,
-                    List<ArrowRecordBatch> batches) {
+    private Dataset(
+        FlightDescriptor descriptor,
+        Schema schema,
+        DictionaryProvider dictionaryProvider,
+        List<ArrowRecordBatch> batches) {
       this.descriptor = descriptor;
       this.schema = schema;
       this.dictionaryProvider = dictionaryProvider;
@@ -157,20 +166,20 @@ public class IntegrationProducer extends NoOpFlightProducer implements AutoClose
       ByteBuffer serializedDescriptor = descriptor.serialize();
       byte[] descriptorBytes = new byte[serializedDescriptor.remaining()];
       serializedDescriptor.get(descriptorBytes);
-      final List<FlightEndpoint> endpoints = Collections.singletonList(
-              new FlightEndpoint(new Ticket(descriptorBytes), location));
+      final List<FlightEndpoint> endpoints =
+          Collections.singletonList(new FlightEndpoint(new Ticket(descriptorBytes), location));
       return new FlightInfo(
-              messageFormatSchema(),
-              descriptor,
-              endpoints,
-              batches.stream().mapToLong(ArrowRecordBatch::computeBodyLength).sum(),
-              batches.stream().mapToInt(ArrowRecordBatch::getLength).sum());
+          messageFormatSchema(),
+          descriptor,
+          endpoints,
+          batches.stream().mapToLong(ArrowRecordBatch::computeBodyLength).sum(),
+          batches.stream().mapToInt(ArrowRecordBatch::getLength).sum());
     }
 
     private Schema messageFormatSchema() {
       final Set<Long> dictionaryIdsUsed = new HashSet<>();
-      final List<Field> messageFormatFields = schema.getFields()
-              .stream()
+      final List<Field> messageFormatFields =
+          schema.getFields().stream()
               .map(f -> DictionaryUtility.toMessageFormat(f, dictionaryProvider, dictionaryIdsUsed))
               .collect(Collectors.toList());
       return new Schema(messageFormatFields, schema.getCustomMetadata());

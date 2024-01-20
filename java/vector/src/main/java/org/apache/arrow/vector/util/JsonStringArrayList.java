@@ -17,10 +17,9 @@
 
 package org.apache.arrow.vector.util;
 
-import java.util.ArrayList;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 
 /**
  * Extension of {@link ArrayList} that {@link #toString()} method returns the serialized JSON

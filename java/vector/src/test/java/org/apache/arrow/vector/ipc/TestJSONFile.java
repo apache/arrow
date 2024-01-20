@@ -28,7 +28,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -56,8 +55,8 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/no_batches.json");
 
     try (BufferAllocator originalVectorAllocator =
-             allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       BaseWriter.ComplexWriter writer = new ComplexWriterImpl("root", parent);
       BaseWriter.StructWriter rootWriter = writer.rootAsStruct();
       rootWriter.integer("int");
@@ -70,10 +69,9 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
     }
@@ -86,22 +84,21 @@ public class TestJSONFile extends BaseFileTest {
 
     // write
     try (BufferAllocator originalVectorAllocator =
-           allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-         StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+        StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(count, parent);
       writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateContent(count, root);
       }
     }
@@ -113,23 +110,22 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (
-        BufferAllocator originalVectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator originalVectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(count, parent);
       writeJSON(file, new VectorSchemaRoot(parent.getChild("root")), null);
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator);
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator); ) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateComplexContent(count, root);
       }
     }
@@ -139,8 +135,8 @@ public class TestJSONFile extends BaseFileTest {
   public void testWriteComplexJSON() throws IOException {
     File file = new File("target/mytest_write_complex.json");
     int count = COUNT;
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeComplexData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
@@ -149,20 +145,20 @@ public class TestJSONFile extends BaseFileTest {
     }
   }
 
-  public void writeJSON(File file, VectorSchemaRoot root, DictionaryProvider provider) throws IOException {
+  public void writeJSON(File file, VectorSchemaRoot root, DictionaryProvider provider)
+      throws IOException {
     JsonFileWriter writer = new JsonFileWriter(file, JsonFileWriter.config().pretty(true));
     writer.start(root.getSchema(), provider);
     writer.write(root);
     writer.close();
   }
 
-
   @Test
   public void testWriteReadUnionJSON() throws IOException {
     File file = new File("target/mytest_write_union.json");
     int count = COUNT;
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeUnionData(count, parent);
       printVectors(parent.getChildrenFromFields());
@@ -172,13 +168,14 @@ public class TestJSONFile extends BaseFileTest {
         writeJSON(file, root, null);
 
         // read
-        try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
+        try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE)) {
           JsonFileReader reader = new JsonFileReader(file, readerAllocator);
 
           Schema schema = reader.start();
           LOGGER.debug("reading schema: " + schema);
 
-          try (VectorSchemaRoot rootFromJson = reader.read();) {
+          try (VectorSchemaRoot rootFromJson = reader.read(); ) {
             validateUnionData(count, rootFromJson);
             Validator.compareVectorSchemaRoot(root, rootFromJson);
           }
@@ -193,8 +190,8 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
 
       writeDateTimeData(count, parent);
@@ -208,15 +205,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateDateTimeContent(count, root);
       }
     }
@@ -227,9 +223,8 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/mytest_dictionary.json");
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
-    ) {
+    try (BufferAllocator vectorAllocator =
+        allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
       MapDictionaryProvider provider = new MapDictionaryProvider();
 
       try (VectorSchemaRoot root = writeFlatDictionaryData(vectorAllocator, provider)) {
@@ -245,15 +240,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateFlatDictionary(root, reader);
       }
     }
@@ -267,9 +261,8 @@ public class TestJSONFile extends BaseFileTest {
     // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
-    ) {
+    try (BufferAllocator vectorAllocator =
+        allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)) {
       MapDictionaryProvider provider = new MapDictionaryProvider();
 
       try (VectorSchemaRoot root = writeNestedDictionaryData(vectorAllocator, provider)) {
@@ -285,15 +278,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateNestedDictionary(root, reader);
       }
     }
@@ -304,7 +296,8 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/mytest_decimal.json");
 
     // write
-    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot root = writeDecimalData(vectorAllocator)) {
       printVectors(root.getFieldVectors());
       validateDecimalData(root);
@@ -312,15 +305,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateDecimalData(root);
       }
     }
@@ -332,15 +324,14 @@ public class TestJSONFile extends BaseFileTest {
     if (!file.exists()) {
       file = new File("../docs/source/format/integration_json_examples/struct.json");
     }
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         FieldVector vector = root.getVector("struct_nullable");
         Assert.assertEquals(7, vector.getValueCount());
       }
@@ -353,8 +344,8 @@ public class TestJSONFile extends BaseFileTest {
     int count = COUNT;
 
     // write
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeVarBinaryData(count, parent);
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
@@ -363,13 +354,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
         JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateVarBinary(count, root);
       }
     }
@@ -380,7 +372,8 @@ public class TestJSONFile extends BaseFileTest {
     File file = new File("target/mytest_map.json");
 
     // write
-    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot root = writeMapData(vectorAllocator)) {
       printVectors(root.getFieldVectors());
       validateMapData(root);
@@ -388,13 +381,14 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
         JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateMapData(root);
       }
     }
@@ -406,7 +400,8 @@ public class TestJSONFile extends BaseFileTest {
     int valueCount = 10;
 
     // write
-    try (BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         VectorSchemaRoot root = writeNullData(valueCount)) {
       printVectors(root.getFieldVectors());
       validateNullData(root, valueCount);
@@ -414,16 +409,15 @@ public class TestJSONFile extends BaseFileTest {
     }
 
     // read
-    try (
-        BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
-        JsonFileReader reader = new JsonFileReader(file, readerAllocator)
-    ) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(file, readerAllocator)) {
 
       Schema schema = reader.start();
       LOGGER.debug("reading schema: " + schema);
 
       // initialize vectors
-      try (VectorSchemaRoot root = reader.read();) {
+      try (VectorSchemaRoot root = reader.read(); ) {
         validateNullData(root, valueCount);
       }
     }
@@ -432,29 +426,45 @@ public class TestJSONFile extends BaseFileTest {
   /** Regression test for ARROW-17107. */
   @Test
   public void testRoundtripEmptyVector() throws Exception {
-    final List<Field> fields = Arrays.asList(
-        Field.nullable("utf8", ArrowType.Utf8.INSTANCE),
-        Field.nullable("largeutf8", ArrowType.LargeUtf8.INSTANCE),
-        Field.nullable("binary", ArrowType.Binary.INSTANCE),
-        Field.nullable("largebinary", ArrowType.LargeBinary.INSTANCE),
-        Field.nullable("fixedsizebinary", new ArrowType.FixedSizeBinary(2)),
-        Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 128)),
-        Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 256)),
-        new Field("list", FieldType.nullable(ArrowType.List.INSTANCE),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("largelist", FieldType.nullable(ArrowType.LargeList.INSTANCE),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("map", FieldType.nullable(new ArrowType.Map(/*keyssorted*/ false)),
-            Collections.singletonList(new Field("items", FieldType.notNullable(ArrowType.Struct.INSTANCE),
-                Arrays.asList(Field.notNullable("keys", new ArrowType.Int(32, true)),
-                    Field.nullable("values", new ArrowType.Int(32, true)))))),
-        new Field("fixedsizelist", FieldType.nullable(new ArrowType.FixedSizeList(2)),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("denseunion", FieldType.nullable(new ArrowType.Union(UnionMode.Dense, new int[] {0})),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("sparseunion", FieldType.nullable(new ArrowType.Union(UnionMode.Sparse, new int[] {0})),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true))))
-    );
+    final List<Field> fields =
+        Arrays.asList(
+            Field.nullable("utf8", ArrowType.Utf8.INSTANCE),
+            Field.nullable("largeutf8", ArrowType.LargeUtf8.INSTANCE),
+            Field.nullable("binary", ArrowType.Binary.INSTANCE),
+            Field.nullable("largebinary", ArrowType.LargeBinary.INSTANCE),
+            Field.nullable("fixedsizebinary", new ArrowType.FixedSizeBinary(2)),
+            Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 128)),
+            Field.nullable("decimal128", new ArrowType.Decimal(3, 2, 256)),
+            new Field(
+                "list",
+                FieldType.nullable(ArrowType.List.INSTANCE),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+            new Field(
+                "largelist",
+                FieldType.nullable(ArrowType.LargeList.INSTANCE),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+            new Field(
+                "map",
+                FieldType.nullable(new ArrowType.Map(/*keyssorted*/ false)),
+                Collections.singletonList(
+                    new Field(
+                        "items",
+                        FieldType.notNullable(ArrowType.Struct.INSTANCE),
+                        Arrays.asList(
+                            Field.notNullable("keys", new ArrowType.Int(32, true)),
+                            Field.nullable("values", new ArrowType.Int(32, true)))))),
+            new Field(
+                "fixedsizelist",
+                FieldType.nullable(new ArrowType.FixedSizeList(2)),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+            new Field(
+                "denseunion",
+                FieldType.nullable(new ArrowType.Union(UnionMode.Dense, new int[] {0})),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+            new Field(
+                "sparseunion",
+                FieldType.nullable(new ArrowType.Union(UnionMode.Sparse, new int[] {0})),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))));
 
     for (final Field field : fields) {
       final Schema schema = new Schema(Collections.singletonList(field));
@@ -464,7 +474,8 @@ public class TestJSONFile extends BaseFileTest {
         outputFile.deleteOnExit();
 
         // Try with no allocation
-        try (final JsonFileWriter jsonWriter = new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
+        try (final JsonFileWriter jsonWriter =
+            new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
           jsonWriter.start(schema, null);
           jsonWriter.write(root);
         } catch (Exception e) {
@@ -484,7 +495,8 @@ public class TestJSONFile extends BaseFileTest {
         // Try with an explicit allocation
         root.allocateNew();
         root.setRowCount(0);
-        try (final JsonFileWriter jsonWriter = new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
+        try (final JsonFileWriter jsonWriter =
+            new JsonFileWriter(outputFile, JsonFileWriter.config().pretty(true))) {
           jsonWriter.start(schema, null);
           jsonWriter.write(root);
         } catch (Exception e) {

@@ -19,7 +19,6 @@ package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
 import java.util.Optional;
-
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 
@@ -28,8 +27,8 @@ import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
  *
  * @deprecated As of 14.0.0. This implements a stateful "login" flow that does not play well with
  *     distributed or stateless systems. It will not be removed, but should not be used. Instead,
- *     see {@link FlightServer.Builder#headerAuthenticator(CallHeaderAuthenticator)}
- *     and {@link CallHeaderAuthenticator}.
+ *     see {@link FlightServer.Builder#headerAuthenticator(CallHeaderAuthenticator)} and {@link
+ *     CallHeaderAuthenticator}.
  */
 @Deprecated
 public interface ServerAuthHandler {
@@ -37,8 +36,8 @@ public interface ServerAuthHandler {
   /**
    * Validate the client token provided on each call.
    *
-   * @return An empty optional if the client is not authenticated; the peer identity otherwise (may be the empty
-   *     string).
+   * @return An empty optional if the client is not authenticated; the peer identity otherwise (may
+   *     be the empty string).
    */
   Optional<String> isValid(byte[] token);
 
@@ -52,30 +51,27 @@ public interface ServerAuthHandler {
   boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming);
 
   /**
-   * Interface for a server implementations to send back authentication messages
-   * back to the client.
+   * Interface for a server implementations to send back authentication messages back to the client.
    */
   interface ServerAuthSender {
 
     void send(byte[] payload);
 
     void onError(Throwable cause);
-
   }
 
-  /**
-   * An auth handler that does nothing.
-   */
-  ServerAuthHandler NO_OP = new ServerAuthHandler() {
+  /** An auth handler that does nothing. */
+  ServerAuthHandler NO_OP =
+      new ServerAuthHandler() {
 
-    @Override
-    public Optional<String> isValid(byte[] token) {
-      return Optional.of("");
-    }
+        @Override
+        public Optional<String> isValid(byte[] token) {
+          return Optional.of("");
+        }
 
-    @Override
-    public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
-      return true;
-    }
-  };
+        @Override
+        public boolean authenticate(ServerAuthSender outgoing, Iterator<byte[]> incoming) {
+          return true;
+        }
+      };
 }

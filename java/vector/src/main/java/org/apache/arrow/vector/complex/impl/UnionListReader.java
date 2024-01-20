@@ -26,9 +26,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * {@link FieldReader} for list of union types.
- */
+/** {@link FieldReader} for list of union types. */
 public class UnionListReader extends AbstractFieldReader {
 
   private ListVector vector;

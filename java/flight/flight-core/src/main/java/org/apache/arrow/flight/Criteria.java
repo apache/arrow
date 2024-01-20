@@ -17,9 +17,8 @@
 
 package org.apache.arrow.flight;
 
-import org.apache.arrow.flight.impl.Flight;
-
 import com.google.protobuf.ByteString;
+import org.apache.arrow.flight.impl.Flight;
 
 /**
  * An opaque object that can be used to filter a list of streams available from a server.
@@ -40,9 +39,7 @@ public class Criteria {
     this.bytes = criteria.getExpression().toByteArray();
   }
 
-  /**
-   * Get the contained filter criteria.
-   */
+  /** Get the contained filter criteria. */
   public byte[] getExpression() {
     return bytes;
   }

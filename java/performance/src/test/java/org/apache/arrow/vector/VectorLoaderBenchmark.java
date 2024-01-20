@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -36,18 +35,14 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link VectorLoader}.
- */
+/** Benchmarks for {@link VectorLoader}. */
 public class VectorLoaderBenchmark {
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
   private static final int VECTOR_COUNT = 10;
 
-  /**
-   * State for vector load benchmark.
-   */
+  /** State for vector load benchmark. */
   @State(Scope.Benchmark)
   public static class LoadState {
 
@@ -61,9 +56,7 @@ public class VectorLoaderBenchmark {
 
     private VectorLoader loader;
 
-    /**
-     * Setup benchmarks.
-     */
+    /** Setup benchmarks. */
     @Setup(Level.Trial)
     public void prepare() {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -90,9 +83,7 @@ public class VectorLoaderBenchmark {
       root.close();
     }
 
-    /**
-     * Tear down benchmarks.
-     */
+    /** Tear down benchmarks. */
     @TearDown(Level.Trial)
     public void tearDown() {
       allocator.close();
@@ -107,10 +98,8 @@ public class VectorLoaderBenchmark {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(VectorLoaderBenchmark.class.getSimpleName())
-            .forks(1)
-            .build();
+    Options opt =
+        new OptionsBuilder().include(VectorLoaderBenchmark.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

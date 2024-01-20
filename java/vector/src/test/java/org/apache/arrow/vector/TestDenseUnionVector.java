@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -73,11 +72,13 @@ public class TestDenseUnionVector {
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
 
-    try (DenseUnionVector unionVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+    try (DenseUnionVector unionVector =
+        new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       unionVector.allocateNew();
 
       // write some data
-      byte uint4TypeId = unionVector.registerNewTypeId(Field.nullable("", MinorType.UINT4.getType()));
+      byte uint4TypeId =
+          unionVector.registerNewTypeId(Field.nullable("", MinorType.UINT4.getType()));
       unionVector.setTypeId(0, uint4TypeId);
       unionVector.setSafe(0, uInt4Holder);
       unionVector.setTypeId(2, uint4TypeId);
@@ -101,7 +102,8 @@ public class TestDenseUnionVector {
 
   @Test
   public void testTransfer() throws Exception {
-    try (DenseUnionVector srcVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+    try (DenseUnionVector srcVector =
+        new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
 
       // write some data
@@ -117,7 +119,8 @@ public class TestDenseUnionVector {
       srcVector.setSafe(5, newBitHolder(false));
       srcVector.setValueCount(6);
 
-      try (DenseUnionVector destVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+      try (DenseUnionVector destVector =
+          new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
         TransferPair pair = srcVector.makeTransferPair(destVector);
 
         // Creating the transfer should transfer the type of the field at least.
@@ -152,7 +155,8 @@ public class TestDenseUnionVector {
 
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (DenseUnionVector sourceVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+    try (DenseUnionVector sourceVector =
+        new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
       sourceVector.allocateNew();
 
@@ -203,18 +207,13 @@ public class TestDenseUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(50, sourceVector.getObject(9));
 
-      try (DenseUnionVector toVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+      try (DenseUnionVector toVector =
+          new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
         toVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{0, 3},
-          {3, 1},
-          {4, 2},
-          {6, 1},
-          {7, 1},
-          {8, 2}
-        };
+        final int[][] transferLengths = {{0, 3}, {3, 1}, {4, 2}, {6, 1}, {7, 1}, {8, 2}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -224,8 +223,10 @@ public class TestDenseUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different data at indexes: " + (start + i) + "and " + i, sourceVector.getObject(start + i),
-                    toVector.getObject(i));
+            assertEquals(
+                "Different data at indexes: " + (start + i) + "and " + i,
+                sourceVector.getObject(start + i),
+                toVector.getObject(i));
           }
         }
       }
@@ -234,7 +235,8 @@ public class TestDenseUnionVector {
 
   @Test
   public void testSplitAndTransferWithMixedVectors() throws Exception {
-    try (DenseUnionVector sourceVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+    try (DenseUnionVector sourceVector =
+        new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
 
       sourceVector.allocateNew();
 
@@ -244,7 +246,8 @@ public class TestDenseUnionVector {
       sourceVector.setTypeId(0, intTypeId);
       sourceVector.setSafe(0, newIntHolder(5));
 
-      byte float4TypeId = sourceVector.registerNewTypeId(Field.nullable("", MinorType.FLOAT4.getType()));
+      byte float4TypeId =
+          sourceVector.registerNewTypeId(Field.nullable("", MinorType.FLOAT4.getType()));
 
       sourceVector.setTypeId(1, float4TypeId);
       sourceVector.setSafe(1, newFloat4Holder(5.5f));
@@ -297,18 +300,14 @@ public class TestDenseUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(30.5f, sourceVector.getObject(9));
 
-      try (DenseUnionVector toVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
+      try (DenseUnionVector toVector =
+          new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
         toVector.registerNewTypeId(Field.nullable("", MinorType.INT.getType()));
         toVector.registerNewTypeId(Field.nullable("", MinorType.FLOAT4.getType()));
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{0, 2},
-            {2, 1},
-            {3, 2},
-            {5, 3},
-            {8, 2}
-        };
+        final int[][] transferLengths = {{0, 2}, {2, 1}, {3, 2}, {5, 3}, {8, 2}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -318,7 +317,10 @@ public class TestDenseUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different values at index: " + i, sourceVector.getObject(start + i), toVector.getObject(i));
+            assertEquals(
+                "Different values at index: " + i,
+                sourceVector.getObject(start + i),
+                toVector.getObject(i));
           }
         }
       }
@@ -338,8 +340,9 @@ public class TestDenseUnionVector {
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
     children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
 
-    final FieldType fieldType = new FieldType(false, new ArrowType.Union(UnionMode.Dense, typeIds),
-            /*dictionary=*/null, metadata);
+    final FieldType fieldType =
+        new FieldType(
+            false, new ArrowType.Union(UnionMode.Dense, typeIds), /* dictionary= */ null, metadata);
     final Field field = new Field("union", fieldType, children);
 
     MinorType minorType = MinorType.DENSEUNION;
@@ -414,26 +417,26 @@ public class TestDenseUnionVector {
     }
   }
 
-  /**
-   * Test adding two struct vectors to the dense union vector.
-   */
+  /** Test adding two struct vectors to the dense union vector. */
   @Test
   public void testMultipleStructs() {
     FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, null);
     try (StructVector structVector1 = new StructVector("struct1", allocator, type, null);
-         StructVector structVector2 = new StructVector("struct2", allocator, type, null);
-         DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
+        StructVector structVector2 = new StructVector("struct2", allocator, type, null);
+        DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
 
       // prepare sub vectors
 
       // first struct vector: (int, int)
-      IntVector subVector11 = structVector1
-              .addOrGet("sub11", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      IntVector subVector11 =
+          structVector1.addOrGet(
+              "sub11", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       subVector11.allocateNew();
       ValueVectorDataPopulator.setVector(subVector11, 0, 1);
 
-      IntVector subVector12 = structVector1
-              .addOrGet("sub12", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      IntVector subVector12 =
+          structVector1.addOrGet(
+              "sub12", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
       subVector12.allocateNew();
       ValueVectorDataPopulator.setVector(subVector12, 0, 10);
 
@@ -442,13 +445,15 @@ public class TestDenseUnionVector {
       structVector1.setValueCount(2);
 
       // second struct vector: (string, string)
-      VarCharVector subVector21 = structVector2
-              .addOrGet("sub21", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+      VarCharVector subVector21 =
+          structVector2.addOrGet(
+              "sub21", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
       subVector21.allocateNew();
       ValueVectorDataPopulator.setVector(subVector21, "a0");
 
-      VarCharVector subVector22 = structVector2
-              .addOrGet("sub22", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+      VarCharVector subVector22 =
+          structVector2.addOrGet(
+              "sub22", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
       subVector22.allocateNew();
       ValueVectorDataPopulator.setVector(subVector22, "b0");
 
@@ -502,14 +507,12 @@ public class TestDenseUnionVector {
     }
   }
 
-  /**
-   * Test adding two varchar vectors to the dense union vector.
-   */
+  /** Test adding two varchar vectors to the dense union vector. */
   @Test
   public void testMultipleVarChars() {
     try (VarCharVector childVector1 = new VarCharVector("child1", allocator);
-         VarCharVector childVector2 = new VarCharVector("child2", allocator);
-         DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
+        VarCharVector childVector2 = new VarCharVector("child2", allocator);
+        DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
 
       // prepare sub vectors
       ValueVectorDataPopulator.setVector(childVector1, "a0", "a4");
@@ -543,7 +546,6 @@ public class TestDenseUnionVector {
       // slot 2 points to child2
       unionVector.setTypeId(2, typeId2);
       offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
-
 
       // slot 4 points to child1
       unionVector.setTypeId(4, typeId1);
@@ -581,11 +583,13 @@ public class TestDenseUnionVector {
       vector.setTypeId(0, intTypeId);
       intHolder.value = 7;
       vector.setSafe(0, intHolder);
-      byte longTypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
+      byte longTypeId =
+          vector.registerNewTypeId(Field.nullable("", Types.MinorType.BIGINT.getType()));
       vector.setTypeId(2, longTypeId);
       longHolder.value = 8L;
       vector.setSafe(2, longHolder);
-      byte floatTypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+      byte floatTypeId =
+          vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
       vector.setTypeId(3, floatTypeId);
       floatHolder.value = 9.0f;
       vector.setSafe(3, floatHolder);

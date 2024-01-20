@@ -22,7 +22,6 @@ import java.net.URL;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,24 +38,24 @@ final class CheckAllocator {
   private static final String ALLOCATOR_PATH_NETTY =
       "org/apache/arrow/memory/netty/DefaultAllocationManagerFactory.class";
 
-  private CheckAllocator() {
-  }
+  private CheckAllocator() {}
 
   static String check() {
     Set<URL> urls = scanClasspath();
     URL rootAllocator = assertOnlyOne(urls);
     reportResult(rootAllocator);
-    if (rootAllocator.getPath().contains("memory-core") ||
-        rootAllocator.getPath().contains("/org/apache/arrow/memory/core/")) {
+    if (rootAllocator.getPath().contains("memory-core")
+        || rootAllocator.getPath().contains("/org/apache/arrow/memory/core/")) {
       return "org.apache.arrow.memory.DefaultAllocationManagerFactory";
-    } else if (rootAllocator.getPath().contains("memory-unsafe") ||
-        rootAllocator.getPath().contains("/org/apache/arrow/memory/unsafe/")) {
+    } else if (rootAllocator.getPath().contains("memory-unsafe")
+        || rootAllocator.getPath().contains("/org/apache/arrow/memory/unsafe/")) {
       return "org.apache.arrow.memory.unsafe.DefaultAllocationManagerFactory";
-    } else if (rootAllocator.getPath().contains("memory-netty") ||
-        rootAllocator.getPath().contains("/org/apache/arrow/memory/netty/")) {
+    } else if (rootAllocator.getPath().contains("memory-netty")
+        || rootAllocator.getPath().contains("/org/apache/arrow/memory/netty/")) {
       return "org.apache.arrow.memory.netty.DefaultAllocationManagerFactory";
     } else {
-      throw new IllegalStateException("Unknown allocation manager type to infer. Current: " + rootAllocator.getPath());
+      throw new IllegalStateException(
+          "Unknown allocation manager type to infer. Current: " + rootAllocator.getPath());
     }
   }
 
@@ -105,10 +104,10 @@ final class CheckAllocator {
       logger.warn("More than one DefaultAllocationManager on classpath. Choosing first found");
     }
     if (urls.isEmpty()) {
-      throw new RuntimeException("No DefaultAllocationManager found on classpath. Can't allocate Arrow buffers." +
-          " Please consider adding arrow-memory-netty or arrow-memory-unsafe as a dependency.");
+      throw new RuntimeException(
+          "No DefaultAllocationManager found on classpath. Can't allocate Arrow buffers."
+              + " Please consider adding arrow-memory-netty or arrow-memory-unsafe as a dependency.");
     }
     return urls.iterator().next();
   }
-
 }

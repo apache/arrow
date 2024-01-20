@@ -19,12 +19,9 @@ package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.FieldVector;
 
-/**
- * A ColumnBinder that checks for nullability before deferring to a type-specific binder.
- */
+/** A ColumnBinder that checks for nullability before deferring to a type-specific binder. */
 public class NullableColumnBinder implements ColumnBinder {
   private final ColumnBinder wrapped;
 
@@ -33,7 +30,8 @@ public class NullableColumnBinder implements ColumnBinder {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     if (wrapped.getVector().isNull(rowIndex)) {
       statement.setNull(parameterIndex, wrapped.getJdbcType());
     } else {

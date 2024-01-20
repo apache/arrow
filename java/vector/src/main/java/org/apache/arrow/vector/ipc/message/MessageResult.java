@@ -27,8 +27,8 @@ import org.apache.arrow.memory.ArrowBuf;
 public class MessageResult {
 
   /**
-   * Construct with a valid Message metadata and optional ArrowBuf containing message body
-   * data, if any.
+   * Construct with a valid Message metadata and optional ArrowBuf containing message body data, if
+   * any.
    *
    * @param message Deserialized Flatbuffer Message metadata description
    * @param bodyBuffer Optional ArrowBuf containing message body data, null if message has no body

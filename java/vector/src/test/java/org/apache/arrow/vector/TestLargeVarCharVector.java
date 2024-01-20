@@ -27,7 +27,6 @@ import static org.junit.Assert.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -70,9 +69,9 @@ public class TestLargeVarCharVector {
   @Test
   public void testTransfer() {
     try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
-         BufferAllocator childAllocator2 = allocator.newChildAllocator("child2", 1000000, 1000000);
-         LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1);
-         LargeVarCharVector v2 = new LargeVarCharVector("v2", childAllocator2);) {
+        BufferAllocator childAllocator2 = allocator.newChildAllocator("child2", 1000000, 1000000);
+        LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1);
+        LargeVarCharVector v2 = new LargeVarCharVector("v2", childAllocator2); ) {
       v1.allocateNew();
       v1.setSafe(4094, "hello world".getBytes(), 0, 11);
       v1.setValueCount(4001);
@@ -88,8 +87,10 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testCopyValueSafe() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator);
-         final LargeVarCharVector newLargeVarCharVector = new LargeVarCharVector("newvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+            new LargeVarCharVector("myvector", allocator);
+        final LargeVarCharVector newLargeVarCharVector =
+            new LargeVarCharVector("newvector", allocator)) {
       largeVarCharVector.allocateNew(10000, 1000);
 
       final int valueCount = 500;
@@ -118,7 +119,8 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testSplitAndTransferNon() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+        new LargeVarCharVector("myvector", allocator)) {
 
       largeVarCharVector.allocateNew(10000, 1000);
       final int valueCount = 500;
@@ -135,7 +137,8 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testSplitAndTransferAll() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+        new LargeVarCharVector("myvector", allocator)) {
 
       largeVarCharVector.allocateNew(10000, 1000);
       final int valueCount = 500;
@@ -152,8 +155,10 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testInvalidStartIndex() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator);
-         final LargeVarCharVector newLargeVarCharVector = new LargeVarCharVector("newvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+            new LargeVarCharVector("myvector", allocator);
+        final LargeVarCharVector newLargeVarCharVector =
+            new LargeVarCharVector("newvector", allocator)) {
 
       largeVarCharVector.allocateNew(10000, 1000);
       final int valueCount = 500;
@@ -161,9 +166,9 @@ public class TestLargeVarCharVector {
 
       final TransferPair tp = largeVarCharVector.makeTransferPair(newLargeVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> tp.splitAndTransfer(valueCount, 10));
+      IllegalArgumentException e =
+          Assertions.assertThrows(
+              IllegalArgumentException.class, () -> tp.splitAndTransfer(valueCount, 10));
 
       assertEquals("Invalid startIndex: 500", e.getMessage());
     }
@@ -171,8 +176,10 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testInvalidLength() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator);
-         final LargeVarCharVector newLargeVarCharVector = new LargeVarCharVector("newvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+            new LargeVarCharVector("myvector", allocator);
+        final LargeVarCharVector newLargeVarCharVector =
+            new LargeVarCharVector("newvector", allocator)) {
 
       largeVarCharVector.allocateNew(10000, 1000);
       final int valueCount = 500;
@@ -180,9 +187,9 @@ public class TestLargeVarCharVector {
 
       final TransferPair tp = largeVarCharVector.makeTransferPair(newLargeVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> tp.splitAndTransfer(0, valueCount * 2));
+      IllegalArgumentException e =
+          Assertions.assertThrows(
+              IllegalArgumentException.class, () -> tp.splitAndTransfer(0, valueCount * 2));
 
       assertEquals("Invalid length: 1000", e.getMessage());
     }
@@ -289,7 +296,7 @@ public class TestLargeVarCharVector {
       assertEquals(40, vector.offsetBuffer.getLong(17 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getLong(18 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getLong(19 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      
+
       vector.set(19, STR6);
       assertArrayEquals(STR6, vector.get(19));
       assertEquals(40, vector.offsetBuffer.getLong(19 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
@@ -334,7 +341,8 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testSplitAndTransfer() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+        new LargeVarCharVector("myvector", allocator)) {
       largeVarCharVector.allocateNew(10000, 1000);
 
       final int valueCount = 500;
@@ -495,13 +503,12 @@ public class TestLargeVarCharVector {
 
       Schema schema = new Schema(fields);
 
-      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorSchemaRoot schemaRoot1 =
+          new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
       VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
 
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, allocator);
-      ) {
+      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, allocator); ) {
 
         VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
         vectorLoader.load(recordBatch);
@@ -597,41 +604,25 @@ public class TestLargeVarCharVector {
       assertEquals(0, vector.getValueLength(14));
 
       /* Check offsets */
-      assertEquals(0,
-          vector.offsetBuffer.getLong(0 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(6,
-          vector.offsetBuffer.getLong(1 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(16,
-          vector.offsetBuffer.getLong(2 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(21,
-          vector.offsetBuffer.getLong(3 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(30,
-          vector.offsetBuffer.getLong(4 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(34,
-          vector.offsetBuffer.getLong(5 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(0, vector.offsetBuffer.getLong(0 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(6, vector.offsetBuffer.getLong(1 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(16, vector.offsetBuffer.getLong(2 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(21, vector.offsetBuffer.getLong(3 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(30, vector.offsetBuffer.getLong(4 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(34, vector.offsetBuffer.getLong(5 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(40,
-          vector.offsetBuffer.getLong(6 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40,
-          vector.offsetBuffer.getLong(7 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40,
-          vector.offsetBuffer.getLong(8 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40,
-          vector.offsetBuffer.getLong(9 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40,
-          vector.offsetBuffer.getLong(10 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getLong(6 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getLong(7 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getLong(8 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getLong(9 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getLong(10 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(46,
-          vector.offsetBuffer.getLong(11 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56,
-          vector.offsetBuffer.getLong(12 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(46, vector.offsetBuffer.getLong(11 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56, vector.offsetBuffer.getLong(12 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(56,
-          vector.offsetBuffer.getLong(13 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56,
-          vector.offsetBuffer.getLong(14 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56,
-          vector.offsetBuffer.getLong(15 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56, vector.offsetBuffer.getLong(13 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56, vector.offsetBuffer.getLong(14 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56, vector.offsetBuffer.getLong(15 * BaseLargeVariableWidthVector.OFFSET_WIDTH));
     }
   }
 
@@ -724,8 +715,10 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testGetNullFromLargeVariableWidthVector() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("largevarcharvec", allocator);
-         final LargeVarBinaryVector largeVarBinaryVector = new LargeVarBinaryVector("largevarbinary", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+            new LargeVarCharVector("largevarcharvec", allocator);
+        final LargeVarBinaryVector largeVarBinaryVector =
+            new LargeVarBinaryVector("largevarbinary", allocator)) {
       largeVarCharVector.allocateNew(10, 1);
       largeVarBinaryVector.allocateNew(10, 1);
 
@@ -736,10 +729,11 @@ public class TestLargeVarCharVector {
       assertNull(largeVarBinaryVector.get(0));
     }
   }
-  
+
   @Test
   public void testLargeVariableWidthVectorNullHashCode() {
-    try (LargeVarCharVector largeVarChVec = new LargeVarCharVector("large var char vector", allocator)) {
+    try (LargeVarCharVector largeVarChVec =
+        new LargeVarCharVector("large var char vector", allocator)) {
       largeVarChVec.allocateNew(100, 1);
       largeVarChVec.setValueCount(1);
 
@@ -752,7 +746,8 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testUnloadLargeVariableWidthVector() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("var char", allocator)) {
+    try (final LargeVarCharVector largeVarCharVector =
+        new LargeVarCharVector("var char", allocator)) {
       largeVarCharVector.allocateNew(5, 2);
       largeVarCharVector.setValueCount(2);
 
@@ -832,7 +827,8 @@ public class TestLargeVarCharVector {
     }
   }
 
-  private void populateLargeVarcharVector(final LargeVarCharVector vector, int valueCount, String[] values) {
+  private void populateLargeVarcharVector(
+      final LargeVarCharVector vector, int valueCount, String[] values) {
     for (int i = 0; i < valueCount; i += 3) {
       final String s = String.format("%010d", i);
       vector.set(i, s.getBytes());
@@ -844,11 +840,13 @@ public class TestLargeVarCharVector {
   }
 
   public static void setBytes(int index, byte[] bytes, LargeVarCharVector vector) {
-    final long currentOffset = vector.offsetBuffer.getLong((long) index * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    final long currentOffset =
+        vector.offsetBuffer.getLong((long) index * BaseLargeVariableWidthVector.OFFSET_WIDTH);
 
     BitVectorHelper.setBit(vector.validityBuffer, index);
     vector.offsetBuffer.setLong(
-        (long) (index + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
+        (long) (index + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
+        currentOffset + bytes.length);
     vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
   }
 }

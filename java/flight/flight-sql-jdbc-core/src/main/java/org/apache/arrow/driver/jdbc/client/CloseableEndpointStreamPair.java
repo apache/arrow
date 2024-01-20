@@ -22,9 +22,7 @@ import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 
-/**
- * Represents a connection to a {@link org.apache.arrow.flight.FlightEndpoint}.
- */
+/** Represents a connection to a {@link org.apache.arrow.flight.FlightEndpoint}. */
 public class CloseableEndpointStreamPair implements AutoCloseable {
 
   private final FlightStream stream;

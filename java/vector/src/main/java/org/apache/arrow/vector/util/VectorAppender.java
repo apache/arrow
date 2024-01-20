@@ -20,7 +20,6 @@ package org.apache.arrow.vector.util;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.util.HashSet;
-
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -40,20 +39,17 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
-/**
- * Utility to append two vectors together.
- */
+/** Utility to append two vectors together. */
 public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
-  /**
-   * The targetVector to be appended.
-   */
+  /** The targetVector to be appended. */
   private final ValueVector targetVector;
 
   private final TypeEqualsVisitor typeVisitor;
 
   /**
    * Constructs a new targetVector appender, with the given targetVector.
+   *
    * @param targetVector the targetVector to be appended.
    */
   public VectorAppender(ValueVector targetVector) {
@@ -63,8 +59,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(BaseFixedWidthVector deltaVector, Void value) {
-    Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
-            "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        targetVector.getField().getType().equals(deltaVector.getField().getType()),
+        "The targetVector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // optimization, nothing to append, return
@@ -79,19 +76,28 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append data buffer
     if (targetVector instanceof BitVector) {
       // special processing for bit vector, as its type width is 0
-      BitVectorHelper.concatBits(targetVector.getDataBuffer(), targetVector.getValueCount(),
-              deltaVector.getDataBuffer(), deltaVector.getValueCount(), targetVector.getDataBuffer());
+      BitVectorHelper.concatBits(
+          targetVector.getDataBuffer(),
+          targetVector.getValueCount(),
+          deltaVector.getDataBuffer(),
+          deltaVector.getValueCount(),
+          targetVector.getDataBuffer());
 
     } else {
-      MemoryUtil.UNSAFE.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
-              targetVector.getDataBuffer().memoryAddress() + deltaVector.getTypeWidth() * targetVector.getValueCount(),
-              deltaVector.getTypeWidth() * deltaVector.getValueCount());
+      MemoryUtil.UNSAFE.copyMemory(
+          deltaVector.getDataBuffer().memoryAddress(),
+          targetVector.getDataBuffer().memoryAddress()
+              + deltaVector.getTypeWidth() * targetVector.getValueCount(),
+          deltaVector.getTypeWidth() * deltaVector.getValueCount());
     }
     targetVector.setValueCount(newValueCount);
     return targetVector;
@@ -99,8 +105,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(BaseVariableWidthVector deltaVector, Void value) {
-    Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
-            "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        targetVector.getField().getType().equals(deltaVector.getField().getType()),
+        "The targetVector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // nothing to append, return
@@ -108,10 +115,14 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
-    int targetDataSize = targetVector.getOffsetBuffer().getInt(
-            (long) targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
-    int deltaDataSize = deltaVector.getOffsetBuffer().getInt(
-            (long) deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+    int targetDataSize =
+        targetVector
+            .getOffsetBuffer()
+            .getInt((long) targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+    int deltaDataSize =
+        deltaVector
+            .getOffsetBuffer()
+            .getInt((long) deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
     int newValueCapacity = targetDataSize + deltaDataSize;
 
     // make sure there is enough capacity
@@ -124,27 +135,38 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append data buffer
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
-            targetVector.getDataBuffer().memoryAddress() + targetDataSize, deltaDataSize);
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getDataBuffer().memoryAddress(),
+        targetVector.getDataBuffer().memoryAddress() + targetDataSize,
+        deltaDataSize);
 
     // copy offset buffer
     MemoryUtil.UNSAFE.copyMemory(
-            deltaVector.getOffsetBuffer().memoryAddress() + BaseVariableWidthVector.OFFSET_WIDTH,
-            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
-                    BaseVariableWidthVector.OFFSET_WIDTH,
-            deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+        deltaVector.getOffsetBuffer().memoryAddress() + BaseVariableWidthVector.OFFSET_WIDTH,
+        targetVector.getOffsetBuffer().memoryAddress()
+            + (targetVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
+        deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      int oldOffset = targetVector.getOffsetBuffer().getInt((long) (targetVector.getValueCount() + 1 + i) *
-              BaseVariableWidthVector.OFFSET_WIDTH);
-      targetVector.getOffsetBuffer().setInt(
-              (long) (targetVector.getValueCount() + 1 + i) *
-                      BaseVariableWidthVector.OFFSET_WIDTH, oldOffset + targetDataSize);
+      int oldOffset =
+          targetVector
+              .getOffsetBuffer()
+              .getInt(
+                  (long) (targetVector.getValueCount() + 1 + i)
+                      * BaseVariableWidthVector.OFFSET_WIDTH);
+      targetVector
+          .getOffsetBuffer()
+          .setInt(
+              (long) (targetVector.getValueCount() + 1 + i) * BaseVariableWidthVector.OFFSET_WIDTH,
+              oldOffset + targetDataSize);
     }
     ((BaseVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
     targetVector.setValueCount(newValueCount);
@@ -153,8 +175,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(BaseLargeVariableWidthVector deltaVector, Void value) {
-    Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
-            "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        targetVector.getField().getType().equals(deltaVector.getField().getType()),
+        "The targetVector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // nothing to append, return
@@ -162,10 +185,16 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
-    long targetDataSize = targetVector.getOffsetBuffer().getLong(
-            (long) targetVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
-    long deltaDataSize = deltaVector.getOffsetBuffer().getLong(
-            (long) deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    long targetDataSize =
+        targetVector
+            .getOffsetBuffer()
+            .getLong(
+                (long) targetVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    long deltaDataSize =
+        deltaVector
+            .getOffsetBuffer()
+            .getLong(
+                (long) deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     long newValueCapacity = targetDataSize + deltaDataSize;
 
     // make sure there is enough capacity
@@ -178,27 +207,39 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append data buffer
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getDataBuffer().memoryAddress(),
-            targetVector.getDataBuffer().memoryAddress() + targetDataSize, deltaDataSize);
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getDataBuffer().memoryAddress(),
+        targetVector.getDataBuffer().memoryAddress() + targetDataSize,
+        deltaDataSize);
 
     // copy offset buffer
     MemoryUtil.UNSAFE.copyMemory(
-            deltaVector.getOffsetBuffer().memoryAddress() + BaseLargeVariableWidthVector.OFFSET_WIDTH,
-            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
-                    BaseLargeVariableWidthVector.OFFSET_WIDTH,
-            deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+        deltaVector.getOffsetBuffer().memoryAddress() + BaseLargeVariableWidthVector.OFFSET_WIDTH,
+        targetVector.getOffsetBuffer().memoryAddress()
+            + (targetVector.getValueCount() + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
+        deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      long oldOffset = targetVector.getOffsetBuffer().getLong((long) (targetVector.getValueCount() + 1 + i) *
-              BaseLargeVariableWidthVector.OFFSET_WIDTH);
-      targetVector.getOffsetBuffer().setLong(
-              (long) (targetVector.getValueCount() + 1 + i) *
-                      BaseLargeVariableWidthVector.OFFSET_WIDTH, oldOffset + targetDataSize);
+      long oldOffset =
+          targetVector
+              .getOffsetBuffer()
+              .getLong(
+                  (long) (targetVector.getValueCount() + 1 + i)
+                      * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+      targetVector
+          .getOffsetBuffer()
+          .setLong(
+              (long) (targetVector.getValueCount() + 1 + i)
+                  * BaseLargeVariableWidthVector.OFFSET_WIDTH,
+              oldOffset + targetDataSize);
     }
     ((BaseLargeVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
     targetVector.setValueCount(newValueCount);
@@ -207,8 +248,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(ListVector deltaVector, Void value) {
-    Preconditions.checkArgument(typeVisitor.equals(deltaVector),
-          "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        typeVisitor.equals(deltaVector),
+        "The targetVector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // nothing to append, return
@@ -216,10 +258,14 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
-    int targetListSize = targetVector.getOffsetBuffer().getInt(
-          (long) targetVector.getValueCount() * ListVector.OFFSET_WIDTH);
-    int deltaListSize = deltaVector.getOffsetBuffer().getInt(
-          (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+    int targetListSize =
+        targetVector
+            .getOffsetBuffer()
+            .getInt((long) targetVector.getValueCount() * ListVector.OFFSET_WIDTH);
+    int deltaListSize =
+        deltaVector
+            .getOffsetBuffer()
+            .getInt((long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     ListVector targetListVector = (ListVector) targetVector;
 
@@ -234,21 +280,30 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-          targetVector.getValidityBuffer(), targetVector.getValueCount(),
-          deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append offset buffer
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
-          targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
-              ListVector.OFFSET_WIDTH,
-          (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
+        targetVector.getOffsetBuffer().memoryAddress()
+            + (targetVector.getValueCount() + 1) * ListVector.OFFSET_WIDTH,
+        (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      int oldOffset = targetVector.getOffsetBuffer().getInt(
-          (long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH);
-      targetVector.getOffsetBuffer().setInt((long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH,
-            oldOffset + targetListSize);
+      int oldOffset =
+          targetVector
+              .getOffsetBuffer()
+              .getInt((long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH);
+      targetVector
+          .getOffsetBuffer()
+          .setInt(
+              (long) (targetVector.getValueCount() + 1 + i) * ListVector.OFFSET_WIDTH,
+              oldOffset + targetListSize);
     }
     targetListVector.setLastSet(newValueCount - 1);
 
@@ -262,8 +317,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(LargeListVector deltaVector, Void value) {
-    Preconditions.checkArgument(typeVisitor.equals(deltaVector),
-            "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        typeVisitor.equals(deltaVector),
+        "The targetVector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // nothing to append, return
@@ -271,10 +327,14 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
-    long targetListSize = targetVector.getOffsetBuffer().getLong(
-            (long) targetVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
-    long deltaListSize = deltaVector.getOffsetBuffer().getLong(
-            (long) deltaVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+    long targetListSize =
+        targetVector
+            .getOffsetBuffer()
+            .getLong((long) targetVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+    long deltaListSize =
+        deltaVector
+            .getOffsetBuffer()
+            .getLong((long) deltaVector.getValueCount() * LargeListVector.OFFSET_WIDTH);
 
     ListVector targetListVector = (ListVector) targetVector;
 
@@ -290,21 +350,31 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append offset buffer
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
-            targetVector.getOffsetBuffer().memoryAddress() + (targetVector.getValueCount() + 1) *
-                    LargeListVector.OFFSET_WIDTH,
-            (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getOffsetBuffer().memoryAddress() + ListVector.OFFSET_WIDTH,
+        targetVector.getOffsetBuffer().memoryAddress()
+            + (targetVector.getValueCount() + 1) * LargeListVector.OFFSET_WIDTH,
+        (long) deltaVector.getValueCount() * ListVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
-      long oldOffset = targetVector.getOffsetBuffer().getLong(
-          (long) (targetVector.getValueCount() + 1 + i) * LargeListVector.OFFSET_WIDTH);
-      targetVector.getOffsetBuffer().setLong((long) (targetVector.getValueCount() + 1 + i) *
-          LargeListVector.OFFSET_WIDTH, oldOffset + targetListSize);
+      long oldOffset =
+          targetVector
+              .getOffsetBuffer()
+              .getLong(
+                  (long) (targetVector.getValueCount() + 1 + i) * LargeListVector.OFFSET_WIDTH);
+      targetVector
+          .getOffsetBuffer()
+          .setLong(
+              (long) (targetVector.getValueCount() + 1 + i) * LargeListVector.OFFSET_WIDTH,
+              oldOffset + targetListSize);
     }
     targetListVector.setLastSet(newValueCount - 1);
 
@@ -318,8 +388,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(FixedSizeListVector deltaVector, Void value) {
-    Preconditions.checkArgument(typeVisitor.equals(deltaVector),
-            "The vector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        typeVisitor.equals(deltaVector),
+        "The vector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // optimization, nothing to append, return
@@ -327,8 +398,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     FixedSizeListVector targetListVector = (FixedSizeListVector) targetVector;
 
-    Preconditions.checkArgument(targetListVector.getListSize() == deltaVector.getListSize(),
-            "FixedSizeListVector must have the same list size to append");
+    Preconditions.checkArgument(
+        targetListVector.getListSize() == deltaVector.getListSize(),
+        "FixedSizeListVector must have the same list size to append");
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
@@ -346,8 +418,11 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append underlying vectors
     VectorAppender innerAppender = new VectorAppender(targetListVector.getDataVector());
@@ -359,8 +434,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(NonNullableStructVector deltaVector, Void value) {
-    Preconditions.checkArgument(typeVisitor.equals(deltaVector),
-            "The vector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        typeVisitor.equals(deltaVector),
+        "The vector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // optimization, nothing to append, return
@@ -376,8 +452,11 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // append validity buffer
     BitVectorHelper.concatBits(
-            targetVector.getValidityBuffer(), targetVector.getValueCount(),
-            deltaVector.getValidityBuffer(), deltaVector.getValueCount(), targetVector.getValidityBuffer());
+        targetVector.getValidityBuffer(),
+        targetVector.getValueCount(),
+        deltaVector.getValidityBuffer(),
+        deltaVector.getValueCount(),
+        targetVector.getValidityBuffer());
 
     // append child vectors
     for (int i = 0; i < targetStructVector.getChildrenFromFields().size(); i++) {
@@ -398,8 +477,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   @Override
   public ValueVector visit(UnionVector deltaVector, Void value) {
     // we only make sure that both vectors are union vectors.
-    Preconditions.checkArgument(targetVector.getMinorType() == deltaVector.getMinorType(),
-            "The vector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        targetVector.getMinorType() == deltaVector.getMinorType(),
+        "The vector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
       return targetVector; // optimization, nothing to append, return
@@ -414,9 +494,10 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     }
 
     // append type buffers
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getTypeBufferAddress(),
-            targetUnionVector.getTypeBufferAddress() + targetVector.getValueCount(),
-            deltaVector.getValueCount());
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getTypeBufferAddress(),
+        targetUnionVector.getTypeBufferAddress() + targetVector.getValueCount(),
+        deltaVector.getValueCount());
 
     // build the hash set for all types
     HashSet<Integer> targetTypes = new HashSet<>();
@@ -461,7 +542,8 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   @Override
   public ValueVector visit(DenseUnionVector deltaVector, Void value) {
     // we only make sure that both vectors are union vectors.
-    Preconditions.checkArgument(targetVector.getMinorType() == deltaVector.getMinorType(),
+    Preconditions.checkArgument(
+        targetVector.getMinorType() == deltaVector.getMinorType(),
         "The vector to append must have the same type as the targetVector being appended");
 
     if (deltaVector.getValueCount() == 0) {
@@ -477,8 +559,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     }
 
     // append type buffers
-    MemoryUtil.UNSAFE.copyMemory(deltaVector.getTypeBuffer().memoryAddress(),
-        targetDenseUnionVector.getTypeBuffer() .memoryAddress() + targetVector.getValueCount(),
+    MemoryUtil.UNSAFE.copyMemory(
+        deltaVector.getTypeBuffer().memoryAddress(),
+        targetDenseUnionVector.getTypeBuffer().memoryAddress() + targetVector.getValueCount(),
         deltaVector.getValueCount());
 
     // append offset buffers
@@ -503,8 +586,10 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
       } else if (targetChildVector == null && deltaChildVector != null) {
         // first register a new child in the target vector
         targetDenseUnionVector.registerNewTypeId(deltaChildVector.getField());
-        targetChildVector = targetDenseUnionVector.addVector(
-            (byte) i, deltaChildVector.getField().createVector(targetDenseUnionVector.getAllocator()));
+        targetChildVector =
+            targetDenseUnionVector.addVector(
+                (byte) i,
+                deltaChildVector.getField().createVector(targetDenseUnionVector.getAllocator()));
 
         // now we have both child vectors not null, we can append them.
         VectorAppender childAppender = new VectorAppender(targetChildVector);
@@ -517,9 +602,11 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
         // first check vector types
         TypeEqualsVisitor childTypeVisitor =
-            new TypeEqualsVisitor(targetChildVector, /* check name */ false, /* check meta data*/ false);
+            new TypeEqualsVisitor(
+                targetChildVector, /* check name */ false, /* check meta data*/ false);
         if (!childTypeVisitor.equals(deltaChildVector)) {
-          throw new IllegalArgumentException("dense union vectors have different child vector types with type id " + i);
+          throw new IllegalArgumentException(
+              "dense union vectors have different child vector types with type id " + i);
         }
 
         // append child vectors
@@ -534,8 +621,9 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(NullVector deltaVector, Void value) {
-    Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
-            "The targetVector to append must have the same type as the targetVector being appended");
+    Preconditions.checkArgument(
+        targetVector.getField().getType().equals(deltaVector.getField().getType()),
+        "The targetVector to append must have the same type as the targetVector being appended");
     return targetVector;
   }
 

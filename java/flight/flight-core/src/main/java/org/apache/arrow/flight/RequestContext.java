@@ -19,12 +19,11 @@ package org.apache.arrow.flight;
 
 import java.util.Set;
 
-/**
- * Tracks variables about the current request.
- */
+/** Tracks variables about the current request. */
 public interface RequestContext {
   /**
    * Register a variable and a value.
+   *
    * @param key the variable name.
    * @param value the value.
    */
@@ -32,6 +31,7 @@ public interface RequestContext {
 
   /**
    * Retrieve a registered variable.
+   *
    * @param key the variable name.
    * @return the value, or null if not found.
    */
@@ -39,12 +39,14 @@ public interface RequestContext {
 
   /**
    * Retrieves the keys that have been registered to this context.
+   *
    * @return the keys used in this context.
    */
   Set<String> keySet();
 
   /**
    * Deletes a registered variable.
+   *
    * @return the value associated with the deleted variable, or null if the key doesn't exist.
    */
   String remove(String key);

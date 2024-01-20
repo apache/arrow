@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.util.Map;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -27,15 +26,15 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 
-/**
- * Accessor for the Arrow type {@link MapVector}.
- */
+/** Accessor for the Arrow type {@link MapVector}. */
 public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final MapVector vector;
 
-  public ArrowFlightJdbcMapVectorAccessor(MapVector vector, IntSupplier currentRowSupplier,
-                                          ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcMapVectorAccessor(
+      MapVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
@@ -76,7 +75,8 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
 
   @Override
   protected long getEndOffset(int index) {
-    return vector.getOffsetBuffer()
+    return vector
+        .getOffsetBuffer()
         .getInt((long) (index + 1) * BaseRepeatedValueVector.OFFSET_WIDTH);
   }
 

@@ -35,6 +35,7 @@ import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARCHAR;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
 
+import com.google.protobuf.ProtocolMessageEnum;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
@@ -52,7 +53,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
@@ -85,11 +85,7 @@ import org.apache.arrow.vector.util.Text;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaDatabaseMetaData;
 
-import com.google.protobuf.ProtocolMessageEnum;
-
-/**
- * Arrow Flight JDBC's implementation of {@link DatabaseMetaData}.
- */
+/** Arrow Flight JDBC's implementation of {@link DatabaseMetaData}. */
 public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   private static final String JAVA_REGEX_SPECIALS = "[]()|^-+*?{}$\\.";
   private static final Charset CHARSET = StandardCharsets.UTF_8;
@@ -118,33 +114,33 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   static final int DECIMAL_DIGITS_TIME_MILLISECONDS = 3;
   static final int DECIMAL_DIGITS_TIME_MICROSECONDS = 6;
   static final int DECIMAL_DIGITS_TIME_NANOSECONDS = 9;
-  private static final Schema GET_COLUMNS_SCHEMA = new Schema(
-      Arrays.asList(
-          Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
-          Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
-          Field.notNullable("COLUMN_NAME", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("DATA_TYPE", Types.MinorType.INT.getType()),
-          Field.nullable("TYPE_NAME", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("COLUMN_SIZE", Types.MinorType.INT.getType()),
-          Field.nullable("BUFFER_LENGTH", Types.MinorType.INT.getType()),
-          Field.nullable("DECIMAL_DIGITS", Types.MinorType.INT.getType()),
-          Field.nullable("NUM_PREC_RADIX", Types.MinorType.INT.getType()),
-          Field.notNullable("NULLABLE", Types.MinorType.INT.getType()),
-          Field.nullable("REMARKS", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("COLUMN_DEF", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("SQL_DATA_TYPE", Types.MinorType.INT.getType()),
-          Field.nullable("SQL_DATETIME_SUB", Types.MinorType.INT.getType()),
-          Field.notNullable("CHAR_OCTET_LENGTH", Types.MinorType.INT.getType()),
-          Field.notNullable("ORDINAL_POSITION", Types.MinorType.INT.getType()),
-          Field.notNullable("IS_NULLABLE", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("SCOPE_CATALOG", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("SCOPE_SCHEMA", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("SCOPE_TABLE", Types.MinorType.VARCHAR.getType()),
-          Field.nullable("SOURCE_DATA_TYPE", Types.MinorType.SMALLINT.getType()),
-          Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
-          Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
-      ));
+  private static final Schema GET_COLUMNS_SCHEMA =
+      new Schema(
+          Arrays.asList(
+              Field.nullable("TABLE_CAT", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("TABLE_SCHEM", Types.MinorType.VARCHAR.getType()),
+              Field.notNullable("TABLE_NAME", Types.MinorType.VARCHAR.getType()),
+              Field.notNullable("COLUMN_NAME", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("DATA_TYPE", Types.MinorType.INT.getType()),
+              Field.nullable("TYPE_NAME", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("COLUMN_SIZE", Types.MinorType.INT.getType()),
+              Field.nullable("BUFFER_LENGTH", Types.MinorType.INT.getType()),
+              Field.nullable("DECIMAL_DIGITS", Types.MinorType.INT.getType()),
+              Field.nullable("NUM_PREC_RADIX", Types.MinorType.INT.getType()),
+              Field.notNullable("NULLABLE", Types.MinorType.INT.getType()),
+              Field.nullable("REMARKS", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("COLUMN_DEF", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("SQL_DATA_TYPE", Types.MinorType.INT.getType()),
+              Field.nullable("SQL_DATETIME_SUB", Types.MinorType.INT.getType()),
+              Field.notNullable("CHAR_OCTET_LENGTH", Types.MinorType.INT.getType()),
+              Field.notNullable("ORDINAL_POSITION", Types.MinorType.INT.getType()),
+              Field.notNullable("IS_NULLABLE", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("SCOPE_CATALOG", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("SCOPE_SCHEMA", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("SCOPE_TABLE", Types.MinorType.VARCHAR.getType()),
+              Field.nullable("SOURCE_DATA_TYPE", Types.MinorType.SMALLINT.getType()),
+              Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
+              Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())));
   private final AtomicBoolean isCachePopulated = new AtomicBoolean(false);
   private final Map<SqlInfo, Object> cachedSqlInfo = new EnumMap<>(SqlInfo.class);
   private static final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
@@ -160,12 +156,12 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     sqlTypesToFlightEnumConvertTypes.put(REAL, SqlSupportsConvert.SQL_CONVERT_REAL_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(DECIMAL, SqlSupportsConvert.SQL_CONVERT_DECIMAL_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(BINARY, SqlSupportsConvert.SQL_CONVERT_BINARY_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(LONGVARBINARY,
-        SqlSupportsConvert.SQL_CONVERT_LONGVARBINARY_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(
+        LONGVARBINARY, SqlSupportsConvert.SQL_CONVERT_LONGVARBINARY_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(CHAR, SqlSupportsConvert.SQL_CONVERT_CHAR_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(VARCHAR, SqlSupportsConvert.SQL_CONVERT_VARCHAR_VALUE);
-    sqlTypesToFlightEnumConvertTypes.put(LONGNVARCHAR,
-        SqlSupportsConvert.SQL_CONVERT_LONGVARCHAR_VALUE);
+    sqlTypesToFlightEnumConvertTypes.put(
+        LONGNVARCHAR, SqlSupportsConvert.SQL_CONVERT_LONGVARCHAR_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(DATE, SqlSupportsConvert.SQL_CONVERT_DATE_VALUE);
     sqlTypesToFlightEnumConvertTypes.put(TIMESTAMP, SqlSupportsConvert.SQL_CONVERT_TIMESTAMP_VALUE);
   }
@@ -266,20 +262,20 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsTableCorrelationNames() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTS_TABLE_CORRELATION_NAMES, Boolean.class);
   }
 
   @Override
   public boolean supportsDifferentTableCorrelationNames() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES, Boolean.class);
   }
 
   @Override
   public boolean supportsExpressionsInOrderBy() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTS_EXPRESSIONS_IN_ORDER_BY, Boolean.class);
   }
 
   @Override
@@ -296,8 +292,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsGroupByUnrelated() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GROUP_BY,
-        SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_GROUP_BY, SqlSupportedGroupBy.SQL_GROUP_BY_UNRELATED);
   }
 
   @Override
@@ -307,66 +303,75 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsNonNullableColumns() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTS_NON_NULLABLE_COLUMNS, Boolean.class);
   }
 
   @Override
   public boolean supportsMinimumSQLGrammar() throws SQLException {
     return checkEnumLevel(
-        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_CORE_GRAMMAR),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)));
+        Arrays.asList(
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_CORE_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_MINIMUM_GRAMMAR)));
   }
 
   @Override
   public boolean supportsCoreSQLGrammar() throws SQLException {
     return checkEnumLevel(
-        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-                SupportedSqlGrammar.SQL_CORE_GRAMMAR)));
+        Arrays.asList(
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR),
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_CORE_GRAMMAR)));
   }
 
   @Override
   public boolean supportsExtendedSQLGrammar() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_GRAMMAR,
-        SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_GRAMMAR, SupportedSqlGrammar.SQL_EXTENDED_GRAMMAR);
   }
 
   @Override
   public boolean supportsANSI92EntryLevelSQL() throws SQLException {
     return checkEnumLevel(
-        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+        Arrays.asList(
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL)));
   }
 
   @Override
   public boolean supportsANSI92IntermediateSQL() throws SQLException {
     return checkEnumLevel(
-        Arrays.asList(getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+        Arrays.asList(
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_ENTRY_SQL),
-            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
+            getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+                SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
                 SupportedAnsi92SqlGrammarLevel.ANSI92_INTERMEDIATE_SQL)));
   }
 
   @Override
   public boolean supportsANSI92FullSQL() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL,
-        SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL, SupportedAnsi92SqlGrammarLevel.ANSI92_FULL_SQL);
   }
 
   @Override
   public boolean supportsIntegrityEnhancementFacility() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY, Boolean.class);
   }
 
   @Override
@@ -378,14 +383,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsFullOuterJoins() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-        SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, SqlOuterJoinsSupportLevel.SQL_FULL_OUTER_JOINS);
   }
 
   @Override
   public boolean supportsLimitedOuterJoins() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL,
-        SqlOuterJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_OUTER_JOINS_SUPPORT_LEVEL, SqlOuterJoinsSupportLevel.SQL_LIMITED_OUTER_JOINS);
   }
 
   @Override
@@ -410,43 +415,50 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsSchemasInProcedureCalls() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
         SqlSupportedElementActions.SQL_ELEMENT_IN_PROCEDURE_CALLS);
   }
 
   @Override
   public boolean supportsSchemasInIndexDefinitions() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
         SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS);
   }
 
   @Override
   public boolean supportsSchemasInPrivilegeDefinitions() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SCHEMAS_SUPPORTED_ACTIONS,
         SqlSupportedElementActions.SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS);
   }
 
   @Override
   public boolean supportsCatalogsInIndexDefinitions() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
         SqlSupportedElementActions.SQL_ELEMENT_IN_INDEX_DEFINITIONS);
   }
 
   @Override
   public boolean supportsCatalogsInPrivilegeDefinitions() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS,
         SqlSupportedElementActions.SQL_ELEMENT_IN_PRIVILEGE_DEFINITIONS);
   }
 
   @Override
   public boolean supportsPositionedDelete() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
         SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE);
   }
 
   @Override
   public boolean supportsPositionedUpdate() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS,
         SqlSupportedPositionedCommands.SQL_POSITIONED_UPDATE);
   }
 
@@ -457,14 +469,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     switch (type) {
       case ResultSet.TYPE_FORWARD_ONLY:
-        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_FORWARD_ONLY, bitmask);
       case ResultSet.TYPE_SCROLL_INSENSITIVE:
-        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_INSENSITIVE, bitmask);
       case ResultSet.TYPE_SCROLL_SENSITIVE:
-        return doesBitmaskTranslateToEnum(SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlSupportedResultSetType.SQL_RESULT_SET_TYPE_SCROLL_SENSITIVE, bitmask);
       default:
         throw new SQLException(
             "Invalid result set type argument. The informed type is not defined in java.sql.ResultSet.");
@@ -483,32 +495,32 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsSubqueriesInComparisons() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_SUBQUERIES, SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS);
   }
 
   @Override
   public boolean supportsSubqueriesInExists() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_EXISTS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_SUBQUERIES, SqlSupportedSubqueries.SQL_SUBQUERIES_IN_EXISTS);
   }
 
   @Override
   public boolean supportsSubqueriesInIns() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_INS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_SUBQUERIES, SqlSupportedSubqueries.SQL_SUBQUERIES_IN_INS);
   }
 
   @Override
   public boolean supportsSubqueriesInQuantifieds() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_SUBQUERIES,
-        SqlSupportedSubqueries.SQL_SUBQUERIES_IN_QUANTIFIEDS);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_SUBQUERIES, SqlSupportedSubqueries.SQL_SUBQUERIES_IN_QUANTIFIEDS);
   }
 
   @Override
   public boolean supportsCorrelatedSubqueries() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_CORRELATED_SUBQUERIES_SUPPORTED, Boolean.class);
   }
 
   @Override
@@ -520,56 +532,56 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean supportsUnionAll() throws SQLException {
-    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_UNIONS,
-        SqlSupportedUnions.SQL_UNION_ALL);
+    return getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_SUPPORTED_UNIONS, SqlSupportedUnions.SQL_UNION_ALL);
   }
 
   @Override
   public int getMaxBinaryLiteralLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_BINARY_LITERAL_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxCharLiteralLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CHAR_LITERAL_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMN_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnsInGroupBy() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_GROUP_BY, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnsInIndex() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_INDEX,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_INDEX, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnsInOrderBy() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_ORDER_BY, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnsInSelect() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxColumnsInTable() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE, Long.class)
+        .intValue();
   }
 
   @Override
@@ -579,8 +591,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxCursorNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CURSOR_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
@@ -590,20 +602,20 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxSchemaNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DB_SCHEMA_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxProcedureNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_PROCEDURE_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxCatalogNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_CATALOG_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
@@ -618,8 +630,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxStatementLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_STATEMENT_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_STATEMENT_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
@@ -629,14 +641,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getMaxTableNameLength() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLE_NAME_LENGTH,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLE_NAME_LENGTH, Long.class)
+        .intValue();
   }
 
   @Override
   public int getMaxTablesInSelect() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLES_IN_SELECT,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_MAX_TABLES_IN_SELECT, Long.class)
+        .intValue();
   }
 
   @Override
@@ -646,8 +658,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public int getDefaultTransactionIsolation() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION,
-        Long.class).intValue();
+    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DEFAULT_TRANSACTION_ISOLATION, Long.class)
+        .intValue();
   }
 
   @Override
@@ -658,24 +670,25 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   @Override
   public boolean supportsTransactionIsolationLevel(final int level) throws SQLException {
     final int bitmask =
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS,
-            Integer.class);
+        getSqlInfoAndCacheIfCacheIsEmpty(
+            SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS, Integer.class);
 
     switch (level) {
       case Connection.TRANSACTION_NONE:
-        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_NONE, bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.SQL_TRANSACTION_NONE, bitmask);
       case Connection.TRANSACTION_READ_COMMITTED:
-        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_COMMITTED, bitmask);
       case Connection.TRANSACTION_READ_UNCOMMITTED:
-        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_UNCOMMITTED,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.SQL_TRANSACTION_READ_UNCOMMITTED, bitmask);
       case Connection.TRANSACTION_REPEATABLE_READ:
-        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_REPEATABLE_READ,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.SQL_TRANSACTION_REPEATABLE_READ, bitmask);
       case Connection.TRANSACTION_SERIALIZABLE:
-        return doesBitmaskTranslateToEnum(SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE,
-            bitmask);
+        return doesBitmaskTranslateToEnum(
+            SqlTransactionIsolationLevel.SQL_TRANSACTION_SERIALIZABLE, bitmask);
       default:
         throw new SQLException(
             "Invalid transaction isolation level argument. The informed level is not defined in java.sql.Connection.");
@@ -684,14 +697,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   @Override
   public boolean dataDefinitionCausesTransactionCommit() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT, Boolean.class);
   }
 
   @Override
   public boolean dataDefinitionIgnoredInTransactions() throws SQLException {
-    return getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED,
-        Boolean.class);
+    return getSqlInfoAndCacheIfCacheIsEmpty(
+        SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED, Boolean.class);
   }
 
   @Override
@@ -725,24 +738,25 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return (ArrowFlightConnection) super.getConnection();
   }
 
-  private <T> T getSqlInfoAndCacheIfCacheIsEmpty(final SqlInfo sqlInfoCommand,
-                                                 final Class<T> desiredType)
-      throws SQLException {
+  private <T> T getSqlInfoAndCacheIfCacheIsEmpty(
+      final SqlInfo sqlInfoCommand, final Class<T> desiredType) throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     if (!isCachePopulated.get()) {
       // Lock-and-populate the cache. Only issue the call to getSqlInfo() once,
       // populate the cache, then mark it as populated.
-      // Note that multiple callers from separate threads can see that the cache is not populated, but only
-      // one thread will try to populate the cache. Other threads will see the cache is non-empty when acquiring
+      // Note that multiple callers from separate threads can see that the cache is not populated,
+      // but only
+      // one thread will try to populate the cache. Other threads will see the cache is non-empty
+      // when acquiring
       // the lock on the cache and skip population.
       synchronized (cachedSqlInfo) {
         if (cachedSqlInfo.isEmpty()) {
           final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
           try (final ResultSet resultSet =
-                   ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
-                       connection, sqlInfo, null)) {
+              ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, sqlInfo, null)) {
             while (resultSet.next()) {
-              cachedSqlInfo.put(SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
+              cachedSqlInfo.put(
+                  SqlInfo.forNumber((Integer) resultSet.getObject("info_name")),
                   resultSet.getObject("value"));
             }
           }
@@ -758,9 +772,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   private boolean getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
-      final SqlInfo sqlInfoCommand,
-      final ProtocolMessageEnum enumInstance
-  ) throws SQLException {
+      final SqlInfo sqlInfoCommand, final ProtocolMessageEnum enumInstance) throws SQLException {
     final int bitmask = getSqlInfoAndCacheIfCacheIsEmpty(sqlInfoCommand, Integer.class);
     return doesBitmaskTranslateToEnum(enumInstance, bitmask);
   }
@@ -779,8 +791,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         new VectorSchemaRootTransformer.Builder(Schemas.GET_CATALOGS_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
             .build();
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoCatalogs,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoCatalogs, transformer);
   }
 
   @Override
@@ -792,8 +804,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoImportedKeys,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoImportedKeys, transformer);
   }
 
   @Override
@@ -805,33 +817,43 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoExportedKeys,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoExportedKeys, transformer);
   }
 
   @Override
-  public ResultSet getCrossReference(final String parentCatalog, final String parentSchema,
-                                     final String parentTable,
-                                     final String foreignCatalog, final String foreignSchema,
-                                     final String foreignTable)
+  public ResultSet getCrossReference(
+      final String parentCatalog,
+      final String parentSchema,
+      final String parentTable,
+      final String foreignCatalog,
+      final String foreignSchema,
+      final String foreignTable)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
-    final FlightInfo flightInfoCrossReference = connection.getClientHandler().getCrossReference(
-        parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+    final FlightInfo flightInfoCrossReference =
+        connection
+            .getClientHandler()
+            .getCrossReference(
+                parentCatalog,
+                parentSchema,
+                parentTable,
+                foreignCatalog,
+                foreignSchema,
+                foreignTable);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer = getForeignKeysTransformer(allocator);
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoCrossReference,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoCrossReference, transformer);
   }
 
   /**
-   * Transformer used on getImportedKeys, getExportedKeys and getCrossReference methods, since
-   * all three share the same schema.
+   * Transformer used on getImportedKeys, getExportedKeys and getCrossReference methods, since all
+   * three share the same schema.
    */
   private VectorSchemaRootTransformer getForeignKeysTransformer(final BufferAllocator allocator) {
-    return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_KEYS_SCHEMA,
-        allocator)
+    return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_KEYS_SCHEMA, allocator)
         .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
         .renameFieldVector("pk_db_schema_name", "PKTABLE_SCHEM")
         .renameFieldVector("pk_table_name", "PKTABLE_NAME")
@@ -862,8 +884,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
             .renameFieldVector("db_schema_name", "TABLE_SCHEM")
             .renameFieldVector("catalog_name", "TABLE_CATALOG")
             .build();
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoSchemas,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoSchemas, transformer);
   }
 
   @Override
@@ -876,19 +898,22 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)
             .renameFieldVector("table_type", "TABLE_TYPE")
             .build();
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTableTypes,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoTableTypes, transformer);
   }
 
   @Override
-  public ResultSet getTables(final String catalog, final String schemaPattern,
-                             final String tableNamePattern,
-                             final String[] types)
+  public ResultSet getTables(
+      final String catalog,
+      final String schemaPattern,
+      final String tableNamePattern,
+      final String[] types)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final List<String> typesList = types == null ? null : Arrays.asList(types);
     final FlightInfo flightInfoTables =
-        connection.getClientHandler()
+        connection
+            .getClientHandler()
             .getTables(catalog, schemaPattern, tableNamePattern, typesList, false);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -905,8 +930,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
             .addEmptyField("SELF_REFERENCING_COL_NAME", Types.MinorType.VARBINARY)
             .addEmptyField("REF_GENERATION", Types.MinorType.VARBINARY)
             .build();
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTables,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoTables, transformer);
   }
 
   @Override
@@ -926,18 +951,21 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
             .renameFieldVector("key_sequence", "KEY_SEQ")
             .renameFieldVector("key_name", "PK_NAME")
             .build();
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoPrimaryKeys,
-        transformer);
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection, flightInfoPrimaryKeys, transformer);
   }
 
   @Override
-  public ResultSet getColumns(final String catalog, final String schemaPattern,
-                              final String tableNamePattern,
-                              final String columnNamePattern)
+  public ResultSet getColumns(
+      final String catalog,
+      final String schemaPattern,
+      final String tableNamePattern,
+      final String columnNamePattern)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
     final FlightInfo flightInfoTables =
-        connection.getClientHandler()
+        connection
+            .getClientHandler()
             .getTables(catalog, schemaPattern, tableNamePattern, null, true);
 
     final BufferAllocator allocator = connection.getBufferAllocator();
@@ -945,7 +973,9 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final Pattern columnNamePat =
         columnNamePattern != null ? Pattern.compile(sqlToRegexLike(columnNamePattern)) : null;
 
-    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoTables,
+    return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
+        connection,
+        flightInfoTables,
         (originalRoot, transformedRoot) -> {
           int columnCounter = 0;
           if (transformedRoot == null) {
@@ -971,18 +1001,25 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
             final Schema currentSchema;
             try {
-              currentSchema = MessageSerializer.deserializeSchema(
-                  new ReadChannel(Channels.newChannel(
-                      new ByteArrayInputStream(schemaVector.get(i)))));
+              currentSchema =
+                  MessageSerializer.deserializeSchema(
+                      new ReadChannel(
+                          Channels.newChannel(new ByteArrayInputStream(schemaVector.get(i)))));
             } catch (final IOException e) {
               throw new IOException(
                   String.format("Failed to deserialize schema for table %s", tableName), e);
             }
             final List<Field> tableColumns = currentSchema.getFields();
 
-            columnCounter = setGetColumnsVectorSchemaRootFromFields(transformedRoot, columnCounter,
-                tableColumns,
-                catalogName, tableName, schemaName, columnNamePat);
+            columnCounter =
+                setGetColumnsVectorSchemaRootFromFields(
+                    transformedRoot,
+                    columnCounter,
+                    tableColumns,
+                    catalogName,
+                    tableName,
+                    schemaName,
+                    columnNamePat);
           }
 
           transformedRoot.setRowCount(columnCounter);
@@ -992,12 +1029,14 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
         });
   }
 
-  private int setGetColumnsVectorSchemaRootFromFields(final VectorSchemaRoot currentRoot,
-                                                      int insertIndex,
-                                                      final List<Field> tableColumns,
-                                                      final Text catalogName,
-                                                      final Text tableName, final Text schemaName,
-                                                      final Pattern columnNamePattern) {
+  private int setGetColumnsVectorSchemaRootFromFields(
+      final VectorSchemaRoot currentRoot,
+      int insertIndex,
+      final List<Field> tableColumns,
+      final Text catalogName,
+      final Text tableName,
+      final Text schemaName,
+      final Pattern columnNamePattern) {
     int ordinalIndex = 1;
     final int tableColumnsSize = tableColumns.size();
 
@@ -1013,12 +1052,15 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final IntVector nullableVector = (IntVector) currentRoot.getVector("NULLABLE");
     final IntVector ordinalPositionVector = (IntVector) currentRoot.getVector("ORDINAL_POSITION");
     final VarCharVector isNullableVector = (VarCharVector) currentRoot.getVector("IS_NULLABLE");
-    final VarCharVector isAutoincrementVector = (VarCharVector) currentRoot.getVector("IS_AUTOINCREMENT");
-    final VarCharVector isGeneratedColumnVector = (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
+    final VarCharVector isAutoincrementVector =
+        (VarCharVector) currentRoot.getVector("IS_AUTOINCREMENT");
+    final VarCharVector isGeneratedColumnVector =
+        (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
 
     for (int i = 0; i < tableColumnsSize; i++, ordinalIndex++) {
       final Field field = tableColumns.get(i);
-      final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(field.getMetadata());
+      final FlightSqlColumnMetadata columnMetadata =
+          new FlightSqlColumnMetadata(field.getMetadata());
       final String columnName = field.getName();
 
       if (columnNamePattern != null && !columnNamePattern.matcher(columnName).matches()) {
@@ -1043,13 +1085,15 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
       }
 
       dataTypeVector.setSafe(insertIndex, SqlTypes.getSqlTypeIdFromArrowType(fieldType));
-      byte[] typeName = columnMetadata.getTypeName() != null ?
-          columnMetadata.getTypeName().getBytes(CHARSET) :
-          SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET);
+      byte[] typeName =
+          columnMetadata.getTypeName() != null
+              ? columnMetadata.getTypeName().getBytes(CHARSET)
+              : SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET);
       typeNameVector.setSafe(insertIndex, typeName);
 
       // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-      // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+      // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and
+      // scale are variable.
       if (fieldType instanceof ArrowType.Decimal) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       } else if (fieldType instanceof ArrowType.Int) {
@@ -1142,7 +1186,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
 
   static Integer getColumnSize(final ArrowType fieldType) {
     // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-    // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and
+    // scale are variable.
     if (fieldType instanceof ArrowType.Decimal) {
       final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
       return thisDecimal.getPrecision();

@@ -19,15 +19,12 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import java.math.BigDecimal;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 
-/**
- * Accessor for the arrow {@link BitVector}.
- */
+/** Accessor for the arrow {@link BitVector}. */
 public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BitVector vector;
@@ -37,12 +34,14 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
   /**
    * Constructor for the BitVectorAccessor.
    *
-   * @param vector             an instance of a {@link BitVector}.
+   * @param vector an instance of a {@link BitVector}.
    * @param currentRowSupplier a supplier to check which row is being accessed.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcBitVectorAccessor(BitVector vector, IntSupplier currentRowSupplier,
-                                          ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcBitVectorAccessor(
+      BitVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
     this.holder = new NullableBitHolder();

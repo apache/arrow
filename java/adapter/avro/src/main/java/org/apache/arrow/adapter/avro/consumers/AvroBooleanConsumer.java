@@ -18,19 +18,16 @@
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.BitVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume boolean type values from avro decoder.
- * Write the data to {@link BitVector}.
+ * Consumer which consume boolean type values from avro decoder. Write the data to {@link
+ * BitVector}.
  */
 public class AvroBooleanConsumer extends BaseAvroConsumer<BitVector> {
 
-  /**
-   * Instantiate a AvroBooleanConsumer.
-   */
+  /** Instantiate a AvroBooleanConsumer. */
   public AvroBooleanConsumer(BitVector vector) {
     super(vector);
   }

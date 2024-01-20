@@ -21,6 +21,7 @@ import org.apache.arrow.vector.FieldVector;
 
 /**
  * Base class for ColumnBinder implementations.
+ *
  * @param <V> The concrete FieldVector subtype.
  */
 public abstract class BaseColumnBinder<V extends FieldVector> implements ColumnBinder {

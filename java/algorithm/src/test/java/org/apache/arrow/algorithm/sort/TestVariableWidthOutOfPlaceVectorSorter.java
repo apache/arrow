@@ -29,9 +29,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link VariableWidthOutOfPlaceVectorSorter}.
- */
+/** Test cases for {@link VariableWidthOutOfPlaceVectorSorter}. */
 public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
@@ -41,9 +39,10 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
   }
 
   <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
-    return generalSorter ? new GeneralOutOfPlaceVectorSorter<>() : new VariableWidthOutOfPlaceVectorSorter<V>();
+    return generalSorter
+        ? new GeneralOutOfPlaceVectorSorter<>()
+        : new VariableWidthOutOfPlaceVectorSorter<V>();
   }
-
 
   @Before
   public void prepare() {
@@ -76,10 +75,10 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       // sort the vector
       OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
       VectorValueComparator<BaseVariableWidthVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vec);
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       VarCharVector sortedVec =
-              (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+          (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getByteCapacity(), vec.getValueCount());
       sortedVec.setLastSet(vec.getValueCount() - 1);
       sortedVec.setValueCount(vec.getValueCount());

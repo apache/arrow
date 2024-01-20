@@ -37,7 +37,6 @@ import java.sql.Struct;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcPooledConnection;
 
 /**
@@ -162,15 +161,15 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public PreparedStatement prepareStatement(final String sqlQuery, final int resultSetTypeId,
-                                            final int resultSetConcurrencyId)
+  public PreparedStatement prepareStatement(
+      final String sqlQuery, final int resultSetTypeId, final int resultSetConcurrencyId)
       throws SQLException {
     return realConnection.prepareStatement(sqlQuery, resultSetTypeId, resultSetConcurrencyId);
   }
 
   @Override
-  public CallableStatement prepareCall(final String query, final int resultSetTypeId,
-                                       final int resultSetConcurrencyId)
+  public CallableStatement prepareCall(
+      final String query, final int resultSetTypeId, final int resultSetConcurrencyId)
       throws SQLException {
     return realConnection.prepareCall(query, resultSetTypeId, resultSetConcurrencyId);
   }
@@ -216,29 +215,33 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public Statement createStatement(final int resultSetType,
-                                   final int resultSetConcurrency,
-                                   final int resultSetHoldability) throws SQLException {
-    return realConnection.createStatement(resultSetType, resultSetConcurrency,
-        resultSetHoldability);
+  public Statement createStatement(
+      final int resultSetType, final int resultSetConcurrency, final int resultSetHoldability)
+      throws SQLException {
+    return realConnection.createStatement(
+        resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override
-  public PreparedStatement prepareStatement(final String sqlQuery,
-                                            final int resultSetType,
-                                            final int resultSetConcurrency,
-                                            final int resultSetHoldability) throws SQLException {
-    return realConnection.prepareStatement(sqlQuery, resultSetType, resultSetConcurrency,
-        resultSetHoldability);
+  public PreparedStatement prepareStatement(
+      final String sqlQuery,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability)
+      throws SQLException {
+    return realConnection.prepareStatement(
+        sqlQuery, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override
-  public CallableStatement prepareCall(final String sqlQuery,
-                                       final int resultSetType,
-                                       final int resultSetConcurrency,
-                                       final int resultSetHoldability) throws SQLException {
-    return realConnection.prepareCall(sqlQuery, resultSetType, resultSetConcurrency,
-        resultSetHoldability);
+  public CallableStatement prepareCall(
+      final String sqlQuery,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability)
+      throws SQLException {
+    return realConnection.prepareCall(
+        sqlQuery, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
   @Override

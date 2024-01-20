@@ -17,16 +17,13 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-
 import org.apache.arrow.vector.complex.AbstractContainerVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 
-/**
- * An implementation of {@link AbstractFieldReader} for lists vectors.
- */
+/** An implementation of {@link AbstractFieldReader} for lists vectors. */
 @SuppressWarnings("unused")
 public class SingleListReaderImpl extends AbstractFieldReader {
 
@@ -80,12 +77,13 @@ public class SingleListReaderImpl extends AbstractFieldReader {
 
   @Override
   public void copyAsValue(ListWriter writer) {
-    throw new UnsupportedOperationException("Generic list copying not yet supported.  Please resolve to typed list.");
+    throw new UnsupportedOperationException(
+        "Generic list copying not yet supported.  Please resolve to typed list.");
   }
 
   @Override
   public void copyAsField(String name, StructWriter writer) {
-    throw new UnsupportedOperationException("Generic list copying not yet supported.  Please resolve to typed list.");
+    throw new UnsupportedOperationException(
+        "Generic list copying not yet supported.  Please resolve to typed list.");
   }
-
 }

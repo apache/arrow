@@ -20,7 +20,6 @@ package org.apache.arrow.flight.sql.example;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Objects;
-
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
 

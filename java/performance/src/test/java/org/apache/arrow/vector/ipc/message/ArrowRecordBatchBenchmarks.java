@@ -20,7 +20,6 @@ package org.apache.arrow.vector.ipc.message;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -37,9 +36,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link ArrowRecordBatch}.
- */
+/** Benchmarks for {@link ArrowRecordBatch}. */
 @State(Scope.Benchmark)
 public class ArrowRecordBatchBenchmarks {
 
@@ -55,9 +52,7 @@ public class ArrowRecordBatchBenchmarks {
 
   private List<ArrowFieldNode> nodes;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -69,9 +64,7 @@ public class ArrowRecordBatchBenchmarks {
     nodes.add(new ArrowFieldNode(VECTOR_LENGTH, 0));
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     vector.close();
@@ -82,13 +75,15 @@ public class ArrowRecordBatchBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public long createAndGetLength() {
-    try (ArrowRecordBatch batch = new ArrowRecordBatch(VECTOR_LENGTH, nodes, vector.getFieldBuffers())) {
+    try (ArrowRecordBatch batch =
+        new ArrowRecordBatch(VECTOR_LENGTH, nodes, vector.getFieldBuffers())) {
       return batch.computeBodyLength();
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
             .include(ArrowRecordBatchBenchmarks.class.getSimpleName())
             .forks(1)
             .build();

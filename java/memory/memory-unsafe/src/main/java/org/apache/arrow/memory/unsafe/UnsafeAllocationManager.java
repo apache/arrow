@@ -23,28 +23,24 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.MemoryUtil;
 
-/**
- * Allocation manager based on unsafe API.
- */
+/** Allocation manager based on unsafe API. */
 public final class UnsafeAllocationManager extends AllocationManager {
 
-  private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
-      null,
-      0,
-      MemoryUtil.UNSAFE.allocateMemory(0)
-  );
+  private static final ArrowBuf EMPTY =
+      new ArrowBuf(ReferenceManager.NO_OP, null, 0, MemoryUtil.UNSAFE.allocateMemory(0));
 
-  public static final AllocationManager.Factory FACTORY = new Factory() {
-    @Override
-    public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-      return new UnsafeAllocationManager(accountingAllocator, size);
-    }
+  public static final AllocationManager.Factory FACTORY =
+      new Factory() {
+        @Override
+        public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+          return new UnsafeAllocationManager(accountingAllocator, size);
+        }
 
-    @Override
-    public ArrowBuf empty() {
-      return EMPTY;
-    }
-  };
+        @Override
+        public ArrowBuf empty() {
+          return EMPTY;
+        }
+      };
 
   private final long allocatedSize;
 
@@ -70,5 +66,4 @@ public final class UnsafeAllocationManager extends AllocationManager {
   protected void release0() {
     MemoryUtil.UNSAFE.freeMemory(allocatedAddress);
   }
-
 }

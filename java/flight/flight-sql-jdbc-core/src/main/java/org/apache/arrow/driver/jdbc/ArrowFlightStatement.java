@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
-
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
@@ -27,14 +26,15 @@ import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.StatementHandle;
 
-/**
- * A SQL statement for querying data from an Arrow Flight server.
- */
+/** A SQL statement for querying data from an Arrow Flight server. */
 public class ArrowFlightStatement extends AvaticaStatement implements ArrowFlightInfoStatement {
 
-  ArrowFlightStatement(final ArrowFlightConnection connection,
-                       final StatementHandle handle, final int resultSetType,
-                       final int resultSetConcurrency, final int resultSetHoldability) {
+  ArrowFlightStatement(
+      final ArrowFlightConnection connection,
+      final StatementHandle handle,
+      final int resultSetType,
+      final int resultSetConcurrency,
+      final int resultSetHoldability) {
     super(connection, handle, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
@@ -45,14 +45,16 @@ public class ArrowFlightStatement extends AvaticaStatement implements ArrowFligh
 
   @Override
   public FlightInfo executeFlightInfoQuery() throws SQLException {
-    final PreparedStatement preparedStatement = getConnection().getMeta().getPreparedStatement(handle);
+    final PreparedStatement preparedStatement =
+        getConnection().getMeta().getPreparedStatement(handle);
     final Meta.Signature signature = getSignature();
     if (signature == null) {
       return null;
     }
 
     final Schema resultSetSchema = preparedStatement.getDataSetSchema();
-    signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+    signature.columns.addAll(
+        ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
     setSignature(signature);
 
     return preparedStatement.executeQuery();

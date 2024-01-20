@@ -18,7 +18,6 @@
 package org.apache.arrow.vector.complex.writer;
 
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.LargeVarBinaryVector;
@@ -52,8 +51,8 @@ public class TestSimpleWriter {
   @Test
   public void testWriteByteArrayToVarBinary() throws Exception {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
-         VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       writer.writeVarBinary(input);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
@@ -63,19 +62,19 @@ public class TestSimpleWriter {
   @Test
   public void testWriteByteArrayWithOffsetToVarBinary() throws Exception {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
-         VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       writer.writeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      Assert.assertArrayEquals(new byte[] {0x02}, result);
     }
   }
 
   @Test
   public void testWriteByteBufferToVarBinary() throws Exception {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
-         VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeVarBinary(buffer);
       byte[] result = vector.get(0);
@@ -86,20 +85,20 @@ public class TestSimpleWriter {
   @Test
   public void testWriteByteBufferWithOffsetToVarBinary() throws Exception {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
-         VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      Assert.assertArrayEquals(new byte[] {0x02}, result);
     }
   }
 
   @Test
   public void testWriteByteArrayToLargeVarBinary() throws Exception {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
-         LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       writer.writeLargeVarBinary(input);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
@@ -109,19 +108,19 @@ public class TestSimpleWriter {
   @Test
   public void testWriteByteArrayWithOffsetToLargeVarBinary() throws Exception {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
-         LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       writer.writeLargeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      Assert.assertArrayEquals(new byte[] {0x02}, result);
     }
   }
 
   @Test
   public void testWriteByteBufferToLargeVarBinary() throws Exception {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
-         LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeLargeVarBinary(buffer);
       byte[] result = vector.get(0);
@@ -132,19 +131,19 @@ public class TestSimpleWriter {
   @Test
   public void testWriteByteBufferWithOffsetToLargeVarBinary() throws Exception {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
-         LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
-      byte[] input = new byte[] { 0x01, 0x02 };
+        LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
+      byte[] input = new byte[] {0x01, 0x02};
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeLargeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      Assert.assertArrayEquals(new byte[] {0x02}, result);
     }
   }
 
   @Test
   public void testWriteStringToVarChar() throws Exception {
     try (VarCharVector vector = new VarCharVector("test", allocator);
-         VarCharWriter writer = new VarCharWriterImpl(vector)) {
+        VarCharWriter writer = new VarCharWriterImpl(vector)) {
       String input = "testInput";
       writer.writeVarChar(input);
       String result = vector.getObject(0).toString();
@@ -155,7 +154,7 @@ public class TestSimpleWriter {
   @Test
   public void testWriteTextToVarChar() throws Exception {
     try (VarCharVector vector = new VarCharVector("test", allocator);
-         VarCharWriter writer = new VarCharWriterImpl(vector)) {
+        VarCharWriter writer = new VarCharWriterImpl(vector)) {
       String input = "testInput";
       writer.writeVarChar(new Text(input));
       String result = vector.getObject(0).toString();
@@ -166,7 +165,7 @@ public class TestSimpleWriter {
   @Test
   public void testWriteStringToLargeVarChar() throws Exception {
     try (LargeVarCharVector vector = new LargeVarCharVector("test", allocator);
-         LargeVarCharWriter writer = new LargeVarCharWriterImpl(vector)) {
+        LargeVarCharWriter writer = new LargeVarCharWriterImpl(vector)) {
       String input = "testInput";
       writer.writeLargeVarChar(input);
       String result = vector.getObject(0).toString();
@@ -177,7 +176,7 @@ public class TestSimpleWriter {
   @Test
   public void testWriteTextToLargeVarChar() throws Exception {
     try (LargeVarCharVector vector = new LargeVarCharVector("test", allocator);
-         LargeVarCharWriter writer = new LargeVarCharWriterImpl(vector)) {
+        LargeVarCharWriter writer = new LargeVarCharWriterImpl(vector)) {
       String input = "testInput";
       writer.writeLargeVarChar(new Text(input));
       String result = vector.getObject(0).toString();

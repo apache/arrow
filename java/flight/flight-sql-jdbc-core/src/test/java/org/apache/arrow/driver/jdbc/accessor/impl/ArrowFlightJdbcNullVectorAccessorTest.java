@@ -23,8 +23,7 @@ import org.junit.Test;
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
   ArrowFlightJdbcNullVectorAccessor accessor =
-      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
-      });
+      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {});
 
   @Test
   public void testShouldWasNullReturnTrue() {

@@ -17,14 +17,13 @@
 
 package org.apache.arrow.vector.util;
 
-import java.util.LinkedHashMap;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.LinkedHashMap;
 
 /**
- * Simple class that extends the regular java.util.HashMap but overrides the
- * toString() method of the HashMap class to produce a JSON string instead
+ * Simple class that extends the regular java.util.HashMap but overrides the toString() method of
+ * the HashMap class to produce a JSON string instead
  *
  * @param <K> The type of the key for the map.
  * @param <V> The type of the value for the map.

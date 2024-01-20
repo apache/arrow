@@ -45,9 +45,10 @@ public class TestVarCharListVector {
   @Test
   public void testVarCharListWithNulls() {
     byte[] bytes = "a".getBytes();
-    try (ListVector vector = new ListVector("VarList", allocator, FieldType.nullable(Types
-            .MinorType.VARCHAR.getType()), null);
-         ArrowBuf tempBuf = allocator.buffer(bytes.length)) {
+    try (ListVector vector =
+            new ListVector(
+                "VarList", allocator, FieldType.nullable(Types.MinorType.VARCHAR.getType()), null);
+        ArrowBuf tempBuf = allocator.buffer(bytes.length)) {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 

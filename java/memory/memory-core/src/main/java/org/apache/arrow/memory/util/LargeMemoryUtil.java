@@ -24,10 +24,7 @@ public final class LargeMemoryUtil {
 
   private LargeMemoryUtil() {}
 
-  /**
-   * Casts length to an int, but raises an exception the value is outside
-   * the range of an int.
-   */
+  /** Casts length to an int, but raises an exception the value is outside the range of an int. */
   public static int checkedCastToInt(long length) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       return Math.toIntExact(length);
@@ -35,9 +32,7 @@ public final class LargeMemoryUtil {
     return (int) length;
   }
 
-  /**
-   * Returns a min(Integer.MAX_VALUE, length).
-   */
+  /** Returns a min(Integer.MAX_VALUE, length). */
   public static int capAtMaxInt(long length) {
     return (int) Math.min(length, Integer.MAX_VALUE);
   }

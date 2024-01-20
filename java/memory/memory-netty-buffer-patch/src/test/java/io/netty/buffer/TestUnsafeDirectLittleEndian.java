@@ -17,7 +17,6 @@
 
 package io.netty.buffer;
 
-
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
@@ -25,13 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-
 import org.junit.Test;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.LargeBuffer;
-import io.netty.buffer.Unpooled;
-import io.netty.buffer.UnsafeDirectLittleEndian;
 
 public class TestUnsafeDirectLittleEndian {
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
@@ -71,7 +64,7 @@ public class TestUnsafeDirectLittleEndian {
 
     byte[] inBytes = "1234567".getBytes(StandardCharsets.UTF_8);
     try (ByteArrayInputStream bais = new ByteArrayInputStream(inBytes);
-         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       assertEquals(5, unsafeDirect.setBytes(56, bais, 5));
       unsafeDirect.getBytes(56, baos, 5);
       assertEquals("12345", new String(baos.toByteArray(), StandardCharsets.UTF_8));

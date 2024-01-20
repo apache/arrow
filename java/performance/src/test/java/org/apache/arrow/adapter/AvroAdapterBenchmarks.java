@@ -20,7 +20,6 @@ package org.apache.arrow.adapter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.adapter.avro.AvroToArrow;
 import org.apache.arrow.adapter.avro.AvroToArrowConfig;
 import org.apache.arrow.adapter.avro.AvroToArrowConfigBuilder;
@@ -52,9 +51,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for avro adapter.
- */
+/** Benchmarks for avro adapter. */
 @State(Scope.Benchmark)
 public class AvroAdapterBenchmarks {
 
@@ -65,21 +62,25 @@ public class AvroAdapterBenchmarks {
   private Schema schema;
   private BinaryDecoder decoder;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() throws Exception {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
 
-    String schemaStr = "{\n" + " \"namespace\": \"org.apache.arrow.avro\",\n" +
-         " \"type\": \"record\",\n" + " \"name\": \"testBenchmark\",\n" + " \"fields\": [\n" +
-         "    {\"name\": \"f0\", \"type\": \"string\"},\n" +
-         "    {\"name\": \"f1\", \"type\": \"int\"},\n" +
-         "    {\"name\": \"f2\", \"type\": \"long\"},\n" +
-         "    {\"name\": \"f3\", \"type\": \"boolean\"},\n" +
-         "    {\"name\": \"f4\", \"type\": \"float\"}\n" + "  ]\n" + "}";
+    String schemaStr =
+        "{\n"
+            + " \"namespace\": \"org.apache.arrow.avro\",\n"
+            + " \"type\": \"record\",\n"
+            + " \"name\": \"testBenchmark\",\n"
+            + " \"fields\": [\n"
+            + "    {\"name\": \"f0\", \"type\": \"string\"},\n"
+            + "    {\"name\": \"f1\", \"type\": \"int\"},\n"
+            + "    {\"name\": \"f2\", \"type\": \"long\"},\n"
+            + "    {\"name\": \"f3\", \"type\": \"boolean\"},\n"
+            + "    {\"name\": \"f4\", \"type\": \"float\"}\n"
+            + "  ]\n"
+            + "}";
     schema = new Schema.Parser().parse(schemaStr);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -96,12 +97,11 @@ public class AvroAdapterBenchmarks {
       writer.write(record, encoder);
     }
 
-    decoder = new DecoderFactory().directBinaryDecoder(new ByteArrayInputStream(out.toByteArray()), null);
+    decoder =
+        new DecoderFactory().directBinaryDecoder(new ByteArrayInputStream(out.toByteArray()), null);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     config.getAllocator().close();
@@ -109,6 +109,7 @@ public class AvroAdapterBenchmarks {
 
   /**
    * Test {@link AvroToArrow#avroToArrowIterator(Schema, Decoder, AvroToArrowConfig)}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -117,7 +118,8 @@ public class AvroAdapterBenchmarks {
   public int testAvroToArrow() throws Exception {
     decoder.inputStream().reset();
     int sum = 0;
-    try (AvroToArrowVectorIterator iter = AvroToArrow.avroToArrowIterator(schema, decoder, config)) {
+    try (AvroToArrowVectorIterator iter =
+        AvroToArrow.avroToArrowIterator(schema, decoder, config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         IntVector intVector = (IntVector) root.getVector("f1");
@@ -131,10 +133,8 @@ public class AvroAdapterBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(AvroAdapterBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+    Options opt =
+        new OptionsBuilder().include(AvroAdapterBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

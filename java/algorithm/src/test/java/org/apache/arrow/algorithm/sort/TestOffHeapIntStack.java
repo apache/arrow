@@ -26,9 +26,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link OffHeapIntStack}.
- */
+/** Test cases for {@link OffHeapIntStack}. */
 public class TestOffHeapIntStack {
 
   private BufferAllocator allocator;

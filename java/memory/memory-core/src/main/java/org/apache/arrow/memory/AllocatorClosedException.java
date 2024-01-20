@@ -17,10 +17,7 @@
 
 package org.apache.arrow.memory;
 
-/**
- * Exception thrown when a closed BufferAllocator is used. Note
- * this is an unchecked exception.
- */
+/** Exception thrown when a closed BufferAllocator is used. Note this is an unchecked exception. */
 @SuppressWarnings("serial")
 public class AllocatorClosedException extends RuntimeException {
 

@@ -17,8 +17,5 @@
 
 package org.apache.arrow.flight;
 
-/**
- * Per-call RPC options. These are hints to the underlying RPC layer and may not be respected.
- */
-public interface CallOption {
-}
+/** Per-call RPC options. These are hints to the underlying RPC layer and may not be respected. */
+public interface CallOption {}

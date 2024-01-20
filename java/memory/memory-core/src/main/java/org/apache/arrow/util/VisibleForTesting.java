@@ -18,9 +18,7 @@
 package org.apache.arrow.util;
 
 /**
- * Annotation to indicate a class member or class is visible
- * only for the purposes of testing and otherwise should not
- * be referenced by other classes.
+ * Annotation to indicate a class member or class is visible only for the purposes of testing and
+ * otherwise should not be referenced by other classes.
  */
-public @interface VisibleForTesting {
-}
+public @interface VisibleForTesting {}

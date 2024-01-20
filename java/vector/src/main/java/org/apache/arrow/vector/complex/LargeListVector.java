@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -64,28 +63,28 @@ import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * A list vector contains lists of a specific type of elements.  Its structure contains 3 elements.
+ * A list vector contains lists of a specific type of elements. Its structure contains 3 elements.
+ *
  * <ol>
- * <li>A validity buffer.</li>
- * <li> An offset buffer, that denotes lists boundaries. </li>
- * <li> A child data vector that contains the elements of lists. </li>
+ *   <li>A validity buffer.
+ *   <li>An offset buffer, that denotes lists boundaries.
+ *   <li>A child data vector that contains the elements of lists.
  * </ol>
  *
  * This is the LargeList variant of list, it has a 64-bit wide offset
  *
- * <p>
- *   WARNING: Currently Arrow in Java doesn't support 64-bit vectors. This class
- *   follows the expected behaviour of a LargeList but doesn't actually support allocating
- *   a 64-bit vector. It has little use until 64-bit vectors are supported and should be used
- *   with caution.
- *   todo review checkedCastToInt usage in this class.
- *   Once int64 indexed vectors are supported these checks aren't needed.
- * </p>
+ * <p>WARNING: Currently Arrow in Java doesn't support 64-bit vectors. This class follows the
+ * expected behaviour of a LargeList but doesn't actually support allocating a 64-bit vector. It has
+ * little use until 64-bit vectors are supported and should be used with caution. todo review
+ * checkedCastToInt usage in this class. Once int64 indexed vectors are supported these checks
+ * aren't needed.
  */
-public class LargeListVector extends BaseValueVector implements RepeatedValueVector, FieldVector, PromotableVector {
+public class LargeListVector extends BaseValueVector
+    implements RepeatedValueVector, FieldVector, PromotableVector {
 
   public static LargeListVector empty(String name, BufferAllocator allocator) {
-    return new LargeListVector(name, allocator, FieldType.nullable(ArrowType.LargeList.INSTANCE), null);
+    return new LargeListVector(
+        name, allocator, FieldType.nullable(ArrowType.LargeList.INSTANCE), null);
   }
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
@@ -104,9 +103,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   private Field field;
   private int validityAllocationSizeInBytes;
 
-  /**
-   * The maximum index that is actually set.
-   */
+  /** The maximum index that is actually set. */
   private int lastSet;
 
   /**
@@ -117,7 +114,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
    */
-  public LargeListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public LargeListVector(
+      String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this(new Field(name, fieldType, null), allocator, callBack);
   }
 
@@ -142,12 +140,15 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    checkArgument(children.size() == 1,
-            "Lists have one child Field. Found: %s", children.isEmpty() ? "none" : children);
+    checkArgument(
+        children.size() == 1,
+        "Lists have one child Field. Found: %s",
+        children.isEmpty() ? "none" : children);
 
     Field field = children.get(0);
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
-    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
+    checkArgument(
+        addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
     this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
@@ -165,27 +166,21 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Specialized version of setInitialCapacity() for ListVector. This is
-   * used by some callers when they want to explicitly control and be
-   * conservative about memory allocated for inner data vector. This is
-   * very useful when we are working with memory constraints for a query
-   * and have a fixed amount of memory reserved for the record batch. In
-   * such cases, we are likely to face OOM or related problems when
-   * we reserve memory for a record batch with value count x and
-   * do setInitialCapacity(x) such that each vector allocates only
-   * what is necessary and not the default amount but the multiplier
-   * forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialCapacity() for ListVector. This is used by some callers when
+   * they want to explicitly control and be conservative about memory allocated for inner data
+   * vector. This is very useful when we are working with memory constraints for a query and have a
+   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
+   * or related problems when we reserve memory for a record batch with value count x and do
+   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * default amount but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param density density of ListVector. Density is the average size of
-   *                list per position in the List vector. For example, a
-   *                density value of 10 implies each position in the list
-   *                vector has a list of 10 values.
-   *                A density value of 0.1 implies out of 10 positions in
-   *                the list vector, 1 position has a list of size 1 and
-   *                remaining positions are null (no lists) or empty lists.
-   *                This helps in tightly controlling the memory we provision
-   *                for inner data vector.
+   * @param density density of ListVector. Density is the average size of list per position in the
+   *     List vector. For example, a density value of 10 implies each position in the list vector
+   *     has a list of 10 values. A density value of 0.1 implies out of 10 positions in the list
+   *     vector, 1 position has a list of size 1 and remaining positions are null (no lists) or
+   *     empty lists. This helps in tightly controlling the memory we provision for inner data
+   *     vector.
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
@@ -206,20 +201,17 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListVector. This is
-   * used by some callers when they want to explicitly control and be
-   * conservative about memory allocated for inner data vector. This is
-   * very useful when we are working with memory constraints for a query
-   * and have a fixed amount of memory reserved for the record batch. In
-   * such cases, we are likely to face OOM or related problems when
-   * we reserve memory for a record batch with value count x and
-   * do setInitialCapacity(x) such that each vector allocates only
-   * what is necessary and not the default amount but the multiplier
-   * forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialTotalCapacity() for ListVector. This is used by some callers
+   * when they want to explicitly control and be conservative about memory allocated for inner data
+   * vector. This is very useful when we are working with memory constraints for a query and have a
+   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
+   * or related problems when we reserve memory for a record batch with value count x and do
+   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * default amount but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param totalNumberOfElements the total number of elements to to allow
-   *                              for in this vector across all records.
+   * @param totalNumberOfElements the total number of elements to to allow for in this vector across
+   *     all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
     offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
@@ -228,6 +220,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the density of this ListVector.
+   *
    * @return density
    */
   public double getDensity() {
@@ -246,16 +239,17 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Load the buffers of this vector with provided source buffers.
-   * The caller manages the source buffers and populates them before invoking
-   * this method.
-   * @param fieldNode  the fieldNode indicating the value count
+   * Load the buffers of this vector with provided source buffers. The caller manages the source
+   * buffers and populates them before invoking this method.
+   *
+   * @param fieldNode the fieldNode indicating the value count
    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 2) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " + 2 + ", got: " + ownBuffers.size());
+      throw new IllegalArgumentException(
+          "Illegal buffer count, expected " + 2 + ", got: " + ownBuffers.size());
     }
 
     ArrowBuf bitBuffer = ownBuffers.get(0);
@@ -275,6 +269,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the buffers belonging to this vector.
+   *
    * @return the inner buffers.
    */
   @Override
@@ -287,9 +282,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     return result;
   }
 
-  /**
-   * Set the reader and writer indexes for the inner buffers.
-   */
+  /** Set the reader and writer indexes for the inner buffers. */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     offsetBuffer.readerIndex(0);
@@ -305,8 +298,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   /**
    * Get the inner vectors.
    *
-   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
-   *
+   * @deprecated This API will be removed as the current implementations no longer support inner
+   *     vectors.
    * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
@@ -315,9 +308,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
 
-  /**
-   * Same as {@link #allocateNewSafe()}.
-   */
+  /** Same as {@link #allocateNewSafe()}. */
   @Override
   public void allocateNew() throws OutOfMemoryException {
     if (!allocateNewSafe()) {
@@ -326,9 +317,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Allocate memory for the vector. We internally use a default value count
-   * of 4096 to allocate memory for at least these many elements in the
-   * vector.
+   * Allocate memory for the vector. We internally use a default value count of 4096 to allocate
+   * memory for at least these many elements in the vector.
    *
    * @return false if memory allocation fails, true otherwise.
    */
@@ -379,8 +369,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Resize the vector to increase the capacity. The internal behavior is to
-   * double the current value capacity.
+   * Resize the vector to increase the capacity. The internal behavior is to double the current
+   * value capacity.
    */
   @Override
   public void reAlloc() {
@@ -449,9 +439,9 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, ValueVector)} except that
-   * it handles the case when the capacity of the vector needs to be expanded
-   * before copy.
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
+   * capacity of the vector needs to be expanded before copy.
+   *
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
@@ -462,8 +452,9 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
+   * Copy a cell value from a particular index in source vector to a particular position in this
+   * vector.
+   *
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
@@ -480,8 +471,9 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the offset vector.
-   * @deprecated This API will be removed, as the current implementations no longer hold inner offset vectors.
    *
+   * @deprecated This API will be removed, as the current implementations no longer hold inner
+   *     offset vectors.
    * @return the underlying offset vector or null if none exists.
    */
   @Override
@@ -492,6 +484,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the inner data vector for this list vector.
+   *
    * @return data vector
    */
   @Override
@@ -626,9 +619,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     }
 
     /**
-     * Transfer this vector'data to another vector. The memory associated
-     * with this vector is transferred to the allocator of target vector
-     * for accounting and management purposes.
+     * Transfer this vector'data to another vector. The memory associated with this vector is
+     * transferred to the allocator of target vector for accounting and management purposes.
      */
     @Override
     public void transfer() {
@@ -644,28 +636,36 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     }
 
     /**
-     * Slice this vector at desired index and length and transfer the
-     * corresponding data to the target vector.
+     * Slice this vector at desired index and length and transfer the corresponding data to the
+     * target vector.
+     *
      * @param startIndex start position of the split in source vector.
      * @param length length of the split.
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
-          "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+      Preconditions.checkArgument(
+          startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s",
+          startIndex,
+          length,
+          valueCount);
       final long startPoint = offsetBuffer.getLong((long) startIndex * OFFSET_WIDTH);
-      final long sliceLength = offsetBuffer.getLong((long) (startIndex + length) * OFFSET_WIDTH) - startPoint;
+      final long sliceLength =
+          offsetBuffer.getLong((long) (startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
       to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
       /* splitAndTransfer offset buffer */
       for (int i = 0; i < length + 1; i++) {
-        final long relativeOffset = offsetBuffer.getLong((long) (startIndex + i) * OFFSET_WIDTH) - startPoint;
+        final long relativeOffset =
+            offsetBuffer.getLong((long) (startIndex + i) * OFFSET_WIDTH) - startPoint;
         to.offsetBuffer.setLong((long) i * OFFSET_WIDTH, relativeOffset);
       }
       /* splitAndTransfer validity buffer */
       splitAndTransferValidityBuffer(startIndex, length, to);
       /* splitAndTransfer data buffer */
-      dataTransferPair.splitAndTransfer(checkedCastToInt(startPoint), checkedCastToInt(sliceLength));
+      dataTransferPair.splitAndTransfer(
+          checkedCastToInt(startPoint), checkedCastToInt(sliceLength));
       to.lastSet = length - 1;
       to.setValueCount(length);
     }
@@ -673,7 +673,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     /*
      * transfer the validity.
      */
-    private void splitAndTransferValidityBuffer(int startIndex, int length, LargeListVector target) {
+    private void splitAndTransferValidityBuffer(
+        int startIndex, int length, LargeListVector target) {
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
       int byteSizeTarget = getValidityBufferSizeFromCount(length);
@@ -697,8 +698,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
           target.allocateValidityBuffer(byteSizeTarget);
 
           for (int i = 0; i < byteSizeTarget - 1; i++) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer, firstByteSource + i + 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + i + 1, offset);
 
             target.validityBuffer.setByte(i, (b1 + b2));
           }
@@ -713,15 +717,18 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
            * by shifting data from the current byte.
            */
           if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                    firstByteSource + byteSizeTarget - 1, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
-                    firstByteSource + byteSizeTarget, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + byteSizeTarget, offset);
 
             target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
           } else {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                    firstByteSource + byteSizeTarget - 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
             target.validityBuffer.setByte(byteSizeTarget - 1, b1);
           }
         }
@@ -751,8 +758,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Initialize the data vector (and execute callback) if it hasn't already been done,
-   * returns the data vector.
+   * Initialize the data vector (and execute callback) if it hasn't already been done, returns the
+   * data vector.
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
@@ -760,7 +767,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
       // returned vector must have the same field
       created = true;
-      if (callBack != null &&
+      if (callBack != null
+          &&
           // not a schema change if changing from ZeroVector to ZeroVector
           (fieldType.getType().getTypeID() != ArrowType.ArrowTypeID.Null)) {
         callBack.doWork();
@@ -768,8 +776,10 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     }
 
     if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
-      final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
-          fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
+      final String msg =
+          String.format(
+              "Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
+              fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
 
@@ -778,8 +788,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Get the size (number of bytes) of underlying buffers used by this
-   * vector.
+   * Get the size (number of bytes) of underlying buffers used by this vector.
+   *
    * @return size of underlying buffers.
    */
   @Override
@@ -800,9 +810,9 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     long innerVectorValueCount = offsetBuffer.getLong((long) valueCount * OFFSET_WIDTH);
 
-    return ((valueCount + 1) * OFFSET_WIDTH) +
-        vector.getBufferSizeFor(checkedCastToInt(innerVectorValueCount)) +
-        validityBufferSize;
+    return ((valueCount + 1) * OFFSET_WIDTH)
+        + vector.getBufferSizeFor(checkedCastToInt(innerVectorValueCount))
+        + validityBufferSize;
   }
 
   @Override
@@ -810,7 +820,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
-    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
+    field =
+        new Field(
+            field.getName(),
+            field.getFieldType(),
+            Collections.singletonList(getDataVector().getField()));
     return field;
   }
 
@@ -844,15 +858,14 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Return the underlying buffers associated with this vector. Note that this doesn't
-   * impact the reference counts for this buffer so it only should be used for in-context
-   * access. Also note that this buffer changes regularly thus
-   * external classes shouldn't hold a reference to it (unless they change it).
+   * Return the underlying buffers associated with this vector. Note that this doesn't impact the
+   * reference counts for this buffer so it only should be used for in-context access. Also note
+   * that this buffer changes regularly thus external classes shouldn't hold a reference to it
+   * (unless they change it).
    *
-   * @param clear Whether to clear vector before returning; the buffers will still be refcounted
-   *              but the returned array will be the only reference to them
-   * @return The underlying {@link ArrowBuf buffers} that is used by this
-   *         vector instance.
+   * @param clear Whether to clear vector before returning; the buffers will still be refcounted but
+   *     the returned array will be the only reference to them
+   * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
@@ -882,6 +895,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the element in the list vector at a particular index.
+   *
    * @param index position of the element
    * @return Object at given position
    */
@@ -914,6 +928,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Check if element at given index is empty list.
+   *
    * @param index position of element
    * @return true if element at given index is empty list or NULL, false otherwise
    */
@@ -930,7 +945,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   /**
    * Same as {@link #isNull(int)}.
    *
-   * @param index  position of element
+   * @param index position of element
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
@@ -952,6 +967,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Get the current value capacity for the vector.
+   *
    * @return number of elements that vector can hold.
    */
   @Override
@@ -973,8 +989,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Sets the list at index to be not-null.  Reallocates validity buffer if index
-   * is larger than current capacity.
+   * Sets the list at index to be not-null. Reallocates validity buffer if index is larger than
+   * current capacity.
    */
   public void setNotNull(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
@@ -986,6 +1002,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   /**
    * Sets list at index to be null.
+   *
    * @param index position in vector
    */
   public void setNull(int index) {
@@ -1024,7 +1041,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * End the current value.
    *
    * @param index index of the value to end
-   * @param size  number of elements in the list that was written
+   * @param size number of elements in the list that was written
    */
   public void endValue(int index, long size) {
     final long currentOffset = offsetBuffer.getLong(((long) index + 1L) * OFFSET_WIDTH);
@@ -1034,13 +1051,10 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   /**
    * Sets the value count for the vector.
    *
-   * <p>
-   *  Important note: The underlying vector does not support 64-bit
-   *  allocations yet. This may throw if attempting to hold larger
-   *  than what a 32-bit vector can store.
-   * </p>
+   * <p>Important note: The underlying vector does not support 64-bit allocations yet. This may
+   * throw if attempting to hold larger than what a 32-bit vector can store.
    *
-   * @param valueCount   value count
+   * @param valueCount value count
    */
   @Override
   public void setValueCount(int valueCount) {
@@ -1057,14 +1071,16 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       }
     }
     /* valueCount for the data vector is the current end offset */
-    final long childValueCount = (valueCount == 0) ? 0 :
-            offsetBuffer.getLong(((long) lastSet + 1L) * OFFSET_WIDTH);
+    final long childValueCount =
+        (valueCount == 0) ? 0 : offsetBuffer.getLong(((long) lastSet + 1L) * OFFSET_WIDTH);
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      * TODO: revisit when 64-bit vectors are supported
      */
-    Preconditions.checkArgument(childValueCount <= Integer.MAX_VALUE || childValueCount >= Integer.MIN_VALUE,
-        "LargeListVector doesn't yet support 64-bit allocations: %s", childValueCount);
+    Preconditions.checkArgument(
+        childValueCount <= Integer.MAX_VALUE || childValueCount >= Integer.MIN_VALUE,
+        "LargeListVector doesn't yet support 64-bit allocations: %s",
+        childValueCount);
     vector.setValueCount((int) childValueCount);
   }
 

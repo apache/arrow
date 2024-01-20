@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
-
 import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -32,16 +31,13 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
-/**
- * Converts an Arrow stream to an Arrow file.
- */
+/** Converts an Arrow stream to an Arrow file. */
 public class StreamToFile {
-  /**
-   *  Reads an Arrow stream from <code>in</code> and writes it to <code>out</code>.
-   */
+  /** Reads an Arrow stream from <code>in</code> and writes it to <code>out</code>. */
   public static void convert(InputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator, CommonsCompressionFactory.INSTANCE)) {
+    try (ArrowStreamReader reader =
+        new ArrowStreamReader(in, allocator, CommonsCompressionFactory.INSTANCE)) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
       // load the first batch before instantiating the writer so that we have any dictionaries.
       // Only writeBatches if we load the first one.
@@ -60,9 +56,8 @@ public class StreamToFile {
   }
 
   /**
-   * Main method.  Defaults to reading from standard in and standard out.
-   * If there are two arguments the first is interpreted as the input file path,
-   * the second is the output file path.
+   * Main method. Defaults to reading from standard in and standard out. If there are two arguments
+   * the first is interpreted as the input file path, the second is the output file path.
    */
   public static void main(String[] args) throws IOException {
     InputStream in = System.in;

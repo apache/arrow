@@ -18,20 +18,17 @@
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume date time-millis values from avro decoder.
- * Write the data to {@link TimeMilliVector}.
+ * Consumer which consume date time-millis values from avro decoder. Write the data to {@link
+ * TimeMilliVector}.
  */
 public class AvroTimeMillisConsumer extends BaseAvroConsumer<TimeMilliVector> {
 
-  /**
-   * Instantiate a AvroTimeMilliConsumer.
-   */
+  /** Instantiate a AvroTimeMilliConsumer. */
   public AvroTimeMillisConsumer(TimeMilliVector vector) {
     super(vector);
   }

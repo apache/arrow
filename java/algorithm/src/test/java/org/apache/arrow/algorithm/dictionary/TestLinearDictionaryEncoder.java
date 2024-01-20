@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -39,9 +38,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link LinearDictionaryEncoder}.
- */
+/** Test cases for {@link LinearDictionaryEncoder}. */
 public class TestLinearDictionaryEncoder {
 
   private final int VECTOR_LENGTH = 50;
@@ -54,7 +51,7 @@ public class TestLinearDictionaryEncoder {
   byte[] one = "111".getBytes(StandardCharsets.UTF_8);
   byte[] two = "222".getBytes(StandardCharsets.UTF_8);
 
-  byte[][] data = new byte[][]{zero, one, two};
+  byte[][] data = new byte[][] {zero, one, two};
 
   @Before
   public void prepare() {
@@ -70,8 +67,8 @@ public class TestLinearDictionaryEncoder {
   public void testEncodeAndDecode() {
     Random random = new Random();
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary
       dictionary.allocateNew();
@@ -90,7 +87,7 @@ public class TestLinearDictionaryEncoder {
       rawVector.setValueCount(VECTOR_LENGTH);
 
       LinearDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new LinearDictionaryEncoder<>(dictionary, false);
+          new LinearDictionaryEncoder<>(dictionary, false);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -104,7 +101,8 @@ public class TestLinearDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector =
+          (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
 
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
@@ -119,8 +117,8 @@ public class TestLinearDictionaryEncoder {
   public void testEncodeAndDecodeWithNull() {
     Random random = new Random();
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary
       dictionary.allocateNew();
@@ -144,7 +142,7 @@ public class TestLinearDictionaryEncoder {
       rawVector.setValueCount(VECTOR_LENGTH);
 
       LinearDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new LinearDictionaryEncoder<>(dictionary, true);
+          new LinearDictionaryEncoder<>(dictionary, true);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -162,7 +160,8 @@ public class TestLinearDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector =
+          (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
 
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
@@ -170,7 +169,8 @@ public class TestLinearDictionaryEncoder {
           if (i % 10 == 0) {
             assertTrue(decodedVector.isNull(i));
           } else {
-            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
+            assertArrayEquals(
+                String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
           }
         }
       }
@@ -180,8 +180,8 @@ public class TestLinearDictionaryEncoder {
   @Test
   public void testEncodeNullWithoutNullInDictionary() {
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary, with no null in it.
       dictionary.allocateNew();
@@ -199,13 +199,15 @@ public class TestLinearDictionaryEncoder {
       encodedVector.allocateNew();
 
       LinearDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new LinearDictionaryEncoder<>(dictionary, true);
+          new LinearDictionaryEncoder<>(dictionary, true);
 
       // the encoder should encode null, but no null in the dictionary,
       // so an exception should be thrown.
-      assertThrows(IllegalArgumentException.class, () -> {
-        encoder.encode(rawVector, encodedVector);
-      });
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            encoder.encode(rawVector, encodedVector);
+          });
     }
   }
 
@@ -213,8 +215,8 @@ public class TestLinearDictionaryEncoder {
   public void testEncodeStrings() {
     // Create a new value vector
     try (final VarCharVector vector = new VarCharVector("foo", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator);
-         final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
+        final IntVector encoded = new IntVector("encoded", allocator);
+        final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
 
       vector.allocateNew(512, 5);
       encoded.allocateNew();
@@ -235,7 +237,7 @@ public class TestLinearDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       LinearDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new LinearDictionaryEncoder<>(dictionaryVector);
+          new LinearDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       // verify indices
@@ -261,8 +263,8 @@ public class TestLinearDictionaryEncoder {
   public void testEncodeLargeVector() {
     // Create a new value vector
     try (final VarCharVector vector = new VarCharVector("foo", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator);
-         final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
+        final IntVector encoded = new IntVector("encoded", allocator);
+        final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
       vector.allocateNew();
       encoded.allocateNew();
 
@@ -280,7 +282,7 @@ public class TestLinearDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       LinearDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new LinearDictionaryEncoder<>(dictionaryVector);
+          new LinearDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(count, encoded.getValueCount());
@@ -304,8 +306,8 @@ public class TestLinearDictionaryEncoder {
   public void testEncodeBinaryVector() {
     // Create a new value vector
     try (final VarBinaryVector vector = new VarBinaryVector("foo", allocator);
-         final VarBinaryVector dictionaryVector = new VarBinaryVector("dict", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator)) {
+        final VarBinaryVector dictionaryVector = new VarBinaryVector("dict", allocator);
+        final IntVector encoded = new IntVector("encoded", allocator)) {
       vector.allocateNew(512, 5);
       vector.allocateNew();
       encoded.allocateNew();
@@ -326,7 +328,7 @@ public class TestLinearDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       LinearDictionaryEncoder<IntVector, VarBinaryVector> encoder =
-              new LinearDictionaryEncoder<>(dictionaryVector);
+          new LinearDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(5, encoded.getValueCount());

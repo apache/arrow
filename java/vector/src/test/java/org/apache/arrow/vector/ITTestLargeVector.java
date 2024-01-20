@@ -22,7 +22,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -32,9 +31,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Integration test for a vector with a large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf} as
- * the data buffer.
- * To run this test, please make sure there is at least 4GB free memory in the system.
+ * Integration test for a vector with a large (more than 2GB) {@link
+ * org.apache.arrow.memory.ArrowBuf} as the data buffer. To run this test, please make sure there is
+ * at least 4GB free memory in the system.
  */
 public class ITTestLargeVector {
   private static final Logger logger = LoggerFactory.getLogger(ITTestLargeVector.class);
@@ -82,7 +81,7 @@ public class ITTestLargeVector {
     final int vecLength = (int) (bufSize / IntVector.TYPE_WIDTH);
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         IntVector largeVec = new IntVector("vec", allocator)) {
+        IntVector largeVec = new IntVector("vec", allocator)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity {}", vecLength);
@@ -117,7 +116,7 @@ public class ITTestLargeVector {
     final int vecLength = (int) (bufSize / DecimalVector.TYPE_WIDTH);
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         DecimalVector largeVec = new DecimalVector("vec", allocator, 38, 0)) {
+        DecimalVector largeVec = new DecimalVector("vec", allocator, 38, 0)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity {}", vecLength);
@@ -171,7 +170,7 @@ public class ITTestLargeVector {
     final int vecLength = (int) (bufSize / typeWidth);
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         FixedSizeBinaryVector largeVec = new FixedSizeBinaryVector("vec", allocator, typeWidth)) {
+        FixedSizeBinaryVector largeVec = new FixedSizeBinaryVector("vec", allocator, typeWidth)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity {}", vecLength);
@@ -209,7 +208,7 @@ public class ITTestLargeVector {
     final String strElement = "a";
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         VarCharVector largeVec = new VarCharVector("vec", allocator)) {
+        VarCharVector largeVec = new VarCharVector("vec", allocator)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity " + vecLength);
@@ -248,7 +247,7 @@ public class ITTestLargeVector {
     final String strElement = "9876543210";
 
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         LargeVarCharVector largeVec = new LargeVarCharVector("vec", allocator)) {
+        LargeVarCharVector largeVec = new LargeVarCharVector("vec", allocator)) {
       largeVec.allocateNew(vecLength);
 
       logger.trace("Successfully allocated a vector with capacity " + vecLength);

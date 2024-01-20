@@ -25,13 +25,10 @@ import org.apache.arrow.vector.util.Text;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Utf8 Arrow types.
- */
+/** AvaticaParameterConverter for Utf8 Arrow types. */
 public class Utf8AvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public Utf8AvaticaParameterConverter(ArrowType.Utf8 type) {
-  }
+  public Utf8AvaticaParameterConverter(ArrowType.Utf8 type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

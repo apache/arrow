@@ -17,27 +17,24 @@
 
 package org.apache.arrow.vector.ipc.message;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.flatbuf.KeyValue;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-/**
- * Utility methods for {@linkplain org.apache.arrow.vector.ipc.message.FBSerializable}s.
- */
+/** Utility methods for {@linkplain org.apache.arrow.vector.ipc.message.FBSerializable}s. */
 public class FBSerializables {
   private FBSerializables() {}
 
   /**
-   * Writes every element of all to builder and calls {@link FlatBufferBuilder#endVector()} afterwards.
-   * Returns the number of result of calling endVector.
+   * Writes every element of all to builder and calls {@link FlatBufferBuilder#endVector()}
+   * afterwards. Returns the number of result of calling endVector.
    */
-  public static int writeAllStructsToVector(FlatBufferBuilder builder, List<? extends FBSerializable> all) {
+  public static int writeAllStructsToVector(
+      FlatBufferBuilder builder, List<? extends FBSerializable> all) {
     // struct vectors have to be created in reverse order
     List<? extends FBSerializable> reversed = new ArrayList<>(all);
     Collections.reverse(reversed);
@@ -47,9 +44,7 @@ public class FBSerializables {
     return builder.endVector();
   }
 
-  /**
-   * Writes map data with string type.
-   */
+  /** Writes map data with string type. */
   public static int writeKeyValues(FlatBufferBuilder builder, Map<String, String> metaData) {
     int[] metadataOffsets = new int[metaData.size()];
     Iterator<Map.Entry<String, String>> metadataIterator = metaData.entrySet().iterator();

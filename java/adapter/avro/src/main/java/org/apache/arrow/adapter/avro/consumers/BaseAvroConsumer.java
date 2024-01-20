@@ -21,6 +21,7 @@ import org.apache.arrow.vector.FieldVector;
 
 /**
  * Base class for non-skippable avro consumers.
+ *
  * @param <T> vector type.
  */
 public abstract class BaseAvroConsumer<T extends FieldVector> implements Consumer<T> {
@@ -30,6 +31,7 @@ public abstract class BaseAvroConsumer<T extends FieldVector> implements Consume
 
   /**
    * Constructs a base avro consumer.
+   *
    * @param vector the vector to consume.
    */
   public BaseAvroConsumer(T vector) {

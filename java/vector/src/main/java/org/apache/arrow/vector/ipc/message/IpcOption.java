@@ -19,9 +19,7 @@ package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.vector.types.MetadataVersion;
 
-/**
- * IPC options, now only use for write.
- */
+/** IPC options, now only use for write. */
 public class IpcOption {
 
   // Write the pre-0.15.0 encapsulated IPC message format

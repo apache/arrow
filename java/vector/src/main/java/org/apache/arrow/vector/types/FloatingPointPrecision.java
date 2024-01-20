@@ -19,9 +19,7 @@ package org.apache.arrow.vector.types;
 
 import org.apache.arrow.flatbuf.Precision;
 
-/**
- * Precisions of primitive floating point numbers.
- */
+/** Precisions of primitive floating point numbers. */
 public enum FloatingPointPrecision {
   /** 16-bit (not a standard java type). */
   HALF(Precision.HALF),
@@ -31,7 +29,7 @@ public enum FloatingPointPrecision {
   DOUBLE(Precision.DOUBLE);
 
   private static final FloatingPointPrecision[] valuesByFlatbufId =
-    new FloatingPointPrecision[FloatingPointPrecision.values().length];
+      new FloatingPointPrecision[FloatingPointPrecision.values().length];
 
   static {
     for (FloatingPointPrecision v : FloatingPointPrecision.values()) {

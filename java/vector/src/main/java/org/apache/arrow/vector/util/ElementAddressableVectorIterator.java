@@ -18,7 +18,6 @@
 package org.apache.arrow.vector.util;
 
 import java.util.Iterator;
-
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
@@ -26,22 +25,22 @@ import org.apache.arrow.vector.ElementAddressableVector;
 
 /**
  * Iterator for traversing elements of a {@link ElementAddressableVector}.
+ *
  * @param <T> vector type.
  */
 public class ElementAddressableVectorIterator<T extends ElementAddressableVector>
-        implements Iterator<ArrowBufPointer> {
+    implements Iterator<ArrowBufPointer> {
 
   private final T vector;
 
-  /**
-   * Index of the next element to access.
-   */
+  /** Index of the next element to access. */
   private int index = 0;
 
   private final ArrowBufPointer reusablePointer;
 
   /**
    * Constructs an iterator for the {@link ElementAddressableVector}.
+   *
    * @param vector the vector to iterate.
    */
   public ElementAddressableVectorIterator(T vector) {
@@ -50,6 +49,7 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
 
   /**
    * Constructs an iterator for the {@link ElementAddressableVector}.
+   *
    * @param vector the vector to iterate.
    * @param hasher the hasher to calculate the hash code.
    */
@@ -65,8 +65,9 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
 
   /**
    * Retrieves the next pointer from the vector.
-   * @return the pointer pointing to the next element in the vector.
-   *     Note that the returned pointer is only valid before the next call to this method.
+   *
+   * @return the pointer pointing to the next element in the vector. Note that the returned pointer
+   *     is only valid before the next call to this method.
    */
   @Override
   public ArrowBufPointer next() {
@@ -77,6 +78,7 @@ public class ElementAddressableVectorIterator<T extends ElementAddressableVector
 
   /**
    * Retrieves the next pointer from the vector.
+   *
    * @param outPointer the pointer to populate.
    */
   public void next(ArrowBufPointer outPointer) {

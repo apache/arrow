@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -146,7 +145,8 @@ public class TestComplexWriter {
 
   private NonNullableStructVector populateStructVector(CallBack callBack) {
     NonNullableStructVector parent =
-        new NonNullableStructVector("parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
+        new NonNullableStructVector(
+            "parent", allocator, new FieldType(false, Struct.INSTANCE, null, null), callBack);
     ComplexWriter writer = new ComplexWriterImpl("root", parent);
     StructWriter rootWriter = writer.rootAsStruct();
     IntWriter intWriter = rootWriter.integer("int");
@@ -163,7 +163,8 @@ public class TestComplexWriter {
 
   @Test
   public void nullableStruct() {
-    try (NonNullableStructVector structVector = NonNullableStructVector.empty("parent", allocator)) {
+    try (NonNullableStructVector structVector =
+        NonNullableStructVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", structVector);
       StructWriter rootWriter = writer.rootAsStruct();
       for (int i = 0; i < COUNT; i++) {
@@ -183,11 +184,13 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #nullableStruct()} ()} but we get the inner struct writer once at the beginning.
+   * This test is similar to {@link #nullableStruct()} ()} but we get the inner struct writer once
+   * at the beginning.
    */
   @Test
   public void nullableStruct2() {
-    try (NonNullableStructVector structVector = NonNullableStructVector.empty("parent", allocator)) {
+    try (NonNullableStructVector structVector =
+        NonNullableStructVector.empty("parent", allocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", structVector);
       StructWriter rootWriter = writer.rootAsStruct();
       StructWriter structWriter = rootWriter.struct("struct");
@@ -337,13 +340,15 @@ public class TestComplexWriter {
           if (j % 4 == 0) {
             listWriter.writeDecimal(new BigDecimal(j));
           } else if (j % 4 == 1) {
-            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+            DecimalUtility.writeBigDecimalToArrowBuf(
+                new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
             holder.start = 0;
             holder.scale = 0;
             holder.precision = 10;
             listWriter.write(holder);
           } else if (j % 4 == 2) {
-            DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+            DecimalUtility.writeBigDecimalToArrowBuf(
+                new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
             listWriter.writeDecimal(0, holder.buffer, arrowType);
           } else {
             byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
@@ -507,7 +512,8 @@ public class TestComplexWriter {
         listReader.setPosition(i);
         if (i % 2 == 0) {
           assertTrue("index is set: " + i, listReader.isSet());
-          assertEquals("correct length at: " + i, i % 7, ((List<?>) listReader.readObject()).size());
+          assertEquals(
+              "correct length at: " + i, i % 7, ((List<?>) listReader.readObject()).size());
         } else {
           assertFalse("index is not set: " + i, listReader.isSet());
           assertNull("index is not set: " + i, listReader.readObject());
@@ -538,7 +544,8 @@ public class TestComplexWriter {
         listReader.setPosition(i);
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
-          Assert.assertEquals("record: " + i, j, listReader.reader().reader("int").readInteger().intValue());
+          Assert.assertEquals(
+              "record: " + i, j, listReader.reader().reader("int").readInteger().intValue());
           Assert.assertEquals(j, listReader.reader().reader("bigInt").readLong().longValue());
         }
       }
@@ -568,7 +575,8 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning.
+   * This test is similar to {@link #listListType()} but we get the inner list writer once at the
+   * beginning.
    */
   @Test
   public void listListType2() {
@@ -635,7 +643,8 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #unionListListType()} but we get the inner list writer once at the beginning.
+   * This test is similar to {@link #unionListListType()} but we get the inner list writer once at
+   * the beginning.
    */
   @Test
   public void unionListListType2() {
@@ -674,7 +683,8 @@ public class TestComplexWriter {
         for (int k = 0; k < i % 13; k++) {
           innerListReader.next();
           if (k % 2 == 0) {
-            Assert.assertEquals("record: " + i, k, innerListReader.reader().readInteger().intValue());
+            Assert.assertEquals(
+                "record: " + i, k, innerListReader.reader().readInteger().intValue());
           } else {
             Assert.assertEquals("record: " + i, k, innerListReader.reader().readLong().longValue());
           }
@@ -739,7 +749,8 @@ public class TestComplexWriter {
   @Test
   public void simpleUnion() throws Exception {
     List<ArrowBuf> bufs = new ArrayList<ArrowBuf>();
-    UnionVector vector = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+    UnionVector vector =
+        new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
     UnionWriter unionWriter = new UnionWriter(vector);
     unionWriter.allocate();
     for (int i = 0; i < COUNT; i++) {
@@ -846,9 +857,7 @@ public class TestComplexWriter {
     }
   }
 
-  /**
-   * Even without writing to the writer, the union schema is created correctly.
-   */
+  /** Even without writing to the writer, the union schema is created correctly. */
   @Test
   public void promotableWriterSchema() {
     try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
@@ -916,14 +925,16 @@ public class TestComplexWriter {
       Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::Bit_Field"));
 
       // test case-insensitive StructWriter
-      ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent, false, false);
+      ComplexWriter writerCaseInsensitive =
+          new ComplexWriterImpl("rootCaseInsensitive", parent, false, false);
       StructWriter rootWriterCaseInsensitive = writerCaseInsensitive.rootAsStruct();
 
       rootWriterCaseInsensitive.bigInt("int_field");
       rootWriterCaseInsensitive.bigInt("Int_Field");
       rootWriterCaseInsensitive.float4("float_field");
       rootWriterCaseInsensitive.float4("Float_Field");
-      StructWriter structFieldWriterCaseInsensitive = rootWriterCaseInsensitive.struct("struct_field");
+      StructWriter structFieldWriterCaseInsensitive =
+          rootWriterCaseInsensitive.struct("struct_field");
       structFieldWriterCaseInsensitive.varChar("char_field");
       structFieldWriterCaseInsensitive.varChar("Char_Field");
       ListWriter listFieldWriterCaseInsensitive = rootWriterCaseInsensitive.list("list_field");
@@ -994,9 +1005,10 @@ public class TestComplexWriter {
   public void timeStampMilliWriters() throws Exception {
     // test values
     final long expectedMillis = 981173106123L;
-    final LocalDateTime expectedMilliDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123 * 1_000_000);
+    final LocalDateTime expectedMilliDateTime =
+        LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123 * 1_000_000);
 
-    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator);) {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator); ) {
       // write
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       StructWriter rootWriter = writer.rootAsStruct();
@@ -1050,7 +1062,8 @@ public class TestComplexWriter {
   public void timeStampMicroWriters() throws Exception {
     // test values
     final long expectedMicros = 981173106123456L;
-    final LocalDateTime expectedMicroDateTime = LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123456 * 1000);
+    final LocalDateTime expectedMicroDateTime =
+        LocalDateTime.of(2001, 2, 3, 4, 5, 6, 123456 * 1000);
 
     try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
       // write
@@ -1140,7 +1153,6 @@ public class TestComplexWriter {
         Assert.assertEquals(expectedNanos, h.value);
       }
     }
-
   }
 
   @Test
@@ -1166,7 +1178,8 @@ public class TestComplexWriter {
       StructWriter rootWriter = writer.rootAsStruct();
 
       String fieldName = "fixedSizeBinary";
-      FixedSizeBinaryWriter fixedSizeBinaryWriter = rootWriter.fixedSizeBinary(fieldName, byteWidth);
+      FixedSizeBinaryWriter fixedSizeBinaryWriter =
+          rootWriter.fixedSizeBinary(fieldName, byteWidth);
       for (int i = 0; i < numValues; i++) {
         fixedSizeBinaryWriter.setPosition(i);
         fixedSizeBinaryWriter.writeFixedSizeBinary(bufs[i]);
@@ -1175,7 +1188,8 @@ public class TestComplexWriter {
       // schema
       List<Field> children = parent.getField().getChildren().get(0).getChildren();
       Assert.assertEquals(fieldName, children.get(0).getName());
-      Assert.assertEquals(ArrowType.FixedSizeBinary.TYPE_TYPE, children.get(0).getType().getTypeID());
+      Assert.assertEquals(
+          ArrowType.FixedSizeBinary.TYPE_TYPE, children.get(0).getType().getTypeID());
 
       // read
       StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
@@ -1335,8 +1349,6 @@ public class TestComplexWriter {
         }
       }
     }
-
-
   }
 
   @Test
@@ -1495,7 +1507,8 @@ public class TestComplexWriter {
             listReader.reader().reader().next();
             Assert.assertEquals(i, listReader.reader().reader().reader().readInteger().intValue());
             listReader.reader().reader().next();
-            Assert.assertEquals(i * 2, listReader.reader().reader().reader().readInteger().intValue());
+            Assert.assertEquals(
+                i * 2, listReader.reader().reader().reader().readInteger().intValue());
           }
         }
       }
@@ -1685,7 +1698,8 @@ public class TestComplexWriter {
       rootWriter.varChar("c").writeVarChar("row2");
       rootWriter.end();
 
-      VarCharVector vector = parent.getChild("root", StructVector.class).getChild("c", VarCharVector.class);
+      VarCharVector vector =
+          parent.getChild("root", StructVector.class).getChild("c", VarCharVector.class);
 
       assertEquals("row1", vector.getObject(0).toString());
       assertEquals("row2", vector.getObject(1).toString());
@@ -1704,8 +1718,8 @@ public class TestComplexWriter {
       rootWriter.largeVarChar("c").writeLargeVarChar("row2");
       rootWriter.end();
 
-      LargeVarCharVector vector = parent.getChild("root", StructVector.class).getChild("c",
-          LargeVarCharVector.class);
+      LargeVarCharVector vector =
+          parent.getChild("root", StructVector.class).getChild("c", LargeVarCharVector.class);
 
       assertEquals("row1", vector.getObject(0).toString());
       assertEquals("row2", vector.getObject(1).toString());
@@ -1725,10 +1739,13 @@ public class TestComplexWriter {
       rootWriter.setPosition(2);
       rootWriter.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes()));
       rootWriter.setPosition(3);
-      rootWriter.varBinary("c").writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      rootWriter
+          .varBinary("c")
+          .writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
       rootWriter.end();
 
-      VarBinaryVector uv = parent.getChild("root", StructVector.class).getChild("c", VarBinaryVector.class);
+      VarBinaryVector uv =
+          parent.getChild("root", StructVector.class).getChild("c", VarBinaryVector.class);
 
       assertEquals("row1", new String(uv.get(0)));
       assertEquals("row2", new String(uv.get(1)));
@@ -1746,16 +1763,19 @@ public class TestComplexWriter {
       rootWriter.setPosition(0);
       rootWriter.largeVarBinary("c").writeLargeVarBinary("row1".getBytes());
       rootWriter.setPosition(1);
-      rootWriter.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      rootWriter
+          .largeVarBinary("c")
+          .writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
       rootWriter.setPosition(2);
       rootWriter.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
       rootWriter.setPosition(3);
-      rootWriter.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0,
-          "row4".getBytes().length);
+      rootWriter
+          .largeVarBinary("c")
+          .writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
       rootWriter.end();
 
-      LargeVarBinaryVector uv = parent.getChild("root", StructVector.class).getChild("c",
-          LargeVarBinaryVector.class);
+      LargeVarBinaryVector uv =
+          parent.getChild("root", StructVector.class).getChild("c", LargeVarBinaryVector.class);
 
       assertEquals("row1", new String(uv.get(0)));
       assertEquals("row2", new String(uv.get(1)));
@@ -1822,7 +1842,8 @@ public class TestComplexWriter {
       listWriter.writeLargeVarBinary("row1".getBytes());
       listWriter.writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
       listWriter.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
-      listWriter.writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      listWriter.writeLargeVarBinary(
+          ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
       listWriter.endList();
       listWriter.setValueCount(1);
       assertEquals("row1", new String((byte[]) listVector.getObject(0).get(0)));
@@ -1834,7 +1855,8 @@ public class TestComplexWriter {
 
   @Test
   public void unionWithVarCharAndBinaryHelpers() throws Exception {
-    try (UnionVector vector = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null)) {
+    try (UnionVector vector =
+        new UnionVector("union", allocator, /* field type */ null, /* call-back */ null)) {
       UnionWriter unionWriter = new UnionWriter(vector);
       unionWriter.allocate();
       unionWriter.start();
@@ -1861,7 +1883,8 @@ public class TestComplexWriter {
       unionWriter.setPosition(10);
       unionWriter.writeLargeVarBinary(ByteBuffer.wrap("row11".getBytes()));
       unionWriter.setPosition(11);
-      unionWriter.writeLargeVarBinary(ByteBuffer.wrap("row12".getBytes()), 0, "row12".getBytes().length);
+      unionWriter.writeLargeVarBinary(
+          ByteBuffer.wrap("row12".getBytes()), 0, "row12".getBytes().length);
       unionWriter.end();
 
       assertEquals("row1", new String(vector.getVarCharVector().get(0)));

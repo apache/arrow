@@ -27,17 +27,13 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Datetime utility functions.
- */
+/** Datetime utility functions. */
 public class DateTimeUtils {
   private DateTimeUtils() {
     // Prevent instantiation.
   }
 
-  /**
-   * Subtracts given Calendar's TimeZone offset from epoch milliseconds.
-   */
+  /** Subtracts given Calendar's TimeZone offset from epoch milliseconds. */
   public static long applyCalendarOffset(long milliseconds, Calendar calendar) {
     if (calendar == null) {
       calendar = Calendar.getInstance();
@@ -52,7 +48,6 @@ public class DateTimeUtils {
 
     return milliseconds;
   }
-
 
   /**
    * Converts Epoch millis to a {@link Timestamp} object.
@@ -70,7 +65,6 @@ public class DateTimeUtils {
     return Timestamp.valueOf(
         LocalDateTime.of(
             LocalDate.ofEpochDay(millisWithCalendar / MILLIS_PER_DAY),
-            LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(milliseconds % MILLIS_PER_DAY)))
-    );
+            LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(milliseconds % MILLIS_PER_DAY))));
   }
 }

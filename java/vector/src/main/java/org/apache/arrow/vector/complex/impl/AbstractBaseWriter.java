@@ -19,14 +19,14 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 
-
 /**
  * Base class providing common functionality for {@link FieldWriter} implementations.
  *
  * <p>Currently this only includes index tracking.
  */
 abstract class AbstractBaseWriter implements FieldWriter {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseWriter.class);
+  // private static final org.slf4j.Logger logger =
+  // org.slf4j.LoggerFactory.getLogger(AbstractBaseWriter.class);
 
   private int index;
 
@@ -50,6 +50,5 @@ abstract class AbstractBaseWriter implements FieldWriter {
   }
 
   @Override
-  public void end() {
-  }
+  public void end() {}
 }

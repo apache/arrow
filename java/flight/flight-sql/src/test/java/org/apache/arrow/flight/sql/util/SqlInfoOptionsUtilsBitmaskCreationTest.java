@@ -24,7 +24,6 @@ import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_C;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 
 import java.util.List;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -33,23 +32,22 @@ public final class SqlInfoOptionsUtilsBitmaskCreationTest {
 
   public static List<Object[]> provideParameters() {
     return asList(
-        new Object[][]{
-            {new AdhocTestOption[0], 0L},
-            {new AdhocTestOption[]{OPTION_A}, 1L},
-            {new AdhocTestOption[]{OPTION_B}, 0b10L},
-            {new AdhocTestOption[]{OPTION_A, OPTION_B}, 0b11L},
-            {new AdhocTestOption[]{OPTION_C}, 0b100L},
-            {new AdhocTestOption[]{OPTION_A, OPTION_C}, 0b101L},
-            {new AdhocTestOption[]{OPTION_B, OPTION_C}, 0b110L},
-            {AdhocTestOption.values(), 0b111L},
+        new Object[][] {
+          {new AdhocTestOption[0], 0L},
+          {new AdhocTestOption[] {OPTION_A}, 1L},
+          {new AdhocTestOption[] {OPTION_B}, 0b10L},
+          {new AdhocTestOption[] {OPTION_A, OPTION_B}, 0b11L},
+          {new AdhocTestOption[] {OPTION_C}, 0b100L},
+          {new AdhocTestOption[] {OPTION_A, OPTION_C}, 0b101L},
+          {new AdhocTestOption[] {OPTION_B, OPTION_C}, 0b110L},
+          {AdhocTestOption.values(), 0b111L},
         });
   }
 
   @ParameterizedTest
   @MethodSource("provideParameters")
   public void testShouldBuildBitmaskFromEnums(
-      AdhocTestOption[] adhocTestOptions, long expectedBitmask
-  ) {
+      AdhocTestOption[] adhocTestOptions, long expectedBitmask) {
     Assertions.assertEquals(createBitmaskFromEnums(adhocTestOptions), expectedBitmask);
   }
 }

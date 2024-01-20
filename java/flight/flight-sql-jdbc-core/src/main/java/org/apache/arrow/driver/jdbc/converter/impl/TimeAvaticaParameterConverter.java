@@ -27,13 +27,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Time Arrow types.
- */
+/** AvaticaParameterConverter for Time Arrow types. */
 public class TimeAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public TimeAvaticaParameterConverter(ArrowType.Time type) {
-  }
+  public TimeAvaticaParameterConverter(ArrowType.Time type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

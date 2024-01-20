@@ -30,16 +30,13 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.DateUtility;
 
-/**
- * Accessor for the Arrow types extending from {@link TimeStampVector}.
- */
+/** Accessor for the Arrow types extending from {@link TimeStampVector}. */
 public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final TimeZone timeZone;
@@ -48,19 +45,16 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
   private final LongToLocalDateTime longToLocalDateTime;
   private final Holder holder;
 
-  /**
-   * Functional interface used to convert a number (in any time resolution) to LocalDateTime.
-   */
+  /** Functional interface used to convert a number (in any time resolution) to LocalDateTime. */
   interface LongToLocalDateTime {
     LocalDateTime fromLong(long value);
   }
 
-  /**
-   * Instantiate a ArrowFlightJdbcTimeStampVectorAccessor for given vector.
-   */
-  public ArrowFlightJdbcTimeStampVectorAccessor(TimeStampVector vector,
-                                                IntSupplier currentRowSupplier,
-                                                ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  /** Instantiate a ArrowFlightJdbcTimeStampVectorAccessor for given vector. */
+  public ArrowFlightJdbcTimeStampVectorAccessor(
+      TimeStampVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
@@ -95,8 +89,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     if (calendar != null) {
       TimeZone timeZone = calendar.getTimeZone();
       long millis = this.timeUnit.toMillis(value);
-      localDateTime = localDateTime
-          .minus(timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
+      localDateTime =
+          localDateTime.minus(
+              timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
     }
     return localDateTime;
   }
@@ -149,8 +144,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     }
   }
 
-  protected static LongToLocalDateTime getLongToLocalDateTimeForVector(TimeStampVector vector,
-                                                                       TimeZone timeZone) {
+  protected static LongToLocalDateTime getLongToLocalDateTimeForVector(
+      TimeStampVector vector, TimeZone timeZone) {
     String timeZoneID = timeZone.getID();
 
     ArrowType.Timestamp arrowType =
@@ -164,8 +159,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
       case MILLISECOND:
         return milliseconds -> DateUtility.getLocalDateTimeFromEpochMilli(milliseconds, timeZoneID);
       case SECOND:
-        return seconds -> DateUtility.getLocalDateTimeFromEpochMilli(
-            TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
+        return seconds ->
+            DateUtility.getLocalDateTimeFromEpochMilli(
+                TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
       default:
         throw new UnsupportedOperationException("Invalid Arrow time unit");
     }

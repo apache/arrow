@@ -23,9 +23,7 @@ import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.DefaultAllocationManagerOption;
 import org.junit.Test;
 
-/**
- * Test cases for {@link AllocationManager}.
- */
+/** Test cases for {@link AllocationManager}. */
 public class TestAllocationManagerUnsafe {
 
   @Test
@@ -38,6 +36,5 @@ public class TestAllocationManagerUnsafe {
         DefaultAllocationManagerOption.getDefaultAllocationManagerType();
 
     assertEquals(DefaultAllocationManagerOption.AllocationManagerType.Unsafe, mgrType);
-
   }
 }

@@ -24,9 +24,7 @@ import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
-/**
- * To test simplified implementation of IdentityHashMap.
- */
+/** To test simplified implementation of IdentityHashMap. */
 public class TestLowCostIdentityHashMap {
 
   @Test
@@ -61,8 +59,10 @@ public class TestLowCostIdentityHashMap {
 
     assertNotNull(nextValue);
 
-    assertTrue((hashMap.get("s1key") == nextValue || hashMap.get("s2key") == nextValue ||
-        hashMap.get("s5key") == nextValue));
+    assertTrue(
+        (hashMap.get("s1key") == nextValue
+            || hashMap.get("s2key") == nextValue
+            || hashMap.get("s5key") == nextValue));
 
     assertTrue(hashMap.containsValue(obj4));
     assertTrue(hashMap.containsValue(obj2));
@@ -90,7 +90,7 @@ public class TestLowCostIdentityHashMap {
   public void testLargeMap() throws Exception {
     LowCostIdentityHashMap<String, StringWithKey> hashMap = new LowCostIdentityHashMap<>();
 
-    String [] keys = new String[200];
+    String[] keys = new String[200];
     for (int i = 0; i < 200; i++) {
       keys[i] = "s" + i + "key";
     }

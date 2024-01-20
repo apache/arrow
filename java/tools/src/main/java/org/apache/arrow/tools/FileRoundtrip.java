@@ -22,7 +22,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -37,9 +36,7 @@ import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Application that verifies data can be round-tripped through a file.
- */
+/** Application that verifies data can be round-tripped through a file. */
 public class FileRoundtrip {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileRoundtrip.class);
   private final Options options;
@@ -52,7 +49,6 @@ public class FileRoundtrip {
     this.options = new Options();
     this.options.addOption("i", "in", true, "input file");
     this.options.addOption("o", "out", true, "output file");
-
   }
 
   public static void main(String[] args) {
@@ -82,9 +78,9 @@ public class FileRoundtrip {
       File outFile = validateFile("output", outFileName);
 
       try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-           FileInputStream fileInputStream = new FileInputStream(inFile);
-           ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
-               allocator)) {
+          FileInputStream fileInputStream = new FileInputStream(inFile);
+          ArrowFileReader arrowReader =
+              new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
 
         VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
         Schema schema = root.getSchema();
@@ -92,8 +88,8 @@ public class FileRoundtrip {
         LOGGER.debug("Found schema: " + schema);
 
         try (FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-             ArrowFileWriter arrowWriter = new ArrowFileWriter(root, arrowReader,
-                 fileOutputStream.getChannel())) {
+            ArrowFileWriter arrowWriter =
+                new ArrowFileWriter(root, arrowReader, fileOutputStream.getChannel())) {
           arrowWriter.start();
           while (true) {
             if (!arrowReader.loadNextBatch()) {
@@ -119,5 +115,4 @@ public class FileRoundtrip {
     LOGGER.error(message, e);
     return 1;
   }
-
 }

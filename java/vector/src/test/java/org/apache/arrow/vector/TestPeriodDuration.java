@@ -22,7 +22,6 @@ import static org.junit.Assert.assertNotEquals;
 
 import java.time.Duration;
 import java.time.Period;
-
 import org.junit.Test;
 
 public class TestPeriodDuration {
@@ -42,5 +41,4 @@ public class TestPeriodDuration {
     assertNotEquals(pd1, pd3);
     assertNotEquals(pd1.hashCode(), pd3.hashCode());
   }
-
 }

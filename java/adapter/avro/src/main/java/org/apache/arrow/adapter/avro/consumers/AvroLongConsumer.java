@@ -18,19 +18,16 @@
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume long type values from avro decoder.
- * Write the data to {@link BigIntVector}.
+ * Consumer which consume long type values from avro decoder. Write the data to {@link
+ * BigIntVector}.
  */
 public class AvroLongConsumer extends BaseAvroConsumer<BigIntVector> {
 
-  /**
-   * Instantiate a AvroLongConsumer.
-   */
+  /** Instantiate a AvroLongConsumer. */
   public AvroLongConsumer(BigIntVector vector) {
     super(vector);
   }

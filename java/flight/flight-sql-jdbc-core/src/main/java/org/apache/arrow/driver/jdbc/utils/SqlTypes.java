@@ -20,13 +20,10 @@ package org.apache.arrow.driver.jdbc.utils;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
-/**
- * SQL Types utility functions.
- */
+/** SQL Types utility functions. */
 public class SqlTypes {
   private static final Map<Integer, String> typeIdToName = new HashMap<>();
 
@@ -83,7 +80,6 @@ public class SqlTypes {
     final int typeId = getSqlTypeIdFromArrowType(arrowType);
     return typeIdToName.get(typeId);
   }
-
 
   /**
    * Convert given {@link ArrowType} to its corresponding SQL type ID.

@@ -21,10 +21,7 @@ import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 
-/**
- * The default Allocation Manager Factory for a module.
- *
- */
+/** The default Allocation Manager Factory for a module. */
 public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
   public static final AllocationManager.Factory FACTORY = UnsafeAllocationManager.FACTORY;

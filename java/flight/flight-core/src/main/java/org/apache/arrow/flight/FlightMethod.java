@@ -19,9 +19,7 @@ package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.FlightServiceGrpc;
 
-/**
- * All the RPC methods available in Flight.
- */
+/** All the RPC methods available in Flight. */
 public enum FlightMethod {
   HANDSHAKE,
   LIST_FLIGHTS,

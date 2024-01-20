@@ -19,19 +19,17 @@ package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.SmallIntVector;
 
 /**
- * Consumer which consume smallInt type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.SmallIntVector}.
+ * Consumer which consume smallInt type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.SmallIntVector}.
  */
 public class SmallIntConsumer {
 
-  /**
-   * Creates a consumer for {@link SmallIntVector}.
-   */
-  public static BaseConsumer<SmallIntVector> createConsumer(SmallIntVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link SmallIntVector}. */
+  public static BaseConsumer<SmallIntVector> createConsumer(
+      SmallIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableSmallIntConsumer(vector, index);
     } else {
@@ -39,14 +37,10 @@ public class SmallIntConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for small int.
-   */
+  /** Nullable consumer for small int. */
   static class NullableSmallIntConsumer extends BaseConsumer<SmallIntVector> {
 
-    /**
-     * Instantiate a SmallIntConsumer.
-     */
+    /** Instantiate a SmallIntConsumer. */
     public NullableSmallIntConsumer(SmallIntVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +57,10 @@ public class SmallIntConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for small int.
-   */
+  /** Non-nullable consumer for small int. */
   static class NonNullableSmallIntConsumer extends BaseConsumer<SmallIntVector> {
 
-    /**
-     * Instantiate a SmallIntConsumer.
-     */
+    /** Instantiate a SmallIntConsumer. */
     public NonNullableSmallIntConsumer(SmallIntVector vector, int index) {
       super(vector, index);
     }

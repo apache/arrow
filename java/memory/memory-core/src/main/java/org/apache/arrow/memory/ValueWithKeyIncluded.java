@@ -18,8 +18,7 @@
 package org.apache.arrow.memory;
 
 /**
- * Helper interface to generify a value to be included in the map where
- * key is part of the value.
+ * Helper interface to generify a value to be included in the map where key is part of the value.
  *
  * @param <K> The type of the key.
  */

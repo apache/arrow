@@ -32,13 +32,11 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-/**
- * Test the behavior of ArrowFlightSqlClientHandler.Builder
- */
+/** Test the behavior of ArrowFlightSqlClientHandler.Builder */
 public class ArrowFlightSqlClientHandlerBuilderTest {
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
-      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   private static BufferAllocator allocator;
 
@@ -55,19 +53,21 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
   @Test
   public void testRetainCookiesOnAuthOff() throws Exception {
     // Arrange
-    final ArrowFlightSqlClientHandler.Builder rootBuilder = new ArrowFlightSqlClientHandler.Builder()
-        .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-        .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-        .withBufferAllocator(allocator)
-        .withUsername(FlightServerTestRule.DEFAULT_USER)
-        .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
-        .withEncryption(false)
-        .withRetainCookies(true)
-        .withRetainAuth(false);
+    final ArrowFlightSqlClientHandler.Builder rootBuilder =
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withBufferAllocator(allocator)
+            .withUsername(FlightServerTestRule.DEFAULT_USER)
+            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withEncryption(false)
+            .withRetainCookies(true)
+            .withRetainAuth(false);
 
     try (ArrowFlightSqlClientHandler rootHandler = rootBuilder.build()) {
       // Act
-      final ArrowFlightSqlClientHandler.Builder testBuilder = new ArrowFlightSqlClientHandler.Builder(rootBuilder);
+      final ArrowFlightSqlClientHandler.Builder testBuilder =
+          new ArrowFlightSqlClientHandler.Builder(rootBuilder);
 
       // Assert
       assertSame(rootBuilder.cookieFactory, testBuilder.cookieFactory);
@@ -78,19 +78,21 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
   @Test
   public void testRetainCookiesOffAuthOff() throws Exception {
     // Arrange
-    final ArrowFlightSqlClientHandler.Builder rootBuilder = new ArrowFlightSqlClientHandler.Builder()
-        .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-        .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-        .withBufferAllocator(allocator)
-        .withUsername(FlightServerTestRule.DEFAULT_USER)
-        .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
-        .withEncryption(false)
-        .withRetainCookies(false)
-        .withRetainAuth(false);
+    final ArrowFlightSqlClientHandler.Builder rootBuilder =
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withBufferAllocator(allocator)
+            .withUsername(FlightServerTestRule.DEFAULT_USER)
+            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withEncryption(false)
+            .withRetainCookies(false)
+            .withRetainAuth(false);
 
     try (ArrowFlightSqlClientHandler rootHandler = rootBuilder.build()) {
       // Act
-      final ArrowFlightSqlClientHandler.Builder testBuilder = new ArrowFlightSqlClientHandler.Builder(rootBuilder);
+      final ArrowFlightSqlClientHandler.Builder testBuilder =
+          new ArrowFlightSqlClientHandler.Builder(rootBuilder);
 
       // Assert
       assertNotSame(rootBuilder.cookieFactory, testBuilder.cookieFactory);
@@ -101,19 +103,21 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
   @Test
   public void testRetainCookiesOnAuthOn() throws Exception {
     // Arrange
-    final ArrowFlightSqlClientHandler.Builder rootBuilder = new ArrowFlightSqlClientHandler.Builder()
-        .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-        .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-        .withBufferAllocator(allocator)
-        .withUsername(FlightServerTestRule.DEFAULT_USER)
-        .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
-        .withEncryption(false)
-        .withRetainCookies(true)
-        .withRetainAuth(true);
+    final ArrowFlightSqlClientHandler.Builder rootBuilder =
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withBufferAllocator(allocator)
+            .withUsername(FlightServerTestRule.DEFAULT_USER)
+            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withEncryption(false)
+            .withRetainCookies(true)
+            .withRetainAuth(true);
 
     try (ArrowFlightSqlClientHandler rootHandler = rootBuilder.build()) {
       // Act
-      final ArrowFlightSqlClientHandler.Builder testBuilder = new ArrowFlightSqlClientHandler.Builder(rootBuilder);
+      final ArrowFlightSqlClientHandler.Builder testBuilder =
+          new ArrowFlightSqlClientHandler.Builder(rootBuilder);
 
       // Assert
       assertSame(rootBuilder.cookieFactory, testBuilder.cookieFactory);

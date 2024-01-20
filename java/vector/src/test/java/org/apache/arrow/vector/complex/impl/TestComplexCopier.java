@@ -21,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DecimalVector;
@@ -62,7 +61,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyFixedSizeListVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
+        FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
 
       from.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       to.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
@@ -90,14 +89,13 @@ public class TestComplexCopier {
 
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
-
     }
   }
 
   @Test
   public void testInvalidCopyFixedSizeListVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("v", 2, allocator)) {
+        FixedSizeListVector to = FixedSizeListVector.empty("v", 2, allocator)) {
 
       from.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       to.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
@@ -117,8 +115,8 @@ public class TestComplexCopier {
       // copy values
       FieldReader in = from.getReader();
       FieldWriter out = to.getWriter();
-      IllegalStateException e = assertThrows(IllegalStateException.class,
-          () -> ComplexCopier.copy(in, out));
+      IllegalStateException e =
+          assertThrows(IllegalStateException.class, () -> ComplexCopier.copy(in, out));
       assertTrue(e.getMessage().contains("greater than listSize"));
     }
   }
@@ -126,7 +124,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyMapVector() {
     try (final MapVector from = MapVector.empty("v", allocator, false);
-         final MapVector to = MapVector.empty("v", allocator, false)) {
+        final MapVector to = MapVector.empty("v", allocator, false)) {
 
       from.allocateNew();
 
@@ -165,7 +163,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListVector() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator)) {
+        ListVector to = ListVector.empty("v", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -204,14 +202,13 @@ public class TestComplexCopier {
 
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
-
     }
   }
 
   @Test
   public void testCopyListVectorToANonEmptyList() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator)) {
+        ListVector to = ListVector.empty("v", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -262,7 +259,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListVectorWithNulls() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator)) {
+        ListVector to = ListVector.empty("v", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -303,7 +300,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListOfListVectorWithNulls() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator);) {
+        ListVector to = ListVector.empty("v", allocator); ) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -358,7 +355,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListOStructVectorWithNulls() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator);) {
+        ListVector to = ListVector.empty("v", allocator); ) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -408,7 +405,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyListOfListOfStructVectorWithNulls() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator);) {
+        ListVector to = ListVector.empty("v", allocator); ) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -485,7 +482,7 @@ public class TestComplexCopier {
   @Test
   public void testMapWithListValue() throws Exception {
     try (MapVector from = MapVector.empty("map", allocator, false);
-         MapVector to = MapVector.empty("map", allocator, false)) {
+        MapVector to = MapVector.empty("map", allocator, false)) {
 
       UnionMapWriter mapWriter = from.getWriter();
       BaseWriter.ListWriter valueWriter;
@@ -573,7 +570,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyFixedSizedListOfDecimalsVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 4, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("v", 4, allocator)) {
+        FixedSizeListVector to = FixedSizeListVector.empty("v", 4, allocator)) {
       from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
       to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 0, 128)));
 
@@ -587,17 +584,21 @@ public class TestComplexCopier {
         writer.startList();
         writer.decimal().writeDecimal(BigDecimal.valueOf(i));
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 2), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+        DecimalUtility.writeBigDecimalToArrowBuf(
+            new BigDecimal(i * 2), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
         holder.start = 0;
         holder.scale = 0;
         holder.precision = 3;
         writer.decimal().write(holder);
 
-        DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(i * 3), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+        DecimalUtility.writeBigDecimalToArrowBuf(
+            new BigDecimal(i * 3), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
         writer.decimal().writeDecimal(0, holder.buffer, arrowType);
 
-        writer.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
-            arrowType);
+        writer
+            .decimal()
+            .writeBigEndianBytesToDecimal(
+                BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(), arrowType);
 
         writer.endList();
       }
@@ -622,7 +623,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyUnionListWithDecimal() {
     try (ListVector from = ListVector.empty("v", allocator);
-         ListVector to = ListVector.empty("v", allocator)) {
+        ListVector to = ListVector.empty("v", allocator)) {
 
       UnionListWriter listWriter = from.getWriter();
       listWriter.allocate();
@@ -633,8 +634,11 @@ public class TestComplexCopier {
 
         listWriter.decimal().writeDecimal(BigDecimal.valueOf(i * 2));
         listWriter.integer().writeInt(i);
-        listWriter.decimal().writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 3).unscaledValue().toByteArray(),
-            new ArrowType.Decimal(3, 0, 128));
+        listWriter
+            .decimal()
+            .writeBigEndianBytesToDecimal(
+                BigDecimal.valueOf(i * 3).unscaledValue().toByteArray(),
+                new ArrowType.Decimal(3, 0, 128));
 
         listWriter.endList();
       }
@@ -653,14 +657,13 @@ public class TestComplexCopier {
 
       // validate equals
       assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
-
     }
   }
 
   @Test
   public void testCopyStructVector() {
     try (final StructVector from = StructVector.empty("v", allocator);
-         final StructVector to = StructVector.empty("v", allocator)) {
+        final StructVector to = StructVector.empty("v", allocator)) {
 
       from.allocateNewSafe();
 
@@ -674,8 +677,11 @@ public class TestComplexCopier {
         innerStructWriter.start();
         innerStructWriter.integer("innerint").writeInt(i * 3);
         innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4));
-        innerStructWriter.decimal("innerdec", 0, 38).writeBigEndianBytesToDecimal(BigDecimal.valueOf(i * 4)
-            .unscaledValue().toByteArray(), new ArrowType.Decimal(3, 0, 128));
+        innerStructWriter
+            .decimal("innerdec", 0, 38)
+            .writeBigEndianBytesToDecimal(
+                BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
+                new ArrowType.Decimal(3, 0, 128));
         innerStructWriter.end();
         structWriter.end();
       }
@@ -700,7 +706,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyDecimalVectorWrongScale() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("v", 3, allocator);
-         FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
+        FixedSizeListVector to = FixedSizeListVector.empty("v", 3, allocator)) {
       from.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 2, 128)));
       to.addOrGetVector(FieldType.nullable(new ArrowType.Decimal(3, 1, 128)));
 
@@ -718,16 +724,17 @@ public class TestComplexCopier {
       // copy values
       FieldReader in = from.getReader();
       FieldWriter out = to.getWriter();
-      UnsupportedOperationException e = assertThrows(UnsupportedOperationException.class,
-          () -> ComplexCopier.copy(in, out));
-      assertTrue(e.getMessage().contains("BigDecimal scale must equal that in the Arrow vector: 2 != 1"));
+      UnsupportedOperationException e =
+          assertThrows(UnsupportedOperationException.class, () -> ComplexCopier.copy(in, out));
+      assertTrue(
+          e.getMessage().contains("BigDecimal scale must equal that in the Arrow vector: 2 != 1"));
     }
   }
 
   @Test
   public void testCopyStructVectorWithNulls() {
     try (StructVector from = StructVector.empty("v", allocator);
-         StructVector to = StructVector.empty("v", allocator)) {
+        StructVector to = StructVector.empty("v", allocator)) {
 
       NullableStructWriter writer = from.getWriter();
 
@@ -764,7 +771,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyStructOfMap() {
     try (final StructVector from = StructVector.empty("v", allocator);
-         final StructVector to = StructVector.empty("v", allocator);) {
+        final StructVector to = StructVector.empty("v", allocator); ) {
 
       from.allocateNew();
 
@@ -802,7 +809,7 @@ public class TestComplexCopier {
   @Test
   public void testCopyMapVectorWithMapValue() {
     try (final MapVector from = MapVector.empty("v", allocator, false);
-         final MapVector to = MapVector.empty("v", allocator, false)) {
+        final MapVector to = MapVector.empty("v", allocator, false)) {
 
       from.allocateNew();
 

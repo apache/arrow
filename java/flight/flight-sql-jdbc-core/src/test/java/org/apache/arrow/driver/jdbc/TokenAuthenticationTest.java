@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
@@ -31,16 +30,14 @@ import org.junit.Test;
 public class TokenAuthenticationTest {
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
 
-  @ClassRule
-  public static FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @ClassRule public static FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
 
   static {
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .authentication(new TokenAuthentication.Builder()
-            .token("1234")
-            .build())
-        .producer(FLIGHT_SQL_PRODUCER)
-        .build();
+    FLIGHT_SERVER_TEST_RULE =
+        new FlightServerTestRule.Builder()
+            .authentication(new TokenAuthentication.Builder().token("1234").build())
+            .producer(FLIGHT_SQL_PRODUCER)
+            .build();
   }
 
   @AfterClass

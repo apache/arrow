@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc;
 import static org.junit.Assert.*;
 
 import java.sql.Types;
-
 import org.junit.Test;
 
 public class JdbcFieldInfoTest {

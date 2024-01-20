@@ -21,16 +21,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 
-/**
- * A {@link SeekableByteChannel} backed by a byte array.
- */
+/** A {@link SeekableByteChannel} backed by a byte array. */
 public class ByteArrayReadableSeekableByteChannel implements SeekableByteChannel {
   private byte[] byteArray;
   private int position = 0;
 
-  /**
-   * Construct a new object using the given byteArray as a backing store.
-   */
+  /** Construct a new object using the given byteArray as a backing store. */
   public ByteArrayReadableSeekableByteChannel(byte[] byteArray) {
     if (byteArray == null) {
       throw new NullPointerException();
@@ -82,5 +78,4 @@ public class ByteArrayReadableSeekableByteChannel implements SeekableByteChannel
   public SeekableByteChannel truncate(final long size) throws IOException {
     throw new UnsupportedOperationException("Read only");
   }
-
 }

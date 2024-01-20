@@ -34,7 +34,8 @@ module org.apache.arrow.vector {
   exports org.apache.arrow.vector.util;
   exports org.apache.arrow.vector.validate;
 
-  opens org.apache.arrow.vector.types.pojo to com.fasterxml.jackson.databind;
+  opens org.apache.arrow.vector.types.pojo to
+      com.fasterxml.jackson.databind;
 
   requires com.fasterxml.jackson.annotation;
   requires com.fasterxml.jackson.core;

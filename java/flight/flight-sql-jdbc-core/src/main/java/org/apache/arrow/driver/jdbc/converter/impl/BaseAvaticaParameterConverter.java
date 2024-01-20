@@ -34,7 +34,8 @@ abstract class BaseAvaticaParameterConverter implements AvaticaParameterConverte
     final ArrowType arrowType = field.getType();
     final String typeName = arrowType.toString();
     final int precision = 0; // Would have to know about the actual number
-    final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
+    final int scale =
+        0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
     final int jdbcType = SqlTypes.getSqlTypeIdFromArrowType(arrowType);
     final String className = SqlType.valueOf(jdbcType).clazz.getCanonicalName();
     return new AvaticaParameter(signed, precision, scale, jdbcType, typeName, className, name);

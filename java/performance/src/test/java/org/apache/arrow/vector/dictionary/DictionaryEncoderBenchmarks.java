@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
@@ -41,9 +40,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link DictionaryEncoder}.
- */
+/** Benchmarks for {@link DictionaryEncoder}. */
 @State(Scope.Benchmark)
 public class DictionaryEncoderBenchmarks {
 
@@ -51,7 +48,6 @@ public class DictionaryEncoderBenchmarks {
 
   private static final int DATA_SIZE = 1000;
   private static final int KEY_SIZE = 100;
-
 
   private static final int KEY_LENGTH = 10;
 
@@ -61,9 +57,7 @@ public class DictionaryEncoderBenchmarks {
 
   private VarCharVector dictionaryVector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
 
@@ -89,12 +83,9 @@ public class DictionaryEncoderBenchmarks {
       byte[] value = keys.get(i).getBytes(StandardCharsets.UTF_8);
       dictionaryVector.setSafe(i, value, 0, value.length);
     }
-
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     vector.close();
@@ -105,13 +96,15 @@ public class DictionaryEncoderBenchmarks {
 
   /**
    * Test encode for {@link DictionaryEncoder}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testEncode() {
-    Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+    Dictionary dictionary =
+        new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
     final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary);
     encoded.close();
     return 0;
@@ -137,10 +130,11 @@ public class DictionaryEncoderBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(DictionaryEncoderBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+    Options opt =
+        new OptionsBuilder()
+            .include(DictionaryEncoderBenchmarks.class.getSimpleName())
+            .forks(1)
+            .build();
 
     new Runner(opt).run();
   }

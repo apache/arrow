@@ -23,23 +23,15 @@ import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 
-/**
- * A particular scenario in integration testing.
- */
+/** A particular scenario in integration testing. */
 interface Scenario {
 
-  /**
-   * Construct the FlightProducer for a server in this scenario.
-   */
+  /** Construct the FlightProducer for a server in this scenario. */
   FlightProducer producer(BufferAllocator allocator, Location location) throws Exception;
 
-  /**
-   * Set any other server options.
-   */
+  /** Set any other server options. */
   void buildServer(FlightServer.Builder builder) throws Exception;
 
-  /**
-   * Run as the client in the scenario.
-   */
+  /** Run as the client in the scenario. */
   void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception;
 }

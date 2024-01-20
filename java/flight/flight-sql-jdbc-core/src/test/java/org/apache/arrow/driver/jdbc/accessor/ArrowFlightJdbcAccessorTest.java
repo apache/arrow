@@ -25,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,8 +37,7 @@ public class ArrowFlightJdbcAccessorTest {
   static class MockedArrowFlightJdbcAccessor extends ArrowFlightJdbcAccessor {
 
     protected MockedArrowFlightJdbcAccessor() {
-      super(() -> 0, (boolean wasNull) -> {
-      });
+      super(() -> 0, (boolean wasNull) -> {});
     }
 
     @Override
@@ -48,8 +46,7 @@ public class ArrowFlightJdbcAccessorTest {
     }
   }
 
-  @Mock
-  MockedArrowFlightJdbcAccessor accessor;
+  @Mock MockedArrowFlightJdbcAccessor accessor;
 
   @Test
   public void testShouldGetObjectWithByteClassReturnGetByte() throws SQLException {

@@ -17,9 +17,7 @@
 
 package org.apache.arrow.memory;
 
-/**
- * An {@link OwnershipTransferResult} indicating no transfer needed.
- */
+/** An {@link OwnershipTransferResult} indicating no transfer needed. */
 public class OwnershipTransferNOOP implements OwnershipTransferResult {
   private final ArrowBuf buffer;
 

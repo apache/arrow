@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector.types;
 
-/**
- * Metadata version for Arrow metadata.
- */
+/** Metadata version for Arrow metadata. */
 public enum MetadataVersion {
   /// 0.1.0
   V1(org.apache.arrow.flatbuf.MetadataVersion.V1),
@@ -35,7 +33,6 @@ public enum MetadataVersion {
 
   /// >= 1.0.0
   V5(org.apache.arrow.flatbuf.MetadataVersion.V5),
-
   ;
 
   public static final MetadataVersion DEFAULT = V5;

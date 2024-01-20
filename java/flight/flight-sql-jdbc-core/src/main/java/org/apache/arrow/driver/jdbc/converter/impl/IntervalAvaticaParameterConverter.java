@@ -23,13 +23,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Interval Arrow types.
- */
+/** AvaticaParameterConverter for Interval Arrow types. */
 public class IntervalAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public IntervalAvaticaParameterConverter(ArrowType.Interval type) {
-  }
+  public IntervalAvaticaParameterConverter(ArrowType.Interval type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

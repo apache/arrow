@@ -17,13 +17,10 @@
 
 package org.apache.arrow.flight;
 
+import io.grpc.stub.AbstractStub;
 import java.util.concurrent.TimeUnit;
 
-import io.grpc.stub.AbstractStub;
-
-/**
- * Common call options.
- */
+/** Common call options. */
 public class CallOptions {
   public static CallOption timeout(long duration, TimeUnit unit) {
     return new Timeout(duration, unit);
@@ -53,9 +50,7 @@ public class CallOptions {
     }
   }
 
-  /**
-   * CallOptions specific to GRPC stubs.
-   */
+  /** CallOptions specific to GRPC stubs. */
   public interface GrpcCallOption extends CallOption {
     <T extends AbstractStub<T>> T wrapStub(T stub);
   }

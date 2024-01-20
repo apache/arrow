@@ -19,21 +19,18 @@ package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume string type values from avro decoder.
- * Write the data to {@link VarCharVector}.
+ * Consumer which consume string type values from avro decoder. Write the data to {@link
+ * VarCharVector}.
  */
 public class AvroStringConsumer extends BaseAvroConsumer<VarCharVector> {
 
   private ByteBuffer cacheBuffer;
 
-  /**
-   * Instantiate a AvroStringConsumer.
-   */
+  /** Instantiate a AvroStringConsumer. */
   public AvroStringConsumer(VarCharVector vector) {
     super(vector);
   }

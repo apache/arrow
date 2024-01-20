@@ -17,23 +17,16 @@
 
 package org.apache.arrow.flight;
 
-/**
- * Middleware that's used to extract and pass headers to the server during requests.
- */
+/** Middleware that's used to extract and pass headers to the server during requests. */
 public class ServerHeaderMiddleware implements FlightServerMiddleware {
-  /**
-   * Factory for accessing ServerHeaderMiddleware.
-   */
+  /** Factory for accessing ServerHeaderMiddleware. */
   public static class Factory implements FlightServerMiddleware.Factory<ServerHeaderMiddleware> {
-    /**
-     * Construct a factory for receiving call headers.
-     */
-    public Factory() {
-    }
+    /** Construct a factory for receiving call headers. */
+    public Factory() {}
 
     @Override
-    public ServerHeaderMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
-                                                RequestContext context) {
+    public ServerHeaderMiddleware onCallStarted(
+        CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       return new ServerHeaderMiddleware(incomingHeaders);
     }
   }
@@ -44,22 +37,17 @@ public class ServerHeaderMiddleware implements FlightServerMiddleware {
     this.headers = incomingHeaders;
   }
 
-  /**
-   * Retrieve the headers for this call.
-   */
+  /** Retrieve the headers for this call. */
   public CallHeaders headers() {
     return headers;
   }
 
   @Override
-  public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-  }
+  public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {}
 
   @Override
-  public void onCallCompleted(CallStatus status) {
-  }
+  public void onCallCompleted(CallStatus status) {}
 
   @Override
-  public void onCallErrored(Throwable err) {
-  }
+  public void onCallErrored(Throwable err) {}
 }

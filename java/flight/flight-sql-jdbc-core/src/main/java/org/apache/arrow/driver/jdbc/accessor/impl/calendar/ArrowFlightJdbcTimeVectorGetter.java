@@ -26,9 +26,7 @@ import org.apache.arrow.vector.holders.NullableTimeMilliHolder;
 import org.apache.arrow.vector.holders.NullableTimeNanoHolder;
 import org.apache.arrow.vector.holders.NullableTimeSecHolder;
 
-/**
- * Auxiliary class used to unify data access on Time*Vectors.
- */
+/** Auxiliary class used to unify data access on Time*Vectors. */
 final class ArrowFlightJdbcTimeVectorGetter {
 
   private ArrowFlightJdbcTimeVectorGetter() {
@@ -36,16 +34,15 @@ final class ArrowFlightJdbcTimeVectorGetter {
   }
 
   /**
-   * Auxiliary class meant to unify TimeStamp*Vector#get implementations with different classes of ValueHolders.
+   * Auxiliary class meant to unify TimeStamp*Vector#get implementations with different classes of
+   * ValueHolders.
    */
   static class Holder {
     int isSet; // Tells if value is set; 0 = not set, 1 = set
     long value; // Holds actual value in its respective timeunit
   }
 
-  /**
-   * Functional interface used to unify TimeStamp*Vector#get implementations.
-   */
+  /** Functional interface used to unify TimeStamp*Vector#get implementations. */
   @FunctionalInterface
   interface Getter {
     void get(int index, Holder holder);

@@ -29,9 +29,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link ElementAddressableVectorIterator}.
- */
+/** Test cases for {@link ElementAddressableVectorIterator}. */
 public class TestElementAddressableVectorIterator {
 
   private final int VECTOR_LENGTH = 100;
@@ -64,7 +62,8 @@ public class TestElementAddressableVectorIterator {
       }
 
       // iterate
-      ElementAddressableVectorIterator<IntVector> it = new ElementAddressableVectorIterator<>(intVector);
+      ElementAddressableVectorIterator<IntVector> it =
+          new ElementAddressableVectorIterator<>(intVector);
       int index = 0;
       while (it.hasNext()) {
         ArrowBufPointer pt;
@@ -103,7 +102,8 @@ public class TestElementAddressableVectorIterator {
       }
 
       // iterate
-      ElementAddressableVectorIterator<VarCharVector> it = new ElementAddressableVectorIterator<>(strVector);
+      ElementAddressableVectorIterator<VarCharVector> it =
+          new ElementAddressableVectorIterator<>(strVector);
       int index = 0;
       while (it.hasNext()) {
         ArrowBufPointer pt;

@@ -20,8 +20,8 @@ package org.apache.arrow.memory;
 /**
  * An allocation listener being notified for allocation/deallocation
  *
- * <p>It might be called from multiple threads if the allocator hierarchy shares a listener, in which
- * case, the provider should take care of making the implementation thread-safe.
+ * <p>It might be called from multiple threads if the allocator hierarchy shares a listener, in
+ * which case, the provider should take care of making the implementation thread-safe.
  */
 public interface AllocationListener {
 
@@ -49,18 +49,18 @@ public interface AllocationListener {
    * Informed each time a buffer is released from allocation.
    *
    * <p>An exception cannot be thrown by this method.
+   *
    * @param size The size of the buffer being released.
    */
   default void onRelease(long size) {}
-
 
   /**
    * Called whenever an allocation failed, giving the caller a chance to create some space in the
    * allocator (either by freeing some resource, or by changing the limit), and, if successful,
    * allowing the allocator to retry the allocation.
    *
-   * @param size     the buffer size that was being allocated
-   * @param outcome  the outcome of the failed allocation. Carries information of what failed
+   * @param size the buffer size that was being allocated
+   * @param outcome the outcome of the failed allocation. Carries information of what failed
    * @return true, if the allocation can be retried; false if the allocation should fail
    */
   default boolean onFailedAllocation(long size, AllocationOutcome outcome) {
@@ -71,7 +71,7 @@ public interface AllocationListener {
    * Called immediately after a child allocator was added to the parent allocator.
    *
    * @param parentAllocator The parent allocator to which a child was added
-   * @param childAllocator  The child allocator that was just added
+   * @param childAllocator The child allocator that was just added
    */
   default void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {}
 

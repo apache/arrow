@@ -21,10 +21,9 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 
 /**
- * Helper class to generate test data for Nullable fixed and variable
- * width scalar vectors. Previous implementations of java vector classes
- * provided generateTestData(now deprecated) API to populate the vector
- * with sample data. This class should be used for that purpose.
+ * Helper class to generate test data for Nullable fixed and variable width scalar vectors. Previous
+ * implementations of java vector classes provided generateTestData(now deprecated) API to populate
+ * the vector with sample data. This class should be used for that purpose.
  */
 public class GenerateSampleData {
   private GenerateSampleData() {}
@@ -207,7 +206,6 @@ public class GenerateSampleData {
       }
     }
     vector.setValueCount(valueCount);
-
   }
 
   private static void writeTimeNanoData(TimeNanoVector vector, int valueCount) {
@@ -394,4 +392,3 @@ public class GenerateSampleData {
     vector.setValueCount(valueCount);
   }
 }
-

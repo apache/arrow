@@ -21,7 +21,6 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.complex.MapVector;
@@ -40,8 +39,7 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private MapVector vector;
 
@@ -105,8 +103,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   public void testShouldGetObjectReturnValidMap() {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
     ArrowFlightJdbcMapVectorAccessor accessor =
-        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
-        });
+        new ArrowFlightJdbcMapVectorAccessor(
+            vector, cursor::getCurrentRow, (boolean wasNull) -> {});
 
     Map<Object, Object> expected = new JsonStringHashMap<>();
     expected.put(1, 11);
@@ -135,8 +133,7 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   public void testShouldGetObjectReturnNull() {
     vector.setNull(0);
     ArrowFlightJdbcMapVectorAccessor accessor =
-        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
-        });
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {});
 
     Assert.assertNull(accessor.getObject());
     Assert.assertTrue(accessor.wasNull());
@@ -146,8 +143,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
   public void testShouldGetArrayReturnValidArray() throws SQLException {
     AccessorTestUtils.Cursor cursor = new AccessorTestUtils.Cursor(vector.getValueCount());
     ArrowFlightJdbcMapVectorAccessor accessor =
-        new ArrowFlightJdbcMapVectorAccessor(vector, cursor::getCurrentRow, (boolean wasNull) -> {
-        });
+        new ArrowFlightJdbcMapVectorAccessor(
+            vector, cursor::getCurrentRow, (boolean wasNull) -> {});
 
     Array array = accessor.getArray();
     Assert.assertNotNull(array);
@@ -212,8 +209,7 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     ((StructVector) vector.getDataVector()).setNull(0);
 
     ArrowFlightJdbcMapVectorAccessor accessor =
-        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {
-        });
+        new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {});
 
     Assert.assertNull(accessor.getArray());
     Assert.assertTrue(accessor.wasNull());

@@ -23,15 +23,13 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.TimeZone;
-
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
 public class DateTimeUtilsTest {
 
-  @ClassRule
-  public static final ErrorCollector collector = new ErrorCollector();
+  @ClassRule public static final ErrorCollector collector = new ErrorCollector();
   private final TimeZone defaultTimezone = TimeZone.getTimeZone("UTC");
   private final TimeZone alternateTimezone = TimeZone.getTimeZone("America/Vancouver");
   private final long positiveEpochMilli = 959817600000L; // 2000-06-01 00:00:00 UTC
@@ -48,7 +46,8 @@ public class DateTimeUtilsTest {
 
     try { // Trying to guarantee timezone returns to its original value
       final long expected = epochMillis + offset;
-      final long actual = DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(defaultTimezone));
+      final long actual =
+          DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(defaultTimezone));
 
       collector.checkThat(actual, is(expected));
     } finally {
@@ -68,8 +67,8 @@ public class DateTimeUtilsTest {
 
     try { // Trying to guarantee timezone returns to its original value
       final long expectedEpochMillis = epochMillis + offset;
-      final long actualEpochMillis = DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(
-          defaultTimezone));
+      final long actualEpochMillis =
+          DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(defaultTimezone));
 
       collector.checkThat(actualEpochMillis, is(expectedEpochMillis));
     } finally {

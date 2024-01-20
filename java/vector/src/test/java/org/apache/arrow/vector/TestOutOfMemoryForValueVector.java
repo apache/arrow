@@ -24,9 +24,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * This class tests cases where we expect to receive {@link OutOfMemoryException}.
- */
+/** This class tests cases where we expect to receive {@link OutOfMemoryException}. */
 public class TestOutOfMemoryForValueVector {
 
   private static final String EMPTY_SCHEMA_PATH = "";

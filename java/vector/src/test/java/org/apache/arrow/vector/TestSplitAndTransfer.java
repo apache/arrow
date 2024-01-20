@@ -24,7 +24,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -48,13 +47,14 @@ public class TestSplitAndTransfer {
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
-  
+
   @After
   public void terminate() throws Exception {
     allocator.close();
   }
 
-  private void populateVarcharVector(final VarCharVector vector, int valueCount, String[] compareArray) {
+  private void populateVarcharVector(
+      final VarCharVector vector, int valueCount, String[] compareArray) {
     for (int i = 0; i < valueCount; i += 3) {
       final String s = String.format("%010d", i);
       vector.set(i, s.getBytes());
@@ -64,21 +64,21 @@ public class TestSplitAndTransfer {
     }
     vector.setValueCount(valueCount);
   }
-  
+
   @Test /* VarCharVector */
   public void test() throws Exception {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
       varCharVector.allocateNew(10000, 1000);
-  
+
       final int valueCount = 500;
       final String[] compareArray = new String[valueCount];
-  
+
       populateVarcharVector(varCharVector, valueCount, compareArray);
-  
+
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
       final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
-  
+
       for (final int[] startLength : startLengths) {
         final int start = startLength[0];
         final int length = startLength[1];
@@ -156,7 +156,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testCopyValueSafe() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
-         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
       varCharVector.allocateNew(10000, 1000);
 
       final int valueCount = 500;
@@ -230,11 +230,12 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> tp.splitAndTransfer(valueCount, 10));
+      IllegalArgumentException e =
+          Assertions.assertThrows(
+              IllegalArgumentException.class, () -> tp.splitAndTransfer(valueCount, 10));
 
-      assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
+      assertEquals(
+          "Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
@@ -251,11 +252,12 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
-          IllegalArgumentException.class,
-          () -> tp.splitAndTransfer(0, valueCount * 2));
+      IllegalArgumentException e =
+          Assertions.assertThrows(
+              IllegalArgumentException.class, () -> tp.splitAndTransfer(0, valueCount * 2));
 
-      assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
+      assertEquals(
+          "Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
@@ -264,7 +266,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testZeroStartIndexAndLength() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
-         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
 
       varCharVector.allocateNew(0, 0);
       final int valueCount = 0;
@@ -282,7 +284,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testZeroLength() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
-         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
 
       varCharVector.allocateNew(10000, 1000);
       final int valueCount = 500;
@@ -300,7 +302,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testUnionVectorZeroStartIndexAndLength() {
     try (final UnionVector unionVector = UnionVector.empty("myvector", allocator);
-         final UnionVector newUnionVector = UnionVector.empty("newvector", allocator)) {
+        final UnionVector newUnionVector = UnionVector.empty("newvector", allocator)) {
 
       unionVector.allocateNew();
       final int valueCount = 0;
@@ -318,7 +320,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testFixedWidthVectorZeroStartIndexAndLength() {
     try (final IntVector intVector = new IntVector("myvector", allocator);
-         final IntVector newIntVector = new IntVector("newvector", allocator)) {
+        final IntVector newIntVector = new IntVector("newvector", allocator)) {
 
       intVector.allocateNew(0);
       final int valueCount = 0;
@@ -336,7 +338,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testBitVectorZeroStartIndexAndLength() {
     try (final BitVector bitVector = new BitVector("myvector", allocator);
-         final BitVector newBitVector = new BitVector("newvector", allocator)) {
+        final BitVector newBitVector = new BitVector("newvector", allocator)) {
 
       bitVector.allocateNew(0);
       final int valueCount = 0;
@@ -354,7 +356,8 @@ public class TestSplitAndTransfer {
   @Test
   public void testFixedSizeListVectorZeroStartIndexAndLength() {
     try (final FixedSizeListVector listVector = FixedSizeListVector.empty("list", 4, allocator);
-         final FixedSizeListVector newListVector = FixedSizeListVector.empty("newList", 4, allocator)) {
+        final FixedSizeListVector newListVector =
+            FixedSizeListVector.empty("newList", 4, allocator)) {
 
       listVector.allocateNew();
       final int valueCount = 0;
@@ -372,7 +375,7 @@ public class TestSplitAndTransfer {
   @Test
   public void testListVectorZeroStartIndexAndLength() {
     try (final ListVector listVector = ListVector.empty("list", allocator);
-         final ListVector newListVector = ListVector.empty("newList", allocator)) {
+        final ListVector newListVector = ListVector.empty("newList", allocator)) {
 
       listVector.allocateNew();
       final int valueCount = 0;
@@ -393,7 +396,8 @@ public class TestSplitAndTransfer {
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
     try (final StructVector structVector = new StructVector("structvec", allocator, type, null);
-         final StructVector newStructVector = new StructVector("newStructvec", allocator, type, null)) {
+        final StructVector newStructVector =
+            new StructVector("newStructvec", allocator, type, null)) {
 
       structVector.allocateNew();
       final int valueCount = 0;
@@ -414,7 +418,7 @@ public class TestSplitAndTransfer {
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, new ArrowType.Map(false), null, metadata);
     try (final MapVector mapVector = new MapVector("mapVec", allocator, type, null);
-         final MapVector newMapVector = new MapVector("newMapVec", allocator, type, null)) {
+        final MapVector newMapVector = new MapVector("newMapVec", allocator, type, null)) {
 
       mapVector.allocateNew();
       final int valueCount = 0;
@@ -428,5 +432,4 @@ public class TestSplitAndTransfer {
       newMapVector.clear();
     }
   }
-
 }

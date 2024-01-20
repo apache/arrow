@@ -22,16 +22,13 @@ import org.apache.arrow.memory.util.MemoryUtil;
 /**
  * The default Allocation Manager Factory for a module.
  *
- * This is only used by tests and contains only a simplistic allocator method.
- *
+ * <p>This is only used by tests and contains only a simplistic allocator method.
  */
 public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
   public static final AllocationManager.Factory FACTORY = new DefaultAllocationManagerFactory();
-  private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
-      null,
-      0,
-      MemoryUtil.UNSAFE.allocateMemory(0));
+  private static final ArrowBuf EMPTY =
+      new ArrowBuf(ReferenceManager.NO_OP, null, 0, MemoryUtil.UNSAFE.allocateMemory(0));
 
   @Override
   public AllocationManager create(BufferAllocator accountingAllocator, long size) {

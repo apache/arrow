@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector.ipc.message;
 
-/**
- * Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html).
- */
+/** Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html). */
 public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
   long computeBodyLength();

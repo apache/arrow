@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector.holders;
 
-/**
- * {@link ValueHolder} for a nested {@link org.apache.arrow.vector.complex.ListVector}.
- */
+/** {@link ValueHolder} for a nested {@link org.apache.arrow.vector.complex.ListVector}. */
 public final class RepeatedListHolder implements ValueHolder {
   public int start;
   public int end;

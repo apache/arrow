@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.compare.ApproxEqualsVisitor;
@@ -36,9 +35,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for floating point vectors.
- */
+/** Benchmarks for floating point vectors. */
 @State(Scope.Benchmark)
 public class FloatingPointBenchmarks {
 
@@ -62,9 +59,7 @@ public class FloatingPointBenchmarks {
 
   private Range range;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -101,9 +96,7 @@ public class FloatingPointBenchmarks {
     range = new Range(0, 0, VECTOR_LENGTH);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     floatVector1.close();
@@ -122,8 +115,9 @@ public class FloatingPointBenchmarks {
     return (floatResult ? 1 : 0) + (doubleResult ? 1 : 0);
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
             .include(FloatingPointBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
@@ -131,4 +125,3 @@ public class FloatingPointBenchmarks {
     new Runner(opt).run();
   }
 }
-

@@ -18,20 +18,17 @@
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume date type values from avro decoder.
- * Write the data to {@link DateDayVector}.
+ * Consumer which consume date type values from avro decoder. Write the data to {@link
+ * DateDayVector}.
  */
 public class AvroDateConsumer extends BaseAvroConsumer<DateDayVector> {
 
-  /**
-   * Instantiate a AvroDateConsumer.
-   */
+  /** Instantiate a AvroDateConsumer. */
   public AvroDateConsumer(DateDayVector vector) {
     super(vector);
   }

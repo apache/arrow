@@ -38,9 +38,7 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
 
-/**
- * Base Jdbc Accessor.
- */
+/** Base Jdbc Accessor. */
 public abstract class ArrowFlightJdbcAccessor implements Accessor {
   private final IntSupplier currentRowSupplier;
 
@@ -48,8 +46,9 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   protected boolean wasNull;
   protected ArrowFlightJdbcAccessorFactory.WasNullConsumer wasNullConsumer;
 
-  protected ArrowFlightJdbcAccessor(final IntSupplier currentRowSupplier,
-                                    ArrowFlightJdbcAccessorFactory.WasNullConsumer wasNullConsumer) {
+  protected ArrowFlightJdbcAccessor(
+      final IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer wasNullConsumer) {
     this.currentRowSupplier = currentRowSupplier;
     this.wasNullConsumer = wasNullConsumer;
   }

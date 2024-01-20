@@ -49,7 +49,8 @@ public class TestFixedSizeBinaryVector {
 
   private ArrowBuf[] bufs = new ArrowBuf[numValues];
   private FixedSizeBinaryHolder[] holders = new FixedSizeBinaryHolder[numValues];
-  private NullableFixedSizeBinaryHolder[] nullableHolders = new NullableFixedSizeBinaryHolder[numValues];
+  private NullableFixedSizeBinaryHolder[] nullableHolders =
+      new NullableFixedSizeBinaryHolder[numValues];
 
   private static byte[] smallValue;
 
@@ -83,7 +84,6 @@ public class TestFixedSizeBinaryVector {
   private static void failWithException(String message) throws Exception {
     throw new Exception(message);
   }
-
 
   @Before
   public void init() throws Exception {
@@ -156,9 +156,12 @@ public class TestFixedSizeBinaryVector {
     final byte[] value = null;
     for (int i = 0; i < numValues; i++) {
       final int index = i;
-      Exception e = assertThrows(NullPointerException.class, () -> {
-        vector.set(index, value);
-      });
+      Exception e =
+          assertThrows(
+              NullPointerException.class,
+              () -> {
+                vector.set(index, value);
+              });
       assertEquals("expecting a valid byte array", e.getMessage());
     }
   }
@@ -281,10 +284,12 @@ public class TestFixedSizeBinaryVector {
 
   @Test
   public void testGetTransferPairWithField() {
-    final FixedSizeBinaryVector fromVector = new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
+    final FixedSizeBinaryVector fromVector =
+        new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final FixedSizeBinaryVector toVector = (FixedSizeBinaryVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 

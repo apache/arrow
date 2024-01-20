@@ -23,8 +23,8 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
 /**
- * An {@link org.apache.arrow.vector.complex.reader.FieldReader} for
- * reading nullable struct vectors.
+ * An {@link org.apache.arrow.vector.complex.reader.FieldReader} for reading nullable struct
+ * vectors.
  */
 public class NullableStructReaderImpl extends SingleStructReaderImpl {
 

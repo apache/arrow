@@ -20,27 +20,21 @@ package org.apache.arrow.adapter.jdbc.consumer;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * An abstraction that is used to consume values from {@link ResultSet}.
+ *
  * @param <T> The vector within consumer or its delegate, used for partially consume purpose.
  */
 public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
 
-  /**
-   * Consume a specific type value from {@link ResultSet} and write it to vector.
-   */
+  /** Consume a specific type value from {@link ResultSet} and write it to vector. */
   void consume(ResultSet resultSet) throws SQLException, IOException;
 
-  /**
-   * Close this consumer, do some clean work such as clear reuse ArrowBuf.
-   */
+  /** Close this consumer, do some clean work such as clear reuse ArrowBuf. */
   void close() throws Exception;
 
-  /**
-   * Reset the vector within consumer for partial read purpose.
-   */
+  /** Reset the vector within consumer for partial read purpose. */
   void resetValueVector(T vector);
 }

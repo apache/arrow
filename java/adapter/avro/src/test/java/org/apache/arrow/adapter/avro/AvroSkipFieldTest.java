@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types;
@@ -40,7 +39,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipUnionWithOneField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_union_before.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_union_one_field_expected.avsc");
 
@@ -69,7 +71,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipUnionWithNullableOneField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_union_before.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_union_nullable_field_expected.avsc");
 
@@ -98,7 +103,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipUnionWithMultiFields() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f2");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_union_before.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_union_multi_fields_expected.avsc");
 
@@ -127,7 +135,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipMapField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_map_before.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_map_expected.avsc");
 
@@ -159,7 +170,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipArrayField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_array_before.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_array_expected.avsc");
 
@@ -188,7 +202,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
     skipFieldNames.add("f2");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("test_record.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_multi_fields_expected.avsc");
 
@@ -215,7 +232,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipStringField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f2");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base1.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_string_expected.avsc");
 
@@ -228,7 +248,8 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
       record.put(0, fixed);
-      GenericData.EnumSymbol symbol = new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
+      GenericData.EnumSymbol symbol =
+          new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
       record.put(1, symbol);
       record.put(2, "testtest" + i);
       record.put(3, ByteBuffer.wrap(testBytes));
@@ -249,7 +270,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipBytesField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f3");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base1.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_bytes_expected.avsc");
 
@@ -262,7 +286,8 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
       record.put(0, fixed);
-      GenericData.EnumSymbol symbol = new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
+      GenericData.EnumSymbol symbol =
+          new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
       record.put(1, symbol);
       record.put(2, "testtest" + i);
       record.put(3, ByteBuffer.wrap(testBytes));
@@ -283,7 +308,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipFixedField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base1.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_fixed_expected.avsc");
 
@@ -296,7 +324,8 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
       record.put(0, fixed);
-      GenericData.EnumSymbol symbol = new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
+      GenericData.EnumSymbol symbol =
+          new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
       record.put(1, symbol);
       record.put(2, "testtest" + i);
       record.put(3, ByteBuffer.wrap(testBytes));
@@ -317,7 +346,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipEnumField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base1.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_fixed_expected.avsc");
 
@@ -330,7 +362,8 @@ public class AvroSkipFieldTest extends AvroTestBase {
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
       record.put(0, fixed);
-      GenericData.EnumSymbol symbol = new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
+      GenericData.EnumSymbol symbol =
+          new GenericData.EnumSymbol(schema.getField("f1").schema(), "TEST" + i % 2);
       record.put(1, symbol);
       record.put(2, "testtest" + i);
       record.put(3, ByteBuffer.wrap(testBytes));
@@ -351,7 +384,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipBooleanField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base2.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_boolean_expected.avsc");
 
@@ -384,7 +420,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipIntField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base2.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_int_expected.avsc");
 
@@ -417,7 +456,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipLongField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f2");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base2.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_long_expected.avsc");
 
@@ -450,7 +492,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipFloatField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f3");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base2.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_float_expected.avsc");
 
@@ -483,7 +528,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipDoubleField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f4");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_base2.avsc");
     Schema expectedSchema = getSchema("skip/test_skip_double_expected.avsc");
 
@@ -516,7 +564,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipRecordField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("skip/test_skip_record_before.avsc");
     Schema nestedSchema = schema.getFields().get(0).schema();
     ArrayList<GenericRecord> data = new ArrayList<>();
@@ -546,7 +597,10 @@ public class AvroSkipFieldTest extends AvroTestBase {
   public void testSkipNestedFields() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0.f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     Schema schema = getSchema("test_nested_record.avsc");
     Schema nestedSchema = schema.getFields().get(0).schema();
     ArrayList<GenericRecord> data = new ArrayList<>();
@@ -602,21 +656,26 @@ public class AvroSkipFieldTest extends AvroTestBase {
     assertEquals(Types.MinorType.STRUCT, root1.getFieldVectors().get(0).getMinorType());
     StructVector secondLevelVector = (StructVector) root1.getFieldVectors().get(0);
     assertEquals(1, secondLevelVector.getChildrenFromFields().size());
-    assertEquals(Types.MinorType.STRUCT, secondLevelVector.getChildrenFromFields().get(0).getMinorType());
+    assertEquals(
+        Types.MinorType.STRUCT, secondLevelVector.getChildrenFromFields().get(0).getMinorType());
     StructVector thirdLevelVector = (StructVector) secondLevelVector.getChildrenFromFields().get(0);
     assertEquals(3, thirdLevelVector.getChildrenFromFields().size());
 
     // skip third level field and validate
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f0.f0.f0");
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    config =
+        new AvroToArrowConfigBuilder(config.getAllocator())
+            .setSkipFieldNames(skipFieldNames)
+            .build();
     VectorSchemaRoot root2 = writeAndRead(firstLevelSchema, data);
 
     assertEquals(1, root2.getFieldVectors().size());
     assertEquals(Types.MinorType.STRUCT, root2.getFieldVectors().get(0).getMinorType());
     StructVector secondStruct = (StructVector) root2.getFieldVectors().get(0);
     assertEquals(1, secondStruct.getChildrenFromFields().size());
-    assertEquals(Types.MinorType.STRUCT, secondStruct.getChildrenFromFields().get(0).getMinorType());
+    assertEquals(
+        Types.MinorType.STRUCT, secondStruct.getChildrenFromFields().get(0).getMinorType());
     StructVector thirdStruct = (StructVector) secondStruct.getChildrenFromFields().get(0);
     assertEquals(2, thirdStruct.getChildrenFromFields().size());
 

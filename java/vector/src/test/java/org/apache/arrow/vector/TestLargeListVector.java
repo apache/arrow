@@ -26,7 +26,6 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -61,7 +60,7 @@ public class TestLargeListVector {
   @Test
   public void testCopyFrom() throws Exception {
     try (LargeListVector inVector = LargeListVector.empty("input", allocator);
-         LargeListVector outVector = LargeListVector.empty("output", allocator)) {
+        LargeListVector outVector = LargeListVector.empty("output", allocator)) {
       UnionLargeListWriter writer = inVector.getWriter();
       writer.allocate();
 
@@ -96,7 +95,6 @@ public class TestLargeListVector {
       Assert.assertFalse("should be null", reader.isSet());
       reader.setPosition(2);
       Assert.assertTrue("shouldn't be null", reader.isSet());
-
 
       /* index 0 */
       Object result = outVector.getObject(0);
@@ -429,20 +427,26 @@ public class TestLargeListVector {
           BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
-            dataLength1 = (int) offsetBuffer.getLong((start + i + 1) * LargeListVector.OFFSET_WIDTH) -
-                    (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
-            dataLength2 = (int) toOffsetBuffer.getLong((i + 1) * LargeListVector.OFFSET_WIDTH) -
-                    (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
+            dataLength1 =
+                (int) offsetBuffer.getLong((start + i + 1) * LargeListVector.OFFSET_WIDTH)
+                    - (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
+            dataLength2 =
+                (int) toOffsetBuffer.getLong((i + 1) * LargeListVector.OFFSET_WIDTH)
+                    - (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
-            assertEquals("Different data lengths at index: " + i + " and start: " + start,
-                    dataLength1, dataLength2);
+            assertEquals(
+                "Different data lengths at index: " + i + " and start: " + start,
+                dataLength1,
+                dataLength2);
 
             offset1 = (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
             offset2 = (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
-              assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
-                      dataVector.getObject(offset1), dataVector1.getObject(offset2));
+              assertEquals(
+                  "Different data at indexes: " + offset1 + " and " + offset2,
+                  dataVector.getObject(offset1),
+                  dataVector1.getObject(offset2));
 
               offset1++;
               offset2++;
@@ -773,8 +777,8 @@ public class TestLargeListVector {
       vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
       /**
-       * use the default multiplier of 5,
-       * 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value capacity.
+       * use the default multiplier of 5, 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value
+       * capacity.
        */
       vector.setInitialCapacity(512);
       vector.allocateNew();
@@ -788,12 +792,10 @@ public class TestLargeListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
 
       /**
-       * inner value capacity we pass to data vector is 512 * 0.1 => 51
-       * For an int vector this is 204 bytes of memory for data buffer
-       * and 7 bytes for validity buffer.
-       * and with power of 2 allocation, we allocate 256 bytes and 8 bytes
-       * for the data buffer and validity buffer of the inner vector. Thus
-       * value capacity of inner vector is 64
+       * inner value capacity we pass to data vector is 512 * 0.1 => 51 For an int vector this is
+       * 204 bytes of memory for data buffer and 7 bytes for validity buffer. and with power of 2
+       * allocation, we allocate 256 bytes and 8 bytes for the data buffer and validity buffer of
+       * the inner vector. Thus value capacity of inner vector is 64
        */
       vector.setInitialCapacity(512, 0.1);
       vector.allocateNew();
@@ -801,12 +803,10 @@ public class TestLargeListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 51);
 
       /**
-       * inner value capacity we pass to data vector is 512 * 0.01 => 5
-       * For an int vector this is 20 bytes of memory for data buffer
-       * and 1 byte for validity buffer.
-       * and with power of 2 allocation, we allocate 32 bytes and 1 bytes
-       * for the data buffer and validity buffer of the inner vector. Thus
-       * value capacity of inner vector is 8
+       * inner value capacity we pass to data vector is 512 * 0.01 => 5 For an int vector this is 20
+       * bytes of memory for data buffer and 1 byte for validity buffer. and with power of 2
+       * allocation, we allocate 32 bytes and 1 bytes for the data buffer and validity buffer of the
+       * inner vector. Thus value capacity of inner vector is 8
        */
       vector.setInitialCapacity(512, 0.01);
       vector.allocateNew();
@@ -814,14 +814,11 @@ public class TestLargeListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 5);
 
       /**
-       * inner value capacity we pass to data vector is 5 * 0.1 => 0
-       * which is then rounded off to 1. So we pass value count as 1
-       * to the inner int vector.
-       * the offset buffer of the list vector is allocated for 6 values
-       * which is 24 bytes and then rounded off to 32 bytes (8 values)
-       * the validity buffer of the list vector is allocated for 5
-       * values which is 1 byte. This is why value capacity of the list
-       * vector is 7 as we take the min of validity buffer value capacity
+       * inner value capacity we pass to data vector is 5 * 0.1 => 0 which is then rounded off to 1.
+       * So we pass value count as 1 to the inner int vector. the offset buffer of the list vector
+       * is allocated for 6 values which is 24 bytes and then rounded off to 32 bytes (8 values) the
+       * validity buffer of the list vector is allocated for 5 values which is 1 byte. This is why
+       * value capacity of the list vector is 7 as we take the min of validity buffer value capacity
        * and offset buffer value capacity.
        */
       vector.setInitialCapacity(5, 0.1);
@@ -835,7 +832,8 @@ public class TestLargeListVector {
   public void testClearAndReuse() {
     try (final LargeListVector vector = LargeListVector.empty("list", allocator)) {
       BigIntVector bigIntVector =
-          (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+          (BigIntVector)
+              vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
       vector.allocateNew();
 
@@ -884,17 +882,23 @@ public class TestLargeListVector {
       UnionLargeListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
       writer.endList();
       vector.setValueCount(2);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Int(32, true)), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.LargeList.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Int(32, true)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.LargeList.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -907,7 +911,7 @@ public class TestLargeListVector {
       UnionLargeListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
@@ -930,7 +934,7 @@ public class TestLargeListVector {
       UnionLargeListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writeIntValues(writer, new int[] {1, 2});
       writeIntValues(writer, new int[] {3, 4});
       writeIntValues(writer, new int[] {5, 6});
@@ -945,7 +949,10 @@ public class TestLargeListVector {
         int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
         int offsetBufferSize = (valueCount + 1) * LargeListVector.OFFSET_WIDTH;
 
-        int expectedSize = validityBufferSize + offsetBufferSize + dataVector.getBufferSizeFor(indices[valueCount]);
+        int expectedSize =
+            validityBufferSize
+                + offsetBufferSize
+                + dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
     }
@@ -1000,24 +1007,25 @@ public class TestLargeListVector {
       UnionLargeListWriter writer = fromVector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
       writer.endList();
       fromVector.setValueCount(2);
 
-      final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(),
-          allocator);
+      final TransferPair transferPair =
+          fromVector.getTransferPair(fromVector.getField(), allocator);
       final LargeListVector toVector = (LargeListVector) transferPair.getTo();
-      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      // Field inside a new vector created by reusing a field should be the same in memory as the
+      // original field.
       assertSame(toVector.getField(), fromVector.getField());
     }
   }
 
   private void writeIntValues(UnionLargeListWriter writer, int[] values) {
     writer.startList();
-    for (int v: values) {
+    for (int v : values) {
       writer.integer().writeInt(v);
     }
     writer.endList();

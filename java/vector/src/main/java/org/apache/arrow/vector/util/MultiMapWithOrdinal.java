@@ -24,22 +24,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 
 /**
- * An implementation of a multimap that supports constant time look-up by a generic key or an ordinal.
+ * An implementation of a multimap that supports constant time look-up by a generic key or an
+ * ordinal.
  *
- * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support.
- * Upon insertion an unused ordinal is assigned to the inserted (key, value) tuple.
- * Upon update the same ordinal id is re-used while value is replaced.
- * Upon deletion of an existing item, its corresponding ordinal is recycled and could be used by another item.
+ * <p>This class extends the functionality a regular {@link Map} with ordinal lookup support. Upon
+ * insertion an unused ordinal is assigned to the inserted (key, value) tuple. Upon update the same
+ * ordinal id is re-used while value is replaced. Upon deletion of an existing item, its
+ * corresponding ordinal is recycled and could be used by another item.
  *
- * <p>For any instance with N items, this implementation guarantees that ordinals are in the range of [0, N). However,
- * the ordinal assignment is dynamic and may change after an insertion or deletion. Consumers of this class are
- * responsible for explicitly checking the ordinal corresponding to a key via
- * {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to execute a lookup
- * with an ordinal.
+ * <p>For any instance with N items, this implementation guarantees that ordinals are in the range
+ * of [0, N). However, the ordinal assignment is dynamic and may change after an insertion or
+ * deletion. Consumers of this class are responsible for explicitly checking the ordinal
+ * corresponding to a key via {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to
+ * execute a lookup with an ordinal.
  *
  * @param <K> key type
  * @param <V> value type
@@ -89,9 +89,7 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
     return ordinalToValue.isEmpty();
   }
 
-  /**
-   * get set of values for key.
-   */
+  /** get set of values for key. */
   @Override
   public V get(K key) {
     Set<Integer> ordinals = keyToOrdinal.get(key);
@@ -101,9 +99,7 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
     return ordinals.stream().map(ordinalToValue::get).collect(Collectors.toList()).get(0);
   }
 
-  /**
-   * get set of values for key.
-   */
+  /** get set of values for key. */
   @Override
   public Collection<V> getAll(K key) {
     Set<Integer> ordinals = keyToOrdinal.get(key);
@@ -116,9 +112,10 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
   /**
    * Inserts the tuple (key, value) into the multimap with automatic ordinal assignment.
    *
-   * A new ordinal is assigned if key/value pair does not exists.
+   * <p>A new ordinal is assigned if key/value pair does not exists.
    *
-   * If overwrite is true the existing key will be overwritten with value else value will be appended to the multimap.
+   * <p>If overwrite is true the existing key will be overwritten with value else value will be
+   * appended to the multimap.
    */
   @Override
   public boolean put(K key, V value, boolean overwrite) {
@@ -146,11 +143,11 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
   /**
    * Removes the element corresponding to the key/value if exists with ordinal re-cycling.
    *
-   * The ordinal corresponding to the given key may be re-assigned to another tuple. It is
-   * important that consumer checks the ordinal value via
-   * {@link MultiMapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
+   * <p>The ordinal corresponding to the given key may be re-assigned to another tuple. It is
+   * important that consumer checks the ordinal value via {@link
+   * MultiMapWithOrdinal#getOrdinal(Object)} before attempting to look-up by ordinal.
    *
-   * If the multimap is changed return true.
+   * <p>If the multimap is changed return true.
    */
   @Override
   public synchronized boolean remove(K key, V value) {
@@ -158,13 +155,14 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
     if (removalSet.isEmpty()) {
       return false;
     }
-    Optional<V> removeValue = removalSet.stream().map(ordinalToValue::get).filter(value::equals).findFirst();
+    Optional<V> removeValue =
+        removalSet.stream().map(ordinalToValue::get).filter(value::equals).findFirst();
     if (!removeValue.isPresent()) {
       return false;
     }
     int removalOrdinal = removeKv(removalSet, key, value);
     int lastOrdinal = ordinalToValue.size();
-    if (lastOrdinal != removalOrdinal) { //we didn't remove the last ordinal
+    if (lastOrdinal != removalOrdinal) { // we didn't remove the last ordinal
       swapOrdinal(lastOrdinal, removalOrdinal);
     }
     return true;
@@ -173,12 +171,12 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
   private void swapOrdinal(int lastOrdinal, int removalOrdinal) {
     V swapOrdinalValue = ordinalToValue.remove(lastOrdinal);
     ordinalToValue.put(removalOrdinal, swapOrdinalValue);
-    K swapOrdinalKey = keyToOrdinal.entrySet()
-        .stream()
-        .filter(kv -> kv.getValue().stream().anyMatch(o -> o == lastOrdinal))
-        .map(Map.Entry::getKey)
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException("MultimapWithOrdinal in bad state"));
+    K swapOrdinalKey =
+        keyToOrdinal.entrySet().stream()
+            .filter(kv -> kv.getValue().stream().anyMatch(o -> o == lastOrdinal))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("MultimapWithOrdinal in bad state"));
     ordinalToValue.put(removalOrdinal, swapOrdinalValue);
     Set<Integer> swapSet = getOrdinals(swapOrdinalKey);
     swapSet.remove(lastOrdinal);
@@ -187,10 +185,11 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
   }
 
   private int removeKv(Set<Integer> removalSet, K key, V value) {
-    Integer removalOrdinal = removalSet.stream()
-        .filter(i -> ordinalToValue.get(i).equals(value))
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException("MultimapWithOrdinal in bad state"));
+    Integer removalOrdinal =
+        removalSet.stream()
+            .filter(i -> ordinalToValue.get(i).equals(value))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("MultimapWithOrdinal in bad state"));
     ordinalToValue.remove(removalOrdinal);
     removalSet.remove(removalOrdinal);
     if (removalSet.isEmpty()) {
@@ -201,16 +200,14 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
     return removalOrdinal;
   }
 
-  /**
-   * remove all entries of key.
-   */
+  /** remove all entries of key. */
   @Override
   public synchronized boolean removeAll(K key) {
     Collection<V> values = this.getAll(key);
     if (values == null) {
       return false;
     }
-    for (V v: values) {
+    for (V v : values) {
       this.remove(key, v);
     }
     return true;
@@ -226,5 +223,4 @@ public class MultiMapWithOrdinal<K, V> implements MapWithOrdinal<K, V> {
   public Set<K> keys() {
     return keyToOrdinal.keySet();
   }
-
 }

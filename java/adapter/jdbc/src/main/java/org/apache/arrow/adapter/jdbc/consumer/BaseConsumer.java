@@ -21,6 +21,7 @@ import org.apache.arrow.vector.ValueVector;
 
 /**
  * Base class for all consumers.
+ *
  * @param <V> vector type.
  */
 public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsumer<V> {
@@ -33,6 +34,7 @@ public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsume
 
   /**
    * Constructs a new consumer.
+   *
    * @param vector the underlying vector for the consumer.
    * @param index the column id for the consumer.
    */

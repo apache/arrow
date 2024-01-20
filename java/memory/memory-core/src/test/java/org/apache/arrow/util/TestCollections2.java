@@ -25,14 +25,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import org.junit.Test;
 
-/**
- * Tests for {@code Collections2} class.
- */
+/** Tests for {@code Collections2} class. */
 public class TestCollections2 {
-
 
   @Test
   public void testToImmutableListFromIterable() {
@@ -65,7 +61,6 @@ public class TestCollections2 {
     assertEquals("bar", copy.get(1));
     assertEquals(3, copy.size());
   }
-
 
   @Test
   public void testStringFromEmptyIterator() {

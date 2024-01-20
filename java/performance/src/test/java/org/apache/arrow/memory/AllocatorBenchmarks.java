@@ -18,8 +18,6 @@
 package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
-
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -31,14 +29,10 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for allocators.
- */
+/** Benchmarks for allocators. */
 public class AllocatorBenchmarks {
 
-  /**
-   * Benchmark for the default allocator.
-   */
+  /** Benchmark for the default allocator. */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -59,9 +53,7 @@ public class AllocatorBenchmarks {
     }
   }
 
-  /**
-   * Benchmark for allocator with segment rounding policy.
-   */
+  /** Benchmark for allocator with segment rounding policy. */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -71,7 +63,8 @@ public class AllocatorBenchmarks {
     final int segmentSize = 1024;
 
     RoundingPolicy policy = new SegmentRoundingPolicy(segmentSize);
-    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, bufferSize * numBuffers, policy)) {
+    try (RootAllocator allocator =
+        new RootAllocator(AllocationListener.NOOP, bufferSize * numBuffers, policy)) {
       ArrowBuf[] buffers = new ArrowBuf[numBuffers];
 
       for (int i = 0; i < numBuffers; i++) {
@@ -85,10 +78,8 @@ public class AllocatorBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(AllocatorBenchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+    Options opt =
+        new OptionsBuilder().include(AllocatorBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

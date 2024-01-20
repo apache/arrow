@@ -26,7 +26,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
@@ -42,20 +41,19 @@ public class ResultSetMetadataTest {
 
   private static Connection connection;
 
-  @Rule
-  public ErrorCollector collector = new ErrorCollector();
+  @Rule public ErrorCollector collector = new ErrorCollector();
 
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule
-      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   @BeforeClass
   public static void setup() throws SQLException {
     connection = SERVER_TEST_RULE.getConnection(false);
 
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_METADATA_SQL_CMD)) {
       metadata = resultSet.getMetaData();
     }
   }
@@ -65,9 +63,7 @@ public class ResultSetMetadataTest {
     connection.close();
   }
 
-  /**
-   * Test if {@link ResultSetMetaData} object is not null.
-   */
+  /** Test if {@link ResultSetMetaData} object is not null. */
   @Test
   public void testShouldGetResultSetMetadata() {
     collector.checkThat(metadata, CoreMatchers.is(notNullValue()));
@@ -86,7 +82,7 @@ public class ResultSetMetadataTest {
   }
 
   /**
-   * Test if {@link ResultSetMetaData#getColumnTypeName(int)}  returns the correct type name for each
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} returns the correct type name for each
    * column.
    *
    * @throws SQLException in case of error.
@@ -103,7 +99,8 @@ public class ResultSetMetadataTest {
   }
 
   /**
-   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
+   * exist.
    *
    * @throws SQLException in case of error.
    */
@@ -130,9 +127,9 @@ public class ResultSetMetadataTest {
     collector.checkThat(thirdColumn, equalTo("float2"));
   }
 
-
   /**
-   * Test {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   * Test {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
+   * exist.
    *
    * @throws SQLException in case of error.
    */
@@ -223,7 +220,8 @@ public class ResultSetMetadataTest {
   }
 
   /**
-   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not exist.
+   * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
+   * exist.
    *
    * @throws SQLException in case of error.
    */

@@ -19,19 +19,17 @@ package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.BitVector;
 
 /**
- * Consumer which consume bit type values from {@link ResultSet}.
- * Write the data to {@link BitVector}.
+ * Consumer which consume bit type values from {@link ResultSet}. Write the data to {@link
+ * BitVector}.
  */
 public class BitConsumer {
 
-  /**
-   * Creates a consumer for {@link BitVector}.
-   */
-  public static JdbcConsumer<BitVector> createConsumer(BitVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link BitVector}. */
+  public static JdbcConsumer<BitVector> createConsumer(
+      BitVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBitConsumer(vector, index);
     } else {
@@ -39,14 +37,10 @@ public class BitConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for {@link BitVector}.
-   */
+  /** Nullable consumer for {@link BitVector}. */
   static class NullableBitConsumer extends BaseConsumer<BitVector> {
 
-    /**
-     * Instantiate a BitConsumer.
-     */
+    /** Instantiate a BitConsumer. */
     public NullableBitConsumer(BitVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +57,10 @@ public class BitConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for {@link BitVector}.
-   */
+  /** Non-nullable consumer for {@link BitVector}. */
   static class NonNullableBitConsumer extends BaseConsumer<BitVector> {
 
-    /**
-     * Instantiate a BitConsumer.
-     */
+    /** Instantiate a BitConsumer. */
     public NonNullableBitConsumer(BitVector vector, int index) {
       super(vector, index);
     }

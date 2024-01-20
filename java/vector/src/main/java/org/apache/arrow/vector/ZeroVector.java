@@ -25,9 +25,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
-/**
- * A zero length vector of any type.
- */
+/** A zero length vector of any type. */
 public final class ZeroVector extends NullVector {
   public static final ZeroVector INSTANCE = new ZeroVector();
 
@@ -43,7 +41,7 @@ public final class ZeroVector extends NullVector {
   /**
    * Instantiate a ZeroVector.
    *
-   * @param name      name of the vector
+   * @param name name of the vector
    * @param fieldType type of Field materialized by this vector.
    */
   public ZeroVector(String name, FieldType fieldType) {
@@ -60,8 +58,7 @@ public final class ZeroVector extends NullVector {
   }
 
   @Deprecated
-  public ZeroVector() {
-  }
+  public ZeroVector() {}
 
   @Override
   public int getValueCount() {
@@ -69,8 +66,7 @@ public final class ZeroVector extends NullVector {
   }
 
   @Override
-  public void setValueCount(int valueCount) {
-  }
+  public void setValueCount(int valueCount) {}
 
   @Override
   public int getNullCount() {
@@ -117,22 +113,20 @@ public final class ZeroVector extends NullVector {
     return defaultPair;
   }
 
-  private final TransferPair defaultPair = new TransferPair() {
-    @Override
-    public void transfer() {
-    }
+  private final TransferPair defaultPair =
+      new TransferPair() {
+        @Override
+        public void transfer() {}
 
-    @Override
-    public void splitAndTransfer(int startIndex, int length) {
-    }
+        @Override
+        public void splitAndTransfer(int startIndex, int length) {}
 
-    @Override
-    public ValueVector getTo() {
-      return ZeroVector.this;
-    }
+        @Override
+        public ValueVector getTo() {
+          return ZeroVector.this;
+        }
 
-    @Override
-    public void copyValueSafe(int from, int to) {
-    }
-  };
+        @Override
+        public void copyValueSafe(int from, int to) {}
+      };
 }

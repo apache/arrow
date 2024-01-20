@@ -17,30 +17,19 @@
 
 package org.apache.arrow.vector.compare;
 
-/**
- * Wrapper for the parameters of comparing a range of values in two vectors.
- */
+/** Wrapper for the parameters of comparing a range of values in two vectors. */
 public class Range {
 
-  /**
-   * Start position in the left vector.
-   */
+  /** Start position in the left vector. */
   private int leftStart = -1;
 
-  /**
-   * Start position in the right vector.
-   */
+  /** Start position in the right vector. */
   private int rightStart = -1;
 
-  /**
-   * Length of the range.
-   */
+  /** Length of the range. */
   private int length = -1;
 
-
-  /**
-   * Constructs a new instance.
-   */
+  /** Constructs a new instance. */
   public Range() {}
 
   /**

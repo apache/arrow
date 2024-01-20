@@ -17,12 +17,13 @@
 
 package org.apache.arrow.flight.perf;
 
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -43,12 +44,10 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.InvalidProtocolBufferException;
-
 public class PerformanceTestServer implements AutoCloseable {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PerformanceTestServer.class);
+  private static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(PerformanceTestServer.class);
 
   private final FlightServer flightServer;
   private final Location location;
@@ -57,26 +56,33 @@ public class PerformanceTestServer implements AutoCloseable {
   private final boolean isNonBlocking;
 
   public PerformanceTestServer(BufferAllocator incomingAllocator, Location location) {
-    this(incomingAllocator, location, new BackpressureStrategy() {
-      private FlightProducer.ServerStreamListener listener;
+    this(
+        incomingAllocator,
+        location,
+        new BackpressureStrategy() {
+          private FlightProducer.ServerStreamListener listener;
 
-      @Override
-      public void register(FlightProducer.ServerStreamListener listener) {
-        this.listener = listener;
-      }
+          @Override
+          public void register(FlightProducer.ServerStreamListener listener) {
+            this.listener = listener;
+          }
 
-      @Override
-      public WaitResult waitForListener(long timeout) {
-        while (!listener.isReady() && !listener.isCancelled()) {
-          // busy wait
-        }
-        return WaitResult.READY;
-      }
-    }, false);
+          @Override
+          public WaitResult waitForListener(long timeout) {
+            while (!listener.isReady() && !listener.isCancelled()) {
+              // busy wait
+            }
+            return WaitResult.READY;
+          }
+        },
+        false);
   }
 
-  public PerformanceTestServer(BufferAllocator incomingAllocator, Location location, BackpressureStrategy bpStrategy,
-                               boolean isNonBlocking) {
+  public PerformanceTestServer(
+      BufferAllocator incomingAllocator,
+      Location location,
+      BackpressureStrategy bpStrategy,
+      boolean isNonBlocking) {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
     this.location = location;
     this.producer = new PerfProducer(bpStrategy);
@@ -106,68 +112,68 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public void getStream(CallContext context, Ticket ticket,
-        ServerStreamListener listener) {
+    public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       bpStrategy.register(listener);
-      final Runnable loadData = () -> {
-        VectorSchemaRoot root = null;
-        try {
-          Token token = Token.parseFrom(ticket.getBytes());
-          Perf perf = token.getDefinition();
-          Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
-          root = VectorSchemaRoot.create(schema, allocator);
-          BigIntVector a = (BigIntVector) root.getVector("a");
-          BigIntVector b = (BigIntVector) root.getVector("b");
-          BigIntVector c = (BigIntVector) root.getVector("c");
-          BigIntVector d = (BigIntVector) root.getVector("d");
-          listener.setUseZeroCopy(true);
-          listener.start(root);
-          root.allocateNew();
-
-          int current = 0;
-          long i = token.getStart();
-          while (i < token.getEnd()) {
-            if (listener.isCancelled()) {
-              root.clear();
-              return;
-            }
-
-            if (TestPerf.VALIDATE) {
-              a.setSafe(current, i);
-            }
-
-            i++;
-            current++;
-            if (i % perf.getRecordsPerBatch() == 0) {
-              root.setRowCount(current);
-
-              bpStrategy.waitForListener(0);
-              if (listener.isCancelled()) {
-                root.clear();
-                return;
-              }
-              listener.putNext();
-              current = 0;
+      final Runnable loadData =
+          () -> {
+            VectorSchemaRoot root = null;
+            try {
+              Token token = Token.parseFrom(ticket.getBytes());
+              Perf perf = token.getDefinition();
+              Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
+              root = VectorSchemaRoot.create(schema, allocator);
+              BigIntVector a = (BigIntVector) root.getVector("a");
+              BigIntVector b = (BigIntVector) root.getVector("b");
+              BigIntVector c = (BigIntVector) root.getVector("c");
+              BigIntVector d = (BigIntVector) root.getVector("d");
+              listener.setUseZeroCopy(true);
+              listener.start(root);
               root.allocateNew();
-            }
-          }
 
-          // send last partial batch.
-          if (current != 0) {
-            root.setRowCount(current);
-            listener.putNext();
-          }
-          listener.completed();
-        } catch (InvalidProtocolBufferException e) {
-          throw new RuntimeException(e);
-        } finally {
-          try {
-            AutoCloseables.close(root);
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        }
-      };
+              int current = 0;
+              long i = token.getStart();
+              while (i < token.getEnd()) {
+                if (listener.isCancelled()) {
+                  root.clear();
+                  return;
+                }
+
+                if (TestPerf.VALIDATE) {
+                  a.setSafe(current, i);
+                }
+
+                i++;
+                current++;
+                if (i % perf.getRecordsPerBatch() == 0) {
+                  root.setRowCount(current);
+
+                  bpStrategy.waitForListener(0);
+                  if (listener.isCancelled()) {
+                    root.clear();
+                    return;
+                  }
+                  listener.putNext();
+                  current = 0;
+                  root.allocateNew();
+                }
+              }
+
+              // send last partial batch.
+              if (current != 0) {
+                root.setRowCount(current);
+                listener.putNext();
+              }
+              listener.completed();
+            } catch (InvalidProtocolBufferException e) {
+              throw new RuntimeException(e);
+            } finally {
+              try {
+                AutoCloseables.close(root);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            }
+          };
 
       if (!isNonBlocking) {
         loadData.run();
@@ -179,23 +185,25 @@ public class PerformanceTestServer implements AutoCloseable {
     }
 
     @Override
-    public FlightInfo getFlightInfo(CallContext context,
-        FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
       try {
         Preconditions.checkArgument(descriptor.isCommand());
         Perf exec = Perf.parseFrom(descriptor.getCommand());
 
-        final Schema pojoSchema = new Schema(ImmutableList.of(
-            Field.nullable("a", MinorType.BIGINT.getType()),
-            Field.nullable("b", MinorType.BIGINT.getType()),
-            Field.nullable("c", MinorType.BIGINT.getType()),
-            Field.nullable("d", MinorType.BIGINT.getType())
-            ));
+        final Schema pojoSchema =
+            new Schema(
+                ImmutableList.of(
+                    Field.nullable("a", MinorType.BIGINT.getType()),
+                    Field.nullable("b", MinorType.BIGINT.getType()),
+                    Field.nullable("c", MinorType.BIGINT.getType()),
+                    Field.nullable("d", MinorType.BIGINT.getType())));
 
-        Token token = Token.newBuilder().setDefinition(exec)
-            .setStart(0)
-            .setEnd(exec.getRecordsPerStream())
-            .build();
+        Token token =
+            Token.newBuilder()
+                .setDefinition(exec)
+                .setStart(0)
+                .setEnd(exec.getRecordsPerStream())
+                .build();
         final Ticket ticket = new Ticket(token.toByteArray());
 
         List<FlightEndpoint> endpoints = new ArrayList<>();
@@ -203,7 +211,11 @@ public class PerformanceTestServer implements AutoCloseable {
           endpoints.add(new FlightEndpoint(ticket, getLocation()));
         }
 
-        return new FlightInfo(pojoSchema, descriptor, endpoints, -1,
+        return new FlightInfo(
+            pojoSchema,
+            descriptor,
+            endpoints,
+            -1,
             exec.getRecordsPerStream() * exec.getStreamCount());
       } catch (InvalidProtocolBufferException e) {
         throw new RuntimeException(e);
@@ -211,6 +223,3 @@ public class PerformanceTestServer implements AutoCloseable {
     }
   }
 }
-
-
-

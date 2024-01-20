@@ -35,5 +35,4 @@ public abstract class AbstractConsumerTest {
   public void tearDown() {
     allocator.close();
   }
-
 }

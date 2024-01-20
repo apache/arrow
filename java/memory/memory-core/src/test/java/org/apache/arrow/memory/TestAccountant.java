@@ -46,21 +46,21 @@ public class TestAccountant {
     Thread[] threads = new Thread[numberOfThreads];
 
     for (int i = 0; i < numberOfThreads; i++) {
-      Thread t = new Thread() {
+      Thread t =
+          new Thread() {
 
-        @Override
-        public void run() {
-          try {
-            for (int i = 0; i < loops; i++) {
-              ensureAccurateReservations(parent);
+            @Override
+            public void run() {
+              try {
+                for (int i = 0; i < loops; i++) {
+                  ensureAccurateReservations(parent);
+                }
+              } catch (Exception ex) {
+                ex.printStackTrace();
+                Assert.fail(ex.getMessage());
+              }
             }
-          } catch (Exception ex) {
-            ex.printStackTrace();
-            Assert.fail(ex.getMessage());
-          }
-        }
-
-      };
+          };
       threads[i] = t;
       t.start();
     }

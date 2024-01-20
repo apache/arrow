@@ -19,7 +19,6 @@ package org.apache.arrow.vector;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
@@ -28,8 +27,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 /**
- * Helper class that handles converting a {@link VectorSchemaRoot}
- * to a {@link ArrowRecordBatch}.
+ * Helper class that handles converting a {@link VectorSchemaRoot} to a {@link ArrowRecordBatch}.
  */
 public class VectorUnloader {
 
@@ -38,9 +36,7 @@ public class VectorUnloader {
   private final CompressionCodec codec;
   private final boolean alignBuffers;
 
-  /**
-   * Constructs a new instance of the given set of vectors.
-   */
+  /** Constructs a new instance of the given set of vectors. */
   public VectorUnloader(VectorSchemaRoot root) {
     this(root, true, NoCompressionCodec.INSTANCE, true);
   }
@@ -48,25 +44,27 @@ public class VectorUnloader {
   /**
    * Constructs a new instance.
    *
-   * @param root  The set of vectors to serialize to an {@link ArrowRecordBatch}.
+   * @param root The set of vectors to serialize to an {@link ArrowRecordBatch}.
    * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
    * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
    */
-  public VectorUnloader(
-      VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
+  public VectorUnloader(VectorSchemaRoot root, boolean includeNullCount, boolean alignBuffers) {
     this(root, includeNullCount, NoCompressionCodec.INSTANCE, alignBuffers);
   }
 
   /**
    * Constructs a new instance.
    *
-   * @param root  The set of vectors to serialize to an {@link ArrowRecordBatch}.
+   * @param root The set of vectors to serialize to an {@link ArrowRecordBatch}.
    * @param includeNullCount Controls whether null count is copied to the {@link ArrowRecordBatch}
    * @param codec the codec for compressing data. If it is null, then no compression is needed.
    * @param alignBuffers Controls if buffers get aligned to 8-byte boundaries.
    */
   public VectorUnloader(
-      VectorSchemaRoot root, boolean includeNullCount, CompressionCodec codec, boolean alignBuffers) {
+      VectorSchemaRoot root,
+      boolean includeNullCount,
+      CompressionCodec codec,
+      boolean alignBuffers) {
     this.root = root;
     this.includeNullCount = includeNullCount;
     this.codec = codec == null ? NoCompressionCodec.INSTANCE : codec;
@@ -74,8 +72,8 @@ public class VectorUnloader {
   }
 
   /**
-   * Performs the depth first traversal of the Vectors to create an {@link ArrowRecordBatch} suitable
-   * for serialization.
+   * Performs the depth first traversal of the Vectors to create an {@link ArrowRecordBatch}
+   * suitable for serialization.
    */
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
@@ -85,22 +83,30 @@ public class VectorUnloader {
     }
     // Do NOT retain buffers in ArrowRecordBatch constructor since we have already retained them.
     return new ArrowRecordBatch(
-        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec), alignBuffers,
+        root.getRowCount(),
+        nodes,
+        buffers,
+        CompressionUtil.createBodyCompression(codec),
+        alignBuffers,
         /*retainBuffers*/ false);
   }
 
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
+    nodes.add(
+        new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
     if (fieldBuffers.size() != expectedBufferCount) {
-      throw new IllegalArgumentException(String.format(
-          "wrong number of buffers for field %s in vector %s. found: %s",
-          vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
+      throw new IllegalArgumentException(
+          String.format(
+              "wrong number of buffers for field %s in vector %s. found: %s",
+              vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
     }
     for (ArrowBuf buf : fieldBuffers) {
-      // If the codec is NoCompressionCodec, then it will return the input buffer unchanged. In that case,
-      // we need to retain it for ArrowRecordBatch. Otherwise, it will return a new buffer, and also close
+      // If the codec is NoCompressionCodec, then it will return the input buffer unchanged. In that
+      // case,
+      // we need to retain it for ArrowRecordBatch. Otherwise, it will return a new buffer, and also
+      // close
       // the input buffer. In that case, we need to retain the input buffer still to avoid modifying
       // the source VectorSchemaRoot.
       buf.getReferenceManager().retain();
@@ -110,5 +116,4 @@ public class VectorUnloader {
       appendNodes(child, nodes, buffers);
     }
   }
-
 }

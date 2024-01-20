@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -66,7 +65,7 @@ public class TestListVector {
   @Test
   public void testCopyFrom() throws Exception {
     try (ListVector inVector = ListVector.empty("input", allocator);
-         ListVector outVector = ListVector.empty("output", allocator)) {
+        ListVector outVector = ListVector.empty("output", allocator)) {
       UnionListWriter writer = inVector.getWriter();
       writer.allocate();
 
@@ -101,7 +100,6 @@ public class TestListVector {
       Assert.assertFalse("should be null", reader.isSet());
       reader.setPosition(2);
       Assert.assertTrue("shouldn't be null", reader.isSet());
-
 
       /* index 0 */
       Object result = outVector.getObject(0);
@@ -434,20 +432,26 @@ public class TestListVector {
           BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
-            dataLength1 = offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH) -
-                    offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
-            dataLength2 = toOffsetBuffer.getInt((i + 1) * ListVector.OFFSET_WIDTH) -
-                    toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
+            dataLength1 =
+                offsetBuffer.getInt((start + i + 1) * ListVector.OFFSET_WIDTH)
+                    - offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
+            dataLength2 =
+                toOffsetBuffer.getInt((i + 1) * ListVector.OFFSET_WIDTH)
+                    - toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
 
-            assertEquals("Different data lengths at index: " + i + " and start: " + start,
-                    dataLength1, dataLength2);
+            assertEquals(
+                "Different data lengths at index: " + i + " and start: " + start,
+                dataLength1,
+                dataLength2);
 
             offset1 = offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
             offset2 = toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
-              assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
-                      dataVector.getObject(offset1), dataVector1.getObject(offset2));
+              assertEquals(
+                  "Different data at indexes: " + offset1 + " and " + offset2,
+                  dataVector.getObject(offset1),
+                  dataVector1.getObject(offset2));
 
               offset1++;
               offset2++;
@@ -778,8 +782,8 @@ public class TestListVector {
       vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
       /**
-       * use the default multiplier of 5,
-       * 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value capacity.
+       * use the default multiplier of 5, 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value
+       * capacity.
        */
       vector.setInitialCapacity(512);
       vector.allocateNew();
@@ -793,12 +797,10 @@ public class TestListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
 
       /**
-       * inner value capacity we pass to data vector is 512 * 0.1 => 51
-       * For an int vector this is 204 bytes of memory for data buffer
-       * and 7 bytes for validity buffer.
-       * and with power of 2 allocation, we allocate 256 bytes and 8 bytes
-       * for the data buffer and validity buffer of the inner vector. Thus
-       * value capacity of inner vector is 64
+       * inner value capacity we pass to data vector is 512 * 0.1 => 51 For an int vector this is
+       * 204 bytes of memory for data buffer and 7 bytes for validity buffer. and with power of 2
+       * allocation, we allocate 256 bytes and 8 bytes for the data buffer and validity buffer of
+       * the inner vector. Thus value capacity of inner vector is 64
        */
       vector.setInitialCapacity(512, 0.1);
       vector.allocateNew();
@@ -806,12 +808,10 @@ public class TestListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 51);
 
       /**
-       * inner value capacity we pass to data vector is 512 * 0.01 => 5
-       * For an int vector this is 20 bytes of memory for data buffer
-       * and 1 byte for validity buffer.
-       * and with power of 2 allocation, we allocate 32 bytes and 1 bytes
-       * for the data buffer and validity buffer of the inner vector. Thus
-       * value capacity of inner vector is 8
+       * inner value capacity we pass to data vector is 512 * 0.01 => 5 For an int vector this is 20
+       * bytes of memory for data buffer and 1 byte for validity buffer. and with power of 2
+       * allocation, we allocate 32 bytes and 1 bytes for the data buffer and validity buffer of the
+       * inner vector. Thus value capacity of inner vector is 8
        */
       vector.setInitialCapacity(512, 0.01);
       vector.allocateNew();
@@ -819,14 +819,11 @@ public class TestListVector {
       assertTrue(vector.getDataVector().getValueCapacity() >= 5);
 
       /**
-       * inner value capacity we pass to data vector is 5 * 0.1 => 0
-       * which is then rounded off to 1. So we pass value count as 1
-       * to the inner int vector.
-       * the offset buffer of the list vector is allocated for 6 values
-       * which is 24 bytes and then rounded off to 32 bytes (8 values)
-       * the validity buffer of the list vector is allocated for 5
-       * values which is 1 byte. This is why value capacity of the list
-       * vector is 7 as we take the min of validity buffer value capacity
+       * inner value capacity we pass to data vector is 5 * 0.1 => 0 which is then rounded off to 1.
+       * So we pass value count as 1 to the inner int vector. the offset buffer of the list vector
+       * is allocated for 6 values which is 24 bytes and then rounded off to 32 bytes (8 values) the
+       * validity buffer of the list vector is allocated for 5 values which is 1 byte. This is why
+       * value capacity of the list vector is 7 as we take the min of validity buffer value capacity
        * and offset buffer value capacity.
        */
       vector.setInitialCapacity(5, 0.1);
@@ -840,7 +837,8 @@ public class TestListVector {
   public void testClearAndReuse() {
     try (final ListVector vector = ListVector.empty("list", allocator)) {
       BigIntVector bigIntVector =
-          (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+          (BigIntVector)
+              vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
       vector.allocateNew();
 
@@ -889,17 +887,23 @@ public class TestListVector {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
       writer.endList();
       vector.setValueCount(2);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Int(32, true)), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Int(32, true)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -917,10 +921,16 @@ public class TestListVector {
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -943,17 +953,26 @@ public class TestListVector {
       // Writing with a different timezone should throw
       holder.timezone = "AsdfTimeZone";
       holder.value = 77777;
-      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-          () -> writer.timeStampMilliTZ().write(holder));
-      assertEquals("holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone", ex.getMessage());
+      IllegalArgumentException ex =
+          assertThrows(
+              IllegalArgumentException.class, () -> writer.timeStampMilliTZ().write(holder));
+      assertEquals(
+          "holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone",
+          ex.getMessage());
 
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -977,17 +996,24 @@ public class TestListVector {
       // Writing with a different unit should throw
       durationHolder.unit = TimeUnit.SECOND;
       durationHolder.value = 8888888;
-      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-          () -> writer.duration().write(durationHolder));
+      IllegalArgumentException ex =
+          assertThrows(
+              IllegalArgumentException.class, () -> writer.duration().write(durationHolder));
       assertEquals("holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
 
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -1026,17 +1052,24 @@ public class TestListVector {
       // Writing with a different byteWidth should throw
       // Note just reusing the last buffer value since that won't matter here anyway
       binHolder.byteWidth = 3;
-      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-          () -> writer.fixedSizeBinary().write(binHolder));
+      IllegalArgumentException ex =
+          assertThrows(
+              IllegalArgumentException.class, () -> writer.fixedSizeBinary().write(binHolder));
       assertEquals("holder.byteWidth: 3 not equal to vector byteWidth: 9", ex.getMessage());
 
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.FixedSizeBinary(byteWidth)), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.FixedSizeBinary(byteWidth)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
     }
@@ -1050,7 +1083,7 @@ public class TestListVector {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
@@ -1073,7 +1106,7 @@ public class TestListVector {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writeIntValues(writer, new int[] {1, 2});
       writeIntValues(writer, new int[] {3, 4});
       writeIntValues(writer, new int[] {5, 6});
@@ -1088,7 +1121,10 @@ public class TestListVector {
         int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
         int offsetBufferSize = (valueCount + 1) * BaseRepeatedValueVector.OFFSET_WIDTH;
 
-        int expectedSize = validityBufferSize + offsetBufferSize + dataVector.getBufferSizeFor(indices[valueCount]);
+        int expectedSize =
+            validityBufferSize
+                + offsetBufferSize
+                + dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
     }
@@ -1148,17 +1184,18 @@ public class TestListVector {
       writer.bigInt().writeBigInt(3);
       writer.endList();
       writer.setValueCount(1);
-      final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(),
-          allocator);
+      final TransferPair transferPair =
+          fromVector.getTransferPair(fromVector.getField(), allocator);
       final ListVector toVector = (ListVector) transferPair.getTo();
-      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      // Field inside a new vector created by reusing a field should be the same in memory as the
+      // original field.
       assertSame(toVector.getField(), fromVector.getField());
     }
   }
 
   private void writeIntValues(UnionListWriter writer, int[] values) {
     writer.startList();
-    for (int v: values) {
+    for (int v : values) {
       writer.integer().writeInt(v);
     }
     writer.endList();

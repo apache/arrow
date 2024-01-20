@@ -19,19 +19,17 @@ package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.Float8Vector;
 
 /**
- * Consumer which consume double type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
+ * Consumer which consume double type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.Float8Vector}.
  */
 public class DoubleConsumer {
 
-  /**
-   * Creates a consumer for {@link Float8Vector}.
-   */
-  public static JdbcConsumer<Float8Vector> createConsumer(Float8Vector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link Float8Vector}. */
+  public static JdbcConsumer<Float8Vector> createConsumer(
+      Float8Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableDoubleConsumer(vector, index);
     } else {
@@ -39,14 +37,10 @@ public class DoubleConsumer {
     }
   }
 
-  /**
-   * Nullable double consumer.
-   */
+  /** Nullable double consumer. */
   static class NullableDoubleConsumer extends BaseConsumer<Float8Vector> {
 
-    /**
-     * Instantiate a DoubleConsumer.
-     */
+    /** Instantiate a DoubleConsumer. */
     public NullableDoubleConsumer(Float8Vector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +57,10 @@ public class DoubleConsumer {
     }
   }
 
-  /**
-   * Non-nullable double consumer.
-   */
+  /** Non-nullable double consumer. */
   static class NonNullableDoubleConsumer extends BaseConsumer<Float8Vector> {
 
-    /**
-     * Instantiate a DoubleConsumer.
-     */
+    /** Instantiate a DoubleConsumer. */
     public NonNullableDoubleConsumer(Float8Vector vector, int index) {
       super(vector, index);
     }

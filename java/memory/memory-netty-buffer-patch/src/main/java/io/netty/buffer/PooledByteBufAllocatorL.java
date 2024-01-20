@@ -17,16 +17,14 @@
 
 package io.netty.buffer;
 
+import io.netty.util.internal.OutOfDirectMemoryError;
+import io.netty.util.internal.StringUtil;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
-
-import io.netty.util.internal.OutOfDirectMemoryError;
-import io.netty.util.internal.StringUtil;
 
 /**
  * The base allocator that we use for all of Arrow's memory management. Returns
@@ -34,7 +32,8 @@ import io.netty.util.internal.StringUtil;
  */
 public class PooledByteBufAllocatorL {
 
-  private static final org.slf4j.Logger memoryLogger = org.slf4j.LoggerFactory.getLogger("arrow.allocator");
+  private static final org.slf4j.Logger memoryLogger =
+      org.slf4j.LoggerFactory.getLogger("arrow.allocator");
 
   private static final int MEMORY_LOGGER_FREQUENCY_SECONDS = 60;
   public final UnsafeDirectLittleEndian empty;
@@ -49,9 +48,7 @@ public class PooledByteBufAllocatorL {
     empty = new UnsafeDirectLittleEndian(new DuplicatedByteBuf(Unpooled.EMPTY_BUFFER));
   }
 
-  /**
-   * Returns a {@linkplain UnsafeDirectLittleEndian} of the given size.
-   */
+  /** Returns a {@linkplain UnsafeDirectLittleEndian} of the given size. */
   public UnsafeDirectLittleEndian allocate(long size) {
     try {
       return allocator.directBuffer(LargeMemoryUtil.checkedCastToInt(size), Integer.MAX_VALUE);
@@ -102,8 +99,8 @@ public class PooledByteBufAllocatorL {
       this.size = size;
     }
 
-    private AccountedUnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong count,
-                                              AtomicLong size) {
+    private AccountedUnsafeDirectLittleEndian(
+        PooledUnsafeDirectByteBuf buf, AtomicLong count, AtomicLong size) {
       super(buf);
       this.initialCapacity = buf.capacity();
       this.count = count;
@@ -129,7 +126,6 @@ public class PooledByteBufAllocatorL {
       }
       return released;
     }
-
   }
 
   private class InnerAllocator extends PooledByteBufAllocator {
@@ -145,7 +141,8 @@ public class PooledByteBufAllocatorL {
         f.setAccessible(true);
         this.directArenas = (PoolArena<ByteBuffer>[]) f.get(this);
       } catch (Exception e) {
-        throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
+        throw new RuntimeException(
+            "Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
       }
 
       if (memoryLogger.isTraceEnabled()) {
@@ -170,8 +167,8 @@ public class PooledByteBufAllocatorL {
           hugeBufferCount.incrementAndGet();
 
           // logger.debug("Allocating huge buffer of size {}", initialCapacity, new Exception());
-          return new AccountedUnsafeDirectLittleEndian(new LargeBuffer(buf), hugeBufferCount,
-              hugeBufferSize);
+          return new AccountedUnsafeDirectLittleEndian(
+              new LargeBuffer(buf), hugeBufferCount, hugeBufferSize);
         } else {
           // within chunk, use arena.
           ByteBuf buf = directArena.allocate(cache, initialCapacity, maxCapacity);
@@ -186,8 +183,8 @@ public class PooledByteBufAllocatorL {
           normalBufferSize.addAndGet(buf.capacity());
           normalBufferCount.incrementAndGet();
 
-          return new AccountedUnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf,
-              normalBufferCount, normalBufferSize);
+          return new AccountedUnsafeDirectLittleEndian(
+              (PooledUnsafeDirectByteBuf) buf, normalBufferCount, normalBufferSize);
         }
 
       } else {
@@ -197,8 +194,8 @@ public class PooledByteBufAllocatorL {
 
     private UnsupportedOperationException fail() {
       return new UnsupportedOperationException(
-          "Arrow requires that the JVM used supports access sun.misc.Unsafe.  This platform " +
-              "didn't provide that functionality.");
+          "Arrow requires that the JVM used supports access sun.misc.Unsafe.  This platform "
+              + "didn't provide that functionality.");
     }
 
     @Override
@@ -215,15 +212,16 @@ public class PooledByteBufAllocatorL {
       throw new UnsupportedOperationException("Arrow doesn't support using heap buffers.");
     }
 
-
     private void validate(int initialCapacity, int maxCapacity) {
       if (initialCapacity < 0) {
-        throw new IllegalArgumentException("initialCapacity: " + initialCapacity + " (expected: 0+)");
+        throw new IllegalArgumentException(
+            "initialCapacity: " + initialCapacity + " (expected: 0+)");
       }
       if (initialCapacity > maxCapacity) {
-        throw new IllegalArgumentException(String.format(
-            "initialCapacity: %d (expected: not greater than maxCapacity(%d)",
-            initialCapacity, maxCapacity));
+        throw new IllegalArgumentException(
+            String.format(
+                "initialCapacity: %d (expected: not greater than maxCapacity(%d)",
+                initialCapacity, maxCapacity));
       }
     }
 
@@ -272,7 +270,5 @@ public class PooledByteBufAllocatorL {
         }
       }
     }
-
-
   }
 }

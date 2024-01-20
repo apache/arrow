@@ -26,7 +26,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Collections;
-
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -61,11 +60,12 @@ public class TestArrowStream extends BaseFileTest {
   public void testStreamZeroLengthBatch() throws IOException {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
-    try (IntVector vector = new IntVector("foo", allocator);) {
+    try (IntVector vector = new IntVector("foo", allocator); ) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
-             new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
+              new VectorSchemaRoot(
+                  schema, Collections.singletonList(vector), vector.getValueCount());
+          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os)); ) {
         vector.setValueCount(0);
         root.setRowCount(0);
         writer.writeBatch();
@@ -75,7 +75,7 @@ public class TestArrowStream extends BaseFileTest {
 
     ByteArrayInputStream in = new ByteArrayInputStream(os.toByteArray());
 
-    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator);) {
+    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator); ) {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
       IntVector vector = (IntVector) root.getFieldVectors().get(0);
       reader.loadNextBatch();
@@ -128,18 +128,19 @@ public class TestArrowStream extends BaseFileTest {
   public void testReadWriteMultipleBatches() throws IOException {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
-    try (IntVector vector = new IntVector("foo", allocator);) {
+    try (IntVector vector = new IntVector("foo", allocator); ) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
-             new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
+              new VectorSchemaRoot(
+                  schema, Collections.singletonList(vector), vector.getValueCount());
+          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os)); ) {
         writeBatchData(writer, vector, root);
       }
     }
 
     ByteArrayInputStream in = new ByteArrayInputStream(os.toByteArray());
 
-    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator);) {
+    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator); ) {
       IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       validateBatchData(reader, vector);
     }

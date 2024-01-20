@@ -20,10 +20,7 @@ package org.apache.arrow.vector.ipc;
 import java.io.IOException;
 import java.nio.channels.SeekableByteChannel;
 
-/**
- * An {@link ReadChannel} that supports seeking to a
- * random position.
- */
+/** An {@link ReadChannel} that supports seeking to a random position. */
 public class SeekableReadChannel extends ReadChannel {
 
   private final SeekableByteChannel in;

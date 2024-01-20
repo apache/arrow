@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -47,9 +46,7 @@ import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Application for cross language integration testing.
- */
+/** Application for cross language integration testing. */
 public class Integration {
   private static final Logger LOGGER = LoggerFactory.getLogger(Integration.class);
   private final Options options;
@@ -58,13 +55,11 @@ public class Integration {
     this.options = new Options();
     this.options.addOption("a", "arrow", true, "arrow file");
     this.options.addOption("j", "json", true, "json file");
-    this.options.addOption("c", "command", true, "command to execute: " + Arrays.toString(Command
-        .values()));
+    this.options.addOption(
+        "c", "command", true, "command to execute: " + Arrays.toString(Command.values()));
   }
 
-  /**
-   *  Main method.
-   */
+  /** Main method. */
   public static void main(String[] args) {
     try {
       new Integration().run(args);
@@ -123,28 +118,29 @@ public class Integration {
     try {
       return Command.valueOf(commandName);
     } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException("Unknown command: " + commandName + " expected one of " +
-          Arrays.toString(Command.values()));
+      throw new IllegalArgumentException(
+          "Unknown command: "
+              + commandName
+              + " expected one of "
+              + Arrays.toString(Command.values()));
     }
   }
 
-  /**
-   * Commands (actions) the application can perform.
-   */
+  /** Commands (actions) the application can perform. */
   enum Command {
     ARROW_TO_JSON(true, false) {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
         try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-             FileInputStream fileInputStream = new FileInputStream(arrowFile);
-             ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
-                 allocator)) {
+            FileInputStream fileInputStream = new FileInputStream(arrowFile);
+            ArrowFileReader arrowReader =
+                new ArrowFileReader(fileInputStream.getChannel(), allocator)) {
           VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
           Schema schema = root.getSchema();
           LOGGER.debug("Input file size: " + arrowFile.length());
           LOGGER.debug("Found schema: " + schema);
-          try (JsonFileWriter writer = new JsonFileWriter(jsonFile, JsonFileWriter.config()
-              .pretty(true))) {
+          try (JsonFileWriter writer =
+              new JsonFileWriter(jsonFile, JsonFileWriter.config().pretty(true))) {
             writer.start(schema, arrowReader);
             for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
               if (!arrowReader.loadRecordBatch(rbBlock)) {
@@ -161,15 +157,15 @@ public class Integration {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
         try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-             JsonFileReader reader = new JsonFileReader(jsonFile, allocator)) {
+            JsonFileReader reader = new JsonFileReader(jsonFile, allocator)) {
           Schema schema = reader.start();
           LOGGER.debug("Input file size: " + jsonFile.length());
           LOGGER.debug("Found schema: " + schema);
           try (FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
-               VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-               // TODO json dictionaries
-               ArrowFileWriter arrowWriter = new ArrowFileWriter(root, reader, fileOutputStream
-                   .getChannel())) {
+              VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+              // TODO json dictionaries
+              ArrowFileWriter arrowWriter =
+                  new ArrowFileWriter(root, reader, fileOutputStream.getChannel())) {
             arrowWriter.start();
             while (reader.read(root)) {
               arrowWriter.writeBatch();
@@ -184,10 +180,11 @@ public class Integration {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
         try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-             JsonFileReader jsonReader = new JsonFileReader(jsonFile, allocator);
-             FileInputStream fileInputStream = new FileInputStream(arrowFile);
-             ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
-                 allocator, CommonsCompressionFactory.INSTANCE)) {
+            JsonFileReader jsonReader = new JsonFileReader(jsonFile, allocator);
+            FileInputStream fileInputStream = new FileInputStream(arrowFile);
+            ArrowFileReader arrowReader =
+                new ArrowFileReader(
+                    fileInputStream.getChannel(), allocator, CommonsCompressionFactory.INSTANCE)) {
           Schema jsonSchema = jsonReader.start();
           VectorSchemaRoot arrowRoot = arrowReader.getVectorSchemaRoot();
           Schema arrowSchema = arrowRoot.getSchema();
@@ -221,9 +218,14 @@ public class Integration {
           boolean hasMoreJSON = jsonRoot != null;
           boolean hasMoreArrow = iterator.hasNext();
           if (hasMoreJSON || hasMoreArrow) {
-            throw new IllegalArgumentException("Unexpected RecordBatches. Total: " + totalBatches +
-                " J:" + hasMoreJSON + " " +
-                "A:" + hasMoreArrow);
+            throw new IllegalArgumentException(
+                "Unexpected RecordBatches. Total: "
+                    + totalBatches
+                    + " J:"
+                    + hasMoreJSON
+                    + " "
+                    + "A:"
+                    + hasMoreArrow);
           }
         }
       }
@@ -238,7 +240,5 @@ public class Integration {
     }
 
     public abstract void execute(File arrowFile, File jsonFile) throws IOException;
-
   }
-
 }

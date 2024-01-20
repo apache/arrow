@@ -20,8 +20,8 @@ package org.apache.arrow.vector.complex;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Tuple of a {@link ValueVector} and an index into a data structure containing the {@link ValueVector}.
- * Useful for composite types to determine the index of a child.
+ * Tuple of a {@link ValueVector} and an index into a data structure containing the {@link
+ * ValueVector}. Useful for composite types to determine the index of a child.
  */
 public class VectorWithOrdinal {
   public final ValueVector vector;

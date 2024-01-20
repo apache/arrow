@@ -23,7 +23,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -120,12 +119,16 @@ public class TestLargeVarBinaryVector {
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
       byte[] oldBuffer = reusableByteArray.getBuffer();
-      assertArrayEquals(str.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str.getBytes(),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str2.getBytes(),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());

@@ -17,6 +17,23 @@
 
 package org.apache.arrow.flight;
 
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
+import io.grpc.ClientInterceptors;
+import io.grpc.ManagedChannel;
+import io.grpc.MethodDescriptor;
+import io.grpc.StatusRuntimeException;
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientCalls;
+import io.grpc.stub.ClientResponseObserver;
+import io.grpc.stub.StreamObserver;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.ServerChannel;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -28,9 +45,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-
 import javax.net.ssl.SSLException;
-
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
@@ -54,31 +69,16 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 
-import io.grpc.Channel;
-import io.grpc.ClientCall;
-import io.grpc.ClientInterceptor;
-import io.grpc.ClientInterceptors;
-import io.grpc.ManagedChannel;
-import io.grpc.MethodDescriptor;
-import io.grpc.StatusRuntimeException;
-import io.grpc.netty.GrpcSslContexts;
-import io.grpc.netty.NettyChannelBuilder;
-import io.grpc.stub.ClientCallStreamObserver;
-import io.grpc.stub.ClientCalls;
-import io.grpc.stub.ClientResponseObserver;
-import io.grpc.stub.StreamObserver;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ServerChannel;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-
-/**
- * Client for Flight services.
- */
+/** Client for Flight services. */
 public class FlightClient implements AutoCloseable {
   private static final int PENDING_REQUESTS = 5;
-  /** The maximum number of trace events to keep on the gRPC Channel. This value disables channel tracing. */
+
+  /**
+   * The maximum number of trace events to keep on the gRPC Channel. This value disables channel
+   * tracing.
+   */
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
+
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
 
@@ -90,17 +90,18 @@ public class FlightClient implements AutoCloseable {
   private final MethodDescriptor<ArrowMessage, ArrowMessage> doExchangeDescriptor;
   private final List<FlightClientMiddleware.Factory> middleware;
 
-  /**
-   * Create a Flight client from an allocator and a gRPC channel.
-   */
-  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
+  /** Create a Flight client from an allocator and a gRPC channel. */
+  FlightClient(
+      BufferAllocator incomingAllocator,
+      ManagedChannel channel,
       List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
     this.middleware = middleware;
 
     final ClientInterceptor[] interceptors;
-    interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
+    interceptors =
+        new ClientInterceptor[] {authInterceptor, new ClientInterceptorAdapter(middleware)};
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
     Channel interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
@@ -122,20 +123,23 @@ public class FlightClient implements AutoCloseable {
   public Iterable<FlightInfo> listFlights(Criteria criteria, CallOption... options) {
     final Iterator<Flight.FlightInfo> flights;
     try {
-      flights = CallOptions.wrapStub(blockingStub, options)
-          .listFlights(criteria.asCriteria());
+      flights = CallOptions.wrapStub(blockingStub, options).listFlights(criteria.asCriteria());
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
-    return () -> StatusUtils.wrapIterator(flights, t -> {
-      try {
-        return new FlightInfo(t);
-      } catch (URISyntaxException e) {
-        // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
-        // itself wouldn't be able to construct an invalid Location.
-        throw new RuntimeException(e);
-      }
-    });
+    return () ->
+        StatusUtils.wrapIterator(
+            flights,
+            t -> {
+              try {
+                return new FlightInfo(t);
+              } catch (URISyntaxException e) {
+                // We don't expect this will happen for conforming Flight implementations. For
+                // instance, a Java server
+                // itself wouldn't be able to construct an invalid Location.
+                throw new RuntimeException(e);
+              }
+            });
   }
 
   /**
@@ -146,8 +150,7 @@ public class FlightClient implements AutoCloseable {
   public Iterable<ActionType> listActions(CallOption... options) {
     final Iterator<Flight.ActionType> actions;
     try {
-      actions = CallOptions.wrapStub(blockingStub, options)
-          .listActions(Empty.getDefaultInstance());
+      actions = CallOptions.wrapStub(blockingStub, options).listActions(Empty.getDefaultInstance());
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
@@ -162,13 +165,11 @@ public class FlightClient implements AutoCloseable {
    * @return An iterator of results.
    */
   public Iterator<Result> doAction(Action action, CallOption... options) {
-    return StatusUtils
-        .wrapIterator(CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
+    return StatusUtils.wrapIterator(
+        CallOptions.wrapStub(blockingStub, options).doAction(action.toProtocol()), Result::new);
   }
 
-  /**
-   * Authenticates with a username and password.
-   */
+  /** Authenticates with a username and password. */
   public void authenticateBasic(String username, String password) {
     BasicClientAuthHandler basicClient = new BasicClientAuthHandler(username, password);
     authenticate(basicClient);
@@ -191,12 +192,12 @@ public class FlightClient implements AutoCloseable {
    *
    * @param username the username.
    * @param password the password.
-   * @return a CredentialCallOption containing a bearer token if the server emitted one, or
-   *     empty if no bearer token was returned. This can be used in subsequent API calls.
+   * @return a CredentialCallOption containing a bearer token if the server emitted one, or empty if
+   *     no bearer token was returned. This can be used in subsequent API calls.
    */
   public Optional<CredentialCallOption> authenticateBasicToken(String username, String password) {
     final ClientIncomingAuthHeaderMiddleware.Factory clientAuthMiddleware =
-            new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
     middleware.add(clientAuthMiddleware);
     handshake(new CredentialCallOption(new BasicAuthCredentialWriter(username, password)));
 
@@ -217,27 +218,36 @@ public class FlightClient implements AutoCloseable {
    *
    * @param descriptor FlightDescriptor the descriptor for the data
    * @param root VectorSchemaRoot the root containing data
-   * @param metadataListener A handler for metadata messages from the server. This will be passed buffers that will be
-   *     freed after {@link StreamListener#onNext(Object)} is called!
+   * @param metadataListener A handler for metadata messages from the server. This will be passed
+   *     buffers that will be freed after {@link StreamListener#onNext(Object)} is called!
    * @param options RPC-layer hints for this call.
    * @return ClientStreamListener an interface to control uploading data
    */
-  public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root,
-      PutListener metadataListener, CallOption... options) {
+  public ClientStreamListener startPut(
+      FlightDescriptor descriptor,
+      VectorSchemaRoot root,
+      PutListener metadataListener,
+      CallOption... options) {
     return startPut(descriptor, root, new MapDictionaryProvider(), metadataListener, options);
   }
 
   /**
    * Create or append a descriptor with another stream.
+   *
    * @param descriptor FlightDescriptor the descriptor for the data
    * @param root VectorSchemaRoot the root containing data
    * @param metadataListener A handler for metadata messages from the server.
    * @param options RPC-layer hints for this call.
-   * @return ClientStreamListener an interface to control uploading data.
-   *     {@link ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will already have been called.
+   * @return ClientStreamListener an interface to control uploading data. {@link
+   *     ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will already have been
+   *     called.
    */
-  public ClientStreamListener startPut(FlightDescriptor descriptor, VectorSchemaRoot root, DictionaryProvider provider,
-      PutListener metadataListener, CallOption... options) {
+  public ClientStreamListener startPut(
+      FlightDescriptor descriptor,
+      VectorSchemaRoot root,
+      DictionaryProvider provider,
+      PutListener metadataListener,
+      CallOption... options) {
     Preconditions.checkNotNull(root, "root must not be null");
     Preconditions.checkNotNull(provider, "provider must not be null");
     final ClientStreamListener writer = startPut(descriptor, metadataListener, options);
@@ -247,22 +257,26 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Create or append a descriptor with another stream.
+   *
    * @param descriptor FlightDescriptor the descriptor for the data
    * @param metadataListener A handler for metadata messages from the server.
    * @param options RPC-layer hints for this call.
-   * @return ClientStreamListener an interface to control uploading data.
-   *     {@link ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will NOT already have been called.
+   * @return ClientStreamListener an interface to control uploading data. {@link
+   *     ClientStreamListener#start(VectorSchemaRoot, DictionaryProvider)} will NOT already have
+   *     been called.
    */
-  public ClientStreamListener startPut(FlightDescriptor descriptor, PutListener metadataListener,
-                                       CallOption... options) {
+  public ClientStreamListener startPut(
+      FlightDescriptor descriptor, PutListener metadataListener, CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
 
     try {
-      final ClientCall<ArrowMessage, Flight.PutResult> call = asyncStubNewCall(doPutDescriptor, options);
+      final ClientCall<ArrowMessage, Flight.PutResult> call =
+          asyncStubNewCall(doPutDescriptor, options);
       final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
-      ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-          ClientCalls.asyncBidiStreamingCall(call, resultObserver);
+      ClientCallStreamObserver<ArrowMessage> observer =
+          (ClientCallStreamObserver<ArrowMessage>)
+              ClientCalls.asyncBidiStreamingCall(call, resultObserver);
       return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
     } catch (StatusRuntimeException sre) {
@@ -272,14 +286,17 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Get info on a stream.
+   *
    * @param descriptor The descriptor for the stream.
    * @param options RPC-layer hints for this call.
    */
   public FlightInfo getInfo(FlightDescriptor descriptor, CallOption... options) {
     try {
-      return new FlightInfo(CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
+      return new FlightInfo(
+          CallOptions.wrapStub(blockingStub, options).getFlightInfo(descriptor.toProtocol()));
     } catch (URISyntaxException e) {
-      // We don't expect this will happen for conforming Flight implementations. For instance, a Java server
+      // We don't expect this will happen for conforming Flight implementations. For instance, a
+      // Java server
       // itself wouldn't be able to construct an invalid Location.
       throw new RuntimeException(e);
     } catch (StatusRuntimeException sre) {
@@ -296,7 +313,8 @@ public class FlightClient implements AutoCloseable {
    */
   public PollInfo pollInfo(FlightDescriptor descriptor, CallOption... options) {
     try {
-      return new PollInfo(CallOptions.wrapStub(blockingStub, options).pollFlightInfo(descriptor.toProtocol()));
+      return new PollInfo(
+          CallOptions.wrapStub(blockingStub, options).pollFlightInfo(descriptor.toProtocol()));
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     } catch (StatusRuntimeException sre) {
@@ -306,13 +324,14 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Get schema for a stream.
+   *
    * @param descriptor The descriptor for the stream.
    * @param options RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
     try {
-      return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options)
-          .getSchema(descriptor.toProtocol()));
+      return SchemaResult.fromProtocol(
+          CallOptions.wrapStub(blockingStub, options).getSchema(descriptor.toProtocol()));
     } catch (StatusRuntimeException sre) {
       throw StatusUtils.fromGrpcRuntimeException(sre);
     }
@@ -320,23 +339,26 @@ public class FlightClient implements AutoCloseable {
 
   /**
    * Retrieve a stream from the server.
+   *
    * @param ticket The ticket granting access to the data stream.
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
     final ClientCall<Flight.Ticket, ArrowMessage> call = asyncStubNewCall(doGetDescriptor, options);
-    FlightStream stream = new FlightStream(
-        allocator,
-        PENDING_REQUESTS,
-        (String message, Throwable cause) -> call.cancel(message, cause),
-        (count) -> call.request(count));
+    FlightStream stream =
+        new FlightStream(
+            allocator,
+            PENDING_REQUESTS,
+            (String message, Throwable cause) -> call.cancel(message, cause),
+            (count) -> call.request(count));
 
     final StreamObserver<ArrowMessage> delegate = stream.asObserver();
     ClientResponseObserver<Flight.Ticket, ArrowMessage> clientResponseObserver =
         new ClientResponseObserver<Flight.Ticket, ArrowMessage>() {
 
           @Override
-          public void beforeStart(ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
+          public void beforeStart(
+              ClientCallStreamObserver<org.apache.arrow.flight.impl.Flight.Ticket> requestStream) {
             requestStream.disableAutoInboundFlowControl();
           }
 
@@ -354,7 +376,6 @@ public class FlightClient implements AutoCloseable {
           public void onCompleted() {
             delegate.onCompleted();
           }
-
         };
 
     ClientCalls.asyncServerStreamingCall(call, ticket.toProtocol(), clientResponseObserver);
@@ -372,28 +393,34 @@ public class FlightClient implements AutoCloseable {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
 
     try {
-      final ClientCall<ArrowMessage, ArrowMessage> call = asyncStubNewCall(doExchangeDescriptor, options);
-      final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
-      final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
+      final ClientCall<ArrowMessage, ArrowMessage> call =
+          asyncStubNewCall(doExchangeDescriptor, options);
+      final FlightStream stream =
+          new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
+      final ClientCallStreamObserver<ArrowMessage> observer =
+          (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
-      final ClientStreamListener writer = new PutObserver(
-          descriptor, observer, stream.cancelled::isDone,
-          () -> {
-            try {
-              stream.completed.get();
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              throw CallStatus.INTERNAL
-                  .withDescription("Client error: interrupted while completing call")
-                  .withCause(e)
-                  .toRuntimeException();
-            } catch (ExecutionException e) {
-              throw CallStatus.INTERNAL
-                  .withDescription("Client error: internal while completing call")
-                  .withCause(e)
-                  .toRuntimeException();
-            }
-          });
+      final ClientStreamListener writer =
+          new PutObserver(
+              descriptor,
+              observer,
+              stream.cancelled::isDone,
+              () -> {
+                try {
+                  stream.completed.get();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  throw CallStatus.INTERNAL
+                      .withDescription("Client error: interrupted while completing call")
+                      .withCause(e)
+                      .toRuntimeException();
+                } catch (ExecutionException e) {
+                  throw CallStatus.INTERNAL
+                      .withDescription("Client error: internal while completing call")
+                      .withCause(e)
+                      .toRuntimeException();
+                }
+              });
       // Send the descriptor to start.
       try (final ArrowMessage message = new ArrowMessage(descriptor.toProtocol())) {
         observer.onNext(message);
@@ -431,12 +458,13 @@ public class FlightClient implements AutoCloseable {
 
     /**
      * Make sure stream is drained. You must call this to be notified of any errors that may have
-     * happened after the exchange is complete. This should be called after `getWriter().completed()`
-     * and instead of `getWriter().getResult()`.
+     * happened after the exchange is complete. This should be called after
+     * `getWriter().completed()` and instead of `getWriter().getResult()`.
      */
     public void getResult() {
       // After exchange is complete, make sure stream is drained to propagate errors through reader
-      while (reader.next()) { };
+      while (reader.next()) {}
+      ;
     }
 
     /** Shut down the streams in this call. */
@@ -446,9 +474,7 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
-  /**
-   * A stream observer for Flight.PutResult
-   */
+  /** A stream observer for Flight.PutResult */
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
@@ -477,9 +503,7 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
-  /**
-   * The implementation of a {@link ClientStreamListener} for writing data to a Flight server.
-   */
+  /** The implementation of a {@link ClientStreamListener} for writing data to a Flight server. */
   static class PutObserver extends OutboundStreamListenerImpl implements ClientStreamListener {
     private final BooleanSupplier isCancelled;
     private final Runnable getResult;
@@ -492,8 +516,11 @@ public class FlightClient implements AutoCloseable {
      * @param isCancelled A flag to check if the call has been cancelled.
      * @param getResult A flag that blocks until the overall call completes.
      */
-    PutObserver(FlightDescriptor descriptor, ClientCallStreamObserver<ArrowMessage> observer,
-                BooleanSupplier isCancelled, Runnable getResult) {
+    PutObserver(
+        FlightDescriptor descriptor,
+        ClientCallStreamObserver<ArrowMessage> observer,
+        BooleanSupplier isCancelled,
+        Runnable getResult) {
       super(descriptor, observer);
       Preconditions.checkNotNull(descriptor, "descriptor must be provided");
       Preconditions.checkNotNull(isCancelled, "isCancelled must be provided");
@@ -525,8 +552,10 @@ public class FlightClient implements AutoCloseable {
    * @param options Call options.
    * @return The server response.
    */
-  public CancelFlightInfoResult cancelFlightInfo(CancelFlightInfoRequest request, CallOption... options) {
-    Action action = new Action(FlightConstants.CANCEL_FLIGHT_INFO.getType(), request.serialize().array());
+  public CancelFlightInfoResult cancelFlightInfo(
+      CancelFlightInfoRequest request, CallOption... options) {
+    Action action =
+        new Action(FlightConstants.CANCEL_FLIGHT_INFO.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
       throw CallStatus.INTERNAL
@@ -543,8 +572,7 @@ public class FlightClient implements AutoCloseable {
           .withCause(e)
           .toRuntimeException();
     }
-    results.forEachRemaining((ignored) -> {
-    });
+    results.forEachRemaining((ignored) -> {});
     return result;
   }
 
@@ -555,8 +583,10 @@ public class FlightClient implements AutoCloseable {
    * @param options Call options.
    * @return The new endpoint with an updated expiration time.
    */
-  public FlightEndpoint renewFlightEndpoint(RenewFlightEndpointRequest request, CallOption... options) {
-    Action action = new Action(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), request.serialize().array());
+  public FlightEndpoint renewFlightEndpoint(
+      RenewFlightEndpointRequest request, CallOption... options) {
+    Action action =
+        new Action(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
       throw CallStatus.INTERNAL
@@ -573,19 +603,16 @@ public class FlightClient implements AutoCloseable {
           .withCause(e)
           .toRuntimeException();
     }
-    results.forEachRemaining((ignored) -> {
-    });
+    results.forEachRemaining((ignored) -> {});
     return result;
   }
 
-  /**
-   * Interface for writers to an Arrow data stream.
-   */
+  /** Interface for writers to an Arrow data stream. */
   public interface ClientStreamListener extends OutboundStreamListener {
 
     /**
-     * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
-     * happened during the upload.
+     * Wait for the stream to finish on the server side. You must call this to be notified of any
+     * errors that may have happened during the upload.
      */
     void getResult();
   }
@@ -593,22 +620,22 @@ public class FlightClient implements AutoCloseable {
   /**
    * A handler for server-sent application metadata messages during a Flight DoPut operation.
    *
-   * <p>Generally, instead of implementing this yourself, you should use {@link AsyncPutListener} or {@link
-   * SyncPutListener}.
+   * <p>Generally, instead of implementing this yourself, you should use {@link AsyncPutListener} or
+   * {@link SyncPutListener}.
    */
   public interface PutListener extends StreamListener<PutResult> {
 
     /**
-     * Wait for the stream to finish on the server side. You must call this to be notified of any errors that may have
-     * happened during the upload.
+     * Wait for the stream to finish on the server side. You must call this to be notified of any
+     * errors that may have happened during the upload.
      */
     void getResult();
 
     /**
      * Called when a message from the server is received.
      *
-     * @param val The application metadata. This buffer will be reclaimed once onNext returns; you must retain a
-     *     reference to use it outside this method.
+     * @param val The application metadata. This buffer will be reclaimed once onNext returns; you
+     *     must retain a reference to use it outside this method.
      */
     @Override
     void onNext(PutResult val);
@@ -616,31 +643,28 @@ public class FlightClient implements AutoCloseable {
     /**
      * Check if the call has been cancelled.
      *
-     * <p>By default, this always returns false. Implementations should provide an appropriate implementation, as
-     * otherwise, a DoPut operation may inadvertently block forever.
+     * <p>By default, this always returns false. Implementations should provide an appropriate
+     * implementation, as otherwise, a DoPut operation may inadvertently block forever.
      */
     default boolean isCancelled() {
       return false;
     }
   }
 
-  /**
-   * Shut down this client.
-   */
+  /** Shut down this client. */
   public void close() throws InterruptedException {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
   }
 
-  /**
-   * Create a builder for a Flight client.
-   */
+  /** Create a builder for a Flight client. */
   public static Builder builder() {
     return new Builder();
   }
 
   /**
    * Create a builder for a Flight client.
+   *
    * @param allocator The allocator to use for the client.
    * @param location The location to connect to.
    */
@@ -648,9 +672,7 @@ public class FlightClient implements AutoCloseable {
     return new Builder(allocator, location);
   }
 
-  /**
-   * A builder for Flight clients.
-   */
+  /** A builder for Flight clients. */
   public static final class Builder {
     private BufferAllocator allocator;
     private Location location;
@@ -663,17 +685,14 @@ public class FlightClient implements AutoCloseable {
     private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
     private boolean verifyServer = true;
 
-    private Builder() {
-    }
+    private Builder() {}
 
     private Builder(BufferAllocator allocator, Location location) {
       this.allocator = Preconditions.checkNotNull(allocator);
       this.location = Preconditions.checkNotNull(location);
     }
 
-    /**
-     * Force the client to connect over TLS.
-     */
+    /** Force the client to connect over TLS. */
     public Builder useTls() {
       this.forceTls = true;
       return this;
@@ -699,7 +718,8 @@ public class FlightClient implements AutoCloseable {
     }
 
     /** Set the trusted TLS certificates. */
-    public Builder clientCertificate(final InputStream clientCertificate, final InputStream clientKey) {
+    public Builder clientCertificate(
+        final InputStream clientCertificate, final InputStream clientKey) {
       Preconditions.checkNotNull(clientKey);
       this.clientCertificate = Preconditions.checkNotNull(clientCertificate);
       this.clientKey = Preconditions.checkNotNull(clientKey);
@@ -726,46 +746,51 @@ public class FlightClient implements AutoCloseable {
       return this;
     }
 
-    /**
-     * Create the client from this builder.
-     */
+    /** Create the client from this builder. */
     public FlightClient build() {
       final NettyChannelBuilder builder;
 
       switch (location.getUri().getScheme()) {
         case LocationSchemes.GRPC:
         case LocationSchemes.GRPC_INSECURE:
-        case LocationSchemes.GRPC_TLS: {
-          builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
-          break;
-        }
-        case LocationSchemes.GRPC_DOMAIN_SOCKET: {
-          // The implementation is platform-specific, so we have to find the classes at runtime
-          builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
-          try {
-            try {
-              // Linux
-              builder.channelType(
-                  (Class<? extends ServerChannel>) Class.forName("io.netty.channel.epoll.EpollDomainSocketChannel"));
-              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
-                  .newInstance();
-              builder.eventLoopGroup(elg);
-            } catch (ClassNotFoundException e) {
-              // BSD
-              builder.channelType(
-                  (Class<? extends ServerChannel>) Class.forName("io.netty.channel.kqueue.KQueueDomainSocketChannel"));
-              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
-                  .newInstance();
-              builder.eventLoopGroup(elg);
-            }
-          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-            throw new UnsupportedOperationException(
-                "Could not find suitable Netty native transport implementation for domain socket address.");
+        case LocationSchemes.GRPC_TLS:
+          {
+            builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
+            break;
           }
-          break;
-        }
+        case LocationSchemes.GRPC_DOMAIN_SOCKET:
+          {
+            // The implementation is platform-specific, so we have to find the classes at runtime
+            builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
+            try {
+              try {
+                // Linux
+                builder.channelType(
+                    (Class<? extends ServerChannel>)
+                        Class.forName("io.netty.channel.epoll.EpollDomainSocketChannel"));
+                final EventLoopGroup elg =
+                    (EventLoopGroup)
+                        Class.forName("io.netty.channel.epoll.EpollEventLoopGroup").newInstance();
+                builder.eventLoopGroup(elg);
+              } catch (ClassNotFoundException e) {
+                // BSD
+                builder.channelType(
+                    (Class<? extends ServerChannel>)
+                        Class.forName("io.netty.channel.kqueue.KQueueDomainSocketChannel"));
+                final EventLoopGroup elg =
+                    (EventLoopGroup)
+                        Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup").newInstance();
+                builder.eventLoopGroup(elg);
+              }
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+              throw new UnsupportedOperationException(
+                  "Could not find suitable Netty native transport implementation for domain socket address.");
+            }
+            break;
+          }
         default:
-          throw new IllegalArgumentException("Scheme is not supported: " + location.getUri().getScheme());
+          throw new IllegalArgumentException(
+              "Scheme is not supported: " + location.getUri().getScheme());
       }
 
       if (this.forceTls || LocationSchemes.GRPC_TLS.equals(location.getUri().getScheme())) {
@@ -774,15 +799,18 @@ public class FlightClient implements AutoCloseable {
         final boolean hasTrustedCerts = this.trustedCertificates != null;
         final boolean hasKeyCertPair = this.clientCertificate != null && this.clientKey != null;
         if (!this.verifyServer && (hasTrustedCerts || hasKeyCertPair)) {
-          throw new IllegalArgumentException("FlightClient has been configured to disable server verification, " +
-              "but certificate options have been specified.");
+          throw new IllegalArgumentException(
+              "FlightClient has been configured to disable server verification, "
+                  + "but certificate options have been specified.");
         }
 
         final SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
 
         if (!this.verifyServer) {
           sslContextBuilder.trustManager(InsecureTrustManagerFactory.INSTANCE);
-        } else if (this.trustedCertificates != null || this.clientCertificate != null || this.clientKey != null) {
+        } else if (this.trustedCertificates != null
+            || this.clientCertificate != null
+            || this.clientKey != null) {
           if (this.trustedCertificates != null) {
             sslContextBuilder.trustManager(this.trustedCertificates);
           }
@@ -803,19 +831,17 @@ public class FlightClient implements AutoCloseable {
         builder.usePlaintext();
       }
 
-      builder
-          .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
-          .maxInboundMessageSize(maxInboundMessageSize);
+      builder.maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS).maxInboundMessageSize(maxInboundMessageSize);
       return new FlightClient(allocator, builder.build(), middleware);
     }
   }
 
   /**
-   * Helper method to create a call from the asyncStub, method descriptor, and list of calling options.
+   * Helper method to create a call from the asyncStub, method descriptor, and list of calling
+   * options.
    */
   private <RequestT, ResponseT> ClientCall<RequestT, ResponseT> asyncStubNewCall(
-          MethodDescriptor<RequestT, ResponseT> descriptor,
-          CallOption... options) {
+      MethodDescriptor<RequestT, ResponseT> descriptor, CallOption... options) {
     FlightServiceStub wrappedStub = CallOptions.wrapStub(asyncStub, options);
     return wrappedStub.getChannel().newCall(descriptor, wrappedStub.getCallOptions());
   }

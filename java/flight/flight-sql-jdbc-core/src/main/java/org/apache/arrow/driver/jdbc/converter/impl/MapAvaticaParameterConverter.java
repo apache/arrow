@@ -23,13 +23,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Map Arrow types.
- */
+/** AvaticaParameterConverter for Map Arrow types. */
 public class MapAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public MapAvaticaParameterConverter(ArrowType.Map type) {
-  }
+  public MapAvaticaParameterConverter(ArrowType.Map type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

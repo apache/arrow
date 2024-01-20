@@ -18,12 +18,9 @@
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.avro.io.Decoder;
 
-/**
- * Adapter function to skip (throw away) data from the decoder.
- */
+/** Adapter function to skip (throw away) data from the decoder. */
 @FunctionalInterface
 public interface SkipFunction {
   void apply(Decoder decoder) throws IOException;

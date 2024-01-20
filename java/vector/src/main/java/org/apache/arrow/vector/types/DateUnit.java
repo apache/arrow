@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector.types;
 
-/**
- * Resolutions that dates can be stored at.
- */
+/** Resolutions that dates can be stored at. */
 public enum DateUnit {
   /** Days since epoch. */
   DAY(org.apache.arrow.flatbuf.DateUnit.DAY),

@@ -20,7 +20,6 @@ package org.apache.arrow.algorithm.search;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -39,16 +38,12 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link ParallelSearcher}.
- */
+/** Benchmarks for {@link ParallelSearcher}. */
 public class ParallelSearcherBenchmarks {
 
   private static final int VECTOR_LENGTH = 1024 * 1024;
 
-  /**
-   * State object for the benchmarks.
-   */
+  /** State object for the benchmarks. */
   @State(Scope.Benchmark)
   public static class SearchState {
 
@@ -105,7 +100,8 @@ public class ParallelSearcherBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+    Options opt =
+        new OptionsBuilder()
             .include(ParallelSearcherBenchmarks.class.getSimpleName())
             .forks(1)
             .build();

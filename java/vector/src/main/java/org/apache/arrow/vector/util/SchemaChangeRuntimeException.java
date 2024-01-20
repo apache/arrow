@@ -17,20 +17,14 @@
 
 package org.apache.arrow.vector.util;
 
-
-/**
- * Thrown when child vectors (e.g. in lists) don't match the expected type.
- */
+/** Thrown when child vectors (e.g. in lists) don't match the expected type. */
 public class SchemaChangeRuntimeException extends RuntimeException {
   public SchemaChangeRuntimeException() {
     super();
   }
 
   public SchemaChangeRuntimeException(
-      String message,
-      Throwable cause,
-      boolean enableSuppression,
-      boolean writableStackTrace) {
+      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 

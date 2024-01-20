@@ -17,9 +17,7 @@
 
 package org.apache.arrow.memory;
 
-/**
- * The result of transferring an {@link ArrowBuf} between {@linkplain BufferAllocator}s.
- */
+/** The result of transferring an {@link ArrowBuf} between {@linkplain BufferAllocator}s. */
 public interface OwnershipTransferResult {
 
   boolean getAllocationFit();

@@ -21,9 +21,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-/**
- * Vector that can store multiple {@linkplain FieldType} vectors as children.
- */
+/** Vector that can store multiple {@linkplain FieldType} vectors as children. */
 public interface PromotableVector {
 
   <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType type);

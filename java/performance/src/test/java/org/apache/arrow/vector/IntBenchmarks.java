@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.impl.IntWriterImpl;
@@ -36,9 +35,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link IntVector}.
- */
+/** Benchmarks for {@link IntVector}. */
 @State(Scope.Benchmark)
 public class IntBenchmarks {
 
@@ -99,11 +96,9 @@ public class IntBenchmarks {
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(IntBenchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder().include(IntBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

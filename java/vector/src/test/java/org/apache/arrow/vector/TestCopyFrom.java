@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.time.Period;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -1071,16 +1070,15 @@ public class TestCopyFrom {
     }
   }
 
-  @Test //https://issues.apache.org/jira/browse/ARROW-7837
+  @Test // https://issues.apache.org/jira/browse/ARROW-7837
   public void testCopySafeArrow7837() {
     // this test exposes a bug in `handleSafe` where
     // it reads a stale index and as a result missed a required resize of the value vector.
     try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
-         VarCharVector vc2 = new VarCharVector("vc2", allocator);
-    ) {
-      //initial size is carefully set in order to force the second 'copyFromSafe' operation
+        VarCharVector vc2 = new VarCharVector("vc2", allocator); ) {
+      // initial size is carefully set in order to force the second 'copyFromSafe' operation
       // to trigger a reallocation of the vector.
-      vc2.setInitialCapacity(/*valueCount*/20, /*density*/0.5);
+      vc2.setInitialCapacity(/*valueCount*/ 20, /*density*/ 0.5);
 
       vc1.setSafe(0, "1234567890".getBytes(Charset.forName("utf-8")));
       assertFalse(vc1.isNull(0));
@@ -1099,6 +1097,4 @@ public class TestCopyFrom {
       assertEquals(vc2.getObject(5).toString(), "1234567890");
     }
   }
-
-
 }

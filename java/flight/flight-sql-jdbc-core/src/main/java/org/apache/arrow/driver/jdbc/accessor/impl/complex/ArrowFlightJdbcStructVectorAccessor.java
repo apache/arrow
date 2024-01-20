@@ -22,21 +22,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.calcite.avatica.util.StructImpl;
 
-/**
- * Accessor for the Arrow type {@link StructVector}.
- */
+/** Accessor for the Arrow type {@link StructVector}. */
 public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final StructVector vector;
 
-  public ArrowFlightJdbcStructVectorAccessor(StructVector vector, IntSupplier currentRowSupplier,
-                                             ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcStructVectorAccessor(
+      StructVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
@@ -65,10 +64,10 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
       return null;
     }
 
-    List<Object> attributes = vector.getChildrenFromFields()
-        .stream()
-        .map(vector -> vector.getObject(currentRow))
-        .collect(Collectors.toList());
+    List<Object> attributes =
+        vector.getChildrenFromFields().stream()
+            .map(vector -> vector.getObject(currentRow))
+            .collect(Collectors.toList());
 
     return new StructImpl(attributes);
   }

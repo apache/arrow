@@ -20,7 +20,6 @@ package org.apache.arrow.adapter.jdbc.binder;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.vector.TinyIntVector;
 
 /** A column binder for 8-bit integers. */
@@ -34,7 +33,8 @@ public class TinyIntBinder extends BaseColumnBinder<TinyIntVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     final byte value = vector.getDataBuffer().getByte((long) rowIndex * TinyIntVector.TYPE_WIDTH);
     statement.setByte(parameterIndex, value);
   }

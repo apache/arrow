@@ -21,7 +21,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.TimeZone;
-
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -33,9 +32,7 @@ import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.UnregisteredDriver;
 
-/**
- * Factory for the Arrow Flight JDBC Driver.
- */
+/** Factory for the Arrow Flight JDBC Driver. */
 public class ArrowFlightJdbcFactory implements AvaticaFactory {
   private final int major;
   private final int minor;
@@ -51,16 +48,14 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
   }
 
   @Override
-  public AvaticaConnection newConnection(final UnregisteredDriver driver,
-                                         final AvaticaFactory factory,
-                                         final String url,
-                                         final Properties info) throws SQLException {
+  public AvaticaConnection newConnection(
+      final UnregisteredDriver driver,
+      final AvaticaFactory factory,
+      final String url,
+      final Properties info)
+      throws SQLException {
     return ArrowFlightConnection.createNewConnection(
-        (ArrowFlightJdbcDriver) driver,
-        factory,
-        url,
-        info,
-        new RootAllocator(Long.MAX_VALUE));
+        (ArrowFlightJdbcDriver) driver, factory, url, info, new RootAllocator(Long.MAX_VALUE));
   }
 
   @Override
@@ -70,8 +65,12 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final int resultType,
       final int resultSetConcurrency,
       final int resultSetHoldability) {
-    return new ArrowFlightStatement((ArrowFlightConnection) connection,
-        handle, resultType, resultSetConcurrency, resultSetHoldability);
+    return new ArrowFlightStatement(
+        (ArrowFlightConnection) connection,
+        handle,
+        resultType,
+        resultSetConcurrency,
+        resultSetHoldability);
   }
 
   @Override
@@ -81,27 +80,34 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
       final Meta.Signature signature,
       final int resultType,
       final int resultSetConcurrency,
-      final int resultSetHoldability) throws SQLException {
+      final int resultSetHoldability)
+      throws SQLException {
     final ArrowFlightConnection flightConnection = (ArrowFlightConnection) connection;
     ArrowFlightSqlClientHandler.PreparedStatement preparedStatement =
         flightConnection.getMeta().getPreparedStatement(statementHandle);
 
     return ArrowFlightPreparedStatement.newPreparedStatement(
-        flightConnection, preparedStatement, statementHandle,
-        signature, resultType, resultSetConcurrency, resultSetHoldability);
+        flightConnection,
+        preparedStatement,
+        statementHandle,
+        signature,
+        resultType,
+        resultSetConcurrency,
+        resultSetHoldability);
   }
 
   @Override
-  public ArrowFlightJdbcVectorSchemaRootResultSet newResultSet(final AvaticaStatement statement,
-                                                               final QueryState state,
-                                                               final Meta.Signature signature,
-                                                               final TimeZone timeZone,
-                                                               final Meta.Frame frame)
+  public ArrowFlightJdbcVectorSchemaRootResultSet newResultSet(
+      final AvaticaStatement statement,
+      final QueryState state,
+      final Meta.Signature signature,
+      final TimeZone timeZone,
+      final Meta.Frame frame)
       throws SQLException {
     final ResultSetMetaData metaData = newResultSetMetaData(statement, signature);
 
-    return new ArrowFlightJdbcFlightStreamResultSet(statement, state, signature, metaData, timeZone,
-        frame);
+    return new ArrowFlightJdbcFlightStreamResultSet(
+        statement, state, signature, metaData, timeZone, frame);
   }
 
   @Override
@@ -111,10 +117,8 @@ public class ArrowFlightJdbcFactory implements AvaticaFactory {
 
   @Override
   public ResultSetMetaData newResultSetMetaData(
-      final AvaticaStatement avaticaStatement,
-      final Meta.Signature signature) {
-    return new AvaticaResultSetMetaData(avaticaStatement,
-        null, signature);
+      final AvaticaStatement avaticaStatement, final Meta.Signature signature) {
+    return new AvaticaResultSetMetaData(avaticaStatement, null, signature);
   }
 
   @Override

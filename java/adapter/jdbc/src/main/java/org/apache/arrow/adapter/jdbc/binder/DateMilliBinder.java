@@ -22,12 +22,9 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Calendar;
-
 import org.apache.arrow.vector.DateMilliVector;
 
-/**
- * A column binder for 64-bit dates.
- */
+/** A column binder for 64-bit dates. */
 public class DateMilliBinder extends BaseColumnBinder<DateMilliVector> {
   private final Calendar calendar;
 
@@ -39,14 +36,14 @@ public class DateMilliBinder extends BaseColumnBinder<DateMilliVector> {
     this(vector, calendar, Types.DATE);
   }
 
-
   public DateMilliBinder(DateMilliVector vector, Calendar calendar, int jdbcType) {
     super(vector, jdbcType);
     this.calendar = calendar;
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     final long index = (long) rowIndex * DateMilliVector.TYPE_WIDTH;
     final Date value = new Date(vector.getDataBuffer().getLong(index));
     if (calendar == null) {

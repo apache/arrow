@@ -17,6 +17,21 @@
 
 package org.apache.arrow.flight;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.WireFormat;
+import io.grpc.Drainable;
+import io.grpc.MethodDescriptor.Marshaller;
+import io.grpc.protobuf.ProtoUtils;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flight.grpc.AddWritableBuffer;
 import org.apache.arrow.flight.grpc.GetReadableBuffer;
 import org.apache.arrow.flight.impl.Flight.FlightData;
@@ -45,26 +59,7 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.io.ByteStreams;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import com.google.protobuf.WireFormat;
-
-import io.grpc.Drainable;
-import io.grpc.MethodDescriptor.Marshaller;
-import io.grpc.protobuf.ProtoUtils;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.CompositeByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.buffer.UnpooledByteBufAllocator;
-
-/**
- * The in-memory representation of FlightData used to manage a stream of Arrow messages.
- */
+/** The in-memory representation of FlightData used to manage a stream of Arrow messages. */
 class ArrowMessage implements AutoCloseable {
 
   // If true, deserialize Arrow data by giving Arrow a reference to the underlying gRPC buffer
@@ -99,7 +94,10 @@ class ArrowMessage implements AutoCloseable {
   private static final Marshaller<FlightData> NO_BODY_MARSHALLER =
       ProtoUtils.marshaller(FlightData.getDefaultInstance());
 
-  /** Get the application-specific metadata in this message. The ArrowMessage retains ownership of the buffer. */
+  /**
+   * Get the application-specific metadata in this message. The ArrowMessage retains ownership of
+   * the buffer.
+   */
   public ArrowBuf getApplicationMetadata() {
     return appMetadata;
   }
@@ -110,34 +108,37 @@ class ArrowMessage implements AutoCloseable {
     SCHEMA,
     DICTIONARY_BATCH,
     RECORD_BATCH,
-    TENSOR
-    ;
+    TENSOR;
 
     public static HeaderType getHeader(byte b) {
       switch (b) {
-        case 0: return NONE;
-        case 1: return SCHEMA;
-        case 2: return DICTIONARY_BATCH;
-        case 3: return RECORD_BATCH;
-        case 4: return TENSOR;
+        case 0:
+          return NONE;
+        case 1:
+          return SCHEMA;
+        case 2:
+          return DICTIONARY_BATCH;
+        case 3:
+          return RECORD_BATCH;
+        case 4:
+          return TENSOR;
         default:
           throw new UnsupportedOperationException("unknown type: " + b);
       }
     }
-
   }
 
   // Pre-allocated buffers for padding serialized ArrowMessages.
-  private static final List<ByteBuf> PADDING_BUFFERS = Arrays.asList(
-      null,
-      Unpooled.copiedBuffer(new byte[] { 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0, 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0, 0 }),
-      Unpooled.copiedBuffer(new byte[] { 0, 0, 0, 0, 0, 0, 0 })
-  );
+  private static final List<ByteBuf> PADDING_BUFFERS =
+      Arrays.asList(
+          null,
+          Unpooled.copiedBuffer(new byte[] {0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0, 0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0, 0, 0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0, 0, 0, 0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0, 0, 0, 0, 0}),
+          Unpooled.copiedBuffer(new byte[] {0, 0, 0, 0, 0, 0, 0}));
 
   private final IpcOption writeOption;
   private final FlightDescriptor descriptor;
@@ -150,8 +151,8 @@ class ArrowMessage implements AutoCloseable {
   public ArrowMessage(FlightDescriptor descriptor, Schema schema, IpcOption option) {
     this.writeOption = option;
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(schema, writeOption);
-    this.message = MessageMetadataResult.create(serializedMessage.slice(),
-        serializedMessage.remaining());
+    this.message =
+        MessageMetadataResult.create(serializedMessage.slice(), serializedMessage.remaining());
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
@@ -161,14 +162,17 @@ class ArrowMessage implements AutoCloseable {
 
   /**
    * Create an ArrowMessage from a record batch and app metadata.
+   *
    * @param batch The record batch.
    * @param appMetadata The app metadata. May be null. Takes ownership of the buffer otherwise.
    * @param tryZeroCopy Whether to enable the zero-copy optimization.
    */
-  public ArrowMessage(ArrowRecordBatch batch, ArrowBuf appMetadata, boolean tryZeroCopy, IpcOption option) {
+  public ArrowMessage(
+      ArrowRecordBatch batch, ArrowBuf appMetadata, boolean tryZeroCopy, IpcOption option) {
     this.writeOption = option;
     ByteBuffer serializedMessage = MessageSerializer.serializeMetadata(batch, writeOption);
-    this.message = MessageMetadataResult.create(serializedMessage.slice(), serializedMessage.remaining());
+    this.message =
+        MessageMetadataResult.create(serializedMessage.slice(), serializedMessage.remaining());
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
     this.appMetadata = appMetadata;
@@ -192,6 +196,7 @@ class ArrowMessage implements AutoCloseable {
 
   /**
    * Create an ArrowMessage containing only application metadata.
+   *
    * @param appMetadata The application-provided metadata buffer.
    */
   public ArrowMessage(ArrowBuf appMetadata) {
@@ -216,13 +221,18 @@ class ArrowMessage implements AutoCloseable {
     this.tryZeroCopyWrite = false;
   }
 
-  private ArrowMessage(FlightDescriptor descriptor, MessageMetadataResult message, ArrowBuf appMetadata,
-                       ArrowBuf buf) {
+  private ArrowMessage(
+      FlightDescriptor descriptor,
+      MessageMetadataResult message,
+      ArrowBuf appMetadata,
+      ArrowBuf buf) {
     // No need to take IpcOption as this is used for deserialized ArrowMessage coming from the wire.
-    this.writeOption = message != null ?
-        // avoid writing legacy ipc format by default
-        new IpcOption(false, MetadataVersion.fromFlatbufID(message.getMessage().version())) :
-        IpcOption.DEFAULT;
+    this.writeOption =
+        message != null
+            ?
+            // avoid writing legacy ipc format by default
+            new IpcOption(false, MetadataVersion.fromFlatbufID(message.getMessage().version()))
+            : IpcOption.DEFAULT;
     this.message = message;
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;
@@ -254,7 +264,8 @@ class ArrowMessage implements AutoCloseable {
   }
 
   public ArrowRecordBatch asRecordBatch() throws IOException {
-    Preconditions.checkArgument(bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
+    Preconditions.checkArgument(
+        bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
     Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH);
 
     ArrowBuf underlying = bufs.get(0);
@@ -264,7 +275,8 @@ class ArrowMessage implements AutoCloseable {
   }
 
   public ArrowDictionaryBatch asDictionaryBatch() throws IOException {
-    Preconditions.checkArgument(bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
+    Preconditions.checkArgument(
+        bufs.size() == 1, "A batch can only be consumed if it contains a single ArrowBuf.");
     Preconditions.checkArgument(getMessageType() == HeaderType.DICTIONARY_BATCH);
     ArrowBuf underlying = bufs.get(0);
     // Retain a reference to keep the batch alive when the message is closed
@@ -287,27 +299,29 @@ class ArrowMessage implements AutoCloseable {
       while (stream.available() > 0) {
         int tag = readRawVarint32(stream);
         switch (tag) {
-
-          case DESCRIPTOR_TAG: {
-            int size = readRawVarint32(stream);
-            byte[] bytes = new byte[size];
-            ByteStreams.readFully(stream, bytes);
-            descriptor = FlightDescriptor.parseFrom(bytes);
-            break;
-          }
-          case HEADER_TAG: {
-            int size = readRawVarint32(stream);
-            byte[] bytes = new byte[size];
-            ByteStreams.readFully(stream, bytes);
-            header = MessageMetadataResult.create(ByteBuffer.wrap(bytes), size);
-            break;
-          }
-          case APP_METADATA_TAG: {
-            int size = readRawVarint32(stream);
-            appMetadata = allocator.buffer(size);
-            GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, ENABLE_ZERO_COPY_READ);
-            break;
-          }
+          case DESCRIPTOR_TAG:
+            {
+              int size = readRawVarint32(stream);
+              byte[] bytes = new byte[size];
+              ByteStreams.readFully(stream, bytes);
+              descriptor = FlightDescriptor.parseFrom(bytes);
+              break;
+            }
+          case HEADER_TAG:
+            {
+              int size = readRawVarint32(stream);
+              byte[] bytes = new byte[size];
+              ByteStreams.readFully(stream, bytes);
+              header = MessageMetadataResult.create(ByteBuffer.wrap(bytes), size);
+              break;
+            }
+          case APP_METADATA_TAG:
+            {
+              int size = readRawVarint32(stream);
+              appMetadata = allocator.buffer(size);
+              GetReadableBuffer.readIntoBuffer(stream, appMetadata, size, ENABLE_ZERO_COPY_READ);
+              break;
+            }
           case BODY_TAG:
             if (body != null) {
               // only read last body.
@@ -323,10 +337,13 @@ class ArrowMessage implements AutoCloseable {
             // ignore unknown fields.
         }
       }
-      // Protobuf implementations can omit empty fields, such as body; for some message types, like RecordBatch,
-      // this will fail later as we still expect an empty buffer. In those cases only, fill in an empty buffer here -
+      // Protobuf implementations can omit empty fields, such as body; for some message types, like
+      // RecordBatch,
+      // this will fail later as we still expect an empty buffer. In those cases only, fill in an
+      // empty buffer here -
       // in other cases, like Schema, having an unexpected empty buffer will also cause failures.
-      // We don't fill in defaults for fields like header, for which there is no reasonable default, or for appMetadata
+      // We don't fill in defaults for fields like header, for which there is no reasonable default,
+      // or for appMetadata
       // or descriptor, which are intended to be empty in some cases.
       if (header != null) {
         switch (HeaderType.getHeader(header.headerType())) {
@@ -355,7 +372,6 @@ class ArrowMessage implements AutoCloseable {
     } catch (Exception ioe) {
       throw new RuntimeException(ioe);
     }
-
   }
 
   private static int readRawVarint32(InputStream is) throws IOException {
@@ -384,13 +400,12 @@ class ArrowMessage implements AutoCloseable {
     }
 
     try {
-      final ByteString bytes = ByteString.copyFrom(message.getMessageBuffer(),
-          message.bytesAfterMessage());
+      final ByteString bytes =
+          ByteString.copyFrom(message.getMessageBuffer(), message.bytesAfterMessage());
 
       if (getMessageType() == HeaderType.SCHEMA) {
 
-        final FlightData.Builder builder = FlightData.newBuilder()
-            .setDataHeader(bytes);
+        final FlightData.Builder builder = FlightData.newBuilder().setDataHeader(bytes);
 
         if (descriptor != null) {
           builder.setFlightDescriptor(descriptor);
@@ -400,17 +415,20 @@ class ArrowMessage implements AutoCloseable {
         return NO_BODY_MARSHALLER.stream(builder.build());
       }
 
-      Preconditions.checkArgument(getMessageType() == HeaderType.RECORD_BATCH ||
-          getMessageType() == HeaderType.DICTIONARY_BATCH);
+      Preconditions.checkArgument(
+          getMessageType() == HeaderType.RECORD_BATCH
+              || getMessageType() == HeaderType.DICTIONARY_BATCH);
       // There may be no buffers in the case that we write only a null array
-      Preconditions.checkArgument(descriptor == null, "Descriptor should only be included in the schema message.");
+      Preconditions.checkArgument(
+          descriptor == null, "Descriptor should only be included in the schema message.");
 
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       CodedOutputStream cos = CodedOutputStream.newInstance(baos);
       cos.writeBytes(FlightData.DATA_HEADER_FIELD_NUMBER, bytes);
 
       if (appMetadata != null && appMetadata.capacity() > 0) {
-        // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not -limit- bytes
+        // Must call slice() as CodedOutputStream#writeByteBuffer writes -capacity- bytes, not
+        // -limit- bytes
         cos.writeByteBuffer(FlightData.APP_METADATA_FIELD_NUMBER, appMetadata.nioBuffer().slice());
       }
 
@@ -423,7 +441,8 @@ class ArrowMessage implements AutoCloseable {
         // below to tie the Arrow buffer refcnt to the Netty buffer refcnt
         allBufs.add(Unpooled.wrappedBuffer(b.nioBuffer()).retain());
         size += b.readableBytes();
-        // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
+        // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable
+        // from C++.
         if (b.readableBytes() % 8 != 0) {
           int paddingBytes = (int) (8 - (b.readableBytes() % 8));
           assert paddingBytes > 0 && paddingBytes < 8;
@@ -439,39 +458,36 @@ class ArrowMessage implements AutoCloseable {
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb;
       final int maxNumComponents = Math.max(2, bufs.size() + 1);
-      final ImmutableList<ByteBuf> byteBufs = ImmutableList.<ByteBuf>builder()
-          .add(initialBuf)
-          .addAll(allBufs)
-          .build();
+      final ImmutableList<ByteBuf> byteBufs =
+          ImmutableList.<ByteBuf>builder().add(initialBuf).addAll(allBufs).build();
       if (tryZeroCopyWrite) {
         bb = new ArrowBufRetainingCompositeByteBuf(maxNumComponents, byteBufs, bufs);
       } else {
         // Don't retain the buffers in the non-zero-copy path since we're copying them
-        bb = new CompositeByteBuf(UnpooledByteBufAllocator.DEFAULT, /* direct */ true, maxNumComponents, byteBufs);
+        bb =
+            new CompositeByteBuf(
+                UnpooledByteBufAllocator.DEFAULT, /* direct */ true, maxNumComponents, byteBufs);
       }
       return new DrainableByteBufInputStream(bb, tryZeroCopyWrite);
     } catch (Exception ex) {
       throw new RuntimeException("Unexpected IO Exception", ex);
     }
-
   }
 
   /**
    * ARROW-11066: enable the zero-copy optimization and protect against use-after-free.
    *
-   * When you send a message through gRPC, the following happens:
-   * 1. gRPC immediately serializes the message, eventually calling asInputStream above.
-   * 2. gRPC buffers the serialized message for sending.
-   * 3. Later, gRPC will actually write out the message.
+   * <p>When you send a message through gRPC, the following happens: 1. gRPC immediately serializes
+   * the message, eventually calling asInputStream above. 2. gRPC buffers the serialized message for
+   * sending. 3. Later, gRPC will actually write out the message.
    *
-   * The problem with this is that when the zero-copy optimization is enabled, Flight
-   * "serializes" the message by handing gRPC references to Arrow data. That means we need
-   * a way to keep the Arrow buffers valid until gRPC actually writes them, else, we'll read
-   * invalid data or segfault. gRPC doesn't know anything about Arrow buffers, either.
+   * <p>The problem with this is that when the zero-copy optimization is enabled, Flight
+   * "serializes" the message by handing gRPC references to Arrow data. That means we need a way to
+   * keep the Arrow buffers valid until gRPC actually writes them, else, we'll read invalid data or
+   * segfault. gRPC doesn't know anything about Arrow buffers, either.
    *
-   * This class solves that issue by bridging Arrow and Netty/gRPC. We increment the refcnt
-   * on a set of Arrow backing buffers and decrement them once the Netty buffers are freed
-   * by gRPC.
+   * <p>This class solves that issue by bridging Arrow and Netty/gRPC. We increment the refcnt on a
+   * set of Arrow backing buffers and decrement them once the Netty buffers are freed by gRPC.
    */
   private static final class ArrowBufRetainingCompositeByteBuf extends CompositeByteBuf {
     // Arrow buffers that back the Netty ByteBufs here; ByteBufs held by this class are
@@ -479,7 +495,8 @@ class ArrowMessage implements AutoCloseable {
     final List<ArrowBuf> backingBuffers;
     boolean freed;
 
-    ArrowBufRetainingCompositeByteBuf(int maxNumComponents, Iterable<ByteBuf> buffers, List<ArrowBuf> backingBuffers) {
+    ArrowBufRetainingCompositeByteBuf(
+        int maxNumComponents, Iterable<ByteBuf> buffers, List<ArrowBuf> backingBuffers) {
       super(UnpooledByteBufAllocator.DEFAULT, /* direct */ true, maxNumComponents, buffers);
       this.backingBuffers = backingBuffers;
       this.freed = false;
@@ -524,9 +541,6 @@ class ArrowMessage implements AutoCloseable {
     public void close() {
       buf.release();
     }
-
-
-
   }
 
   public static Marshaller<ArrowMessage> createMarshaller(BufferAllocator allocator) {
@@ -550,7 +564,6 @@ class ArrowMessage implements AutoCloseable {
     public ArrowMessage parse(InputStream stream) {
       return ArrowMessage.frame(allocator, stream);
     }
-
   }
 
   @Override

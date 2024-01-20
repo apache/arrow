@@ -30,9 +30,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link org.apache.arrow.algorithm.rank.VectorRank}.
- */
+/** Test cases for {@link org.apache.arrow.algorithm.rank.VectorRank}. */
 public class TestVectorRank {
 
   private BufferAllocator allocator;
@@ -68,7 +66,7 @@ public class TestVectorRank {
       vector.set(9, 6);
 
       VectorValueComparator<IntVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
       assertEquals(7, rank.indexAtRank(vector, comparator, 0));
       assertEquals(0, rank.indexAtRank(vector, comparator, 1));
       assertEquals(6, rank.indexAtRank(vector, comparator, 2));
@@ -101,7 +99,7 @@ public class TestVectorRank {
       vector.set(9, String.valueOf(6).getBytes());
 
       VectorValueComparator<VarCharVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
 
       assertEquals(7, rank.indexAtRank(vector, comparator, 0));
       assertEquals(0, rank.indexAtRank(vector, comparator, 1));
@@ -135,11 +133,13 @@ public class TestVectorRank {
       vector.set(9, 6);
 
       VectorValueComparator<IntVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
 
-      assertThrows(IllegalArgumentException.class, () -> {
-        rank.indexAtRank(vector, comparator, VECTOR_LENGTH + 1);
-      });
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            rank.indexAtRank(vector, comparator, VECTOR_LENGTH + 1);
+          });
     }
   }
 }

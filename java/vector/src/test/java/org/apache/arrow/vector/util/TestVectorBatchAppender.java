@@ -27,9 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link VectorBatchAppender}.
- */
+/** Test cases for {@link VectorBatchAppender}. */
 public class TestVectorBatchAppender {
 
   private BufferAllocator allocator;
@@ -50,8 +48,8 @@ public class TestVectorBatchAppender {
     final int length2 = 5;
     final int length3 = 7;
     try (IntVector target = new IntVector("", allocator);
-         IntVector delta1 = new IntVector("", allocator);
-         IntVector delta2 = new IntVector("", allocator)) {
+        IntVector delta1 = new IntVector("", allocator);
+        IntVector delta2 = new IntVector("", allocator)) {
 
       target.allocateNew(length1);
       delta1.allocateNew(length2);

@@ -18,19 +18,16 @@
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume float type values from avro decoder.
- * Write the data to {@link Float4Vector}.
+ * Consumer which consume float type values from avro decoder. Write the data to {@link
+ * Float4Vector}.
  */
 public class AvroFloatConsumer extends BaseAvroConsumer<Float4Vector> {
 
-  /**
-   * Instantiate a AvroFloatConsumer.
-   */
+  /** Instantiate a AvroFloatConsumer. */
   public AvroFloatConsumer(Float4Vector vector) {
     super(vector);
   }

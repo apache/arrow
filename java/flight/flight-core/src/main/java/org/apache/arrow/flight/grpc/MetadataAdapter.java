@@ -17,20 +17,19 @@
 
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Metadata;
+import io.grpc.Metadata.Key;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
 import org.apache.arrow.flight.CallHeaders;
-
-import io.grpc.Metadata;
-import io.grpc.Metadata.Key;
 
 /**
  * A mutable adapter between the gRPC Metadata object and the Flight headers interface.
  *
- * <p>This allows us to present the headers (metadata) from gRPC without copying to/from our own object.
+ * <p>This allows us to present the headers (metadata) from gRPC without copying to/from our own
+ * object.
  */
 public class MetadataAdapter implements CallHeaders {
 
@@ -64,7 +63,8 @@ public class MetadataAdapter implements CallHeaders {
       return this.metadata.getAll(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
     }
     return StreamSupport.stream(getAll(key).spliterator(), false)
-        .map(String::getBytes).collect(Collectors.toList());
+        .map(String::getBytes)
+        .collect(Collectors.toList());
   }
 
   @Override

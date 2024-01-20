@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Map;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.NullVector;
@@ -39,10 +38,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
-  @Mock
-  ArrowFlightJdbcAccessor innerAccessor;
-  @Spy
-  AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
+  @Mock ArrowFlightJdbcAccessor innerAccessor;
+  @Spy AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
 
   @Before
   public void setup() {
@@ -242,14 +239,12 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
       extends AbstractArrowFlightJdbcUnionVectorAccessor {
     protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
-      super(() -> 0, (boolean wasNull) -> {
-      });
+      super(() -> 0, (boolean wasNull) -> {});
     }
 
     @Override
     protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
-      });
+      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {});
     }
 
     @Override

@@ -19,9 +19,7 @@ package org.apache.arrow.memory.util;
 
 import java.util.concurrent.locks.Lock;
 
-/**
- * Simple wrapper class that allows Locks to be released via a try-with-resources block.
- */
+/** Simple wrapper class that allows Locks to be released via a try-with-resources block. */
 public class AutoCloseableLock implements AutoCloseable {
 
   private final Lock lock;
@@ -39,5 +37,4 @@ public class AutoCloseableLock implements AutoCloseable {
   public void close() {
     lock.unlock();
   }
-
 }

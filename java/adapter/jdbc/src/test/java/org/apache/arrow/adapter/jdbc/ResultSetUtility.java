@@ -48,13 +48,11 @@ public class ResultSetUtility {
   public static ResultSet generateEmptyResultSet() throws SQLException {
     MockDataElement element = new MockDataElement("string_example");
     MockResultSetMetaData.MockColumnMetaData columnMetaData =
-            MockResultSetMetaData.MockColumnMetaData.fromDataElement(element, 1);
+        MockResultSetMetaData.MockColumnMetaData.fromDataElement(element, 1);
     ArrayList<MockResultSetMetaData.MockColumnMetaData> cols = new ArrayList<>();
     cols.add(columnMetaData);
     ResultSetMetaData metadata = new MockResultSetMetaData(cols);
-    return MockResultSet.builder()
-            .setMetaData(metadata)
-            .build();
+    return MockResultSet.builder().setMetaData(metadata).build();
   }
 
   public static MockResultSet generateBasicResultSet(int rows) throws SQLException {
@@ -319,15 +317,19 @@ public class ResultSetUtility {
     }
 
     public static MockResultSetMetaData fromRows(ArrayList<MockRow> rows) throws SQLException {
-      // Note: This attempts to dynamically construct ResultSetMetaData from the first row in a given result set.
-      // If there are now rows, or the result set contains no columns, this cannot be dynamically generated and
+      // Note: This attempts to dynamically construct ResultSetMetaData from the first row in a
+      // given result set.
+      // If there are now rows, or the result set contains no columns, this cannot be dynamically
+      // generated and
       // an exception will be thrown.
       if (rows.size() == 0) {
-        throw new SQLException("Unable to dynamically generate ResultSetMetaData because row count is zero!");
+        throw new SQLException(
+            "Unable to dynamically generate ResultSetMetaData because row count is zero!");
       }
       MockRow firstRow = rows.get(0);
       if (firstRow.dataElements.size() == 0) {
-        throw new SQLException("Unable to dynamically generate ResultSetMetaData because column count is zero!");
+        throw new SQLException(
+            "Unable to dynamically generate ResultSetMetaData because column count is zero!");
       }
       ArrayList<MockColumnMetaData> columns = new ArrayList<>();
       for (int i = 0; i < firstRow.dataElements.size(); i++) {
@@ -346,7 +348,6 @@ public class ResultSetUtility {
       private String label;
       private String typeName;
       private int displaySize;
-
 
       private MockColumnMetaData() {}
 
@@ -382,17 +383,18 @@ public class ResultSetUtility {
         return displaySize;
       }
 
-      public static MockColumnMetaData fromDataElement(MockDataElement element, int i) throws SQLException {
+      public static MockColumnMetaData fromDataElement(MockDataElement element, int i)
+          throws SQLException {
         return MockColumnMetaData.builder()
-                .index(i)
-                .sqlType(element.getSqlType())
-                .precision(element.getPrecision())
-                .scale(element.getScale())
-                .nullable(element.isNullable())
-                .setTypeName("TYPE")
-                .setDisplaySize(420)
-                .label("col_" + i)
-                .build();
+            .index(i)
+            .sqlType(element.getSqlType())
+            .precision(element.getPrecision())
+            .scale(element.getScale())
+            .nullable(element.isNullable())
+            .setTypeName("TYPE")
+            .setDisplaySize(420)
+            .label("col_" + i)
+            .build();
       }
 
       public static Builder builder() {
@@ -446,9 +448,7 @@ public class ResultSetUtility {
           return this.columnMetaData;
         }
       }
-
     }
-
   }
 
   public static class MockRow {
@@ -640,7 +640,6 @@ public class ResultSetUtility {
       }
     }
   }
-
 
   public static class ThrowingResultSet implements ResultSet {
 
@@ -1145,17 +1144,20 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateAsciiStream(String columnLabel, InputStream x, int length) throws SQLException {
+    public void updateAsciiStream(String columnLabel, InputStream x, int length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateBinaryStream(String columnLabel, InputStream x, int length) throws SQLException {
+    public void updateBinaryStream(String columnLabel, InputStream x, int length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateCharacterStream(String columnLabel, Reader reader, int length) throws SQLException {
+    public void updateCharacterStream(String columnLabel, Reader reader, int length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1445,7 +1447,8 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateNCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+    public void updateNCharacterStream(String columnLabel, Reader reader, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1455,7 +1458,8 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
+    public void updateBinaryStream(int columnIndex, InputStream x, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1465,27 +1469,32 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateAsciiStream(String columnLabel, InputStream x, long length) throws SQLException {
+    public void updateAsciiStream(String columnLabel, InputStream x, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateBinaryStream(String columnLabel, InputStream x, long length) throws SQLException {
+    public void updateBinaryStream(String columnLabel, InputStream x, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+    public void updateCharacterStream(String columnLabel, Reader reader, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateBlob(int columnIndex, InputStream inputStream, long length) throws SQLException {
+    public void updateBlob(int columnIndex, InputStream inputStream, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
-    public void updateBlob(String columnLabel, InputStream inputStream, long length) throws SQLException {
+    public void updateBlob(String columnLabel, InputStream inputStream, long length)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1590,13 +1599,14 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength) throws SQLException {
+    public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
-            throws SQLException {
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1606,7 +1616,8 @@ public class ResultSetUtility {
     }
 
     @Override
-    public void updateObject(String columnLabel, Object x, SQLType targetSqlType) throws SQLException {
+    public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+        throws SQLException {
       throw getExceptionToThrow();
     }
 
@@ -1628,7 +1639,6 @@ public class ResultSetUtility {
   private static SQLException getExceptionToThrow(String message) {
     return new SQLException(message);
   }
-
 
   public static class ThrowingResultSetMetaData implements ResultSetMetaData {
     @Override

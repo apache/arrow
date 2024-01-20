@@ -23,7 +23,7 @@ import org.apache.arrow.vector.compression.CompressionUtil;
 /**
  * Default implementation of factory supported LZ4 and ZSTD compression.
  *
- * // TODO(ARROW-12115): Rename this class.
+ * <p>// TODO(ARROW-12115): Rename this class.
  */
 public class CommonsCompressionFactory implements CompressionCodec.Factory {
 

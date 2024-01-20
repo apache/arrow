@@ -19,9 +19,7 @@ package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.impl.Flight;
 
-/**
- * POJO wrapper around protocol specifics for Flight actions.
- */
+/** POJO wrapper around protocol specifics for Flight actions. */
 public class ActionType {
   private final String type;
   private final String description;
@@ -38,9 +36,7 @@ public class ActionType {
     this.description = description;
   }
 
-  /**
-   * Constructs a new instance from the corresponding protocol buffer object.
-   */
+  /** Constructs a new instance from the corresponding protocol buffer object. */
   ActionType(Flight.ActionType type) {
     this.type = type.getType();
     this.description = type.getDescription();
@@ -50,21 +46,13 @@ public class ActionType {
     return type;
   }
 
-  /**
-   *  Converts the POJO to the corresponding protocol buffer type.
-   */
+  /** Converts the POJO to the corresponding protocol buffer type. */
   Flight.ActionType toProtocol() {
-    return Flight.ActionType.newBuilder()
-        .setType(type)
-        .setDescription(description)
-        .build();
+    return Flight.ActionType.newBuilder().setType(type).setDescription(description).build();
   }
 
   @Override
   public String toString() {
-    return "ActionType{" +
-        "type='" + type + '\'' +
-        ", description='" + description + '\'' +
-        '}';
+    return "ActionType{" + "type='" + type + '\'' + ", description='" + description + '\'' + '}';
   }
 }

@@ -27,9 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link StableVectorComparator}.
- */
+/** Test cases for {@link StableVectorComparator}. */
 public class TestStableVectorComparator {
 
   private BufferAllocator allocator;
@@ -58,7 +56,8 @@ public class TestStableVectorComparator {
       vec.set(4, "a".getBytes());
 
       VectorValueComparator<VarCharVector> comparator = new TestVarCharSorter();
-      VectorValueComparator<VarCharVector> stableComparator = new StableVectorComparator<>(comparator);
+      VectorValueComparator<VarCharVector> stableComparator =
+          new StableVectorComparator<>(comparator);
       stableComparator.attachVector(vec);
 
       assertTrue(stableComparator.compare(0, 1) > 0);
@@ -91,10 +90,12 @@ public class TestStableVectorComparator {
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
       VectorValueComparator<VarCharVector> comparator = new TestVarCharSorter();
-      VectorValueComparator<VarCharVector> stableComparator = new StableVectorComparator<>(comparator);
+      VectorValueComparator<VarCharVector> stableComparator =
+          new StableVectorComparator<>(comparator);
 
       try (VarCharVector sortedVec =
-              (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
+          (VarCharVector)
+              vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
         sortedVec.allocateNew(vec.getByteCapacity(), vec.getValueCount());
         sortedVec.setLastSet(vec.getValueCount() - 1);
         sortedVec.setValueCount(vec.getValueCount());
@@ -117,9 +118,7 @@ public class TestStableVectorComparator {
     }
   }
 
-  /**
-   * Utility comparator that compares varchars by the first character.
-   */
+  /** Utility comparator that compares varchars by the first character. */
   private static class TestVarCharSorter extends VectorValueComparator<VarCharVector> {
 
     @Override

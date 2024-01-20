@@ -18,7 +18,6 @@
 package org.apache.arrow.memory.util;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -35,9 +34,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link ArrowBufPointer}.
- */
+/** Benchmarks for {@link ArrowBufPointer}. */
 @State(Scope.Benchmark)
 public class ArrowBufPointerBenchmarks {
 
@@ -55,9 +52,7 @@ public class ArrowBufPointerBenchmarks {
 
   private ArrowBufPointer pointer2;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -77,9 +72,7 @@ public class ArrowBufPointerBenchmarks {
     pointer2 = new ArrowBufPointer(buffer2, 0, BUFFER_CAPACITY);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     buffer1.close();
@@ -95,7 +88,8 @@ public class ArrowBufPointerBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+    Options opt =
+        new OptionsBuilder()
             .include(ArrowBufPointerBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
@@ -103,5 +97,3 @@ public class ArrowBufPointerBenchmarks {
     new Runner(opt).run();
   }
 }
-
-

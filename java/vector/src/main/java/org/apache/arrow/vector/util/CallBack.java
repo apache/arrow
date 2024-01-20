@@ -17,9 +17,7 @@
 
 package org.apache.arrow.vector.util;
 
-/**
- * Generic callback interface to be notified of events on value vectors.
- */
+/** Generic callback interface to be notified of events on value vectors. */
 public interface CallBack {
   void doWork();
 }

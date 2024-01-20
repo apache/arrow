@@ -21,10 +21,10 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Stable sorter. It compares values like ordinary comparators.
- * However, when values are equal, it breaks ties by the value indices.
- * Therefore, sort algorithms using this comparator always produce
+ * Stable sorter. It compares values like ordinary comparators. However, when values are equal, it
+ * breaks ties by the value indices. Therefore, sort algorithms using this comparator always produce
  * stable sort results.
+ *
  * @param <V> type of the vector.
  */
 public class StableVectorComparator<V extends ValueVector> extends VectorValueComparator<V> {
@@ -33,6 +33,7 @@ public class StableVectorComparator<V extends ValueVector> extends VectorValueCo
 
   /**
    * Constructs a stable comparator from a given comparator.
+   *
    * @param innerComparator the comparator to convert to stable comparator..
    */
   public StableVectorComparator(VectorValueComparator<V> innerComparator) {
@@ -47,8 +48,9 @@ public class StableVectorComparator<V extends ValueVector> extends VectorValueCo
 
   @Override
   public void attachVectors(V vector1, V vector2) {
-    Preconditions.checkArgument(vector1 == vector2,
-            "Stable comparator only supports comparing values from the same vector");
+    Preconditions.checkArgument(
+        vector1 == vector2,
+        "Stable comparator only supports comparing values from the same vector");
     super.attachVectors(vector1, vector2);
     innerComparator.attachVectors(vector1, vector2);
   }

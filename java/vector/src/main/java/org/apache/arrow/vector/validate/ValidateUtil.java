@@ -17,16 +17,14 @@
 
 package org.apache.arrow.vector.validate;
 
-/**
- * Utilities for vector validation.
- */
+/** Utilities for vector validation. */
 public class ValidateUtil {
 
-  private ValidateUtil() {
-  }
+  private ValidateUtil() {}
 
   /**
    * Validate the expression.
+   *
    * @param expression the expression to validate.
    * @param errorMessage the error message.
    * @throws ValidateException if the expression evaluates to false.
@@ -39,6 +37,7 @@ public class ValidateUtil {
 
   /**
    * Validate the expression.
+   *
    * @param expression the expression to validate.
    * @param errorMessage the error message template.
    * @param args the error message arguments.
@@ -50,9 +49,7 @@ public class ValidateUtil {
     }
   }
 
-  /**
-   * A exception that is thrown when the vector validation fails.
-   */
+  /** A exception that is thrown when the vector validation fails. */
   public static class ValidateException extends RuntimeException {
     public ValidateException(String message) {
       super(message);

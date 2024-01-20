@@ -17,9 +17,7 @@
 
 package org.apache.arrow.flight;
 
-/**
- * A description of a Flight call for middleware to inspect.
- */
+/** A description of a Flight call for middleware to inspect. */
 public final class CallInfo {
   private final FlightMethod method;
 

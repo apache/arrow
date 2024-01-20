@@ -18,7 +18,6 @@
 package org.apache.arrow.driver.jdbc.accessor;
 
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.impl.binary.ArrowFlightJdbcBinaryVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDurationVectorAccessor;
@@ -66,9 +65,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForUInt1Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createUInt1Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -78,9 +76,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForUInt2Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createUInt2Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -90,9 +87,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForUInt4Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createUInt4Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -102,9 +98,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForUInt8Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createUInt8Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -114,9 +109,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTinyIntVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTinyIntVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -126,9 +120,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForSmallIntVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createSmallIntVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -138,9 +131,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForIntVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createIntVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -150,9 +142,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForBigIntVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createBigIntVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBaseIntVectorAccessor);
     }
@@ -162,9 +153,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForFloat4Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createFloat4Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcFloat4VectorAccessor);
     }
@@ -174,9 +164,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForFloat8Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createFloat8Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcFloat8VectorAccessor);
     }
@@ -186,9 +175,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForBitVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createBitVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBitVectorAccessor);
     }
@@ -198,9 +186,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForDecimalVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createDecimalVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDecimalVectorAccessor);
     }
@@ -210,9 +197,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForDecimal256Vector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createDecimal256Vector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDecimalVectorAccessor);
     }
@@ -222,9 +208,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForVarBinaryVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createVarBinaryVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBinaryVectorAccessor);
     }
@@ -234,9 +219,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForLargeVarBinaryVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createLargeVarBinaryVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBinaryVectorAccessor);
     }
@@ -246,9 +230,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForFixedSizeBinaryVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createFixedSizeBinaryVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcBinaryVectorAccessor);
     }
@@ -258,9 +241,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTimeStampVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcTimeStampVectorAccessor);
     }
@@ -270,9 +252,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTimeNanoVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTimeNanoVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcTimeVectorAccessor);
     }
@@ -282,9 +263,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTimeMicroVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTimeMicroVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcTimeVectorAccessor);
     }
@@ -294,9 +274,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTimeMilliVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTimeMilliVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcTimeVectorAccessor);
     }
@@ -306,9 +285,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForTimeSecVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createTimeSecVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcTimeVectorAccessor);
     }
@@ -318,9 +296,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForDateDayVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createDateDayVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDateVectorAccessor);
     }
@@ -330,9 +307,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForDateMilliVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createDateMilliVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDateVectorAccessor);
     }
@@ -340,12 +316,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForVarCharVector() {
-    try (
-        ValueVector valueVector = new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
+    try (ValueVector valueVector =
+        new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcVarCharVectorAccessor);
     }
@@ -353,12 +328,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForLargeVarCharVector() {
-    try (ValueVector valueVector = new LargeVarCharVector("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (ValueVector valueVector =
+        new LargeVarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcVarCharVectorAccessor);
     }
@@ -367,13 +341,13 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   @Test
   public void createAccessorForDurationVector() {
     try (ValueVector valueVector =
-             new DurationVector("",
-                 new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null),
-                 rootAllocatorTestRule.getRootAllocator())) {
+        new DurationVector(
+            "",
+            new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null),
+            rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDurationVectorAccessor);
     }
@@ -381,12 +355,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForIntervalDayVector() {
-    try (ValueVector valueVector = new IntervalDayVector("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (ValueVector valueVector =
+        new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcIntervalVectorAccessor);
     }
@@ -394,12 +367,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForIntervalYearVector() {
-    try (ValueVector valueVector = new IntervalYearVector("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (ValueVector valueVector =
+        new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcIntervalVectorAccessor);
     }
@@ -407,12 +379,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForUnionVector() {
-    try (ValueVector valueVector = new UnionVector("", rootAllocatorTestRule.getRootAllocator(),
-        null, null)) {
+    try (ValueVector valueVector =
+        new UnionVector("", rootAllocatorTestRule.getRootAllocator(), null, null)) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcUnionVectorAccessor);
     }
@@ -420,13 +391,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForDenseUnionVector() {
-    try (
-        ValueVector valueVector = new DenseUnionVector("", rootAllocatorTestRule.getRootAllocator(),
-            null, null)) {
+    try (ValueVector valueVector =
+        new DenseUnionVector("", rootAllocatorTestRule.getRootAllocator(), null, null)) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcDenseUnionVectorAccessor);
     }
@@ -434,12 +403,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForStructVector() {
-    try (ValueVector valueVector = StructVector.empty("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (ValueVector valueVector =
+        StructVector.empty("", rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcStructVectorAccessor);
     }
@@ -449,9 +417,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForListVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createListVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcListVectorAccessor);
     }
@@ -461,9 +428,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForLargeListVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createLargeListVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcLargeListVectorAccessor);
     }
@@ -473,9 +439,8 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   public void createAccessorForFixedSizeListVector() {
     try (ValueVector valueVector = rootAllocatorTestRule.createFixedSizeListVector()) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcFixedSizeListVectorAccessor);
     }
@@ -483,12 +448,11 @@ public class ArrowFlightJdbcAccessorFactoryTest {
 
   @Test
   public void createAccessorForMapVector() {
-    try (ValueVector valueVector = MapVector.empty("", rootAllocatorTestRule.getRootAllocator(),
-        true)) {
+    try (ValueVector valueVector =
+        MapVector.empty("", rootAllocatorTestRule.getRootAllocator(), true)) {
       ArrowFlightJdbcAccessor accessor =
-          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
-              (boolean wasNull) -> {
-              });
+          ArrowFlightJdbcAccessorFactory.createAccessor(
+              valueVector, GET_CURRENT_ROW, (boolean wasNull) -> {});
 
       Assert.assertTrue(accessor instanceof ArrowFlightJdbcMapVectorAccessor);
     }

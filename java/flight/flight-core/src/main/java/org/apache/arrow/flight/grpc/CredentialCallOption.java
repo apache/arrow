@@ -17,16 +17,12 @@
 
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.stub.AbstractStub;
 import java.util.function.Consumer;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOptions;
 
-import io.grpc.stub.AbstractStub;
-
-/**
- * Method option for supplying credentials to method calls.
- */
+/** Method option for supplying credentials to method calls. */
 public class CredentialCallOption implements CallOptions.GrpcCallOption {
   private final Consumer<CallHeaders> credentialWriter;
 

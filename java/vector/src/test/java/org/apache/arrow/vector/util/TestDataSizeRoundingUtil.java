@@ -21,9 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-/**
- * Test cases for {@link DataSizeRoundingUtil}.
- */
+/** Test cases for {@link DataSizeRoundingUtil}. */
 public class TestDataSizeRoundingUtil {
 
   @Test

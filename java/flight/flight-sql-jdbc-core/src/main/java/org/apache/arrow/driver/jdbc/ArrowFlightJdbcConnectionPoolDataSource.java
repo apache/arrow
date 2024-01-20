@@ -23,17 +23,13 @@ import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 
-/**
- * {@link ConnectionPoolDataSource} implementation for Arrow Flight JDBC Driver.
- */
+/** {@link ConnectionPoolDataSource} implementation for Arrow Flight JDBC Driver. */
 public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcDataSource
     implements ConnectionPoolDataSource, ConnectionEventListener, AutoCloseable {
   private final Map<Properties, Queue<ArrowFlightJdbcPooledConnection>> pool =
@@ -43,10 +39,10 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
    * Instantiates a new DataSource.
    *
    * @param properties the properties
-   * @param config     the config.
+   * @param config the config.
    */
-  protected ArrowFlightJdbcConnectionPoolDataSource(final Properties properties,
-                                                    final ArrowFlightConnectionConfigImpl config) {
+  protected ArrowFlightJdbcConnectionPoolDataSource(
+      final Properties properties, final ArrowFlightConnectionConfigImpl config) {
     super(properties, config);
   }
 
@@ -58,8 +54,8 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
    */
   public static ArrowFlightJdbcConnectionPoolDataSource createNewDataSource(
       final Properties properties) {
-    return new ArrowFlightJdbcConnectionPoolDataSource(properties,
-        new ArrowFlightConnectionConfigImpl(properties));
+    return new ArrowFlightJdbcConnectionPoolDataSource(
+        properties, new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override
@@ -84,8 +80,7 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   }
 
   private ArrowFlightJdbcPooledConnection createPooledConnection(
-      final ArrowFlightConnectionConfigImpl config)
-      throws SQLException {
+      final ArrowFlightConnectionConfigImpl config) throws SQLException {
     ArrowFlightJdbcPooledConnection pooledConnection =
         new ArrowFlightJdbcPooledConnection(getConnection(config.getUser(), config.getPassword()));
     pooledConnection.addConnectionEventListener(this);
@@ -102,9 +97,7 @@ public class ArrowFlightJdbcConnectionPoolDataSource extends ArrowFlightJdbcData
   }
 
   @Override
-  public void connectionErrorOccurred(ConnectionEvent connectionEvent) {
-
-  }
+  public void connectionErrorOccurred(ConnectionEvent connectionEvent) {}
 
   @Override
   public void close() throws Exception {

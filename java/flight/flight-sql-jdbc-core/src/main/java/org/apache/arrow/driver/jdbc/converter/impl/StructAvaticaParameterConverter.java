@@ -23,13 +23,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Struct Arrow types.
- */
+/** AvaticaParameterConverter for Struct Arrow types. */
 public class StructAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public StructAvaticaParameterConverter(ArrowType.Struct type) {
-  }
+  public StructAvaticaParameterConverter(ArrowType.Struct type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

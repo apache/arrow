@@ -29,9 +29,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link HashTableBasedDictionaryBuilder}.
- */
+/** Test cases for {@link HashTableBasedDictionaryBuilder}. */
 public class TestHashTableBasedDictionaryBuilder {
 
   private BufferAllocator allocator;
@@ -49,7 +47,7 @@ public class TestHashTableBasedDictionaryBuilder {
   @Test
   public void testBuildVariableWidthDictionaryWithNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-         VarCharVector dictionary = new VarCharVector("", allocator)) {
+        VarCharVector dictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -69,7 +67,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.set(9, "abc".getBytes());
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, true);
+          new HashTableBasedDictionaryBuilder<>(dictionary, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -89,7 +87,7 @@ public class TestHashTableBasedDictionaryBuilder {
   @Test
   public void testBuildVariableWidthDictionaryWithoutNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-         VarCharVector dictionary = new VarCharVector("", allocator)) {
+        VarCharVector dictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -109,7 +107,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.set(9, "abc".getBytes());
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, false);
+          new HashTableBasedDictionaryBuilder<>(dictionary, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -122,14 +120,13 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals("12", new String(dictionary.get(3)));
       assertEquals("dictionary", new String(dictionary.get(4)));
       assertEquals("good", new String(dictionary.get(5)));
-
     }
   }
 
   @Test
   public void testBuildFixedWidthDictionaryWithNull() {
     try (IntVector vec = new IntVector("", allocator);
-         IntVector dictionary = new IntVector("", allocator)) {
+        IntVector dictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -148,7 +145,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.setNull(9);
 
       HashTableBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, true);
+          new HashTableBasedDictionaryBuilder<>(dictionary, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -166,7 +163,7 @@ public class TestHashTableBasedDictionaryBuilder {
   @Test
   public void testBuildFixedWidthDictionaryWithoutNull() {
     try (IntVector vec = new IntVector("", allocator);
-         IntVector dictionary = new IntVector("", allocator)) {
+        IntVector dictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -185,7 +182,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.setNull(9);
 
       HashTableBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, false);
+          new HashTableBasedDictionaryBuilder<>(dictionary, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -196,7 +193,6 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(8, dictionary.get(1));
       assertEquals(32, dictionary.get(2));
       assertEquals(16, dictionary.get(3));
-
     }
   }
 }

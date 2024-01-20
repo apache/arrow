@@ -19,10 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 
-
 import java.time.Duration;
 import java.time.Period;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.IntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
@@ -49,7 +47,8 @@ public class TestIntervalMonthDayNanoVector {
 
   @Test
   public void testBasics() {
-    try (final IntervalMonthDayNanoVector vector = new IntervalMonthDayNanoVector(/*name=*/"", allocator)) {
+    try (final IntervalMonthDayNanoVector vector =
+        new IntervalMonthDayNanoVector(/* name= */ "", allocator)) {
       int valueCount = 100;
       vector.setInitialCapacity(valueCount);
       vector.allocateNew();
@@ -63,20 +62,21 @@ public class TestIntervalMonthDayNanoVector {
       holder.days = Integer.MIN_VALUE;
       holder.nanoseconds = Long.MIN_VALUE;
 
-
-      vector.set(0, /*months=*/1, /*days=*/2, /*nanoseconds=*/-2);
-      vector.setSafe(2, /*months=*/1, /*days=*/2, /*nanoseconds=*/-3);
-      vector.setSafe(/*index=*/4, nullableHolder);
+      vector.set(0, /* months= */ 1, /* days= */ 2, /* nanoseconds= */ -2);
+      vector.setSafe(2, /* months= */ 1, /* days= */ 2, /* nanoseconds= */ -3);
+      vector.setSafe(/* index= */ 4, nullableHolder);
       vector.set(3, holder);
       nullableHolder.isSet = 0;
-      vector.setSafe(/*index=*/5, nullableHolder);
+      vector.setSafe(/* index= */ 5, nullableHolder);
       vector.setValueCount(5);
 
       assertEquals("P1M2D PT-0.000000002S ", vector.getAsStringBuilder(0).toString());
       assertEquals(null, vector.getAsStringBuilder(1));
       assertEquals("P1M2D PT-0.000000003S ", vector.getAsStringBuilder(2).toString());
-      assertEquals(new PeriodDuration(Period.of(0, Integer.MIN_VALUE, Integer.MIN_VALUE),
-          Duration.ofNanos(Long.MIN_VALUE)), vector.getObject(3));
+      assertEquals(
+          new PeriodDuration(
+              Period.of(0, Integer.MIN_VALUE, Integer.MIN_VALUE), Duration.ofNanos(Long.MIN_VALUE)),
+          vector.getObject(3));
       assertEquals("P2M20D PT0.000000123S ", vector.getAsStringBuilder(4).toString());
 
       assertEquals(null, vector.getObject(5));

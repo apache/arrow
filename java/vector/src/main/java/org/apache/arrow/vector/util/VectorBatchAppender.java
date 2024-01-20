@@ -19,14 +19,13 @@ package org.apache.arrow.vector.util;
 
 import org.apache.arrow.vector.ValueVector;
 
-/**
- * Utility to add vector values in batch.
- */
+/** Utility to add vector values in batch. */
 public class VectorBatchAppender {
 
   /**
    * Add value vectors in batch.
-   * @param targetVector the  target vector.
+   *
+   * @param targetVector the target vector.
    * @param vectorsToAppend the vectors to append.
    * @param <V> the vector type.
    */

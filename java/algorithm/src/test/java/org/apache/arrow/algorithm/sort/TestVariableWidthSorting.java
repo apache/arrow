@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -40,9 +39,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test sorting variable width vectors with random data.
- */
+/** Test sorting variable width vectors with random data. */
 @RunWith(Parameterized.class)
 public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U extends Comparable<U>> {
 
@@ -71,8 +68,11 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
   }
 
   public TestVariableWidthSorting(
-      int length, double nullFraction, String desc,
-      Function<BufferAllocator, V> vectorGenerator, TestSortingUtil.DataGenerator<V, U> dataGenerator) {
+      int length,
+      double nullFraction,
+      String desc,
+      Function<BufferAllocator, V> vectorGenerator,
+      TestSortingUtil.DataGenerator<V, U> dataGenerator) {
     this.length = length;
     this.nullFraction = nullFraction;
     this.vectorGenerator = vectorGenerator;
@@ -91,9 +91,11 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
 
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
-      VectorValueComparator<V> comparator = DefaultVectorComparators.createDefaultComparator(vector);
+      VectorValueComparator<V> comparator =
+          DefaultVectorComparators.createDefaultComparator(vector);
 
-      try (V sortedVec = (V) vector.getField().getFieldType().createNewSingleVector("", allocator, null)) {
+      try (V sortedVec =
+          (V) vector.getField().getFieldType().createNewSingleVector("", allocator, null)) {
         int dataSize = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
         sortedVec.allocateNew(dataSize, vector.getValueCount());
         sortedVec.setValueCount(vector.getValueCount());
@@ -111,19 +113,21 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
     List<Object[]> params = new ArrayList<>();
     for (int length : VECTOR_LENGTHS) {
       for (double nullFrac : NULL_FRACTIONS) {
-        params.add(new Object[]{
-            length, nullFrac, "VarCharVector",
-            (Function<BufferAllocator, VarCharVector>) (allocator -> new VarCharVector("vector", allocator)),
-            TestSortingUtil.STRING_GENERATOR
-        });
+        params.add(
+            new Object[] {
+              length,
+              nullFrac,
+              "VarCharVector",
+              (Function<BufferAllocator, VarCharVector>)
+                  (allocator -> new VarCharVector("vector", allocator)),
+              TestSortingUtil.STRING_GENERATOR
+            });
       }
     }
     return params;
   }
 
-  /**
-   * Verify results as byte arrays.
-   */
+  /** Verify results as byte arrays. */
   public static <V extends ValueVector> void verifyResults(V vector, String[] expected) {
     assertEquals(vector.getValueCount(), expected.length);
     for (int i = 0; i < expected.length; i++) {
@@ -136,8 +140,8 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
   }
 
   /**
-   * String comparator with the same behavior as that of
-   * {@link DefaultVectorComparators.VariableWidthComparator}.
+   * String comparator with the same behavior as that of {@link
+   * DefaultVectorComparators.VariableWidthComparator}.
    */
   static class StringComparator implements Comparator<String> {
 

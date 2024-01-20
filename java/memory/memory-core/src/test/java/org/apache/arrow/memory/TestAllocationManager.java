@@ -21,9 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-/**
- * Test cases for {@link AllocationManager}.
- */
+/** Test cases for {@link AllocationManager}. */
 public class TestAllocationManager {
 
   @Test

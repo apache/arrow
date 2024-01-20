@@ -18,20 +18,17 @@
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume date time-micro values from avro decoder.
- * Write the data to {@link TimeMicroVector}.
+ * Consumer which consume date time-micro values from avro decoder. Write the data to {@link
+ * TimeMicroVector}.
  */
 public class AvroTimeMicroConsumer extends BaseAvroConsumer<TimeMicroVector> {
 
-  /**
-   * Instantiate a AvroTimeMicroConsumer.
-   */
+  /** Instantiate a AvroTimeMicroConsumer. */
   public AvroTimeMicroConsumer(TimeMicroVector vector) {
     super(vector);
   }

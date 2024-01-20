@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
 import org.apache.arrow.flight.FlightServerMiddleware.Factory;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
@@ -40,44 +39,48 @@ public class TestServerMiddleware {
 
   private static final RuntimeException EXPECTED_EXCEPTION = new RuntimeException("test");
 
-  /**
-   * Make sure errors in DoPut are intercepted.
-   */
+  /** Make sure errors in DoPut are intercepted. */
   @Test
   public void doPutErrors() {
     test(
         new ErrorProducer(EXPECTED_EXCEPTION),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
-          try (final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
-            final ClientStreamListener listener = client.startPut(descriptor, root, new SyncPutListener());
+          try (final VectorSchemaRoot root =
+              VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
+            final ClientStreamListener listener =
+                client.startPut(descriptor, root, new SyncPutListener());
             listener.completed();
             FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, listener::getResult);
           }
-        }, (recorder) -> {
+        },
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           Assertions.assertNotNull(status);
           Assertions.assertNotNull(status.cause());
           Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
         });
-    // Check the status after server shutdown (to make sure gRPC finishes pending calls on the server side)
+    // Check the status after server shutdown (to make sure gRPC finishes pending calls on the
+    // server side)
   }
 
-  /**
-   * Make sure custom error codes in DoPut are intercepted.
-   */
+  /** Make sure custom error codes in DoPut are intercepted. */
   @Test
   public void doPutCustomCode() {
     test(
-        new ErrorProducer(CallStatus.UNAVAILABLE.withDescription("description").toRuntimeException()),
+        new ErrorProducer(
+            CallStatus.UNAVAILABLE.withDescription("description").toRuntimeException()),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
-          try (final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
-            final ClientStreamListener listener = client.startPut(descriptor, root, new SyncPutListener());
+          try (final VectorSchemaRoot root =
+              VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
+            final ClientStreamListener listener =
+                client.startPut(descriptor, root, new SyncPutListener());
             listener.completed();
             FlightTestUtil.assertCode(FlightStatusCode.UNAVAILABLE, listener::getResult);
           }
-        }, (recorder) -> {
+        },
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           Assertions.assertNotNull(status);
           Assertions.assertNull(status.cause());
@@ -86,20 +89,22 @@ public class TestServerMiddleware {
         });
   }
 
-  /**
-   * Make sure uncaught exceptions in DoPut are intercepted.
-   */
+  /** Make sure uncaught exceptions in DoPut are intercepted. */
   @Test
   public void doPutUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
-          try (final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
-            final ClientStreamListener listener = client.startPut(descriptor, root, new SyncPutListener());
+          try (final VectorSchemaRoot root =
+              VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
+            final ClientStreamListener listener =
+                client.startPut(descriptor, root, new SyncPutListener());
             listener.completed();
             listener.getResult();
           }
-        }, (recorder) -> {
+        },
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -112,9 +117,11 @@ public class TestServerMiddleware {
 
   @Test
   public void listFlightsUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
-        (allocator, client) -> client.listFlights(new Criteria(new byte[0])).forEach((action) -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
+        (allocator, client) ->
+            client.listFlights(new Criteria(new byte[0])).forEach((action) -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -127,9 +134,10 @@ public class TestServerMiddleware {
 
   @Test
   public void doActionUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
-        (allocator, client) -> client.doAction(new Action("test")).forEachRemaining(result -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
+        (allocator, client) -> client.doAction(new Action("test")).forEachRemaining(result -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -142,9 +150,10 @@ public class TestServerMiddleware {
 
   @Test
   public void listActionsUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
-        (allocator, client) -> client.listActions().forEach(result -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
+        (allocator, client) -> client.listActions().forEach(result -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -157,10 +166,13 @@ public class TestServerMiddleware {
 
   @Test
   public void getFlightInfoUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
         (allocator, client) -> {
-          FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, () -> client.getInfo(FlightDescriptor.path("test")));
-        }, (recorder) -> {
+          FlightTestUtil.assertCode(
+              FlightStatusCode.INTERNAL, () -> client.getInfo(FlightDescriptor.path("test")));
+        },
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           Assertions.assertNotNull(status);
           Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
@@ -171,15 +183,16 @@ public class TestServerMiddleware {
 
   @Test
   public void doGetUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(
+        new ServerErrorProducer(EXPECTED_EXCEPTION),
         (allocator, client) -> {
           try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
-            while (stream.next()) {
-            }
+            while (stream.next()) {}
           } catch (Exception e) {
             Assertions.fail(e.toString());
           }
-        }, (recorder) -> {
+        },
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -190,17 +203,14 @@ public class TestServerMiddleware {
         });
   }
 
-  /**
-   * A middleware that records the last error on any call.
-   */
+  /** A middleware that records the last error on any call. */
   static class ErrorRecorder implements FlightServerMiddleware {
 
     CompletableFuture<CallStatus> statusFuture = new CompletableFuture<>();
     CompletableFuture<Throwable> errFuture = new CompletableFuture<>();
 
     @Override
-    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-    }
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {}
 
     @Override
     public void onCallCompleted(CallStatus status) {
@@ -217,15 +227,14 @@ public class TestServerMiddleware {
       ErrorRecorder instance = new ErrorRecorder();
 
       @Override
-      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
+      public ErrorRecorder onCallStarted(
+          CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
         return instance;
       }
     }
   }
 
-  /**
-   * A producer that throws the given exception on a call.
-   */
+  /** A producer that throws the given exception on a call. */
   static class ErrorProducer extends NoOpFlightProducer {
 
     final RuntimeException error;
@@ -235,18 +244,19 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(
+        CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         // Drain queue to avoid FlightStream#close cancelling the call
-        while (flightStream.next()) {
-        }
+        while (flightStream.next()) {}
         throw error;
       };
     }
   }
 
   /**
-   * A producer that throws the given exception on a call, but only after sending a success to the client.
+   * A producer that throws the given exception on a call, but only after sending a success to the
+   * client.
    */
   static class ServerErrorProducer extends NoOpFlightProducer {
 
@@ -259,7 +269,8 @@ public class TestServerMiddleware {
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-          final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
+          final VectorSchemaRoot root =
+              VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
         listener.start(root);
         listener.completed();
       }
@@ -267,7 +278,8 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public void listFlights(CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+    public void listFlights(
+        CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
       listener.onCompleted();
       throw error;
     }
@@ -278,10 +290,10 @@ public class TestServerMiddleware {
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(
+        CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
-        while (flightStream.next()) {
-        }
+        while (flightStream.next()) {}
         ackStream.onCompleted();
         throw error;
       };
@@ -319,15 +331,18 @@ public class TestServerMiddleware {
    * @param body A function to run as the body of the test.
    * @param <T> The middleware type.
    */
-  static <T extends FlightServerMiddleware> void test(FlightProducer producer, List<ServerMiddlewarePair<T>> middleware,
+  static <T extends FlightServerMiddleware> void test(
+      FlightProducer producer,
+      List<ServerMiddlewarePair<T>> middleware,
       BiConsumer<BufferAllocator, FlightClient> body) {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-      final FlightServer.Builder builder = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer);
+      final FlightServer.Builder builder =
+          FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer);
       middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
       final FlightServer server = builder.build().start();
       try (final FlightServer ignored = server;
-          final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()
-      ) {
+          final FlightClient client =
+              FlightClient.builder(allocator, server.getLocation()).build()) {
         body.accept(allocator, client);
       }
     } catch (InterruptedException | IOException e) {
@@ -335,19 +350,24 @@ public class TestServerMiddleware {
     }
   }
 
-  static void test(FlightProducer producer, BiConsumer<BufferAllocator, FlightClient> body,
+  static void test(
+      FlightProducer producer,
+      BiConsumer<BufferAllocator, FlightClient> body,
       ErrorConsumer<ErrorRecorder> verify) {
     final ErrorRecorder.Factory factory = new ErrorRecorder.Factory();
-    final List<ServerMiddlewarePair<ErrorRecorder>> middleware = Collections
-        .singletonList(new ServerMiddlewarePair<>(Key.of("m"), factory));
-    test(producer, middleware, (allocator, client) -> {
-      body.accept(allocator, client);
-      try {
-        verify.accept(factory.instance);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    });
+    final List<ServerMiddlewarePair<ErrorRecorder>> middleware =
+        Collections.singletonList(new ServerMiddlewarePair<>(Key.of("m"), factory));
+    test(
+        producer,
+        middleware,
+        (allocator, client) -> {
+          body.accept(allocator, client);
+          try {
+            verify.accept(factory.instance);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   @FunctionalInterface

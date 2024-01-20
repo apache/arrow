@@ -23,7 +23,6 @@ import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Objects;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** A URI where a Flight stream is available. */
@@ -64,31 +63,36 @@ public class Location {
     switch (uri.getScheme()) {
       case LocationSchemes.GRPC:
       case LocationSchemes.GRPC_TLS:
-      case LocationSchemes.GRPC_INSECURE: {
-        return new InetSocketAddress(uri.getHost(), uri.getPort());
-      }
+      case LocationSchemes.GRPC_INSECURE:
+        {
+          return new InetSocketAddress(uri.getHost(), uri.getPort());
+        }
 
-      case LocationSchemes.GRPC_DOMAIN_SOCKET: {
-        try {
-          // This dependency is not available on non-Unix platforms.
-          return (SocketAddress) Class.forName("io.netty.channel.unix.DomainSocketAddress")
-              .getConstructor(String.class)
-              .newInstance(uri.getPath());
-        } catch (InstantiationException | ClassNotFoundException | InvocationTargetException |
-            NoSuchMethodException | IllegalAccessException e) {
+      case LocationSchemes.GRPC_DOMAIN_SOCKET:
+        {
+          try {
+            // This dependency is not available on non-Unix platforms.
+            return (SocketAddress)
+                Class.forName("io.netty.channel.unix.DomainSocketAddress")
+                    .getConstructor(String.class)
+                    .newInstance(uri.getPath());
+          } catch (InstantiationException
+              | ClassNotFoundException
+              | InvocationTargetException
+              | NoSuchMethodException
+              | IllegalAccessException e) {
+            return null;
+          }
+        }
+
+      default:
+        {
           return null;
         }
-      }
-
-      default: {
-        return null;
-      }
     }
   }
 
-  /**
-   * Convert this Location into its protocol-level representation.
-   */
+  /** Convert this Location into its protocol-level representation. */
   Flight.Location toProtocol() {
     return Flight.Location.newBuilder().setUri(uri.toString()).build();
   }
@@ -100,7 +104,8 @@ public class Location {
    */
   public static Location forGrpcInsecure(String host, int port) {
     try {
-      return new Location(new URI(LocationSchemes.GRPC_INSECURE, null, host, port, null, null, null));
+      return new Location(
+          new URI(LocationSchemes.GRPC_INSECURE, null, host, port, null, null, null));
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException(e);
     }
@@ -134,9 +139,7 @@ public class Location {
 
   @Override
   public String toString() {
-    return "Location{" +
-        "uri=" + uri +
-        '}';
+    return "Location{" + "uri=" + uri + '}';
   }
 
   @Override

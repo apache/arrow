@@ -24,13 +24,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for FixedSizeBinary Arrow types.
- */
+/** AvaticaParameterConverter for FixedSizeBinary Arrow types. */
 public class FixedSizeBinaryAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public FixedSizeBinaryAvaticaParameterConverter(ArrowType.FixedSizeBinary type) {
-  }
+  public FixedSizeBinaryAvaticaParameterConverter(ArrowType.FixedSizeBinary type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

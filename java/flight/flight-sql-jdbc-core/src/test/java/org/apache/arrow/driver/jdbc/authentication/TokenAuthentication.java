@@ -20,7 +20,6 @@ package org.apache.arrow.driver.jdbc.authentication;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
@@ -40,7 +39,9 @@ public class TokenAuthentication implements Authentication {
       public AuthResult authenticate(CallHeaders incomingHeaders) {
         String authorization = incomingHeaders.get("authorization");
         if (!validCredentials.contains(authorization)) {
-          throw CallStatus.UNAUTHENTICATED.withDescription("Invalid credentials.").toRuntimeException();
+          throw CallStatus.UNAUTHENTICATED
+              .withDescription("Invalid credentials.")
+              .toRuntimeException();
         }
         return new AuthResult() {
           @Override
@@ -54,8 +55,11 @@ public class TokenAuthentication implements Authentication {
 
   @Override
   public void populateProperties(Properties properties) {
-    this.validCredentials.forEach(value -> properties.put(
-        ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(), value));
+    this.validCredentials.forEach(
+        value ->
+            properties.put(
+                ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(),
+                value));
   }
 
   public static final class Builder {

@@ -31,9 +31,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link ArrowBufPointer}.
- */
+/** Test cases for {@link ArrowBufPointer}. */
 public class TestArrowBufPointer {
 
   private final int BUFFER_LENGTH = 1024;
@@ -74,7 +72,7 @@ public class TestArrowBufPointer {
   public void testArrowBufPointersHashCode() {
     final int vectorLength = 100;
     try (ArrowBuf buf1 = allocator.buffer(vectorLength * 4);
-         ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
+        ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
       for (int i = 0; i < vectorLength; i++) {
         buf1.setInt(i * 4, i);
         buf2.setInt(i * 4, i);
@@ -155,7 +153,7 @@ public class TestArrowBufPointer {
   public void testArrowBufPointersComparison() {
     final int vectorLength = 100;
     try (ArrowBuf buf1 = allocator.buffer(vectorLength);
-         ArrowBuf buf2 = allocator.buffer(vectorLength)) {
+        ArrowBuf buf2 = allocator.buffer(vectorLength)) {
       for (int i = 0; i < vectorLength; i++) {
         buf1.setByte(i, i);
         buf2.setByte(i, i);
@@ -185,8 +183,8 @@ public class TestArrowBufPointer {
   }
 
   /**
-   * Hasher with a counter that increments each time a hash code is calculated.
-   * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
+   * Hasher with a counter that increments each time a hash code is calculated. This is to validate
+   * that the hash code in {@link ArrowBufPointer} is reused.
    */
   class CounterHasher implements ArrowBufHasher {
 

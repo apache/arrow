@@ -17,17 +17,13 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import java.util.Objects;
-
-import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Objects;
+import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 
-/**
- * A POJO representation of Arrow Dictionary metadata.
- */
+/** A POJO representation of Arrow Dictionary metadata. */
 public class DictionaryEncoding {
 
   private final long id;
@@ -39,8 +35,8 @@ public class DictionaryEncoding {
    *
    * @param id The ID of the dictionary to use for encoding.
    * @param ordered Whether the keys in values in the dictionary are ordered.
-   * @param indexType (nullable). The integer type to use for indexing in the dictionary. Defaults to a signed
-   *     32 bit integer.
+   * @param indexType (nullable). The integer type to use for indexing in the dictionary. Defaults
+   *     to a signed 32 bit integer.
    */
   @JsonCreator
   public DictionaryEncoding(

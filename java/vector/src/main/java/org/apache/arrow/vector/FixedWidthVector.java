@@ -18,19 +18,18 @@
 package org.apache.arrow.vector;
 
 /**
- * Interface for all fixed width {@link ElementAddressableVector} (e.g. integer, fixed size binary, etc).
+ * Interface for all fixed width {@link ElementAddressableVector} (e.g. integer, fixed size binary,
+ * etc).
  */
 public interface FixedWidthVector extends ElementAddressableVector {
 
   /**
-   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+   * Allocate a new memory space for this vector. Must be called prior to using the ValueVector.
    *
    * @param valueCount Number of values in the vector.
    */
   void allocateNew(int valueCount);
 
-  /**
-   * Zero out the underlying buffer backing this vector.
-   */
+  /** Zero out the underlying buffer backing this vector. */
   void zeroVector();
 }

@@ -54,7 +54,5 @@ public class TestMultiMapWithOrdinal {
     map.removeAll("z");
     Assert.assertEquals(2, map.size());
     Assert.assertFalse(map.containsKey("z"));
-
-
   }
 }

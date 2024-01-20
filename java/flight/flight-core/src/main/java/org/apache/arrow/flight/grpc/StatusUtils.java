@@ -17,21 +17,19 @@
 
 package org.apache.arrow.flight.grpc;
 
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.function.Function;
-
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.ErrorFlightMetadata;
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.FlightStatusCode;
-
 import io.grpc.InternalMetadata;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.function.Function;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.ErrorFlightMetadata;
+import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightStatusCode;
 
 /**
  * Utilities to adapt gRPC and Flight status objects.
@@ -44,9 +42,7 @@ public class StatusUtils {
     throw new AssertionError("Do not instantiate this class.");
   }
 
-  /**
-   * Convert from a Flight status code to a gRPC status code.
-   */
+  /** Convert from a Flight status code to a gRPC status code. */
   public static Status.Code toGrpcStatusCode(FlightStatusCode code) {
     switch (code) {
       case OK:
@@ -78,9 +74,7 @@ public class StatusUtils {
     }
   }
 
-  /**
-   * Convert from a gRPC status code to a Flight status code.
-   */
+  /** Convert from a gRPC status code to a Flight status code. */
   public static FlightStatusCode fromGrpcStatusCode(Status.Code code) {
     switch (code) {
       case OK:
@@ -135,28 +129,29 @@ public class StatusUtils {
 
   /** Convert from a gRPC Status & trailers to a Flight status. */
   public static CallStatus fromGrpcStatusAndTrailers(Status status, Metadata trailers) {
-    // gRPC may not always have trailers - this happens when the server internally generates an error, which is rare,
+    // gRPC may not always have trailers - this happens when the server internally generates an
+    // error, which is rare,
     // but can happen.
     final ErrorFlightMetadata errorMetadata = trailers == null ? null : parseTrailers(trailers);
     return new CallStatus(
-              fromGrpcStatusCode(status.getCode()),
-              status.getCause(),
-              status.getDescription(),
-              errorMetadata);
+        fromGrpcStatusCode(status.getCode()),
+        status.getCause(),
+        status.getDescription(),
+        errorMetadata);
   }
 
   /** Convert from a gRPC status to a Flight status. */
   public static CallStatus fromGrpcStatus(Status status) {
     return new CallStatus(
-              fromGrpcStatusCode(status.getCode()),
-              status.getCause(),
-              status.getDescription(),
-              null);
+        fromGrpcStatusCode(status.getCode()), status.getCause(), status.getDescription(), null);
   }
 
   /** Convert from a Flight status to a gRPC status. */
   public static Status toGrpcStatus(CallStatus status) {
-    return toGrpcStatusCode(status.code()).toStatus().withDescription(status.description()).withCause(status.cause());
+    return toGrpcStatusCode(status.code())
+        .toStatus()
+        .withDescription(status.description())
+        .withCause(status.cause());
   }
 
   /** Convert from a gRPC exception to a Flight exception. */
@@ -177,9 +172,7 @@ public class StatusUtils {
     return metadata;
   }
 
-  /**
-   * Convert arbitrary exceptions to a {@link FlightRuntimeException}.
-   */
+  /** Convert arbitrary exceptions to a {@link FlightRuntimeException}. */
   public static FlightRuntimeException fromThrowable(Throwable t) {
     if (t instanceof StatusRuntimeException) {
       return fromGrpcRuntimeException((StatusRuntimeException) t);
@@ -192,8 +185,8 @@ public class StatusUtils {
   /**
    * Convert arbitrary exceptions to a {@link StatusRuntimeException} or {@link StatusException}.
    *
-   * <p>Such exceptions can be passed to {@link io.grpc.stub.StreamObserver#onError(Throwable)} and will give the client
-   * a reasonable error message.
+   * <p>Such exceptions can be passed to {@link io.grpc.stub.StreamObserver#onError(Throwable)} and
+   * will give the client a reasonable error message.
    */
   public static Throwable toGrpcException(Throwable ex) {
     if (ex instanceof StatusRuntimeException) {
@@ -208,7 +201,9 @@ public class StatusUtils {
       }
       return toGrpcStatus(fre.status()).asRuntimeException();
     }
-    return Status.INTERNAL.withCause(ex).withDescription("There was an error servicing your request.")
+    return Status.INTERNAL
+        .withCause(ex)
+        .withDescription("There was an error servicing your request.")
         .asRuntimeException();
   }
 
@@ -225,11 +220,11 @@ public class StatusUtils {
   }
 
   /**
-   * Maps a transformation function to the elements of an iterator, while wrapping exceptions in {@link
-   * FlightRuntimeException}.
+   * Maps a transformation function to the elements of an iterator, while wrapping exceptions in
+   * {@link FlightRuntimeException}.
    */
-  public static <FROM, TO> Iterator<TO> wrapIterator(Iterator<FROM> fromIterator,
-      Function<? super FROM, ? extends TO> transformer) {
+  public static <FROM, TO> Iterator<TO> wrapIterator(
+      Iterator<FROM> fromIterator, Function<? super FROM, ? extends TO> transformer) {
     Objects.requireNonNull(fromIterator);
     Objects.requireNonNull(transformer);
     return new Iterator<TO>() {

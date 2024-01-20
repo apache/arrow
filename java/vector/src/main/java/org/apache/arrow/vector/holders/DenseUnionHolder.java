@@ -20,9 +20,7 @@ package org.apache.arrow.vector.holders;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types;
 
-/**
- * {@link ValueHolder} for Dense Union Vectors.
- */
+/** {@link ValueHolder} for Dense Union Vectors. */
 public class DenseUnionHolder implements ValueHolder {
   public FieldReader reader;
   public int isSet;

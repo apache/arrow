@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -34,9 +33,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link VarCharVector}.
- */
+/** Benchmarks for {@link VarCharVector}. */
 @State(Scope.Benchmark)
 public class VarCharBenchmarks {
 
@@ -50,9 +47,7 @@ public class VarCharBenchmarks {
 
   private VarCharVector fromVector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -72,9 +67,7 @@ public class VarCharBenchmarks {
     fromVector.setValueCount(VECTOR_LENGTH);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     vector.close();
@@ -91,11 +84,9 @@ public class VarCharBenchmarks {
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(VarCharBenchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder().include(VarCharBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }
