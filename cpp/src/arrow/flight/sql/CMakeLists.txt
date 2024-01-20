@@ -105,7 +105,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc server_session_middleware_internals_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_SRCS
+      server_test.cc
+      server_session_middleware_internals_test.cc)
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
 

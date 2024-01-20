@@ -33,7 +33,8 @@ namespace flight {
 namespace sql {
 
 /// \brief A factory for ServerSessionMiddleware, itself storing session data.
-class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
+class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
+    : public ServerMiddlewareFactory {
  protected:
   std::map<std::string, std::shared_ptr<FlightSqlSession>> session_store_;
   std::shared_mutex session_store_lock_;
