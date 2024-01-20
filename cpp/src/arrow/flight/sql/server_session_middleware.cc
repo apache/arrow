@@ -93,13 +93,13 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
       continue;
     }
     const std::string_view cookie_name = tok.substr(0, val_pos);
-    std::string_view cookie_value = tok.substr(val_pos + pair_sep.length(), std::string::npos);
+    std::string_view cookie_value =
+        tok.substr(val_pos + pair_sep.length(), std::string::npos);
     if (cookie_name.empty()) {
       continue;
     }
     // Strip doublequotes
-    if (cookie_value.length() >= 2 &&
-        cookie_value.front() == '"' &&
+    if (cookie_value.length() >= 2 && cookie_value.front() == '"' &&
         cookie_value.back() == '"') {
       cookie_value.remove_prefix(1);
       cookie_value.remove_suffix(1);

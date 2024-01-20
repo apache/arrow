@@ -34,9 +34,9 @@ class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFact
 TEST(ServerSessionMiddleware, ParseCookieString) {
   std::vector<std::pair<std::string, std::string>> r1 =
       ServerSessionMiddlewareFactoryPrivate::ParseCookieString(
-        "k1=v1; k2=\"v2\"; kempty=; k3=v3");
-  std::vector<std::pair<std::string, std::string>> e1 = 
-      {{"k1", "v1"}, {"k2", "v2"}, {"kempty", ""}, {"k3", "v3"}};
+          "k1=v1; k2=\"v2\"; kempty=; k3=v3");
+  std::vector<std::pair<std::string, std::string>> e1 = {
+      {"k1", "v1"}, {"k2", "v2"}, {"kempty", ""}, {"k3", "v3"}};
   ASSERT_EQ(e1, r1);
 }
 
