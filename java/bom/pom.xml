@@ -27,6 +27,7 @@
 
   <properties>
     <arrow.vector.classifier/>
+    <spotless.version>2.42.0</spotless.version>
   </properties>
 
   <dependencyManagement>
@@ -152,6 +153,48 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
         <version>3.7.1</version>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+          <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+          <formats>
+            <format> <!-- configure license for xml files -->
+              <includes>
+                <include>pom.xml</include>
+              </includes>
+              <licenseHeader>
+                <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
+                <delimiter>(&lt;configuration|&lt;project)</delimiter>
+              </licenseHeader>
+            </format>
+          </formats>
+          <pom>
+            <indent>
+              <tabs>true</tabs>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <indent>
+              <spaces>true</spaces>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <sortPom>
+              <expandEmptyElements>false</expandEmptyElements>
+            </sortPom>
+          </pom>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

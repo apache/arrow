@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -27,6 +27,7 @@
 
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+    <spotless.version>2.42.0</spotless.version>
   </properties>
 
   <build>
@@ -269,6 +270,65 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+          <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+          <formats>
+            <format> <!-- configure license for xml files -->
+              <includes>
+                <include>src/main/**/*.xml</include>
+                <include>src/test/**/*.xml</include>
+                <include>**/pom.xml</include>
+              </includes>
+              <licenseHeader>
+                <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
+                <delimiter>(&lt;configuration|&lt;project)</delimiter>
+              </licenseHeader>
+            </format>
+          </formats>
+          <java>
+            <indent>
+              <tabs>true</tabs>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <indent>
+              <spaces>true</spaces>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <googleJavaFormat/>
+            <licenseHeader> <!-- configure license for java files -->
+              <file>${maven.multiModuleProjectDirectory}/spotless/asf-java.license</file>
+              <delimiter>(package|import)</delimiter>
+            </licenseHeader>
+          </java>
+          <pom>
+            <indent>
+              <tabs>true</tabs>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <indent>
+              <spaces>true</spaces>
+              <spacesPerTab>2</spacesPerTab>
+            </indent>
+            <sortPom>
+              <expandEmptyElements>false</expandEmptyElements>
+            </sortPom>
+          </pom>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
     <pluginManagement>
