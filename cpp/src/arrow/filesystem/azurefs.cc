@@ -1037,11 +1037,14 @@ class AzureFileSystem::Impl {
 
   /// \pre location.path is not empty.
   Result<FileInfo> GetFileInfo(const DataLake::DataLakeFileSystemClient& adlfs_client,
-                               const AzureLocation& location) {
+                               const AzureLocation& location,
+                               Azure::Nullable<std::string> lease_id = {}) {
     auto file_client = adlfs_client.GetFileClient(location.path);
+    DataLake::GetPathPropertiesOptions options;
+    options.AccessConditions.LeaseId = std::move(lease_id);
     try {
       FileInfo info{location.all};
-      auto properties = file_client.GetProperties();
+      auto properties = file_client.GetProperties(options);
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else if (internal::HasTrailingSlash(location.path)) {
