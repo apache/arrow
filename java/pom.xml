@@ -49,6 +49,7 @@
     <mockito.core.version>5.5.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.42.0</checker.framework.version>
+    <spotless.version>2.42.0</spotless.version>
   </properties>
 
   <scm>
@@ -297,46 +298,72 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>8.19</version>
-          </dependency>
-          <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>${dep.slf4j.version}</version>
-          </dependency>
-        </dependencies>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+          <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+          <formats>
+            <format>
+              <includes>
+                <include>src/**/*.xml</include>
+              </includes>
+              <licenseHeader>
+                <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
+                <delimiter>(&lt;configuration|&lt;project)</delimiter>
+              </licenseHeader>
+            </format>
+            <format>
+              <includes>
+                <include>src/main/**/*.java</include>
+                <include>src/test/**/*.java</include>
+              </includes>
+              <licenseHeader>
+                <file>${maven.multiModuleProjectDirectory}/spotless/asf-java.license</file>
+                <delimiter>(package|import)</delimiter>
+              </licenseHeader>
+            </format>
+            <format>
+              <includes>
+                <include>src/main/**/*.*</include>
+                <include>src/test/**/*.*</include>
+              </includes>
+              <excludes>
+                <exclude>src/**/*.jks</exclude>
+                <exclude>src/**/codegen/**/*.*</exclude>
+              </excludes>
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+              <indent>
+                <tabs>true</tabs>
+                <spacesPerTab>2</spacesPerTab>
+              </indent>
+              <indent>
+                <spaces>true</spaces>
+                <spacesPerTab>2</spacesPerTab>
+              </indent>
+            </format>
+          </formats>
+          <java>
+            <googleJavaFormat/>
+            <eclipse/>
+          </java>
+          <pom>
+            <sortPom>
+              <expandEmptyElements>false</expandEmptyElements>
+            </sortPom>
+          </pom>
+        </configuration>
         <executions>
           <execution>
-            <id>validate</id>
-            <phase>validate</phase>
+            <id>spotless-check</id>
             <goals>
               <goal>check</goal>
             </goals>
+            <phase>validate</phase>
           </execution>
         </executions>
-        <configuration>
-          <excludes>**/module-info.java</excludes>
-          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
-          <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <encoding>UTF-8</encoding>
-          <consoleOutput>true</consoleOutput>
-          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
-          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-          <violationSeverity>warning</violationSeverity>
-          <format>xml</format>
-          <format>html</format>
-          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
-          <linkXRef>false</linkXRef>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -554,19 +581,6 @@
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
                     <versionRange>[0.10,)</versionRange>
-                    <goals>
-                      <goal>check</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <versionRange>[0,)</versionRange>
                     <goals>
                       <goal>check</goal>
                     </goals>
