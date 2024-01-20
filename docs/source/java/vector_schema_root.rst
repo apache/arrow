@@ -107,7 +107,7 @@ Here is an example of creating a VectorSchemaRoot:
 
 Data can be loaded into/unloaded from a VectorSchemaRoot via `VectorLoader`_
 and `VectorUnloader`_.  They handle converting between VectorSchemaRoot and
-`ArrowRecordBatch`_ (a representation of a RecordBatch :ref:`IPC <format-ipc>` 
+`ArrowRecordBatch`_ (a representation of a RecordBatch :ref:`IPC <format-ipc>`
 message). For example:
 
 .. code-block:: Java
