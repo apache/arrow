@@ -124,7 +124,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "module" if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: false,
+            sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"
