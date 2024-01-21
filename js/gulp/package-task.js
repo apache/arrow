@@ -38,11 +38,6 @@ export const packageTask = ((cache) => memoizeTask(cache, function bundle(target
 
 export default packageTask;
 
-const sideEffects = (ext) => [
-    `./Arrow.dom.${ext ?? '*'}`,
-    `./Arrow.node.${ext ?? '*'}`,
-];
-
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
     bin: orig.bin,
@@ -89,7 +84,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
             },
         },
     },
-    sideEffects: sideEffects('*'),
+    sideEffects: false,
     esm: { mode: `all`, sourceMap: true }
 });
 
@@ -101,7 +96,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
     type: 'module',
-    sideEffects: sideEffects('ts'),
+    sideEffects: false,
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/node': '*',
@@ -129,7 +124,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "module" if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: format === 'esm' ? sideEffects('js') : undefined,
+            sideEffects: false,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"
