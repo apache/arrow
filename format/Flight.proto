@@ -554,6 +554,11 @@ message SessionOptionValue {
  * RFC 6265 HTTP cookies when using an HTTP transport.  The suggested cookie name or state
  * context key is 'arrow_flight_session_id', although implementations may freely choose their
  * own name.
+ *
+ * Session creation (if one does not already exist) is implied by this RPC request, however
+ * server implementations may choose to initiate a session that also contains client-provided
+ * session options at any other time, e.g. on authentication, or when any other call is made
+ * and the server wishes to use a session to persist any state (or lack thereof).
  */
 message SetSessionOptionsRequest {
   map<string, SessionOptionValue> session_options = 1;
@@ -562,7 +567,9 @@ message SetSessionOptionsRequest {
 /*
  * EXPERIMENTAL: The results (individually) of setting a set of session options.
  *
- * Option names should only be present in the 
+ * Option names should only be present in the response if they were not successfully
+ * set on the server; that is, a response without an Error for a key provided in the
+ * SetSessionOptionsRequest implies that the named option value was set successfully.
  */
 message SetSessionOptionsResult {
   enum ErrorValue {

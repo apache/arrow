@@ -21,7 +21,7 @@ import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.Result;
 
-/** Typed StreamListener for renewFlightEndpoint. */
+/** Typed StreamListener for closeSession. */
 public class CloseSessionResultListener implements FlightProducer.StreamListener<CloseSessionResult> {
   private final FlightProducer.StreamListener<Result> listener;
 

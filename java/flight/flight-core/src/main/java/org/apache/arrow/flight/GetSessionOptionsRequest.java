@@ -31,8 +31,7 @@ public class GetSessionOptionsRequest {
   GetSessionOptionsRequest(Flight.GetSessionOptionsRequest proto) {}
 
   Flight.GetSessionOptionsRequest toProtocol() {
-    Flight.GetSessionOptionsRequest.Builder b = Flight.GetSessionOptionsRequest.newBuilder();
-    return b.build();
+    return Flight.GetSessionOptionsRequest.getDefaultInstance();
   }
 
   /**

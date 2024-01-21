@@ -47,7 +47,7 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
   explicit ServerSessionMiddlewareFactory(std::function<std::string()> id_gen)
       : id_generator_(id_gen) {}
   Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
-                   std::shared_ptr<ServerMiddleware>* middleware);
+                   std::shared_ptr<ServerMiddleware>* middleware) override;
 
   /// \brief Get a new, empty session option map and its id key.
   std::pair<std::string, std::shared_ptr<FlightSqlSession>> CreateNewSession();

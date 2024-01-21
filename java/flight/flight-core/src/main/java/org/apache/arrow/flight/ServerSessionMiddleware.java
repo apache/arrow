@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Middleware for handling Flight SQL Sessions including session cookie handling.
@@ -40,7 +41,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
    * Factory for managing and accessing ServerSessionMiddleware.
    */
   public static class Factory implements FlightServerMiddleware.Factory<ServerSessionMiddleware> {
-    private final Map<String, Session> sessionStore =
+    private final ConcurrentMap<String, Session> sessionStore =
         new ConcurrentHashMap<>();
     private final Callable<String> idGenerator;
 
@@ -61,16 +62,14 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
         id = idGenerator.call();
       } catch (Exception ignored) {
         // Most impls aren't going to throw so don't make caller handle a nonexistent checked exception
-        return null;
-      }
-      if (sessionStore.containsKey(id)) {
-        // Collision, should also never happen
-        return null;
+        throw CallStatus.INTERNAL.withDescription("Session creation error").toRuntimeException();
       }
 
       Session newSession = new Session(id);
-      sessionStore.put(id, newSession);
-
+      if (sessionStore.putIfAbsent(id, newSession) != null) {
+        // Collision, should never happen
+        throw CallStatus.INTERNAL.withDescription("Session creation error").toRuntimeException();
+      }
       return newSession;
     }
 
@@ -125,7 +124,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
    */
   public static class Session {
     public final String id;
-    private Map<String, SessionOptionValue> sessionData =
+    private ConcurrentMap<String, SessionOptionValue> sessionData =
         new ConcurrentHashMap<String, SessionOptionValue>();
 
     /**

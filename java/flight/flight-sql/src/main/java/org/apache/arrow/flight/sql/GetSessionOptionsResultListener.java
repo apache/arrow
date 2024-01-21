@@ -21,7 +21,7 @@ import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.GetSessionOptionsResult;
 import org.apache.arrow.flight.Result;
 
-/** Typed StreamListener for renewFlightEndpoint. */
+/** Typed StreamListener for getSessionOptions. */
 public class GetSessionOptionsResultListener implements FlightProducer.StreamListener<GetSessionOptionsResult> {
   private final FlightProducer.StreamListener<Result> listener;
 

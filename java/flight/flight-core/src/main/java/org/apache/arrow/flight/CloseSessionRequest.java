@@ -29,8 +29,7 @@ public class CloseSessionRequest {
   CloseSessionRequest(Flight.CloseSessionRequest proto) {}
 
   Flight.CloseSessionRequest toProtocol() {
-    Flight.CloseSessionRequest.Builder b = Flight.CloseSessionRequest.newBuilder();
-    return b.build();
+    return Flight.CloseSessionRequest.getDefaultInstance();
   }
 
   /**
