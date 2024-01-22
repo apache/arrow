@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
@@ -481,6 +482,9 @@ using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
+using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
@@ -906,8 +910,7 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(sink, Compression::UNCOMPRESSED,
-                       Codec::UseDefaultCompressionLevel(), metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
 
   uint8_t data;
   std::shared_ptr<Buffer> buffer =
@@ -915,7 +918,8 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
   DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
                                    Encoding::BIT_PACKED, Encoding::BIT_PACKED,
                                    /*uncompressed_size=*/100);
-  EXPECT_THROW(pager->WriteDataPage(over_compressed_limit), ParquetException);
+  EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+              ThrowsMessage<ParquetException>(HasSubstr("overflows to INT32_MAX")));
   DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
                                                   Encoding::PLAIN);
   EXPECT_THROW(pager->WriteDictionaryPage(dictionary_over_compressed_limit),
@@ -926,7 +930,8 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
       buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
       Encoding::BIT_PACKED,
       /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
-  EXPECT_THROW(pager->WriteDataPage(over_uncompressed_limit), ParquetException);
+  EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+              ThrowsMessage<ParquetException>(HasSubstr("overflows to INT32_MAX")));
 }
 
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {

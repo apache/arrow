@@ -273,7 +273,9 @@ class SerializedPageWriter : public PageWriter {
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     int64_t uncompressed_size = page.buffer()->size();
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Uncompressed page size overflows to INT32_MAX.");
+      throw ParquetException(
+          "Uncompressed dictionary page size overflows to INT32_MAX. Size:",
+          uncompressed_size);
     }
     std::shared_ptr<Buffer> compressed_data;
     if (has_compressor()) {
@@ -292,7 +294,9 @@ class SerializedPageWriter : public PageWriter {
 
     const uint8_t* output_data_buffer = compressed_data->data();
     if (compressed_data->size() > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Compressed page size overflows to INT32_MAX.");
+      throw ParquetException(
+          "Compressed dictionary page size overflows to INT32_MAX. Size: ",
+          uncompressed_size);
     }
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
@@ -380,7 +384,8 @@ class SerializedPageWriter : public PageWriter {
     int64_t output_data_len = compressed_data->size();
 
     if (output_data_len > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Compressed page size overflows to INT32_MAX.");
+      throw ParquetException("Compressed data page size overflows to INT32_MAX. Size:",
+                             output_data_len);
     }
 
     if (data_encryptor_.get()) {
@@ -396,7 +401,8 @@ class SerializedPageWriter : public PageWriter {
     format::PageHeader page_header;
 
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Uncompressed page size overflows to INT32_MAX.");
+      throw ParquetException("Uncompressed data page size overflows to INT32_MAX. Size:",
+                             uncompressed_size);
     }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
