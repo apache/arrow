@@ -58,7 +58,10 @@ jobs:
     strategy:
       matrix:
         config:
-        - cpp_version: "15.0.0"
+        - { cpp_version: "15.0.0" }
+        - { cpp_version: "14.0.2" }
+        - { cpp_version: "13.0.0" }
+
     env:
       ARROW_HOME: arrow
 
@@ -110,7 +113,7 @@ jobs:
 
     - name: Show install output
       if: always()
-      run: find check -name '00install.out*' -exec cat '{}' \; || true
+      run: find src/r/check -name '00install.out*' -exec cat '{}' \; || true
       shell: bash
 
 
