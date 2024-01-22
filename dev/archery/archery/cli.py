@@ -407,7 +407,7 @@ def benchmark_filter_options(cmd):
 @click.pass_context
 def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    java_home, java_options, build_extras, benchmark_extras,
-                   language, **kwargs):
+                   cpp_benchmark_extras, language, **kwargs):
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
@@ -418,7 +418,8 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 cmake_extras=cmake_extras, **kwargs)
 
             runner_base = CppBenchmarkRunner.from_rev_or_path(
-                src, root, rev_or_path, conf)
+                src, root, rev_or_path, conf,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -546,7 +547,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                    suite_filter, benchmark_filter, repetitions, no_counters,
                    java_home, java_options, build_extras, benchmark_extras,
-                   threshold, contender, baseline, **kwargs):
+                   cpp_benchmark_extras, threshold, contender, baseline,
+                   **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -633,12 +635,14 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 src, root, contender, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, baseline, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
