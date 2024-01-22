@@ -28,6 +28,7 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/client.h"
@@ -826,15 +827,15 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
 ///
 /// This tests Session Options functionality as well as ServerSessionMiddleware.
 class SessionOptionsScenario : public Scenario {
-  inline const static std::string middleware_key = "sessionmiddleware";
+  inline const static std::string server_middleware_key = "sessionmiddleware";
 
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
-    *server = std::make_unique<SessionOptionsServer>(middleware_key);
+    *server = std::make_unique<SessionOptionsServer>(server_middleware_key);
 
     auto id_gen_int = std::make_shared<std::atomic_int>(1000);
     options->middleware.emplace_back(
-        middleware_key,
+        server_middleware_key,
         sql::MakeServerSessionMiddlewareFactory(
             [=]() -> std::string { return std::to_string((*id_gen_int)++); }));
 
@@ -842,10 +843,25 @@ class SessionOptionsScenario : public Scenario {
   }
 
   Status MakeClient(FlightClientOptions* options) override {
+    options->middleware.emplace_back(GetCookieFactory());
     return Status::OK();
   }
 
-  Status RunClient(std::unique_ptr<FlightClient> client) override {
+  Status RunClient(std::unique_ptr<FlightClient> flight_client) override {
+    sql::FlightSqlClient client{std::move(flight_client)};
+
+    auto req1 = SetSessionOptionsRequest{{
+      {"foolong", 123L},
+      {"bardouble", 456.0},
+      {"lol_invalid", "this won't get set"},
+      {"key_with_invalid_value", "lol_invalid"},
+      {"big_ol_string_list", std::vector<std::string>{
+        "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}
+    }};
+    ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
+    // FIXME PHOXME
+
+
 /*     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
     // Renew all endpoints that have expiration time
@@ -2082,6 +2098,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
     *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "session_options") {
+    *out = std::make_shared<SessionOptionsScenario>();
     return Status::OK();
   } else if (scenario_name == "poll_flight_info") {
     *out = std::make_shared<PollFlightInfoScenario>();
