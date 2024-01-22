@@ -52,6 +52,54 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
+  ubuntu-cpp-versions:
+    name: R / Arrow C++ (${{ matrix.config.cpp_version }})
+    strategy:
+      matrix:
+        config:
+        - cpp_version: ["15.0.0"]
+    env:
+      ARROW_HOME: arrow
+
+    steps:
+    - name: Checkout Arrow
+      uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      with:
+        path: src
+
+    - name: Cache Arrow C++ Build
+      id: cache-arrow-build
+      uses: actions/cache@v3
+      with:
+        path: arrow
+        key: arrow-r-cpp-release-${{ matrix.config.cpp_version }}-0
+
+    - name: Build Arrow C++ (${{ matrix.config.cpp_version }})
+      if: steps.cache-arrow-build.outputs.cache-hit != 'true'
+      run: |
+        curl https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.config.cpp_version }}.tar.gz | \
+          tar -zxf -
+        mkdir arrow-build
+        export SOURCE_DIR="$(pwd)/arrow-build"
+        export DEST_DIR="$(pwd)/arrow"
+
+        src/r/inst/build_arrow_static.sh
+
+    - uses: r-lib/actions/setup-pandoc@v2
+    - uses: r-lib/actions/setup-r@v2
+      with:
+        use-public-rspm: true
+        install-r: false
+    - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+          working-directory: src/r
+
+    - uses: r-lib/actions/check-r-package@v2
+      with:
+        working-directory: src/r
+
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
