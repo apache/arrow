@@ -58,7 +58,7 @@ jobs:
     strategy:
       matrix:
         config:
-        - cpp_version: ["15.0.0"]
+        - cpp_version: "15.0.0"
     env:
       ARROW_HOME: arrow
 
