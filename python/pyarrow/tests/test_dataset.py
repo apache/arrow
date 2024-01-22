@@ -707,7 +707,8 @@ def test_partitioning():
         ds.write_dataset(table, tempdir,
                          format='ipc', partitioning=partitioning)
         load_back = None
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError,
+                           match="Expected Partitioning or PartitioningFactory"):
             load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
         assert load_back is None
 
