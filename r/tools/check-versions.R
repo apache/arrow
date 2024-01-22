@@ -20,6 +20,15 @@ args <- commandArgs(TRUE)
 # TESTING is set in test-check-version.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
 
+release_version_supported <- function(r_version, cpp_version) {
+  r_version <- package_version(r_version)
+  cpp_version <- package_version(cpp_version)
+  major <- function(x) as.numeric(x[1, 1])
+
+  # Last four released versions of Arrow C++
+  major(cpp_version) %in% (major(r_version) - 0:3)
+}
+
 check_versions <- function(r_version, cpp_version) {
   r_parsed <- package_version(r_version)
   r_dev_version <- r_parsed[1, 4]
@@ -39,20 +48,10 @@ check_versions <- function(r_version, cpp_version) {
       "*** > or retry with FORCE_BUNDLED_BUILD=true"
     )
     cat(paste0(msg, "\n", collapse = ""))
-  } else if (r_is_patch && as.character(r_parsed[1, 1:3]) == cpp_version) {
-    # Patch releases we do for CRAN feedback get an extra x.y.z.1 version.
-    # These should work with the x.y.z C++ library (which never has .1 added)
+  } else if (cpp_is_dev || !release_version_supported(r_version, cpp_parsed)) {
     cat(
       sprintf(
-        "*** > Using C++ library version %s with R package %s\n",
-        cpp_version,
-        r_version
-      )
-    )
-  } else if (r_version != cpp_version) {
-    cat(
-      sprintf(
-        "**** Not using: C++ library version (%s) does not match R package (%s)\n",
+        "**** Not using: C++ library version (%s): not supported by R package version %s\n",
         cpp_version,
         r_version
       )
@@ -61,7 +60,12 @@ check_versions <- function(r_version, cpp_version) {
     # Add ALLOW_VERSION_MISMATCH env var to override stop()? (Could be useful for debugging)
   } else {
     # OK
-    cat(sprintf("**** C++ and R library versions match: %s\n", cpp_version))
+    cat(
+      sprintf(
+        "**** C++ library version %s is supported by R version %s\n",
+        cpp_version, r_version
+      )
+    )
   }
 }
 
