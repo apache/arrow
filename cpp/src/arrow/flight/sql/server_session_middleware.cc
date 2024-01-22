@@ -32,6 +32,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   const CallHeaders& headers_;
   std::shared_ptr<FlightSession> session_;
   std::string session_id_;
+  std::string closed_session_id_;
   bool existing_session_;
 
  public:
@@ -55,6 +56,10 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
       add_call_headers->AddHeader(
           "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
     } else std::cerr << "ServerSessionMiddlewareImpl@" << this << " Did not add set-cookie header, existing_session is: " << existing_session_ << ", session_ is: " << session_ << std::endl;
+    if (!closed_session_id_.empty()) {
+      add_call_headers->AddHeader(
+          "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_ + "; Max-Age=0");
+    }
   }
 
   void CallCompleted(const Status&) override {}
@@ -79,6 +84,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
       // FIXME PHOXME throw or what in C++?
     }
     factory_->CloseSession(session_id_);
+    closed_session_id_ = std::move(session_id_);
     session_id_.clear();
     session_.reset();
     existing_session_ = false;
