@@ -39,7 +39,7 @@ using parquet::IntervalRanges;
 std::string random_string(std::string::size_type length) {
   static auto& chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-  static std::mt19937 rg{std::random_device{}()};
+  static std::mt19937 rg = std::mt19937(std::random_device()());
   static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
 
   std::string s;
@@ -240,10 +240,18 @@ void check_rb(std::unique_ptr<arrow::RecordBatchReader> rb_reader,
   }
   ASSERT_EQ(expected_rows, total_rows);
 
-  if (checking_col("a", column_names)) ASSERT_EQ(expected_sum * 2, sum_a);
-  if (checking_col("b", column_names)) ASSERT_EQ(expected_sum * 3, sum_b);
-  if (checking_col("c", column_names)) ASSERT_EQ(expected_sum, sum_c);
-  if (checking_col("d", column_names)) ASSERT_EQ(expected_sum, sum_d);
+  if (checking_col("a", column_names)) {
+    ASSERT_EQ(expected_sum * 2, sum_a);
+  }
+  if (checking_col("b", column_names)) {
+    ASSERT_EQ(expected_sum * 3, sum_b);
+  }
+  if (checking_col("c", column_names)) {
+    ASSERT_EQ(expected_sum, sum_c);
+  }
+  if (checking_col("d", column_names)) {
+    ASSERT_EQ(expected_sum, sum_d);
+  }
 }
 
 class TestRecordBatchReaderWithRanges : public testing::Test {
@@ -279,7 +287,7 @@ TEST_F(TestRecordBatchReaderWithRanges, TestRangesSplit) {}
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectOnePageForEachRG) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  IntervalRanges rows{{IntervalRange{0, 9}, IntervalRange{40, 49}, IntervalRange{80, 89}, IntervalRange{90, 99}}};
+  IntervalRanges rows{{{0, 9}, {40, 49}, {80, 89}, {90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -301,7 +309,8 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForOneRG) {
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
-  IntervalRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89}, IntervalRange{90, 99}}};
+  IntervalRanges rows{{IntervalRange{0, 29}, IntervalRange{30, 59}, IntervalRange{60, 89},
+                       IntervalRange{90, 99}}};
 
   const std::vector column_indices{0, 1, 2, 3, 4};
   ASSERT_OK(arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader));
@@ -341,11 +350,15 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
     std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
-      if (i % 2 == 0) ranges.push_back({i, i});
+      if (i % 2 == 0) {
+        ranges.push_back({i, i});
+      }
     }
 
     for (int64_t i = 60; i < 90; i++) {
-      if (i % 2 == 0) ranges.push_back({i, i});
+      if (i % 2 == 0) {
+        ranges.push_back({i, i});
+      }
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
@@ -359,25 +372,17 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
 TEST_F(TestRecordBatchReaderWithRanges, InvalidRanges) {
   std::unique_ptr<arrow::RecordBatchReader> rb_reader;
   {
-    IntervalRanges rows{{IntervalRange{-1, 5}}};
-    const std::vector column_indices{0, 1, 2, 3, 4};
-    const auto status =
-        arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
-    ASSERT_NOT_OK(status);
-    EXPECT_TRUE(status.message().find("The provided row range is invalid, keep it "
-                                      "monotone and non-interleaving: [(-1, 5)]") !=
-                std::string::npos);
+    auto create_ranges = []() -> IntervalRanges {
+      return IntervalRanges{{IntervalRange{-1, 5}}};
+    };
+    EXPECT_THROW(create_ranges(), parquet::ParquetException);
   }
 
   {
-    IntervalRanges rows{{IntervalRange{0, 4}, {2, 5}}};
-    const std::vector column_indices{0, 1, 2, 3, 4};
-    const auto status =
-        arrow_reader->GetRecordBatchReader(rows, column_indices, &rb_reader);
-    ASSERT_NOT_OK(status);
-    EXPECT_TRUE(
-        status.message().find("The provided row range is invalid, keep it monotone and "
-                              "non-interleaving: [(0, 4), (2, 5)]") != std::string::npos);
+    auto create_ranges = []() -> IntervalRanges {
+      return IntervalRanges{{{0, 4}, {2, 5}}};
+    };
+    EXPECT_THROW(create_ranges(), parquet::ParquetException);
   }
   {
     // will treat as {0,99}
@@ -472,11 +477,15 @@ TEST_F(TestRecordBatchReaderWithRangesWithNulls, SelectOneRowSkipOneRow) {
     std::unique_ptr<arrow::RecordBatchReader> rb_reader;
     std::vector<parquet::IntervalRange> ranges;
     for (int64_t i = 0; i < 30; i++) {
-      if (i % 2 == 0) ranges.push_back({i, i});
+      if (i % 2 == 0) {
+        ranges.push_back({i, i});
+      }
     }
 
     for (int64_t i = 60; i < 90; i++) {
-      if (i % 2 == 0) ranges.push_back({i, i});
+      if (i % 2 == 0) {
+        ranges.push_back({i, i});
+      }
     }
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader(IntervalRanges(ranges), column_indices,
