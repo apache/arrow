@@ -36,7 +36,7 @@ namespace sql {
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
     : public ServerMiddlewareFactory {
  protected:
-  std::map<std::string, std::shared_ptr<FlightSqlSession>> session_store_;
+  std::map<std::string, std::shared_ptr<FlightSession>> session_store_;
   std::shared_mutex session_store_lock_;
   std::function<std::string()> id_generator_;
 
@@ -50,7 +50,10 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
                    std::shared_ptr<ServerMiddleware>* middleware) override;
 
   /// \brief Get a new, empty session option map and its id key.
-  std::pair<std::string, std::shared_ptr<FlightSqlSession>> CreateNewSession();
+  std::pair<std::string, std::shared_ptr<FlightSession>> CreateNewSession();
+  /// \brief Close the session identified by 'id'.
+  /// \param id The string id of the session to close.
+  void CloseSession(std::string id);
 };
 
 }  // namespace sql

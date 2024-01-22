@@ -56,13 +56,13 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
     ServerSessionMiddleware.Session session = middleware.getSession();
     for (Map.Entry<String, SessionOptionValue> entry : request.getSessionOptions().entrySet()) {
-      // Blacklisted value name
+      // Blacklisted option name
       if (entry.getKey().equals("lol_invalid")) {
         errors.put(entry.getKey(),
             new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
         continue;
       }
-      // Blacklisted value
+      // Blacklisted option value
       // Recommend using a visitor to check polymorphic equality, but this check is easy
       if (entry.getValue().equals(invalidOptionValue)) {
         errors.put(entry.getKey(),

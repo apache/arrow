@@ -33,6 +33,7 @@
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/server.h"
+#include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
@@ -716,7 +717,7 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
     return Status::OK();
   }
 
-  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+  Status MakeClient(FlightClientOptions* options) override {return Status::OK(); }
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
@@ -743,6 +744,136 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
     return Status::OK();
   }
 };
+
+
+
+
+// FIXME PHOXME whitespace and after class
+
+/// \brief The server used for testing Session Options.
+///
+/// setSessionOptions has a blacklisted option name and string option value,
+/// both "lol_invalid", which will result in errors attempting to set either.
+class SessionOptionsServer : public sql::FlightSqlServerBase {
+  inline const static std::string invalid_option_name = "lol_invalid";
+  inline const static SessionOptionValue invalid_option_value = "lol_invalid";
+
+  const std::string session_middleware_key;
+  // These will never be threaded so using a plain map and no lock
+  std::map<std::string, SessionOptionValue> session_store_;
+
+ public:
+ // FIXME PHOXME need to handle middleware lookup token wherever
+  SessionOptionsServer(std::string session_middleware_key)
+      : FlightSqlServerBase(),
+        session_middleware_key(std::move(session_middleware_key)) {
+    
+  }
+
+  arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const ServerCallContext& context,
+      const SetSessionOptionsRequest& request) override {
+    SetSessionOptionsResult res;
+
+    sql::ServerSessionMiddleware* middleware =
+      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
+
+    for (const auto& [name, value] : request.session_options) {
+      // Blacklisted value name
+      if (name == invalid_option_name) {
+        res.errors.emplace(name, SetSessionOptionsResult::Error{
+                                     SetSessionOptionErrorValue::kInvalidName});
+        continue;
+      }
+      // Blacklisted option value
+      if (value == invalid_option_value) {
+        res.errors.emplace(name, SetSessionOptionsResult::Error{
+                                     SetSessionOptionErrorValue::kInvalidValue});
+        continue;
+      }
+      if (std::holds_alternative<std::monostate>(value)) {
+        session->EraseSessionOption(name);
+        continue;
+      }
+      session->SetSessionOption(name, value);
+    }
+
+    return res;
+  }
+
+  arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const ServerCallContext& context,
+      const GetSessionOptionsRequest& request) override {
+    sql::ServerSessionMiddleware* middleware =
+      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
+
+    return GetSessionOptionsResult{session->GetSessionOptions()};
+  }
+
+  arrow::Result<CloseSessionResult> CloseSession(
+      const ServerCallContext& context, const CloseSessionRequest& request) override {
+    sql::ServerSessionMiddleware* middleware =
+      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    // FIXME PHOXME try/catch or are we not using exceptions...?
+    middleware->CloseSession();
+    return CloseSessionResult{ CloseSessionStatus::kClosed };
+  }
+};
+
+/// \brief The Session Options scenario.
+///
+/// This tests Session Options functionality as well as ServerSessionMiddleware.
+class SessionOptionsScenario : public Scenario {
+  inline const static std::string middleware_key = "sessionmiddleware";
+
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<SessionOptionsServer>(middleware_key);
+
+    auto id_gen_int = std::make_shared<std::atomic_int>(1000);
+    options->middleware.emplace_back(
+        middleware_key,
+        sql::MakeServerSessionMiddlewareFactory(
+            [=]() -> std::string { return std::to_string((*id_gen_int)++); }));
+
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override {
+    return Status::OK();
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+/*     ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
+    // Renew all endpoints that have expiration time
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.expiration_time.has_value()) {
+        continue;
+      }
+      const auto& expiration_time = endpoint.expiration_time.value();
+      auto request = RenewFlightEndpointRequest{endpoint};
+      ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, client->RenewFlightEndpoint(request));
+      if (!renewed_endpoint.expiration_time.has_value()) {
+        return Status::Invalid("Renewed endpoint must have expiration time: ",
+                               renewed_endpoint.ToString());
+      }
+      const auto& renewed_expiration_time = renewed_endpoint.expiration_time.value();
+      if (renewed_expiration_time <= expiration_time) {
+        return Status::Invalid("Renewed endpoint must have newer expiration time\n",
+                               "Original:\n", endpoint.ToString(), "Renewed:\n",
+                               renewed_endpoint.ToString());
+      }
+    }
+ */
+    return Status::OK();
+  }
+};
+
+
+
 
 /// \brief The server used for testing PollFlightInfo().
 class PollFlightInfoServer : public FlightServerBase {

@@ -29,9 +29,9 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   std::shared_mutex mutex_;
   ServerSessionMiddlewareFactory* factory_;
   const CallHeaders& headers_;
-  std::shared_ptr<FlightSqlSession> session_;
+  std::shared_ptr<FlightSession> session_;
   std::string session_id_;
-  const bool existing_session_;
+  bool existing_session_;
 
  public:
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
@@ -40,7 +40,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
                               const CallHeaders& headers,
-                              std::shared_ptr<FlightSqlSession> session,
+                              std::shared_ptr<FlightSession> session,
                               std::string session_id)
       : factory_(factory),
         headers_(headers),
@@ -59,7 +59,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   bool HasSession() const override { return static_cast<bool>(session_); }
 
-  std::shared_ptr<FlightSqlSession> GetSession() override {
+  std::shared_ptr<FlightSession> GetSession() override {
     const std::lock_guard<std::shared_mutex> l(mutex_);
     if (!session_) {
       auto [id, s] = factory_->CreateNewSession();
@@ -67,6 +67,17 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
       session_id_ = std::move(id);
     }
     return session_;
+  }
+
+  void CloseSession() override {
+    const std::lock_guard<std::shared_mutex> l(mutex_);
+    if (static_cast<bool>(session_)) {
+      // FIXME PHOXME throw or what in C++?
+    }
+    factory_->CloseSession(session_id_);
+    session_id_.clear();
+    session_.reset();
+    existing_session_ = false;
   }
 
   const CallHeaders& GetCallHeaders() const override { return headers_; }
@@ -149,10 +160,10 @@ Status ServerSessionMiddlewareFactory::StartCall(
 }
 
 /// \brief Get a new, empty session option map & its id key; {"",NULLPTR} on collision.
-std::pair<std::string, std::shared_ptr<FlightSqlSession>>
+std::pair<std::string, std::shared_ptr<FlightSession>>
 ServerSessionMiddlewareFactory::CreateNewSession() {
   auto new_id = id_generator_();
-  auto session = std::make_shared<FlightSqlSession>();
+  auto session = std::make_shared<FlightSession>();
 
   const std::lock_guard<std::shared_mutex> l(session_store_lock_);
   if (session_store_.count(new_id)) {
@@ -164,12 +175,19 @@ ServerSessionMiddlewareFactory::CreateNewSession() {
   return {new_id, session};
 }
 
+void ServerSessionMiddlewareFactory::CloseSession(std::string id) {
+  const std::lock_guard<std::shared_mutex> l(session_store_lock_);
+  if (!session_store_.erase(id)) {
+    // FIXME PHOXME throw or what
+  }
+}
+
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory(
     std::function<std::string()> id_gen) {
   return std::make_shared<ServerSessionMiddlewareFactory>(std::move(id_gen));
 }
 
-std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
+std::optional<SessionOptionValue> FlightSession::GetSessionOption(
     const std::string& name) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   auto it = map_.find(name);
@@ -180,13 +198,18 @@ std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
   }
 }
 
-void FlightSqlSession::SetSessionOption(const std::string& name,
+std::map<std::string, SessionOptionValue> FlightSession::GetSessionOptions() {
+  const std::shared_lock<std::shared_mutex> l(map_lock_);
+  return map_;
+}
+
+void FlightSession::SetSessionOption(const std::string& name,
                                         const SessionOptionValue value) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_[name] = std::move(value);
 }
 
-void FlightSqlSession::EraseSessionOption(const std::string& name) {
+void FlightSession::EraseSessionOption(const std::string& name) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_.erase(name);
 }

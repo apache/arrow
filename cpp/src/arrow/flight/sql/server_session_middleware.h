@@ -35,7 +35,7 @@ namespace sql {
 
 static constexpr char const kSessionCookieName[] = "arrow_flight_session_id";
 
-class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
+class ARROW_FLIGHT_SQL_EXPORT FlightSession {
  protected:
   std::map<std::string, SessionOptionValue> map_;
   std::shared_mutex map_lock_;
@@ -43,6 +43,10 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
  public:
   /// \brief Get session option by name
   std::optional<SessionOptionValue> GetSessionOption(const std::string& name);
+  /// \brief Get a copy of the session options map.
+  ///
+  /// The returned options map may be modified by further calls to this FlightSession
+  std::map<std::string, SessionOptionValue> GetSessionOptions();
   /// \brief Set session option by name to given value
   void SetSessionOption(const std::string& name, const SessionOptionValue value);
   /// \brief Idempotently remove name from this session
@@ -62,7 +66,9 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   /// \brief Get existing or new call-associated session
   ///
   /// May return NULLPTR if there is an id generation collision.
-  virtual std::shared_ptr<FlightSqlSession> GetSession() = 0;
+  virtual std::shared_ptr<FlightSession> GetSession() = 0;
+  /// Close the current session.
+  virtual void CloseSession() = 0;
   /// \brief Get request headers, in lieu of a provided or created session.
   virtual const CallHeaders& GetCallHeaders() const = 0;
 };
