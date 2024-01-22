@@ -2231,12 +2231,12 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     if (status.ok()) {
       status = ImportSchema(&c_schema).Value(&schema_);
     }
-    if (!status.ok()) {
+    if (!status.ok() && !ArrowArrayStreamIsReleased(&stream_)) {
       ArrowArrayStreamRelease(&stream_);
       return status;
     }
 
-    return Status::OK();
+    return status;
   }
 
   ~ArrayStreamBatchReader() override {
