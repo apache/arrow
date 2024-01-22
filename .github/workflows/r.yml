@@ -53,7 +53,7 @@ env:
 
 jobs:
   ubuntu-cpp-versions:
-    name: R / Arrow C++ (${{ matrix.config.cpp_version }})
+    name: Arrow C++ Versions (${{ matrix.config.cpp_version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -80,6 +80,7 @@ jobs:
       run: |
         curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.config.cpp_version }}.tar.gz | \
           tar -zxf -
+        ls -a
         mkdir arrow-build
         export SOURCE_DIR="$(pwd)/apache-arrow-${{ matrix.config.cpp_version }}/cpp"
         export DEST_DIR="$(pwd)/arrow"
