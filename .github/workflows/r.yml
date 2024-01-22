@@ -78,10 +78,10 @@ jobs:
     - name: Build Arrow C++ (${{ matrix.config.cpp_version }})
       if: steps.cache-arrow-build.outputs.cache-hit != 'true'
       run: |
-        curl https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.config.cpp_version }}.tar.gz | \
+        curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.config.cpp_version }}.tar.gz | \
           tar -zxf -
         mkdir arrow-build
-        export SOURCE_DIR="$(pwd)/arrow-build"
+        export SOURCE_DIR="$(pwd)/apache-arrow-${{ matrix.config.cpp_version }}/cpp"
         export DEST_DIR="$(pwd)/arrow"
 
         src/r/inst/build_arrow_static.sh
