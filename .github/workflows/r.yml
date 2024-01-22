@@ -63,7 +63,7 @@ jobs:
         - { cpp_version: "13.0.0" }
 
     env:
-      ARROW_HOME: arrow
+      ARROW_HOME: "${{ github.workspace }}/arrow"
 
     steps:
     - name: Checkout Arrow
