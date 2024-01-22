@@ -54,6 +54,7 @@ env:
 jobs:
   ubuntu-cpp-versions:
     name: R / Arrow C++ (${{ matrix.config.cpp_version }})
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         config:
