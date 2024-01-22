@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <iostream> // FIXME PHOXME
 #include <map>
 #include <memory>
 #include <mutex>
@@ -250,10 +251,12 @@ void CookieCache::DiscardExpiredCookies() {
 }
 
 void CookieCache::UpdateCachedCookies(const CallHeaders& incoming_headers) {
+  std::cerr << "Looking for set-cookie header..." << std::endl;
   CookieHeaderPair header_values = incoming_headers.equal_range("set-cookie");
   const std::lock_guard<std::mutex> guard(mutex_);
 
   for (auto it = header_values.first; it != header_values.second; ++it) {
+    std::cerr << "Examining 'set-cookie' header..." << std::endl;
     const std::string_view& value = it->second;
     Cookie cookie = Cookie::Parse(value);
 

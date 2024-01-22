@@ -746,11 +746,6 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
   }
 };
 
-
-
-
-// FIXME PHOXME whitespace and after class
-
 /// \brief The server used for testing Session Options.
 ///
 /// setSessionOptions has a blacklisted option name and string option value,
@@ -797,7 +792,9 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
         session->EraseSessionOption(name);
         continue;
       }
+      std::cerr << "Setting option " << name << std::endl;
       session->SetSessionOption(name, value);
+      std::cerr << "Session now contains " << session->GetSessionOptions().size() << std::endl;
     }
 
     return res;
@@ -808,9 +805,14 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
       const GetSessionOptionsRequest& request) override {
     sql::ServerSessionMiddleware* middleware =
       (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    if (!middleware->HasSession()) {
+      // FIXME PHOXME post NOT_FOUND somehow?!
+    }
     std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
 
-    return GetSessionOptionsResult{session->GetSessionOptions()};
+    GetSessionOptionsResult res{session->GetSessionOptions()};
+    std::cerr << "Server returning GetSessionOptionsResult: " << res.ToString() << std::endl;
+    return res;
   }
 
   arrow::Result<CloseSessionResult> CloseSession(
@@ -866,7 +868,7 @@ class SessionOptionsScenario : public Scenario {
                           SetSessionOptionErrorValue::kInvalidName}},
       {"key_with_invalid_value", SetSessionOptionsResult::Error{
                                      SetSessionOptionErrorValue::kInvalidValue}}})) {
-      return Status::Invalid("res1 incorrect");
+      return Status::Invalid("res1 incorrect: " + res1.ToString());
     }
     // Some set, some omitted due to above errors
     ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
@@ -875,7 +877,7 @@ class SessionOptionsScenario : public Scenario {
       {"bardouble", 456.0},
       {"big_ol_string_list", std::vector<std::string>{
         "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}})) {
-      return Status::Invalid("res2 incorrect");
+      return Status::Invalid("res2 incorrect: " + res2.ToString());
     }
     // Update
     ARROW_ASSIGN_OR_RAISE(auto res3, client.SetSessionOptions({}, SetSessionOptionsRequest{{
@@ -886,16 +888,19 @@ class SessionOptionsScenario : public Scenario {
     if (!(res4.session_options == std::map<std::string, SessionOptionValue>{
       {"bardouble", 456.0},
       {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
-      return Status::Invalid("res4 not ok");
+      return Status::Invalid("res4 incorrect: " + res4.ToString());
     }
-    // FIXME PHOXME
+    // Close and reinitialize
+    ARROW_RETURN_NOT_OK(client.CloseSession({}, {}));
+    ARROW_RETURN_NOT_OK(client.SetSessionOptions({}, {}));
+    ARROW_ASSIGN_OR_RAISE(auto res7, client.GetSessionOptions({}, {}));
+    if (!(res7.session_options == std::map<std::string, SessionOptionValue>{})) {
+      return Status::Invalid("res7 incorrect: " + res7.ToString());
+    }
 
     return Status::OK();
   }
 };
-
-
-
 
 /// \brief The server used for testing PollFlightInfo().
 class PollFlightInfoServer : public FlightServerBase {
