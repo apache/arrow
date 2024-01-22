@@ -701,6 +701,17 @@ def test_partitioning():
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
 
+    # test invalid partitioning input
+    with tempfile.TemporaryDirectory() as tempdir:
+        partitioning = ds.DirectoryPartitioning(partitioning_schema)
+        ds.write_dataset(table, tempdir,
+                         format='ipc', partitioning=partitioning)
+        load_back = None
+        with pytest.raises(ValueError,
+                           match="Expected Partitioning or PartitioningFactory"):
+            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
+        assert load_back is None
+
 
 def test_partitioning_pickling(pickle_module):
     schema = pa.schema([
