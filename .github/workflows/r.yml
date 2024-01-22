@@ -90,10 +90,10 @@ jobs:
         use-public-rspm: true
         install-r: false
     - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::rcmdcheck
-          needs: check
-          working-directory: src/r
+      with:
+        extra-packages: any::rcmdcheck
+        needs: check
+        working-directory: src/r
 
     - uses: r-lib/actions/check-r-package@v2
       with:
