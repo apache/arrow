@@ -86,7 +86,7 @@ final class SessionOptionsScenario implements Scenario {
                 SetSessionOptionsResult.ErrorValue.INVALID_VALUE))
             .build(),
           res1.getErrors());
-      // Some set, some omitted due to errors
+      // Some set, some omitted due to above errors
       GetSessionOptionsResult res2 = client.getSessionOptions(new GetSessionOptionsRequest());
       IntegrationAssertions.assertEquals(ImmutableMap.<String, SessionOptionValue>builder()
             .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))

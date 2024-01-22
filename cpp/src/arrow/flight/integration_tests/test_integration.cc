@@ -850,6 +850,7 @@ class SessionOptionsScenario : public Scenario {
   Status RunClient(std::unique_ptr<FlightClient> flight_client) override {
     sql::FlightSqlClient client{std::move(flight_client)};
 
+    // Set
     auto req1 = SetSessionOptionsRequest{{
       {"foolong", 123L},
       {"bardouble", 456.0},
@@ -859,31 +860,36 @@ class SessionOptionsScenario : public Scenario {
         "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}
     }};
     ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
+    // Some errors
+    if (!(res1.errors == std::map<std::string, SetSessionOptionsResult::Error>{
+      {"lol_invalid", SetSessionOptionsResult::Error{
+                          SetSessionOptionErrorValue::kInvalidName}},
+      {"key_with_invalid_value", SetSessionOptionsResult::Error{
+                                     SetSessionOptionErrorValue::kInvalidValue}}})) {
+      return Status::Invalid("res1 incorrect");
+    }
+    // Some set, some omitted due to above errors
+    ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
+    if (!(res2.session_options == std::map<std::string, SessionOptionValue>{
+      {"foolong", 123L},
+      {"bardouble", 456.0},
+      {"big_ol_string_list", std::vector<std::string>{
+        "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}})) {
+      return Status::Invalid("res2 incorrect");
+    }
+    // Update
+    ARROW_ASSIGN_OR_RAISE(auto res3, client.SetSessionOptions({}, SetSessionOptionsRequest{{
+      {"foolong", std::monostate{}},
+      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}
+    }}));
+    ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
+    if (!(res4.session_options == std::map<std::string, SessionOptionValue>{
+      {"bardouble", 456.0},
+      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
+      return Status::Invalid("res4 not ok");
+    }
     // FIXME PHOXME
 
-
-/*     ARROW_ASSIGN_OR_RAISE(auto info,
-                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    // Renew all endpoints that have expiration time
-    for (const auto& endpoint : info->endpoints()) {
-      if (!endpoint.expiration_time.has_value()) {
-        continue;
-      }
-      const auto& expiration_time = endpoint.expiration_time.value();
-      auto request = RenewFlightEndpointRequest{endpoint};
-      ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, client->RenewFlightEndpoint(request));
-      if (!renewed_endpoint.expiration_time.has_value()) {
-        return Status::Invalid("Renewed endpoint must have expiration time: ",
-                               renewed_endpoint.ToString());
-      }
-      const auto& renewed_expiration_time = renewed_endpoint.expiration_time.value();
-      if (renewed_expiration_time <= expiration_time) {
-        return Status::Invalid("Renewed endpoint must have newer expiration time\n",
-                               "Original:\n", endpoint.ToString(), "Renewed:\n",
-                               renewed_endpoint.ToString());
-      }
-    }
- */
     return Status::OK();
   }
 };
