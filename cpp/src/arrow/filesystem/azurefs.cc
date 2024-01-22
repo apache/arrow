@@ -305,31 +305,9 @@ Status ValidateFileLocation(const AzureLocation& location) {
   return internal::AssertNoTrailingSlash(location.path);
 }
 
-std::string_view BodyTextView(const Http::RawResponse& raw_response) {
-  const auto& body = raw_response.GetBody();
-#ifndef NDEBUG
-  auto& headers = raw_response.GetHeaders();
-  auto content_type = headers.find("Content-Type");
-  if (content_type != headers.end()) {
-    DCHECK_EQ(std::string_view{content_type->second}.substr(5), "text/");
-  }
-#endif
-  return std::string_view{reinterpret_cast<const char*>(body.data()), body.size()};
-}
-
-Status StatusFromErrorResponse(const std::string& url,
-                               const Http::RawResponse& raw_response,
-                               const std::string& context) {
-  // There isn't an Azure specification that response body on error
-  // doesn't contain any binary data but we assume it. We hope that
-  // error response body has useful information for the error.
-  auto body_text = BodyTextView(raw_response);
-  return Status::IOError(context, ": ", url, ": ", raw_response.GetReasonPhrase(), " (",
-                         static_cast<int>(raw_response.GetStatusCode()),
-                         "): ", body_text);
-}
-
 bool IsContainerNotFound(const Storage::StorageException& e) {
+  // In some situations, only the ReasonPhrase is set and the
+  // ErrorCode is empty, so we check both.
   if (e.ErrorCode == "ContainerNotFound" ||
       e.ReasonPhrase == "The specified container does not exist." ||
       e.ReasonPhrase == "The specified filesystem does not exist.") {
@@ -1515,13 +1493,9 @@ class AzureFileSystem::Impl {
     DCHECK(location.path.empty());
     try {
       auto response = container_client.Delete();
-      if (response.Value.Deleted) {
-        return Status::OK();
-      } else {
-        return StatusFromErrorResponse(
-            container_client.GetUrl(), *response.RawResponse,
-            "Failed to delete a container: " + location.container);
-      }
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
       if (IsContainerNotFound(exception)) {
         return PathNotFound(location);
@@ -1530,6 +1504,7 @@ class AzureFileSystem::Impl {
                                "Failed to delete a container: ", location.container, ": ",
                                container_client.GetUrl());
     }
+    return Status::OK();
   }
 
   /// Deletes contents of a directory and possibly the directory itself
@@ -1649,23 +1624,29 @@ class AzureFileSystem::Impl {
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
   Status DeleteDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
-                               const AzureLocation& location) {
+                               const AzureLocation& location, bool recursive,
+                               bool require_dir_to_exist) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
-    // XXX: should "directory not found" be considered an error?
     try {
-      auto response = directory_client.DeleteRecursive();
-      if (response.Value.Deleted) {
-        return Status::OK();
-      } else {
-        return StatusFromErrorResponse(directory_client.GetUrl(), *response.RawResponse,
-                                       "Failed to delete a directory: " + location.path);
-      }
+      auto response =
+          recursive ? directory_client.DeleteRecursive() : directory_client.DeleteEmpty();
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
+      if (exception.ErrorCode == "FilesystemNotFound" ||
+          exception.ErrorCode == "PathNotFound") {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        }
+        return Status::OK();
+      }
       return ExceptionToStatus(exception, "Failed to delete a directory: ", location.path,
                                ": ", directory_client.GetUrl());
     }
+    return Status::OK();
   }
 
   /// \pre location.container is not empty.
@@ -1855,7 +1836,8 @@ Status AzureFileSystem::DeleteDir(const std::string& path) {
     return PathNotFound(location);
   }
   if (hns_support == HNSSupport::kEnabled) {
-    return impl_->DeleteDirOnFileSystem(adlfs_client, location);
+    return impl_->DeleteDirOnFileSystem(adlfs_client, location, /*recursive=*/true,
+                                        /*require_dir_to_exist=*/true);
   }
   DCHECK_EQ(hns_support, HNSSupport::kDisabled);
   auto container_client = impl_->GetBlobContainerClient(location.container);
