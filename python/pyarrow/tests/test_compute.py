@@ -2224,40 +2224,6 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
-def _test_iso_calendar_regression(timezone=None):
-    # Test for iso_calendar regression
-    # https://github.com/apache/arrow/issues/38655
-
-    from pyarrow.vendored.version import Version
-
-    iso_calendar_fields = [
-        pa.field('iso_year', pa.int64()),
-        pa.field('iso_week', pa.int64()),
-        pa.field('iso_day_of_week', pa.int64())
-    ]
-
-    ts = (pd.date_range("2019-01-01", periods=33, freq="21D")
-            .tz_localize("UTC")
-            .tz_convert(timezone).to_series())
-    tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
-
-    if Version(pd.__version__) < Version("1.1.0"):
-        # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
-        isocalendar_values = (iso_year, iso_week, iso_day)
-    else:
-        # Casting is required because pandas isocalendar returns int32
-        # while arrow isocalendar returns int64.
-        values = ts.dt.isocalendar().values.astype("int64")
-        isocalendar_values = (values[:, 0], values[:, 1], values[:, 2])
-
-    iso_calendar = pa.StructArray.from_arrays(
-        isocalendar_values, fields=iso_calendar_fields)
-    assert pc.iso_calendar(tsa).equals(iso_calendar)
-
-
 @pytest.mark.pandas
 def test_extract_datetime_components():
     timestamps = ["1970-01-01T00:00:59.123456789",
@@ -2280,7 +2246,6 @@ def test_extract_datetime_components():
 
     # Test timezone naive timestamp array
     _check_datetime_components(timestamps)
-    _test_iso_calendar_regression()
 
     # Test timezone aware timestamp array
     if sys.platform == "win32" and not util.windows_has_tzdata():
@@ -2288,7 +2253,19 @@ def test_extract_datetime_components():
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
-            _test_iso_calendar_regression(timezone)
+
+
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_iso_calendar_longer_array(unit):
+    # https://github.com/apache/arrow/issues/38655
+    # ensure correct result for array length > 32
+    arr = pa.array([datetime.datetime(2022, 1, 2, 9)]*50, pa.timestamp(unit))
+    result = pc.iso_calendar(arr)
+    expected = pa.StructArray.from_arrays(
+        [[2021]*50, [52]*50, [7]*50],
+        names=['iso_year', 'iso_week', 'iso_day_of_week']
+    )
+    assert result.equals(expected)
 
 
 @pytest.mark.pandas
