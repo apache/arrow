@@ -445,9 +445,9 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
 
 The implementation of a user-defined function always takes a first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
-:class:`pyarrow.compute.ScalarUdfContext`.
+:class:`pyarrow.compute.UdfContext`.
 This context exposes several useful attributes, particularly a
-:attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
+:attr:`~pyarrow.compute.UdfContext.memory_pool` to be used for
 allocations in the context of the user-defined function.
 
 You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
