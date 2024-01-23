@@ -1898,17 +1898,17 @@ class ResidualFilterCaseRunner {
   ResidualFilterCaseRunner(BatchesWithSchema left_input, BatchesWithSchema right_input)
       : left_input_(std::move(left_input)), right_input_(std::move(right_input)) {}
 
-  void Run(JoinType join_type, const std::vector<FieldRef>& left_keys,
-           const std::vector<FieldRef>& right_keys, Expression filter,
-           const std::vector<ExecBatch>& expected) const {
+  void Run(JoinType join_type, std::vector<FieldRef> left_keys,
+           std::vector<FieldRef> right_keys, Expression filter,
+           std::vector<ExecBatch> expected) const {
     RunInternal(HashJoinNodeOptions{join_type, std::move(left_keys),
                                     std::move(right_keys), std::move(filter)},
                 expected);
   }
 
   void Run(JoinType join_type, std::vector<FieldRef> left_keys,
-           const std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
-           const std::vector<FieldRef> right_output, Expression filter,
+           std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+           std::vector<FieldRef> right_output, Expression filter,
            const std::vector<ExecBatch>& expected) const {
     RunInternal(HashJoinNodeOptions{join_type, std::move(left_keys),
                                     std::move(right_keys), std::move(left_output),
@@ -2007,9 +2007,9 @@ class ResidualFilterCaseRunner {
 TEST(HashJoin, ResidualFilter) {
   BatchesWithSchema input_left;
   input_left.batches = {ExecBatchFromJSON({int32(), int32(), utf8()}, R"([
-                           [1, 6, "alpha"],
-                           [2, 5, "beta"],
-                           [3, 4, "alpha"]])")};
+                            [1, 6, "alpha"],
+                            [2, 5, "beta"],
+                            [3, 4, "alpha"]])")};
   input_left.schema =
       schema({field("l1", int32()), field("l2", int32()), field("l_str", utf8())});
 
