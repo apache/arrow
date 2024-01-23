@@ -169,7 +169,7 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
   const auto loc = chunk_resolver_.Resolve(index);
-  if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
+  if (loc.chunk_index == -1) {
     return Status::IndexError("index with value of ", index,
                               " is out-of-bounds for chunked array of length ", length_);
   }
