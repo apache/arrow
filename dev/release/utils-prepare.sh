@@ -164,6 +164,15 @@ update_versions() {
   git add .
   popd
 
+  pushd "${ARROW_DIR}/docs/source"
+  # godoc link must include current version, and will reference v0.0.0 (2018) otherwise; see GH-39761
+  find . -name "index.rst" -exec sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
+
+  rm -f index.rst.bak
+  git add .
+  popd
+
   pushd "${ARROW_DIR}"
   ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
                      . \
