@@ -684,7 +684,7 @@ services:
     #   CONAN: gcc11, gcc11-armv7, ...
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
-    image: conanio/${CONAN}
+    image: conanio/${CONAN}:1.62.0
     user: root:root
     shm_size: *shm-size
     ulimits: *ulimits
