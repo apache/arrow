@@ -5209,6 +5209,10 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
                 "passing a pandas DataFrame")
         return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     elif hasattr(data, "__arrow_c_stream__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         if schema is not None:
             requested = schema.__arrow_c_schema__()
         else:
@@ -5222,6 +5226,10 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             table = table.cast(schema)
         return table
     elif hasattr(data, "__arrow_c_array__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         batch = record_batch(data, schema)
         return Table.from_batches([batch])
     else:
