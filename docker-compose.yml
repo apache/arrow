@@ -1711,7 +1711,7 @@ services:
         jdk: 17
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.6.3
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
@@ -1845,7 +1845,7 @@ services:
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.6.3
         hdfs: ${HDFS}
     links:
       - impala:impala
@@ -1888,7 +1888,7 @@ services:
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
-        maven: 3.5
+        maven: 3.6.3
         spark: ${SPARK}
         numpy: ${NUMPY}
     shm_size: *shm-size
