@@ -2134,7 +2134,6 @@ namespace {
 class ArrayStreamReader {
  public:
   explicit ArrayStreamReader(struct ArrowArrayStream* stream) {
-    ArrowArrayStreamMarkReleased(&stream_);
     ArrowArrayStreamMove(stream, &stream_);
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
@@ -2218,16 +2217,11 @@ class ArrayStreamReader {
 class ArrayStreamBatchReader : public RecordBatchReader {
  public:
   explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) {
-    ArrowArrayStreamMarkReleased(&stream_);
     ArrowArrayStreamMove(stream, &stream_);
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
 
   Status Init() {
-    if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid("Cannot import released ArrowArrayStream");
-    }
-
     struct ArrowSchema c_schema = {};
     auto status = StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema));
     if (status.ok()) {
@@ -2317,7 +2311,6 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
       : ArrayStreamReader(stream) {}
 
   Status Init() {
-    ARROW_RETURN_NOT_OK(CheckNotReleased("Cannot import released stream"));
     auto maybe_field = ReadField();
     if (!maybe_field.ok()) {
       ReleaseStream();
@@ -2359,6 +2352,10 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
 
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream) {
+  if (ArrowArrayStreamIsReleased(stream)) {
+    return Status::Invalid("Cannot import released ArrowArrayStream");
+  }
+
   auto reader = std::make_shared<ArrayStreamBatchReader>(stream);
   ARROW_RETURN_NOT_OK(reader->Init());
   return reader;
@@ -2366,6 +2363,10 @@ Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
 
 Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
     struct ArrowArrayStream* stream) {
+  if (ArrowArrayStreamIsReleased(stream)) {
+    return Status::Invalid("Cannot import released ArrowArrayStream");
+  }
+
   auto reader = std::make_shared<ArrayStreamArrayReader>(stream);
   ARROW_RETURN_NOT_OK(reader->Init());
 
