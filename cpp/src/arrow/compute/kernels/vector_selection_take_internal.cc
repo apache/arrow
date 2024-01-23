@@ -697,6 +697,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                                              const TakeOptions& options,
                                              ExecContext* ctx) {
   auto num_chunks = values.num_chunks();
+  auto num_indices = indices.length();
 
   if (indices.length() == 0) {
     // Case 0: No indices were provided, nothing to take so return an empty chunked array
@@ -724,26 +725,50 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     Int64Builder builder;
     std::vector<std::shared_ptr<arrow::Array>> new_chunks;
     new_chunks.reserve(num_chunks);  // Reserve at least as many chunks as the data has.
+    const void *indices_raw_data;  // Use Raw data to avoid invoking .Value() on indices
+    auto indices_type_id = indices.type()->id();
 
-    for (int64_t requested_index = 0; requested_index < indices.length();
+    switch (indices_type_id) {
+      case Type::UINT8:
+      case Type::INT8:
+        indices_raw_data = static_cast<UInt8Array const&>(indices).raw_values();
+        break;
+      case Type::UINT16:
+      case Type::INT16:
+        indices_raw_data = static_cast<UInt16Array const&>(indices).raw_values();
+        break;
+      case Type::UINT32:
+      case Type::INT32:
+        indices_raw_data = static_cast<UInt32Array const&>(indices).raw_values();
+        break;
+      case Type::UINT64:
+      case Type::INT64:
+        indices_raw_data = static_cast<UInt64Array const&>(indices).raw_values();
+        break;
+      default:
+        DCHECK(false) << "Invalid indices types " << indices.type()->ToString();
+        break;
+    }
+
+    for (int64_t requested_index = 0; requested_index < num_indices;
          ++requested_index) {
       uint64_t index;
-      switch (indices.type()->id()) {
+      switch (indices_type_id) {
         case Type::UINT8:
         case Type::INT8:
-          index = static_cast<UInt8Array const&>(indices).Value(requested_index);
+          index = static_cast<uint8_t const*>(indices_raw_data)[requested_index];
           break;
         case Type::UINT16:
         case Type::INT16:
-          index = static_cast<UInt16Array const&>(indices).Value(requested_index);
+          index = static_cast<uint16_t const*>(indices_raw_data)[requested_index];
           break;
         case Type::UINT32:
         case Type::INT32:
-          index = static_cast<UInt32Array const&>(indices).Value(requested_index);
+          index = static_cast<uint32_t const*>(indices_raw_data)[requested_index];
           break;
         case Type::UINT64:
         case Type::INT64:
-          index = static_cast<UInt64Array const&>(indices).Value(requested_index);
+          index = static_cast<uint64_t const*>(indices_raw_data)[requested_index];
           break;
         default:
           DCHECK(false) << "Invalid indices types " << indices.type()->ToString();
