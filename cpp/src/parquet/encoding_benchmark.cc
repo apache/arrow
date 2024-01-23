@@ -369,7 +369,8 @@ static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decod
 
   for (auto _ : state) {
     decode_func(values_raw, static_cast<int64_t>(values.size()),
-                static_cast<int64_t>(values.size()), output.data());
+                static_cast<int64_t>(values.size()),
+                reinterpret_cast<uint8_t*>(output.data()));
     benchmark::ClobberMemory();
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
@@ -390,22 +391,22 @@ static void BM_ByteStreamSplitEncode(benchmark::State& state, EncodeFunc&& encod
 
 static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
@@ -416,22 +417,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
@@ -443,22 +444,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_AVX2)
 static void BM_ByteStreamSplitDecode_Float_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
@@ -470,22 +471,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_AVX512)
 static void BM_ByteStreamSplitDecode_Float_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
