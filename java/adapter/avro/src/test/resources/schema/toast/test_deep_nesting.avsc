@@ -1,0 +1,85 @@
+{
+  "namespace": "example.nested",
+  "type": "record",
+  "name": "NestedRecordExample",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "NestedRecord1",
+      "type": {
+        "name": "NestedRecord1",
+        "type": "record",
+        "doc": "One layer deep nested record",
+        "fields": [
+          {
+            "name": "id",
+            "type": "int"
+          }
+        ]
+      }
+    }
+  ,
+    {
+      "name": "NestedRecord2",
+      "type": {
+        "name": "NestedRecord2",
+        "type": "record",
+        "doc": "One layer deep nested record that contains a sub record",
+        "fields": [
+          {
+            "name": "id",
+            "type": "int"
+          },
+          {
+            "name": "NestedRecord3",
+            "type": {
+              "name": "NestedRecord3",
+              "type": "record",
+              "doc": "two layer deep nested record",
+              "fields": [
+                {
+                  "name": "id",
+                  "type": "int"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "NestedRecord4",
+      "type": {
+        "name": "NestedRecord4",
+        "type": "record",
+        "doc": "One layer deep nested record that contains an array of sub records",
+        "fields": [
+          {
+            "name": "id",
+            "type": "int"
+          },
+          {
+            "name": "NestedRecords",
+            "type": {
+              "name": "NestedRecords",
+              "type": "array",
+              "items": {
+                "name": "NestedRecord5",
+                "type": "record",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "int"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
