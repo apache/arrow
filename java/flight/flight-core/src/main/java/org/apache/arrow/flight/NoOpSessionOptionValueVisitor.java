@@ -21,40 +21,42 @@ package org.apache.arrow.flight;
  * A helper to facilitate easier anonymous subclass declaration.
  *
  * Implementations need only override callbacks for types they wish to do something with.
+ *
+ * @param <T> Return type of the visit operation.
  */
-public class NoOpSessionOptionValueVisitor implements SessionOptionValueVisitor<Object> {
+public class NoOpSessionOptionValueVisitor<T> implements SessionOptionValueVisitor<T> {
   /**
    * A callback to handle SessionOptionValue containing a String.
    */
-  public Object visit(String value) {
+  public T visit(String value) {
     return null;
   }
 
   /**
    * A callback to handle SessionOptionValue containing a boolean.
    */
-  public Object visit(boolean value) {
+  public T visit(boolean value) {
     return null;
   }
 
   /**
    * A callback to handle SessionOptionValue containing a long.
    */
-  public Object visit(long value) {
+  public T visit(long value) {
     return null;
   }
 
   /**
    * A callback to handle SessionOptionValue containing a double.
    */
-  public Object visit(double value) {
+  public T visit(double value) {
     return null;
   }
 
   /**
    * A callback to handle SessionOptionValue containing an array of String.
    */
-  public Object visit(String[] value) {
+  public T visit(String[] value) {
     return null;
   }
 
@@ -64,7 +66,7 @@ public class NoOpSessionOptionValueVisitor implements SessionOptionValueVisitor<
    * By convention, an attempt to set a valueless SessionOptionValue should
    * attempt to unset or clear the named option value on the server.
    */
-  public Object visit(Void value) {
+  public T visit(Void value) {
     return null;
   }
 }
