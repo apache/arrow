@@ -1925,8 +1925,8 @@ class ResidualFilterCaseRunner {
     auto output_str = OutputString(options.left_output, options.right_output);
     for (bool parallel : {false, true}) {
       auto parallel_str = parallel ? "parallel" : "serial";
-      SCOPED_TRACE(join_type_str + " " + join_cond_str + " " + output_str + " " +
-                   parallel_str);
+      ARROW_SCOPED_TRACE(join_type_str + " " + join_cond_str + " " + output_str + " " +
+                         parallel_str);
 
       Declaration left{"source",
                        SourceNodeOptions{left_input_.schema,
