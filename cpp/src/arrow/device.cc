@@ -20,8 +20,10 @@
 #include <cstring>
 #include <utility>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 
@@ -250,6 +252,57 @@ std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {
   return default_cpu_memory_manager();
+}
+
+Result<std::shared_ptr<ArrayData>> CopyArrayDataTo(
+    const ArrayData& data, const std::shared_ptr<MemoryManager>& to) {
+  auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
+  output->buffers.reserve(data.buffers.size());
+
+  for (const auto& buf : data.buffers) {
+    if (!buf) {
+      output->buffers.push_back(nullptr);
+      continue;
+    }
+
+    if (buf->size() == 0) {
+      output->buffers.push_back(std::make_shared<Buffer>(nullptr, 0));
+      continue;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto temp_buf, MemoryManager::CopyBuffer(buf, to));
+    output->buffers.push_back(std::move(temp_buf));
+  }
+
+  output->child_data.reserve(data.child_data.size());
+  for (const auto& child : data.child_data) {
+    ARROW_ASSIGN_OR_RAISE(auto copied, CopyArrayDataTo(*child, to));
+    output->child_data.push_back(std::move(copied));
+  }
+
+  if (data.dictionary) {
+    ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyArrayDataTo(*data.dictionary, to));
+  }
+
+  return output;
+}
+
+Result<std::shared_ptr<Array>> CopyArrayTo(const Array& array,
+                                           const std::shared_ptr<MemoryManager>& to) {
+  ARROW_ASSIGN_OR_RAISE(auto copied_data, CopyArrayDataTo(*array.data(), to));
+  return MakeArray(copied_data);
+}
+
+Result<std::shared_ptr<RecordBatch>> CopyBatchTo(
+    const RecordBatch& rb, const std::shared_ptr<MemoryManager>& to) {
+  ArrayVector columns;
+  columns.reserve(rb.num_columns());
+  for (const auto& col : rb.columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, CopyArrayTo(*col, to));
+    columns.push_back(std::move(c));
+  }
+
+  return RecordBatch::Make(rb.schema(), rb.num_rows(), std::move(columns));
 }
 
 }  // namespace arrow

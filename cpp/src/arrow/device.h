@@ -363,4 +363,22 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
 ARROW_EXPORT
 std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 
+/// \brief Copy all buffers of an array to destination MemoryManager
+///
+/// This utilizes MemoryManager::CopyBuffer to create a new Array recursively copying
+/// all buffers, and all children buffers, to the destination MemoryManager. This
+/// includes any dictionaries if applicable.
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> CopyArrayTo(const Array& array,
+                                           const std::shared_ptr<MemoryManager>& to);
+
+/// \brief Copy an entire RecordBatch to destination MemoryManager
+///
+/// This uses CopyArrayTo on each column of the record batch to create a new record batch
+/// where all of the underlying buffers for the columns have been copied to the
+/// destination MemoryManager. This will use MemoryManager::CopyBuffer under the hood.
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> CopyBatchTo(
+    const RecordBatch& rb, const std::shared_ptr<MemoryManager>& to);
+
 }  // namespace arrow
