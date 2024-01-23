@@ -118,6 +118,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param index   position of element to get
    * @return Text object for non-null element, null otherwise
    */
+  @Override
   public Text getObject(int index) {
     assert index >= 0;
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
@@ -182,7 +183,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
     BitVectorHelper.setBit(validityBuffer, index);
     final int dataLength = holder.end - holder.start;
     final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
+    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;
   }
@@ -203,7 +204,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
 
     BitVectorHelper.setBit(validityBuffer, index);
     final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
+    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
     valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     lastSet = index;
   }
@@ -222,10 +223,10 @@ public final class VarCharVector extends BaseVariableWidthVector {
     final int startOffset = getStartOffset(index);
     if (holder.isSet != 0) {
       final int dataLength = holder.end - holder.start;
-      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
+      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
       valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     } else {
-      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset);
+      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset);
     }
     lastSet = index;
   }
@@ -245,7 +246,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
       handleSafe(index, dataLength);
       fillHoles(index);
       final int startOffset = getStartOffset(index);
-      offsetBuffer.setInt((index + 1) * OFFSET_WIDTH, startOffset + dataLength);
+      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
       valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
     } else {
       fillEmpties(index + 1);

@@ -181,6 +181,8 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
+   *
+   * @throws SQLException If an error occurs.
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl() throws SQLException {
@@ -194,7 +196,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception If an error occurs.
+   * @throws SQLException If an error occurs.
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {

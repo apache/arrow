@@ -119,6 +119,7 @@ public final class TimeStampMicroVector extends TimeStampVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public LocalDateTime getObject(int index) {
     if (isSet(index) == 0) {
       return null;

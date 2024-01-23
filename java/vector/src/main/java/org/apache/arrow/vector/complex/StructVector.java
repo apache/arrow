@@ -495,10 +495,9 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     } finally {
       if (!success) {
         clear();
-        return false;
       }
     }
-    return true;
+    return success;
   }
 
   private void allocateValidityBuffer(final long size) {
@@ -518,12 +517,23 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   private void reallocValidityBuffer() {
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
-    long newAllocationSize = currentBufferCapacity * 2;
+    long newAllocationSize = getNewAllocationSize(currentBufferCapacity);
+
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
+    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    validityBuffer.getReferenceManager().release(1);
+    validityBuffer = newBuf;
+    validityAllocationSizeInBytes = (int) newAllocationSize;
+  }
+
+  private long getNewAllocationSize(int currentBufferCapacity) {
+    long newAllocationSize = currentBufferCapacity * 2L;
     if (newAllocationSize == 0) {
       if (validityAllocationSizeInBytes > 0) {
         newAllocationSize = validityAllocationSizeInBytes;
       } else {
-        newAllocationSize = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION) * 2;
+        newAllocationSize = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION) * 2L;
       }
     }
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
@@ -532,13 +542,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
-
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
-    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
-    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.getReferenceManager().release(1);
-    validityBuffer = newBuf;
-    validityAllocationSizeInBytes = (int) newAllocationSize;
+    return newAllocationSize;
   }
 
   @Override
@@ -607,6 +611,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Return the number of null values in the vector.
    */
+  @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
@@ -614,6 +619,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Returns true if the value at the provided index is null.
    */
+  @Override
   public boolean isNull(int index) {
     return isSet(index) == 0;
   }
@@ -643,6 +649,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   /**
    * Marks the value at index as null/not set.
    */
+  @Override
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */

@@ -34,7 +34,6 @@ public class UnionLargeListReader extends AbstractFieldReader {
 
   private LargeListVector vector;
   private ValueVector data;
-  private long index;
   private static final long OFFSET_WIDTH = 8L;
 
   public UnionLargeListReader(LargeListVector vector) {
