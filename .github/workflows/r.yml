@@ -73,10 +73,10 @@ jobs:
 
     - name: Cache Arrow C++ Build
       id: cache-arrow-build
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: arrow
-        key: arrow-r-cpp-release-${{ matrix.config.cpp_version }}-0
+        key: arrow-r-cpp-release-${{ matrix.config.cpp_version }}-1
 
     - name: Build Arrow C++ (${{ matrix.config.cpp_version }})
       if: steps.cache-arrow-build.outputs.cache-hit != 'true'
