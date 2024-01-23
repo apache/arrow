@@ -1900,7 +1900,7 @@ class ResidualFilterCaseRunner {
 
   void Run(JoinType join_type, std::vector<FieldRef> left_keys,
            std::vector<FieldRef> right_keys, Expression filter,
-           std::vector<ExecBatch> expected) const {
+           const std::vector<ExecBatch>& expected) const {
     RunInternal(HashJoinNodeOptions{join_type, std::move(left_keys),
                                     std::move(right_keys), std::move(filter)},
                 expected);
