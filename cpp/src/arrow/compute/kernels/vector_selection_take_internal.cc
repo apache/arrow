@@ -703,7 +703,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // Case 0: No indices were provided, nothing to take so return an empty chunked array
     return ChunkedArray::MakeEmpty(values.type());
   } else if (num_chunks < 2) {
-      std::shared_ptr<Array> current_chunk;
+    std::shared_ptr<Array> current_chunk;
     // Case 1: `values` is empty or has a single chunk, so just use it
     if (values.chunks().empty()) {
       ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
@@ -725,7 +725,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     Int64Builder builder;
     std::vector<std::shared_ptr<arrow::Array>> new_chunks;
     new_chunks.reserve(num_chunks);  // Reserve at least as many chunks as the data has.
-    const void *indices_raw_data;  // Use Raw data to avoid invoking .Value() on indices
+    const void* indices_raw_data;    // Use Raw data to avoid invoking .Value() on indices
     auto indices_type_id = indices.type()->id();
 
     switch (indices_type_id) {
@@ -750,8 +750,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
         break;
     }
 
-    for (int64_t requested_index = 0; requested_index < num_indices;
-         ++requested_index) {
+    for (int64_t requested_index = 0; requested_index < num_indices; ++requested_index) {
       uint64_t index;
       switch (indices_type_id) {
         case Type::UINT8:
