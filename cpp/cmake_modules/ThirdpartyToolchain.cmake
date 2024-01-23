@@ -1005,13 +1005,8 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Args for external projects using make
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
-  # Prevent 'bad file descriptor' error see #39517 #39628
-  set(MAKE_BUILD_ARGS "-j1")
-else()
-  set(MAKE_BUILD_ARGS "-j${NPROC}")
-endif()
+# Args for external projects using make.
+set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
 set(FC_DECLARE_COMMON_OPTIONS)
@@ -2639,7 +2634,7 @@ macro(build_bzip2)
                       BUILD_IN_SOURCE 1
                       BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS}
                                     ${BZIP2_EXTRA_ARGS}
-                      INSTALL_COMMAND ${MAKE} install -j1 PREFIX=${BZIP2_PREFIX}
+                      INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
                       URL ${ARROW_BZIP2_SOURCE_URL}
