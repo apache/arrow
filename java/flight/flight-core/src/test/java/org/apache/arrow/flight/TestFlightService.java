@@ -155,9 +155,7 @@ public class TestFlightService {
       Exception e = Assertions.assertThrows(
           FlightRuntimeException.class,
           () -> client.getSchema(FlightDescriptor.path("test")));
-      String expectedMessage = "org.apache.arrow.flight.FlightRuntimeException: INVALID_ARGUMENT:" +
-              " No schema is present in FlightInfo";
-      Assertions.assertEquals(expectedMessage, e.getMessage());
+      Assertions.assertEquals("No schema is present in FlightInfo", e.getMessage());
     }
   }
 }

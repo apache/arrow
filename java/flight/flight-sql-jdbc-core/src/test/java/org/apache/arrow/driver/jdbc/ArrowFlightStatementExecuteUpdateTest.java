@@ -207,12 +207,9 @@ public class ArrowFlightStatementExecuteUpdateTest {
        * we simply throw an `IllegalArgumentException` for queries not registered
        * in our `MockFlightSqlProducer`.
        */
-      String expectedMessage = format("Error while executing SQL \"%s\": " +
-          "org.apache.arrow.flight.FlightRuntimeException: INVALID_ARGUMENT: Query not found",
-          badQuery);
       collector.checkThat(
           e.getMessage(),
-          is(expectedMessage));
+          is(format("Error while executing SQL \"%s\": Query not found", badQuery)));
     }
     collector.checkThat(count, is(1));
   }
