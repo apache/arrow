@@ -596,8 +596,7 @@ TEST(ExecPlanExecution, SourceOrderBy) {
   std::vector<ExecBatch> expected = {
       ExecBatchFromJSON({int32(), boolean()}, "[[4, false]]"),
       ExecBatchFromJSON({int32(), boolean()}, "[[5, null], [6, false], [7, false]]"),
-      ExecBatchFromJSON({int32(), boolean()}, "[[null, true]]")
-  };
+      ExecBatchFromJSON({int32(), boolean()}, "[[null, true]]")};
 
   for (bool slow : {false, true}) {
     SCOPED_TRACE(slow ? "slowed" : "unslowed");

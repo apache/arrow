@@ -720,8 +720,11 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // We have to do this because the indices are not necessarily sorted.
     // So we can't simply iterate over chunks and pick the slices we need.
     ChunkResolver index_resolver(values.chunks());
-    std::vector<ChunkLocation> locations;
-    locations.reserve(indices.length());
+    int current_chunk = -1;
+    Int64Builder builder;
+    std::vector<std::shared_ptr<arrow::Array>> new_chunks;
+    new_chunks.reserve(num_chunks);  // Reserve at least as many chunks as the data has.
+
     for (int64_t requested_index = 0; requested_index < indices.length();
          ++requested_index) {
       uint64_t index;
@@ -747,36 +750,34 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
           break;
       }
 
-      ChunkLocation resolved_index;
-      for (int64_t requested_index = 0; requested_index < indices.length();
-           ++requested_index) {
-        resolved_index = index_resolver.Resolve(index);
-      }
-      if (resolved_index.chunk_index < 0) {
+      ChunkLocation resolved_index = index_resolver.Resolve(index);
+      int64_t chunk_index = resolved_index.chunk_index;
+      if (chunk_index < 0) {
         // ChunkResolver doesn't throw errors when the index is out of bounds
         // it will just return a chunk index that doesn't exist.
         return Status::IndexError("Index ", index, " is out of bounds");
       }
-      locations.push_back(resolved_index);
-    }
+      if (current_chunk == -1) {
+        current_chunk = chunk_index;
+      }
 
-    std::vector<std::shared_ptr<arrow::Array>> new_chunks;
-    int current_chunk = static_cast<int>(locations[0].chunk_index);
-    Int64Builder builder;
-    for (ChunkLocation location : locations) {
-      // We know we can safely cast to int because we verified that it's < num_chunks
-      // and num_chunks is an int. So the value is smaller than MAX_INT for sure.
-      int chunk_index = static_cast<int>(location.chunk_index);
       if (chunk_index != current_chunk) {
-        ARROW_ASSIGN_OR_RAISE(auto indices_array, builder.Finish());
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                              TakeAA(values.chunk(current_chunk)->data(),
-                                     indices_array->data(), options, ctx));
+        std::shared_ptr<ArrayData> new_chunk;
+        std::shared_ptr<Int64Array> indices_array;
+        ARROW_RETURN_NOT_OK(builder.Finish(&indices_array));
+        if (indices_array->length() == 1) {
+          // Fast path, asking for only one element in this chunk, just slice the array
+          new_chunk =
+              values.chunk(current_chunk)->data()->Slice(indices_array->Value(0), 1);
+        } else {
+          ARROW_ASSIGN_OR_RAISE(new_chunk, TakeAA(values.chunk(current_chunk)->data(),
+                                                  indices_array->data(), options, ctx));
+        }
         new_chunks.push_back(MakeArray(new_chunk));
         current_chunk = chunk_index;
         builder.Reset();
       }
-      ARROW_RETURN_NOT_OK(builder.Append(location.index_in_chunk));
+      ARROW_RETURN_NOT_OK(builder.Append(resolved_index.index_in_chunk));
     }
     ARROW_ASSIGN_OR_RAISE(auto indices_array, builder.Finish());
     if (indices_array->length() > 0) {
