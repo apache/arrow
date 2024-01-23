@@ -224,14 +224,8 @@
         <module name="JavadocMethod">
             <property name="scope" value="public"/>
             <property name="allowMissingParamTags" value="true"/>
-<!--            <property name="allowMissingThrowsTags" value="true"/>-->
             <property name="allowMissingReturnTag" value="true"/>
-<!--            <property name="minLineCount" value="2"/>-->
             <property name="allowedAnnotations" value="Override, Test"/>
-<!--            <property name="allowThrowsTagsForSubclasses" value="true"/>-->
-            <!-- This seems partially broken under JDK >= 9. -->
-<!--            <property name="suppressLoadErrors" value="true"/>-->
-<!--            <property name="ignoreMethodNamesRegex" value="main"/>-->
         </module>
         <module name="JavadocType">
             <property name="scope" value="public"/>
