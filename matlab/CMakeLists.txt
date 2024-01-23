@@ -135,7 +135,7 @@ endif()
 if(WIN32)
   string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
   if(CMAKE_BUILD_TYPE_UPPER STREQUAL DEBUG)
-    message(FATAL_ERROR "You can't build this with Debug because MATLAB is built with Release. You must use Release")
+    message(FATAL_ERROR "Building the MATLAB interface in Debug mode is not supported.")
   endif()
 endif()
 
