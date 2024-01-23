@@ -4302,6 +4302,16 @@ TEST_F(TestDeviceArrayRoundtrip, Primitive) {
   TestWithJSON(mm, int32(), "[4, 5, null]");
 }
 
+TEST_F(TestDeviceArrayRoundtrip, Struct) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+  auto type = struct_({field("ints", int16()), field("strs", utf8())});
+
+  TestWithJSON(mm, type, "[]");
+  TestWithJSON(mm, type, R"([[4, "foo"], [5, "bar"]])");
+  TestWithJSON(mm, type, R"([[4, null], null, [5, "foo"]])");
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Array stream export tests
 

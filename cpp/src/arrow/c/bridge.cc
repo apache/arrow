@@ -1537,6 +1537,8 @@ struct ArrayImporter {
     if (recursion_level_ >= kMaxImportRecursionLevel) {
       return Status::Invalid("Recursion level in ArrowArray struct exceeded");
     }
+    device_type_ = parent->device_type_;
+    memory_mgr_ = parent->memory_mgr_;
     // Child buffers will keep the entire parent import alive.
     // Perhaps we can move the child structs to an owned area
     // when the parent ImportedArrayData::Release() gets called,
@@ -1851,10 +1853,25 @@ struct ArrayImporter {
   template <typename OffsetType>
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
-    auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
+    if (device_type_ == DeviceAllocationType::kCPU) {
+      auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
+      // Compute visible size of buffer
+      int64_t buffer_size =
+          (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
+      return ImportBuffer(buffer_id, buffer_size);
+    }
+
+    // we only need the value of the last offset so let's just copy that
+    // one value from device to host.
+    auto single_value_buf =
+        SliceBuffer(data_->buffers[offsets_buffer_id],
+                    c_struct_->length * sizeof(OffsetType), sizeof(OffsetType));
+    ARROW_ASSIGN_OR_RAISE(
+        auto cpubuf, Buffer::ViewOrCopy(single_value_buf, default_cpu_memory_manager()));
+    auto offsets = cpubuf->data_as<OffsetType>();
     // Compute visible size of buffer
-    int64_t buffer_size =
-        (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
+    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * offsets[0] : 0;
+
     return ImportBuffer(buffer_id, buffer_size);
   }
 
