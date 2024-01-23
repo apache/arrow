@@ -198,6 +198,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     if release_type == :major
       expected_changes += [
         {
+          path: "docs/source/index.rst",
+          hunks: [
+            "-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}>",
+            "+   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}>",
+          ],
+        },
+        {
           path: "r/pkgdown/assets/versions.json",
           hunks: [
             [
@@ -210,6 +217,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
               "+        \"version\": \"#{@previous_compatible_version}/\"",
               "+    },",
             ],
+          ],
+        },
+        {
+          path: "r/_pkgdown.yml",
+          hunks: [
+            "-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}) <br>",
+            "+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}) <br>",
           ],
         },
       ]
