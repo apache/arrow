@@ -89,6 +89,9 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
 
+echo "Maven Version"
+echo $(mvn -v)
+
 ${mvn} install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
