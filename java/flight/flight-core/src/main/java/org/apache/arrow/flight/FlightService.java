@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
@@ -142,7 +143,7 @@ class FlightService extends FlightServiceImplBase {
   }
 
   private static class GetListener extends OutboundStreamListenerImpl implements ServerStreamListener {
-    private ServerCallStreamObserver<ArrowMessage> responseObserver;
+    private final ServerCallStreamObserver<ArrowMessage> serverCallResponseObserver;
     private final Consumer<Throwable> errorHandler;
     private Runnable onCancelHandler = null;
     private Runnable onReadyHandler = null;
@@ -152,10 +153,10 @@ class FlightService extends FlightServiceImplBase {
       super(null, responseObserver);
       this.errorHandler = errorHandler;
       this.completed = false;
-      this.responseObserver = responseObserver;
-      this.responseObserver.setOnCancelHandler(this::onCancel);
-      this.responseObserver.setOnReadyHandler(this::onReady);
-      this.responseObserver.disableAutoInboundFlowControl();
+      this.serverCallResponseObserver = responseObserver;
+      this.serverCallResponseObserver.setOnCancelHandler(this::onCancel);
+      this.serverCallResponseObserver.setOnReadyHandler(this::onReady);
+      this.serverCallResponseObserver.disableAutoInboundFlowControl();
     }
 
     private void onCancel() {
@@ -183,7 +184,7 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public boolean isCancelled() {
-      return responseObserver.isCancelled();
+      return serverCallResponseObserver.isCancelled();
     }
 
     @Override
@@ -228,7 +229,7 @@ class FlightService extends FlightServiceImplBase {
     // When the ackStream is completed, the FlightStream will be closed with it
     ackStream.setAutoCloseable(fs);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
-    executors.submit(() -> {
+    Future<?> unused = executors.submit(() -> {
       try {
         producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
       } catch (Throwable ex) {
@@ -277,7 +278,8 @@ class FlightService extends FlightServiceImplBase {
    * Broadcast the given exception to all registered middleware.
    */
   private void handleExceptionWithMiddleware(Throwable t) {
-    final Map<Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
+    final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter
+            .SERVER_MIDDLEWARE_KEY.get();
     if (middleware == null || middleware.isEmpty()) {
       logger.error("Uncaught exception in Flight method body", t);
       return;
@@ -377,7 +379,7 @@ class FlightService extends FlightServiceImplBase {
     responseObserver.request(1);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
     try {
-      executors.submit(() -> {
+      Future<?> unused = executors.submit(() -> {
         try {
           producer.doExchange(makeContext(responseObserver), fs, listener);
         } catch (Exception ex) {
@@ -416,8 +418,9 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public <T extends FlightServerMiddleware> T getMiddleware(Key<T> key) {
-      final Map<Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
+    public <T extends FlightServerMiddleware> T getMiddleware(FlightServerMiddleware.Key<T> key) {
+      final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter
+              .SERVER_MIDDLEWARE_KEY.get();
       if (middleware == null) {
         return null;
       }
@@ -430,8 +433,9 @@ class FlightService extends FlightServiceImplBase {
     }
 
     @Override
-    public Map<Key<?>, FlightServerMiddleware> getMiddleware() {
-      final Map<Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
+    public Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> getMiddleware() {
+      final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware =
+          ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
       if (middleware == null) {
         return Collections.emptyMap();
       }

@@ -176,7 +176,7 @@ public class TestFlightGrpcUtils {
   /**
    * Private class used for testing purposes that overrides service behavior.
    */
-  private class TestServiceAdapter extends TestServiceGrpc.TestServiceImplBase {
+  private static class TestServiceAdapter extends TestServiceGrpc.TestServiceImplBase {
 
     /**
      * gRPC service that receives an empty object & returns and empty protobuf object.

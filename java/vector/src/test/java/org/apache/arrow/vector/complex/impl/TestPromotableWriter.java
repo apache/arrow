@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -413,8 +415,8 @@ public class TestPromotableWriter {
       writer.end();
 
       final LargeVarCharVector uv = v.getChild("c", LargeVarCharVector.class);
-      assertEquals("foo", uv.getObject(0).toString());
-      assertEquals("foo2", uv.getObject(1).toString());
+      assertEquals("foo", Objects.requireNonNull(uv.getObject(0)).toString());
+      assertEquals("foo2", Objects.requireNonNull(uv.getObject(1)).toString());
     }
   }
 
@@ -433,8 +435,8 @@ public class TestPromotableWriter {
       writer.end();
 
       final VarCharVector uv = v.getChild("c", VarCharVector.class);
-      assertEquals("foo", uv.getObject(0).toString());
-      assertEquals("foo2", uv.getObject(1).toString());
+      assertEquals("foo", Objects.requireNonNull(uv.getObject(0)).toString());
+      assertEquals("foo2", Objects.requireNonNull(uv.getObject(1)).toString());
     }
   }
 
@@ -455,8 +457,8 @@ public class TestPromotableWriter {
       // The "test" vector in the parent container should have been replaced with a UnionVector.
       UnionVector promotedVector = container.getChild("test", UnionVector.class);
       VarCharVector vector = promotedVector.getVarCharVector();
-      assertEquals("foo", vector.getObject(0).toString());
-      assertEquals("foo2", vector.getObject(1).toString());
+      assertEquals("foo", Objects.requireNonNull(vector.getObject(0)).toString());
+      assertEquals("foo2", Objects.requireNonNull(vector.getObject(1)).toString());
     }
   }
 
@@ -477,8 +479,8 @@ public class TestPromotableWriter {
       // The "test" vector in the parent container should have been replaced with a UnionVector.
       UnionVector promotedVector = container.getChild("test", UnionVector.class);
       LargeVarCharVector vector = promotedVector.getLargeVarCharVector();
-      assertEquals("foo", vector.getObject(0).toString());
-      assertEquals("foo2", vector.getObject(1).toString());
+      assertEquals("foo", Objects.requireNonNull(vector.getObject(0)).toString());
+      assertEquals("foo2", Objects.requireNonNull(vector.getObject(1)).toString());
     }
   }
 
@@ -491,20 +493,22 @@ public class TestPromotableWriter {
 
       writer.start();
       writer.setPosition(0);
-      writer.varBinary("c").writeVarBinary("row1".getBytes());
+      writer.varBinary("c").writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.varBinary("c").writeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.varBinary("c").writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+          "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       final VarBinaryVector uv = v.getChild("c", VarBinaryVector.class);
-      assertEquals("row1", new String(uv.get(0)));
-      assertEquals("row2", new String(uv.get(1)));
-      assertEquals("row3", new String(uv.get(2)));
-      assertEquals("row4", new String(uv.get(3)));
+      assertEquals("row1", new String(Objects.requireNonNull(uv.get(0)), StandardCharsets.UTF_8));
+      assertEquals("row2", new String(Objects.requireNonNull(uv.get(1)), StandardCharsets.UTF_8));
+      assertEquals("row3", new String(Objects.requireNonNull(uv.get(2)), StandardCharsets.UTF_8));
+      assertEquals("row4", new String(Objects.requireNonNull(uv.get(3)), StandardCharsets.UTF_8));
     }
   }
 
@@ -517,22 +521,24 @@ public class TestPromotableWriter {
 
       writer.start();
       writer.setPosition(0);
-      writer.writeVarBinary("row1".getBytes());
+      writer.writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.writeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+          "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.writeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.writeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       // The "test" vector in the parent container should have been replaced with a UnionVector.
       UnionVector promotedVector = container.getChild("test", UnionVector.class);
       VarBinaryVector uv = promotedVector.getVarBinaryVector();
-      assertEquals("row1", new String(uv.get(0)));
-      assertEquals("row2", new String(uv.get(1)));
-      assertEquals("row3", new String(uv.get(2)));
-      assertEquals("row4", new String(uv.get(3)));
+      assertEquals("row1", new String(Objects.requireNonNull(uv.get(0)), StandardCharsets.UTF_8));
+      assertEquals("row2", new String(Objects.requireNonNull(uv.get(1)), StandardCharsets.UTF_8));
+      assertEquals("row3", new String(Objects.requireNonNull(uv.get(2)), StandardCharsets.UTF_8));
+      assertEquals("row4", new String(Objects.requireNonNull(uv.get(3)), StandardCharsets.UTF_8));
     }
   }
 
@@ -545,20 +551,22 @@ public class TestPromotableWriter {
 
       writer.start();
       writer.setPosition(0);
-      writer.largeVarBinary("c").writeLargeVarBinary("row1".getBytes());
+      writer.largeVarBinary("c").writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+          "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       final LargeVarBinaryVector uv = v.getChild("c", LargeVarBinaryVector.class);
-      assertEquals("row1", new String(uv.get(0)));
-      assertEquals("row2", new String(uv.get(1)));
-      assertEquals("row3", new String(uv.get(2)));
-      assertEquals("row4", new String(uv.get(3)));
+      assertEquals("row1", new String(Objects.requireNonNull(uv.get(0)), StandardCharsets.UTF_8));
+      assertEquals("row2", new String(Objects.requireNonNull(uv.get(1)), StandardCharsets.UTF_8));
+      assertEquals("row3", new String(Objects.requireNonNull(uv.get(2)), StandardCharsets.UTF_8));
+      assertEquals("row4", new String(Objects.requireNonNull(uv.get(3)), StandardCharsets.UTF_8));
     }
   }
 
@@ -571,22 +579,24 @@ public class TestPromotableWriter {
 
       writer.start();
       writer.setPosition(0);
-      writer.writeLargeVarBinary("row1".getBytes());
+      writer.writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+          "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       // The "test" vector in the parent container should have been replaced with a UnionVector.
       UnionVector promotedVector = container.getChild("test", UnionVector.class);
       LargeVarBinaryVector uv = promotedVector.getLargeVarBinaryVector();
-      assertEquals("row1", new String(uv.get(0)));
-      assertEquals("row2", new String(uv.get(1)));
-      assertEquals("row3", new String(uv.get(2)));
-      assertEquals("row4", new String(uv.get(3)));
+      assertEquals("row1", new String(Objects.requireNonNull(uv.get(0)), StandardCharsets.UTF_8));
+      assertEquals("row2", new String(Objects.requireNonNull(uv.get(1)), StandardCharsets.UTF_8));
+      assertEquals("row3", new String(Objects.requireNonNull(uv.get(2)), StandardCharsets.UTF_8));
+      assertEquals("row4", new String(Objects.requireNonNull(uv.get(3)), StandardCharsets.UTF_8));
     }
   }
 }

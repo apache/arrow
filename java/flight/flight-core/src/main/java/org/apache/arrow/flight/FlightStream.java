@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -56,9 +57,17 @@ import io.grpc.stub.StreamObserver;
  */
 public class FlightStream implements AutoCloseable {
   // Use AutoCloseable sentinel objects to simplify logic in #close
-  private final AutoCloseable DONE = () -> {
+  private final AutoCloseable DONE = new AutoCloseable() {
+    @Override
+    public void close() throws Exception {
+
+    }
   };
-  private final AutoCloseable DONE_EX = () -> {
+  private final AutoCloseable DONE_EX = new AutoCloseable() {
+    @Override
+    public void close() throws Exception {
+
+    }
   };
 
   private final BufferAllocator allocator;
@@ -76,7 +85,7 @@ public class FlightStream implements AutoCloseable {
   // we don't block forever trying to write to a server that has rejected a call.
   final CompletableFuture<Void> cancelled;
 
-  private volatile int pending = 1;
+  private final AtomicInteger pending = new AtomicInteger();
   private volatile VectorSchemaRoot fulfilledRoot;
   private DictionaryProvider.MapDictionaryProvider dictionaries;
   private volatile VectorLoader loader;
@@ -169,6 +178,7 @@ public class FlightStream implements AutoCloseable {
    *
    * <p>If the stream isn't complete and is cancellable, this method will cancel and drain the stream first.
    */
+  @Override
   public void close() throws Exception {
     final List<AutoCloseable> closeables = new ArrayList<>();
     Throwable suppressor = null;
@@ -227,7 +237,7 @@ public class FlightStream implements AutoCloseable {
         return false;
       }
 
-      pending--;
+      pending.decrementAndGet();
       requestOutstanding();
 
       Object data = queue.take();
@@ -359,9 +369,9 @@ public class FlightStream implements AutoCloseable {
   }
 
   private synchronized void requestOutstanding() {
-    if (pending < pendingTarget) {
-      requestor.request(pendingTarget - pending);
-      pending = pendingTarget;
+    if (pending.get() < pendingTarget) {
+      requestor.request(pendingTarget - pending.get());
+      pending.set(pendingTarget);
     }
   }
 
