@@ -2134,6 +2134,7 @@ namespace {
 class ArrayStreamReader {
  public:
   explicit ArrayStreamReader(struct ArrowArrayStream* stream) {
+    ArrowArrayStreamMarkReleased(&stream_);
     ArrowArrayStreamMove(stream, &stream_);
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
@@ -2217,6 +2218,7 @@ class ArrayStreamReader {
 class ArrayStreamBatchReader : public RecordBatchReader {
  public:
   explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) {
+    ArrowArrayStreamMarkReleased(&stream_);
     ArrowArrayStreamMove(stream, &stream_);
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
