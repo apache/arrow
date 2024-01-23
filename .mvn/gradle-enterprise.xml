@@ -38,9 +38,6 @@
         </obfuscation>
     </buildScan>
     <buildCache>
-        <local>
-            <enabled>#{isFalse(env['CI'])}</enabled>
-        </local>
         <remote>
             <enabled>false</enabled>
         </remote>
