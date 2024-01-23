@@ -84,6 +84,12 @@ if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
 fi
+# Update DOCUMENTATION_OPTIONS.theme_switcher_version_match and
+# DOCUMENTATION_OPTIONS.show_version_warning_banner
+cd docs/${previous_version}
+find ./ -type f -exec sed -i "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_version}';/g" {} \;
+find ./ -type f -exec sed -i "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" {} \;
+cd ../..
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
 git clean -d -f -x
