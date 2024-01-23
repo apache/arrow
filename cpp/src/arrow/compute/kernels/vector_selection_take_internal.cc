@@ -697,12 +697,12 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                                              const TakeOptions& options,
                                              ExecContext* ctx) {
   auto num_chunks = values.num_chunks();
-  std::shared_ptr<Array> current_chunk;
 
   if (indices.length() == 0) {
     // Case 0: No indices were provided, nothing to take so return an empty chunked array
     return ChunkedArray::MakeEmpty(values.type());
   } else if (num_chunks < 2) {
+      std::shared_ptr<Array> current_chunk;
     // Case 1: `values` is empty or has a single chunk, so just use it
     if (values.chunks().empty()) {
       ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
@@ -720,7 +720,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // We have to do this because the indices are not necessarily sorted.
     // So we can't simply iterate over chunks and pick the slices we need.
     ChunkResolver index_resolver(values.chunks());
-    int current_chunk = -1;
+    int64_t current_chunk = -1;
     Int64Builder builder;
     std::vector<std::shared_ptr<arrow::Array>> new_chunks;
     new_chunks.reserve(num_chunks);  // Reserve at least as many chunks as the data has.
