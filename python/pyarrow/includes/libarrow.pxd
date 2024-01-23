@@ -343,6 +343,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CResult[unique_ptr[CResizableBuffer]] AllocateResizableBuffer(
         const int64_t size, CMemoryPool* pool)
 
+    cdef cppclass CSyncEvent" arrow::Device::SyncEvent":
+        pass
+
+    cdef cppclass CDevice" arrow::Device":
+        pass
+
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
     cdef CMemoryPool* c_system_memory_pool" arrow::system_memory_pool"()
     cdef CStatus c_jemalloc_memory_pool" arrow::jemalloc_memory_pool"(
@@ -2811,6 +2817,9 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    cdef struct ArrowDeviceArray:
+        pass
+
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
@@ -2840,6 +2849,8 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
 
+    CStatus ExportDeviceArray(const CArray&, shared_ptr[CSyncEvent],
+                              ArrowDeviceArray* out, ArrowSchema*)
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     CResult[int64_t] ReferencedBufferSize(const CArray& array_data)
