@@ -14,7 +14,7 @@
   <parent>
     <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>15.0.0-SNAPSHOT</version>
+    <version>16.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -95,6 +95,11 @@
       <artifactId>grpc-services</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-inprocess</artifactId>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -108,6 +113,10 @@
       <groupId>javax.annotation</groupId>
       <artifactId>javax.annotation-api</artifactId>
      </dependency>
+    <dependency>
+      <groupId>org.immutables</groupId>
+      <artifactId>value</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>com.google.api.grpc</groupId>
@@ -305,4 +314,32 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+        <property>
+          <name>!m2e.version</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration combine.self="override">
+              <argLine>--add-opens=org.apache.arrow.flight.core/org.apache.arrow.flight.perf.impl=protobuf.java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
+              <enableAssertions>false</enableAssertions>
+              <systemPropertyVariables>
+                <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>

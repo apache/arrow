@@ -19,8 +19,6 @@ package org.apache.arrow.c;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.StructVectorLoader;
-import org.apache.arrow.vector.StructVectorUnloader;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;

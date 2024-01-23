@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>15.0.0-SNAPSHOT</version>
+    <version>16.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-compression</artifactId>
   <name>Arrow Compression</name>
@@ -34,6 +34,10 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-unsafe</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.immutables</groupId>
+      <artifactId>value</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>

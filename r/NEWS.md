@@ -17,7 +17,9 @@
   under the License.
 -->
 
-# arrow 14.0.2.9000
+# arrow 15.0.0.9000
+
+# arrow 15.0.0
 
 ##  New features
 
@@ -32,7 +34,7 @@
 
 ##  Minor improvements and fixes
 
-* Don't download cmake when TEST_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
+* Don't download cmake when ARROW_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
 * Fallback to source build gracefully if binary download fails (#39587).
 * An error is now thrown instead of warning and pulling the data into R when any
   of `sub`, `gsub`, `stringr::str_replace`, `stringr::str_replace_all` are
