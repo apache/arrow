@@ -193,8 +193,12 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
   if (!from->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
   if (buf->device_type() != DeviceAllocationType::kCPU) {
-    return std::make_shared<Buffer>(buf->address(), buf->size(), shared_from_this());
+    return std::make_shared<Buffer>(buf->address(), buf->size(), shared_from_this(), buf);
   }
   return buf;
 }
@@ -221,8 +225,12 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
   if (!to->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
   if (buf->device_type() != DeviceAllocationType::kCPU) {
-    return std::make_shared<Buffer>(buf->address(), buf->size(), to);
+    return std::make_shared<Buffer>(buf->address(), buf->size(), to, buf);
   }
   return buf;
 }
