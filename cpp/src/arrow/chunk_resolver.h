@@ -61,11 +61,12 @@ struct ARROW_EXPORT ChunkResolver {
   explicit ChunkResolver(const RecordBatchVector& batches);
 
   ChunkResolver(ChunkResolver&& other) noexcept
-      : offsets_(std::move(other.offsets_)), cached_chunk_(other.cached_chunk_.load()) {}
+      : offsets_(std::move(other.offsets_)),
+        cached_chunk_(other.cached_chunk_.load(std::memory_order_relaxed)) {}
 
   ChunkResolver& operator=(ChunkResolver&& other) {
     offsets_ = std::move(other.offsets_);
-    cached_chunk_.store(other.cached_chunk_.load());
+    cached_chunk_.store(other.cached_chunk_.load(std::memory_order_relaxed));
     return *this;
   }
 
@@ -91,7 +92,7 @@ struct ARROW_EXPORT ChunkResolver {
     if (offsets_.size() <= 1) {
       return {0, index};
     }
-    const auto cached_chunk = cached_chunk_.load();
+    const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     // XXX: the access below is unsafe because cached_chunk+1 can be out-of-bounds
     const bool cache_hit =
         (index >= offsets_[cached_chunk] && index < offsets_[cached_chunk + 1]);
@@ -100,7 +101,7 @@ struct ARROW_EXPORT ChunkResolver {
     }
     auto chunk_index = Bisect(index);
     assert(chunk_index < static_cast<int64_t>(offsets_.size()));
-    cached_chunk_.store(chunk_index);
+    cached_chunk_.store(chunk_index, std::memory_order_relaxed);
     return {chunk_index, index - offsets_[chunk_index]};
   }
 
