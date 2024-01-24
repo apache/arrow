@@ -252,5 +252,30 @@ TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
+TEST(VectorHash, TailByteSafety) {
+  constexpr int mini_batch_size = 1024;
+  std::vector<uint32_t> temp_buffer;
+  temp_buffer.resize(mini_batch_size * 4);
+  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+  for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    const auto hardware_flags = hardware_flags_for_testing[i];
+    constexpr auto fixed_length = 5;
+    FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
+    for (int j = 0; j < 883; ++j) {
+      ASSERT_OK(builder.Append("12345"));
+    }
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_EQ(array->data()->buffers[1]->capacity(), 4416);
+    constexpr auto offset = 858;
+    constexpr auto num_rows = 25;
+    std::vector<uint32_t> hashes32(num_rows);
+    Hashing32::HashFixed(hardware_flags,
+                         /*combine_hashes=*/false, num_rows, fixed_length,
+                         array->data()->GetValues<uint8_t>(1) + offset * fixed_length,
+                         hashes32.data(), temp_buffer.data());
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
