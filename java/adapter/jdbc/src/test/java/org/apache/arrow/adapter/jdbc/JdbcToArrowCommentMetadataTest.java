@@ -19,9 +19,6 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -34,7 +31,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.apache.arrow.memory.RootAllocator;
@@ -227,10 +223,5 @@ public class JdbcToArrowCommentMetadataTest {
       }
     }
     return null;
-  }
-
-  private String getExpectedSchema(String expectedResource) throws java.io.IOException, java.net.URISyntaxException {
-    return new String(Files.readAllBytes(Paths.get(Objects.requireNonNull(
-            JdbcToArrowCommentMetadataTest.class.getResource(expectedResource)).toURI())), StandardCharsets.UTF_8);
   }
 }

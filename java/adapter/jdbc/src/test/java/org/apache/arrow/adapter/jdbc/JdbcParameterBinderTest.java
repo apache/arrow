@@ -109,8 +109,8 @@ public class JdbcParameterBinderTest {
          final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final JdbcParameterBinder binder =
           JdbcParameterBinder.builder(statement, root)
-              .bind(/*paramIndex=*/ 1, /*colIndex=*/ 2)
-              .bind(/*paramIndex=*/ 2, /*colIndex=*/ 0)
+              .bind(/*parameterIndex=*/ 1, /*columnIndex=*/ 2)
+              .bind(/*parameterIndex=*/ 2, /*columnIndex=*/ 0)
               .build();
       assertThat(binder.next()).isFalse();
 
@@ -169,7 +169,7 @@ public class JdbcParameterBinderTest {
       final JdbcParameterBinder binder =
           JdbcParameterBinder.builder(statement, root)
               .bind(
-                  /*paramIndex=*/ 1,
+                  /*parameterIndex=*/ 1,
                   new ColumnBinder() {
                     private final IntVector vector = (IntVector) root.getVector(0);
                     @Override
@@ -275,11 +275,11 @@ public class JdbcParameterBinderTest {
   @Test
   void time64() throws SQLException {
     testSimpleType(new ArrowType.Time(TimeUnit.MICROSECOND, 64), Types.TIME,
-        (valueVectors, index, value) -> valueVectors.setSafe(index, (int) (value.getTime() * 1_000)),
+        (valueVectors, index, value) -> valueVectors.setSafe(index, (value.getTime() * 1_000)),
         TimeMicroVector::setNull,
         Arrays.asList(new Time(-128_000), new Time(104_000), new Time(-42_000)));
     testSimpleType(new ArrowType.Time(TimeUnit.NANOSECOND, 64), Types.TIME,
-        (valueVectors, index, value) -> valueVectors.setSafe(index, (int) (value.getTime() * 1_000_000)),
+        (valueVectors, index, value) -> valueVectors.setSafe(index, (value.getTime() * 1_000_000)),
         TimeNanoVector::setNull,
         Arrays.asList(new Time(-128), new Time(104), new Time(-42)));
   }

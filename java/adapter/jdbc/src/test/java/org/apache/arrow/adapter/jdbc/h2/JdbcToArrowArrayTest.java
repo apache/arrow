@@ -22,6 +22,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -284,7 +285,7 @@ public class JdbcToArrowArrayTest {
       assertEquals(1, listVector.isSet(row));
       assertEquals(expectedValues[row].length, offset - prevOffset);
       for (int i = prevOffset; i < offset; ++i) {
-        assertArrayEquals(expectedValues[row][i - prevOffset].getBytes(), vector.get(i));
+        assertArrayEquals(expectedValues[row][i - prevOffset].getBytes(StandardCharsets.UTF_8), vector.get(i));
       }
 
       prevOffset = offset;
