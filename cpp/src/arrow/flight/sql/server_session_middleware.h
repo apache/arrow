@@ -55,6 +55,9 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSession {
 };
 
 /// \brief A middleware to handle session option persistence and related cookie headers.
+///
+/// WARNING that client cookie invalidation does not currently work due to a gRPC
+/// transport bug.
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware {
  public:
   static constexpr char const kMiddlewareName[] =
