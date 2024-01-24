@@ -493,7 +493,7 @@ BENCHMARK(BM_HashJoinBasic_NullPercentage)
     ->ArgNames({"Null Percentage"})
     ->DenseRange(0, 100, 10);
 
-std::string use_basic_argname = "Use basic";
+const char* use_basic_argname = "Use basic";
 std::vector<int64_t> use_basic_arg = benchmark::CreateDenseRange(0, 1, 1);
 
 std::vector<std::string> trivial_residual_filter_argnames = {use_basic_argname};
