@@ -253,6 +253,12 @@ TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
 TEST(VectorHash, TailByteSafety) {
+  constexpr auto num_rows_total = 883;
+  constexpr auto fixed_length = 5;
+  constexpr auto num_bytes_aligned = 4416;
+  constexpr auto offset = 858;   // 860
+  constexpr auto num_rows = 25;  // 23
+
   constexpr int mini_batch_size = 1024;
   std::vector<uint32_t> temp_buffer;
   temp_buffer.resize(mini_batch_size * 4);
@@ -260,15 +266,40 @@ TEST(VectorHash, TailByteSafety) {
   ASSERT_GT(hardware_flags_for_testing.size(), 0);
   for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
     const auto hardware_flags = hardware_flags_for_testing[i];
-    constexpr auto fixed_length = 5;
     FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
-    for (int j = 0; j < 883; ++j) {
+    for (int j = 0; j < num_rows_total; ++j) {
       ASSERT_OK(builder.Append("12345"));
     }
     ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-    ASSERT_EQ(array->data()->buffers[1]->capacity(), 4416);
-    constexpr auto offset = 858;
-    constexpr auto num_rows = 25;
+    ASSERT_EQ(array->data()->buffers[1]->capacity(), num_bytes_aligned);
+    std::vector<uint32_t> hashes32(num_rows);
+    Hashing32::HashFixed(hardware_flags,
+                         /*combine_hashes=*/false, num_rows, fixed_length,
+                         array->data()->GetValues<uint8_t>(1) + offset * fixed_length,
+                         hashes32.data(), temp_buffer.data());
+  }
+}
+
+TEST(VectorHash, TailByteSafetySmall) {
+  constexpr auto num_rows_total = 1450;
+  constexpr auto fixed_length = 3;
+  constexpr auto num_bytes_aligned = 4352;
+  constexpr auto offset = 1447;
+  constexpr auto num_rows = 3;
+
+  constexpr int mini_batch_size = 1024;
+  std::vector<uint32_t> temp_buffer;
+  temp_buffer.resize(mini_batch_size * 4);
+  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+  for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    const auto hardware_flags = hardware_flags_for_testing[i];
+    FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
+    for (int j = 0; j < num_rows_total; ++j) {
+      ASSERT_OK(builder.Append("123"));
+    }
+    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+    ASSERT_EQ(array->data()->buffers[1]->capacity(), num_bytes_aligned);
     std::vector<uint32_t> hashes32(num_rows);
     Hashing32::HashFixed(hardware_flags,
                          /*combine_hashes=*/false, num_rows, fixed_length,
