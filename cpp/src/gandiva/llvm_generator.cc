@@ -1100,9 +1100,16 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+  // Switch to the entry block and load the holder pointer
+  auto builder = ir_builder();
+  llvm::BasicBlock* saved_block = builder->GetInsertBlock();
+  builder->SetInsertPoint(entry_block_);
+
+  llvm::Value* in_holder = generator_->LoadVectorAtIndex(
+      arg_holder_ptrs_, types->i64_type(), dex_instance.get_holder_idx(), "in_holder");
+
+  builder->SetInsertPoint(saved_block);
+  params.push_back(in_holder);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {
