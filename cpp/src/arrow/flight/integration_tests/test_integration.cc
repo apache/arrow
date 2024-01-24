@@ -718,7 +718,7 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
     return Status::OK();
   }
 
-  Status MakeClient(FlightClientOptions* options) override {return Status::OK(); }
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
@@ -751,19 +751,17 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
 /// setSessionOptions has a blacklisted option name and string option value,
 /// both "lol_invalid", which will result in errors attempting to set either.
 class SessionOptionsServer : public sql::FlightSqlServerBase {
-  inline const static std::string invalid_option_name = "lol_invalid";
-  inline const static SessionOptionValue invalid_option_value = "lol_invalid";
+  static inline const std::string invalid_option_name = "lol_invalid";
+  static inline const SessionOptionValue invalid_option_value = "lol_invalid";
 
   const std::string session_middleware_key;
   // These will never be threaded so using a plain map and no lock
   std::map<std::string, SessionOptionValue> session_store_;
 
  public:
-  SessionOptionsServer(std::string session_middleware_key)
+  explicit SessionOptionsServer(std::string session_middleware_key)
       : FlightSqlServerBase(),
-        session_middleware_key(std::move(session_middleware_key)) {
-    
-  }
+        session_middleware_key(std::move(session_middleware_key)) {}
 
   arrow::Result<SetSessionOptionsResult> SetSessionOptions(
       const ServerCallContext& context,
@@ -771,8 +769,9 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
     SetSessionOptionsResult res;
 
     sql::ServerSessionMiddleware* middleware =
-      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session, middleware->GetSession());
+        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session,
+                          middleware->GetSession());
 
     for (const auto& [name, value] : request.session_options) {
       // Blacklisted value name
@@ -801,11 +800,12 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
       const ServerCallContext& context,
       const GetSessionOptionsRequest& request) override {
     sql::ServerSessionMiddleware* middleware =
-      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
     if (!middleware->HasSession()) {
       return Status::Invalid("No existing session to get options from.");
     }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session, middleware->GetSession());
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session,
+                          middleware->GetSession());
 
     return GetSessionOptionsResult{session->GetSessionOptions()};
   }
@@ -814,9 +814,9 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
       const ServerCallContext& context, const CloseSessionRequest& request) override {
     // Broken (does not expire cookie) until C++ middleware SendingHeaders handling fixed.
     sql::ServerSessionMiddleware* middleware =
-      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
     ARROW_RETURN_NOT_OK(middleware->CloseSession());
-    return CloseSessionResult{ CloseSessionStatus::kClosed };
+    return CloseSessionResult{CloseSessionStatus::kClosed};
   }
 };
 
@@ -824,7 +824,7 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
 ///
 /// This tests Session Options functionality as well as ServerSessionMiddleware.
 class SessionOptionsScenario : public Scenario {
-  inline const static std::string server_middleware_key = "sessionmiddleware";
+  static inline const std::string server_middleware_key = "sessionmiddleware";
 
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
@@ -848,41 +848,47 @@ class SessionOptionsScenario : public Scenario {
     sql::FlightSqlClient client{std::move(flight_client)};
 
     // Set
-    auto req1 = SetSessionOptionsRequest{{
-      {"foolong", 123L},
-      {"bardouble", 456.0},
-      {"lol_invalid", "this won't get set"},
-      {"key_with_invalid_value", "lol_invalid"},
-      {"big_ol_string_list", std::vector<std::string>{
-        "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}
-    }};
+    auto req1 = SetSessionOptionsRequest{
+        {{"foolong", 123L},
+         {"bardouble", 456.0},
+         {"lol_invalid", "this won't get set"},
+         {"key_with_invalid_value", "lol_invalid"},
+         {"big_ol_string_list", std::vector<std::string>{"a", "b", "sea", "dee", " ",
+                                                         "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}}};
     ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
     // Some errors
-    if (!(res1.errors == std::map<std::string, SetSessionOptionsResult::Error>{
-      {"lol_invalid", SetSessionOptionsResult::Error{
-                          SetSessionOptionErrorValue::kInvalidName}},
-      {"key_with_invalid_value", SetSessionOptionsResult::Error{
-                                     SetSessionOptionErrorValue::kInvalidValue}}})) {
+    if (!(res1.errors ==
+          std::map<std::string, SetSessionOptionsResult::Error>{
+              {"lol_invalid",
+               SetSessionOptionsResult::Error{SetSessionOptionErrorValue::kInvalidName}},
+              {"key_with_invalid_value",
+               SetSessionOptionsResult::Error{
+                   SetSessionOptionErrorValue::kInvalidValue}}})) {
       return Status::Invalid("res1 incorrect: " + res1.ToString());
     }
     // Some set, some omitted due to above errors
     ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
-    if (!(res2.session_options == std::map<std::string, SessionOptionValue>{
-      {"foolong", 123L},
-      {"bardouble", 456.0},
-      {"big_ol_string_list", std::vector<std::string>{
-        "a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}})) {
+    if (!(res2.session_options ==
+          std::map<std::string, SessionOptionValue>{
+              {"foolong", 123L},
+              {"bardouble", 456.0},
+              {"big_ol_string_list",
+               std::vector<std::string>{"a", "b", "sea", "dee", " ", "  ", "geee",
+                                        "(づ｡◕‿‿◕｡)づ"}}})) {
       return Status::Invalid("res2 incorrect: " + res2.ToString());
     }
     // Update
-    ARROW_ASSIGN_OR_RAISE(auto res3, client.SetSessionOptions({}, SetSessionOptionsRequest{{
-      {"foolong", std::monostate{}},
-      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}
-    }}));
+    ARROW_ASSIGN_OR_RAISE(
+        auto res3,
+        client.SetSessionOptions(
+            {}, SetSessionOptionsRequest{
+                    {{"foolong", std::monostate{}},
+                     {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}}));
     ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
-    if (!(res4.session_options == std::map<std::string, SessionOptionValue>{
-      {"bardouble", 456.0},
-      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
+    if (!(res4.session_options ==
+          std::map<std::string, SessionOptionValue>{
+              {"bardouble", 456.0},
+              {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
       return Status::Invalid("res4 incorrect: " + res4.ToString());
     }
 

@@ -42,8 +42,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
                               const CallHeaders& headers,
                               std::shared_ptr<FlightSession> session,
-                              std::string session_id,
-                              bool existing_session = true)
+                              std::string session_id, bool existing_session = true)
       : factory_(factory),
         headers_(headers),
         session_(std::move(session)),
@@ -57,7 +56,8 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
     }
     if (!closed_session_id_.empty()) {
       add_call_headers->AddHeader(
-          "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_ + "; Max-Age=0");
+          "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_ +
+                            "; Max-Age=0");
     }
   }
 
@@ -220,7 +220,7 @@ std::map<std::string, SessionOptionValue> FlightSession::GetSessionOptions() {
 }
 
 void FlightSession::SetSessionOption(const std::string& name,
-                                        const SessionOptionValue value) {
+                                     const SessionOptionValue value) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_[name] = std::move(value);
 }

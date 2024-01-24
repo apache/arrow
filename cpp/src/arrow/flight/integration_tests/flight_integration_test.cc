@@ -71,9 +71,7 @@ TEST(FlightIntegration, ExpirationTimeRenewFlightEndpoint) {
   ASSERT_OK(RunScenario("expiration_time:renew_flight_endpoint"));
 }
 
-TEST(FlightIntegration, SessionOptions) {
-  ASSERT_OK(RunScenario("session_options"));
-}
+TEST(FlightIntegration, SessionOptions) { ASSERT_OK(RunScenario("session_options")); }
 
 TEST(FlightIntegration, PollFlightInfo) { ASSERT_OK(RunScenario("poll_flight_info")); }
 
