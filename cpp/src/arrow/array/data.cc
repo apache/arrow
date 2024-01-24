@@ -27,6 +27,7 @@
 
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -138,6 +139,54 @@ std::shared_ptr<ArrayData> ArrayData::Make(
 std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            int64_t null_count, int64_t offset) {
   return std::make_shared<ArrayData>(std::move(type), length, null_count, offset);
+}
+
+namespace {
+template <typename Fn>
+Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
+                                                const std::shared_ptr<MemoryManager>& to,
+                                                Fn&& copy_fn) {
+  auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
+  output->buffers.reserve(data.buffers.size());
+
+  for (const auto& buf : data.buffers) {
+    if (!buf) {
+      output->buffers.push_back(nullptr);
+      continue;
+    }
+
+    if (buf->size() == 0) {
+      output->buffers.push_back(std::make_shared<Buffer>(nullptr, 0));
+      continue;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto temp_buf, copy_fn(buf, to));
+    output->buffers.push_back(std::move(temp_buf));
+  }
+
+  output->child_data.reserve(data.child_data.size());
+  for (const auto& child : data.child_data) {
+    ARROW_ASSIGN_OR_RAISE(auto copied, copy_to_impl(*child, to, copy_fn));
+    output->child_data.push_back(std::move(copied));
+  }
+
+  if (data.dictionary) {
+    ARROW_ASSIGN_OR_RAISE(output->dictionary,
+                          copy_to_impl(*data.dictionary, to, copy_fn));
+  }
+
+  return output;
+}
+}  // namespace
+
+Result<std::shared_ptr<ArrayData>> ArrayData::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return copy_to_impl(*this, to, MemoryManager::CopyBuffer);
+}
+
+Result<std::shared_ptr<ArrayData>> ArrayData::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return copy_to_impl(*this, to, Buffer::ViewOrCopy);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {

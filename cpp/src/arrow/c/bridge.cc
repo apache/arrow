@@ -1466,7 +1466,7 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override = default;
 
-  std::shared_ptr<Device::SyncEvent> device_sync_event() override {
+  std::shared_ptr<Device::SyncEvent> device_sync_event() const override {
     return import_->device_sync_;
   }
 

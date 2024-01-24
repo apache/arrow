@@ -1336,31 +1336,12 @@ class CopyCollectListener : public CollectListener {
 
   Status OnRecordBatchWithMetadataDecoded(
       RecordBatchWithMetadata record_batch_with_metadata) override {
-    auto& record_batch = record_batch_with_metadata.batch;
-    for (auto column_data : record_batch->column_data()) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(column_data));
-    }
+    ARROW_ASSIGN_OR_RAISE(
+        record_batch_with_metadata.batch,
+        record_batch_with_metadata.batch->CopyTo(default_cpu_memory_manager()));
+    
     return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
-  }
-
- private:
-  Status CopyArrayData(std::shared_ptr<ArrayData> data) {
-    auto& buffers = data->buffers;
-    for (size_t i = 0; i < buffers.size(); ++i) {
-      auto& buffer = buffers[i];
-      if (!buffer) {
-        continue;
-      }
-      ARROW_ASSIGN_OR_RAISE(buffers[i], Buffer::Copy(buffer, buffer->memory_manager()));
-    }
-    for (auto child_data : data->child_data) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(child_data));
-    }
-    if (data->dictionary) {
-      ARROW_RETURN_NOT_OK(CopyArrayData(data->dictionary));
-    }
-    return Status::OK();
-  }
+  } 
 };
 
 struct StreamDecoderWriterHelper : public StreamWriterHelper {

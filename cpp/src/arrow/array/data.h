@@ -36,6 +36,7 @@ namespace arrow {
 
 class Array;
 struct ArrayData;
+class MemoryManager;
 
 namespace internal {
 // ----------------------------------------------------------------------
@@ -182,6 +183,21 @@ struct ARROW_EXPORT ArrayData {
   }
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+  /// \brief Copy all buffers and children recursively to destination MemoryManager
+  ///
+  /// This utilizes MemoryManager::CopyBuffer to create a new ArrayData object
+  /// recursively copying the buffers and all child buffers to the destination
+  /// memory manager. This includes dictionaries if applicable.
+  Result<std::shared_ptr<ArrayData>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+  /// \brief View or Copy this ArrayData to destination memory manager.
+  ///
+  /// Tries to view the buffer contents on the given memory manager's device
+  /// if possible (to avoid a copy) but falls back to copying if a no-copy view
+  /// isn't supported.
+  Result<std::shared_ptr<ArrayData>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   bool IsNull(int64_t i) const { return !IsValid(i); }
 
