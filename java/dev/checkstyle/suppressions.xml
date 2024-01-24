@@ -40,5 +40,5 @@
   <suppress checks="NoFinalizer|OverloadMethodsDeclarationOrder|VariableDeclarationUsageDistance" files=".*" />
 
   <!-- No license header in generated file -->
-  <suppress checks="header" files="flight.properties"/>
+  <suppress checks="header|LineLength" files="flight.properties"/>
 </suppressions>
