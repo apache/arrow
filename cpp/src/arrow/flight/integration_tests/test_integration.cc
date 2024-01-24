@@ -792,9 +792,7 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
         session->EraseSessionOption(name);
         continue;
       }
-      std::cerr << "Setting option " << name << std::endl;
       session->SetSessionOption(name, value);
-      std::cerr << "Session now contains " << session->GetSessionOptions().size() << std::endl;
     }
 
     return res;
@@ -810,9 +808,7 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
     }
     std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
 
-    GetSessionOptionsResult res{session->GetSessionOptions()};
-    std::cerr << "Server returning GetSessionOptionsResult: " << res.ToString() << std::endl;
-    return res;
+    return GetSessionOptionsResult{session->GetSessionOptions()};
   }
 
   arrow::Result<CloseSessionResult> CloseSession(

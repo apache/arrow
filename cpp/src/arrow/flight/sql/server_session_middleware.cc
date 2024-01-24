@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iostream>
 #include <mutex>
 
 #include "arrow/flight/sql/server_session_middleware.h"
@@ -53,10 +52,9 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   void SendingHeaders(AddCallHeaders* add_call_headers) override {
     if (!existing_session_ && session_) {
-      std::cerr << "ServerSessionMiddlewareImpl@" << this << " Adding set-cookie header..." << std::endl;
       add_call_headers->AddHeader(
           "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
-    } else std::cerr << "ServerSessionMiddlewareImpl@" << this << " Did not add set-cookie header, existing_session is: " << existing_session_ << ", session_ is: " << session_ << std::endl;
+    }
     if (!closed_session_id_.empty()) {
       add_call_headers->AddHeader(
           "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_ + "; Max-Age=0");
@@ -71,11 +69,9 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
     const std::lock_guard<std::shared_mutex> l(mutex_);
     if (!session_) {
       auto [id, s] = factory_->CreateNewSession();
-      std::cerr << "ServerSessionMiddlewareImpl@" << this << " Created new session with id " << id << ", address " << s << std::endl;
       session_ = std::move(s);
       session_id_ = std::move(id);
     }
-    std::cerr << "ServerSessionMiddlewareImpl@" << this << " Returning session at " << session_ << std::endl;
     return session_;
   }
 
@@ -135,13 +131,11 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
 Status ServerSessionMiddlewareFactory::StartCall(
     const CallInfo&, const CallHeaders& incoming_headers,
     std::shared_ptr<ServerMiddleware>* middleware) {
-  std::cerr << "ServerSessionMiddlewareFactory::StartCall: session_store_.size() is " << session_store_.size() << std::endl;
   std::string session_id;
 
   const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&
       headers_it_pr = incoming_headers.equal_range("cookie");
   for (auto itr = headers_it_pr.first; itr != headers_it_pr.second; ++itr) {
-    std::cerr << "Examining 'cookie' header..." << std::endl;
     const std::string_view& cookie_header = itr->second;
     const std::vector<std::pair<std::string, std::string>> cookies =
         ParseCookieString(cookie_header);
@@ -159,7 +153,6 @@ Status ServerSessionMiddlewareFactory::StartCall(
     // No cookie was found
     // Temporary workaround until middleware handling fixed
     auto [id, s] = CreateNewSession();
-    std::cerr << "Created new session as fallback behaviour for broken middleware handling" << std::endl;
     *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, incoming_headers,
                                                                 std::move(s), id, false);
   } else {
@@ -217,7 +210,6 @@ std::optional<SessionOptionValue> FlightSession::GetSessionOption(
 
 std::map<std::string, SessionOptionValue> FlightSession::GetSessionOptions() {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
-  std::cerr << "FlightSession returning SessionOptions map of size " << map_.size() << std::endl;
   return map_;
 }
 
@@ -225,7 +217,6 @@ void FlightSession::SetSessionOption(const std::string& name,
                                         const SessionOptionValue value) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_[name] = std::move(value);
-  std::cerr << "FlightSession now contains " << map_.size() << " entries" << std::endl;
 }
 
 void FlightSession::EraseSessionOption(const std::string& name) {
