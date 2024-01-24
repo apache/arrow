@@ -463,9 +463,7 @@ Result<std::shared_ptr<Table>> SortTableOnAllFields(const std::shared_ptr<Table>
     sort_keys.emplace_back(i);
   }
   ARROW_ASSIGN_OR_RAISE(auto sort_ids, SortIndices(tab, SortOptions(sort_keys)));
-  // Combine chunks as random access is much faster on a contiguous array.
-  ARROW_ASSIGN_OR_RAISE(auto tab_combined, tab->CombineChunks());
-  ARROW_ASSIGN_OR_RAISE(auto tab_sorted, Take(tab_combined, sort_ids));
+  ARROW_ASSIGN_OR_RAISE(auto tab_sorted, Take(tab, sort_ids));
   return tab_sorted.table();
 }
 
