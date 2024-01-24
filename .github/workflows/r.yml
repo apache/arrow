@@ -53,14 +53,11 @@ env:
 
 jobs:
   ubuntu-cpp-versions:
-    name: Arrow C++ Versions (${{ matrix.config.cpp_version }})
+    name: Arrow C++ Versions (${{ matrix.cpp_version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        config:
-        - { cpp_version: "15.0.0" }
-        - { cpp_version: "14.0.2" }
-        - { cpp_version: "13.0.0" }
+        cpp_version: ["15.0.0" , "14.0.2",  "13.0.0"]
 
     env:
       ARROW_HOME: "${{ github.workspace }}/arrow"
@@ -76,15 +73,15 @@ jobs:
       uses: actions/cache@v4
       with:
         path: arrow
-        key: arrow-r-cpp-release-${{ matrix.config.cpp_version }}-1
+        key: arrow-r-cpp-release-${{ matrix.cpp_version }}-1
 
-    - name: Build Arrow C++ (${{ matrix.config.cpp_version }})
+    - name: Build Arrow C++ (${{ matrix.cpp_version }})
       if: steps.cache-arrow-build.outputs.cache-hit != 'true'
       run: |
-        curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.config.cpp_version }}.tar.gz | \
+        curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${{ matrix.cpp_version }}.tar.gz | \
           tar -zxf -
         mkdir arrow-build
-        export SOURCE_DIR="$(pwd)/arrow-apache-arrow-${{ matrix.config.cpp_version }}/cpp"
+        export SOURCE_DIR="$(pwd)/arrow-apache-arrow-${{ matrix.cpp_version }}/cpp"
         export DEST_DIR="$(pwd)/arrow"
 
         src/r/inst/build_arrow_static.sh
