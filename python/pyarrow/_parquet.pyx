@@ -849,6 +849,18 @@ cdef class FileMetaData(_Weakrefable):
         cdef Buffer buffer = sink.getvalue()
         return _reconstruct_filemetadata, (buffer,)
 
+    def __hash__(self):
+        def flatten(obj):
+            if isinstance(obj, dict):
+                return tuple(
+                    (k, flatten(v))
+                    for k, v in sorted(obj.items(), key=lambda v: v[0])
+                )
+            elif isinstance(obj, list):
+                return tuple(flatten(o) for o in obj)
+            return obj
+        return hash(flatten(self.to_dict()))
+
     def __repr__(self):
         return """{0}
   created_by: {1}

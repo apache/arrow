@@ -499,6 +499,24 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+def test_metadata_hashing(tempdir):
+    path1 = str(tempdir / "metadata1")
+    schema1 = pa.schema([("a", "int64"), ("b", "float64")])
+    pq.write_metadata(schema1, path1)
+    parquet_meta1 = pq.read_metadata(path1)
+
+    path2 = str(tempdir / "metadata2")
+    schema2 = pa.schema([("a", "int64")])
+    pq.write_metadata(schema2, path2)
+    parquet_meta2 = pq.read_metadata(path2)
+
+    # Deterministic
+    assert hash(parquet_meta1) == hash(parquet_meta1)
+
+    # Not the same as other metadata
+    assert hash(parquet_meta1) != hash(parquet_meta2)
+
+
 @pytest.mark.filterwarnings("ignore:Parquet format:FutureWarning")
 def test_write_metadata(tempdir):
     path = str(tempdir / "metadata")
