@@ -200,8 +200,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         {
           path: "docs/source/index.rst",
           hunks: [
-            "-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}>",
-            "+   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}>",
+            [
+              "-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}>",
+              "+   Go <https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}>",
+            ],
           ],
         },
         {
@@ -222,8 +224,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         {
           path: "r/_pkgdown.yml",
           hunks: [
-            "-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}) <br>",
-            "+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}) <br>",
+            [
+              "-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}) <br>",
+              "+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}) <br>",
+            ],
           ],
         },
       ]

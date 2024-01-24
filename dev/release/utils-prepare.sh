@@ -141,9 +141,10 @@ update_versions() {
   rm -f NEWS.md.bak
   git add NEWS.md
 
-  find . -name "_pkgdown.yml" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
-
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    _pkgdown.yml
   rm -f _pkgdown.yml.bak
   git add _pkgdown.yml
   popd
@@ -173,9 +174,9 @@ update_versions() {
 
   pushd "${ARROW_DIR}/docs/source"
   # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
-  find . -name "index.rst" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
-
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    index.rst
   rm -f index.rst.bak
   git add index.rst
   popd
