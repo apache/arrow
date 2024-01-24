@@ -859,7 +859,7 @@ cdef class FileMetaData(_Weakrefable):
             elif isinstance(obj, list):
                 return tuple(flatten(o) for o in obj)
             return obj
-        return hash(flatten(self.to_dict()))
+        return hash((self.schema, flatten(self.to_dict())))
 
     def __repr__(self):
         return """{0}
@@ -1082,6 +1082,11 @@ cdef class ParquetSchema(_Weakrefable):
 
     def __getitem__(self, i):
         return self.column(i)
+
+    def __hash__(self):
+        return hash(
+            (object.__hash__(self), frombytes(self.schema.ToString(), safe=True))
+        )
 
     @property
     def names(self):

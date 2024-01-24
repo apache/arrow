@@ -506,7 +506,7 @@ def test_metadata_hashing(tempdir):
     parquet_meta1 = pq.read_metadata(path1)
 
     path2 = str(tempdir / "metadata2")
-    schema2 = pa.schema([("a", "int64")])
+    schema2 = pa.schema([("a", "int64"), ("b", "float32")])
     pq.write_metadata(schema2, path2)
     parquet_meta2 = pq.read_metadata(path2)
 
