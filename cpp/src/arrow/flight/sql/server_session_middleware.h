@@ -68,6 +68,8 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   /// May return NULLPTR if there is an id generation collision.
   virtual std::shared_ptr<FlightSession> GetSession() = 0;
   /// Close the current session.
+  ///
+  /// This is presently unsupported in C++ until middleware handling can be fixed.
   virtual void CloseSession() = 0;
   /// \brief Get request headers, in lieu of a provided or created session.
   virtual const CallHeaders& GetCallHeaders() const = 0;

@@ -817,11 +817,8 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
 
   arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context, const CloseSessionRequest& request) override {
-    sql::ServerSessionMiddleware* middleware =
-      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
-    // FIXME PHOXME try/catch or are we not using exceptions...?
-    middleware->CloseSession();
-    return CloseSessionResult{ CloseSessionStatus::kClosed };
+    // Unsupported until C++ middleware SendingHeaders handling fixed.
+    return CloseSessionResult{ CloseSessionStatus::kNotClosable };
   }
 };
 
@@ -889,13 +886,6 @@ class SessionOptionsScenario : public Scenario {
       {"bardouble", 456.0},
       {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
       return Status::Invalid("res4 incorrect: " + res4.ToString());
-    }
-    // Close and reinitialize
-    ARROW_RETURN_NOT_OK(client.CloseSession({}, {}));
-    ARROW_RETURN_NOT_OK(client.SetSessionOptions({}, {}));
-    ARROW_ASSIGN_OR_RAISE(auto res7, client.GetSessionOptions({}, {}));
-    if (!(res7.session_options == std::map<std::string, SessionOptionValue>{})) {
-      return Status::Invalid("res7 incorrect: " + res7.ToString());
     }
 
     return Status::OK();

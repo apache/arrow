@@ -43,12 +43,13 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
                               const CallHeaders& headers,
                               std::shared_ptr<FlightSession> session,
-                              std::string session_id)
+                              std::string session_id,
+                              bool existing_session = true)
       : factory_(factory),
         headers_(headers),
         session_(std::move(session)),
         session_id_(std::move(session_id)),
-        existing_session_(true) {}
+        existing_session_(existing_session) {}
 
   void SendingHeaders(AddCallHeaders* add_call_headers) override {
     if (!existing_session_ && session_) {
@@ -156,7 +157,11 @@ Status ServerSessionMiddlewareFactory::StartCall(
 
   if (session_id.empty()) {
     // No cookie was found
-    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, incoming_headers);
+    // Temporary workaround until middleware handling fixed
+    auto [id, s] = CreateNewSession();
+    std::cerr << "Created new session as fallback behaviour for broken middleware handling" << std::endl;
+    *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, incoming_headers,
+                                                                std::move(s), id, false);
   } else {
     const std::shared_lock<std::shared_mutex> l(session_store_lock_);
     if (auto it = session_store_.find(session_id); it == session_store_.end()) {
