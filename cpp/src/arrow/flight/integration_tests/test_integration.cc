@@ -759,7 +759,6 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
   std::map<std::string, SessionOptionValue> session_store_;
 
  public:
- // FIXME PHOXME need to handle middleware lookup token wherever
   SessionOptionsServer(std::string session_middleware_key)
       : FlightSqlServerBase(),
         session_middleware_key(std::move(session_middleware_key)) {
@@ -773,7 +772,7 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
 
     sql::ServerSessionMiddleware* middleware =
       (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
-    std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session, middleware->GetSession());
 
     for (const auto& [name, value] : request.session_options) {
       // Blacklisted value name
@@ -804,17 +803,20 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
     sql::ServerSessionMiddleware* middleware =
       (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
     if (!middleware->HasSession()) {
-      // FIXME PHOXME post NOT_FOUND somehow?!
+      return Status::Invalid("No existing session to get options from.");
     }
-    std::shared_ptr<sql::FlightSession> session = middleware->GetSession();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session, middleware->GetSession());
 
     return GetSessionOptionsResult{session->GetSessionOptions()};
   }
 
   arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context, const CloseSessionRequest& request) override {
-    // Unsupported until C++ middleware SendingHeaders handling fixed.
-    return CloseSessionResult{ CloseSessionStatus::kNotClosable };
+    // Broken (does not expire cookie) until C++ middleware SendingHeaders handling fixed.
+    sql::ServerSessionMiddleware* middleware =
+      (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    ARROW_RETURN_NOT_OK(middleware->CloseSession());
+    return CloseSessionResult{ CloseSessionStatus::kClosed };
   }
 };
 

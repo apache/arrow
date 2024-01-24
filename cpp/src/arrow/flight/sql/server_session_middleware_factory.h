@@ -53,7 +53,7 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
   std::pair<std::string, std::shared_ptr<FlightSession>> CreateNewSession();
   /// \brief Close the session identified by 'id'.
   /// \param id The string id of the session to close.
-  void CloseSession(std::string id);
+  Status CloseSession(std::string id);
 };
 
 }  // namespace sql

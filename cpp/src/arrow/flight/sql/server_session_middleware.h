@@ -28,6 +28,7 @@
 
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace flight {
@@ -66,11 +67,11 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   /// \brief Get existing or new call-associated session
   ///
   /// May return NULLPTR if there is an id generation collision.
-  virtual std::shared_ptr<FlightSession> GetSession() = 0;
+  virtual arrow::Result<std::shared_ptr<FlightSession>> GetSession() = 0;
   /// Close the current session.
   ///
   /// This is presently unsupported in C++ until middleware handling can be fixed.
-  virtual void CloseSession() = 0;
+  virtual Status CloseSession() = 0;
   /// \brief Get request headers, in lieu of a provided or created session.
   virtual const CallHeaders& GetCallHeaders() const = 0;
 };

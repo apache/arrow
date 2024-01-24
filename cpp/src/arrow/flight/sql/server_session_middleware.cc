@@ -65,26 +65,31 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   bool HasSession() const override { return static_cast<bool>(session_); }
 
-  std::shared_ptr<FlightSession> GetSession() override {
+  arrow::Result<std::shared_ptr<FlightSession>> GetSession() override {
     const std::lock_guard<std::shared_mutex> l(mutex_);
     if (!session_) {
       auto [id, s] = factory_->CreateNewSession();
       session_ = std::move(s);
       session_id_ = std::move(id);
     }
+    if (!static_cast<bool>(session_)) {
+      return Status::UnknownError("Error creating session.");
+    }
     return session_;
   }
 
-  void CloseSession() override {
+  Status CloseSession() override {
     const std::lock_guard<std::shared_mutex> l(mutex_);
     if (static_cast<bool>(session_)) {
-      // FIXME PHOXME throw or what in C++?
+      return Status::Invalid("Nonexistent session cannot be closed.");
     }
-    factory_->CloseSession(session_id_);
+    ARROW_RETURN_NOT_OK(factory_->CloseSession(session_id_));
     closed_session_id_ = std::move(session_id_);
     session_id_.clear();
     session_.reset();
     existing_session_ = false;
+
+    return Status::OK();
   }
 
   const CallHeaders& GetCallHeaders() const override { return headers_; }
@@ -185,11 +190,12 @@ ServerSessionMiddlewareFactory::CreateNewSession() {
   return {new_id, session};
 }
 
-void ServerSessionMiddlewareFactory::CloseSession(std::string id) {
+Status ServerSessionMiddlewareFactory::CloseSession(std::string id) {
   const std::lock_guard<std::shared_mutex> l(session_store_lock_);
   if (!session_store_.erase(id)) {
-    // FIXME PHOXME throw or what
+    return Status::KeyError("Invalid or nonexistent session cannot be closed.");
   }
+  return Status::OK();
 }
 
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory(
