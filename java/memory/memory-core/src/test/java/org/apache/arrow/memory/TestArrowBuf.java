@@ -189,7 +189,7 @@ public class TestArrowBuf {
     ) {
       buf.setFloat16(0, +32.875f);
       assertEquals((short) 0x501c, Float16.toFloat16(+32.875f));
-      assertEquals((short) 0x501c, buf.getFloat16(0));
+      assertEquals(Float16.toFloat((short) 0x501c), buf.getFloat16(0), 0);
     }
   }
 }

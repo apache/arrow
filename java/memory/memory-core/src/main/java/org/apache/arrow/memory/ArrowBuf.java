@@ -354,8 +354,8 @@ public final class ArrowBuf implements AutoCloseable {
    *              where the value will be read from
    * @return 4 byte float value
    */
-  public short getFloat16(long index) {
-    return getShort(index);
+  public float getFloat16(long index) {
+    return Float16.toFloat(getShort(index));
   }
 
 

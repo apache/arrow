@@ -384,14 +384,14 @@ public class TestValueVector {
       }
 
       /* check vector contents */
-      assertEquals((short) 0x101c, floatVector.get(0), 0);
-      assertEquals((short) 0x901c, floatVector.get(2), 0);
-      assertEquals((short) 0x101d, floatVector.get(4), 0);
-      assertEquals((short) 0x901d, floatVector.get(6), 0);
-      assertEquals((short) 0x121c, floatVector.get(8), 0);
-      assertEquals((short) 0x921c, floatVector.get(10), 0);
-      assertEquals((short) 0x501c, floatVector.get(12), 0);
-      assertEquals((short) 0xd01c, floatVector.get(14), 0);
+      assertEquals(+0.00050163269043f, floatVector.get(0), 0);
+      assertEquals(-0.00050163269043f, floatVector.get(2), 0);
+      assertEquals(+0.000502109527588f, floatVector.get(4), 0);
+      assertEquals(-0.000502109527588f, floatVector.get(6), 0);
+      assertEquals(+0.00074577331543f, floatVector.get(8), 0);
+      assertEquals(-0.00074577331543f, floatVector.get(10), 0);
+      assertEquals(+32.875f, floatVector.get(12), 0);
+      assertEquals(-32.875f, floatVector.get(14), 0);
 
       try {
         floatVector.get(initialCapacity);
@@ -409,15 +409,15 @@ public class TestValueVector {
       assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
 
       /* vector data should still be intact after realloc */
-      assertEquals((short) 0x101c, floatVector.get(0), 0);
-      assertEquals((short) 0x901c, floatVector.get(2), 0);
-      assertEquals((short) 0x101d, floatVector.get(4), 0);
-      assertEquals((short) 0x901d, floatVector.get(6), 0);
-      assertEquals((short) 0x121c, floatVector.get(8), 0);
-      assertEquals((short) 0x921c, floatVector.get(10), 0);
-      assertEquals((short) 0x501c, floatVector.get(12), 0);
-      assertEquals((short) 0xd01c, floatVector.get(14), 0);
-      assertEquals((short) 0x141c, floatVector.get(initialCapacity), 0);
+      assertEquals(+0.00050163269043f, floatVector.get(0), 0);
+      assertEquals(-0.00050163269043f, floatVector.get(2), 0);
+      assertEquals(+0.000502109527588f, floatVector.get(4), 0);
+      assertEquals(-0.000502109527588f, floatVector.get(6), 0);
+      assertEquals(+0.00074577331543f, floatVector.get(8), 0);
+      assertEquals(-0.00074577331543f, floatVector.get(10), 0);
+      assertEquals(+32.875f, floatVector.get(12), 0);
+      assertEquals(-32.875f, floatVector.get(14), 0);
+      assertEquals(+0.00100326538086f, floatVector.get(initialCapacity), 0);
 
       /* reset the vector */
       int capacityBeforeReset = floatVector.getValueCapacity();

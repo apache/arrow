@@ -102,7 +102,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
-  public short get(int index) throws IllegalStateException {
+  public float get(int index) throws IllegalStateException {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
@@ -131,7 +131,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
-  public Short getObject(int index) {
+  public Float getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {

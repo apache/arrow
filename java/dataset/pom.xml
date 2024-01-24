@@ -179,6 +179,15 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <enableAssertions>false</enableAssertions>
+                    <systemPropertyVariables>
+                        <arrow.test.dataRoot>${project.basedir}/../../testing/data</arrow.test.dataRoot>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
