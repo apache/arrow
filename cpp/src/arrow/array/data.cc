@@ -153,12 +153,7 @@ Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
     if (!buf) {
       output->buffers.push_back(nullptr);
       continue;
-    }
-
-    if (buf->size() == 0) {
-      output->buffers.push_back(std::make_shared<Buffer>(nullptr, 0));
-      continue;
-    }
+    }    
 
     ARROW_ASSIGN_OR_RAISE(auto temp_buf, copy_fn(buf, to));
     output->buffers.push_back(std::move(temp_buf));
