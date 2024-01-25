@@ -252,88 +252,65 @@ TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
-TEST(VectorHash, TailByteSafety) {
-  constexpr auto num_rows_total = 883;
-  constexpr auto fixed_length = 5;
-  constexpr auto num_bytes_aligned = 4416;
-  constexpr auto offset = 858;   // 860
-  constexpr auto num_rows = 25;  // 23
+void HashFixedLengthFrom(int fixed_length, int num_rows_total, int start_row) {
+  int num_rows = num_rows_total - start_row;
+  auto num_bytes_aligned =
+      arrow::bit_util::RoundUpToMultipleOf64(fixed_length * num_rows_total);
+
+  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+
+  std::vector<std::vector<uint32_t>> hashes32(hardware_flags_for_testing.size());
+  std::vector<std::vector<uint64_t>> hashes64(hardware_flags_for_testing.size());
+  for (auto& h : hashes32) {
+    h.resize(num_rows);
+  }
+  for (auto& h : hashes64) {
+    h.resize(num_rows);
+  }
+
+  FixedSizeBinaryBuilder keys_builder(fixed_size_binary(fixed_length));
+  for (int j = 0; j < num_rows_total; ++j) {
+    ASSERT_OK(keys_builder.Append(std::string(fixed_length, 42)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto keys, keys_builder.Finish());
+  // Make sure the buffer is aligned as expected.
+  ASSERT_EQ(keys->data()->buffers[1]->capacity(), num_bytes_aligned);
 
   constexpr int mini_batch_size = 1024;
   std::vector<uint32_t> temp_buffer;
   temp_buffer.resize(mini_batch_size * 4);
-  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
-  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+
   for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
     const auto hardware_flags = hardware_flags_for_testing[i];
-    FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
-    for (int j = 0; j < num_rows_total; ++j) {
-      ASSERT_OK(builder.Append("12345"));
-    }
-    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-    ASSERT_EQ(array->data()->buffers[1]->capacity(), num_bytes_aligned);
-    std::vector<uint32_t> hashes32(num_rows);
     Hashing32::HashFixed(hardware_flags,
                          /*combine_hashes=*/false, num_rows, fixed_length,
-                         array->data()->GetValues<uint8_t>(1) + offset * fixed_length,
-                         hashes32.data(), temp_buffer.data());
+                         keys->data()->GetValues<uint8_t>(1) + start_row * fixed_length,
+                         hashes32[i].data(), temp_buffer.data());
+    Hashing64::HashFixed(
+        /*combine_hashes=*/false, num_rows, fixed_length,
+        keys->data()->GetValues<uint8_t>(1) + start_row * fixed_length,
+        hashes64[i].data());
+  }
+
+  // Verify that all implementations (scalar, SIMD) give the same hashes.
+  for (int i = 1; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    for (int j = 0; j < num_rows; ++j) {
+      ASSERT_EQ(hashes32[i][j], hashes32[0][j])
+          << "scalar and simd approaches yielded different 32-bit hashes";
+      ASSERT_EQ(hashes64[i][j], hashes64[0][j])
+          << "scalar and simd approaches yielded different 64-bit hashes";
+    }
   }
 }
 
-TEST(VectorHash, TailByteSafetySmall) {
-  constexpr auto num_rows_total = 1450;
-  constexpr auto fixed_length = 3;
-  constexpr auto num_bytes_aligned = 4352;
-  constexpr auto offset = 1447;
-  constexpr auto num_rows = 3;
-
-  constexpr int mini_batch_size = 1024;
-  std::vector<uint32_t> temp_buffer;
-  temp_buffer.resize(mini_batch_size * 4);
-  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
-  ASSERT_GT(hardware_flags_for_testing.size(), 0);
-  for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
-    const auto hardware_flags = hardware_flags_for_testing[i];
-    FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
-    for (int j = 0; j < num_rows_total; ++j) {
-      ASSERT_OK(builder.Append("123"));
-    }
-    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-    ASSERT_EQ(array->data()->buffers[1]->capacity(), num_bytes_aligned);
-    std::vector<uint32_t> hashes32(num_rows);
-    Hashing32::HashFixed(hardware_flags,
-                         /*combine_hashes=*/false, num_rows, fixed_length,
-                         array->data()->GetValues<uint8_t>(1) + offset * fixed_length,
-                         hashes32.data(), temp_buffer.data());
-  }
-}
-
-TEST(VectorHash, TailByteSafetyBig) {
-  constexpr auto num_rows_total = 64;
-  constexpr auto fixed_length = 19;
-  constexpr auto num_bytes_aligned = 1216;
-  constexpr auto offset = 63;
-  constexpr auto num_rows = num_rows_total - offset;
-
-  constexpr int mini_batch_size = 1024;
-  std::vector<uint32_t> temp_buffer;
-  temp_buffer.resize(mini_batch_size * 4);
-  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
-  ASSERT_GT(hardware_flags_for_testing.size(), 0);
-  for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
-    const auto hardware_flags = hardware_flags_for_testing[i];
-    FixedSizeBinaryBuilder builder(fixed_size_binary(fixed_length));
-    for (int j = 0; j < num_rows_total; ++j) {
-      ASSERT_OK(builder.Append(std::string(fixed_length, 0)));
-    }
-    ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-    ASSERT_EQ(array->data()->buffers[1]->capacity(), num_bytes_aligned);
-    std::vector<uint32_t> hashes32(num_rows);
-    Hashing32::HashFixed(hardware_flags,
-                         /*combine_hashes=*/false, num_rows, fixed_length,
-                         array->data()->GetValues<uint8_t>(1) + offset * fixed_length,
-                         hashes32.data(), temp_buffer.data());
-  }
+// Some carefully chosen cases that may cause troubles like GH-39778.
+TEST(VectorHash, FixedSizeTailByteSafety) {
+  // Tow cases of fixed_length < stripe (16-byte).
+  HashFixedLengthFrom(/*fixed_length=*/3, /*num_rows_total=*/1450, /*start_row=*/1447);
+  HashFixedLengthFrom(/*fixed_length=*/5, /*num_rows_total=*/883, /*start_row=*/858);
+  // Case of fixed_length > stripe (16-byte).
+  HashFixedLengthFrom(/*fixed_length=*/19, /*num_rows_total=*/64, /*start_row=*/63);
 }
 
 }  // namespace compute
