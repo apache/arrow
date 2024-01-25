@@ -5202,7 +5202,17 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
+    elif _pandas_api.is_data_frame(data):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     elif hasattr(data, "__arrow_c_stream__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         if schema is not None:
             requested = schema.__arrow_c_schema__()
         else:
@@ -5216,14 +5226,12 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             table = table.cast(schema)
         return table
     elif hasattr(data, "__arrow_c_array__"):
-        batch = record_batch(data, schema)
-        return Table.from_batches([batch])
-    elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
-                "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
+                "using Arrow PyCapsule Interface")
+        batch = record_batch(data, schema)
+        return Table.from_batches([batch])
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")
