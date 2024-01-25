@@ -143,7 +143,7 @@ public class TestVectorAlloc {
       totalCapacity = vec2.getValidityBuffer().capacity() + vec2.getDataBuffer().capacity();
 
       // the total capacity must be a power of two
-      assertEquals(totalCapacity & (totalCapacity - 1), 0);
+      assertEquals(0, totalCapacity & (totalCapacity - 1));
     }
   }
 
@@ -163,7 +163,7 @@ public class TestVectorAlloc {
       totalCapacity = vec2.getValidityBuffer().capacity() + vec2.getOffsetBuffer().capacity();
 
       // the total capacity must be a power of two
-      assertEquals(totalCapacity & (totalCapacity - 1), 0);
+      assertEquals(0, totalCapacity & (totalCapacity - 1));
     }
   }
 }

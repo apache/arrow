@@ -55,7 +55,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 public class TypeLayout {
 
   /**
-   * Constructs a new {@TypeLayout} for the given <code>arrowType</code>.
+   * Constructs a new {@link TypeLayout} for the given <code>arrowType</code>.
    */
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
@@ -421,6 +421,7 @@ public class TypeLayout {
     return types;
   }
 
+  @Override
   public String toString() {
     return bufferLayouts.toString();
   }
@@ -438,7 +439,7 @@ public class TypeLayout {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof TypeLayout)) {
       return false;
     }
     TypeLayout other = (TypeLayout) obj;

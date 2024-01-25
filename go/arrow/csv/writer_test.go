@@ -23,16 +23,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/csv"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/float16"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/types"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/csv"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
 	"github.com/google/uuid"
 )
 
@@ -250,8 +251,8 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	b.Field(9).(*array.Float16Builder).AppendValues([]float16.Num{float16.New(0.0), float16.New(0.1), float16.New(0.2)}, nil)
 	b.Field(10).(*array.Float32Builder).AppendValues([]float32{0.0, 0.1, 0.2}, nil)
 	b.Field(11).(*array.Float64Builder).AppendValues([]float64{0.0, 0.1, 0.2}, nil)
-	b.Field(12).(*array.StringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
-	b.Field(13).(*array.LargeStringBuilder).AppendValues([]string{"str-0", "str-1", "str-2"}, nil)
+	b.Field(12).(*array.StringBuilder).AppendValues([]string{"str_0", "str-1", "str-2"}, nil)
+	b.Field(13).(*array.LargeStringBuilder).AppendValues([]string{"str_0", "str-1", "str-2"}, nil)
 	b.Field(14).(*array.TimestampBuilder).AppendValues(genTimestamps(arrow.Second), nil)
 	b.Field(15).(*array.Date32Builder).AppendValues([]arrow.Date32{17304, 19304, 20304}, nil)
 	b.Field(16).(*array.Date64Builder).AppendValues([]arrow.Date64{1840400000000, 1940400000000, 2040400000000}, nil)
@@ -300,6 +301,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 		csv.WithHeader(writeHeader),
 		csv.WithNullWriter(nullVal),
 		csv.WithBoolWriter(fmtr),
+		csv.WithStringsReplacer(strings.NewReplacer("_", "-")),
 	)
 	err := w.Write(rec)
 	if err != nil {

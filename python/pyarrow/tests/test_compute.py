@@ -2263,6 +2263,19 @@ def test_extract_datetime_components():
             _check_datetime_components(timestamps, timezone)
 
 
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_iso_calendar_longer_array(unit):
+    # https://github.com/apache/arrow/issues/38655
+    # ensure correct result for array length > 32
+    arr = pa.array([datetime.datetime(2022, 1, 2, 9)]*50, pa.timestamp(unit))
+    result = pc.iso_calendar(arr)
+    expected = pa.StructArray.from_arrays(
+        [[2021]*50, [52]*50, [7]*50],
+        names=['iso_year', 'iso_week', 'iso_day_of_week']
+    )
+    assert result.equals(expected)
+
+
 @pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
@@ -2360,10 +2373,10 @@ def _check_temporal_rounding(ts, values, unit):
     unit_shorthand = {
         "nanosecond": "ns",
         "microsecond": "us",
-        "millisecond": "L",
+        "millisecond": "ms",
         "second": "s",
         "minute": "min",
-        "hour": "H",
+        "hour": "h",
         "day": "D"
     }
     greater_unit = {
@@ -2371,7 +2384,7 @@ def _check_temporal_rounding(ts, values, unit):
         "microsecond": "ms",
         "millisecond": "s",
         "second": "min",
-        "minute": "H",
+        "minute": "h",
         "hour": "d",
     }
     ta = pa.array(ts)

@@ -18,8 +18,8 @@
 package org.apache.arrow.dataset;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +47,7 @@ public class ParquetWriteSupport implements AutoCloseable {
 
 
   public ParquetWriteSupport(String schemaName, File outputFolder) throws Exception {
-    avroSchema = readSchemaFromFile(schemaName);
+    avroSchema = getSchema(schemaName);
     path = outputFolder.getPath() + "/" + "generated-" + random.nextLong() + ".parquet";
     uri = "file://" + path;
     writer = AvroParquetWriter
@@ -56,10 +56,23 @@ public class ParquetWriteSupport implements AutoCloseable {
         .build();
   }
 
-  private static Schema readSchemaFromFile(String schemaName) throws Exception {
-    Path schemaPath = Paths.get(ParquetWriteSupport.class.getResource("/").getPath(),
-        "avroschema", schemaName);
-    return new org.apache.avro.Schema.Parser().parse(schemaPath.toFile());
+  public static Schema getSchema(String schemaName) throws Exception {
+    try {
+      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the module.
+      // Note that this code is caller-sensitive.
+      Method getModuleMethod = Class.class.getMethod("getModule");
+      Object module = getModuleMethod.invoke(ParquetWriteSupport.class);
+      Method getResourceAsStreamFromModule = module.getClass().getMethod("getResourceAsStream", String.class);
+      try (InputStream is = (InputStream) getResourceAsStreamFromModule.invoke(module, "/avroschema/" + schemaName)) {
+        return new Schema.Parser()
+            .parse(is);
+      }
+    } catch (NoSuchMethodException ex) {
+      // Use JDK8 behavior.
+      try (InputStream is = ParquetWriteSupport.class.getResourceAsStream("/avroschema/" + schemaName)) {
+        return new Schema.Parser().parse(is);
+      }
+    }
   }
 
   public static ParquetWriteSupport writeTempFile(String schemaName, File outputFolder,

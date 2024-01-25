@@ -228,6 +228,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * Reset the vector to initial state. Same as {@link #zeroVector()}.
    * Note that this method doesn't release any memory.
    */
+  @Override
   public void reset() {
     zeroVector();
     lastSet = -1;
@@ -318,6 +319,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * Get the buffers belonging to this vector.
    * @return the inner buffers.
    */
+  @Override
   public List<ArrowBuf> getFieldBuffers() {
     // before flight/IPC, we must bring the vector to a consistent state.
     // this is because, it is possible that the offset buffers of some trailing values
@@ -471,6 +473,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * Resize the vector to increase the capacity. The internal behavior is to
    * double the current value capacity.
    */
+  @Override
   public void reAlloc() {
     reallocDataBuffer();
     reallocValidityAndOffsetBuffers();
@@ -691,6 +694,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
@@ -699,6 +703,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
@@ -835,6 +840,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @return the number of null elements.
    */
+  @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
@@ -856,6 +862,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index  position of element
    * @return true if element at given index is null
    */
+  @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
@@ -879,6 +886,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @return valueCount for the vector
    */
+  @Override
   public int getValueCount() {
     return valueCount;
   }
@@ -888,6 +896,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param valueCount   value count
    */
+  @Override
   public void setValueCount(int valueCount) {
     assert valueCount >= 0;
     this.valueCount = valueCount;
@@ -1091,6 +1100,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param index   position of element
    */
+  @Override
   public void setNull(int index) {
     // We need to check and realloc both validity and offset buffer
     while (index >= getValueCapacity()) {

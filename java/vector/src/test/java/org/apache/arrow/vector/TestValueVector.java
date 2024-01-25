@@ -83,7 +83,7 @@ public class TestValueVector {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  private static final Charset utf8Charset = Charset.forName("UTF-8");
+  private static final Charset utf8Charset = StandardCharsets.UTF_8;
   private static final byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
   private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
   private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
@@ -127,10 +127,9 @@ public class TestValueVector {
     try (final UInt4Vector vector = new UInt4Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       boolean error = false;
-      int initialCapacity = 0;
 
       vector.allocateNew(1024);
-      initialCapacity = vector.getValueCapacity();
+      int initialCapacity = vector.getValueCapacity();
       assertTrue(initialCapacity >= 1024);
 
       // Put and set a few values
@@ -662,8 +661,6 @@ public class TestValueVector {
       assertEquals(103, vector.get(initialCapacity - 2));
       assertEquals(104, vector.get(initialCapacity - 1));
 
-      int val = 0;
-
       /* check unset bits/null values */
       for (int i = 2, j = 101; i <= 99 || j <= initialCapacity - 3; i++, j++) {
         if (i <= 99) {
@@ -705,8 +702,6 @@ public class TestValueVector {
       assertEquals(103, vector.get(initialCapacity - 2));
       assertEquals(104, vector.get(initialCapacity - 1));
       assertEquals(10000, vector.get(initialCapacity));
-
-      val = 0;
 
       /* check unset bits/null values */
       for (int i = 2, j = 101; i < 99 || j < initialCapacity - 3; i++, j++) {
@@ -835,7 +830,6 @@ public class TestValueVector {
   public void testNullableFixedType3() {
     // Create a new value vector for 1024 integers
     try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
-      boolean error = false;
       int initialCapacity = 1024;
 
       /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
@@ -865,7 +859,6 @@ public class TestValueVector {
       }
 
       vector.setValueCount(1024);
-      Field field = vector.getField();
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
@@ -1205,7 +1198,6 @@ public class TestValueVector {
       assertEquals(txt, vector.getObject(7));
 
       // Ensure null value throws.
-      boolean b = false;
       assertNull(vector.get(8));
     }
   }
@@ -1282,18 +1274,18 @@ public class TestValueVector {
 
       final String str = "hello world";
       final String str2 = "foo";
-      vector.setSafe(0, str.getBytes());
-      vector.setSafe(1, str2.getBytes());
+      vector.setSafe(0, str.getBytes(StandardCharsets.UTF_8));
+      vector.setSafe(1, str2.getBytes(StandardCharsets.UTF_8));
 
       // verify results
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
-      assertArrayEquals(str.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
           0, (int) reusableByteArray.getLength()));
       byte[] oldBuffer = reusableByteArray.getBuffer();
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
           0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
@@ -1319,7 +1311,6 @@ public class TestValueVector {
   public void testReallocAfterVectorTransfer1() {
     try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
       int initialCapacity = 4096;
-      boolean error = false;
 
       /* use the default capacity; 4096*8 => 32KB */
       vector.setInitialCapacity(initialCapacity);
@@ -1359,7 +1350,7 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(capacityAfterRealloc1, baseValue + (double) (capacityAfterRealloc1));
+      vector.setSafe(capacityAfterRealloc1, baseValue + (double) capacityAfterRealloc1);
       assertTrue(vector.getValueCapacity() >= initialCapacity * 4);
       int capacityAfterRealloc2 = vector.getValueCapacity();
 
@@ -1401,7 +1392,6 @@ public class TestValueVector {
   public void testReallocAfterVectorTransfer2() {
     try (final Float8Vector vector = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
       int initialCapacity = 4096;
-      boolean error = false;
 
       vector.allocateNew(initialCapacity);
       assertTrue(vector.getValueCapacity() >= initialCapacity);
@@ -1438,7 +1428,7 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc */
-      vector.setSafe(capacityAfterRealloc1, baseValue + (double) (capacityAfterRealloc1));
+      vector.setSafe(capacityAfterRealloc1, baseValue + (double) capacityAfterRealloc1);
       assertTrue(vector.getValueCapacity() >= initialCapacity * 4);
       int capacityAfterRealloc2 = vector.getValueCapacity();
 
@@ -1594,7 +1584,6 @@ public class TestValueVector {
       assertTrue(valueCapacity >= 4096);
 
       /* populate the vector */
-      int baseValue = 1000;
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 0) {
           vector.set(i, 1000 + i);
@@ -1749,7 +1738,7 @@ public class TestValueVector {
       int initialCapacity = vector.getValueCapacity();
       assertTrue(initialCapacity >= 4095);
 
-      vector.setSafe(4094, "hello".getBytes(), 0, 5);
+      vector.setSafe(4094, "hello".getBytes(StandardCharsets.UTF_8), 0, 5);
       /* the above set method should NOT have triggered a realloc */
       assertEquals(initialCapacity, vector.getValueCapacity());
 
@@ -1763,7 +1752,7 @@ public class TestValueVector {
   @Test
   public void testSetSafeWithArrowBufNoExcessAllocs() {
     final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
-    final byte[] valueBytes = "hello world".getBytes();
+    final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
     final int valueBytesLength = valueBytes.length;
     final int isSet = 1;
 
@@ -1820,7 +1809,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           continue;
         }
-        byte[] b = Integer.toString(i).getBytes();
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
         vector.setSafe(i, b, 0, b.length);
       }
 
@@ -1881,7 +1870,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           continue;
         }
-        byte[] b = Integer.toString(i).getBytes();
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
         vector.setSafe(i, b, 0, b.length);
       }
 
@@ -2237,7 +2226,7 @@ public class TestValueVector {
       long dataAddress = vector.getDataBufferAddress();
 
       try {
-        long offsetAddress = vector.getOffsetBufferAddress();
+        vector.getOffsetBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
@@ -2375,7 +2364,7 @@ public class TestValueVector {
 
       String str = "hello";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       stringHolder.start = 0;
       stringHolder.end = str.length();
@@ -2386,7 +2375,7 @@ public class TestValueVector {
 
       // verify results
       assertTrue(vector.isNull(0));
-      assertEquals(str, new String(vector.get(1)));
+      assertEquals(str, new String(vector.get(1), StandardCharsets.UTF_8));
 
       buf.close();
     }
@@ -2405,7 +2394,7 @@ public class TestValueVector {
 
       String str = "hello world";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       stringHolder.start = 0;
       stringHolder.end = str.length();
@@ -2415,7 +2404,7 @@ public class TestValueVector {
       vector.setSafe(1, nullHolder);
 
       // verify results
-      assertEquals(str, new String(vector.get(0)));
+      assertEquals(str, new String(vector.get(0), StandardCharsets.UTF_8));
       assertTrue(vector.isNull(1));
 
       buf.close();
@@ -2435,7 +2424,7 @@ public class TestValueVector {
 
       String str = "hello";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       binHolder.start = 0;
       binHolder.end = str.length();
@@ -2446,7 +2435,7 @@ public class TestValueVector {
 
       // verify results
       assertTrue(vector.isNull(0));
-      assertEquals(str, new String(vector.get(1)));
+      assertEquals(str, new String(vector.get(1), StandardCharsets.UTF_8));
 
       buf.close();
     }
@@ -2465,7 +2454,7 @@ public class TestValueVector {
 
       String str = "hello world";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       binHolder.start = 0;
       binHolder.end = str.length();
@@ -2475,7 +2464,7 @@ public class TestValueVector {
       vector.setSafe(1, nullHolder);
 
       // verify results
-      assertEquals(str, new String(vector.get(0)));
+      assertEquals(str, new String(vector.get(0), StandardCharsets.UTF_8));
       assertTrue(vector.isNull(1));
 
       buf.close();
@@ -2531,8 +2520,8 @@ public class TestValueVector {
       for (int i = 0; i < sampleData.length; i++) {
         String str = sampleData[i];
         if (str != null) {
-          vec1.set(i, sampleData[i].getBytes());
-          vec2.set(i, sampleData[i].getBytes());
+          vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+          vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
         } else {
           vec1.setNull(i);
           vec2.setNull(i);
@@ -2927,7 +2916,7 @@ public class TestValueVector {
       varChVec.allocateNew(100, 1);
       varChVec.setValueCount(1);
 
-      varChVec.set(0, "abc".getBytes());
+      varChVec.set(0, "abc".getBytes(StandardCharsets.UTF_8));
       varChVec.setNull(0);
 
       assertEquals(0, varChVec.hashCode(0));
@@ -3045,7 +3034,7 @@ public class TestValueVector {
       varCharVector.allocateNew(5, 2);
       varCharVector.setValueCount(2);
 
-      varCharVector.set(0, "abcd".getBytes());
+      varCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
       List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
       assertEquals(3, bufs.size());

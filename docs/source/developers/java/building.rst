@@ -115,9 +115,8 @@ Maven
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-      $ ls -latr ../java-dist/lib/<your system's architecture>
-      |__ libarrow_cdata_jni.dylib
-      |__ libarrow_cdata_jni.so
+      $ ls -latr ../java-dist/lib
+      |__ arrow_cdata_jni/
 
 - To build only the JNI C Data Interface library (Windows):
 
@@ -125,8 +124,8 @@ Maven
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-      $ dir "../java-dist/bin/x86_64"
-      |__ arrow_cdata_jni.dll
+      $ dir "../java-dist/bin"
+      |__ arrow_cdata_jni/
 
 - To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
@@ -136,10 +135,10 @@ Maven
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
-      $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
-      |__ libarrow_dataset_jni.dylib
-      |__ libarrow_orc_jni.dylib
-      |__ libgandiva_jni.dylib
+      $ ls -latr java-dist/lib
+      |__ arrow_dataset_jni/
+      |__ arrow_orc_jni/
+      |__ gandiva_jni/
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
@@ -147,8 +146,8 @@ Maven
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-jni-windows -N
-      $ dir "../java-dist/bin/x86_64"
-      |__ arrow_dataset_jni.dll
+      $ dir "../java-dist/bin"
+      |__ arrow_dataset_jni/
 
 CMake
 ~~~~~
@@ -166,12 +165,10 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ ls -latr java-dist/lib
-      |__ libarrow_cdata_jni.dylib
-      |__ libarrow_cdata_jni.so
+      |__ arrow_cdata_jni/
 
 - To build only the JNI C Data Interface library (Windows):
 
@@ -186,11 +183,10 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ dir "java-dist/bin"
-      |__ arrow_cdata_jni.dll
+      |__ arrow_cdata_jni/
 
 - To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
@@ -222,7 +218,6 @@ CMake
           -DARROW_SUBSTRAIT=ON \
           -DARROW_USE_CCACHE=ON \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
       $ cmake --build cpp-jni --target install --config Release
@@ -233,16 +228,15 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
           -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
           -DProtobuf_USE_STATIC_LIBS=ON
       $ cmake --build java-jni --target install --config Release
-      $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
-      |__ libarrow_dataset_jni.dylib
-      |__ libarrow_orc_jni.dylib
-      |__ libgandiva_jni.dylib
+      $ ls -latr java-dist/lib/
+      |__ arrow_dataset_jni/
+      |__ arrow_orc_jni/
+      |__ gandiva_jni/
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
@@ -271,7 +265,6 @@ CMake
           -DARROW_WITH_ZLIB=ON ^
           -DARROW_WITH_ZSTD=ON ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_UNITY_BUILD=ON ^
           -GNinja
@@ -288,13 +281,12 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_ORC=ON ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_PREFIX_PATH=$PWD/java-dist
       $ cmake --build java-jni --target install --config Release
       $ dir "java-dist/bin"
-      |__ arrow_orc_jni.dll
-      |__ arrow_dataset_jni.dll
+      |__ arrow_orc_jni/
+      |__ arrow_dataset_jni/
 
 Archery
 ~~~~~~~
@@ -303,11 +295,11 @@ Archery
 
     $ cd arrow
     $ archery docker run java-jni-manylinux-2014
-    $ ls -latr java-dist/<your system's architecture>/
-    |__ libarrow_cdata_jni.so
-    |__ libarrow_dataset_jni.so
-    |__ libarrow_orc_jni.so
-    |__ libgandiva_jni.so
+    $ ls -latr java-dist
+    |__ arrow_cdata_jni/
+    |__ arrow_dataset_jni/
+    |__ arrow_orc_jni/
+    |__ gandiva_jni/
 
 Building Java JNI Modules
 -------------------------

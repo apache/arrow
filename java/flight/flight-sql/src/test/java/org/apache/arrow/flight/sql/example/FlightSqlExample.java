@@ -69,6 +69,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -382,6 +383,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
   }
 
+  @SuppressWarnings("StringSplitter")
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull,
                                                            Predicate<ResultSet> resultSetPredicate)
@@ -512,7 +514,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         }
       };
     } else {
-      predicate = (resultSet -> true);
+      predicate = resultSet -> true;
     }
 
     int rows = saveToVectors(mapper, typeInfo, true, predicate);
@@ -685,7 +687,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
                                      final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
         preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
       } catch (final Exception e) {
@@ -774,7 +776,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
         final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!

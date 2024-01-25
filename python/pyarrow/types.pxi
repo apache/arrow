@@ -5140,12 +5140,8 @@ def from_numpy_dtype(object dtype):
     >>> pa.from_numpy_dtype(np.str_)
     DataType(string)
     """
-    cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
-    with nogil:
-        check_status(NumPyDtypeToArrow(dtype, &c_type))
-
-    return pyarrow_wrap_data_type(c_type)
+    return pyarrow_wrap_data_type(GetResultValue(NumPyDtypeToArrow(dtype)))
 
 
 def is_boolean_value(object obj):

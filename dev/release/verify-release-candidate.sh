@@ -173,7 +173,7 @@ test_binary() {
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -878,10 +878,10 @@ test_csharp() {
   fi
 
   if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourelink verification on local build"
+    echo "Skipping sourcelink verification on local build"
   else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd
@@ -1136,7 +1136,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
