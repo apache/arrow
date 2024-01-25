@@ -274,7 +274,7 @@ class SerializedPageWriter : public PageWriter {
     int64_t uncompressed_size = page.buffer()->size();
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
       throw ParquetException(
-          "Uncompressed dictionary page size overflows to INT32_MAX. Size:",
+          "Uncompressed dictionary page size overflows INT32_MAX. Size:",
           uncompressed_size);
     }
     std::shared_ptr<Buffer> compressed_data;
