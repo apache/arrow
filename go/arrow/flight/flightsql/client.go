@@ -1165,6 +1165,9 @@ func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSche
 // the prepared statement.
 func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSchema }
 
+// The handle associated with this PreparedStatement
+func (p *PreparedStatement) Handle() []byte { return p.handle }
+
 // GetSchema re-requests the schema of the result set of the prepared
 // statement from the server. It should otherwise be identical to DatasetSchema.
 //

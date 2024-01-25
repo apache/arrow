@@ -384,6 +384,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
@@ -445,10 +447,14 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
 	s.NoError(err)
 	defer rec.Release()
+
+	s.Equal(string(prepared.Handle()), "query")
 
 	prepared.SetParameters(rec)
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
@@ -517,6 +523,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
 	s.NoError(err)
@@ -575,6 +583,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementClose() {
 
 	err = prepared.Close(context.TODO(), s.callOpts...)
 	s.NoError(err)
+
+	s.Equal(string(prepared.Handle()), "query")
 }
 
 func (s *FlightSqlClientSuite) TestExecuteUpdate() {
