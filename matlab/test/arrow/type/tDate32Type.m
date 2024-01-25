@@ -15,8 +15,6 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-
-
 classdef tDate32Type < tDateTypeTest
 
     properties
@@ -99,4 +97,3 @@ classdef tDate32Type < tDateTypeTest
         end
     end
 end
-

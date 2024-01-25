@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef hDateTypeTest < hFixedWidthType
+classdef hDateType < hFixedWidthType
     
     properties (Abstract)
         ConstructionFcn
@@ -30,7 +30,7 @@ classdef hDateTypeTest < hFixedWidthType
         end
 
         function DefaultDateUnit(testCase)
-            type = testCase.ConstructionFcn();
+            type = testCase.ConstructionFcn;
             actualUnit = type.DateUnit;
             expectedUnit = testCase.retrieveDefaultDateUnit();
             testCase.verifyEqual(actualUnit, expectedUnit);
@@ -85,7 +85,7 @@ classdef hDateTypeTest < hFixedWidthType
     end
 
     methods (Access = protected, Abstract)
-        retrieveDefaultDateUnit(obj)
+        DefaultDateUnit;
         end
     end
 
