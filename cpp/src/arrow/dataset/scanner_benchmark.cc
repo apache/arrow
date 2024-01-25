@@ -163,9 +163,9 @@ void ScanOnly(
 
   ASSERT_GT(collected->num_rows(), 0);
   if (factory_name == "scan") {
-	ASSERT_EQ(collected->num_columns(), 6);
+    ASSERT_EQ(collected->num_columns(), 6);
   } else if (factory_name == "scan2") {
-	ASSERT_EQ(collected->num_columns(), 2);
+    ASSERT_EQ(collected->num_columns(), 2);
   }
 }
 
