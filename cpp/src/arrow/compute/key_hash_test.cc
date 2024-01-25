@@ -252,10 +252,10 @@ TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
-void HashFixedLengthFrom(int fixed_length, int num_rows_total, int start_row) {
-  int num_rows = num_rows_total - start_row;
+void HashFixedLengthFrom(int key_length, int num_rows, int start_row) {
+  int num_rows_to_hash = num_rows - start_row;
   auto num_bytes_aligned =
-      arrow::bit_util::RoundUpToMultipleOf64(fixed_length * num_rows_total);
+      arrow::bit_util::RoundUpToMultipleOf64(key_length * num_rows);
 
   const auto hardware_flags_for_testing = HardwareFlagsForTesting();
   ASSERT_GT(hardware_flags_for_testing.size(), 0);
@@ -263,15 +263,15 @@ void HashFixedLengthFrom(int fixed_length, int num_rows_total, int start_row) {
   std::vector<std::vector<uint32_t>> hashes32(hardware_flags_for_testing.size());
   std::vector<std::vector<uint64_t>> hashes64(hardware_flags_for_testing.size());
   for (auto& h : hashes32) {
-    h.resize(num_rows);
+    h.resize(num_rows_to_hash);
   }
   for (auto& h : hashes64) {
-    h.resize(num_rows);
+    h.resize(num_rows_to_hash);
   }
 
-  FixedSizeBinaryBuilder keys_builder(fixed_size_binary(fixed_length));
-  for (int j = 0; j < num_rows_total; ++j) {
-    ASSERT_OK(keys_builder.Append(std::string(fixed_length, 42)));
+  FixedSizeBinaryBuilder keys_builder(fixed_size_binary(key_length));
+  for (int j = 0; j < num_rows; ++j) {
+    ASSERT_OK(keys_builder.Append(std::string(key_length, 42)));
   }
   ASSERT_OK_AND_ASSIGN(auto keys, keys_builder.Finish());
   // Make sure the buffer is aligned as expected.
@@ -284,18 +284,17 @@ void HashFixedLengthFrom(int fixed_length, int num_rows_total, int start_row) {
   for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
     const auto hardware_flags = hardware_flags_for_testing[i];
     Hashing32::HashFixed(hardware_flags,
-                         /*combine_hashes=*/false, num_rows, fixed_length,
-                         keys->data()->GetValues<uint8_t>(1) + start_row * fixed_length,
+                         /*combine_hashes=*/false, num_rows_to_hash, key_length,
+                         keys->data()->GetValues<uint8_t>(1) + start_row * key_length,
                          hashes32[i].data(), temp_buffer.data());
     Hashing64::HashFixed(
-        /*combine_hashes=*/false, num_rows, fixed_length,
-        keys->data()->GetValues<uint8_t>(1) + start_row * fixed_length,
-        hashes64[i].data());
+        /*combine_hashes=*/false, num_rows_to_hash, key_length,
+        keys->data()->GetValues<uint8_t>(1) + start_row * key_length, hashes64[i].data());
   }
 
   // Verify that all implementations (scalar, SIMD) give the same hashes.
   for (int i = 1; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
-    for (int j = 0; j < num_rows; ++j) {
+    for (int j = 0; j < num_rows_to_hash; ++j) {
       ASSERT_EQ(hashes32[i][j], hashes32[0][j])
           << "scalar and simd approaches yielded different 32-bit hashes";
       ASSERT_EQ(hashes64[i][j], hashes64[0][j])
@@ -305,12 +304,12 @@ void HashFixedLengthFrom(int fixed_length, int num_rows_total, int start_row) {
 }
 
 // Some carefully chosen cases that may cause troubles like GH-39778.
-TEST(VectorHash, FixedSizeTailByteSafety) {
-  // Tow cases of fixed_length < stripe (16-byte).
-  HashFixedLengthFrom(/*fixed_length=*/3, /*num_rows_total=*/1450, /*start_row=*/1447);
-  HashFixedLengthFrom(/*fixed_length=*/5, /*num_rows_total=*/883, /*start_row=*/858);
-  // Case of fixed_length > stripe (16-byte).
-  HashFixedLengthFrom(/*fixed_length=*/19, /*num_rows_total=*/64, /*start_row=*/63);
+TEST(VectorHash, FixedLengthTailByteSafety) {
+  // Tow cases of key_length < stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/3, /*num_rows=*/1450, /*start_row=*/1447);
+  HashFixedLengthFrom(/*key_length=*/5, /*num_rows=*/883, /*start_row=*/858);
+  // Case of key_length > stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/19, /*num_rows=*/64, /*start_row=*/63);
 }
 
 }  // namespace compute
