@@ -1339,9 +1339,9 @@ class CopyCollectListener : public CollectListener {
     ARROW_ASSIGN_OR_RAISE(
         record_batch_with_metadata.batch,
         record_batch_with_metadata.batch->CopyTo(default_cpu_memory_manager()));
-    
+
     return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
-  } 
+  }
 };
 
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
