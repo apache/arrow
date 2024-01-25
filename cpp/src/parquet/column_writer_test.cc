@@ -919,7 +919,7 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
                                    Encoding::BIT_PACKED, Encoding::BIT_PACKED,
                                    /*uncompressed_size=*/100);
   EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
-              ThrowsMessage<ParquetException>(HasSubstr("overflows to INT32_MAX")));
+              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
   DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
                                                   Encoding::PLAIN);
   EXPECT_THROW(pager->WriteDictionaryPage(dictionary_over_compressed_limit),
@@ -931,7 +931,7 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
       Encoding::BIT_PACKED,
       /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
   EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
-              ThrowsMessage<ParquetException>(HasSubstr("overflows to INT32_MAX")));
+              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
 }
 
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {

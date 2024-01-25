@@ -295,7 +295,7 @@ class SerializedPageWriter : public PageWriter {
     const uint8_t* output_data_buffer = compressed_data->data();
     if (compressed_data->size() > std::numeric_limits<int32_t>::max()) {
       throw ParquetException(
-          "Compressed dictionary page size overflows to INT32_MAX. Size: ",
+          "Compressed dictionary page size overflows INT32_MAX. Size: ",
           uncompressed_size);
     }
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
@@ -384,7 +384,7 @@ class SerializedPageWriter : public PageWriter {
     int64_t output_data_len = compressed_data->size();
 
     if (output_data_len > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Compressed data page size overflows to INT32_MAX. Size:",
+      throw ParquetException("Compressed data page size overflows INT32_MAX. Size:",
                              output_data_len);
     }
 
@@ -401,7 +401,7 @@ class SerializedPageWriter : public PageWriter {
     format::PageHeader page_header;
 
     if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Uncompressed data page size overflows to INT32_MAX. Size:",
+      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
                              uncompressed_size);
     }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
@@ -442,7 +442,7 @@ class SerializedPageWriter : public PageWriter {
     if (offset_index_builder_ != nullptr) {
       const int64_t compressed_size = output_data_len + header_size;
       if (compressed_size > std::numeric_limits<int32_t>::max()) {
-        throw ParquetException("Compressed page size overflows to INT32_MAX.");
+        throw ParquetException("Compressed page size overflows INT32_MAX.");
       }
       if (!page.first_row_index().has_value()) {
         throw ParquetException("First row index is not set in data page.");
