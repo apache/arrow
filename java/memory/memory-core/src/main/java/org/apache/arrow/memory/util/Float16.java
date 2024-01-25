@@ -47,9 +47,9 @@ import org.apache.arrow.util.VisibleForTesting;
  */
 public class Float16 {
   // Positive infinity of type half-precision float.
-  private static final short POSITIVE_INFINITY = (short) 0x7c00;
+  public static final short POSITIVE_INFINITY = (short) 0x7c00;
   // A Not-a-Number representation of a half-precision float.
-  private static final short NaN = (short) 0x7e00;
+  public static final short NaN = (short) 0x7e00;
   // The bitmask to and a number with to obtain the sign bit.
   private static final int SIGN_MASK = 0x8000;
   // The offset to shift by to obtain the exponent bits.
