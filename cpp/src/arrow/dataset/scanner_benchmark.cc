@@ -162,7 +162,11 @@ void ScanOnly(
                        acero::DeclarationToTable(std::move(scan)));
 
   ASSERT_GT(collected->num_rows(), 0);
-  ASSERT_EQ(collected->num_columns(), 2);
+  if (factory_name == "scan") {
+    ASSERT_EQ(collected->num_columns(), 6);
+  } else if (factory_name == "scan2") {
+    ASSERT_EQ(collected->num_columns(), 2);
+  }
 }
 
 static constexpr int kScanIdx = 0;
