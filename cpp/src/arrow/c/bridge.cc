@@ -2174,9 +2174,10 @@ class ArrayStreamReader {
     return schema;
   }
 
-  Status CheckNotReleased(const std::string& message) {
+  Status CheckNotReleased() {
     if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid(message);
+      return Status::Invalid(
+          "Attempt to read from a stream that has already been closed");
     } else {
       return Status::OK();
     }
@@ -2214,43 +2215,24 @@ class ArrayStreamReader {
   mutable struct ArrowArrayStream stream_;
 };
 
-class ArrayStreamBatchReader : public RecordBatchReader {
+class ArrayStreamBatchReader : public RecordBatchReader, public ArrayStreamReader {
  public:
-  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) {
-    ArrowArrayStreamMove(stream, &stream_);
-    DCHECK(!ArrowArrayStreamIsReleased(&stream_));
-  }
+  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream)
+      : ArrayStreamReader(stream) {}
 
   Status Init() {
-    struct ArrowSchema c_schema = {};
-    auto status = StatusFromCError(&stream_, stream_.get_schema(&stream_, &c_schema));
-    if (status.ok()) {
-      status = ImportSchema(&c_schema).Value(&schema_);
-    }
-    if (!status.ok() && !ArrowArrayStreamIsReleased(&stream_)) {
-      ArrowArrayStreamRelease(&stream_);
-      return status;
-    }
-
-    return status;
-  }
-
-  ~ArrayStreamBatchReader() override {
-    if (!ArrowArrayStreamIsReleased(&stream_)) {
-      ArrowArrayStreamRelease(&stream_);
-    }
-    DCHECK(ArrowArrayStreamIsReleased(&stream_));
+    ARROW_ASSIGN_OR_RAISE(schema_, ReadSchema());
+    return Status::OK();
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    ARROW_RETURN_NOT_OK(CheckNotReleased());
+
     struct ArrowArray c_array;
-    if (ArrowArrayStreamIsReleased(&stream_)) {
-      return Status::Invalid(
-          "Attempt to read from a reader that has already been closed");
-    }
-    RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
+    ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
+
     if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       batch->reset();
@@ -2261,47 +2243,11 @@ class ArrayStreamBatchReader : public RecordBatchReader {
   }
 
   Status Close() override {
-    if (!ArrowArrayStreamIsReleased(&stream_)) {
-      ArrowArrayStreamRelease(&stream_);
-    }
+    ReleaseStream();
     return Status::OK();
   }
 
-  static Result<std::shared_ptr<RecordBatchReader>> Make(
-      struct ArrowArrayStream* stream) {
-    return std::make_shared<ArrayStreamBatchReader>(stream);
-  }
-
  private:
-  Status StatusFromCError(int errno_like) const {
-    return StatusFromCError(&stream_, errno_like);
-  }
-
-  static Status StatusFromCError(struct ArrowArrayStream* stream, int errno_like) {
-    if (ARROW_PREDICT_TRUE(errno_like == 0)) {
-      return Status::OK();
-    }
-    StatusCode code;
-    switch (errno_like) {
-      case EDOM:
-      case EINVAL:
-      case ERANGE:
-        code = StatusCode::Invalid;
-        break;
-      case ENOMEM:
-        code = StatusCode::OutOfMemory;
-        break;
-      case ENOSYS:
-        code = StatusCode::NotImplemented;
-      default:
-        code = StatusCode::IOError;
-        break;
-    }
-    const char* last_error = stream->get_last_error(stream);
-    return {code, last_error ? std::string(last_error) : ""};
-  }
-
-  mutable struct ArrowArrayStream stream_;
   std::shared_ptr<Schema> schema_;
 };
 
@@ -2311,21 +2257,14 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
       : ArrayStreamReader(stream) {}
 
   Status Init() {
-    auto maybe_field = ReadField();
-    if (!maybe_field.ok()) {
-      ReleaseStream();
-      return maybe_field.status();
-    } else {
-      field_ = *maybe_field;
-      return Status::OK();
-    }
+    ARROW_ASSIGN_OR_RAISE(field_, ReadField());
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> data_type() const { return field_->type(); }
 
   Status ReadNext(std::shared_ptr<Array>* array) {
-    ARROW_RETURN_NOT_OK(
-        CheckNotReleased("Attempt to read from a stream that has already been released"));
+    ARROW_RETURN_NOT_OK(CheckNotReleased());
 
     struct ArrowArray c_array;
     ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
