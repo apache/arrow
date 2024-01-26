@@ -557,6 +557,14 @@ cdef class LargeListType(DataType):
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
+cdef class ListViewType(DataType):
+    pass
+
+
+cdef class LargeListViewType(DataType):
+    pass
+
+
 cdef class MapType(DataType):
     """
     Concrete class for map data types.
@@ -4526,6 +4534,14 @@ cpdef LargeListType large_list(value_type):
     list_type.reset(new CLargeListType(_field.sp_field))
     out.init(list_type)
     return out
+
+
+cpdef ListViewType list_view():
+    pass
+
+
+cpdef LargeListViewType large_list_view():
+    pass
 
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):

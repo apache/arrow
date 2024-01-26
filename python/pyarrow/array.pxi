@@ -2460,6 +2460,24 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
+cdef class BaseListViewArray(Array):
+    pass
+
+
+cdef class ListViewArray(BaseListViewArray):
+    """
+    Concrete class for Arrow arrays of a list view data type.
+    """
+
+
+cdef class LargeListViewArray(BaseListViewArray):
+    """
+    Concrete class for Arrow arrays of a large list view data type.
+
+    Identical to ListViewArray, but with 64-bit offsets.
+    """
+
+
 cdef class MapArray(ListArray):
     """
     Concrete class for Arrow arrays of a map data type.

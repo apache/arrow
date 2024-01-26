@@ -132,6 +132,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_FIXED_SIZE_LIST" arrow::Type::FIXED_SIZE_LIST"
+        _Type_LIST_VIEW" arrow::Type::LIST_VIEW"
+        _Type_LARGE_LIST_VIEW" arrow::Type::LARGE_LIST_VIEW"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_SPARSE_UNION" arrow::Type::SPARSE_UNION"
         _Type_DENSE_UNION" arrow::Type::DENSE_UNION"
@@ -365,6 +367,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CLargeListType(const shared_ptr[CField]& field)
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
+
+    cdef cppclass CListViewType" arrow::ListViewType"(CDataType):
+        pass
+
+    cdef cppclass CLargeListViewType" arrow::LargeListViewType"(CDataType):
+        pass
 
     cdef cppclass CMapType" arrow::MapType"(CDataType):
         CMapType(const shared_ptr[CField]& key_field,
@@ -689,6 +697,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t value_length(int i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
+
+    cdef cppclass CListViewArray" arrow::ListViewArray"(CArray):
+        pass
+
+    cdef cppclass CLargeListViewArray" arrow::LargeListViewArray"(CArray):
+        pass
 
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
@@ -1148,6 +1162,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] value
 
     cdef cppclass CListScalar" arrow::ListScalar"(CBaseListScalar):
+        pass
+
+    cdef cppclass CListViewScalar" arrow::ListViewScalar"(CBaseListScalar):
+        pass
+
+    cdef cppclass CLargeListViewScalar" arrow::LargeListViewScalar"(CBaseListScalar):
         pass
 
     cdef cppclass CMapScalar" arrow::MapScalar"(CListScalar):

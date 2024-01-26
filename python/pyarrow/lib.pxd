@@ -425,6 +425,18 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class BaseListViewArray(Array):
+    pass
+
+
+cdef class ListViewArray(BaseListViewArray):
+    pass
+
+
+cdef class LargeListViewArray(BaseListViewArray):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
