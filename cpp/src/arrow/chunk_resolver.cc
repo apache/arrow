@@ -58,17 +58,14 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 
 ChunkResolver::ChunkResolver(const ArrayVector& chunks)
     : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {
-  max_index_ = offsets_.back();
 }
 
 ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
     : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {
-  max_index_ = offsets_.back();
 }
 
 ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
     : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {
-  max_index_ = offsets_.back();
 }
 
 }  // namespace internal

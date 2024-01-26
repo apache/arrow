@@ -65,6 +65,16 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
                                               MemoryPool* pool = default_memory_pool());
 
+/// \brief Create multiple strongly-typed Array instances from ArrayData
+///
+/// When building many arrays at once, this can provide a significant
+/// performance improvement over calling MakeArray() repeatedly.
+///
+/// \param[in] data contents of all arrays, all must be of the same type.
+/// \return the resulting Array instances
+ARROW_EXPORT
+ArrayVector MakeArrays(const std::vector<std::shared_ptr<ArrayData>>& data);
+
 namespace internal {
 
 /// \brief Swap endian of each element in a generic ArrayData
