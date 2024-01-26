@@ -254,8 +254,7 @@ TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
 
 void HashFixedLengthFrom(int key_length, int num_rows, int start_row) {
   int num_rows_to_hash = num_rows - start_row;
-  auto num_bytes_aligned =
-      arrow::bit_util::RoundUpToMultipleOf64(key_length * num_rows);
+  auto num_bytes_aligned = arrow::bit_util::RoundUpToMultipleOf64(key_length * num_rows);
 
   const auto hardware_flags_for_testing = HardwareFlagsForTesting();
   ASSERT_GT(hardware_flags_for_testing.size(), 0);
