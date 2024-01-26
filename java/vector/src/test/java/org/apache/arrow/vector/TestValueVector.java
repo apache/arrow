@@ -42,6 +42,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.arrow.memory.util.Float16;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
@@ -332,7 +333,7 @@ public class TestValueVector {
     }
   }
 
-  @Test /* Float2Vector */
+  @Test
   public void testFixedFloat2() {
     try (final Float2Vector floatVector = new Float2Vector(EMPTY_SCHEMA_PATH, allocator)) {
       boolean error = false;
@@ -364,17 +365,17 @@ public class TestValueVector {
       floatVector.zeroVector();
 
       /* populate the floatVector */
-      floatVector.set(0, +0.00050163269043f); // (short) 0x101c
-      floatVector.set(2, -0.00050163269043f); // (short) 0x901c
-      floatVector.set(4, +0.000502109527588f); // (short) 0x101d
-      floatVector.set(6, -0.000502109527588f); // (short) 0x901d
-      floatVector.set(8, +0.00074577331543f); // (short) 0x121c
-      floatVector.set(10, -0.00074577331543f); // (short) 0x921c
-      floatVector.set(12, +32.875f); // (short) 0x501c
-      floatVector.set(14, -32.875f); // (short) 0xd01c
+      floatVector.set(0, Float16.toFloat16(+0.00050163269043f)); // (short) 0x101c
+      floatVector.set(2, Float16.toFloat16(-0.00050163269043f)); // (short) 0x901c
+      floatVector.set(4, Float16.toFloat16(+0.000502109527588f)); // (short) 0x101d
+      floatVector.set(6, Float16.toFloat16(-0.000502109527588f)); // (short) 0x901d
+      floatVector.set(8, Float16.toFloat16(+0.00074577331543f)); // (short) 0x121c
+      floatVector.set(10, Float16.toFloat16(-0.00074577331543f)); // (short) 0x921c
+      floatVector.set(12, Float16.toFloat16(+32.875f)); // (short) 0x501c
+      floatVector.set(14, Float16.toFloat16(-32.875f)); // (short) 0xd01c
 
       try {
-        floatVector.set(initialCapacity, 9.5f);
+        floatVector.set(initialCapacity, Float16.toFloat16(9.5f));
       } catch (IndexOutOfBoundsException ie) {
         error = true;
       } finally {
@@ -383,14 +384,14 @@ public class TestValueVector {
       }
 
       /* check vector contents */
-      assertEquals(+0.00050163269043f, floatVector.get(0), 0);
-      assertEquals(-0.00050163269043f, floatVector.get(2), 0);
-      assertEquals(+0.000502109527588f, floatVector.get(4), 0);
-      assertEquals(-0.000502109527588f, floatVector.get(6), 0);
-      assertEquals(+0.00074577331543f, floatVector.get(8), 0);
-      assertEquals(-0.00074577331543f, floatVector.get(10), 0);
-      assertEquals(+32.875f, floatVector.get(12), 0);
-      assertEquals(-32.875f, floatVector.get(14), 0);
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals((short) 0x901d, floatVector.get(6));
+      assertEquals((short) 0x121c, floatVector.get(8));
+      assertEquals((short) 0x921c, floatVector.get(10));
+      assertEquals((short) 0x501c, floatVector.get(12));
+      assertEquals((short) 0xd01c, floatVector.get(14));
 
       try {
         floatVector.get(initialCapacity);
@@ -402,21 +403,21 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc() */
-      floatVector.setSafe(initialCapacity, +0.00100326538086f); // (short) 0x141c
+      floatVector.setSafe(initialCapacity, Float16.toFloat16(+0.00100326538086f)); // (short) 0x141c
 
       /* underlying buffer should now be able to store double the number of values */
       assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
 
       /* vector data should still be intact after realloc */
-      assertEquals(+0.00050163269043f, floatVector.get(0), 0);
-      assertEquals(-0.00050163269043f, floatVector.get(2), 0);
-      assertEquals(+0.000502109527588f, floatVector.get(4), 0);
-      assertEquals(-0.000502109527588f, floatVector.get(6), 0);
-      assertEquals(+0.00074577331543f, floatVector.get(8), 0);
-      assertEquals(-0.00074577331543f, floatVector.get(10), 0);
-      assertEquals(+32.875f, floatVector.get(12), 0);
-      assertEquals(-32.875f, floatVector.get(14), 0);
-      assertEquals(+0.00100326538086f, floatVector.get(initialCapacity), 0);
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals((short) 0x901d, floatVector.get(6));
+      assertEquals((short) 0x121c, floatVector.get(8));
+      assertEquals((short) 0x921c, floatVector.get(10));
+      assertEquals((short) 0x501c, floatVector.get(12));
+      assertEquals((short) 0xd01c, floatVector.get(14));
+      assertEquals((short) 0x141c, floatVector.get(initialCapacity), 0);
 
       /* reset the vector */
       int capacityBeforeReset = floatVector.getValueCapacity();

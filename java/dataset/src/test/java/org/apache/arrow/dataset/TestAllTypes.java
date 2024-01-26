@@ -23,8 +23,6 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,7 +32,7 @@ import java.util.Objects;
 import org.apache.arrow.dataset.file.DatasetFileWriter;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.Float16;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -185,7 +183,7 @@ public class TestAllTypes extends TestDataset {
     ((UInt2Vector) root.getVector("uint16")).set(1, 1);
     ((UInt4Vector) root.getVector("uint32")).set(1, 1);
     ((UInt8Vector) root.getVector("uint64")).set(1, 1);
-    ((Float2Vector) root.getVector("float16")).set(1, +32.875f);
+    ((Float2Vector) root.getVector("float16")).set(1, Float16.toFloat16(+32.875f));
     ((Float4Vector) root.getVector("float32")).set(1, 1.0f);
     ((Float8Vector) root.getVector("float64")).set(1, 1.0);
     ((VarCharVector) root.getVector("utf8")).set(1, new Text("a"));
@@ -263,31 +261,6 @@ public class TestAllTypes extends TestDataset {
           assertParquetFileEquals(referenceFile,
               Objects.requireNonNull(writtenFolder.listFiles())[0].toURI().toString());
         }
-      }
-    }
-  }
-
-  /*
-  The purpose of this method is to refresh the data in alltypes-java.parquet as required:
-  https://github.com/apache/arrow-testing/blob/master/data/parquet/alltypes-java.parquet
-   */
-  public static void main(String[] args) throws Exception {
-    TestAllTypes test = new TestAllTypes();
-    try (BufferAllocator allocator = new RootAllocator();
-         VectorSchemaRoot root = test.generateAllTypesVector(allocator)) {
-      byte[] featherData = test.serializeFile(root);
-      try (SeekableByteChannel channel = new ByteArrayReadableSeekableByteChannel(featherData);
-           ArrowStreamReader reader = new ArrowStreamReader(channel, allocator)) {
-        TMP.create();
-        final File writtenFolder = TMP.newFolder();
-        final String writtenParquet = writtenFolder.toURI().toString();
-        DatasetFileWriter.write(allocator, reader, FileFormat.PARQUET,
-                writtenParquet);
-        Objects.requireNonNull(writtenFolder.listFiles());
-        Files.move(writtenFolder.listFiles()[0].toPath(),
-                Paths.get(writtenFolder.toPath().toString(), "alltypes-java.parquet"));
-        System.out.println("The file data/parquet/alltypes-java.parquet should be updated with this new data: " +
-                writtenFolder.listFiles()[0].toURI());
       }
     }
   }

@@ -102,11 +102,11 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
-  public float get(int index) throws IllegalStateException {
+  public short get(int index) throws IllegalStateException {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getFloat16((long) index * TYPE_WIDTH);
+    return valueBuffer.getShort((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -122,7 +122,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getFloat16((long) index * TYPE_WIDTH);
+    holder.value = valueBuffer.getShort((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -131,11 +131,11 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
-  public Float getObject(int index) {
+  public Short getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getFloat16((long) index * TYPE_WIDTH);
+      return valueBuffer.getShort((long) index * TYPE_WIDTH);
     }
   }
 
@@ -146,8 +146,8 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    *----------------------------------------------------------------*/
 
 
-  private void setValue(int index, float value) {
-    valueBuffer.setFloat16((long) index * TYPE_WIDTH, value);
+  private void setValue(int index, short value) {
+    valueBuffer.setShort((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -156,7 +156,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @param value   value of element
    */
-  public void set(int index, float value) {
+  public void set(int index, short value) {
     BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
@@ -192,14 +192,14 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
   }
 
   /**
-   * Same as {@link #set(int, float)} except that it handles the
+   * Same as {@link #set(int, short)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index   position of element
    * @param value   value of element
    */
-  public void setSafe(int index, float value) {
+  public void setSafe(int index, short value) {
     handleSafe(index);
     set(index, value);
   }
@@ -238,7 +238,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
    */
-  public void set(int index, int isSet, float value) {
+  public void set(int index, int isSet, short value) {
     if (isSet > 0) {
       set(index, value);
     } else {
@@ -247,7 +247,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
   }
 
   /**
-   * Same as {@link #set(int, int, float)} except that it handles the case
+   * Same as {@link #set(int, int, short)} except that it handles the case
    * when index is greater than or equal to current value capacity of the
    * vector.
    *
@@ -255,7 +255,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
    */
-  public void setSafe(int index, int isSet, float value) {
+  public void setSafe(int index, int isSet, short value) {
     handleSafe(index);
     set(index, isSet, value);
   }
@@ -276,12 +276,12 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
 
   @Override
   public void setWithPossibleTruncate(int index, double value) {
-    set(index, (float) value);
+    set(index, (short) value);
   }
 
   @Override
   public void setSafeWithPossibleTruncate(int index, double value) {
-    setSafe(index, (float) value);
+    setSafe(index, (short) value);
   }
 
   @Override

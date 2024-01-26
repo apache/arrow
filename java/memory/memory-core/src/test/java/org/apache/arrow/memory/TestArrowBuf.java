@@ -187,9 +187,8 @@ public class TestArrowBuf {
     try (BufferAllocator allocator = new RootAllocator();
          ArrowBuf buf = allocator.buffer(1024)
     ) {
-      buf.setFloat16(0, +32.875f);
-      assertEquals((short) 0x501c, Float16.toFloat16(+32.875f));
-      assertEquals(Float16.toFloat((short) 0x501c), buf.getFloat16(0), 0);
+      buf.setShort(0, Float16.toFloat16(+32.875f));
+      assertEquals((short) 0x501c, buf.getShort(0));
     }
   }
 }
