@@ -123,15 +123,6 @@ def _ensure_filesystem(
                 return LocalFileSystem(use_mmap=use_mmap)
             return PyFileSystem(FSSpecHandler(filesystem))
 
-    # map old filesystems to new ones
-    import pyarrow.filesystem as legacyfs
-
-    if isinstance(filesystem, legacyfs.LocalFileSystem):
-        return LocalFileSystem(use_mmap=use_mmap)
-    # TODO handle HDFS?
-    if allow_legacy_filesystem and isinstance(filesystem, legacyfs.FileSystem):
-        return filesystem
-
     raise TypeError(
         "Unrecognized filesystem: {}. `filesystem` argument must be a "
         "FileSystem instance or a valid file system URI'".format(

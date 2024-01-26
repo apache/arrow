@@ -27,7 +27,6 @@ import unittest.mock as mock
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
@@ -74,7 +73,7 @@ def test_filesystem_uri(tempdir):
 
 @pytest.mark.pandas
 def test_read_partitioned_directory(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     _partition_test_for_filesystem(fs, tempdir)
 
 
@@ -82,7 +81,7 @@ def test_read_partitioned_directory(tempdir):
 def test_read_partitioned_columns_selection(tempdir):
     # ARROW-3861 - do not include partition columns in resulting table when
     # `columns` keyword was passed without those columns
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
     _partition_test_for_filesystem(fs, base_path)
 
@@ -93,7 +92,7 @@ def test_read_partitioned_columns_selection(tempdir):
 
 @pytest.mark.pandas
 def test_filters_equivalency(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1]
@@ -164,7 +163,7 @@ def test_filters_equivalency(tempdir):
 
 @pytest.mark.pandas
 def test_filters_cutoff_exclusive_integer(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -204,7 +203,7 @@ def test_filters_cutoff_exclusive_integer(tempdir):
 )
 @pytest.mark.pandas
 def test_filters_cutoff_exclusive_datetime(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     date_keys = [
@@ -264,7 +263,7 @@ def test_filters_inclusive_datetime(tempdir):
 
 @pytest.mark.pandas
 def test_filters_inclusive_integer(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -298,7 +297,7 @@ def test_filters_inclusive_integer(tempdir):
 
 @pytest.mark.pandas
 def test_filters_inclusive_set(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1]
@@ -345,7 +344,7 @@ def test_filters_inclusive_set(tempdir):
 
 @pytest.mark.pandas
 def test_filters_invalid_pred_op(tempdir):
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -388,7 +387,7 @@ def test_filters_invalid_pred_op(tempdir):
 def test_filters_invalid_column(tempdir):
     # ARROW-5572 - raise error on invalid name in filter specification
     # works with new dataset
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -419,7 +418,7 @@ def test_filters_invalid_column(tempdir):
 def test_filters_read_table(tempdir, filters, read_method):
     read = getattr(pq, read_method)
     # test that filters keyword is passed through in read_table
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -445,7 +444,7 @@ def test_filters_read_table(tempdir, filters, read_method):
 @pytest.mark.pandas
 def test_partition_keys_with_underscores(tempdir):
     # ARROW-5666 - partition field values with underscores preserve underscores
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
     base_path = tempdir
 
     string_keys = ["2019_2", "2019_3"]
@@ -497,26 +496,6 @@ def test_read_single_file_list(tempdir):
 
     result = pq.ParquetDataset([data_path]).read()
     assert result.equals(table)
-
-
-@pytest.mark.pandas
-@pytest.mark.s3
-def test_read_partitioned_directory_s3fs_wrapper(s3_example_s3fs):
-    import s3fs
-
-    from pyarrow.filesystem import S3FSWrapper
-
-    if Version(s3fs.__version__) >= Version("0.5"):
-        pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
-
-    fs, path = s3_example_s3fs
-    with pytest.warns(FutureWarning):
-        wrapper = S3FSWrapper(fs)
-    _partition_test_for_filesystem(wrapper, path)
-
-    # Check that we can auto-wrap
-    dataset = pq.ParquetDataset(path, filesystem=fs)
-    dataset.read()
 
 
 @pytest.mark.pandas
@@ -1009,7 +988,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     output_table = pa.Table.from_pandas(output_df)
 
     if filesystem is None:
-        filesystem = LocalFileSystem._get_instance()
+        filesystem = fs.LocalFileSystem()
 
     # Without partitions, append files to root_path
     n = 5
@@ -1110,7 +1089,7 @@ def test_write_to_dataset_filesystem(tempdir):
 
 def _make_dataset_for_pickling(tempdir, N=100):
     path = tempdir / 'data.parquet'
-    fs = LocalFileSystem._get_instance()
+    fs = fs.LocalFileSystem()
 
     df = pd.DataFrame({
         'index': np.arange(N),
