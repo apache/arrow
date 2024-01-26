@@ -136,6 +136,7 @@ public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Long getObject(int index) {
     if (isSet(index) == 0) {
       return null;

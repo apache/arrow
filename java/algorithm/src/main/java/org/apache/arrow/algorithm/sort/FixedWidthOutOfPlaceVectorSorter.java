@@ -54,7 +54,7 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
             "Expected capacity %s, actual capacity %s",
         (srcVector.getValueCount() + 7) / 8, dstValidityBuffer.capacity());
     Preconditions.checkArgument(
-        dstValueBuffer.capacity() >= srcVector.getValueCount() * srcVector.getTypeWidth(),
+        dstValueBuffer.capacity() >= srcVector.getValueCount() * ((long) srcVector.getTypeWidth()),
         "Not enough capacity for the data buffer of the dst vector. " +
             "Expected capacity %s, actual capacity %s",
         srcVector.getValueCount() * srcVector.getTypeWidth(), dstValueBuffer.capacity());
@@ -73,8 +73,8 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
         } else {
           BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
           MemoryUtil.UNSAFE.copyMemory(
-                  srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
-                  dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
+                  srcValueBuffer.memoryAddress() + srcIndex * ((long) valueWidth),
+                  dstValueBuffer.memoryAddress() + dstIndex * ((long) valueWidth),
                   valueWidth);
         }
       }

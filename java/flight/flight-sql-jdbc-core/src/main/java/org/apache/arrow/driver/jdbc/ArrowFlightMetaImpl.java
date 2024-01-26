@@ -255,11 +255,6 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     public final String connectionId;
     public final int id;
 
-    StatementHandleKey(String connectionId, int id) {
-      this.connectionId = connectionId;
-      this.id = id;
-    }
-
     StatementHandleKey(StatementHandle statementHandle) {
       this.connectionId = statementHandle.connectionId;
       this.id = statementHandle.id;

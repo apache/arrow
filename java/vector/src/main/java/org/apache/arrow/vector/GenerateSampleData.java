@@ -108,8 +108,8 @@ public class GenerateSampleData {
   }
 
   private static void writeDecimalData(DecimalVector vector, int valueCount) {
-    final BigDecimal even = new BigDecimal(0.0543278923);
-    final BigDecimal odd = new BigDecimal(2.0543278923);
+    final BigDecimal even = new BigDecimal("0.0543278923");
+    final BigDecimal odd = new BigDecimal("2.0543278923");
     for (int i = 0; i < valueCount; i++) {
       if (i % 2 == 0) {
         vector.setSafe(i, even);

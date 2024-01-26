@@ -60,7 +60,7 @@ public class Dictionary {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof Dictionary)) {
       return false;
     }
     Dictionary that = (Dictionary) o;

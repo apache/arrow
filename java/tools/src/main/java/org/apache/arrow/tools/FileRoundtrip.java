@@ -43,11 +43,9 @@ import org.slf4j.LoggerFactory;
 public class FileRoundtrip {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileRoundtrip.class);
   private final Options options;
-  private final PrintStream out;
   private final PrintStream err;
 
-  FileRoundtrip(PrintStream out, PrintStream err) {
-    this.out = out;
+  FileRoundtrip(PrintStream err) {
     this.err = err;
     this.options = new Options();
     this.options.addOption("i", "in", true, "input file");
@@ -56,7 +54,7 @@ public class FileRoundtrip {
   }
 
   public static void main(String[] args) {
-    System.exit(new FileRoundtrip(System.out, System.err).run(args));
+    System.exit(new FileRoundtrip(System.err).run(args));
   }
 
   private File validateFile(String type, String fileName) {
