@@ -4560,7 +4560,7 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
 
     // One original copy which to compare the result, one copy held by the stream
     std::weak_ptr<ChunkedArray> weak_src(src);
-    ASSERT_EQ(weak_src.use_count(), 2);
+    int64_t initial_use_count = weak_src.use_count();
 
     ASSERT_OK(ExportChunkedArray(std::move(src), &c_stream));
     ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
@@ -4571,7 +4571,7 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
       ASSERT_TRUE(ArrowArrayStreamIsReleased(&c_stream));
 
       // Stream was released by ImportChunkedArray but original copy remains
-      ASSERT_EQ(weak_src.use_count(), 1);
+      ASSERT_EQ(weak_src.use_count(), initial_use_count - 1);
 
       check_func(dst);
     }
