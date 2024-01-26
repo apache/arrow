@@ -25,9 +25,8 @@ release_version_supported <- function(r_version, cpp_version) {
   cpp_version <- package_version(cpp_version)
   major <- function(x) as.numeric(x[1, 1])
 
-  # Currently the last three released versions of Arrow C++
-  # (>= 13.0.0 at the time this check was added)
-  major(cpp_version) %in% (major(r_version) - 0:2)
+  allow_mismatch <- tolower(Sys.getenv("ARROW_R_ALLOW_CPP_VERSION_MISMATCH", "false"))
+  identical(allow_mismatch, "true") || major(r_version) == major(cpp_version)
 }
 
 check_versions <- function(r_version, cpp_version) {

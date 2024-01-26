@@ -62,6 +62,7 @@ jobs:
 
     env:
       ARROW_HOME: "${{ github.workspace }}/arrow"
+      ARROW_R_ALLOW_CPP_VERSION_MISMATCH: "true"
 
     steps:
     - name: Checkout Arrow
