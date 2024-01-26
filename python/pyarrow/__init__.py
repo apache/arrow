@@ -257,7 +257,6 @@ from pyarrow.lib import (NativeFile, PythonFile,
                          create_memory_map, MockOutputStream,
                          input_stream, output_stream)
 
-from pyarrow._hdfsio import HdfsFile, have_libhdfs
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,
