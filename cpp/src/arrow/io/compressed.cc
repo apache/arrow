@@ -235,6 +235,7 @@ class CompressedInputStream::Impl {
         is_open_(true),
         compressed_pos_(0),
         decompressed_pos_(0),
+        fresh_decompressor_(false),
         total_pos_(0) {}
 
   Status Init(Codec* codec) {
@@ -261,7 +262,7 @@ class CompressedInputStream::Impl {
     }
   }
 
-  bool closed() { return !is_open_; }
+  bool closed() const { return !is_open_; }
 
   Result<int64_t> Tell() const { return total_pos_; }
 
@@ -269,11 +270,29 @@ class CompressedInputStream::Impl {
   Status EnsureCompressedData() {
     int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
     if (compressed_avail == 0) {
+      // Ensure compressed_ buffer is allocated with kChunkSize.
+      if (compressed_ == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(compressed_, AllocateResizableBuffer(kChunkSize, pool_));
+      } else {
+        RETURN_NOT_OK(compressed_->Resize(kChunkSize, /*shrink_to_fit=*/false));
+      }
       // No compressed data available, read a full chunk
-      ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
+      ARROW_ASSIGN_OR_RAISE(int64_t read_size,
+                            raw_->Read(kChunkSize, compressed_->mutable_data_as<void>()));
+      RETURN_NOT_OK(compressed_->Resize(read_size, /*shrink_to_fit=*/false));
       compressed_pos_ = 0;
     }
     return Status::OK();
+  }
+
+  Result<std::shared_ptr<ResizableBuffer>> GetDecompressBuffer(int64_t decompress_size) {
+    if (decompressed_impl_ == nullptr) {
+      ARROW_ASSIGN_OR_RAISE(decompressed_impl_,
+                            AllocateResizableBuffer(decompress_size, pool_));
+    } else {
+      RETURN_NOT_OK(decompressed_impl_->Resize(decompress_size, /*shrink_to_fit=*/false));
+    }
+    return decompressed_impl_;
   }
 
   // Decompress some data from the compressed_ buffer.
@@ -284,8 +303,7 @@ class CompressedInputStream::Impl {
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
-      ARROW_ASSIGN_OR_RAISE(decompressed_,
-                            AllocateResizableBuffer(decompress_size, pool_));
+      ARROW_ASSIGN_OR_RAISE(decompressed_, GetDecompressBuffer(decompress_size));
       decompressed_pos_ = 0;
 
       int64_t input_len = compressed_->size() - compressed_pos_;
@@ -310,7 +328,7 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  // Read a given number of bytes from the decompressed_ buffer.
+  // Copying a given number of bytes from the decompressed_ buffer.
   int64_t ReadFromDecompressed(int64_t nbytes, uint8_t* out) {
     int64_t readable = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
     int64_t read_bytes = std::min(readable, nbytes);
@@ -357,7 +375,7 @@ class CompressedInputStream::Impl {
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
-    auto out_data = reinterpret_cast<uint8_t*>(out);
+    auto* out_data = reinterpret_cast<uint8_t*>(out);
 
     int64_t total_read = 0;
     bool decompressor_has_data = true;
@@ -382,10 +400,10 @@ class CompressedInputStream::Impl {
     ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return std::move(buf);
+    return buf;
   }
 
-  std::shared_ptr<InputStream> raw() const { return raw_; }
+  const std::shared_ptr<InputStream>& raw() const { return raw_; }
 
  private:
   // Read 64 KB compressed data at a time
@@ -397,10 +415,11 @@ class CompressedInputStream::Impl {
   std::shared_ptr<InputStream> raw_;
   bool is_open_;
   std::shared_ptr<Decompressor> decompressor_;
-  std::shared_ptr<Buffer> compressed_;
+  std::shared_ptr<ResizableBuffer> compressed_;
   // Position in compressed buffer
   int64_t compressed_pos_;
   std::shared_ptr<ResizableBuffer> decompressed_;
+  std::shared_ptr<ResizableBuffer> decompressed_impl_;
   // Position in decompressed buffer
   int64_t decompressed_pos_;
   // True if the decompressor hasn't read any data yet.
@@ -416,7 +435,6 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
   res->impl_.reset(new Impl(pool, std::move(raw)));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
-  return Status::OK();
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
