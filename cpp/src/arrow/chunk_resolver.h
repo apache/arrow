@@ -89,12 +89,12 @@ struct ARROW_EXPORT ChunkResolver {
     // This is guaranteed when merging (assuming each side of the merge uses its
     // own resolver), and is the most common case in recursive invocations of
     // partitioning.
+    const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     const auto num_offsets = static_cast<int64_t>(offsets_.size());
     if (num_offsets <= 1) {
       return {0, index};
     }
     const int64_t* offsets = offsets_.data();
-    const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     // XXX: the access below is unsafe because cached_chunk+1 can be out-of-bounds
     const bool cache_hit =
         (index >= offsets[cached_chunk] && index < offsets[cached_chunk + 1]);
