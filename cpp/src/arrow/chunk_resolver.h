@@ -95,10 +95,8 @@ struct ARROW_EXPORT ChunkResolver {
       return {0, index};
     }
     const int64_t* offsets = offsets_.data();
-    // XXX: the access below is unsafe because cached_chunk+1 can be out-of-bounds
-    const bool cache_hit =
-        (index >= offsets[cached_chunk] && index < offsets[cached_chunk + 1]);
-    if (ARROW_PREDICT_TRUE(cache_hit)) {
+    if (ARROW_PREDICT_TRUE(index >= offsets[cached_chunk]) &&
+        (cached_chunk + 1 == num_offsets || index < offsets[cached_chunk + 1])) {
       return {cached_chunk, index - offsets[cached_chunk]};
     }
     const auto chunk_index = Bisect(index, offsets, /*lo=*/0, /*hi=*/num_offsets);
