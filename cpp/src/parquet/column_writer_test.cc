@@ -922,8 +922,8 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
               ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
   DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
                                                   Encoding::PLAIN);
-  EXPECT_THROW(pager->WriteDictionaryPage(dictionary_over_compressed_limit),
-               ParquetException);
+  EXPECT_THAT([&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
+              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
 
   buffer = std::make_shared<Buffer>(&data, 1);
   DataPageV1 over_uncompressed_limit(
