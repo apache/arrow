@@ -1005,16 +1005,14 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Using make -j in sub-make is fragile
-# see discussion https://github.com/apache/arrow/pull/2779
-if(${CMAKE_GENERATOR} MATCHES "Makefiles")
-  set(MAKE_BUILD_ARGS "")
-else()
-  # limit the maximum number of jobs for ninja
-  set(MAKE_BUILD_ARGS "-j${NPROC}")
-endif()
+# Args for external projects using make.
+set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
+set(FC_DECLARE_COMMON_OPTIONS)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+  list(APPEND FC_DECLARE_COMMON_OPTIONS EXCLUDE_FROM_ALL TRUE)
+endif()
 
 macro(prepare_fetchcontent)
   set(BUILD_SHARED_LIBS OFF)
@@ -2036,10 +2034,13 @@ macro(build_jemalloc)
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
+
   externalproject_add(jemalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${JEMALLOC_SOURCE_URL}
@@ -2146,6 +2147,9 @@ function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
   fetchcontent_declare(googletest
+                       # We should not specify "EXCLUDE_FROM_ALL TRUE" here.
+                       # Because we install GTest with custom path.
+                       # ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
@@ -5096,8 +5100,7 @@ function(build_azure_sdk)
   endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
-                       # EXCLUDE_FROM_ALL is available since CMake 3.28
-                       # EXCLUDE_FROM_ALL TRUE
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${ARROW_AZURE_SDK_URL}
                        URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()

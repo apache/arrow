@@ -20,16 +20,16 @@ import (
 	"bytes"
 	"reflect"
 
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
-	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v15/parquet/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -155,7 +155,7 @@ func (d *dictDecoder) decodeSpaced(out interface{}, nullCount int, validBits []b
 }
 
 func (d *dictDecoder) DecodeIndices(numValues int, bldr array.Builder) (int, error) {
-	n := shared_utils.MinInt(numValues, d.nvals)
+	n := shared_utils.Min(numValues, d.nvals)
 	if cap(d.idxScratchSpace) < n {
 		d.idxScratchSpace = make([]uint64, n, bitutil.NextPowerOf2(n))
 	} else {

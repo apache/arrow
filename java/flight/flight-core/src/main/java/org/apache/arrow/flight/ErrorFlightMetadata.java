@@ -61,7 +61,7 @@ public class ErrorFlightMetadata implements CallHeaders {
 
   @Override
   public void insert(String key, String value) {
-    metadata.put(key, value.getBytes());
+    metadata.put(key, value.getBytes(StandardCharsets.UTF_8));
   }
 
   @Override

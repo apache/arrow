@@ -115,6 +115,16 @@ public final class ClientAuthenticationUtils {
     return keyStore;
   }
 
+  @VisibleForTesting
+  static KeyStore getDefaultKeyStoreInstance(String password)
+      throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException {
+    try (InputStream fileInputStream = getKeystoreInputStream()) {
+      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(fileInputStream, password == null ? null : password.toCharArray());
+      return keyStore;
+    }
+  }
+
   static String getOperatingSystem() {
     return System.getProperty("os.name");
   }
@@ -156,16 +166,9 @@ public final class ClientAuthenticationUtils {
       keyStoreList.add(getKeyStoreInstance("Windows-MY"));
     } else if (isMac()) {
       keyStoreList.add(getKeyStoreInstance("KeychainStore"));
+      keyStoreList.add(getDefaultKeyStoreInstance(password));
     } else {
-      try (InputStream fileInputStream = getKeystoreInputStream()) {
-        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        if (password == null) {
-          keyStore.load(fileInputStream, null);
-        } else {
-          keyStore.load(fileInputStream, password.toCharArray());
-        }
-        keyStoreList.add(keyStore);
-      }
+      keyStoreList.add(getDefaultKeyStoreInstance(password));
     }
 
     return getCertificatesInputStream(keyStoreList);

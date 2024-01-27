@@ -22,9 +22,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -6165,7 +6165,7 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 3,
               "INLINED": "31C3A9"
@@ -6187,7 +6187,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "35"
             }
           ],
-          "VARIADIC_BUFFERS": [""]
+          "VARIADIC_DATA_BUFFERS": [""]
         },
         {
           "name": "string_view",
@@ -6199,7 +6199,7 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 3,
               "INLINED": "1é" 
@@ -6221,7 +6221,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "5"
             }
           ],
-          "VARIADIC_BUFFERS": [""]
+          "VARIADIC_DATA_BUFFERS": [""]
         }
       ]
     },
@@ -6238,7 +6238,7 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 3,
               "INLINED": "31C3A9"
@@ -6260,7 +6260,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "35353535"
             }
           ],
-          "VARIADIC_BUFFERS": [""]
+          "VARIADIC_DATA_BUFFERS": [""]
         },
         {
           "name": "string_view",
@@ -6272,20 +6272,20 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 3,
               "INLINED": "1é"              
             },
             {
               "SIZE": 14,
-              "PREFIX": "32323232",
+              "PREFIX_HEX": "32323232",
               "BUFFER_INDEX": 0,
               "OFFSET": 0
             },
             {
               "SIZE": 14,
-              "PREFIX": "33333333",
+              "PREFIX_HEX": "33333333",
               "BUFFER_INDEX": 0,
               "OFFSET": 14
             },
@@ -6298,7 +6298,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "5555"
             }
           ],
-          "VARIADIC_BUFFERS": [
+          "VARIADIC_DATA_BUFFERS": [
             "32323232323232323232323232323333333333333333333333333333"
           ]
         }
@@ -6317,20 +6317,20 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 6,
               "INLINED": "31C3A931C3A9"
             },
             {
               "SIZE": 14,
-              "PREFIX": "32323232",
+              "PREFIX_HEX": "32323232",
               "BUFFER_INDEX": 0,
               "OFFSET": 0
             },
             {
               "SIZE": 14,
-              "PREFIX": "33333333",
+              "PREFIX_HEX": "33333333",
               "BUFFER_INDEX": 0,
               "OFFSET": 14
             },
@@ -6343,7 +6343,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "3535"
             }
           ],
-          "VARIADIC_BUFFERS": [
+          "VARIADIC_DATA_BUFFERS": [
             "32323232323232323232323232323333333333333333333333333333"
           ]
         },
@@ -6357,7 +6357,7 @@ func makeViewTypesWantJSONs() string {
             1,
             1
           ],
-          "DATA": [
+          "VIEWS": [
             {
               "SIZE": 6,
               "INLINED": "1é1é"
@@ -6379,7 +6379,7 @@ func makeViewTypesWantJSONs() string {
               "INLINED": "55"
             }
           ],
-          "VARIADIC_BUFFERS": [""]
+          "VARIADIC_DATA_BUFFERS": [""]
         }
       ]
     }

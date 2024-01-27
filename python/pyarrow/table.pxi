@@ -3992,6 +3992,60 @@ cdef class Table(_Tabular):
         return result
 
     @staticmethod
+    def from_struct_array(struct_array):
+        """
+        Construct a Table from a StructArray.
+
+        Each field in the StructArray will become a column in the resulting
+        ``Table``.
+
+        Parameters
+        ----------
+        struct_array : StructArray or ChunkedArray
+            Array to construct the table from.
+
+        Returns
+        -------
+        pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> pa.Table.from_struct_array(struct).to_pandas()
+          animals  n_legs    year
+        0  Parrot       2     NaN
+        1    None       4  2022.0
+        """
+        if isinstance(struct_array, Array):
+            return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
+        else:
+            return Table.from_batches([
+                RecordBatch.from_struct_array(chunk)
+                for chunk in struct_array.chunks
+            ])
+
+    def to_struct_array(self, max_chunksize=None):
+        """
+        Convert to a chunked array of struct type.
+
+        Parameters
+        ----------
+        max_chunksize : int, default None
+            Maximum size for ChunkedArray chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        return chunked_array([
+            batch.to_struct_array()
+            for batch in self.to_batches(max_chunksize=max_chunksize)
+        ])
+
+    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
@@ -5148,7 +5202,17 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
+    elif _pandas_api.is_data_frame(data):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     elif hasattr(data, "__arrow_c_stream__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         if schema is not None:
             requested = schema.__arrow_c_schema__()
         else:
@@ -5162,14 +5226,12 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             table = table.cast(schema)
         return table
     elif hasattr(data, "__arrow_c_array__"):
-        batch = record_batch(data, schema)
-        return Table.from_batches([batch])
-    elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
-                "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
+                "using Arrow PyCapsule Interface")
+        batch = record_batch(data, schema)
+        return Table.from_batches([batch])
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")

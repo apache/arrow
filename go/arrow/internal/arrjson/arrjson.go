@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/float16"
-	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 type Schema struct {
@@ -826,7 +826,8 @@ type Array struct {
 	Offset   interface{}           `json:"OFFSET,omitempty"`
 	Size     interface{}           `json:"SIZE,omitempty"`
 	Children []Array               `json:"children,omitempty"`
-	Variadic []string              `json:"VARIADIC_BUFFERS,omitempty"`
+	Variadic []string              `json:"VARIADIC_DATA_BUFFERS,omitempty"`
+	Views    []interface{}         `json:"VIEWS,omitempty"`
 }
 
 func (a *Array) MarshalJSON() ([]byte, error) {
@@ -1090,7 +1091,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 	case arrow.BinaryViewDataType:
 		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
 		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
-		headers := stringHeadersFromJSON(mem, !dt.IsUtf8(), arr.Data)
+		headers := stringHeadersFromJSON(mem, !dt.IsUtf8(), arr.Views)
 		extraBufs := variadicBuffersFromJSON(arr.Variadic)
 		defer valids.Release()
 		defer headers.Release()
@@ -1513,7 +1514,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Name:     field.Name,
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
-			Data:     stringHeadersToJSON(arr, false),
+			Views:    stringHeadersToJSON(arr, false),
 			Variadic: variadic,
 		}
 	case *array.BinaryView:
@@ -1522,7 +1523,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Name:     field.Name,
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
-			Data:     stringHeadersToJSON(arr, true),
+			Views:    stringHeadersToJSON(arr, true),
 			Variadic: variadic,
 		}
 	case *array.List:
@@ -2406,7 +2407,7 @@ func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface
 			}
 
 			values[i].SetIndexOffset(int32(bufIdx), int32(bufOffset))
-			prefix, err := hex.DecodeString(v["PREFIX"].(string))
+			prefix, err := hex.DecodeString(v["PREFIX_HEX"].(string))
 			if err != nil {
 				panic(err)
 			}
@@ -2426,7 +2427,7 @@ func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface
 func stringHeadersToJSON(arr array.ViewLike, isBinary bool) []interface{} {
 	type StringHeader struct {
 		Size      int     `json:"SIZE"`
-		Prefix    *string `json:"PREFIX,omitempty"`
+		Prefix    *string `json:"PREFIX_HEX,omitempty"`
 		BufferIdx *int    `json:"BUFFER_INDEX,omitempty"`
 		BufferOff *int    `json:"OFFSET,omitempty"`
 		Inlined   *string `json:"INLINED,omitempty"`

@@ -20,6 +20,8 @@ package org.apache.arrow.algorithm.deduplicate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -104,20 +106,20 @@ public class TestVectorRunDeduplicator {
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         String str = String.valueOf(i * i);
         for (int j = 0; j < REPETITION_COUNT; j++) {
-          origVec.set(i * REPETITION_COUNT + j, str.getBytes());
+          origVec.set(i * REPETITION_COUNT + j, str.getBytes(StandardCharsets.UTF_8));
         }
       }
 
       int distinctCount = deduplicator.getRunCount();
       assertEquals(VECTOR_LENGTH, distinctCount);
 
-      dedupVec.allocateNew(distinctCount * 10, distinctCount);
+      dedupVec.allocateNew(distinctCount * 10L, distinctCount);
 
       deduplicator.populateDeduplicatedValues(dedupVec);
       assertEquals(VECTOR_LENGTH, dedupVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(String.valueOf(i * i).getBytes(), dedupVec.get(i));
+        assertArrayEquals(String.valueOf(i * i).getBytes(StandardCharsets.UTF_8), dedupVec.get(i));
       }
 
       deduplicator.populateRunLengths(lengthVec);

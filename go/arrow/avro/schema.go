@@ -22,9 +22,9 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/internal/types"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/internal/types"
 	avro "github.com/hamba/avro/v2"
 )
 

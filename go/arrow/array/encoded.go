@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/encoded"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/json"
-	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/encoded"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v16/internal/utils"
 )
 
 // RunEndEncoded represents an array containing two children:
@@ -150,19 +150,19 @@ func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
 	case *Int16:
 		for _, v := range e.Int16Values()[physOffset : physOffset+physLength] {
 			v -= int16(r.data.offset)
-			v = int16(utils.MinInt(int(v), r.data.length))
+			v = int16(utils.Min(int(v), r.data.length))
 			bldr.(*Int16Builder).Append(v)
 		}
 	case *Int32:
 		for _, v := range e.Int32Values()[physOffset : physOffset+physLength] {
 			v -= int32(r.data.offset)
-			v = int32(utils.MinInt(int(v), r.data.length))
+			v = int32(utils.Min(int(v), r.data.length))
 			bldr.(*Int32Builder).Append(v)
 		}
 	case *Int64:
 		for _, v := range e.Int64Values()[physOffset : physOffset+physLength] {
 			v -= int64(r.data.offset)
-			v = int64(utils.MinInt(int(v), r.data.length))
+			v = int64(utils.Min(int(v), r.data.length))
 			bldr.(*Int64Builder).Append(v)
 		}
 	}

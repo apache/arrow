@@ -17,11 +17,10 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow/endian"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
 )
 
 var (
@@ -57,16 +56,12 @@ func (monthTraits) PutValue(b []byte, v MonthInterval) {
 //
 // NOTE: len(b) must be a multiple of MonthIntervalSizeBytes.
 func (monthTraits) CastFromBytes(b []byte) []MonthInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*MonthInterval)(unsafe.Pointer(h.Data)), cap(b)/MonthIntervalSizeBytes)[:len(b)/MonthIntervalSizeBytes]
+	return GetData[MonthInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (monthTraits) CastToBytes(b []MonthInterval) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*MonthIntervalSizeBytes)[:len(b)*MonthIntervalSizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -94,16 +89,12 @@ func (daytimeTraits) PutValue(b []byte, v DayTimeInterval) {
 //
 // NOTE: len(b) must be a multiple of DayTimeIntervalSizeBytes.
 func (daytimeTraits) CastFromBytes(b []byte) []DayTimeInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*DayTimeInterval)(unsafe.Pointer(h.Data)), cap(b)/DayTimeIntervalSizeBytes)[:len(b)/DayTimeIntervalSizeBytes]
+	return GetData[DayTimeInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (daytimeTraits) CastToBytes(b []DayTimeInterval) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*DayTimeIntervalSizeBytes)[:len(b)*DayTimeIntervalSizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -132,16 +123,12 @@ func (monthDayNanoTraits) PutValue(b []byte, v MonthDayNanoInterval) {
 //
 // NOTE: len(b) must be a multiple of MonthDayNanoIntervalSizeBytes.
 func (monthDayNanoTraits) CastFromBytes(b []byte) []MonthDayNanoInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*MonthDayNanoInterval)(unsafe.Pointer(h.Data)), cap(b)/MonthDayNanoIntervalSizeBytes)[:len(b)/MonthDayNanoIntervalSizeBytes]
+	return GetData[MonthDayNanoInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (monthDayNanoTraits) CastToBytes(b []MonthDayNanoInterval) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*MonthDayNanoIntervalSizeBytes)[:len(b)*MonthDayNanoIntervalSizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.

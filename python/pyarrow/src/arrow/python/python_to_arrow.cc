@@ -386,8 +386,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
@@ -466,8 +465,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());

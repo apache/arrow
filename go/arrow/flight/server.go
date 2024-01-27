@@ -22,7 +22,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 )
 
@@ -42,7 +42,7 @@ type (
 	FlightEndpoint                  = flight.FlightEndpoint
 	Location                        = flight.Location
 	FlightInfo                      = flight.FlightInfo
-	PollInfo                       = flight.PollInfo
+	PollInfo                        = flight.PollInfo
 	FlightData                      = flight.FlightData
 	PutResult                       = flight.PutResult
 	Ticket                          = flight.Ticket

@@ -25,16 +25,16 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/float16"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/hashing"
-	"github.com/apache/arrow/go/v15/internal/json"
-	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/hashing"
+	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v16/internal/utils"
 )
 
 // Dictionary represents the type for dictionary-encoded data with a data
@@ -412,6 +412,7 @@ type DictionaryBuilder interface {
 	AppendArray(arrow.Array) error
 	AppendIndices([]int, []bool)
 	ResetFull()
+	DictionarySize() int
 }
 
 type dictionaryBuilder struct {
@@ -1002,6 +1003,10 @@ func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
 		}
 		idxbldr.AppendValues(vals, valid)
 	}
+}
+
+func (b *dictionaryBuilder) DictionarySize() int {
+	return b.memoTable.Size()
 }
 
 type NullDictionaryBuilder struct {

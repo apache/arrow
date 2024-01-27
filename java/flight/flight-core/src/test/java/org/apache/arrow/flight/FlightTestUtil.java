@@ -23,9 +23,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 
-import org.apache.arrow.util.ArrowTestDataUtil;
+import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
@@ -33,8 +32,6 @@ import org.junit.jupiter.api.function.Executable;
  * Utility methods and constants for testing flight servers.
  */
 public class FlightTestUtil {
-
-  private static final Random RANDOM = new Random();
 
   public static final String LOCALHOST = "localhost";
 

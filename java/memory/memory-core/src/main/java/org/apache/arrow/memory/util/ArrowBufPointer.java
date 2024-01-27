@@ -21,6 +21,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Pointer to a memory region within an {@link ArrowBuf}.
@@ -33,7 +34,7 @@ public final class ArrowBufPointer {
    */
   public static final int NULL_HASH_CODE = 0;
 
-  private ArrowBuf buf;
+  private @Nullable ArrowBuf buf;
 
   private long offset;
 
@@ -62,6 +63,7 @@ public final class ArrowBufPointer {
   public ArrowBufPointer(ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;
+    this.buf = null;
   }
 
   /**
@@ -93,6 +95,7 @@ public final class ArrowBufPointer {
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
    */
+
   public void set(ArrowBuf buf, long offset, long length) {
     this.buf = buf;
     this.offset = offset;
@@ -105,7 +108,7 @@ public final class ArrowBufPointer {
    * Gets the underlying buffer, or null if the underlying data is invalid or null.
    * @return the underlying buffer, if any, or null if the underlying data is invalid or null.
    */
-  public ArrowBuf getBuf() {
+  public @Nullable ArrowBuf getBuf() {
     return buf;
   }
 
@@ -118,7 +121,7 @@ public final class ArrowBufPointer {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }

@@ -17,13 +17,13 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/v15/parquet"
-  "github.com/apache/arrow/go/v15/parquet/schema"
-  format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-  "github.com/apache/arrow/go/v15/arrow"
-  "github.com/apache/arrow/go/v15/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v15/internal/utils"
-  "github.com/apache/arrow/go/v15/internal/bitutils"
+  "github.com/apache/arrow/go/v16/parquet"
+  "github.com/apache/arrow/go/v16/parquet/schema"
+  format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
+  "github.com/apache/arrow/go/v16/arrow"
+  "github.com/apache/arrow/go/v16/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v16/internal/utils"
+  "github.com/apache/arrow/go/v16/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -271,7 +271,7 @@ func (Dict{{.Name}}Decoder) Type() parquet.Type {
 // decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  vals := shared_utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.Min(len(out), d.nvals)
   decoded, err := d.decode(out[:vals])
   if err != nil {
     return decoded, err
@@ -285,7 +285,7 @@ func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *Dict{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-  vals := shared_utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.Min(len(out), d.nvals)
   decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
   if err != nil {
     return decoded, err

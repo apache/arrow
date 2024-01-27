@@ -407,7 +407,7 @@ class build_ext(_build_ext):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '15.0.0-SNAPSHOT'
+default_version = '16.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -449,7 +449,7 @@ class BinaryDistribution(Distribution):
 
 
 install_requires = (
-    'numpy >= 1.16.6',
+    'numpy >= 1.16.6, <2',
 )
 
 

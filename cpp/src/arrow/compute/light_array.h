@@ -353,7 +353,7 @@ class ARROW_EXPORT ResizableArrayData {
   MemoryPool* pool_;
   int num_rows_;
   int num_rows_allocated_;
-  int var_len_buf_size_;
+  int64_t var_len_buf_size_;
   static constexpr int kMaxBuffers = 3;
   std::shared_ptr<ResizableBuffer> buffers_[kMaxBuffers];
 };
@@ -416,7 +416,9 @@ class ARROW_EXPORT ExecBatchBuilder {
   // without checking buffer bounds (useful with SIMD or fixed size memory loads
   // and stores).
   //
-  // The sequence of row_ids provided must be non-decreasing.
+  // The sequence of row_ids provided must be non-decreasing. In case of consecutive rows
+  // with the same row id, they are skipped all at once because they occupy the same
+  // space.
   //
   static int NumRowsToSkip(const std::shared_ptr<ArrayData>& column, int num_rows,
                            const uint16_t* row_ids, int num_tail_bytes_to_skip);

@@ -655,6 +655,12 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   CountRowGroupsInFragment(fragment, {5, 6},
                            and_(greater_equal(field_ref("i64"), literal(6)),
                                 less(field_ref("i64"), literal(8))));
+
+  // nested field reference
+  CountRowGroupsInFragment(fragment, {0, 1, 2, 3, 4},
+                           less(field_ref(FieldRef("struct", "i32")), literal(6)));
+  CountRowGroupsInFragment(fragment, {1},
+                           equal(field_ref(FieldRef("struct", "str")), literal("2")));
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {

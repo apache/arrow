@@ -22,15 +22,15 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/file"
-	"github.com/apache/arrow/go/v15/parquet/metadata"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -125,7 +125,7 @@ func isDictionaryReadSupported(dt arrow.DataType) bool {
 }
 
 func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) schema.LogicalType {
-	utc := typ.TimeZone == "" || typ.TimeZone == "UTC"
+	isAdjustedToUTC := typ.TimeZone != ""
 
 	// for forward compatibility reasons, and because there's no other way
 	// to signal to old readers that values are timestamps, we force
@@ -146,7 +146,7 @@ func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) sche
 		return schema.NoLogicalType{}
 	}
 
-	return schema.NewTimestampLogicalTypeForce(utc, scunit)
+	return schema.NewTimestampLogicalTypeForce(isAdjustedToUTC, scunit)
 }
 
 func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (parquet.Type, schema.LogicalType, error) {
@@ -326,8 +326,8 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.Int32
 		logicalType = schema.DateLogicalType{}
 	case arrow.DATE64:
-		typ = parquet.Types.Int64
-		logicalType = schema.NewTimestampLogicalType(true, schema.TimeUnitMillis)
+		typ = parquet.Types.Int32
+		logicalType = schema.DateLogicalType{}
 	case arrow.TIMESTAMP:
 		typ, logicalType, err = getTimestampMeta(field.Type.(*arrow.TimestampType), props, arrprops)
 		if err != nil {
@@ -519,9 +519,12 @@ func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 }
 
 func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error) {
-	tz := "UTC"
-	if logical.IsFromConvertedType() {
-		tz = ""
+	tz := ""
+
+	// ConvertedTypes are adjusted to UTC per backward compatibility guidelines
+	// https://github.com/apache/parquet-format/blob/eb4b31c1d64a01088d02a2f9aefc6c17c54cc6fc/LogicalTypes.md?plain=1#L480-L485
+	if logical.IsAdjustedToUTC() || logical.IsFromConvertedType() {
+		tz = "UTC"
 	}
 
 	switch logical.TimeUnit() {

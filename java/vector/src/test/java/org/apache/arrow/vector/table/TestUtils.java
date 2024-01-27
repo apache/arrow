@@ -20,6 +20,7 @@ package org.apache.arrow.vector.table;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -117,8 +118,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     VarCharVector v2 = new VarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -134,8 +135,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     LargeVarCharVector v2 = new LargeVarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -152,8 +153,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     VarBinaryVector v2 = new VarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -170,8 +171,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     LargeVarBinaryVector v2 = new LargeVarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -188,8 +189,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     FixedSizeBinaryVector v2 = new FixedSizeBinaryVector(FIXEDBINARY_VECTOR_NAME_1, allocator, 3);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);

@@ -26,16 +26,16 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/compute"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
-	"github.com/apache/arrow/go/v15/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/compute"
+	"github.com/apache/arrow/go/v16/arrow/compute/exec"
+	"github.com/apache/arrow/go/v16/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow/scalar"
 	"github.com/klauspost/cpuid/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -195,7 +195,7 @@ func (b *Float16BinaryFuncTestSuite) TestSub() {
 	}
 }
 
-type BinaryArithmeticSuite[T exec.NumericTypes] struct {
+type BinaryArithmeticSuite[T arrow.NumericType] struct {
 	BinaryFuncTestSuite
 
 	opts            compute.ArithmeticOptions
@@ -205,7 +205,7 @@ type BinaryArithmeticSuite[T exec.NumericTypes] struct {
 }
 
 func (BinaryArithmeticSuite[T]) DataType() arrow.DataType {
-	return exec.GetDataType[T]()
+	return arrow.GetDataType[T]()
 }
 
 func (b *BinaryArithmeticSuite[T]) setNansEqual(val bool) {
@@ -564,7 +564,7 @@ func (bs *BinaryFloatingArithmeticSuite[T]) TestLog() {
 	bs.assertBinopErr(compute.Logb, `["-Inf"]`, `[2]`, "logarithm of negative number")
 }
 
-type BinaryIntegralArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
+type BinaryIntegralArithmeticSuite[T arrow.IntType | arrow.UintType] struct {
 	BinaryArithmeticSuite[T]
 }
 
@@ -2412,7 +2412,7 @@ func TestUnaryArithmeticNull(t *testing.T) {
 	}
 }
 
-type UnaryArithmeticSuite[T exec.NumericTypes, O fnOpts] struct {
+type UnaryArithmeticSuite[T arrow.NumericType, O fnOpts] struct {
 	suite.Suite
 
 	mem *memory.CheckedAllocator
@@ -2433,7 +2433,7 @@ func (us *UnaryArithmeticSuite[T, O]) TearDownTest() {
 }
 
 func (*UnaryArithmeticSuite[T, O]) datatype() arrow.DataType {
-	return exec.GetDataType[T]()
+	return arrow.GetDataType[T]()
 }
 
 func (us *UnaryArithmeticSuite[T, O]) makeNullScalar() scalar.Scalar {
@@ -2532,7 +2532,7 @@ func (us *UnaryArithmeticSuite[T, O]) assertUnaryOpErr(fn unaryArithmeticFunc[O]
 	us.ErrorContains(err, msg)
 }
 
-type UnaryArithmeticIntegral[T exec.IntTypes | exec.UintTypes] struct {
+type UnaryArithmeticIntegral[T arrow.IntType | arrow.UintType] struct {
 	UnaryArithmeticSuite[T, compute.ArithmeticOptions]
 }
 
@@ -2598,7 +2598,7 @@ func (us *UnaryArithmeticIntegral[T]) TestLog() {
 	}
 }
 
-type UnaryArithmeticSigned[T exec.IntTypes] struct {
+type UnaryArithmeticSigned[T arrow.IntType] struct {
 	UnaryArithmeticIntegral[T]
 }
 
@@ -2678,7 +2678,7 @@ func (us *UnaryArithmeticSigned[T]) TestNegate() {
 	})
 }
 
-type UnaryArithmeticUnsigned[T exec.UintTypes] struct {
+type UnaryArithmeticUnsigned[T arrow.UintType] struct {
 	UnaryArithmeticIntegral[T]
 }
 
@@ -2965,12 +2965,12 @@ func TestUnaryArithmetic(t *testing.T) {
 	suite.Run(t, new(DecimalUnaryArithmeticSuite))
 }
 
-type BitwiseArithmeticSuite[T exec.IntTypes | exec.UintTypes] struct {
+type BitwiseArithmeticSuite[T arrow.IntType | arrow.UintType] struct {
 	BinaryFuncTestSuite
 }
 
 func (bs *BitwiseArithmeticSuite[T]) datatype() arrow.DataType {
-	return exec.GetDataType[T]()
+	return arrow.GetDataType[T]()
 }
 
 // to make it easier to test different widths, tests give bytes which
@@ -3061,7 +3061,7 @@ var roundModes = []compute.RoundMode{
 	compute.RoundHalfToOdd,
 }
 
-type UnaryRoundSuite[T exec.NumericTypes] struct {
+type UnaryRoundSuite[T arrow.NumericType] struct {
 	UnaryArithmeticSuite[T, compute.RoundOptions]
 }
 
@@ -3073,7 +3073,7 @@ func (us *UnaryRoundSuite[T]) setRoundNDigits(v int64) {
 	us.opts.NDigits = v
 }
 
-type UnaryRoundToMultipleSuite[T exec.NumericTypes] struct {
+type UnaryRoundToMultipleSuite[T arrow.NumericType] struct {
 	UnaryArithmeticSuite[T, compute.RoundToMultipleOptions]
 }
 
@@ -3085,15 +3085,15 @@ func (us *UnaryRoundToMultipleSuite[T]) setRoundMultiple(val float64) {
 	us.opts.Multiple = scalar.NewFloat64Scalar(val)
 }
 
-type UnaryRoundIntegral[T exec.IntTypes | exec.UintTypes] struct {
+type UnaryRoundIntegral[T arrow.IntType | arrow.UintType] struct {
 	UnaryRoundSuite[T]
 }
 
-type UnaryRoundToMultipleIntegral[T exec.IntTypes | exec.UintTypes] struct {
+type UnaryRoundToMultipleIntegral[T arrow.IntType | arrow.UintType] struct {
 	UnaryRoundToMultipleSuite[T]
 }
 
-type UnaryRoundSigned[T exec.IntTypes] struct {
+type UnaryRoundSigned[T arrow.IntType] struct {
 	UnaryRoundIntegral[T]
 }
 
@@ -3130,7 +3130,7 @@ func (us *UnaryRoundSigned[T]) TestRound() {
 	}
 }
 
-type UnaryRoundToMultipleSigned[T exec.IntTypes] struct {
+type UnaryRoundToMultipleSigned[T arrow.IntType] struct {
 	UnaryRoundToMultipleIntegral[T]
 }
 
@@ -3164,7 +3164,7 @@ func (us *UnaryRoundToMultipleSigned[T]) TestRoundToMultiple() {
 	}
 }
 
-type UnaryRoundUnsigned[T exec.UintTypes] struct {
+type UnaryRoundUnsigned[T arrow.UintType] struct {
 	UnaryRoundIntegral[T]
 }
 
@@ -3201,7 +3201,7 @@ func (us *UnaryRoundUnsigned[T]) TestRound() {
 	}
 }
 
-type UnaryRoundToMultipleUnsigned[T exec.UintTypes] struct {
+type UnaryRoundToMultipleUnsigned[T arrow.UintType] struct {
 	UnaryRoundToMultipleIntegral[T]
 }
 

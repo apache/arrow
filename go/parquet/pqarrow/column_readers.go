@@ -26,16 +26,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/file"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -790,7 +790,7 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	isNeg := int8(buf[0]) < 0
 
 	// 1. extract high bits
-	highBitsOffset := utils.MaxInt(0, len(buf)-8)
+	highBitsOffset := utils.Max(0, len(buf)-8)
 	var (
 		highBits uint64
 		lowBits  uint64
@@ -811,7 +811,7 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	}
 
 	// 2. extract lower bits
-	lowBitsOffset := utils.MinInt(len(buf), 8)
+	lowBitsOffset := utils.Min(len(buf), 8)
 	lowBits = uint64FromBigEndianShifted(buf[highBitsOffset:])
 
 	if lowBitsOffset == 8 {
@@ -850,7 +850,7 @@ func bigEndianToDecimal256(buf []byte) (decimal256.Num, error) {
 	}
 
 	for wordIdx := 0; wordIdx < 4; wordIdx++ {
-		wordLen := utils.MinInt(len(buf), arrow.Uint64SizeBytes)
+		wordLen := utils.Min(len(buf), arrow.Uint64SizeBytes)
 		word := buf[len(buf)-wordLen:]
 
 		if wordLen == 8 {
