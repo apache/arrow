@@ -91,9 +91,6 @@ struct ARROW_EXPORT ChunkResolver {
     // partitioning.
     const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     const auto num_offsets = static_cast<int64_t>(offsets_.size());
-    if (num_offsets <= 1) {
-      return {0, index};
-    }
     const int64_t* offsets = offsets_.data();
     if (ARROW_PREDICT_TRUE(index >= offsets[cached_chunk]) &&
         (cached_chunk + 1 == num_offsets || index < offsets[cached_chunk + 1])) {
