@@ -96,6 +96,7 @@ struct ARROW_EXPORT ChunkResolver {
         (cached_chunk + 1 == num_offsets || index < offsets[cached_chunk + 1])) {
       return {cached_chunk, index - offsets[cached_chunk]};
     }
+    // lo < hi is guaranteed by `num_offsets = chunks.size() + 1`
     const auto chunk_index = Bisect(index, offsets, /*lo=*/0, /*hi=*/num_offsets);
     assert(chunk_index < static_cast<int64_t>(offsets_.size()));
     cached_chunk_.store(chunk_index, std::memory_order_relaxed);
@@ -110,13 +111,17 @@ struct ARROW_EXPORT ChunkResolver {
   /// `chunks.size()`. The is returned when the logical index is out-of-bounds.
   ///
   /// \pre index >= 0
+  /// \pre lo < hi
   /// \pre lo >= 0 && hi <= offsets_.size()
-  /// \return `lo` if `lo == hi` or otherwise a chunk index in `[lo, hi)`.
   static inline int64_t Bisect(int64_t index, const int64_t* offsets, int64_t lo,
                                int64_t hi) {
-    // Like std::upper_bound(), but hand-written as it can help the compiler.
+    // Similar to std::upper_bound(), but slightly different as our offsets
+    // array always starts with 0.
     auto n = hi - lo;
-    while (n > 1) {
+    // First iteration does not need to check for n > 1
+    // (lo < hi is guaranteed by the precondition).
+    assert(n > 1 && "lo < hi is a precondition of Bisect");
+    do {
       const int64_t m = n >> 1;
       const int64_t mid = lo + m;
       if (index >= offsets[mid]) {
@@ -125,7 +130,7 @@ struct ARROW_EXPORT ChunkResolver {
       } else {
         n = m;
       }
-    }
+    } while (n > 1);
     return lo;
   }
 };
