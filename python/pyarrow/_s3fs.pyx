@@ -245,6 +245,11 @@ cdef class S3FileSystem(FileSystem):
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
         strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
+    force_virtual_addressing : bool, default False
+        Whether to use virtual addressing of buckets.
+        If true, then virtual addressing is always enabled.
+        If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+        This can be used for non-AWS backends that only support virtual hosted-style access.
 
     Examples
     --------
@@ -268,7 +273,9 @@ cdef class S3FileSystem(FileSystem):
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
+                     max_attempts=3),
+                 force_virtual_addressing=False):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -380,6 +387,7 @@ cdef class S3FileSystem(FileSystem):
 
         options.value().allow_bucket_creation = allow_bucket_creation
         options.value().allow_bucket_deletion = allow_bucket_deletion
+        options.value().force_virtual_addressing = force_virtual_addressing
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
             options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
@@ -447,6 +455,7 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                force_virtual_addressing=opts.force_virtual_addressing,
             ),)
         )
 
