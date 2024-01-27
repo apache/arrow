@@ -81,7 +81,37 @@ struct ARROW_EXPORT ChunkResolver {
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
   ///         `>= chunked_array.length()`.
-  inline ChunkLocation Resolve(const int64_t index) const {
+  inline ChunkLocation Resolve(int64_t index) const {
+    const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
+    const auto chunk_index =
+        ResolveChunkIndex</*StoreCachedChunk=*/true>(index, cached_chunk);
+    return {chunk_index, index - offsets_[chunk_index]};
+  }
+
+  /// \brief Resolve a logical index to a ChunkLocation.
+  ///
+  /// The returned ChunkLocation contains the chunk index and the within-chunk index
+  /// equivalent to the logical index.
+  ///
+  /// \pre index >= 0
+  /// \post location.chunk_index in [0, chunks.size()]
+  /// \param index The logical index to resolve
+  /// \param cached_chunk_index 0 or the chunk_index of the last ChunkLocation
+  /// returned by this ChunkResolver.
+  /// \return ChunkLocation with a valid chunk_index if index is within
+  ///         bounds, or with chunk_index == chunks.size() if logical index is
+  ///         `>= chunked_array.length()`.
+  inline ChunkLocation ResolveWithChunkIndexHint(int64_t index,
+                                                 int64_t cached_chunk_index) const {
+    assert(cached_chunk_index < static_cast<int64_t>(offsets_.size()));
+    const auto chunk_index =
+        ResolveChunkIndex</*StoreCachedChunk=*/false>(index, cached_chunk_index);
+    return {chunk_index, index - offsets_[chunk_index]};
+  }
+
+ private:
+  template <bool StoreCachedChunk>
+  inline int64_t ResolveChunkIndex(int64_t index, int64_t cached_chunk) const {
     // It is common for algorithms sequentially processing arrays to make consecutive
     // accesses at a relatively small distance from each other, hence often falling in the
     // same chunk.
@@ -89,21 +119,21 @@ struct ARROW_EXPORT ChunkResolver {
     // This is guaranteed when merging (assuming each side of the merge uses its
     // own resolver), and is the most common case in recursive invocations of
     // partitioning.
-    const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     const auto num_offsets = static_cast<int64_t>(offsets_.size());
     const int64_t* offsets = offsets_.data();
     if (ARROW_PREDICT_TRUE(index >= offsets[cached_chunk]) &&
         (cached_chunk + 1 == num_offsets || index < offsets[cached_chunk + 1])) {
-      return {cached_chunk, index - offsets[cached_chunk]};
+      return cached_chunk;
     }
     // lo < hi is guaranteed by `num_offsets = chunks.size() + 1`
     const auto chunk_index = Bisect(index, offsets, /*lo=*/0, /*hi=*/num_offsets);
-    assert(chunk_index < static_cast<int64_t>(offsets_.size()));
-    cached_chunk_.store(chunk_index, std::memory_order_relaxed);
-    return {chunk_index, index - offsets[chunk_index]};
+    if constexpr (StoreCachedChunk) {
+      assert(chunk_index < static_cast<int64_t>(offsets_.size()));
+      cached_chunk_.store(chunk_index, std::memory_order_relaxed);
+    }
+    return chunk_index;
   }
 
- private:
   /// \brief Find the index of the chunk that contains the logical index.
   ///
   /// Any non-negative index is accepted. When `hi=num_offsets`, the largest
