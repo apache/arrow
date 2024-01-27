@@ -64,12 +64,12 @@ private func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date,
 ) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         if dateType.unit == .day {
-            let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
+            let arrowData = try ArrowData(ArrowType(ArrowType.ArrowDate32), buffers: buffers,
                                           nullCount: nullCount, stride: MemoryLayout<Date>.stride)
             return .success(ArrowArrayHolder(Date32Array(arrowData)))
         }
 
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
+        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowDate64), buffers: buffers,
                                       nullCount: nullCount, stride: MemoryLayout<Date>.stride)
         return .success(ArrowArrayHolder(Date64Array(arrowData)))
     } catch let error as ArrowError {
