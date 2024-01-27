@@ -36,12 +36,12 @@ public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>
 
     public func finish() throws -> ArrowArray<T.ItemType> {
         let buffers = self.bufferBuilder.finish()
-        let arrowData = try ArrowData(self.type, buffers: buffers, nullCount: self.nullCount, stride: self.getStride())
+        let arrowData = try ArrowData(self.type, buffers: buffers, nullCount: self.nullCount)
         return U(arrowData)
     }
 
     public func getStride() -> Int {
-        MemoryLayout<T.ItemType>.stride
+        return self.type.getStride()
     }
 }
 
@@ -73,19 +73,11 @@ public class Date32ArrayBuilder: ArrowArrayBuilder<Date32BufferBuilder, Date32Ar
     fileprivate convenience init() throws {
         try self.init(ArrowType(ArrowType.ArrowDate32))
     }
-
-    public override func getStride() -> Int {
-        MemoryLayout<Int32>.stride
-    }
 }
 
 public class Date64ArrayBuilder: ArrowArrayBuilder<Date64BufferBuilder, Date64Array> {
     fileprivate convenience init() throws {
         try self.init(ArrowType(ArrowType.ArrowDate64))
-    }
-
-    public override func getStride() -> Int {
-        MemoryLayout<Int64>.stride
     }
 }
 
