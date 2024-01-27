@@ -192,6 +192,38 @@ static void RecordReaderSkipRecords(::benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * helper.total_size());
 }
 
+// Benchmarks ReadRecords and SkipRecords for RecordReader with the following parameters
+// in order:
+// - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
+// - batch_size: sets how many values to read/skip at each call.
+// - levels_per_page: sets how many levels to read/skip in total.
+static void RecordReaderReadAndSkipRecords(::benchmark::State& state) {
+  const auto repetition = static_cast<Repetition::type>(state.range(0));
+  const auto batch_size = static_cast<int64_t>(state.range(1));
+  const auto levels_per_page = static_cast<int64_t>(state.range(2));
+
+  BenchmarkHelper helper(repetition, /*num_pages=*/16, levels_per_page);
+
+  // Vectors to read the values into.
+  for (auto _ : state) {
+    state.PauseTiming();
+    // read_dense_for_nullable should not matter for skip.
+    RecordReader* reader = helper.ResetRecordReader(/*read_dense_for_nullable=*/false);
+    int64_t records_read = -1;
+    int64_t records_skipped = -1;
+    state.ResumeTiming();
+    while (records_read != 0 && records_skipped != 0) {
+      // ReadRecords may buffer some levels which will be skipped by the following
+      // SkipRecords.
+      DoNotOptimize(records_read = reader->ReadRecords(batch_size));
+      DoNotOptimize(records_skipped = reader->SkipRecords(batch_size));
+      reader->Reset();
+    }
+  }
+
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
+}
+
 BENCHMARK(ColumnReaderSkipInt32)
     ->ArgNames({"Repetition", "BatchSize"})
     ->Args({0, 1000})
@@ -218,6 +250,20 @@ BENCHMARK(RecordReaderReadRecords)
     ->Args({1, 1000, false})
     ->Args({2, 1000, true})
     ->Args({2, 1000, false});
+
+BENCHMARK(RecordReaderReadAndSkipRecords)
+    ->ArgNames({"Repetition", "BatchSize"})
+    ->Args({2, 1000, 80000})
+    ->Args({0, 1000, 80000})
+    ->Args({1, 1, 80000})
+    ->Args({1, 10, 80000})
+    ->Args({1, 100, 80000})
+    ->Args({1, 1000, 80000})
+    ->Args({1, 1, 1000000})
+    ->Args({1, 10, 1000000})
+    ->Args({1, 100, 1000000})
+    ->Args({1, 1000, 1000000})
+    ->Args({1, 5000, 1000000});
 
 }  // namespace benchmark
 }  // namespace parquet

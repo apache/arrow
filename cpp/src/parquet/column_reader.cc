@@ -70,6 +70,8 @@ namespace {
 // The minimum number of repetition/definition levels to decode at a time, for
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
+// The max buffer size of validility bitmap for skipping buffered levels.
+constexpr int64_t kMaxSkipLevelBufferSize = 128;
 
 // Batch size for reading and throwing away values during skip.
 // Both RecordReader and the ColumnReader use this for skipping.
@@ -1478,16 +1480,28 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // We skipped the levels by incrementing 'levels_position_'. For values
     // we do not have a buffer, so we need to read them and throw them away.
     // First we need to figure out how many present/not-null values there are.
-    std::shared_ptr<::arrow::ResizableBuffer> valid_bits;
-    valid_bits = AllocateBuffer(this->pool_);
-    PARQUET_THROW_NOT_OK(valid_bits->Resize(bit_util::BytesForBits(skipped_records),
-                                            /*shrink_to_fit=*/true));
+    int64_t buffer_size = bit_util::BytesForBits(skipped_records);
+    if (valid_bits_for_skip_ == nullptr) {
+      // Preallocate kMaxSkipLevelBufferSize would help minimizing allocations.
+      valid_bits_for_skip_ = AllocateBuffer(
+          this->pool_, std::max<int64_t>(buffer_size, kMaxSkipLevelBufferSize));
+    } else if (buffer_size > kMaxSkipLevelBufferSize) {
+      // Increase the bitmap size.
+      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(buffer_size,
+                                                        /*shrink_to_fit=*/false));
+    }
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = skipped_records;
-    validity_io.valid_bits = valid_bits->mutable_data();
+    validity_io.valid_bits = valid_bits_for_skip_->mutable_data();
     validity_io.valid_bits_offset = 0;
     DefLevelsToBitmap(def_levels() + start_levels_position, skipped_records,
                       this->leaf_info_, &validity_io);
+    if (buffer_size > kMaxSkipLevelBufferSize) {
+      // Shrink to kMaxSkipLevelBufferSize bytes per column in case there are numerous
+      // columns.
+      PARQUET_THROW_NOT_OK(
+          valid_bits_for_skip_->Resize(kMaxSkipLevelBufferSize, /*shrink_to_fit=*/true));
+    }
     int64_t values_to_read = validity_io.values_read - validity_io.null_count;
 
     // Now that we have figured out number of values to read, we do not need
@@ -2023,6 +2037,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return values_->mutable_data_as<T>() + values_written_;
   }
   LevelInfo leaf_info_;
+  std::shared_ptr<::arrow::ResizableBuffer> valid_bits_for_skip_;
 };
 
 class FLBARecordReader final : public TypedRecordReader<FLBAType>,
