@@ -19,6 +19,8 @@ add_arrow_test(test
                SOURCES
                fixed_shape_tensor_test.cc
                PREFIX
-               "arrow-fixed-shape-tensor")
+               "arrow-fixed-shape-tensor"
+               EXTRA_LINK_LIBS
+               ${ARROW_GTEST_GMOCK})
 
 arrow_install_all_headers("arrow/extension")

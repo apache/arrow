@@ -43,6 +43,7 @@ if(ARROW_GCS)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 google-cloud-cpp::storage
                  Boost::filesystem
                  Boost::system)
 endif()
@@ -52,6 +53,7 @@ if(ARROW_AZURE)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 ${AZURE_SDK_LINK_LIBRARIES}
                  Boost::filesystem
                  Boost::system)
 endif()
@@ -64,6 +66,7 @@ if(ARROW_S3)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 ${AWSSDK_LINK_LIBRARIES}
                  Boost::filesystem
                  Boost::system)
   if(TARGET arrow-s3fs-test)
@@ -98,6 +101,7 @@ if(ARROW_S3)
                         s3fs_benchmark.cc
                         s3_test_util.cc
                         STATIC_LINK_LIBS
+                        ${AWSSDK_LINK_LIBRARIES}
                         ${ARROW_BENCHMARK_LINK_LIBS}
                         Boost::filesystem
                         Boost::system)

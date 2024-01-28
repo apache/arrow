@@ -18,10 +18,6 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-add_custom_target(toolchain)
-add_custom_target(toolchain-benchmarks)
-add_custom_target(toolchain-tests)
-
 # Accumulate all bundled targets and we will splice them together later as
 # libarrow_bundled_dependencies.a so that third party libraries have something
 # usable to create statically-linked builds with some BUNDLED dependencies,
@@ -1149,7 +1145,6 @@ macro(build_boost)
   if(NOT TARGET Boost::dynamic_linking)
     # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
     add_library(Boost::dynamic_linking INTERFACE IMPORTED)
-    add_dependencies(toolchain boost_ep)
   endif()
   set(BOOST_VENDORED TRUE)
 endmacro()
@@ -1363,7 +1358,6 @@ macro(build_snappy)
   set_target_properties(${Snappy_TARGET} PROPERTIES IMPORTED_LOCATION
                                                     "${SNAPPY_STATIC_LIB}")
   target_include_directories(${Snappy_TARGET} BEFORE INTERFACE "${SNAPPY_PREFIX}/include")
-  add_dependencies(toolchain snappy_ep)
   add_dependencies(${Snappy_TARGET} snappy_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ${Snappy_TARGET})
@@ -1414,7 +1408,6 @@ macro(build_brotli)
                       CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
                       STEP_TARGETS headers_copy)
 
-  add_dependencies(toolchain brotli_ep)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
   add_library(Brotli::brotlicommon STATIC IMPORTED)
@@ -1450,6 +1443,8 @@ if(ARROW_WITH_BROTLI)
                      PC_PACKAGE_NAMES
                      libbrotlidec
                      libbrotlienc)
+  # Order is important for static linking
+  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
@@ -1470,6 +1465,7 @@ if(PARQUET_REQUIRE_ENCRYPTION
                      REQUIRED_VERSION
                      ${ARROW_OPENSSL_REQUIRED_VERSION})
   set(ARROW_USE_OPENSSL ON)
+  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
 endif()
 
 if(ARROW_USE_OPENSSL)
@@ -1521,7 +1517,6 @@ macro(build_glog)
                       BUILD_BYPRODUCTS "${GLOG_STATIC_LIB}"
                       CMAKE_ARGS ${GLOG_CMAKE_ARGS})
 
-  add_dependencies(toolchain glog_ep)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
   add_library(glog::glog STATIC IMPORTED)
@@ -1579,8 +1574,6 @@ macro(build_gflags)
                       BUILD_IN_SOURCE 1
                       BUILD_BYPRODUCTS "${GFLAGS_STATIC_LIB}"
                       CMAKE_ARGS ${GFLAGS_CMAKE_ARGS})
-
-  add_dependencies(toolchain gflags_ep)
 
   add_thirdparty_lib(gflags::gflags_static STATIC ${GFLAGS_STATIC_LIB})
   add_dependencies(gflags::gflags_static gflags_ep)
@@ -1693,7 +1686,6 @@ macro(build_thrift)
   if(ARROW_USE_BOOST)
     target_link_libraries(thrift::thrift INTERFACE Boost::headers)
   endif()
-  add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
   set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
   set(THRIFT_VENDORED TRUE)
@@ -1790,7 +1782,6 @@ macro(build_protobuf)
   set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
                                                            "${PROTOBUF_COMPILER}")
 
-  add_dependencies(toolchain protobuf_ep)
   add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
   add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
@@ -2132,7 +2123,6 @@ if(ARROW_MIMALLOC)
     target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
-  add_dependencies(toolchain mimalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
 
@@ -2290,8 +2280,8 @@ macro(build_benchmark)
                         PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}")
   target_include_directories(benchmark::benchmark_main BEFORE
                              INTERFACE "${GBENCHMARK_INCLUDE_DIR}")
+  target_link_libraries(benchmark::benchmark_main INTERFACE benchmark::benchmark)
 
-  add_dependencies(toolchain-benchmarks gbenchmark_ep)
   add_dependencies(benchmark::benchmark gbenchmark_ep)
   add_dependencies(benchmark::benchmark_main gbenchmark_ep)
 endmacro()
@@ -2361,8 +2351,9 @@ macro(build_xsimd)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${XSIMD_INCLUDE_DIR}")
 
-  add_dependencies(toolchain xsimd_ep)
-  add_dependencies(toolchain-tests xsimd_ep)
+  add_library(arrow::xsimd INTERFACE IMPORTED)
+  target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
+  add_dependencies(arrow::xsimd xsimd_ep)
 
   set(XSIMD_VENDORED TRUE)
 endmacro()
@@ -2384,8 +2375,6 @@ if(ARROW_USE_XSIMD)
                      "8.1.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
-    add_library(arrow::xsimd INTERFACE IMPORTED)
-    target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
     set(ARROW_XSIMD arrow::xsimd)
   else()
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
@@ -2423,7 +2412,6 @@ macro(build_zlib)
   set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
   target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
-  add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
@@ -2459,7 +2447,6 @@ macro(build_lz4)
   add_library(LZ4::lz4 STATIC IMPORTED)
   set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
   target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
-  add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS LZ4::lz4)
@@ -2512,7 +2499,6 @@ macro(build_zstd)
   target_include_directories(zstd::libzstd_static BEFORE
                              INTERFACE "${ZSTD_PREFIX}/include")
 
-  add_dependencies(toolchain zstd_ep)
   add_dependencies(zstd::libzstd_static zstd_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS zstd::libzstd_static)
@@ -2569,7 +2555,6 @@ macro(build_re2)
   set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
   target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
 
-  add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
   set(RE2_VENDORED TRUE)
   # Set values so that FindRE2 finds this too
@@ -2627,7 +2612,6 @@ macro(build_bzip2)
   target_include_directories(BZip2::BZip2 BEFORE INTERFACE "${BZIP2_PREFIX}/include")
   set(BZIP2_INCLUDE_DIR "${BZIP2_PREFIX}/include")
 
-  add_dependencies(toolchain bzip2_ep)
   add_dependencies(BZip2::BZip2 bzip2_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS BZip2::BZip2)
@@ -2680,7 +2664,6 @@ macro(build_utf8proc)
   target_include_directories(utf8proc::utf8proc BEFORE
                              INTERFACE "${UTF8PROC_PREFIX}/include")
 
-  add_dependencies(toolchain utf8proc_ep)
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS utf8proc::utf8proc)
@@ -2717,7 +2700,6 @@ macro(build_cares)
 
   file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
 
-  add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
   set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
   target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
@@ -3962,7 +3944,6 @@ macro(build_grpc)
                                                          ${GRPC_CPP_PLUGIN})
 
   add_dependencies(grpc_ep grpc_dependencies)
-  add_dependencies(toolchain grpc_ep)
   add_dependencies(gRPC::grpc++ grpc_ep)
   add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
   set(GRPC_VENDORED TRUE)
@@ -4212,8 +4193,6 @@ macro(build_google_cloud_cpp_storage)
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
 
-  add_dependencies(toolchain google_cloud_cpp_ep)
-
   add_library(google-cloud-cpp::common STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::common
                         PROPERTIES IMPORTED_LOCATION
@@ -4434,7 +4413,6 @@ macro(build_orc)
     target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
   endif()
 
-  add_dependencies(toolchain orc_ep)
   add_dependencies(orc::orc orc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
@@ -4442,6 +4420,7 @@ endmacro()
 
 if(ARROW_ORC)
   resolve_dependency(orc HAVE_ALT TRUE)
+  target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
@@ -4601,9 +4580,6 @@ macro(build_opentelemetry)
                            DEPENDEES download
                            DEPENDERS configure)
 
-  add_dependencies(toolchain opentelemetry_ep)
-  add_dependencies(toolchain-tests opentelemetry_ep)
-
   set(OPENTELEMETRY_VENDORED 1)
 
   target_link_libraries(opentelemetry-cpp::common
@@ -4645,6 +4621,9 @@ if(ARROW_WITH_OPENTELEMETRY)
   find_curl()
   set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
+  set(ARROW_OPENTELEMETRY_LIBS
+      opentelemetry-cpp::trace opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_exporter)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
@@ -4980,7 +4959,6 @@ macro(build_awssdk)
                                        ${AWS_CPP_SDK_S3_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_STS_STATIC_LIBRARY}
                       DEPENDS aws_crt_cpp_ep)
-  add_dependencies(toolchain awssdk_ep)
   foreach(_AWSSDK_LIB ${_AWSSDK_LIBS})
     if(${_AWSSDK_LIB} MATCHES "^aws-cpp-sdk-")
       add_dependencies(${_AWSSDK_LIB} awssdk_ep)
@@ -5009,6 +4987,9 @@ macro(build_awssdk)
                    PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
       add_dependencies(awssdk_ep zlib_ep)
     endif()
+    set_property(TARGET AWS::aws-c-io
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES ${CMAKE_DL_LIBS})
   elseif(WIN32)
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
@@ -5112,12 +5093,8 @@ endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
-  set(AZURE_SDK_LINK_LIBRARIES
-      Azure::azure-storage-files-datalake
-      Azure::azure-storage-common
-      Azure::azure-storage-blobs
-      Azure::azure-identity
-      Azure::azure-core)
+  set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
+                               Azure::azure-storage-blobs Azure::azure-identity)
 endif()
 # ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
@@ -5182,7 +5159,6 @@ macro(build_ucx)
   add_library(ucx::ucs SHARED IMPORTED)
   set_target_properties(ucx::ucs PROPERTIES IMPORTED_LOCATION "${UCX_SHARED_LIB_UCS}")
 
-  add_dependencies(toolchain ucx_ep)
   add_dependencies(ucx::ucp ucx_ep)
   add_dependencies(ucx::uct ucx_ep)
   add_dependencies(ucx::ucs ucx_ep)

@@ -22,7 +22,9 @@ set(CSV_TEST_SRCS
     converter_test.cc
     parser_test.cc
     reader_test.cc
-    writer_test.cc)
+    writer_test.cc
+    EXTRA_LINK_LIBS
+    ${ARROW_GTEST_GMOCK})
 
 add_arrow_test(csv-test SOURCES ${CSV_TEST_SRCS})
 

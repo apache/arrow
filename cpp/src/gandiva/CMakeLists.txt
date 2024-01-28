@@ -92,20 +92,25 @@ set(SRC_FILES
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
-set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+set(GANDIVA_OPENSSL_LIBS ${ARROW_OPENSSL_LIBS})
 if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.18)
-  list(APPEND GANDIVA_OPENSSL_TARGETS OpenSSL::applink)
+  list(APPEND GANDIVA_OPENSSL_LIBS OpenSSL::applink)
 endif()
 
 set(GANDIVA_SHARED_LINK_LIBS arrow_shared LLVM::LLVM_HEADERS)
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_TARGETS}
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS re2::re2 ${GANDIVA_OPENSSL_LIBS}
                                      Boost::headers)
 set(GANDIVA_STATIC_LINK_LIBS
     arrow_static
     LLVM::LLVM_HEADERS
     LLVM::LLVM_LIBS
-    ${GANDIVA_OPENSSL_TARGETS}
+    re2::re2
+    ${GANDIVA_OPENSSL_LIBS}
     Boost::headers)
+if(ARROW_USE_XSIMD)
+  list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS ${ARROW_XSIMD})
+  list(APPEND GANDIVA_STATIC_LINK_LIBS ${ARROW_XSIMD})
+endif()
 if(ARROW_WITH_RE2)
   list(APPEND GANDIVA_SHARED_PRIVATE_LINK_LIBS re2::re2)
   list(APPEND GANDIVA_STATIC_LINK_LIBS re2::re2)
@@ -148,7 +153,6 @@ add_arrow_lib(gandiva
               OUTPUTS
               GANDIVA_LIBRARIES
               DEPENDENCIES
-              arrow_dependencies
               precompiled
               SHARED_LINK_FLAGS
               ${GANDIVA_SHARED_LINK_FLAGS}
@@ -185,8 +189,8 @@ if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS utf8proc::utf8proc)
 endif()
 if(WIN32)
-  list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
-  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
+  list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
+  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
 endif()
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
@@ -265,7 +269,9 @@ add_gandiva_test(internals-test
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  interval_holder_test.cc
-                 tests/test_util.cc)
+                 tests/test_util.cc
+                 EXTRA_LINK_LIBS
+                 re2::re2)
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
