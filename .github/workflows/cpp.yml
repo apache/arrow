@@ -57,37 +57,65 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
+  docker-targets:
+    name: Docker targets
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.detect-targets.outputs.targets }}
+    steps:
+      - name: Detect targets
+        id: detect-targets
+        run: |
+          echo "targets<<JSON" >> "$GITHUB_OUTPUT"
+          echo "[" >> "$GITHUB_OUTPUT"
+          cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch": "amd64",
+            "clang-tools": "14",
+            "image": "conda-cpp",
+            "llvm": "14",
+            "runs-on": "ubuntu-latest",
+            "simd-level": "AVX2",
+            "title": "AMD64 Conda C++ AVX2",
+            "ubuntu": "22.04"
+          },
+          {
+            "arch": "amd64",
+            "clang-tools": "14",
+            "image": "ubuntu-cpp-sanitizer",
+            "llvm": "14",
+            "runs-on": "ubuntu-latest",
+            "title": "AMD64 Ubuntu 22.04 C++ ASAN UBSAN",
+            "ubuntu": "22.04"
+          }
+          JSON
+          if [ "$GITHUB_REPOSITORY_OWNER" = "apache" ]; then
+            echo "," >> "$GITHUB_OUTPUT"
+            cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch": "arm64v8",
+            "clang-tools": "10",
+            "image": "ubuntu-cpp",
+            "llvm": "10",
+            "runs-on": ["self-hosted", "arm", "linux"],
+            "title": "ARM64 Ubuntu 20.04 C++",
+            "ubuntu": "20.04"
+          }
+          JSON
+          fi
+          echo "]" >> "$GITHUB_OUTPUT"
+          echo "JSON" >> "$GITHUB_OUTPUT"
+
   docker:
     name: ${{ matrix.title }}
+    needs: docker-targets
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: amd64
-            clang-tools: "14"
-            image: conda-cpp
-            llvm: "14"
-            runs-on: ubuntu-latest
-            simd-level: AVX2
-            title: AMD64 Conda C++ AVX2
-            ubuntu: "22.04"
-          - arch: amd64
-            clang-tools: "14"
-            image: ubuntu-cpp-sanitizer
-            llvm: "14"
-            runs-on: ubuntu-latest
-            title: AMD64 Ubuntu 22.04 C++ ASAN UBSAN
-            ubuntu: "22.04"
-          - arch: arm64v8
-            clang-tools: "10"
-            image: ubuntu-cpp
-            llvm: "10"
-            runs-on: ["self-hosted", "arm", "linux"]
-            title: ARM64 Ubuntu 20.04 C++
-            ubuntu: "20.04"
+        include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
