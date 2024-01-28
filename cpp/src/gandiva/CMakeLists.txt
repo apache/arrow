@@ -235,7 +235,7 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
     # "llvm_orc_registerEHFrameSectionWrapper()" and
     # "llvm_orc_unregisterEHFrameSectionWrapper()". We need to do
     # nothing when we use libLLVM.so. But we need to export symbols
-    # explicitly when we use can do it when we use libLLVM*.a.
+    # explicitly when we use libLLVM*.a.
     set_target_properties(${TEST_NAME} PROPERTIES ENABLE_EXPORTS TRUE)
   endif()
 endfunction()
