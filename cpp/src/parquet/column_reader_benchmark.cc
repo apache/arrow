@@ -200,7 +200,7 @@ static void RecordReaderSkipRecords(::benchmark::State& state) {
 static void RecordReaderReadAndSkipRecords(::benchmark::State& state) {
   const auto repetition = static_cast<Repetition::type>(state.range(0));
   const auto batch_size = static_cast<int64_t>(state.range(1));
-  const auto levels_per_page = static_cast<int64_t>(state.range(2));
+  const auto levels_per_page = static_cast<int>(state.range(2));
 
   BenchmarkHelper helper(repetition, /*num_pages=*/16, levels_per_page);
 
@@ -252,7 +252,7 @@ BENCHMARK(RecordReaderReadRecords)
     ->Args({2, 1000, false});
 
 BENCHMARK(RecordReaderReadAndSkipRecords)
-    ->ArgNames({"Repetition", "BatchSize"})
+    ->ArgNames({"Repetition", "BatchSize", "LevelsPerPage"})
     ->Args({2, 1000, 80000})
     ->Args({0, 1000, 80000})
     ->Args({1, 1, 80000})
