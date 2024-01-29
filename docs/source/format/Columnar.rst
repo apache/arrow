@@ -677,7 +677,7 @@ would be: ::
 
     * Children arrays:
       * field-0 array (`VarBinary`):
-        * Length: 4, Null count: 1
+        * Length: 4, Null count: 2
         * Validity bitmap buffer:
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
