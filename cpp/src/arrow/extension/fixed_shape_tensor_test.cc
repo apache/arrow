@@ -360,6 +360,7 @@ void CheckToTensor(const std::vector<T>& values, const std::shared_ptr<DataType>
   auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
   const auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
   ASSERT_OK_AND_ASSIGN(const auto actual_tensor, tensor_array->ToTensor());
+  ASSERT_OK(actual_tensor->Validate());
 
   ASSERT_EQ(actual_tensor->type(), expected_tensor->type());
   ASSERT_EQ(actual_tensor->shape(), expected_tensor->shape());
