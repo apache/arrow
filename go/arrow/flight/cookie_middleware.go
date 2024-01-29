@@ -64,6 +64,8 @@ type clientCookieMiddleware struct {
 }
 
 func (cc *clientCookieMiddleware) Clone() CookieMiddleware {
+	cc.mx.Lock()
+	defer cc.mx.Unlock()
 	return &clientCookieMiddleware{jar: maps.Clone(cc.jar)}
 }
 
