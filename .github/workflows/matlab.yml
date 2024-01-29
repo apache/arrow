@@ -52,7 +52,7 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
           release: R2023a
       - name: Install ccache
@@ -100,7 +100,7 @@ jobs:
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
           release: R2023a
       - name: Install ccache
@@ -138,7 +138,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
           release: R2023a
       - name: Download Timezone Database
