@@ -198,6 +198,8 @@ Servers may also combine other connection state opaquely with the
 session token:  Consider that the lifespan and semantics of a session
 should make sense for any additional uses, e.g. CloseSession would also
 invalidate any authentication context persisted via the session context.
+A session may be initiated upon a nonempty (or empty) SetSessionOptions
+call, or at any other time of the server's choosing.
 
 ``SetSessionOptions``
 Set server session option(s) by name/value.
