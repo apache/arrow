@@ -1119,9 +1119,7 @@ EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
 def _is_local_file_system(fs):
-    return isinstance(fs, LocalFileSystem) or isinstance(
-        fs, legacyfs.LocalFileSystem
-    )
+    return isinstance(fs, LocalFileSystem)
 
 
 _read_docstring_common = """\

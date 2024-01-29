@@ -29,7 +29,6 @@ import pyarrow.compute as pc
 from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.util import guid
-from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileSelector, LocalFileSystem)
 try:
