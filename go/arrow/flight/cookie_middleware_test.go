@@ -239,3 +239,63 @@ func TestCookieExpiration(t *testing.T) {
 	cookieMiddleware.expectedCookies = map[string]string{}
 	makeReq(client, t)
 }
+
+func TestCookiesClone(t *testing.T) {
+	cookieMiddleware := &serverAddCookieMiddleware{}
+
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
+		flight.CreateServerMiddleware(cookieMiddleware),
+	})
+	s.Init("localhost:0")
+	f := &flightServer{}
+	s.RegisterFlightService(f)
+
+	go s.Serve()
+	defer s.Shutdown()
+
+	makeReq := func(c flight.Client, t *testing.T) {
+		flightStream, err := c.ListFlights(context.Background(), &flight.Criteria{})
+		assert.NoError(t, err)
+
+		for {
+			_, err := flightStream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				assert.NoError(t, err)
+			}
+		}
+	}
+
+	credsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+	cookies := flight.NewCookieMiddleware()
+	client1, err := flight.NewClientWithMiddleware(s.Addr().String(), nil,
+		[]flight.ClientMiddleware{flight.CreateClientMiddleware(cookies)}, credsOpt)
+	require.NoError(t, err)
+	defer client1.Close()
+
+	// set cookies
+	cookieMiddleware.cookies = []*http.Cookie{
+		{Name: "foo", Value: "bar"},
+		{Name: "foo2", Value: "bar2", MaxAge: 1},
+	}
+	makeReq(client1, t)
+
+	// validate set
+	cookieMiddleware.expectedCookies = map[string]string{
+		"foo": "bar", "foo2": "bar2",
+	}
+	makeReq(client1, t)
+
+	client2, err := flight.NewClientWithMiddleware(s.Addr().String(), nil,
+		[]flight.ClientMiddleware{flight.CreateClientMiddleware(cookies.Clone())}, credsOpt)
+	require.NoError(t, err)
+	defer client2.Close()
+
+	// validate clone worked
+	cookieMiddleware.expectedCookies = map[string]string{
+		"foo": "bar", "foo2": "bar2",
+	}
+	makeReq(client2, t)
+}
