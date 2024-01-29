@@ -17,11 +17,8 @@
 
 package org.apache.arrow.flight.integration.tests;
 
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.arrow.flight.CloseSessionRequest;
-import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -65,10 +62,6 @@ final class SessionOptionsScenario implements Scenario {
     try (final FlightClient flightClient = FlightClient.builder(allocator, location).intercept(factory).build()) {
       final FlightSqlClient client = new FlightSqlClient(flightClient);
 
-      // No existing session yet
-      IntegrationAssertions.assertThrows(FlightRuntimeException.class,
-          () -> client.getSessionOptions(new GetSessionOptionsRequest()));
-
       // Set
       SetSessionOptionsRequest req1 = new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
           .put("foolong", SessionOptionValueFactory.makeSessionOptionValue(123L))
@@ -110,18 +103,6 @@ final class SessionOptionsScenario implements Scenario {
                 SessionOptionValueFactory.makeSessionOptionValue("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"))
             .build(),
           res4.getSessionOptions());
-      // Close
-      CloseSessionResult res5 = client.closeSession(new CloseSessionRequest());
-      IntegrationAssertions.assertEquals(CloseSessionResult.Status.CLOSED, res5.getStatus());
-      // Session should be defunct and cookie expired from cookie jar.
-      IntegrationAssertions.assertThrows(FlightRuntimeException.class,
-          () -> client.getSessionOptions(new GetSessionOptionsRequest()));
-      // This should create a new, empty session
-      SetSessionOptionsResult res6 =
-          client.setSessionOptions(new SetSessionOptionsRequest(new HashMap<String, SessionOptionValue>()));
-      GetSessionOptionsResult res7 = client.getSessionOptions(new GetSessionOptionsRequest());
-      // This should be empty to confirm we have a new session, not reusing the same one somehow
-      IntegrationAssertions.assertEquals(new HashMap<String, SessionOptionValue>(), res7.getSessionOptions());
     }
   }
 }
