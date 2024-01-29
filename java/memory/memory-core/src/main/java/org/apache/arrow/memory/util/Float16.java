@@ -21,8 +21,8 @@ package org.apache.arrow.memory.util;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * Lifted from Apache Parquet MR project.
- * Ref: https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/libcore/util/FP16.java.
+ * Lifted from Apache Parquet MR project. Ref:
+ * https://github.com/apache/parquet-mr/blob/master/parquet-column/src/main/java/org/apache/parquet/schema/Float16.java
  *
  * The class is a utility class to manipulate half-precision 16-bit
  * <a href="https://en.wikipedia.org/wiki/Half-precision_floating-point_format">IEEE 754</a>

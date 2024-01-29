@@ -19,8 +19,10 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.Float16;
 import org.apache.arrow.vector.complex.impl.Float2ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.Float2Holder;
@@ -31,8 +33,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * Float2Vector implements a fixed width vector (2 bytes) of
- * float values which could be null. A validity buffer (bit vector) is
+ * Float2Vector implements a fixed width (2 bytes) vector of
+ * short values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
 public final class Float2Vector extends BaseFixedWidthVector implements FloatingPointVector {
@@ -131,6 +133,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Short getObject(int index) {
     if (isSet(index) == 0) {
       return null;
@@ -139,15 +142,41 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
     }
   }
 
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param buffer data buffer
+   * @param index position of the element.
+   * @return value stored at the index.
+   */
+  static short get(final ArrowBuf buffer, final int index) {
+    return buffer.getShort((long) index * TYPE_WIDTH);
+  }
+
+  @Override
+  public double getValueAsDouble(int index) {
+    return this.get(index);
+  }
+
+  public float getValueAsFloat(int index) {
+    return Float16.toFloat(this.get(index));
+  }
+
   /*----------------------------------------------------------------*
    |                                                                |
    |          vector value setter methods                           |
    |                                                                |
    *----------------------------------------------------------------*/
 
-
   private void setValue(int index, short value) {
     valueBuffer.setShort((long) index * TYPE_WIDTH, value);
+  }
+
+  private void setValue(int index, float value) {
+    valueBuffer.setShort((long) index * TYPE_WIDTH, Float16.toFloat16(value));
   }
 
   /**
@@ -157,6 +186,17 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    * @param value   value of element
    */
   public void set(int index, short value) {
+    BitVectorHelper.setBit(validityBuffer, index);
+    setValue(index, value);
+  }
+
+  /**
+   * Set the element at the given index to the given value.
+   *
+   * @param index   position of element
+   * @param value   value of element
+   */
+  public void setWithPossibleTruncate(int index, float value) {
     BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
@@ -205,6 +245,19 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
   }
 
   /**
+   * Same as {@link #setWithPossibleTruncate(int, float)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
+   *
+   * @param index   position of element
+   * @param value   value of element
+   */
+  public void setSafeWithPossibleTruncate(int index, float value) {
+    handleSafe(index);
+    setWithPossibleTruncate(index, value);
+  }
+
+  /**
    * Same as {@link #set(int, NullableFloat2Holder)} except that it handles the
    * case when index is greater than or equal to existing
    * value capacity {@link #getValueCapacity()}.
@@ -247,6 +300,22 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
   }
 
   /**
+   * Store the given value at a particular position in the vector. isSet indicates
+   * whether the value is NULL or not.
+   *
+   * @param index position of the new value
+   * @param isSet 0 for NULL value, 1 otherwise
+   * @param value element value
+   */
+  public void setWithPossibleTruncate(int index, int isSet, float value) {
+    if (isSet > 0) {
+      setWithPossibleTruncate(index, value);
+    } else {
+      BitVectorHelper.unsetBit(validityBuffer, index);
+    }
+  }
+
+  /**
    * Same as {@link #set(int, int, short)} except that it handles the case
    * when index is greater than or equal to current value capacity of the
    * vector.
@@ -261,32 +330,27 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Same as {@link #set(int, int, short)} except that it handles the case
+   * when index is greater than or equal to current value capacity of the
+   * vector.
    *
-   * <p>This method should not be used externally.
-   *
-   * @param buffer data buffer
-   * @param index position of the element.
-   * @return value stored at the index.
+   * @param index position of the new value
+   * @param isSet 0 for NULL value, 1 otherwise
+   * @param value element value
    */
-  public static float get(final ArrowBuf buffer, final int index) {
-    return buffer.getFloat((long) index * TYPE_WIDTH);
+  public void setSafeWithPossibleTruncate(int index, int isSet, float value) {
+    handleSafe(index);
+    setWithPossibleTruncate(index, isSet, value);
   }
 
   @Override
   public void setWithPossibleTruncate(int index, double value) {
-    set(index, (short) value);
+    throw new UnsupportedOperationException("The operation for double data types is not supported.");
   }
 
   @Override
   public void setSafeWithPossibleTruncate(int index, double value) {
-    setSafe(index, (short) value);
-  }
-
-  @Override
-  public double getValueAsDouble(int index) {
-    return get(index);
+    throw new UnsupportedOperationException("The operation for double data types is not supported.");
   }
 
   /*----------------------------------------------------------------*
@@ -294,7 +358,6 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
    |                      vector transfer                           |
    |                                                                |
    *----------------------------------------------------------------*/
-
 
   /**
    * Construct a TransferPair comprising this and a target vector of
