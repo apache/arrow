@@ -268,7 +268,7 @@ public class FlightInfo {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof FlightInfo)) {
       return false;
     }
     FlightInfo that = (FlightInfo) o;

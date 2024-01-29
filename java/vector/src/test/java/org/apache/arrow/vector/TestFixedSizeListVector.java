@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
@@ -60,10 +61,8 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testIntType() {
-    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
-      IntVector nested =
-          (IntVector)
-              vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
+    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", /*size=*/2, allocator)) {
+      IntVector nested = (IntVector) vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
@@ -89,10 +88,9 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testFloatTypeNullable() {
-    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", 2, allocator)) {
-      Float4Vector nested =
-          (Float4Vector)
-              vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType())).getVector();
+    try (FixedSizeListVector vector = FixedSizeListVector.empty("list", /*size=*/2, allocator)) {
+      Float4Vector nested = (Float4Vector) vector.addOrGetVector(FieldType.nullable(MinorType.FLOAT4.getType()))
+          .getVector();
       vector.allocateNew();
 
       for (int i = 0; i < 10; i++) {
@@ -245,7 +243,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testConsistentChildName() throws Exception {
-    try (FixedSizeListVector listVector = FixedSizeListVector.empty("sourceVector", 2, allocator)) {
+    try (FixedSizeListVector listVector = FixedSizeListVector.empty("sourceVector", /*size=*/2, allocator)) {
       String emptyListStr = listVector.getField().toString();
       Assert.assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
 
@@ -261,8 +259,7 @@ public class TestFixedSizeListVector {
      * each list of size 3 and having its data values alternating between null and a non-null.
      * Read and verify
      */
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 3, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
@@ -290,7 +287,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testUnionFixedSizeListWriter() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -318,8 +315,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testWriteDecimal() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 3, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
@@ -347,8 +343,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testDecimalIndexCheck() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 3, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
@@ -370,7 +365,7 @@ public class TestFixedSizeListVector {
 
   @Test(expected = IllegalStateException.class)
   public void testWriteIllegalData() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -393,7 +388,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -414,9 +409,9 @@ public class TestFixedSizeListVector {
 
       assertEquals(2, targetVector.getValueCount());
       int[] realValue1 = convertListToIntArray(targetVector.getObject(0));
-      assertTrue(Arrays.equals(values1, realValue1));
+      assertArrayEquals(values1, realValue1);
       int[] realValue2 = convertListToIntArray(targetVector.getObject(1));
-      assertTrue(Arrays.equals(values2, realValue2));
+      assertArrayEquals(values2, realValue2);
 
       targetVector.clear();
     }
@@ -424,7 +419,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testZeroWidthVector() {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 0, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/0, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -455,7 +450,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testVectorWithNulls() {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 4, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/4, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -487,8 +482,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testWriteVarCharHelpers() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 4, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/4, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
@@ -507,8 +501,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testWriteLargeVarCharHelpers() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 4, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/4, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
@@ -527,46 +520,47 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testWriteVarBinaryHelpers() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 4, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/4, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
 
       writer.startList();
-      writer.writeVarBinary("row1,1".getBytes());
-      writer.writeVarBinary("row1,2".getBytes(), 0, "row1,2".getBytes().length);
-      writer.writeVarBinary(ByteBuffer.wrap("row1,3".getBytes()));
-      writer.writeVarBinary(ByteBuffer.wrap("row1,4".getBytes()), 0, "row1,4".getBytes().length);
+      writer.writeVarBinary("row1,1".getBytes(StandardCharsets.UTF_8));
+      writer.writeVarBinary("row1,2".getBytes(StandardCharsets.UTF_8), 0,
+          "row1,2".getBytes(StandardCharsets.UTF_8).length);
+      writer.writeVarBinary(ByteBuffer.wrap("row1,3".getBytes(StandardCharsets.UTF_8)));
+      writer.writeVarBinary(ByteBuffer.wrap("row1,4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row1,4".getBytes(StandardCharsets.UTF_8).length);
       writer.endList();
 
-      assertEquals("row1,1", new String((byte[]) (vector.getObject(0).get(0))));
-      assertEquals("row1,2", new String((byte[]) (vector.getObject(0).get(1))));
-      assertEquals("row1,3", new String((byte[]) (vector.getObject(0).get(2))));
-      assertEquals("row1,4", new String((byte[]) (vector.getObject(0).get(3))));
+      assertEquals("row1,1", new String((byte[]) vector.getObject(0).get(0), StandardCharsets.UTF_8));
+      assertEquals("row1,2", new String((byte[]) vector.getObject(0).get(1), StandardCharsets.UTF_8));
+      assertEquals("row1,3", new String((byte[]) vector.getObject(0).get(2), StandardCharsets.UTF_8));
+      assertEquals("row1,4", new String((byte[]) vector.getObject(0).get(3), StandardCharsets.UTF_8));
     }
   }
 
   @Test
   public void testWriteLargeVarBinaryHelpers() throws Exception {
-    try (final FixedSizeListVector vector =
-        FixedSizeListVector.empty("vector", /* listSize= */ 4, allocator)) {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*size=*/4, allocator)) {
 
       UnionFixedSizeListWriter writer = vector.getWriter();
       writer.allocate();
 
       writer.startList();
-      writer.writeLargeVarBinary("row1,1".getBytes());
-      writer.writeLargeVarBinary("row1,2".getBytes(), 0, "row1,2".getBytes().length);
-      writer.writeLargeVarBinary(ByteBuffer.wrap("row1,3".getBytes()));
-      writer.writeLargeVarBinary(
-          ByteBuffer.wrap("row1,4".getBytes()), 0, "row1,4".getBytes().length);
+      writer.writeLargeVarBinary("row1,1".getBytes(StandardCharsets.UTF_8));
+      writer.writeLargeVarBinary("row1,2".getBytes(StandardCharsets.UTF_8), 0,
+          "row1,2".getBytes(StandardCharsets.UTF_8).length);
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row1,3".getBytes(StandardCharsets.UTF_8)));
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row1,4".getBytes(StandardCharsets.UTF_8)), 0,
+          "row1,4".getBytes(StandardCharsets.UTF_8).length);
       writer.endList();
 
-      assertEquals("row1,1", new String((byte[]) (vector.getObject(0).get(0))));
-      assertEquals("row1,2", new String((byte[]) (vector.getObject(0).get(1))));
-      assertEquals("row1,3", new String((byte[]) (vector.getObject(0).get(2))));
-      assertEquals("row1,4", new String((byte[]) (vector.getObject(0).get(3))));
+      assertEquals("row1,1", new String((byte[]) vector.getObject(0).get(0), StandardCharsets.UTF_8));
+      assertEquals("row1,2", new String((byte[]) vector.getObject(0).get(1), StandardCharsets.UTF_8));
+      assertEquals("row1,3", new String((byte[]) vector.getObject(0).get(2), StandardCharsets.UTF_8));
+      assertEquals("row1,4", new String((byte[]) vector.getObject(0).get(3), StandardCharsets.UTF_8));
     }
   }
 

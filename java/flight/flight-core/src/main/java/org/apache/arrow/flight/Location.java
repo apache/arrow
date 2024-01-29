@@ -63,26 +63,19 @@ public class Location {
     switch (uri.getScheme()) {
       case LocationSchemes.GRPC:
       case LocationSchemes.GRPC_TLS:
-      case LocationSchemes.GRPC_INSECURE:
-        {
-          return new InetSocketAddress(uri.getHost(), uri.getPort());
-        }
+      case LocationSchemes.GRPC_INSECURE: {
+        return new InetSocketAddress(uri.getHost(), uri.getPort());
+      }
 
-      case LocationSchemes.GRPC_DOMAIN_SOCKET:
-        {
-          try {
-            // This dependency is not available on non-Unix platforms.
-            return (SocketAddress)
-                Class.forName("io.netty.channel.unix.DomainSocketAddress")
-                    .getConstructor(String.class)
-                    .newInstance(uri.getPath());
-          } catch (InstantiationException
-              | ClassNotFoundException
-              | InvocationTargetException
-              | NoSuchMethodException
-              | IllegalAccessException e) {
-            return null;
-          }
+      case LocationSchemes.GRPC_DOMAIN_SOCKET: {
+        try {
+          // This dependency is not available on non-Unix platforms.
+          return Class.forName("io.netty.channel.unix.DomainSocketAddress").asSubclass(SocketAddress.class)
+              .getConstructor(String.class)
+              .newInstance(uri.getPath());
+        } catch (InstantiationException | ClassNotFoundException | InvocationTargetException |
+            NoSuchMethodException | IllegalAccessException e) {
+          return null;
         }
 
       default:
@@ -147,7 +140,7 @@ public class Location {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof Location)) {
       return false;
     }
     Location location = (Location) o;

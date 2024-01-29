@@ -48,7 +48,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
-import org.apache.calcite.avatica.proto.Common.ColumnMetaData.Builder;
 
 /** Convert objects between Arrow and Avatica. */
 public final class ConvertUtils {
@@ -61,42 +60,36 @@ public final class ConvertUtils {
    * @param fields list of {@link Field}.
    * @return list of {@link ColumnMetaData}.
    */
-  public static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(
-      final List<Field> fields) {
-    return Stream.iterate(0, Math::incrementExact)
-        .limit(fields.size())
-        .map(
-            index -> {
-              final Field field = fields.get(index);
-              final ArrowType fieldType = field.getType();
+  public static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(final List<Field> fields) {
+    return Stream.iterate(0, Math::incrementExact).limit(fields.size())
+        .map(index -> {
+          final Field field = fields.get(index);
+          final ArrowType fieldType = field.getType();
 
-              final Builder builder =
-                  Common.ColumnMetaData.newBuilder()
-                      .setOrdinal(index)
-                      .setColumnName(field.getName())
-                      .setLabel(field.getName());
+          final Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder()
+              .setOrdinal(index)
+              .setColumnName(field.getName())
+              .setLabel(field.getName());
 
-              setOnColumnMetaDataBuilder(builder, field.getMetadata());
+          setOnColumnMetaDataBuilder(builder, field.getMetadata());
 
-              builder.setType(
-                  Common.AvaticaType.newBuilder()
-                      .setId(SqlTypes.getSqlTypeIdFromArrowType(fieldType))
-                      .setName(SqlTypes.getSqlTypeNameFromArrowType(fieldType))
-                      .build());
+          builder.setType(Common.AvaticaType.newBuilder()
+              .setId(SqlTypes.getSqlTypeIdFromArrowType(fieldType))
+              .setName(SqlTypes.getSqlTypeNameFromArrowType(fieldType))
+              .build());
 
-              return ColumnMetaData.fromProto(builder.build());
-            })
-        .collect(Collectors.toList());
+          return ColumnMetaData.fromProto(builder.build());
+        }).collect(Collectors.toList());
   }
 
   /**
    * Set on Column MetaData Builder.
    *
-   * @param builder {@link Builder}
+   * @param builder     {@link Common.ColumnMetaData.Builder}
    * @param metadataMap {@link Map}
    */
-  public static void setOnColumnMetaDataBuilder(
-      final Builder builder, final Map<String, String> metadataMap) {
+  public static void setOnColumnMetaDataBuilder(final Common.ColumnMetaData.Builder builder,
+                                                final Map<String, String> metadataMap) {
     final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
     final String catalogName = columnMetadata.getCatalogName();
     if (catalogName != null) {

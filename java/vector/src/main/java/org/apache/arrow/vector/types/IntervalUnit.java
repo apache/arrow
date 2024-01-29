@@ -38,7 +38,7 @@ public enum IntervalUnit {
     }
   }
 
-  private short flatbufID;
+  private final short flatbufID;
 
   private IntervalUnit(short flatbufID) {
     this.flatbufID = flatbufID;

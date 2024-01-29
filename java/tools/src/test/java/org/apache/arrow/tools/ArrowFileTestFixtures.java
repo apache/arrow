@@ -34,7 +34,6 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 
 public class ArrowFileTestFixtures {
@@ -62,7 +61,6 @@ public class ArrowFileTestFixtures {
         ArrowFileReader arrowReader =
             new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
-      Schema schema = root.getSchema();
       for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
         if (!arrowReader.loadRecordBatch(rbBlock)) {
           throw new IOException("Expected to read record batch");

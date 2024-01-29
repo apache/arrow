@@ -20,6 +20,9 @@ package org.apache.arrow.algorithm.dictionary;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -58,16 +61,16 @@ public class TestSearchTreeBasedDictionaryBuilder {
       sortedDictionary.allocateNew();
 
       // fill data
-      vec.set(0, "hello".getBytes());
-      vec.set(1, "abc".getBytes());
+      vec.set(0, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(1, "abc".getBytes(StandardCharsets.UTF_8));
       vec.setNull(2);
-      vec.set(3, "world".getBytes());
-      vec.set(4, "12".getBytes());
-      vec.set(5, "dictionary".getBytes());
+      vec.set(3, "world".getBytes(StandardCharsets.UTF_8));
+      vec.set(4, "12".getBytes(StandardCharsets.UTF_8));
+      vec.set(5, "dictionary".getBytes(StandardCharsets.UTF_8));
       vec.setNull(6);
-      vec.set(7, "hello".getBytes());
-      vec.set(8, "good".getBytes());
-      vec.set(9, "abc".getBytes());
+      vec.set(7, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
+      vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       VectorValueComparator<VarCharVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
@@ -82,12 +85,12 @@ public class TestSearchTreeBasedDictionaryBuilder {
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
       assertTrue(sortedDictionary.isNull(0));
-      assertEquals("12", new String(sortedDictionary.get(1)));
-      assertEquals("abc", new String(sortedDictionary.get(2)));
-      assertEquals("dictionary", new String(sortedDictionary.get(3)));
-      assertEquals("good", new String(sortedDictionary.get(4)));
-      assertEquals("hello", new String(sortedDictionary.get(5)));
-      assertEquals("world", new String(sortedDictionary.get(6)));
+      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
@@ -104,16 +107,16 @@ public class TestSearchTreeBasedDictionaryBuilder {
       sortedDictionary.allocateNew();
 
       // fill data
-      vec.set(0, "hello".getBytes());
-      vec.set(1, "abc".getBytes());
+      vec.set(0, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(1, "abc".getBytes(StandardCharsets.UTF_8));
       vec.setNull(2);
-      vec.set(3, "world".getBytes());
-      vec.set(4, "12".getBytes());
-      vec.set(5, "dictionary".getBytes());
+      vec.set(3, "world".getBytes(StandardCharsets.UTF_8));
+      vec.set(4, "12".getBytes(StandardCharsets.UTF_8));
+      vec.set(5, "dictionary".getBytes(StandardCharsets.UTF_8));
       vec.setNull(6);
-      vec.set(7, "hello".getBytes());
-      vec.set(8, "good".getBytes());
-      vec.set(9, "abc".getBytes());
+      vec.set(7, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
+      vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       VectorValueComparator<VarCharVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
@@ -127,12 +130,12 @@ public class TestSearchTreeBasedDictionaryBuilder {
 
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
-      assertEquals("12", new String(sortedDictionary.get(0)));
-      assertEquals("abc", new String(sortedDictionary.get(1)));
-      assertEquals("dictionary", new String(sortedDictionary.get(2)));
-      assertEquals("good", new String(sortedDictionary.get(3)));
-      assertEquals("hello", new String(sortedDictionary.get(4)));
-      assertEquals("world", new String(sortedDictionary.get(5)));
+      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
     }
   }
 

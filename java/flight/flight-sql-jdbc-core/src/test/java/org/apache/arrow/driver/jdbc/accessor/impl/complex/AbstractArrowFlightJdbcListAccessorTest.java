@@ -118,10 +118,8 @@ public class AbstractArrowFlightJdbcListAccessorTest {
     accessorIterator.assertAccessorGetter(
         vector,
         AbstractArrowFlightJdbcListVectorAccessor::getObject,
-        (accessor, currentRow) ->
-            equalTo(
-                Arrays.asList(
-                    0, (currentRow), (currentRow) * 2, (currentRow) * 3, (currentRow) * 4)));
+        (accessor, currentRow) -> equalTo(
+            Arrays.asList(0, currentRow, currentRow * 2, currentRow * 3, currentRow * 4)));
   }
 
   @Test
@@ -138,21 +136,15 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
   @Test
   public void testShouldGetArrayReturnValidArray() throws Exception {
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          Array array = accessor.getArray();
-          assert array != null;
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      Array array = accessor.getArray();
+      assert array != null;
 
-          Object[] arrayObject = (Object[]) array.getArray();
+      Object[] arrayObject = (Object[]) array.getArray();
 
-          collector.checkThat(
-              arrayObject,
-              equalTo(
-                  new Object[] {
-                    0, currentRow, (currentRow) * 2, (currentRow) * 3, (currentRow) * 4
-                  }));
-        });
+      collector.checkThat(arrayObject, equalTo(
+          new Object[] {0, currentRow, currentRow * 2, currentRow * 3, currentRow * 4}));
+    });
   }
 
   @Test
@@ -175,9 +167,9 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
           Object[] arrayObject = (Object[]) array.getArray(1, 3);
 
-          collector.checkThat(
-              arrayObject, equalTo(new Object[] {currentRow, (currentRow) * 2, (currentRow) * 3}));
-        });
+      collector.checkThat(arrayObject, equalTo(
+          new Object[] {currentRow, currentRow * 2, currentRow * 3}));
+    });
   }
 
   @Test

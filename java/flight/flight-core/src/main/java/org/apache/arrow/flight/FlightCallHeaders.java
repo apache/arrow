@@ -17,6 +17,11 @@
 
 package org.apache.arrow.flight;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Iterables;
@@ -42,7 +47,7 @@ public class FlightCallHeaders implements CallHeaders {
     }
 
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return new String((byte[]) Iterables.get(values, 0));
+      return new String((byte[]) Iterables.get(values, 0), StandardCharsets.UTF_8);
     }
 
     return (String) Iterables.get(values, 0);
@@ -59,14 +64,13 @@ public class FlightCallHeaders implements CallHeaders {
       return (byte[]) Iterables.get(values, 0);
     }
 
-    return ((String) Iterables.get(values, 0)).getBytes();
+    return ((String) Iterables.get(values, 0)).getBytes(StandardCharsets.UTF_8);
   }
 
   @Override
   public Iterable<String> getAll(String key) {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return this.keysAndValues.get(key).stream()
-          .map(o -> new String((byte[]) o))
+      return this.keysAndValues.get(key).stream().map(o -> new String((byte[]) o, StandardCharsets.UTF_8))
           .collect(Collectors.toList());
     }
     return (Collection<String>) (Collection<?>) this.keysAndValues.get(key);
@@ -77,8 +81,7 @@ public class FlightCallHeaders implements CallHeaders {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
       return (Collection<byte[]>) (Collection<?>) this.keysAndValues.get(key);
     }
-    return this.keysAndValues.get(key).stream()
-        .map(o -> ((String) o).getBytes())
+    return this.keysAndValues.get(key).stream().map(o -> ((String) o).getBytes(StandardCharsets.UTF_8))
         .collect(Collectors.toList());
   }
 
@@ -106,6 +109,7 @@ public class FlightCallHeaders implements CallHeaders {
     return this.keysAndValues.containsKey(key);
   }
 
+  @Override
   public String toString() {
     return this.keysAndValues.toString();
   }

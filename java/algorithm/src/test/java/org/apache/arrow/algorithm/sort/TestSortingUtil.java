@@ -20,6 +20,7 @@ package org.apache.arrow.algorithm.sort;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Array;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.function.BiConsumer;
@@ -128,7 +129,7 @@ public class TestSortingUtil {
       str[i] = (byte) (r % (upper - lower + 1) + lower);
     }
 
-    return new String(str);
+    return new String(str, StandardCharsets.UTF_8);
   }
 
   /**

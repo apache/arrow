@@ -123,6 +123,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Short getObject(int index) {
     if (isSet(index) == 0) {
       return null;

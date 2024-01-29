@@ -153,7 +153,7 @@ public class FlightDescriptor {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof FlightDescriptor)) {
       return false;
     }
     FlightDescriptor other = (FlightDescriptor) obj;

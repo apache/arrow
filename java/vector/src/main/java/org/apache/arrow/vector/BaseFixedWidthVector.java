@@ -108,7 +108,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public long getValidityBufferAddress() {
-    return (validityBuffer.memoryAddress());
+    return validityBuffer.memoryAddress();
   }
 
   /**
@@ -118,7 +118,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public long getDataBufferAddress() {
-    return (valueBuffer.memoryAddress());
+    return valueBuffer.memoryAddress();
   }
 
   /**
@@ -289,6 +289,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param valueCount the desired number of elements in the vector
    * @throws org.apache.arrow.memory.OutOfMemoryException on error
    */
+  @Override
   public void allocateNew(int valueCount) {
     computeAndCheckBufferSize(valueCount);
 
@@ -518,6 +519,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @return the inner buffers.
    */
+  @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
     setReaderAndWriterIndex();
@@ -594,6 +596,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
@@ -603,6 +606,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
@@ -912,6 +916,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @param index position of element
    */
+  @Override
   public void setNull(int index) {
     handleSafe(index);
     // not really needed to set the bit to 0 as long as

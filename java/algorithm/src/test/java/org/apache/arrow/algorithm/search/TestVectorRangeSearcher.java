@@ -78,9 +78,8 @@ public class TestVectorRangeSearcher {
       VectorValueComparator<IntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(intVector);
       for (int i = 0; i < maxValue; i++) {
-        int result =
-            VectorRangeSearcher.getFirstMatch(intVector, comparator, intVector, i * repeat);
-        assertEquals(i * repeat, result);
+        int result = VectorRangeSearcher.getFirstMatch(intVector, comparator, intVector, i * repeat);
+        assertEquals(i * ((long) repeat), result);
       }
     }
   }

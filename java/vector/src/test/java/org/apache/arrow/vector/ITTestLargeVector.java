@@ -22,6 +22,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -132,7 +134,7 @@ public class ITTestLargeVector {
 
       for (int i = 0; i < vecLength; i++) {
         ArrowBuf buf = largeVec.get(i);
-        assertEquals(buf.capacity(), DecimalVector.TYPE_WIDTH);
+        assertEquals(DecimalVector.TYPE_WIDTH, buf.capacity());
         assertEquals(0, buf.getLong(0));
         assertEquals(0, buf.getLong(8));
 
@@ -214,7 +216,7 @@ public class ITTestLargeVector {
       logger.trace("Successfully allocated a vector with capacity " + vecLength);
 
       for (int i = 0; i < vecLength; i++) {
-        largeVec.setSafe(i, strElement.getBytes());
+        largeVec.setSafe(i, strElement.getBytes(StandardCharsets.UTF_8));
 
         if ((i + 1) % 10000 == 0) {
           logger.trace("Successfully written " + (i + 1) + " values");
@@ -227,7 +229,7 @@ public class ITTestLargeVector {
 
       for (int i = 0; i < vecLength; i++) {
         byte[] val = largeVec.get(i);
-        assertEquals(strElement, new String(val));
+        assertEquals(strElement, new String(val, StandardCharsets.UTF_8));
 
         if ((i + 1) % 10000 == 0) {
           logger.trace("Successfully read " + (i + 1) + " values");
@@ -253,7 +255,7 @@ public class ITTestLargeVector {
       logger.trace("Successfully allocated a vector with capacity " + vecLength);
 
       for (int i = 0; i < vecLength; i++) {
-        largeVec.setSafe(i, strElement.getBytes());
+        largeVec.setSafe(i, strElement.getBytes(StandardCharsets.UTF_8));
 
         if ((i + 1) % 10000 == 0) {
           logger.trace("Successfully written " + (i + 1) + " values");
@@ -266,7 +268,7 @@ public class ITTestLargeVector {
 
       for (int i = 0; i < vecLength; i++) {
         byte[] val = largeVec.get(i);
-        assertEquals(strElement, new String(val));
+        assertEquals(strElement, new String(val, StandardCharsets.UTF_8));
 
         if ((i + 1) % 10000 == 0) {
           logger.trace("Successfully read " + (i + 1) + " values");

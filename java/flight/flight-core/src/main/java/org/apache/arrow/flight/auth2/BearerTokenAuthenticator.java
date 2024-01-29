@@ -59,7 +59,6 @@ public abstract class BearerTokenAuthenticator implements CallHeaderAuthenticato
    *
    * @param bearerToken The bearer token to validate.
    * @return A successful AuthResult if validation succeeded.
-   * @throws Exception If the token validation fails.
    */
   protected abstract AuthResult validateBearer(String bearerToken);
 }

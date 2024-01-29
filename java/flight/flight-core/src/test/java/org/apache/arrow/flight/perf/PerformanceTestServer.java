@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -46,11 +48,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 public class PerformanceTestServer implements AutoCloseable {
 
-  private static final org.slf4j.Logger logger =
-      org.slf4j.LoggerFactory.getLogger(PerformanceTestServer.class);
-
   private final FlightServer flightServer;
-  private final Location location;
   private final BufferAllocator allocator;
   private final PerfProducer producer;
   private final boolean isNonBlocking;
@@ -84,7 +82,6 @@ public class PerformanceTestServer implements AutoCloseable {
       BackpressureStrategy bpStrategy,
       boolean isNonBlocking) {
     this.allocator = incomingAllocator.newChildAllocator("perf-server", 0, Long.MAX_VALUE);
-    this.location = location;
     this.producer = new PerfProducer(bpStrategy);
     this.flightServer = FlightServer.builder(this.allocator, location, producer).build();
     this.isNonBlocking = isNonBlocking;
@@ -114,21 +111,34 @@ public class PerformanceTestServer implements AutoCloseable {
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       bpStrategy.register(listener);
-      final Runnable loadData =
-          () -> {
-            VectorSchemaRoot root = null;
-            try {
-              Token token = Token.parseFrom(ticket.getBytes());
-              Perf perf = token.getDefinition();
-              Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
-              root = VectorSchemaRoot.create(schema, allocator);
-              BigIntVector a = (BigIntVector) root.getVector("a");
-              BigIntVector b = (BigIntVector) root.getVector("b");
-              BigIntVector c = (BigIntVector) root.getVector("c");
-              BigIntVector d = (BigIntVector) root.getVector("d");
-              listener.setUseZeroCopy(true);
-              listener.start(root);
-              root.allocateNew();
+      final Runnable loadData = () -> {
+        Token token = null;
+        try {
+          token = Token.parseFrom(ticket.getBytes());
+        } catch (InvalidProtocolBufferException e) {
+          throw new RuntimeException(e);
+        }
+        Perf perf = token.getDefinition();
+        Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
+        try (
+            VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+            BigIntVector a = (BigIntVector) root.getVector("a")
+        ) {
+          listener.setUseZeroCopy(true);
+          listener.start(root);
+          root.allocateNew();
+
+          int current = 0;
+          long i = token.getStart();
+          while (i < token.getEnd()) {
+            if (listener.isCancelled()) {
+              root.clear();
+              return;
+            }
+
+            if (TestPerf.VALIDATE) {
+              a.setSafe(current, i);
+            }
 
               int current = 0;
               long i = token.getStart();
@@ -173,13 +183,22 @@ public class PerformanceTestServer implements AutoCloseable {
                 throw new RuntimeException(e);
               }
             }
-          };
+          }
+
+          // send last partial batch.
+          if (current != 0) {
+            root.setRowCount(current);
+            listener.putNext();
+          }
+          listener.completed();
+        }
+      };
 
       if (!isNonBlocking) {
         loadData.run();
       } else {
         final ExecutorService service = Executors.newSingleThreadExecutor();
-        service.submit(loadData);
+        Future<?> unused = service.submit(loadData);
         service.shutdown();
       }
     }

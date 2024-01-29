@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight.sql;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedTransaction;
@@ -81,7 +80,7 @@ public class SqlInfoBuilder {
    * @return a new {@link NullableVarCharHolder} with the provided input data {@code string}.
    */
   public static NullableVarCharHolder getHolderForUtf8(final String string, final ArrowBuf buf) {
-    final byte[] bytes = string.getBytes(UTF_8);
+    final byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
     buf.setBytes(0, bytes);
     final NullableVarCharHolder holder = new NullableVarCharHolder();
     holder.buffer = buf;
@@ -1058,14 +1057,11 @@ public class SqlInfoBuilder {
     writer.startList();
     final int length = values.length;
     range(0, length)
-        .forEach(
-            i ->
-                onCreateArrowBuf(
-                    buf -> {
-                      final byte[] bytes = values[i].getBytes(UTF_8);
-                      buf.setBytes(0, bytes);
-                      writer.writeVarChar(0, bytes.length, buf);
-                    }));
+        .forEach(i -> onCreateArrowBuf(buf -> {
+          final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
+          buf.setBytes(0, bytes);
+          writer.writeVarChar(0, bytes.length, buf);
+        }));
     writer.endList();
     writer.setValueCount(listVectorValueCount);
 

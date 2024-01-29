@@ -138,6 +138,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Period getObject(int index) {
     if (isSet(index) == 0) {
       return null;
@@ -171,11 +172,11 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
     final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
     final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
 
-    return (new StringBuilder()
+    return new StringBuilder()
         .append(years)
         .append(yearString)
         .append(months)
-        .append(monthString));
+        .append(monthString);
   }
 
   /*----------------------------------------------------------------*

@@ -120,7 +120,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Boolean.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Boolean.class), true);
+    Assert.assertEquals(true, accessor.getObject(Boolean.class));
     verify(accessor).getBoolean();
   }
 
@@ -131,7 +131,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(BigDecimal.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(BigDecimal.class), expected);
+    Assert.assertEquals(expected, accessor.getObject(BigDecimal.class));
     verify(accessor).getBigDecimal();
   }
 
@@ -142,7 +142,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(String.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(String.class), expected);
+    Assert.assertEquals(expected, accessor.getObject(String.class));
     verify(accessor).getString();
   }
 
@@ -164,7 +164,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Object.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Object.class), expected);
+    Assert.assertEquals(expected, accessor.getObject(Object.class));
     verify(accessor).getObject();
   }
 

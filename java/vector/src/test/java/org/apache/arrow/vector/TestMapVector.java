@@ -333,8 +333,8 @@ public class TestMapVector {
 
       /* check the vector output */
       int index = 0;
-      int offset = 0;
-      Map<?, ?> result = null;
+      int offset;
+      Map<?, ?> result;
 
       /* index 0 */
       assertFalse(mapVector.isNull(index));
@@ -575,18 +575,18 @@ public class TestMapVector {
       assertEquals(1L, getResultKey(resultStruct));
       ArrayList<Long> list = (ArrayList<Long>) getResultValue(resultStruct);
       assertEquals(3, list.size()); // value is a list with 3 elements
-      assertEquals(new Long(50), list.get(0));
-      assertEquals(new Long(100), list.get(1));
-      assertEquals(new Long(200), list.get(2));
+      assertEquals(Long.valueOf(50), list.get(0));
+      assertEquals(Long.valueOf(100), list.get(1));
+      assertEquals(Long.valueOf(200), list.get(2));
 
       // Second Map entry
       resultStruct = (Map<?, ?>) resultSet.get(1);
       list = (ArrayList<Long>) getResultValue(resultStruct);
       assertEquals(4, list.size()); // value is a list with 4 elements
-      assertEquals(new Long(75), list.get(0));
-      assertEquals(new Long(125), list.get(1));
-      assertEquals(new Long(150), list.get(2));
-      assertEquals(new Long(175), list.get(3));
+      assertEquals(Long.valueOf(75), list.get(0));
+      assertEquals(Long.valueOf(125), list.get(1));
+      assertEquals(Long.valueOf(150), list.get(2));
+      assertEquals(Long.valueOf(175), list.get(3));
 
       // Get mapVector element at index 1
       result = mapVector.getObject(1);
@@ -597,24 +597,24 @@ public class TestMapVector {
       assertEquals(3L, getResultKey(resultStruct));
       list = (ArrayList<Long>) getResultValue(resultStruct);
       assertEquals(1, list.size()); // value is a list with 1 element
-      assertEquals(new Long(10), list.get(0));
+      assertEquals(Long.valueOf(10), list.get(0));
 
       // Second Map entry
       resultStruct = (Map<?, ?>) resultSet.get(1);
       assertEquals(4L, getResultKey(resultStruct));
       list = (ArrayList<Long>) getResultValue(resultStruct);
       assertEquals(2, list.size()); // value is a list with 1 element
-      assertEquals(new Long(15), list.get(0));
-      assertEquals(new Long(20), list.get(1));
+      assertEquals(Long.valueOf(15), list.get(0));
+      assertEquals(Long.valueOf(20), list.get(1));
 
       // Third Map entry
       resultStruct = (Map<?, ?>) resultSet.get(2);
       assertEquals(5L, getResultKey(resultStruct));
       list = (ArrayList<Long>) getResultValue(resultStruct);
       assertEquals(3, list.size()); // value is a list with 1 element
-      assertEquals(new Long(25), list.get(0));
-      assertEquals(new Long(30), list.get(1));
-      assertEquals(new Long(35), list.get(2));
+      assertEquals(Long.valueOf(25), list.get(0));
+      assertEquals(Long.valueOf(30), list.get(1));
+      assertEquals(Long.valueOf(35), list.get(2));
 
       /* check underlying bitVector */
       assertFalse(mapVector.isNull(0));
@@ -1017,8 +1017,8 @@ public class TestMapVector {
       final ArrowBuf offsetBuffer = mapVector.getOffsetBuffer();
 
       /* mapVector has 2 entries at index 0 and 4 entries at index 1 */
-      assertEquals(0, offsetBuffer.getInt(0 * MapVector.OFFSET_WIDTH));
-      assertEquals(2, offsetBuffer.getInt(1 * MapVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(0));
+      assertEquals(2, offsetBuffer.getInt(MapVector.OFFSET_WIDTH));
       assertEquals(6, offsetBuffer.getInt(2 * MapVector.OFFSET_WIDTH));
     }
   }

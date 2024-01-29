@@ -20,6 +20,8 @@ package org.apache.arrow.vector.testing;
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -203,23 +205,14 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, ("test" + i).getBytes());
+          vector1.set(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
         }
       }
       vector1.setValueCount(10);
 
-      setVector(
-          vector2,
-          null,
-          "test1".getBytes(),
-          null,
-          "test3".getBytes(),
-          null,
-          "test5".getBytes(),
-          null,
-          "test7".getBytes(),
-          null,
-          "test9".getBytes());
+      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
+          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
+          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -584,23 +577,14 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, ("test" + i).getBytes());
+          vector1.set(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
         }
       }
       vector1.setValueCount(10);
 
-      setVector(
-          vector2,
-          null,
-          "test1".getBytes(),
-          null,
-          "test3".getBytes(),
-          null,
-          "test5".getBytes(),
-          null,
-          "test7".getBytes(),
-          null,
-          "test9".getBytes());
+      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
+          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
+          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -615,7 +599,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, ("test" + i).getBytes());
+          vector1.set(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
         }
       }
       vector1.setValueCount(10);

@@ -24,7 +24,7 @@ package math
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/array"
 )
 
 //go:noescape

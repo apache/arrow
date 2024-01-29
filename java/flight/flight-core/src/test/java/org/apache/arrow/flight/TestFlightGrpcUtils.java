@@ -173,8 +173,10 @@ public class TestFlightGrpcUtils {
     Assertions.assertEquals(ConnectivityState.SHUTDOWN, managedChannel.getState(false));
   }
 
-  /** Private class used for testing purposes that overrides service behavior. */
-  private class TestServiceAdapter extends TestServiceGrpc.TestServiceImplBase {
+  /**
+   * Private class used for testing purposes that overrides service behavior.
+   */
+  private static class TestServiceAdapter extends TestServiceGrpc.TestServiceImplBase {
 
     /**
      * gRPC service that receives an empty object & returns and empty protobuf object.

@@ -100,7 +100,7 @@ public final class BitVector extends BaseFixedWidthVector {
   @Override
   public void setInitialCapacity(int valueCount) {
     final int size = getValidityBufferSizeFromCount(valueCount);
-    if (size * 2 > MAX_ALLOCATION_SIZE) {
+    if (size * 2L > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
     lastValueCapacity = valueCount;
@@ -143,6 +143,7 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param length length of the split.
    * @param target destination vector
    */
+  @Override
   public void splitAndTransferTo(int startIndex, int length, BaseFixedWidthVector target) {
     Preconditions.checkArgument(
         startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
@@ -152,10 +153,8 @@ public final class BitVector extends BaseFixedWidthVector {
         valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    target.validityBuffer =
-        splitAndTransferBuffer(startIndex, length, target, validityBuffer, target.validityBuffer);
-    target.valueBuffer =
-        splitAndTransferBuffer(startIndex, length, target, valueBuffer, target.valueBuffer);
+    target.validityBuffer = splitAndTransferBuffer(startIndex, length, validityBuffer, target.validityBuffer);
+    target.valueBuffer = splitAndTransferBuffer(startIndex, length, valueBuffer, target.valueBuffer);
     target.refreshValueCapacity();
 
     target.setValueCount(length);
@@ -164,7 +163,6 @@ public final class BitVector extends BaseFixedWidthVector {
   private ArrowBuf splitAndTransferBuffer(
       int startIndex,
       int length,
-      BaseFixedWidthVector target,
       ArrowBuf sourceBuffer,
       ArrowBuf destBuffer) {
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
@@ -277,11 +275,12 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Boolean getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return new Boolean(getBit(index) != 0);
+      return getBit(index) != 0;
     }
   }
 

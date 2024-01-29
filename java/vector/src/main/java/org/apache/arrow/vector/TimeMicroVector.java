@@ -124,6 +124,7 @@ public final class TimeMicroVector extends BaseFixedWidthVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Long getObject(int index) {
     if (isSet(index) == 0) {
       return null;

@@ -29,7 +29,6 @@ public class ArrowFlightJdbcBitVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BitVector vector;
   private final NullableBitHolder holder;
-  private static final int BYTES_T0_ALLOCATE = 1;
 
   /**
    * Constructor for the BitVectorAccessor.

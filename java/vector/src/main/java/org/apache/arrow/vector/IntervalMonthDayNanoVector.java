@@ -177,6 +177,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public PeriodDuration getObject(int index) {
     if (isSet(index) == 0) {
       return null;

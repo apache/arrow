@@ -21,7 +21,7 @@ import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import io.grpc.stub.ServerCallStreamObserver;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Optional;
 import org.apache.arrow.flight.impl.Flight;
@@ -117,22 +117,16 @@ public class TestFlightService {
   }
 
   @Test
-  public void supportsNullSchemas() throws Exception {
-    final FlightProducer producer =
-        new NoOpFlightProducer() {
-          @Override
-          public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
-            return new FlightInfo(
-                null,
-                descriptor,
-                Collections.emptyList(),
-                0,
-                0,
-                false,
-                IpcOption.DEFAULT,
-                "foo".getBytes());
-          }
-        };
+  public void supportsNullSchemas() throws Exception
+  {
+    final FlightProducer producer = new NoOpFlightProducer() {
+      @Override
+      public FlightInfo getFlightInfo(CallContext context,
+              FlightDescriptor descriptor) {
+        return new FlightInfo(null, descriptor, Collections.emptyList(),
+                0, 0, false, IpcOption.DEFAULT, "foo".getBytes(StandardCharsets.UTF_8));
+      }
+    };
 
     try (final FlightServer s =
             FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer)
@@ -142,7 +136,7 @@ public class TestFlightService {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
       Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
       Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
-      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes());
+      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes(StandardCharsets.UTF_8));
 
       Exception e =
           Assertions.assertThrows(

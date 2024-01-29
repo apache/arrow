@@ -157,21 +157,19 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
    * @param updatedRows the number of rows affected.
    */
   public void addUpdateQuery(final String sqlCommand, final long updatedRows) {
-    addUpdateQuery(
-        sqlCommand,
-        ((flightStream, putResultStreamListener) -> {
-          final DoPutUpdateResult result =
-              DoPutUpdateResult.newBuilder().setRecordCount(updatedRows).build();
-          try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-              final ArrowBuf buffer = allocator.buffer(result.getSerializedSize())) {
-            buffer.writeBytes(result.toByteArray());
-            putResultStreamListener.onNext(PutResult.metadata(buffer));
-          } catch (final Throwable throwable) {
-            putResultStreamListener.onError(throwable);
-          } finally {
-            putResultStreamListener.onCompleted();
-          }
-        }));
+    addUpdateQuery(sqlCommand, (flightStream, putResultStreamListener) -> {
+      final DoPutUpdateResult result =
+          DoPutUpdateResult.newBuilder().setRecordCount(updatedRows).build();
+      try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+           final ArrowBuf buffer = allocator.buffer(result.getSerializedSize())) {
+        buffer.writeBytes(result.toByteArray());
+        putResultStreamListener.onNext(PutResult.metadata(buffer));
+      } catch (final Throwable throwable) {
+        putResultStreamListener.onError(throwable);
+      } finally {
+        putResultStreamListener.onCompleted();
+      }
+    });
   }
 
   /**

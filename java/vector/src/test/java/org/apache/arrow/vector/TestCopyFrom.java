@@ -23,9 +23,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import java.math.BigDecimal;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
+import java.util.Objects;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -83,7 +85,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           continue;
         }
-        byte[] b = Integer.toString(i).getBytes();
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
         vector.setSafe(i, b, 0, b.length);
       }
 
@@ -155,7 +157,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           continue;
         }
-        byte[] b = Integer.toString(i).getBytes();
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
         vector.setSafe(i, b, 0, b.length);
       }
 
@@ -949,7 +951,7 @@ public class TestCopyFrom {
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
-      final double baseValue = 104567897654.876543654;
+      final double baseValue = 104567897654.87654;
       final BigDecimal[] decimals = new BigDecimal[4096];
       for (int i = 0; i < initialCapacity; i++) {
         if ((i & 1) == 0) {
@@ -1080,13 +1082,13 @@ public class TestCopyFrom {
       // to trigger a reallocation of the vector.
       vc2.setInitialCapacity(/*valueCount*/ 20, /*density*/ 0.5);
 
-      vc1.setSafe(0, "1234567890".getBytes(Charset.forName("utf-8")));
+      vc1.setSafe(0, "1234567890".getBytes(StandardCharsets.UTF_8));
       assertFalse(vc1.isNull(0));
-      assertEquals(vc1.getObject(0).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc1.getObject(0)).toString());
 
       vc2.copyFromSafe(0, 0, vc1);
       assertFalse(vc2.isNull(0));
-      assertEquals(vc2.getObject(0).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(0)).toString());
 
       vc2.copyFromSafe(0, 5, vc1);
       assertTrue(vc2.isNull(1));
@@ -1094,7 +1096,7 @@ public class TestCopyFrom {
       assertTrue(vc2.isNull(3));
       assertTrue(vc2.isNull(4));
       assertFalse(vc2.isNull(5));
-      assertEquals(vc2.getObject(5).toString(), "1234567890");
+      assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(5)).toString());
     }
   }
 }

@@ -65,7 +65,7 @@ public class TestPartialSumUtils {
       // verify results
       assertEquals(PARTIAL_SUM_VECTOR_LENGTH, partialSum.getValueCount());
       for (int i = 0; i < partialSum.getValueCount(); i++) {
-        assertEquals(i * 3 + sumBase, partialSum.get(i));
+        assertEquals(i * 3L + sumBase, partialSum.get(i));
       }
     }
   }

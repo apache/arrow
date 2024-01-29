@@ -18,8 +18,8 @@
 package org.apache.arrow.flight.auth;
 
 import io.grpc.Context;
+import io.grpc.Metadata;
 import io.grpc.Metadata.BinaryMarshaller;
-import io.grpc.Metadata.Key;
 import io.grpc.MethodDescriptor;
 import org.apache.arrow.flight.FlightConstants;
 
@@ -29,24 +29,20 @@ public final class AuthConstants {
   public static final String HANDSHAKE_DESCRIPTOR_NAME =
       MethodDescriptor.generateFullMethodName(FlightConstants.SERVICE, "Handshake");
   public static final String TOKEN_NAME = "Auth-Token-bin";
-  public static final Key<byte[]> TOKEN_KEY =
-      Key.of(
-          TOKEN_NAME,
-          new BinaryMarshaller<byte[]>() {
+  public static final Metadata.Key<byte[]> TOKEN_KEY = Metadata.Key.of(TOKEN_NAME, new BinaryMarshaller<byte[]>() {
 
-            @Override
-            public byte[] toBytes(byte[] value) {
-              return value;
-            }
+    @Override
+    public byte[] toBytes(byte[] value) {
+      return value;
+    }
 
-            @Override
-            public byte[] parseBytes(byte[] serialized) {
-              return serialized;
-            }
-          });
+    @Override
+    public byte[] parseBytes(byte[] serialized) {
+      return serialized;
+    }
+  });
 
-  public static final Context.Key<String> PEER_IDENTITY_KEY =
-      Context.keyWithDefault("arrow-flight-peer-identity", "");
+  public static final Context.Key<String> PEER_IDENTITY_KEY = Context.keyWithDefault("arrow-flight-peer-identity", "");
 
   private AuthConstants() {}
 }

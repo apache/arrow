@@ -129,6 +129,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Long getObject(int index) {
     if (isSet(index) == 0) {
       return null;

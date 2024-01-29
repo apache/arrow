@@ -139,7 +139,6 @@ public class EchoServerTest {
             Collections.<Field>emptyList());
     TinyIntVector vector =
         new TinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
-    Schema schema = new Schema(asList(field));
 
     // Try an empty stream, just the header.
     testEchoServer(serverPort, field, vector, 0);

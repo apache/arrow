@@ -172,7 +172,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
-        origVec.setSafe(i, String.valueOf(i).getBytes());
+        origVec.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
     }
     origVec.setValueCount(vectorLength);
@@ -196,7 +196,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
-        assertArrayEquals(String.valueOf(i).getBytes(), newVec.get(i));
+        assertArrayEquals(String.valueOf(i).getBytes(StandardCharsets.UTF_8), newVec.get(i));
       }
     }
 

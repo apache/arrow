@@ -60,7 +60,7 @@ public class TestVectorSchemaRoot {
       VectorSchemaRoot vsr = VectorSchemaRoot.of(vec1, vec2);
 
       vsr.allocateNew();
-      assertEquals(vsr.getRowCount(), 0);
+      assertEquals(0, vsr.getRowCount());
 
       for (int i = 0; i < size; i++) {
         vec1.setSafe(i, i % 2);

@@ -20,6 +20,8 @@ package org.apache.arrow.algorithm.rank;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -87,16 +89,16 @@ public class TestVectorRank {
       vector.allocateNew(VECTOR_LENGTH * 5, VECTOR_LENGTH);
       vector.setValueCount(VECTOR_LENGTH);
 
-      vector.set(0, String.valueOf(1).getBytes());
-      vector.set(1, String.valueOf(5).getBytes());
-      vector.set(2, String.valueOf(3).getBytes());
-      vector.set(3, String.valueOf(7).getBytes());
-      vector.set(4, String.valueOf(9).getBytes());
-      vector.set(5, String.valueOf(8).getBytes());
-      vector.set(6, String.valueOf(2).getBytes());
-      vector.set(7, String.valueOf(0).getBytes());
-      vector.set(8, String.valueOf(4).getBytes());
-      vector.set(9, String.valueOf(6).getBytes());
+      vector.set(0, String.valueOf(1).getBytes(StandardCharsets.UTF_8));
+      vector.set(1, String.valueOf(5).getBytes(StandardCharsets.UTF_8));
+      vector.set(2, String.valueOf(3).getBytes(StandardCharsets.UTF_8));
+      vector.set(3, String.valueOf(7).getBytes(StandardCharsets.UTF_8));
+      vector.set(4, String.valueOf(9).getBytes(StandardCharsets.UTF_8));
+      vector.set(5, String.valueOf(8).getBytes(StandardCharsets.UTF_8));
+      vector.set(6, String.valueOf(2).getBytes(StandardCharsets.UTF_8));
+      vector.set(7, String.valueOf(0).getBytes(StandardCharsets.UTF_8));
+      vector.set(8, String.valueOf(4).getBytes(StandardCharsets.UTF_8));
+      vector.set(9, String.valueOf(6).getBytes(StandardCharsets.UTF_8));
 
       VectorValueComparator<VarCharVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vector);

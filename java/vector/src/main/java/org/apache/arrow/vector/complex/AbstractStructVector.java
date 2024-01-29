@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -53,7 +54,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     }
     ConflictPolicy conflictPolicy;
     try {
-      conflictPolicy = ConflictPolicy.valueOf(conflictPolicyStr.toUpperCase());
+      conflictPolicy = ConflictPolicy.valueOf(conflictPolicyStr.toUpperCase(Locale.ROOT));
     } catch (Exception e) {
       conflictPolicy = ConflictPolicy.CONFLICT_REPLACE;
     }
@@ -159,6 +160,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    * @throws java.lang.IllegalStateException raised if there is a hard schema change
    */
+  @Override
   public <T extends FieldVector> T addOrGet(String childName, FieldType fieldType, Class<T> clazz) {
     final ValueVector existing = getChild(childName);
     boolean create = false;
@@ -406,7 +408,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
     for (final ValueVector v : vectors.values()) {
       for (final ArrowBuf buf : v.getBuffers(false)) {
-        actualBufSize += buf.writerIndex();
+        actualBufSize += (int) buf.writerIndex();
       }
     }
     return actualBufSize;

@@ -59,11 +59,10 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector>
         (srcVector.getValueCount() + 7) / 8,
         dstValidityBuffer.capacity());
     Preconditions.checkArgument(
-        dstValueBuffer.capacity() >= srcVector.getValueCount() * srcVector.getTypeWidth(),
-        "Not enough capacity for the data buffer of the dst vector. "
-            + "Expected capacity %s, actual capacity %s",
-        srcVector.getValueCount() * srcVector.getTypeWidth(),
-        dstValueBuffer.capacity());
+        dstValueBuffer.capacity() >= srcVector.getValueCount() * ((long) srcVector.getTypeWidth()),
+        "Not enough capacity for the data buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        srcVector.getValueCount() * srcVector.getTypeWidth(), dstValueBuffer.capacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {
@@ -79,9 +78,9 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector>
         } else {
           BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
           MemoryUtil.UNSAFE.copyMemory(
-              srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
-              dstValueBuffer.memoryAddress() + dstIndex * valueWidth,
-              valueWidth);
+                  srcValueBuffer.memoryAddress() + srcIndex * ((long) valueWidth),
+                  dstValueBuffer.memoryAddress() + dstIndex * ((long) valueWidth),
+                  valueWidth);
         }
       }
     }

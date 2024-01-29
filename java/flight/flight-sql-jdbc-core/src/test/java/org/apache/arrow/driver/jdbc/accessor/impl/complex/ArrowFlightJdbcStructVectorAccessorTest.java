@@ -204,8 +204,8 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
       ArrowFlightJdbcStructVectorAccessor accessor =
           new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {});
 
-      Assert.assertEquals(accessor.getObject(), expected);
-      Assert.assertEquals(accessor.getString(), expected.toString());
+      Assert.assertEquals(expected, accessor.getObject());
+      Assert.assertEquals(expected.toString(), accessor.getString());
     }
   }
 }

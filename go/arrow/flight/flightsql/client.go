@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1164,6 +1164,9 @@ func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSche
 // ParameterSchema may be nil if the server did not return it when creating
 // the prepared statement.
 func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSchema }
+
+// The handle associated with this PreparedStatement
+func (p *PreparedStatement) Handle() []byte { return p.handle }
 
 // GetSchema re-requests the schema of the result set of the prepared
 // statement from the server. It should otherwise be identical to DatasetSchema.

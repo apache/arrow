@@ -214,9 +214,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
           final Timestamp result = accessor.getTimestamp(calendar);
 
-          long offset =
-              timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+      long offset = (long) timeZone.getOffset(resultWithoutCalendar.getTime()) -
+          timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
 
           collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           collector.checkThat(accessor.wasNull(), is(false));
@@ -252,9 +251,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Date resultWithoutCalendar = accessor.getDate(null);
           final Date result = accessor.getDate(calendar);
 
-          long offset =
-              timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+      long offset = (long) timeZone.getOffset(resultWithoutCalendar.getTime()) -
+          timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
 
           collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           collector.checkThat(accessor.wasNull(), is(false));
@@ -290,9 +288,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Time resultWithoutCalendar = accessor.getTime(null);
           final Time result = accessor.getTime(calendar);
 
-          long offset =
-              timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+      long offset = (long) timeZone.getOffset(resultWithoutCalendar.getTime()) -
+          timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
 
           collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           collector.checkThat(accessor.wasNull(), is(false));

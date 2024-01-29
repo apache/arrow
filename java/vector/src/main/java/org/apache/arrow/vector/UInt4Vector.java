@@ -128,6 +128,7 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Integer getObject(int index) {
     if (isSet(index) == 0) {
       return null;

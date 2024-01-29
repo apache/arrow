@@ -19,6 +19,7 @@ package org.apache.arrow.algorithm.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -135,8 +136,8 @@ public class TestParallelSearcher {
               : DefaultVectorComparators.createDefaultComparator(targetVector);
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        targetVector.setSafe(i, String.valueOf(i).getBytes());
-        keyVector.setSafe(i, String.valueOf(i * 2).getBytes());
+        targetVector.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
+        keyVector.setSafe(i, String.valueOf(i * 2).getBytes(StandardCharsets.UTF_8));
       }
       targetVector.setValueCount(VECTOR_LENGTH);
       keyVector.setValueCount(VECTOR_LENGTH);

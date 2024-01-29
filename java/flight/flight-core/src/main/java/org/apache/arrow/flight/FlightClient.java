@@ -36,6 +36,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -651,7 +652,10 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
-  /** Shut down this client. */
+  /**
+   * Shut down this client.
+   */
+  @Override
   public void close() throws InterruptedException {
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     allocator.close();
@@ -763,30 +767,28 @@ public class FlightClient implements AutoCloseable {
             // The implementation is platform-specific, so we have to find the classes at runtime
             builder = NettyChannelBuilder.forAddress(location.toSocketAddress());
             try {
-              try {
-                // Linux
-                builder.channelType(
-                    (Class<? extends ServerChannel>)
-                        Class.forName("io.netty.channel.epoll.EpollDomainSocketChannel"));
-                final EventLoopGroup elg =
-                    (EventLoopGroup)
-                        Class.forName("io.netty.channel.epoll.EpollEventLoopGroup").newInstance();
-                builder.eventLoopGroup(elg);
-              } catch (ClassNotFoundException e) {
-                // BSD
-                builder.channelType(
-                    (Class<? extends ServerChannel>)
-                        Class.forName("io.netty.channel.kqueue.KQueueDomainSocketChannel"));
-                final EventLoopGroup elg =
-                    (EventLoopGroup)
-                        Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup").newInstance();
-                builder.eventLoopGroup(elg);
-              }
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-              throw new UnsupportedOperationException(
-                  "Could not find suitable Netty native transport implementation for domain socket address.");
+              // Linux
+              builder.channelType(
+                  Class.forName("io.netty.channel.epoll.EpollDomainSocketChannel")
+                      .asSubclass(ServerChannel.class));
+              final EventLoopGroup elg =
+                  Class.forName("io.netty.channel.epoll.EpollEventLoopGroup").asSubclass(EventLoopGroup.class)
+                  .getDeclaredConstructor().newInstance();
+              builder.eventLoopGroup(elg);
+            } catch (ClassNotFoundException e) {
+              // BSD
+              builder.channelType(
+                  Class.forName("io.netty.channel.kqueue.KQueueDomainSocketChannel")
+                      .asSubclass(ServerChannel.class));
+              final EventLoopGroup elg = Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
+                  .asSubclass(EventLoopGroup.class)
+                  .getDeclaredConstructor().newInstance();
+              builder.eventLoopGroup(elg);
             }
-            break;
+          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
+                   NoSuchMethodException | InvocationTargetException e) {
+            throw new UnsupportedOperationException(
+                "Could not find suitable Netty native transport implementation for domain socket address.");
           }
         default:
           throw new IllegalArgumentException(

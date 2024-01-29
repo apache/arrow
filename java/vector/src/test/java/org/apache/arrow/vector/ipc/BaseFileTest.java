@@ -717,19 +717,19 @@ public class BaseFileTest {
   protected void validateBatchData(ArrowReader reader, IntVector vector) throws IOException {
     reader.loadNextBatch();
 
-    assertEquals(vector.getValueCount(), 5);
+    assertEquals(5, vector.getValueCount());
     assertTrue(vector.isNull(0));
-    assertEquals(vector.get(1), 1);
-    assertEquals(vector.get(2), 2);
+    assertEquals(1, vector.get(1));
+    assertEquals(2, vector.get(2));
     assertTrue(vector.isNull(3));
-    assertEquals(vector.get(4), 1);
+    assertEquals(1, vector.get(4));
 
     reader.loadNextBatch();
 
-    assertEquals(vector.getValueCount(), 3);
+    assertEquals(3, vector.getValueCount());
     assertTrue(vector.isNull(0));
-    assertEquals(vector.get(1), 1);
-    assertEquals(vector.get(2), 2);
+    assertEquals(1, vector.get(1));
+    assertEquals(2, vector.get(2));
   }
 
   protected VectorSchemaRoot writeMapData(BufferAllocator bufferAllocator) {

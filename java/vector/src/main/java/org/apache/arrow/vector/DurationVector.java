@@ -135,6 +135,7 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Duration getObject(int index) {
     if (isSet(index) == 0) {
       return null;

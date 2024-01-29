@@ -20,6 +20,9 @@ package org.apache.arrow.algorithm.sort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -61,16 +64,16 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       vec.setValueCount(10);
 
       // fill data to sort
-      vec.set(0, "hello".getBytes());
-      vec.set(1, "abc".getBytes());
+      vec.set(0, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(1, "abc".getBytes(StandardCharsets.UTF_8));
       vec.setNull(2);
-      vec.set(3, "world".getBytes());
-      vec.set(4, "12".getBytes());
-      vec.set(5, "dictionary".getBytes());
+      vec.set(3, "world".getBytes(StandardCharsets.UTF_8));
+      vec.set(4, "12".getBytes(StandardCharsets.UTF_8));
+      vec.set(5, "dictionary".getBytes(StandardCharsets.UTF_8));
       vec.setNull(6);
-      vec.set(7, "hello".getBytes());
-      vec.set(8, "good".getBytes());
-      vec.set(9, "yes".getBytes());
+      vec.set(7, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
+      vec.set(9, "yes".getBytes(StandardCharsets.UTF_8));
 
       // sort the vector
       OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
@@ -92,14 +95,14 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals("12", new String(sortedVec.get(2)));
-      assertEquals("abc", new String(sortedVec.get(3)));
-      assertEquals("dictionary", new String(sortedVec.get(4)));
-      assertEquals("good", new String(sortedVec.get(5)));
-      assertEquals("hello", new String(sortedVec.get(6)));
-      assertEquals("hello", new String(sortedVec.get(7)));
-      assertEquals("world", new String(sortedVec.get(8)));
-      assertEquals("yes", new String(sortedVec.get(9)));
+      assertEquals("12", new String(Objects.requireNonNull(sortedVec.get(2)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedVec.get(3)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedVec.get(4)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedVec.get(5)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedVec.get(6)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedVec.get(7)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedVec.get(8)), StandardCharsets.UTF_8));
+      assertEquals("yes", new String(Objects.requireNonNull(sortedVec.get(9)), StandardCharsets.UTF_8));
 
       sortedVec.close();
     }

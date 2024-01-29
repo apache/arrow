@@ -27,6 +27,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -141,7 +142,7 @@ public class TestUIntDictionaryRoundTrip {
       VarCharVector dictVector = (VarCharVector) dictionary.getVector();
       assertEquals(expectedDictItems.length, dictVector.getValueCount());
       for (int i = 0; i < dictVector.getValueCount(); i++) {
-        assertArrayEquals(expectedDictItems[i].getBytes(), dictVector.get(i));
+        assertArrayEquals(expectedDictItems[i].getBytes(StandardCharsets.UTF_8), dictVector.get(i));
       }
     }
   }

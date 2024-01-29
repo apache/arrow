@@ -45,78 +45,57 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   private final MinorType type;
   private final boolean isUnsigned;
-  private final int bytesToAllocate;
   private final Getter getter;
   private final NumericHolder holder;
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      UInt1Vector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, true, UInt1Vector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt1Vector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, true, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      UInt2Vector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, true, UInt2Vector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt2Vector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, true, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      UInt4Vector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, true, UInt4Vector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt4Vector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, true, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      UInt8Vector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, true, UInt8Vector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(UInt8Vector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, true, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      TinyIntVector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, false, TinyIntVector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(TinyIntVector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, false, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      SmallIntVector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, false, SmallIntVector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(SmallIntVector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, false, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      IntVector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, false, IntVector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(IntVector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, false, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcBaseIntVectorAccessor(
-      BigIntVector vector,
-      IntSupplier currentRowSupplier,
-      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
-    this(vector, currentRowSupplier, false, BigIntVector.TYPE_WIDTH, setCursorWasNull);
+  public ArrowFlightJdbcBaseIntVectorAccessor(BigIntVector vector, IntSupplier currentRowSupplier,
+                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    this(vector, currentRowSupplier, false, setCursorWasNull);
   }
 
-  private ArrowFlightJdbcBaseIntVectorAccessor(
-      BaseIntVector vector,
-      IntSupplier currentRowSupplier,
-      boolean isUnsigned,
-      int bytesToAllocate,
+  private ArrowFlightJdbcBaseIntVectorAccessor(BaseIntVector vector, IntSupplier currentRowSupplier,
+                                               boolean isUnsigned,
       ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.type = vector.getMinorType();
     this.holder = new NumericHolder();
     this.getter = createGetter(vector);
     this.isUnsigned = isUnsigned;
-    this.bytesToAllocate = bytesToAllocate;
   }
 
   @Override

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
@@ -82,14 +83,11 @@ public class TestLargeMessage {
 
   private static VectorSchemaRoot generateData(BufferAllocator allocator) {
     final int size = 128 * 1024;
-    final List<String> fieldNames =
-        Arrays.asList("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10");
-    final Stream<Field> fields =
-        fieldNames.stream()
-            .map(
-                fieldName ->
-                    new Field(fieldName, FieldType.nullable(new ArrowType.Int(32, true)), null));
-    final Schema schema = new Schema(fields::iterator, null);
+    final List<String> fieldNames = Arrays.asList("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10");
+    final Stream<Field> fields = fieldNames
+        .stream()
+        .map(fieldName -> new Field(fieldName, FieldType.nullable(new ArrowType.Int(32, true)), null));
+    final Schema schema = new Schema(fields.collect(toImmutableList()), null);
 
     final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
     root.allocateNew();

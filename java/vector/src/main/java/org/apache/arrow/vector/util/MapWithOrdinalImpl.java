@@ -26,8 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of map that supports constant time look-up by a generic key or an ordinal.
@@ -47,101 +45,92 @@ import org.slf4j.LoggerFactory;
  * @param <V> value type
  */
 public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
-  private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinalImpl.class);
 
   private final Map<K, Map.Entry<Integer, V>> primary = new LinkedHashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
 
-  private final Map<K, V> delegate =
-      new Map<K, V>() {
-        @Override
-        public boolean isEmpty() {
-          return size() == 0;
-        }
+  private final Map<K, V> delegate = new Map<K, V>() {
+    @Override
+    public boolean isEmpty() {
+      return size() == 0;
+    }
 
-        @Override
-        public int size() {
-          return primary.size();
-        }
+    @Override
+    public int size() {
+      return primary.size();
+    }
 
-        @Override
-        public boolean containsKey(Object key) {
-          return primary.containsKey(key);
-        }
+    @Override
+    public boolean containsKey(Object key) {
+      return primary.containsKey(key);
+    }
 
-        @Override
-        public boolean containsValue(Object value) {
-          return primary.containsValue(value);
-        }
+    @Override
+    public boolean containsValue(Object value) {
+      return primary.containsValue(value);
+    }
 
-        @Override
-        public V get(Object key) {
-          Entry<Integer, V> pair = primary.get(key);
-          if (pair != null) {
-            return pair.getValue();
-          }
-          return null;
-        }
+    @Override
+    public V get(Object key) {
+      Entry<Integer, V> pair = primary.get(key);
+      if (pair != null) {
+        return pair.getValue();
+      }
+      return null;
+    }
 
-        @Override
-        public V put(K key, V value) {
-          final Entry<Integer, V> oldPair = primary.get(key);
-          // if key exists try replacing otherwise, assign a new ordinal identifier
-          final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
-          primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
-          secondary.put(ordinal, value);
-          return oldPair == null ? null : oldPair.getValue();
-        }
+    @Override
+    public V put(K key, V value) {
+      final Entry<Integer, V> oldPair = primary.get(key);
+      // if key exists try replacing otherwise, assign a new ordinal identifier
+      final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
+      primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
+      secondary.put(ordinal, value);
+      return oldPair == null ? null : oldPair.getValue();
+    }
 
-        public boolean put(K key, V value, boolean override) {
-          return put(key, value) != null;
-        }
+    @Override
+    public V remove(Object key) {
+      final Entry<Integer, V> oldPair = primary.remove(key);
+      if (oldPair != null) {
+        final int lastOrdinal = secondary.size();
+        final V last = secondary.get(lastOrdinal);
+        // normalize mappings so that all numbers until primary.size() is assigned
+        // swap the last element with the deleted one
+        secondary.put(oldPair.getKey(), last);
+        primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
+      }
+      return oldPair == null ? null : oldPair.getValue();
+    }
 
-        @Override
-        public V remove(Object key) {
-          final Entry<Integer, V> oldPair = primary.remove(key);
-          if (oldPair != null) {
-            final int lastOrdinal = secondary.size();
-            final V last = secondary.get(lastOrdinal);
-            // normalize mappings so that all numbers until primary.size() is assigned
-            // swap the last element with the deleted one
-            secondary.put(oldPair.getKey(), last);
-            primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
-          }
-          return oldPair == null ? null : oldPair.getValue();
-        }
+    @Override
+    public void putAll(Map<? extends K, ? extends V> m) {
+      throw new UnsupportedOperationException();
+    }
 
-        @Override
-        public void putAll(Map<? extends K, ? extends V> m) {
-          throw new UnsupportedOperationException();
-        }
+    @Override
+    public void clear() {
+      primary.clear();
+      secondary.clear();
+    }
 
-        @Override
-        public void clear() {
-          primary.clear();
-          secondary.clear();
-        }
+    @Override
+    public Set<K> keySet() {
+      return primary.keySet();
+    }
 
-        @Override
-        public Set<K> keySet() {
-          return primary.keySet();
-        }
+    @Override
+    public Collection<V> values() {
+      return secondary.values();
+    }
 
-        @Override
-        public Collection<V> values() {
-          return secondary.values();
-        }
-
-        @Override
-        public Set<Entry<K, V>> entrySet() {
-          return primary.entrySet().stream()
-              .map(
-                  entry ->
-                      new AbstractMap.SimpleImmutableEntry<>(
-                          entry.getKey(), entry.getValue().getValue()))
-              .collect(Collectors.toSet());
-        }
-      };
+    @Override
+    public Set<Entry<K, V>> entrySet() {
+      return primary.entrySet().stream()
+          .map(entry -> new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue()))
+          .collect(Collectors.toSet());
+    }
+  };
 
   /**
    * Returns the value corresponding to the given ordinal.
@@ -149,6 +138,7 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
    * @param id ordinal value for lookup
    * @return an instance of V
    */
+  @Override
   public V getByOrdinal(int id) {
     return secondary.get(id);
   }
@@ -159,6 +149,7 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
    * @param key key for ordinal lookup
    * @return ordinal value corresponding to key if it exists or -1
    */
+  @Override
   public int getOrdinal(K key) {
     Map.Entry<Integer, V> pair = primary.get(key);
     if (pair != null) {

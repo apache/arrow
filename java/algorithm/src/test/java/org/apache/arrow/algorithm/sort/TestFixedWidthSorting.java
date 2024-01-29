@@ -134,71 +134,41 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
     for (int length : VECTOR_LENGTHS) {
       for (double nullFrac : NULL_FRACTIONS) {
         for (boolean inPlace : new boolean[] {true, false}) {
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "TinyIntVector",
-                (Function<BufferAllocator, TinyIntVector>)
-                    (allocator -> new TinyIntVector("vector", allocator)),
-                TestSortingUtil.TINY_INT_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "TinyIntVector",
+              (Function<BufferAllocator, TinyIntVector>) allocator -> new TinyIntVector("vector", allocator),
+              TestSortingUtil.TINY_INT_GENERATOR
+          });
 
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "SmallIntVector",
-                (Function<BufferAllocator, SmallIntVector>)
-                    (allocator -> new SmallIntVector("vector", allocator)),
-                TestSortingUtil.SMALL_INT_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "SmallIntVector",
+              (Function<BufferAllocator, SmallIntVector>) allocator -> new SmallIntVector("vector", allocator),
+              TestSortingUtil.SMALL_INT_GENERATOR
+          });
 
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "IntVector",
-                (Function<BufferAllocator, IntVector>)
-                    (allocator -> new IntVector("vector", allocator)),
-                TestSortingUtil.INT_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "IntVector",
+              (Function<BufferAllocator, IntVector>) allocator -> new IntVector("vector", allocator),
+              TestSortingUtil.INT_GENERATOR
+          });
 
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "BigIntVector",
-                (Function<BufferAllocator, BigIntVector>)
-                    (allocator -> new BigIntVector("vector", allocator)),
-                TestSortingUtil.LONG_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "BigIntVector",
+              (Function<BufferAllocator, BigIntVector>) allocator -> new BigIntVector("vector", allocator),
+              TestSortingUtil.LONG_GENERATOR
+          });
 
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "Float4Vector",
-                (Function<BufferAllocator, Float4Vector>)
-                    (allocator -> new Float4Vector("vector", allocator)),
-                TestSortingUtil.FLOAT_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "Float4Vector",
+              (Function<BufferAllocator, Float4Vector>) allocator -> new Float4Vector("vector", allocator),
+              TestSortingUtil.FLOAT_GENERATOR
+          });
 
-          params.add(
-              new Object[] {
-                length,
-                nullFrac,
-                inPlace,
-                "Float8Vector",
-                (Function<BufferAllocator, Float8Vector>)
-                    (allocator -> new Float8Vector("vector", allocator)),
-                TestSortingUtil.DOUBLE_GENERATOR
-              });
+          params.add(new Object[] {
+              length, nullFrac, inPlace, "Float8Vector",
+              (Function<BufferAllocator, Float8Vector>) allocator -> new Float8Vector("vector", allocator),
+              TestSortingUtil.DOUBLE_GENERATOR
+          });
         }
       }
     }

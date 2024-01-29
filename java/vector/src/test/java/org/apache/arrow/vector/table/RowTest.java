@@ -649,8 +649,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getVarCharObj(1), "two");
       assertEquals(c.getVarCharObj(1), c.getVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(), c.getVarChar(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(), c.getVarChar(1));
+      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(1));
     }
   }
 
@@ -660,7 +660,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertArrayEquals(c.getVarBinary(1), "two".getBytes());
+      assertArrayEquals(c.getVarBinary(1), "two".getBytes(StandardCharsets.UTF_8));
       assertArrayEquals(c.getVarBinary(1), c.getVarBinary(VARBINARY_VECTOR_NAME_1));
     }
   }
@@ -671,7 +671,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertArrayEquals(c.getLargeVarBinary(1), "two".getBytes());
+      assertArrayEquals(c.getLargeVarBinary(1), "two".getBytes(StandardCharsets.UTF_8));
       assertArrayEquals(c.getLargeVarBinary(1), c.getLargeVarBinary(VARBINARY_VECTOR_NAME_1));
     }
   }
@@ -684,8 +684,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getLargeVarCharObj(1), "two");
       assertEquals(c.getLargeVarCharObj(1), c.getLargeVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(), c.getLargeVarChar(1));
+      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(1));
     }
   }
 
@@ -695,7 +695,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertArrayEquals(c.getFixedSizeBinary(1), "two".getBytes());
+      assertArrayEquals(c.getFixedSizeBinary(1), "two".getBytes(StandardCharsets.UTF_8));
       assertArrayEquals(c.getFixedSizeBinary(1), c.getFixedSizeBinary(FIXEDBINARY_VECTOR_NAME_1));
     }
   }

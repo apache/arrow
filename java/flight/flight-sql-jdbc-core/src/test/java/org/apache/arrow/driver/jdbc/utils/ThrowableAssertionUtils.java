@@ -24,7 +24,7 @@ package org.apache.arrow.driver.jdbc.utils;
 public class ThrowableAssertionUtils {
   private ThrowableAssertionUtils() {}
 
-  public static <T extends Throwable> void simpleAssertThrowableClass(
+  public static void simpleAssertThrowableClass(
       final Class<? extends Throwable> expectedThrowable, final ThrowingRunnable runnable) {
     try {
       runnable.run();

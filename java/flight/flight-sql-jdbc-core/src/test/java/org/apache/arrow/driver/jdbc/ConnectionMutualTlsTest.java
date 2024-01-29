@@ -46,8 +46,6 @@ public class ConnectionMutualTlsTest {
 
   @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
   private static final String tlsRootCertsPath;
-
-  private static final String serverMTlsCACertPath;
   private static final String clientMTlsCertPath;
   private static final String badClientMTlsCertPath;
   private static final String clientMTlsKeyPath;
@@ -64,10 +62,8 @@ public class ConnectionMutualTlsTest {
 
     final File serverMTlsCACert = FlightSqlTestCertificates.exampleCACert();
 
-    serverMTlsCACertPath = serverMTlsCACert.getPath();
-
-    final FlightSqlTestCertificates.CertKeyPair clientMTlsCertKey =
-        FlightSqlTestCertificates.exampleTlsCerts().get(1);
+    final FlightSqlTestCertificates.CertKeyPair
+        clientMTlsCertKey = FlightSqlTestCertificates.exampleTlsCerts().get(1);
 
     clientMTlsCertPath = clientMTlsCertKey.cert.getPath();
     clientMTlsKeyPath = clientMTlsCertKey.key.getPath();

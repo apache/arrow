@@ -242,11 +242,9 @@ public class FixedSizeListVector extends BaseValueVector
     } finally {
       if (!success) {
         clear();
-        return false;
       }
     }
-
-    return true;
+    return success;
   }
 
   private void allocateValidityBuffer(final long size) {
@@ -265,12 +263,12 @@ public class FixedSizeListVector extends BaseValueVector
 
   private void reallocValidityBuffer() {
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
-    long newAllocationSize = currentBufferCapacity * 2;
+    long newAllocationSize = currentBufferCapacity * 2L;
     if (newAllocationSize == 0) {
       if (validityAllocationSizeInBytes > 0) {
         newAllocationSize = validityAllocationSizeInBytes;
       } else {
-        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2;
+        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2L;
       }
     }
 
@@ -281,7 +279,7 @@ public class FixedSizeListVector extends BaseValueVector
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     validityBuffer.getReferenceManager().release(1);
@@ -477,7 +475,10 @@ public class FixedSizeListVector extends BaseValueVector
     return vals;
   }
 
-  /** Returns whether the value at index null. */
+  /**
+   * Returns whether the value at index null.
+   */
+  @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
@@ -505,7 +506,10 @@ public class FixedSizeListVector extends BaseValueVector
     return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
-  /** Sets the value at index to null. Reallocates if index is larger than capacity. */
+  /**
+   * Sets the value at index to null.  Reallocates if index is larger than capacity.
+   */
+  @Override
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();

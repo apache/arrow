@@ -23,6 +23,7 @@ import static org.apache.arrow.flight.Location.forGrpcInsecure;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.arrow.flight.perf.PerformanceTestServer;
@@ -163,14 +164,22 @@ public class TestBackPressure {
             }
           };
 
-      try (BufferAllocator serverAllocator =
-              allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server =
-              FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
-                  .build()
-                  .start();
-          BufferAllocator clientAllocator =
-              allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
+          if (!isNonBlocking) {
+            loadData.run();
+          } else {
+            final ExecutorService service = Executors.newSingleThreadExecutor();
+            Future<?> unused = service.submit(loadData);
+            service.shutdown();
+          }
+        }
+      };
+
+
+      try (
+          BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
+          FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
+              .build().start();
+          BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient.builder(clientAllocator, server.getLocation()).build();
           FlightStream stream = client.getStream(new Ticket(new byte[1]))) {
@@ -239,7 +248,8 @@ public class TestBackPressure {
         try {
           Thread.sleep(1);
           sleepTime.addAndGet(1L);
-        } catch (InterruptedException ignore) {
+        } catch (InterruptedException expected) {
+          // it is expected and no action needed
         }
       }
       return WaitResult.READY;

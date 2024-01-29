@@ -20,7 +20,6 @@ package org.apache.arrow.vector.compare;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
@@ -50,11 +49,6 @@ public class TestTypeEqualsVisitor {
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
-
-  private static final Charset utf8Charset = Charset.forName("UTF-8");
-  private static final byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
-  private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
-  private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
 
   @After
   public void terminate() throws Exception {
