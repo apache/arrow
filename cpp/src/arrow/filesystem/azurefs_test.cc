@@ -376,6 +376,10 @@ culpa qui officia deserunt mollit anim id est laborum.
     return s;
   }
 
+  std::string RandomFileName(RNG &rng) { return RandomChars(10, rng); }
+
+  std::string RandomFileNameExtension(RNG &rng) { return RandomChars(3, rng); }
+
   static int RandomIndex(int end, RNG& rng) {
     return std::uniform_int_distribution<int>(0, end - 1)(rng);
   }
@@ -1382,6 +1386,32 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessHaveFile) {
+void CreateFile(FileSystem* fs, const std::string& path, const std::string& data) {
+  const auto file_name = PreexistingData::RandomFileName() +
+    PreexistingData::RandomFileNameExtension();
+  ASSERT_OK(CreateFile(fs_.get(), file_name, "abc"));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::File);
+  ASSERT_OK(fs_->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNonexistent) {
+  const auto file_name = PreexistingData::RandomFileName() +
+    PreexistingData::RandomFileNameExtension();
+  ASSERT_OK(fs_->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs_.get(), file_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNotAFile) {
+  const auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+  ASSERT_RAISES(IOError, fs_->DeleteFile(container_name));
+  ASSERT_OK(fs_->DeleteDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
+}
+
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   auto data = SetUpPreexistingData();
   const auto destination_path = data.ContainerPath("copy-destionation");
@@ -1868,6 +1898,5 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
 }
-
-}  // namespace fs
-}  // namespace arrow
+} // namespace fs
+} // namespace arrow
