@@ -665,7 +665,7 @@ type.
 **Example Layout: ``Struct<VarBinary, Int32>``**
 
 The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]``, having
-child arrays ``['joe', null, 'alice', 'mark']`` and ``[1, 2, null, 4]``
+child arrays ``['joe', null, null, 'mark']`` and ``[1, 2, null, 4]``
 would be: ::
 
     * Length: 4, Null count: 1
@@ -682,19 +682,19 @@ would be: ::
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
           |--------------------------|-----------------------|
-          | 00001101                 | 0 (padding)           |
+          | 00001001                 | 0 (padding)           |
 
         * Offsets buffer:
 
           | Bytes 0-19     | Bytes 20-63           |
           |----------------|-----------------------|
-          | 0, 3, 3, 8, 12 | unspecified (padding) |
+          | 0, 3, 3, 3, 7 | unspecified (padding) |
 
          * Value buffer:
 
           | Bytes 0-11     | Bytes 12-63           |
           |----------------|-----------------------|
-          | joealicemark   | unspecified (padding) |
+          | joemark   | unspecified (padding) |
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
