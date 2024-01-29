@@ -369,10 +369,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CField] value_field()
 
     cdef cppclass CListViewType" arrow::ListViewType"(CDataType):
-        pass
+        CListViewType(const shared_ptr[CDataType]& value_type)
+        CListViewType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
 
     cdef cppclass CLargeListViewType" arrow::LargeListViewType"(CDataType):
-        pass
+        CLargeListViewType(const shared_ptr[CDataType]& value_type)
+        CLargeListViewType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
 
     cdef cppclass CMapType" arrow::MapType"(CDataType):
         CMapType(const shared_ptr[CField]& key_field,
@@ -492,6 +498,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef shared_ptr[CDataType] CMakeRunEndEncodedType" arrow::run_end_encoded"(
         shared_ptr[CDataType] run_end_type,
         shared_ptr[CDataType] value_type)
+
+    cdef shared_ptr[CDataType] CMakeListViewType" arrow::list_view"(
+        shared_ptr[CField] value_type)
+
+    cdef shared_ptr[CDataType] CMakeLargeListViewType" arrow::large_list_view"(
+        shared_ptr[CField] value_type)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
