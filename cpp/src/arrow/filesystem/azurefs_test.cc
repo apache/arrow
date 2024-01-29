@@ -355,7 +355,10 @@ culpa qui officia deserunt mollit anim id est laborum.
   explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
 
   // Creates a path by concatenating the container name and the stem.
-  std::string ContainerPath(std::string_view stem) const {
+  std::string ContainerPath(std::string_view stem) const { return Path(stem); }
+
+  // Short alias to ContainerPath()
+  std::string Path(std::string_view stem) const {
     return ConcatAbstractPath(container_name, stem);
   }
 
