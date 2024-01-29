@@ -21,8 +21,14 @@ package org.apache.arrow.memory.util;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * Lifted from Apache Parquet MR project. Ref:
+ * Lifted from Apache Parquet MR project:
  * https://github.com/apache/parquet-mr/blob/master/parquet-column/src/main/java/org/apache/parquet/schema/Float16.java
+ * <ul>
+ * Changes made:
+ * <li>Modify the data type input from Parquet-MR Binary (toFloat(Binary b)) to Arrow Java short (toFloat(short b))</li>
+ * <li>Expose NAN and POSITIVE_INFINITY variables</li>
+ * </ul>
+ *
  *
  * The class is a utility class to manipulate half-precision 16-bit
  * <a href="https://en.wikipedia.org/wiki/Half-precision_floating-point_format">IEEE 754</a>

@@ -473,7 +473,7 @@ public class TestValueVector {
       floatVector.setWithPossibleTruncate(14, 32784.0f); // in f32=32784.000000, out f16=32768
 
       try {
-        floatVector.setWithPossibleTruncate(initialCapacity, 65519.0f); // in f32=65519.000000, out f16=65504
+        floatVector.setWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
       } catch (IndexOutOfBoundsException ie) {
         error = true;
       } finally {
@@ -488,8 +488,8 @@ public class TestValueVector {
       assertEquals(2048.0f, floatVector.getValueAsFloat(6), 0);
       assertEquals(4096.0f, floatVector.getValueAsFloat(8), 0);
       assertEquals(8192.0f, floatVector.getValueAsFloat(10), 0);
-      assertEquals(16384.0f, floatVector.getValueAsFloat(12), 0);
-      assertEquals(32768.0f, floatVector.getValueAsFloat(14), 0);
+      assertEquals(16384.0f, floatVector.getValueAsDouble(12), 0);
+      assertEquals(32768.0f, floatVector.getValueAsDouble(14), 0);
 
       try {
         floatVector.get(initialCapacity);
@@ -500,7 +500,7 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc() */
-      floatVector.setSafeWithPossibleTruncate(initialCapacity, 65519.0f); // in f32=65519.000000, out f16=65504
+      floatVector.setSafeWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
 
       /* underlying buffer should now be able to store double the number of values */
       assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
@@ -512,9 +512,9 @@ public class TestValueVector {
       assertEquals(2048.0f, floatVector.getValueAsFloat(6), 0);
       assertEquals(4096.0f, floatVector.getValueAsFloat(8), 0);
       assertEquals(8192.0f, floatVector.getValueAsFloat(10), 0);
-      assertEquals(16384.0f, floatVector.getValueAsFloat(12), 0);
-      assertEquals(32768.0f, floatVector.getValueAsFloat(14), 0);
-      assertEquals(65504.0f, floatVector.getValueAsFloat(initialCapacity), 0);
+      assertEquals(16384.0f, floatVector.getValueAsDouble(12), 0);
+      assertEquals(32768.0f, floatVector.getValueAsDouble(14), 0);
+      assertEquals(1.6181641f, floatVector.getValueAsDouble(initialCapacity), 0);
 
       /* reset the vector */
       int capacityBeforeReset = floatVector.getValueCapacity();

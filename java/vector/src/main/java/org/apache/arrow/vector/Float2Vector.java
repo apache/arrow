@@ -158,7 +158,7 @@ public final class Float2Vector extends BaseFixedWidthVector implements Floating
 
   @Override
   public double getValueAsDouble(int index) {
-    return this.get(index);
+    return getValueAsFloat(index);
   }
 
   public float getValueAsFloat(int index) {
