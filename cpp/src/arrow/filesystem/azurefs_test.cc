@@ -998,6 +998,13 @@ class TestAzureFileSystem : public ::testing::Test {
         HasCrossContainerNotImplementedMessage(src_dir_path, "new-container"),
         fs()->Move(src_dir_path, "new-container"));
   }
+
+  static bool WithErrno(const Status& status, int expected_errno) {
+    auto* detail = status.detail().get();
+    return detail &&
+           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
+  }
+
 };
 
 void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {

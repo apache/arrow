@@ -264,6 +264,8 @@ std::string WinErrorMessage(int errnum);
 
 ARROW_EXPORT
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum);
+ARROW_EXPORT
+std::optional<int> ErrnoFromStatusDetail(const StatusDetail& detail);
 #if _WIN32
 ARROW_EXPORT
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum);

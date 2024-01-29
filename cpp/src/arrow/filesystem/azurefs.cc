@@ -296,6 +296,10 @@ Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
 }
 
+Status NotADir(const AzureLocation& location) {
+  return ::arrow::fs::internal::NotADir(location.all);
+}
+
 Status NotAFile(const AzureLocation& location) {
   return ::arrow::fs::internal::NotAFile(location.all);
 }
