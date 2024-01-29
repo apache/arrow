@@ -517,7 +517,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Set server session options(s).
    *
-   * @param request The SetSessionOptionsRequest to set options from.
+   * @param request The session options to set. For *DBC driver compatibility, servers
+   *                should support converting values from strings.
    * @param context Per-call context.
    * @param listener An interface for sending data back to the client.
    */
