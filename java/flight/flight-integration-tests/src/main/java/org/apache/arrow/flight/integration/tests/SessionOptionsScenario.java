@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.GetSessionOptionsRequest;
