@@ -24,6 +24,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::ChunkLocation;
 
 namespace compute {
 namespace internal {
@@ -748,11 +749,15 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
+    ChunkLocation left_loc{0, 0};
+    ChunkLocation right_loc{0, 0};
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is either null or nan
-                 const auto left_loc = left_resolver_.Resolve(left);
-                 const auto right_loc = right_resolver_.Resolve(right);
+                 left_loc =
+                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
+                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
+                     right, right_loc.chunk_index);
                  auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
                  auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
                  const auto left_is_null = chunk_left.IsNull();
@@ -783,11 +788,15 @@ class TableSorter {
     // Untyped implementation
     auto& comparator = comparator_;
 
+    ChunkLocation left_loc{0, 0};
+    ChunkLocation right_loc{0, 0};
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
-                 const auto left_loc = left_resolver_.Resolve(left);
-                 const auto right_loc = right_resolver_.Resolve(right);
+                 left_loc =
+                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
+                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
+                     right, right_loc.chunk_index);
                  return comparator.Compare(left_loc, right_loc, 1);
                });
     // Copy back temp area into main buffer
@@ -807,11 +816,15 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
+    ChunkLocation left_loc{0, 0};
+    ChunkLocation right_loc{0, 0};
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.
-                 const auto left_loc = left_resolver_.Resolve(left);
-                 const auto right_loc = right_resolver_.Resolve(right);
+                 left_loc =
+                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
+                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
+                     right, right_loc.chunk_index);
                  auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
                  auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
                  DCHECK(!chunk_left.IsNull());
