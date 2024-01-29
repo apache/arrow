@@ -122,7 +122,7 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       testing::HasSubstr("Invalid: Permutation indices for 2 dimensional tensors must be "
-                         "unique and within [0, 1] range. Got: [0,3]"),
+                         "unique and within [0, 1] range. Got: [3,0]"),
       FixedShapeTensorType::Make(value_type_, {5, 6}, {3, 0}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
@@ -289,6 +289,10 @@ TEST_F(TestExtensionType, CreateFromTensor) {
   auto arr_with_null = ArrayFromJSON(int64(), "[1, 0, null, null, 1, 2]");
   ASSERT_OK_AND_ASSIGN(auto fsla_arr_6, FixedSizeListArray::FromArrays(
                                             arr_with_null, fixed_size_list(int64(), 2)));
+
+  auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
+      fixed_shape_tensor(int64(), {3, 4}, {}));
+  ASSERT_OK_AND_ASSIGN(auto ext_arr_7, FixedShapeTensorArray::FromTensor(tensor));
 }
 
 void CheckFromTensorType(const std::shared_ptr<Tensor>& tensor,

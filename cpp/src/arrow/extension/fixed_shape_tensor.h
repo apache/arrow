@@ -94,9 +94,9 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  /// \brief Create a Tensor from a Scalar value from a FixedShapeTensorArray
+  /// \brief Create a Tensor from an ExtensionScalar from a FixedShapeTensorArray
   ///
-  /// This method will return a Tensor from FixedShapeTensorArray with strides
+  /// This method will return a Tensor from ExtensionScalar with strides
   /// derived from shape and permutation of FixedShapeTensorType. Shape and
   /// dim_names will be permuted according to permutation stored in the
   /// FixedShapeTensorType metadata.

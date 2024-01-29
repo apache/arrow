@@ -18,9 +18,9 @@
 #include <numeric>
 #include <sstream>
 
-#include "arrow/extension/fixed_shape_tensor.h"
-
 #include <arrow/scalar.h>
+#include "arrow/extension/fixed_shape_tensor.h"
+#include "arrow/extension/tensor_internal.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
@@ -88,7 +88,7 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
   }
-  const auto& other_ext = static_cast<const FixedShapeTensorType&>(other);
+  const auto& other_ext = dynamic_cast<const FixedShapeTensorType&>(other);
 
   auto is_permutation_trivial = [](const std::vector<int64_t>& permutation) {
     for (size_t i = 1; i < permutation.size(); ++i) {
@@ -145,7 +145,7 @@ std::string FixedShapeTensorType::Serialize() const {
 
   if (!dim_names_.empty()) {
     rj::Value dim_names(rj::kArrayType);
-    for (std::string v : dim_names_) {
+    for (const std::string& v : dim_names_) {
       dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
     }
     document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
@@ -201,7 +201,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
-            static_cast<const ExtensionType&>(*data->type).extension_name());
+            dynamic_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
@@ -237,7 +237,7 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
   }
 
   std::vector<int64_t> strides;
-  ARROW_CHECK_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
+  RETURN_NOT_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
   const auto start_position = array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
@@ -346,13 +346,16 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
 
   std::vector<int64_t> permutation = ext_type->permutation();
   if (permutation.empty()) {
+    permutation.resize(ext_type->ndim());
+    for (int64_t i = 0; i <= static_cast<int64_t>(ext_type->ndim()); i++) {
+      permutation[i] = i + 1;
+    }
+  } else {
     for (int64_t i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
-      permutation.emplace_back(i);
+      permutation[i] += 1;
     }
   }
-  for (int64_t i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
-    permutation[i] += 1;
-  }
+
   permutation.insert(permutation.begin(), 1, 0);
 
   std::vector<std::string> dim_names = ext_type->dim_names();
@@ -393,25 +396,7 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
                            " Got: ", dim_names.size());
   }
   if (!permutation.empty()) {
-    std::vector<int64_t> sorted_permutation = permutation;
-    std::sort(sorted_permutation.begin(), sorted_permutation.end());
-
-    const auto max_index = std::max<int64_t>(static_cast<int64_t>(ndim - 1), 0);
-    if (sorted_permutation[0] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", ndim,
-          " dimensional tensors must be unique and within [0, ", max_index,
-          "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
-    }
-
-    for (size_t i = 1; i < sorted_permutation.size(); ++i) {
-      if (sorted_permutation[i - 1] + 1 != sorted_permutation[i]) {
-        return Status::Invalid(
-            "Permutation indices for ", ndim,
-            " dimensional tensors must be unique and within [0, ", max_index,
-            "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
-      }
-    }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
