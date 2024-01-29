@@ -470,7 +470,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param info The FlightInfo of the query to cancel.
    * @param context Per-call context.
    * @param listener Whether cancellation succeeded.
-   * @deprecated Prefer {@link #cancelFlightInfo(CancelFlightInfoRequest, CallContext, StreamListener)}.
+   * @deprecated Prefer {@link #cancelFlightInfo(CancelFlightInfoRequest, CallContext,
+   *     StreamListener)}.
    */
   @Deprecated
   default void cancelQuery(

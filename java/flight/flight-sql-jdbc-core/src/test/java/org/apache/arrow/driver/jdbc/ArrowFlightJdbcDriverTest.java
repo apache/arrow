@@ -203,8 +203,7 @@ public class ArrowFlightJdbcDriverTest {
   }
 
   /**
-   * Tests whether an exception is thrown upon attempting to connect to a
-   * malformed URI.
+   * Tests whether an exception is thrown upon attempting to connect to a malformed URI.
    *
    * @throws SQLException If an error occurs.
    */

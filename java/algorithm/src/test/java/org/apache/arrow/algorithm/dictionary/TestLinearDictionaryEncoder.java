@@ -96,7 +96,9 @@ public class TestLinearDictionaryEncoder {
       // verify encoding results
       assertEquals(rawVector.getValueCount(), encodedVector.getValueCount());
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
+        assertArrayEquals(
+            rawVector.get(i),
+            String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
       }
 
       // perform decoding
@@ -107,7 +109,8 @@ public class TestLinearDictionaryEncoder {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
-          assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
               decodedVector.get(i));
         }
       }
@@ -155,7 +158,9 @@ public class TestLinearDictionaryEncoder {
         if (i % 10 == 0) {
           assertEquals(0, encodedVector.get(i));
         } else {
-          assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
+          assertArrayEquals(
+              rawVector.get(i),
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
         }
       }
 
@@ -170,7 +175,8 @@ public class TestLinearDictionaryEncoder {
           if (i % 10 == 0) {
             assertTrue(decodedVector.isNull(i));
           } else {
-            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+            assertArrayEquals(
+                String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
                 decodedVector.get(i));
           }
         }

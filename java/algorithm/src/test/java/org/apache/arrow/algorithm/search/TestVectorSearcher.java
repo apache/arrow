@@ -21,7 +21,6 @@ import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WID
 import static org.junit.Assert.assertEquals;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;

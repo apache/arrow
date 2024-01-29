@@ -539,7 +539,8 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       if (validityAllocationSizeInBytes > 0) {
         newAllocationSize = validityAllocationSizeInBytes;
       } else {
-        newAllocationSize = BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION) * 2L;
+        newAllocationSize =
+            BitVectorHelper.getValidityBufferSize(BaseValueVector.INITIAL_VALUE_ALLOCATION) * 2L;
       }
     }
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
@@ -614,17 +615,13 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     super.get(index, holder);
   }
 
-  /**
-   * Return the number of null values in the vector.
-   */
+  /** Return the number of null values in the vector. */
   @Override
   public int getNullCount() {
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
-  /**
-   * Returns true if the value at the provided index is null.
-   */
+  /** Returns true if the value at the provided index is null. */
   @Override
   public boolean isNull(int index) {
     return isSet(index) == 0;
@@ -650,9 +647,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
     BitVectorHelper.setBit(validityBuffer, index);
   }
 
-  /**
-   * Marks the value at index as null/not set.
-   */
+  /** Marks the value at index as null/not set. */
   @Override
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {

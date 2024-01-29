@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import org.apache.arrow.flight.FlightClient.ClientStreamListener;
-import org.apache.arrow.flight.FlightServerMiddleware.Factory;
-import org.apache.arrow.flight.FlightServerMiddleware.Key;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -37,9 +35,7 @@ import org.junit.jupiter.api.Test;
 
 public class TestServerMiddleware {
 
-  /**
-   * Make sure errors in DoPut are intercepted.
-   */
+  /** Make sure errors in DoPut are intercepted. */
   @Test
   public void doPutErrors() {
     test(
@@ -92,7 +88,8 @@ public class TestServerMiddleware {
   /** Make sure uncaught exceptions in DoPut are intercepted. */
   @Test
   public void doPutUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
           try (final VectorSchemaRoot root =
@@ -116,9 +113,11 @@ public class TestServerMiddleware {
 
   @Test
   public void listFlightsUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
-        (allocator, client) -> client.listFlights(new Criteria(new byte[0])).forEach((action) -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
+        (allocator, client) ->
+            client.listFlights(new Criteria(new byte[0])).forEach((action) -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -131,9 +130,10 @@ public class TestServerMiddleware {
 
   @Test
   public void doActionUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
-        (allocator, client) -> client.doAction(new Action("test")).forEachRemaining(result -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
+        (allocator, client) -> client.doAction(new Action("test")).forEachRemaining(result -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -146,9 +146,10 @@ public class TestServerMiddleware {
 
   @Test
   public void listActionsUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
-        (allocator, client) -> client.listActions().forEach(result -> {
-        }), (recorder) -> {
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
+        (allocator, client) -> client.listActions().forEach(result -> {}),
+        (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
           Assertions.assertNotNull(status);
@@ -161,7 +162,8 @@ public class TestServerMiddleware {
 
   @Test
   public void getFlightInfoUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           FlightTestUtil.assertCode(
               FlightStatusCode.INTERNAL, () -> client.getInfo(FlightDescriptor.path("test")));
@@ -171,13 +173,15 @@ public class TestServerMiddleware {
           Assertions.assertNotNull(status);
           Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
           Assertions.assertNotNull(status.cause());
-          Assertions.assertEquals(new RuntimeException("test").getMessage(), status.cause().getMessage());
+          Assertions.assertEquals(
+              new RuntimeException("test").getMessage(), status.cause().getMessage());
         });
   }
 
   @Test
   public void doGetUncaught() {
-    test(new ServerErrorProducer(new RuntimeException("test")),
+    test(
+        new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
             while (stream.next()) {}
@@ -310,7 +314,8 @@ public class TestServerMiddleware {
     final FlightServerMiddleware.Key<T> key;
     final FlightServerMiddleware.Factory<T> factory;
 
-    ServerMiddlewarePair(FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
+    ServerMiddlewarePair(
+        FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
       this.key = key;
       this.factory = factory;
     }
@@ -348,16 +353,20 @@ public class TestServerMiddleware {
       BiConsumer<BufferAllocator, FlightClient> body,
       ErrorConsumer<ErrorRecorder> verify) {
     final ErrorRecorder.Factory factory = new ErrorRecorder.Factory();
-    final List<ServerMiddlewarePair<ErrorRecorder>> middleware = Collections
-        .singletonList(new ServerMiddlewarePair<>(FlightServerMiddleware.Key.of("m"), factory));
-    test(producer, middleware, (allocator, client) -> {
-      body.accept(allocator, client);
-      try {
-        verify.accept(factory.instance);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    });
+    final List<ServerMiddlewarePair<ErrorRecorder>> middleware =
+        Collections.singletonList(
+            new ServerMiddlewarePair<>(FlightServerMiddleware.Key.of("m"), factory));
+    test(
+        producer,
+        middleware,
+        (allocator, client) -> {
+          body.accept(allocator, client);
+          try {
+            verify.accept(factory.instance);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   @FunctionalInterface

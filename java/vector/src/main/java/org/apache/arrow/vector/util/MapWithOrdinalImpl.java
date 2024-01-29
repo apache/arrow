@@ -49,88 +49,92 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
   private final Map<K, Map.Entry<Integer, V>> primary = new LinkedHashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
 
-  private final Map<K, V> delegate = new Map<K, V>() {
-    @Override
-    public boolean isEmpty() {
-      return size() == 0;
-    }
+  private final Map<K, V> delegate =
+      new Map<K, V>() {
+        @Override
+        public boolean isEmpty() {
+          return size() == 0;
+        }
 
-    @Override
-    public int size() {
-      return primary.size();
-    }
+        @Override
+        public int size() {
+          return primary.size();
+        }
 
-    @Override
-    public boolean containsKey(Object key) {
-      return primary.containsKey(key);
-    }
+        @Override
+        public boolean containsKey(Object key) {
+          return primary.containsKey(key);
+        }
 
-    @Override
-    public boolean containsValue(Object value) {
-      return primary.containsValue(value);
-    }
+        @Override
+        public boolean containsValue(Object value) {
+          return primary.containsValue(value);
+        }
 
-    @Override
-    public V get(Object key) {
-      Entry<Integer, V> pair = primary.get(key);
-      if (pair != null) {
-        return pair.getValue();
-      }
-      return null;
-    }
+        @Override
+        public V get(Object key) {
+          Entry<Integer, V> pair = primary.get(key);
+          if (pair != null) {
+            return pair.getValue();
+          }
+          return null;
+        }
 
-    @Override
-    public V put(K key, V value) {
-      final Entry<Integer, V> oldPair = primary.get(key);
-      // if key exists try replacing otherwise, assign a new ordinal identifier
-      final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
-      primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
-      secondary.put(ordinal, value);
-      return oldPair == null ? null : oldPair.getValue();
-    }
+        @Override
+        public V put(K key, V value) {
+          final Entry<Integer, V> oldPair = primary.get(key);
+          // if key exists try replacing otherwise, assign a new ordinal identifier
+          final int ordinal = oldPair == null ? primary.size() : oldPair.getKey();
+          primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
+          secondary.put(ordinal, value);
+          return oldPair == null ? null : oldPair.getValue();
+        }
 
-    @Override
-    public V remove(Object key) {
-      final Entry<Integer, V> oldPair = primary.remove(key);
-      if (oldPair != null) {
-        final int lastOrdinal = secondary.size();
-        final V last = secondary.get(lastOrdinal);
-        // normalize mappings so that all numbers until primary.size() is assigned
-        // swap the last element with the deleted one
-        secondary.put(oldPair.getKey(), last);
-        primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
-      }
-      return oldPair == null ? null : oldPair.getValue();
-    }
+        @Override
+        public V remove(Object key) {
+          final Entry<Integer, V> oldPair = primary.remove(key);
+          if (oldPair != null) {
+            final int lastOrdinal = secondary.size();
+            final V last = secondary.get(lastOrdinal);
+            // normalize mappings so that all numbers until primary.size() is assigned
+            // swap the last element with the deleted one
+            secondary.put(oldPair.getKey(), last);
+            primary.put((K) key, new AbstractMap.SimpleImmutableEntry<>(oldPair.getKey(), last));
+          }
+          return oldPair == null ? null : oldPair.getValue();
+        }
 
-    @Override
-    public void putAll(Map<? extends K, ? extends V> m) {
-      throw new UnsupportedOperationException();
-    }
+        @Override
+        public void putAll(Map<? extends K, ? extends V> m) {
+          throw new UnsupportedOperationException();
+        }
 
-    @Override
-    public void clear() {
-      primary.clear();
-      secondary.clear();
-    }
+        @Override
+        public void clear() {
+          primary.clear();
+          secondary.clear();
+        }
 
-    @Override
-    public Set<K> keySet() {
-      return primary.keySet();
-    }
+        @Override
+        public Set<K> keySet() {
+          return primary.keySet();
+        }
 
-    @Override
-    public Collection<V> values() {
-      return secondary.values();
-    }
+        @Override
+        public Collection<V> values() {
+          return secondary.values();
+        }
 
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-      return primary.entrySet().stream()
-          .map(entry -> new AbstractMap.SimpleImmutableEntry<>(entry.getKey(), entry.getValue().getValue()))
-          .collect(Collectors.toSet());
-    }
-  };
+        @Override
+        public Set<Entry<K, V>> entrySet() {
+          return primary.entrySet().stream()
+              .map(
+                  entry ->
+                      new AbstractMap.SimpleImmutableEntry<>(
+                          entry.getKey(), entry.getValue().getValue()))
+              .collect(Collectors.toSet());
+        }
+      };
 
   /**
    * Returns the value corresponding to the given ordinal.

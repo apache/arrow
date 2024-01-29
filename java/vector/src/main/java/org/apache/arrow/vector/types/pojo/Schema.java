@@ -152,8 +152,9 @@ public class Schema {
 
   /**
    * Private constructor to bypass automatic collection copy.
-   * @param ignored an ignored argument. Its only purpose is to prevent using the constructor
-   *     by accident because of type collisions (List vs Iterable).
+   *
+   * @param ignored an ignored argument. Its only purpose is to prevent using the constructor by
+   *     accident because of type collisions (List vs Iterable).
    */
   private Schema(boolean ignored, List<Field> fields, Map<String, String> metadata) {
     this.fields = fields;
@@ -239,8 +240,8 @@ public class Schema {
   }
 
   /**
-   * Returns the serialized flatbuffer bytes of the schema wrapped in a message table.
-   * Use {@link #deserializeMessage(ByteBuffer)} to rebuild the Schema.
+   * Returns the serialized flatbuffer bytes of the schema wrapped in a message table. Use {@link
+   * #deserializeMessage(ByteBuffer)} to rebuild the Schema.
    */
   public byte[] serializeAsMessage() {
     ByteArrayOutputStream out = new ByteArrayOutputStream();

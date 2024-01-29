@@ -635,7 +635,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     return reader;
   }
 
-  /** Initialize the child data vector to field type.  */
+  /** Initialize the child data vector to field type. */
   @Override
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);

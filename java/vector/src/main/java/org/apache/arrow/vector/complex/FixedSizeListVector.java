@@ -475,9 +475,7 @@ public class FixedSizeListVector extends BaseValueVector
     return vals;
   }
 
-  /**
-   * Returns whether the value at index null.
-   */
+  /** Returns whether the value at index null. */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
@@ -506,9 +504,7 @@ public class FixedSizeListVector extends BaseValueVector
     return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
-  /**
-   * Sets the value at index to null.  Reallocates if index is larger than capacity.
-   */
+  /** Sets the value at index to null. Reallocates if index is larger than capacity. */
   @Override
   public void setNull(int index) {
     while (index >= getValidityBufferValueCapacity()) {

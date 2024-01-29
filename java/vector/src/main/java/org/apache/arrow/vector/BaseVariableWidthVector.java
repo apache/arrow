@@ -809,8 +809,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     final int dataLength = end - start;
 
     if (start == 0) {
-      final ArrowBuf slicedOffsetBuffer = offsetBuffer.slice(startIndex * ((long) OFFSET_WIDTH),
-          (1 + length) * ((long) OFFSET_WIDTH));
+      final ArrowBuf slicedOffsetBuffer =
+          offsetBuffer.slice(
+              startIndex * ((long) OFFSET_WIDTH), (1 + length) * ((long) OFFSET_WIDTH));
       target.offsetBuffer = transferBuffer(slicedOffsetBuffer, target.allocator);
     } else {
       target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);

@@ -128,9 +128,9 @@ public class FieldType {
       return false;
     }
     FieldType that = (FieldType) obj;
-    return this.isNullable() == that.isNullable() &&
-        Objects.equals(this.getType(), that.getType()) &&
-        Objects.equals(this.getDictionary(), that.getDictionary()) &&
-        Objects.equals(this.getMetadata(), that.getMetadata());
+    return this.isNullable() == that.isNullable()
+        && Objects.equals(this.getType(), that.getType())
+        && Objects.equals(this.getDictionary(), that.getDictionary())
+        && Objects.equals(this.getMetadata(), that.getMetadata());
   }
 }

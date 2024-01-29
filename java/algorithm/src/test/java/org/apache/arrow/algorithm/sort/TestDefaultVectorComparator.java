@@ -257,8 +257,15 @@ public class TestDefaultVectorComparator {
       vec.allocateNew(10);
 
       ValueVectorDataPopulator.setVector(
-          vec, null, (char) (Character.MAX_VALUE - 1), Character.MAX_VALUE, (char) 0, (char) 1,
-          (char) 2, (char) (Character.MAX_VALUE - 1), null,
+          vec,
+          null,
+          (char) (Character.MAX_VALUE - 1),
+          Character.MAX_VALUE,
+          (char) 0,
+          (char) 1,
+          (char) 2,
+          (char) (Character.MAX_VALUE - 1),
+          null,
           '\u7FFF', // value for the max 16-byte signed integer
           '\u8000' // value for the min 16-byte signed integer
           );

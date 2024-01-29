@@ -20,7 +20,6 @@ package org.apache.arrow.vector.complex.impl;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Locale;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
@@ -312,8 +311,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
-    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(Locale.ROOT),
-        vector.getAllocator());
+    TransferPair tp =
+        vector.getTransferPair(
+            vector.getMinorType().name().toLowerCase(Locale.ROOT), vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
       // TODO allow dictionaries in complex types

@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -85,12 +84,24 @@ public class TestSearchTreeBasedDictionaryBuilder {
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
       assertTrue(sortedDictionary.isNull(0));
-      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
-      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(6)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12",
+          new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc",
+          new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good",
+          new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "hello",
+          new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world",
+          new String(Objects.requireNonNull(sortedDictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
@@ -130,12 +141,24 @@ public class TestSearchTreeBasedDictionaryBuilder {
 
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
-      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12",
+          new String(Objects.requireNonNull(sortedDictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc",
+          new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good",
+          new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "hello",
+          new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world",
+          new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
     }
   }
 

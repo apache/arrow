@@ -168,9 +168,7 @@ public abstract class BaseValueVector implements ValueVector {
     }
   }
 
-  /**
-   * Container for primitive vectors (1 for the validity bit-mask and one to hold the values).
-   */
+  /** Container for primitive vectors (1 for the validity bit-mask and one to hold the values). */
   static class DataAndValidityBuffers {
     private ArrowBuf dataBuf;
     private ArrowBuf validityBuf;

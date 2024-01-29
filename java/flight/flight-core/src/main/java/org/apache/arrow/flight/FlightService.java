@@ -27,7 +27,6 @@ import java.util.concurrent.Future;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
-import org.apache.arrow.flight.FlightServerMiddleware.Key;
 import org.apache.arrow.flight.auth.AuthConstants;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthWrapper;
@@ -147,7 +146,8 @@ class FlightService extends FlightServiceImplBase {
     // Do NOT call StreamPipe#onCompleted, as the FlightProducer implementation may be asynchronous
   }
 
-  private static class GetListener extends OutboundStreamListenerImpl implements ServerStreamListener {
+  private static class GetListener extends OutboundStreamListenerImpl
+      implements ServerStreamListener {
     private final ServerCallStreamObserver<ArrowMessage> serverCallResponseObserver;
     private final Consumer<Throwable> errorHandler;
     private Runnable onCancelHandler = null;
@@ -238,17 +238,19 @@ class FlightService extends FlightServiceImplBase {
     // When the ackStream is completed, the FlightStream will be closed with it
     ackStream.setAutoCloseable(fs);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
-    Future<?> unused = executors.submit(() -> {
-      try {
-        producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
-      } catch (Throwable ex) {
-        ackStream.onError(ex);
-      } finally {
-        // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
-        // We don't do this for other streams since the implementation may be asynchronous
-        ackStream.ensureCompleted();
-      }
-    });
+    Future<?> unused =
+        executors.submit(
+            () -> {
+              try {
+                producer.acceptPut(makeContext(responseObserver), fs, ackStream).run();
+              } catch (Throwable ex) {
+                ackStream.onError(ex);
+              } finally {
+                // ARROW-6136: Close the stream if and only if acceptPut hasn't closed it itself
+                // We don't do this for other streams since the implementation may be asynchronous
+                ackStream.ensureCompleted();
+              }
+            });
 
     return observer;
   }
@@ -293,8 +295,8 @@ class FlightService extends FlightServiceImplBase {
 
   /** Broadcast the given exception to all registered middleware. */
   private void handleExceptionWithMiddleware(Throwable t) {
-    final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter
-            .SERVER_MIDDLEWARE_KEY.get();
+    final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware =
+        ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
     if (middleware == null || middleware.isEmpty()) {
       logger.error("Uncaught exception in Flight method body", t);
       return;
@@ -400,15 +402,19 @@ class FlightService extends FlightServiceImplBase {
     responseObserver.request(1);
     final StreamObserver<ArrowMessage> observer = fs.asObserver();
     try {
-      Future<?> unused = executors.submit(() -> {
-        try {
-          producer.doExchange(makeContext(responseObserver), fs, listener);
-        } catch (Exception ex) {
-          listener.error(ex);
-        }
-        // We do not clean up or close anything here, to allow long-running asynchronous implementations.
-        // It is the service's responsibility to call completed() or error(), which will then clean up the FlightStream.
-      });
+      Future<?> unused =
+          executors.submit(
+              () -> {
+                try {
+                  producer.doExchange(makeContext(responseObserver), fs, listener);
+                } catch (Exception ex) {
+                  listener.error(ex);
+                }
+                // We do not clean up or close anything here, to allow long-running asynchronous
+                // implementations.
+                // It is the service's responsibility to call completed() or error(), which will
+                // then clean up the FlightStream.
+              });
     } catch (Exception ex) {
       listener.error(ex);
     }
@@ -438,8 +444,8 @@ class FlightService extends FlightServiceImplBase {
 
     @Override
     public <T extends FlightServerMiddleware> T getMiddleware(FlightServerMiddleware.Key<T> key) {
-      final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware = ServerInterceptorAdapter
-              .SERVER_MIDDLEWARE_KEY.get();
+      final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middleware =
+          ServerInterceptorAdapter.SERVER_MIDDLEWARE_KEY.get();
       if (middleware == null) {
         return null;
       }

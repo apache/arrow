@@ -52,9 +52,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
  */
 public class TypeLayout {
 
-  /**
-   * Constructs a new {@link TypeLayout} for the given <code>arrowType</code>.
-   */
+  /** Constructs a new {@link TypeLayout} for the given <code>arrowType</code>. */
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout =
         arrowType.accept(

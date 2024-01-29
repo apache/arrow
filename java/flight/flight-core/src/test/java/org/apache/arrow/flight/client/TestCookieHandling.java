@@ -244,21 +244,23 @@ public class TestCookieHandling {
   }
 
   private void startServerAndClient() throws IOException {
-    final FlightProducer flightProducer = new NoOpFlightProducer() {
-      @Override
-      public void listFlights(CallContext context, Criteria criteria,
-                              StreamListener<FlightInfo> listener) {
-        listener.onCompleted();
-      }
-    };
+    final FlightProducer flightProducer =
+        new NoOpFlightProducer() {
+          @Override
+          public void listFlights(
+              CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+            listener.onCompleted();
+          }
+        };
 
-    this.server = FlightServer
-        .builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
-        .middleware(FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
-        .build().start();
+    this.server =
+        FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
+            .middleware(
+                FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
+            .build()
+            .start();
 
-    this.client = FlightClient.builder(allocator, server.getLocation())
-            .intercept(testFactory)
-            .build();
+    this.client =
+        FlightClient.builder(allocator, server.getLocation()).intercept(testFactory).build();
   }
 }

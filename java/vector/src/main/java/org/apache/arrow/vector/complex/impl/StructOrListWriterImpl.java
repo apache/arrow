@@ -79,7 +79,6 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * Creates a new writer for a list of structs.
    *
    * @param name Unused.
-   *
    * @deprecated use {@link #listOfStruct(String)} instead.
    */
   @Deprecated

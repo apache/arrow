@@ -432,7 +432,8 @@ class ArrowMessage implements AutoCloseable {
         // below to tie the Arrow buffer refcnt to the Netty buffer refcnt
         allBufs.add(Unpooled.wrappedBuffer(b.nioBuffer()).retain());
         size += (int) b.readableBytes();
-        // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
+        // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable
+        // from C++.
         if (b.readableBytes() % 8 != 0) {
           int paddingBytes = (int) (8 - (b.readableBytes() % 8));
           assert paddingBytes > 0 && paddingBytes < 8;

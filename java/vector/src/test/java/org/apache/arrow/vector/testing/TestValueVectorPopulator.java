@@ -21,7 +21,6 @@ import static junit.framework.TestCase.assertTrue;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -210,9 +209,18 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
-          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
-          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
+      setVector(
+          vector2,
+          null,
+          "test1".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test3".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test5".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test7".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -582,9 +590,18 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
-          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
-          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
+      setVector(
+          vector2,
+          null,
+          "test1".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test3".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test5".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test7".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }

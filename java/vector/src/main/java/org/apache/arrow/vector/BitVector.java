@@ -153,18 +153,17 @@ public final class BitVector extends BaseFixedWidthVector {
         valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    target.validityBuffer = splitAndTransferBuffer(startIndex, length, validityBuffer, target.validityBuffer);
-    target.valueBuffer = splitAndTransferBuffer(startIndex, length, valueBuffer, target.valueBuffer);
+    target.validityBuffer =
+        splitAndTransferBuffer(startIndex, length, validityBuffer, target.validityBuffer);
+    target.valueBuffer =
+        splitAndTransferBuffer(startIndex, length, valueBuffer, target.valueBuffer);
     target.refreshValueCapacity();
 
     target.setValueCount(length);
   }
 
   private ArrowBuf splitAndTransferBuffer(
-      int startIndex,
-      int length,
-      ArrowBuf sourceBuffer,
-      ArrowBuf destBuffer) {
+      int startIndex, int length, ArrowBuf sourceBuffer, ArrowBuf destBuffer) {
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);

@@ -209,11 +209,15 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
 
     return new StringBuilder()
-            .append(days).append(dayString)
-            .append(hours).append(":")
-            .append(minutes).append(":")
-            .append(seconds).append(".")
-            .append(millis);
+        .append(days)
+        .append(dayString)
+        .append(hours)
+        .append(":")
+        .append(minutes)
+        .append(":")
+        .append(seconds)
+        .append(".")
+        .append(millis);
   }
 
   /*----------------------------------------------------------------*

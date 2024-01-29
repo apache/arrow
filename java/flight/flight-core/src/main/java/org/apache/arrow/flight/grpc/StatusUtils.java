@@ -17,6 +17,12 @@
 
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.InternalMetadata;
+import io.grpc.Metadata;
+import io.grpc.Status;
+import io.grpc.Status.Code;
+import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Objects;
@@ -161,7 +167,9 @@ public class StatusUtils {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
         metadata.insert(key, trailers.get(keyOfBinary(key)));
       } else {
-        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes(StandardCharsets.UTF_8));
+        metadata.insert(
+            key,
+            Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes(StandardCharsets.UTF_8));
       }
     }
     return metadata;

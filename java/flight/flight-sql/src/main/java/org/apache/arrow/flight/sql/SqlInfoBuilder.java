@@ -1057,11 +1057,14 @@ public class SqlInfoBuilder {
     writer.startList();
     final int length = values.length;
     range(0, length)
-        .forEach(i -> onCreateArrowBuf(buf -> {
-          final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
-          buf.setBytes(0, bytes);
-          writer.writeVarChar(0, bytes.length, buf);
-        }));
+        .forEach(
+            i ->
+                onCreateArrowBuf(
+                    buf -> {
+                      final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
+                      buf.setBytes(0, bytes);
+                      writer.writeVarChar(0, bytes.length, buf);
+                    }));
     writer.endList();
     writer.setValueCount(listVectorValueCount);
 

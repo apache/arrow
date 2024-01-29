@@ -38,7 +38,6 @@ import org.apache.arrow.flight.FlightMethod;
 import org.apache.arrow.flight.FlightProducer.CallContext;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
-import org.apache.arrow.flight.FlightServerMiddleware.Factory;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
 
 /**
@@ -60,7 +59,8 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     private final FlightServerMiddleware.Key<T> key;
     private final FlightServerMiddleware.Factory<T> factory;
 
-    public KeyFactory(FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
+    public KeyFactory(
+        FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
       this.key = key;
       this.factory = factory;
     }

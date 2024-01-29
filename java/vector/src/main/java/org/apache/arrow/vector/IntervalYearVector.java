@@ -172,11 +172,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
     final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
     final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
 
-    return new StringBuilder()
-        .append(years)
-        .append(yearString)
-        .append(months)
-        .append(monthString);
+    return new StringBuilder().append(years).append(yearString).append(months).append(monthString);
   }
 
   /*----------------------------------------------------------------*

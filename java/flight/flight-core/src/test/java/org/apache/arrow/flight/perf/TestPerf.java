@@ -117,13 +117,12 @@ public class TestPerf {
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;
         System.out.printf(
-                "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.%n",
+            "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.%n",
             r.rows,
             r.bytes,
             throughPuts[i],
             (r.rows * 1.0d) / seconds,
-            (r.batches * 1.0d) / seconds
-        );
+            (r.batches * 1.0d) / seconds);
       }
     }
     pool.shutdown();
@@ -133,8 +132,8 @@ public class TestPerf {
     double sqrSum =
         Arrays.stream(throughPuts).map(val -> val - average).map(val -> val * val).sum();
     double stddev = Math.sqrt(sqrSum / numRuns);
-    System.out.printf("Average throughput: %f MiB/s, standard deviation: %f MiB/s%n",
-            average, stddev);
+    System.out.printf(
+        "Average throughput: %f MiB/s, standard deviation: %f MiB/s%n", average, stddev);
   }
 
   private static final class Consumer implements Callable<Result> {

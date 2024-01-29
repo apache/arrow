@@ -649,7 +649,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getVarCharObj(1), "two");
       assertEquals(c.getVarCharObj(1), c.getVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals(
+          "two".getBytes(StandardCharsets.UTF_8), c.getVarChar(VARCHAR_VECTOR_NAME_1));
       assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(1));
     }
   }
@@ -684,7 +685,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getLargeVarCharObj(1), "two");
       assertEquals(c.getLargeVarCharObj(1), c.getLargeVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals(
+          "two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
       assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(1));
     }
   }

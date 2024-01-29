@@ -21,10 +21,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
-/**
- * URL Parser for extracting key values from a connection string.
- */
 
+/** URL Parser for extracting key values from a connection string. */
 public final class UrlParser {
   private UrlParser() {}
 

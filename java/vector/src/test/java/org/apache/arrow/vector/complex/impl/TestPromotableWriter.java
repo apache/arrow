@@ -26,7 +26,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
@@ -596,13 +595,23 @@ public class TestPromotableWriter {
       writer.setPosition(0);
       writer.varBinary("c").writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.varBinary("c").writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
-          "row2".getBytes(StandardCharsets.UTF_8).length);
+      writer
+          .varBinary("c")
+          .writeVarBinary(
+              "row2".getBytes(StandardCharsets.UTF_8),
+              0,
+              "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
+      writer
+          .varBinary("c")
+          .writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
-          "row4".getBytes(StandardCharsets.UTF_8).length);
+      writer
+          .varBinary("c")
+          .writeVarBinary(
+              ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+              0,
+              "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       final VarBinaryVector uv = v.getChild("c", VarBinaryVector.class);
@@ -625,12 +634,16 @@ public class TestPromotableWriter {
       writer.setPosition(0);
       writer.writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+      writer.writeVarBinary(
+          "row2".getBytes(StandardCharsets.UTF_8),
+          0,
           "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
       writer.writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.writeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+      writer.writeVarBinary(
+          ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+          0,
           "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
@@ -656,13 +669,23 @@ public class TestPromotableWriter {
       writer.setPosition(0);
       writer.largeVarBinary("c").writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
-          "row2".getBytes(StandardCharsets.UTF_8).length);
+      writer
+          .largeVarBinary("c")
+          .writeLargeVarBinary(
+              "row2".getBytes(StandardCharsets.UTF_8),
+              0,
+              "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
-      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
+      writer
+          .largeVarBinary("c")
+          .writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
-          "row4".getBytes(StandardCharsets.UTF_8).length);
+      writer
+          .largeVarBinary("c")
+          .writeLargeVarBinary(
+              ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+              0,
+              "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 
       final LargeVarBinaryVector uv = v.getChild("c", LargeVarBinaryVector.class);
@@ -685,12 +708,16 @@ public class TestPromotableWriter {
       writer.setPosition(0);
       writer.writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       writer.setPosition(1);
-      writer.writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+      writer.writeLargeVarBinary(
+          "row2".getBytes(StandardCharsets.UTF_8),
+          0,
           "row2".getBytes(StandardCharsets.UTF_8).length);
       writer.setPosition(2);
       writer.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       writer.setPosition(3);
-      writer.writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)), 0,
+      writer.writeLargeVarBinary(
+          ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+          0,
           "row4".getBytes(StandardCharsets.UTF_8).length);
       writer.end();
 

@@ -414,9 +414,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @SuppressWarnings("StringSplitter")
-  private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
-                                                           final ResultSet data, boolean emptyToNull,
-                                                           Predicate<ResultSet> resultSetPredicate)
+  private static <T extends FieldVector> int saveToVectors(
+      final Map<T, String> vectorToColumnName,
+      final ResultSet data,
+      boolean emptyToNull,
+      Predicate<ResultSet> resultSetPredicate)
       throws SQLException {
     Objects.requireNonNull(vectorToColumnName, "vectorToColumnName cannot be null.");
     Objects.requireNonNull(data, "data cannot be null.");
@@ -745,15 +747,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final CallContext context,
       final StreamListener<Result> listener) {
     // Running on another thread
-    Future<?> unused = executorService.submit(() -> {
-      try {
-        preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
-      } catch (final Exception e) {
-        listener.onError(e);
-        return;
-      }
-      listener.onCompleted();
-    });
+    Future<?> unused =
+        executorService.submit(
+            () -> {
+              try {
+                preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
+              } catch (final Exception e) {
+                listener.onError(e);
+                return;
+              }
+              listener.onCompleted();
+            });
   }
 
   @Override
@@ -839,43 +843,56 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       final CallContext context,
       final StreamListener<Result> listener) {
     // Running on another thread
-    Future<?> unused = executorService.submit(() -> {
-      try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
-        // Ownership of the connection will be passed to the context. Do NOT close!
-        final Connection connection = dataSource.getConnection();
-        final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
-            ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-        final StatementContext<PreparedStatement> preparedStatementContext =
-            new StatementContext<>(preparedStatement, request.getQuery());
+    Future<?> unused =
+        executorService.submit(
+            () -> {
+              try {
+                final ByteString preparedStatementHandle =
+                    copyFrom(randomUUID().toString().getBytes(UTF_8));
+                // Ownership of the connection will be passed to the context. Do NOT close!
+                final Connection connection = dataSource.getConnection();
+                final PreparedStatement preparedStatement =
+                    connection.prepareStatement(
+                        request.getQuery(),
+                        ResultSet.TYPE_SCROLL_INSENSITIVE,
+                        ResultSet.CONCUR_READ_ONLY);
+                final StatementContext<PreparedStatement> preparedStatementContext =
+                    new StatementContext<>(preparedStatement, request.getQuery());
 
-        preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
+                preparedStatementLoadingCache.put(
+                    preparedStatementHandle, preparedStatementContext);
 
-        final Schema parameterSchema =
-            jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
+                final Schema parameterSchema =
+                    jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
 
-        final ResultSetMetaData metaData = preparedStatement.getMetaData();
-        final ByteString bytes = isNull(metaData) ?
-            ByteString.EMPTY :
-            ByteString.copyFrom(
-                serializeMetadata(jdbcToArrowSchema(metaData, DEFAULT_CALENDAR)));
-        final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
-            .setDatasetSchema(bytes)
-            .setParameterSchema(copyFrom(serializeMetadata(parameterSchema)))
-            .setPreparedStatementHandle(preparedStatementHandle)
-            .build();
-        listener.onNext(new Result(pack(result).toByteArray()));
-      } catch (final SQLException e) {
-        listener.onError(CallStatus.INTERNAL
-            .withDescription("Failed to create prepared statement: " + e)
-            .toRuntimeException());
-        return;
-      } catch (final Throwable t) {
-        listener.onError(CallStatus.INTERNAL.withDescription("Unknown error: " + t).toRuntimeException());
-        return;
-      }
-      listener.onCompleted();
-    });
+                final ResultSetMetaData metaData = preparedStatement.getMetaData();
+                final ByteString bytes =
+                    isNull(metaData)
+                        ? ByteString.EMPTY
+                        : ByteString.copyFrom(
+                            serializeMetadata(jdbcToArrowSchema(metaData, DEFAULT_CALENDAR)));
+                final ActionCreatePreparedStatementResult result =
+                    ActionCreatePreparedStatementResult.newBuilder()
+                        .setDatasetSchema(bytes)
+                        .setParameterSchema(copyFrom(serializeMetadata(parameterSchema)))
+                        .setPreparedStatementHandle(preparedStatementHandle)
+                        .build();
+                listener.onNext(new Result(pack(result).toByteArray()));
+              } catch (final SQLException e) {
+                listener.onError(
+                    CallStatus.INTERNAL
+                        .withDescription("Failed to create prepared statement: " + e)
+                        .toRuntimeException());
+                return;
+              } catch (final Throwable t) {
+                listener.onError(
+                    CallStatus.INTERNAL
+                        .withDescription("Unknown error: " + t)
+                        .toRuntimeException());
+                return;
+              }
+              listener.onCompleted();
+            });
   }
 
   @Override

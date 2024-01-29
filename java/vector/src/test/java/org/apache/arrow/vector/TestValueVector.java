@@ -730,7 +730,8 @@ public class TestValueVector {
   @Test /* IntVector */
   public void testNullableFixedType3() {
     // Create a new value vector for 1024 integers
-    try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+    try (final IntVector vector =
+        newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
       int initialCapacity = 1024;
 
       /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
@@ -1198,13 +1199,17 @@ public class TestValueVector {
       // verify results
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
-      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
       byte[] oldBuffer = reusableByteArray.getBuffer();
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str2.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());

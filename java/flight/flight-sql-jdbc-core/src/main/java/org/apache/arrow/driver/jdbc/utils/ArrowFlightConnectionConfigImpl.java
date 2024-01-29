@@ -32,10 +32,7 @@ import org.apache.calcite.avatica.ConnectionConfig;
 import org.apache.calcite.avatica.ConnectionConfigImpl;
 import org.apache.calcite.avatica.ConnectionProperty;
 
-
-/**
- * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
- */
+/** A {@link ConnectionConfig} for the {@link ArrowFlightConnection}. */
 public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl {
   public ArrowFlightConnectionConfigImpl(final Properties properties) {
     super(properties);

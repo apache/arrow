@@ -859,8 +859,12 @@ public class TestDictionaryVector {
       DictionaryProvider.MapDictionaryProvider provider =
           new DictionaryProvider.MapDictionaryProvider();
 
-      setVector(dictVector1, "aa".getBytes(StandardCharsets.UTF_8), "bb".getBytes(StandardCharsets.UTF_8),
-          "cc".getBytes(StandardCharsets.UTF_8), "dd".getBytes(StandardCharsets.UTF_8));
+      setVector(
+          dictVector1,
+          "aa".getBytes(StandardCharsets.UTF_8),
+          "bb".getBytes(StandardCharsets.UTF_8),
+          "cc".getBytes(StandardCharsets.UTF_8),
+          "dd".getBytes(StandardCharsets.UTF_8));
 
       provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
       StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
@@ -1077,11 +1081,16 @@ public class TestDictionaryVector {
         try (ValueVector decodedVector = DictionaryEncoder.decode(encodedVector, dictionary)) {
           assertTrue(decodedVector instanceof VarCharVector);
           assertEquals(vector.getValueCount(), decodedVector.getValueCount());
-          assertArrayEquals("1".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(0));
-          assertArrayEquals("3".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(1));
-          assertArrayEquals("5".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(2));
-          assertArrayEquals("7".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(3));
-          assertArrayEquals("9".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(4));
+          assertArrayEquals(
+              "1".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(0));
+          assertArrayEquals(
+              "3".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(1));
+          assertArrayEquals(
+              "5".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(2));
+          assertArrayEquals(
+              "7".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(3));
+          assertArrayEquals(
+              "9".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decodedVector).get(4));
         }
       }
     }
@@ -1106,9 +1115,13 @@ public class TestDictionaryVector {
   public void testDictionaryUInt2() {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
-      Dictionary dictionary2 = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/20L, /*ordered=*/false,
-              /*indexType=*/new ArrowType.Int(/*bitWidth=*/16, /*isSigned*/false)));
+      Dictionary dictionary2 =
+          new Dictionary(
+              dictionaryVector,
+              new DictionaryEncoding(
+                  /* id= */ 20L,
+                  /* ordered= */ false,
+                  /* indexType= */ new ArrowType.Int(/* bitWidth= */ 16, /*isSigned*/ false)));
       testDictionary(dictionary2, (vector, index) -> ((UInt2Vector) vector).get(index));
     }
   }
@@ -1117,9 +1130,13 @@ public class TestDictionaryVector {
   public void testDictionaryUInt4() {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
-      Dictionary dictionary4 = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/30L, /*ordered=*/false,
-              /*indexType=*/new ArrowType.Int(/*bitWidth=*/32, /*isSigned*/false)));
+      Dictionary dictionary4 =
+          new Dictionary(
+              dictionaryVector,
+              new DictionaryEncoding(
+                  /* id= */ 30L,
+                  /* ordered= */ false,
+                  /* indexType= */ new ArrowType.Int(/* bitWidth= */ 32, /*isSigned*/ false)));
       testDictionary(dictionary4, (vector, index) -> ((UInt4Vector) vector).get(index));
     }
   }
@@ -1128,9 +1145,13 @@ public class TestDictionaryVector {
   public void testDictionaryUInt8() {
     try (VarCharVector dictionaryVector = new VarCharVector("dict vector", allocator)) {
       setVector(dictionaryVector, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9");
-      Dictionary dictionary8 = new Dictionary(dictionaryVector,
-              new DictionaryEncoding(/*id=*/40L, /*ordered=*/false,
-                  /*indexType=*/new ArrowType.Int(/*bitWidth=*/64, /*isSigned*/false)));
+      Dictionary dictionary8 =
+          new Dictionary(
+              dictionaryVector,
+              new DictionaryEncoding(
+                  /* id= */ 40L,
+                  /* ordered= */ false,
+                  /* indexType= */ new ArrowType.Int(/* bitWidth= */ 64, /*isSigned*/ false)));
       testDictionary(dictionary8, (vector, index) -> (int) ((UInt8Vector) vector).get(index));
     }
   }
@@ -1146,9 +1167,13 @@ public class TestDictionaryVector {
       }
       dictionaryVector.setValueCount(vecLength);
 
-      Dictionary dictionary = new Dictionary(dictionaryVector,
-          new DictionaryEncoding(/*id=*/10L, /*ordered=*/false,
-              /*indexType=*/new ArrowType.Int(/*bitWidth=*/8, /*isSigned*/false)));
+      Dictionary dictionary =
+          new Dictionary(
+              dictionaryVector,
+              new DictionaryEncoding(
+                  /* id= */ 10L,
+                  /* ordered= */ false,
+                  /* indexType= */ new ArrowType.Int(/* bitWidth= */ 8, /*isSigned*/ false)));
 
       try (VarCharVector vector = new VarCharVector("vector", allocator)) {
         setVector(vector, "255");

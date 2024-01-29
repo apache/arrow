@@ -30,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.ArrowBuf;
@@ -53,18 +52,16 @@ import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 /** An adaptor between protobuf streams and flight data streams. */
 public class FlightStream implements AutoCloseable {
   // Use AutoCloseable sentinel objects to simplify logic in #close
-  private final AutoCloseable DONE = new AutoCloseable() {
-    @Override
-    public void close() throws Exception {
-
-    }
-  };
-  private final AutoCloseable DONE_EX = new AutoCloseable() {
-    @Override
-    public void close() throws Exception {
-
-    }
-  };
+  private final AutoCloseable DONE =
+      new AutoCloseable() {
+        @Override
+        public void close() throws Exception {}
+      };
+  private final AutoCloseable DONE_EX =
+      new AutoCloseable() {
+        @Override
+        public void close() throws Exception {}
+      };
 
   private final BufferAllocator allocator;
   private final Cancellable cancellable;

@@ -224,26 +224,38 @@ public class FlightServer implements AutoCloseable {
             // The implementation is platform-specific, so we have to find the classes at runtime
             builder = NettyServerBuilder.forAddress(location.toSocketAddress());
             try {
-              // Linux
-              builder.channelType(Class
-                      .forName("io.netty.channel.epoll.EpollServerDomainSocketChannel")
-                      .asSubclass(ServerChannel.class));
-              final EventLoopGroup elg = Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
-                      .asSubclass(EventLoopGroup.class).getConstructor().newInstance();
-              builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
-            } catch (ClassNotFoundException e) {
-              // BSD
-              builder.channelType(
-                      Class.forName("io.netty.channel.kqueue.KQueueServerDomainSocketChannel")
-                              .asSubclass(ServerChannel.class));
-              final EventLoopGroup elg = Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
-                      .asSubclass(EventLoopGroup.class).getConstructor().newInstance();
-              builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
+              try {
+                // Linux
+                builder.channelType(
+                    Class.forName("io.netty.channel.epoll.EpollServerDomainSocketChannel")
+                        .asSubclass(ServerChannel.class));
+                final EventLoopGroup elg =
+                    Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
+                        .asSubclass(EventLoopGroup.class)
+                        .getConstructor()
+                        .newInstance();
+                builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
+              } catch (ClassNotFoundException e) {
+                // BSD
+                builder.channelType(
+                    Class.forName("io.netty.channel.kqueue.KQueueServerDomainSocketChannel")
+                        .asSubclass(ServerChannel.class));
+                final EventLoopGroup elg =
+                    Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
+                        .asSubclass(EventLoopGroup.class)
+                        .getConstructor()
+                        .newInstance();
+                builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
+              }
+            } catch (ClassNotFoundException
+                | InstantiationException
+                | IllegalAccessException
+                | NoSuchMethodException
+                | InvocationTargetException e) {
+              throw new UnsupportedOperationException(
+                  "Could not find suitable Netty native transport implementation for domain socket address.");
             }
-          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException |
-                   InvocationTargetException e) {
-            throw new UnsupportedOperationException(
-                "Could not find suitable Netty native transport implementation for domain socket address.");
+            break;
           }
         case LocationSchemes.GRPC:
         case LocationSchemes.GRPC_INSECURE:

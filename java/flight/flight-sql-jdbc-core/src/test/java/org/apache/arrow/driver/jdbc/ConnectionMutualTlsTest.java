@@ -62,8 +62,8 @@ public class ConnectionMutualTlsTest {
 
     final File serverMTlsCACert = FlightSqlTestCertificates.exampleCACert();
 
-    final FlightSqlTestCertificates.CertKeyPair
-        clientMTlsCertKey = FlightSqlTestCertificates.exampleTlsCerts().get(1);
+    final FlightSqlTestCertificates.CertKeyPair clientMTlsCertKey =
+        FlightSqlTestCertificates.exampleTlsCerts().get(1);
 
     clientMTlsCertPath = clientMTlsCertKey.cert.getPath();
     clientMTlsKeyPath = clientMTlsCertKey.key.getPath();

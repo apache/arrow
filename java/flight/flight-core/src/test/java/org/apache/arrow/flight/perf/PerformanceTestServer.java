@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -111,34 +110,21 @@ public class PerformanceTestServer implements AutoCloseable {
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       bpStrategy.register(listener);
-      final Runnable loadData = () -> {
-        Token token = null;
-        try {
-          token = Token.parseFrom(ticket.getBytes());
-        } catch (InvalidProtocolBufferException e) {
-          throw new RuntimeException(e);
-        }
-        Perf perf = token.getDefinition();
-        Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
-        try (
-            VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-            BigIntVector a = (BigIntVector) root.getVector("a")
-        ) {
-          listener.setUseZeroCopy(true);
-          listener.start(root);
-          root.allocateNew();
-
-          int current = 0;
-          long i = token.getStart();
-          while (i < token.getEnd()) {
-            if (listener.isCancelled()) {
-              root.clear();
-              return;
+      final Runnable loadData =
+          () -> {
+            Token token = null;
+            try {
+              token = Token.parseFrom(ticket.getBytes());
+            } catch (InvalidProtocolBufferException e) {
+              throw new RuntimeException(e);
             }
-
-            if (TestPerf.VALIDATE) {
-              a.setSafe(current, i);
-            }
+            Perf perf = token.getDefinition();
+            Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
+            try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+                BigIntVector a = (BigIntVector) root.getVector("a")) {
+              listener.setUseZeroCopy(true);
+              listener.start(root);
+              root.allocateNew();
 
               int current = 0;
               long i = token.getStart();
@@ -174,25 +160,8 @@ public class PerformanceTestServer implements AutoCloseable {
                 listener.putNext();
               }
               listener.completed();
-            } catch (InvalidProtocolBufferException e) {
-              throw new RuntimeException(e);
-            } finally {
-              try {
-                AutoCloseables.close(root);
-              } catch (Exception e) {
-                throw new RuntimeException(e);
-              }
             }
-          }
-
-          // send last partial batch.
-          if (current != 0) {
-            root.setRowCount(current);
-            listener.putNext();
-          }
-          listener.completed();
-        }
-      };
+          };
 
       if (!isNonBlocking) {
         loadData.run();

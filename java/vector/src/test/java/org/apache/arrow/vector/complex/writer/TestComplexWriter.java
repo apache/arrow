@@ -1734,13 +1734,23 @@ public class TestComplexWriter {
       rootWriter.setPosition(0);
       rootWriter.varBinary("c").writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       rootWriter.setPosition(1);
-      rootWriter.varBinary("c").writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
-          "row2".getBytes(StandardCharsets.UTF_8).length);
+      rootWriter
+          .varBinary("c")
+          .writeVarBinary(
+              "row2".getBytes(StandardCharsets.UTF_8),
+              0,
+              "row2".getBytes(StandardCharsets.UTF_8).length);
       rootWriter.setPosition(2);
-      rootWriter.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
+      rootWriter
+          .varBinary("c")
+          .writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       rootWriter.setPosition(3);
-      rootWriter.varBinary("c").writeVarBinary(ByteBuffer.wrap(
-          "row4".getBytes(StandardCharsets.UTF_8)), 0, "row4".getBytes(StandardCharsets.UTF_8).length);
+      rootWriter
+          .varBinary("c")
+          .writeVarBinary(
+              ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+              0,
+              "row4".getBytes(StandardCharsets.UTF_8).length);
       rootWriter.end();
 
       VarBinaryVector uv =
@@ -1762,13 +1772,23 @@ public class TestComplexWriter {
       rootWriter.setPosition(0);
       rootWriter.largeVarBinary("c").writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
       rootWriter.setPosition(1);
-      rootWriter.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
-          "row2".getBytes(StandardCharsets.UTF_8).length);
+      rootWriter
+          .largeVarBinary("c")
+          .writeLargeVarBinary(
+              "row2".getBytes(StandardCharsets.UTF_8),
+              0,
+              "row2".getBytes(StandardCharsets.UTF_8).length);
       rootWriter.setPosition(2);
-      rootWriter.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
+      rootWriter
+          .largeVarBinary("c")
+          .writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
       rootWriter.setPosition(3);
-      rootWriter.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap(
-          "row4".getBytes(StandardCharsets.UTF_8)), 0, "row4".getBytes(StandardCharsets.UTF_8).length);
+      rootWriter
+          .largeVarBinary("c")
+          .writeLargeVarBinary(
+              ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+              0,
+              "row4".getBytes(StandardCharsets.UTF_8).length);
       rootWriter.end();
 
       LargeVarBinaryVector uv =
@@ -1818,17 +1838,25 @@ public class TestComplexWriter {
       UnionListWriter listWriter = new UnionListWriter(listVector);
       listWriter.startList();
       listWriter.writeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
-      listWriter.writeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+      listWriter.writeVarBinary(
+          "row2".getBytes(StandardCharsets.UTF_8),
+          0,
           "row2".getBytes(StandardCharsets.UTF_8).length);
       listWriter.writeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
-      listWriter.writeVarBinary(ByteBuffer.wrap(
-          "row4".getBytes(StandardCharsets.UTF_8)), 0, "row4".getBytes(StandardCharsets.UTF_8).length);
+      listWriter.writeVarBinary(
+          ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+          0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       listWriter.endList();
       listWriter.setValueCount(1);
-      assertEquals("row1", new String((byte[]) listVector.getObject(0).get(0), StandardCharsets.UTF_8));
-      assertEquals("row2", new String((byte[]) listVector.getObject(0).get(1), StandardCharsets.UTF_8));
-      assertEquals("row3", new String((byte[]) listVector.getObject(0).get(2), StandardCharsets.UTF_8));
-      assertEquals("row4", new String((byte[]) listVector.getObject(0).get(3), StandardCharsets.UTF_8));
+      assertEquals(
+          "row1", new String((byte[]) listVector.getObject(0).get(0), StandardCharsets.UTF_8));
+      assertEquals(
+          "row2", new String((byte[]) listVector.getObject(0).get(1), StandardCharsets.UTF_8));
+      assertEquals(
+          "row3", new String((byte[]) listVector.getObject(0).get(2), StandardCharsets.UTF_8));
+      assertEquals(
+          "row4", new String((byte[]) listVector.getObject(0).get(3), StandardCharsets.UTF_8));
     }
   }
 
@@ -1839,17 +1867,25 @@ public class TestComplexWriter {
       UnionListWriter listWriter = new UnionListWriter(listVector);
       listWriter.startList();
       listWriter.writeLargeVarBinary("row1".getBytes(StandardCharsets.UTF_8));
-      listWriter.writeLargeVarBinary("row2".getBytes(StandardCharsets.UTF_8), 0,
+      listWriter.writeLargeVarBinary(
+          "row2".getBytes(StandardCharsets.UTF_8),
+          0,
           "row2".getBytes(StandardCharsets.UTF_8).length);
       listWriter.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes(StandardCharsets.UTF_8)));
-      listWriter.writeLargeVarBinary(ByteBuffer.wrap(
-          "row4".getBytes(StandardCharsets.UTF_8)), 0, "row4".getBytes(StandardCharsets.UTF_8).length);
+      listWriter.writeLargeVarBinary(
+          ByteBuffer.wrap("row4".getBytes(StandardCharsets.UTF_8)),
+          0,
+          "row4".getBytes(StandardCharsets.UTF_8).length);
       listWriter.endList();
       listWriter.setValueCount(1);
-      assertEquals("row1", new String((byte[]) listVector.getObject(0).get(0), StandardCharsets.UTF_8));
-      assertEquals("row2", new String((byte[]) listVector.getObject(0).get(1), StandardCharsets.UTF_8));
-      assertEquals("row3", new String((byte[]) listVector.getObject(0).get(2), StandardCharsets.UTF_8));
-      assertEquals("row4", new String((byte[]) listVector.getObject(0).get(3), StandardCharsets.UTF_8));
+      assertEquals(
+          "row1", new String((byte[]) listVector.getObject(0).get(0), StandardCharsets.UTF_8));
+      assertEquals(
+          "row2", new String((byte[]) listVector.getObject(0).get(1), StandardCharsets.UTF_8));
+      assertEquals(
+          "row3", new String((byte[]) listVector.getObject(0).get(2), StandardCharsets.UTF_8));
+      assertEquals(
+          "row4", new String((byte[]) listVector.getObject(0).get(3), StandardCharsets.UTF_8));
     }
   }
 
@@ -1871,37 +1907,51 @@ public class TestComplexWriter {
       unionWriter.setPosition(4);
       unionWriter.writeVarBinary("row5".getBytes(StandardCharsets.UTF_8));
       unionWriter.setPosition(5);
-      unionWriter.writeVarBinary("row6".getBytes(StandardCharsets.UTF_8), 0,
+      unionWriter.writeVarBinary(
+          "row6".getBytes(StandardCharsets.UTF_8),
+          0,
           "row6".getBytes(StandardCharsets.UTF_8).length);
       unionWriter.setPosition(6);
       unionWriter.writeVarBinary(ByteBuffer.wrap("row7".getBytes(StandardCharsets.UTF_8)));
       unionWriter.setPosition(7);
-      unionWriter.writeVarBinary(ByteBuffer.wrap("row8".getBytes(StandardCharsets.UTF_8)), 0,
+      unionWriter.writeVarBinary(
+          ByteBuffer.wrap("row8".getBytes(StandardCharsets.UTF_8)),
+          0,
           "row8".getBytes(StandardCharsets.UTF_8).length);
       unionWriter.setPosition(8);
       unionWriter.writeLargeVarBinary("row9".getBytes(StandardCharsets.UTF_8));
       unionWriter.setPosition(9);
-      unionWriter.writeLargeVarBinary("row10".getBytes(StandardCharsets.UTF_8), 0,
+      unionWriter.writeLargeVarBinary(
+          "row10".getBytes(StandardCharsets.UTF_8),
+          0,
           "row10".getBytes(StandardCharsets.UTF_8).length);
       unionWriter.setPosition(10);
       unionWriter.writeLargeVarBinary(ByteBuffer.wrap("row11".getBytes(StandardCharsets.UTF_8)));
       unionWriter.setPosition(11);
-      unionWriter.writeLargeVarBinary(ByteBuffer.wrap(
-          "row12".getBytes(StandardCharsets.UTF_8)), 0, "row12".getBytes(StandardCharsets.UTF_8).length);
+      unionWriter.writeLargeVarBinary(
+          ByteBuffer.wrap("row12".getBytes(StandardCharsets.UTF_8)),
+          0,
+          "row12".getBytes(StandardCharsets.UTF_8).length);
       unionWriter.end();
 
       assertEquals("row1", new String(vector.getVarCharVector().get(0), StandardCharsets.UTF_8));
       assertEquals("row2", new String(vector.getVarCharVector().get(1), StandardCharsets.UTF_8));
-      assertEquals("row3", new String(vector.getLargeVarCharVector().get(2), StandardCharsets.UTF_8));
-      assertEquals("row4", new String(vector.getLargeVarCharVector().get(3), StandardCharsets.UTF_8));
+      assertEquals(
+          "row3", new String(vector.getLargeVarCharVector().get(2), StandardCharsets.UTF_8));
+      assertEquals(
+          "row4", new String(vector.getLargeVarCharVector().get(3), StandardCharsets.UTF_8));
       assertEquals("row5", new String(vector.getVarBinaryVector().get(4), StandardCharsets.UTF_8));
       assertEquals("row6", new String(vector.getVarBinaryVector().get(5), StandardCharsets.UTF_8));
       assertEquals("row7", new String(vector.getVarBinaryVector().get(6), StandardCharsets.UTF_8));
       assertEquals("row8", new String(vector.getVarBinaryVector().get(7), StandardCharsets.UTF_8));
-      assertEquals("row9", new String(vector.getLargeVarBinaryVector().get(8), StandardCharsets.UTF_8));
-      assertEquals("row10", new String(vector.getLargeVarBinaryVector().get(9), StandardCharsets.UTF_8));
-      assertEquals("row11", new String(vector.getLargeVarBinaryVector().get(10), StandardCharsets.UTF_8));
-      assertEquals("row12", new String(vector.getLargeVarBinaryVector().get(11), StandardCharsets.UTF_8));
+      assertEquals(
+          "row9", new String(vector.getLargeVarBinaryVector().get(8), StandardCharsets.UTF_8));
+      assertEquals(
+          "row10", new String(vector.getLargeVarBinaryVector().get(9), StandardCharsets.UTF_8));
+      assertEquals(
+          "row11", new String(vector.getLargeVarBinaryVector().get(10), StandardCharsets.UTF_8));
+      assertEquals(
+          "row12", new String(vector.getLargeVarBinaryVector().get(11), StandardCharsets.UTF_8));
     }
   }
 }

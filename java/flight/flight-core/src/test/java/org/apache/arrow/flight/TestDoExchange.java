@@ -504,7 +504,8 @@ public class TestDoExchange {
     }
 
     /** Emulate DoGet. */
-    private void doGet(CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
+    private void doGet(
+        CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
       try (VectorSchemaRoot root = VectorSchemaRoot.create(SCHEMA, allocator)) {
         writer.start(root);
         root.allocateNew();
@@ -521,7 +522,8 @@ public class TestDoExchange {
     }
 
     /** Emulate DoPut. */
-    private void doPut(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
+    private void doPut(
+        CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       int counter = 0;
       while (reader.next()) {
         if (!reader.hasRoot()) {
@@ -541,7 +543,8 @@ public class TestDoExchange {
     }
 
     /** Exchange metadata without ever exchanging data. */
-    private void metadataOnly(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
+    private void metadataOnly(
+        CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       final ArrowBuf buf = allocator.buffer(4);
       buf.writeInt(42);
       writer.putMetadata(buf);
@@ -586,7 +589,8 @@ public class TestDoExchange {
     }
 
     /** Accept a set of messages, then return some result. */
-    private void transform(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
+    private void transform(
+        CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       final Schema schema = reader.getSchema();
       for (final Field field : schema.getFields()) {
         if (!(field.getType() instanceof ArrowType.Int)) {
@@ -634,11 +638,13 @@ public class TestDoExchange {
     }
 
     /** Immediately cancel the call. */
-    private void cancel(CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
+    private void cancel(
+        CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
       writer.error(CallStatus.CANCELLED.withDescription("expected").toRuntimeException());
     }
 
-    private void error(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
+    private void error(
+        CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       VectorSchemaRoot root = null;
       VectorLoader loader = null;
       while (reader.next()) {

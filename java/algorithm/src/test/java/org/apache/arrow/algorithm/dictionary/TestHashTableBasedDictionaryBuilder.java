@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -77,13 +76,20 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(7, result);
       assertEquals(7, dictionary.getValueCount());
 
-      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
       assertNull(dictionary.get(2));
-      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(6)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good", new String(Objects.requireNonNull(dictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
@@ -117,13 +123,19 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(6, result);
       assertEquals(6, dictionary.getValueCount());
 
-      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
-
+      assertEquals(
+          "hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world", new String(Objects.requireNonNull(dictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
     }
   }
 

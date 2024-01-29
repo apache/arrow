@@ -19,6 +19,7 @@ package org.apache.arrow.flight;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -32,13 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.apache.arrow.flight.impl.Flight;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-
-/**
- * POJO to convert to/from the underlying protobuf FlightEndpoint.
- */
+/** POJO to convert to/from the underlying protobuf FlightEndpoint. */
 public class FlightEndpoint {
   private final List<Location> locations;
   private final Ticket ticket;
@@ -87,8 +82,9 @@ public class FlightEndpoint {
       this.locations.add(new Location(location.getUri()));
     }
     if (flt.hasExpirationTime()) {
-      this.expirationTime = Instant.ofEpochSecond(
-          flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
+      this.expirationTime =
+          Instant.ofEpochSecond(
+              flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
     } else {
       this.expirationTime = null;
     }

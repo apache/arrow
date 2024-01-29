@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.Range;
@@ -89,24 +88,38 @@ public class ParallelSearcher<V extends ValueVector> {
     final int valueCount = vector.getValueCount();
     for (int i = 0; i < numThreads; i++) {
       final int tid = i;
-      Future<?> unused = threadPool.submit(() -> {
-        // convert to long to avoid overflow
-        int start = (int) (((long) valueCount) * tid / numThreads);
-        int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
+      Future<?> unused =
+          threadPool.submit(
+              () -> {
+                // convert to long to avoid overflow
+                int start = (int) (((long) valueCount) * tid / numThreads);
+                int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
 
-        if (start >= end) {
-          // no data assigned to this task.
-          futures[tid].complete(false);
-          return;
-        }
+                if (start >= end) {
+                  // no data assigned to this task.
+                  futures[tid].complete(false);
+                  return;
+                }
 
-        RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, keyVector, null);
-        Range range = new Range(0, 0, 1);
-        for (int pos = start; pos < end; pos++) {
-          if (keyPosition != -1) {
-            // the key has been found by another task
-            futures[tid].complete(false);
-          });
+                RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector, keyVector, null);
+                Range range = new Range(0, 0, 1);
+                for (int pos = start; pos < end; pos++) {
+                  if (keyPosition != -1) {
+                    // the key has been found by another task
+                    futures[tid].complete(false);
+                    return;
+                  }
+                  range.setLeftStart(pos).setRightStart(keyIndex);
+                  if (visitor.rangeEquals(range)) {
+                    keyPosition = pos;
+                    futures[tid].complete(true);
+                    return;
+                  }
+                }
+
+                // no match value is found.
+                futures[tid].complete(false);
+              });
     }
 
     CompletableFuture.allOf(futures).get();
@@ -135,24 +148,37 @@ public class ParallelSearcher<V extends ValueVector> {
     final int valueCount = vector.getValueCount();
     for (int i = 0; i < numThreads; i++) {
       final int tid = i;
-      Future<?> unused = threadPool.submit(() -> {
-        // convert to long to avoid overflow
-        int start = (int) (((long) valueCount) * tid / numThreads);
-        int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
+      Future<?> unused =
+          threadPool.submit(
+              () -> {
+                // convert to long to avoid overflow
+                int start = (int) (((long) valueCount) * tid / numThreads);
+                int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
 
-        if (start >= end) {
-          // no data assigned to this task.
-          futures[tid].complete(false);
-          return;
-        }
+                if (start >= end) {
+                  // no data assigned to this task.
+                  futures[tid].complete(false);
+                  return;
+                }
 
-        VectorValueComparator<V> localComparator = comparator.createNew();
-        localComparator.attachVectors(vector, keyVector);
-        for (int pos = start; pos < end; pos++) {
-          if (keyPosition != -1) {
-            // the key has been found by another task
-            futures[tid].complete(false);
-          });
+                VectorValueComparator<V> localComparator = comparator.createNew();
+                localComparator.attachVectors(vector, keyVector);
+                for (int pos = start; pos < end; pos++) {
+                  if (keyPosition != -1) {
+                    // the key has been found by another task
+                    futures[tid].complete(false);
+                    return;
+                  }
+                  if (localComparator.compare(pos, keyIndex) == 0) {
+                    keyPosition = pos;
+                    futures[tid].complete(true);
+                    return;
+                  }
+                }
+
+                // no match value is found.
+                futures[tid].complete(false);
+              });
     }
 
     CompletableFuture.allOf(futures).get();

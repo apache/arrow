@@ -95,7 +95,9 @@ public class TestHashTableDictionaryEncoder {
       // verify encoding results
       assertEquals(rawVector.getValueCount(), encodedVector.getValueCount());
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
+        assertArrayEquals(
+            rawVector.get(i),
+            String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
       }
 
       // perform decoding
@@ -106,7 +108,8 @@ public class TestHashTableDictionaryEncoder {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
-          assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
               decodedVector.get(i));
         }
       }
@@ -154,7 +157,9 @@ public class TestHashTableDictionaryEncoder {
         if (i % 10 == 0) {
           assertEquals(0, encodedVector.get(i));
         } else {
-          assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
+          assertArrayEquals(
+              rawVector.get(i),
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
         }
       }
 
@@ -168,7 +173,8 @@ public class TestHashTableDictionaryEncoder {
           if (i % 10 == 0) {
             assertTrue(decodedVector.isNull(i));
           } else {
-            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+            assertArrayEquals(
+                String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
                 decodedVector.get(i));
           }
         }

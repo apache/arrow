@@ -158,28 +158,20 @@ public class TestBackPressure {
                 loadData.run();
               } else {
                 final ExecutorService service = Executors.newSingleThreadExecutor();
-                service.submit(loadData);
+                Future<?> unused = service.submit(loadData);
                 service.shutdown();
               }
             }
           };
 
-          if (!isNonBlocking) {
-            loadData.run();
-          } else {
-            final ExecutorService service = Executors.newSingleThreadExecutor();
-            Future<?> unused = service.submit(loadData);
-            service.shutdown();
-          }
-        }
-      };
-
-
-      try (
-          BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
-              .build().start();
-          BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
+      try (BufferAllocator serverAllocator =
+              allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
+          FlightServer server =
+              FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
+                  .build()
+                  .start();
+          BufferAllocator clientAllocator =
+              allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient.builder(clientAllocator, server.getLocation()).build();
           FlightStream stream = client.getStream(new Ticket(new byte[1]))) {

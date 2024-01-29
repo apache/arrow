@@ -23,7 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;

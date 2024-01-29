@@ -95,7 +95,8 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       VectorValueComparator<V> comparator =
           DefaultVectorComparators.createDefaultComparator(vector);
 
-      try (V sortedVec = (V) vector.getField().getFieldType().createNewSingleVector("", allocator, null)) {
+      try (V sortedVec =
+          (V) vector.getField().getFieldType().createNewSingleVector("", allocator, null)) {
         int dataSize = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4L);
         sortedVec.allocateNew(dataSize, vector.getValueCount());
         sortedVec.setValueCount(vector.getValueCount());
@@ -113,11 +114,15 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
     List<Object[]> params = new ArrayList<>();
     for (int length : VECTOR_LENGTHS) {
       for (double nullFrac : NULL_FRACTIONS) {
-        params.add(new Object[]{
-            length, nullFrac, "VarCharVector",
-            (Function<BufferAllocator, VarCharVector>) allocator -> new VarCharVector("vector", allocator),
-            TestSortingUtil.STRING_GENERATOR
-        });
+        params.add(
+            new Object[] {
+              length,
+              nullFrac,
+              "VarCharVector",
+              (Function<BufferAllocator, VarCharVector>)
+                  allocator -> new VarCharVector("vector", allocator),
+              TestSortingUtil.STRING_GENERATOR
+            });
       }
     }
     return params;
@@ -130,7 +135,8 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       if (expected[i] == null) {
         assertTrue(vector.isNull(i));
       } else {
-        assertArrayEquals(((Text) vector.getObject(i)).getBytes(), expected[i].getBytes(StandardCharsets.UTF_8));
+        assertArrayEquals(
+            ((Text) vector.getObject(i)).getBytes(), expected[i].getBytes(StandardCharsets.UTF_8));
       }
     }
   }

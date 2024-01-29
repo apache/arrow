@@ -413,10 +413,12 @@ public class ResultSetTest {
       ((IntVector) secondPartition.getVector(0)).set(0, 2);
 
       // Construct the data-only nodes first.
-      FlightProducer firstProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
-          new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
-      FlightProducer secondProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
-          new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondPartition);
+      FlightProducer firstProducer =
+          new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+              new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
+      FlightProducer secondProducer =
+          new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+              new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondPartition);
 
       final FlightServer.Builder firstBuilder =
           FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), firstProducer);
@@ -430,10 +432,12 @@ public class ResultSetTest {
         firstServer.start();
         secondServer.start();
         final FlightEndpoint firstEndpoint =
-            new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstServer.getLocation());
+            new FlightEndpoint(
+                new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstServer.getLocation());
 
         final FlightEndpoint secondEndpoint =
-            new FlightEndpoint(new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondServer.getLocation());
+            new FlightEndpoint(
+                new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondServer.getLocation());
 
         // Finally start the root node.
         try (final PartitionedFlightSqlProducer rootProducer =

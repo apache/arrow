@@ -310,9 +310,10 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, repeatedCallBack);
       // returned vector must have the same field
       created = true;
-      if (repeatedCallBack != null &&
-              // not a schema change if changing from ZeroVector to ZeroVector
-              (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+      if (repeatedCallBack != null
+          &&
+          // not a schema change if changing from ZeroVector to ZeroVector
+          (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         repeatedCallBack.doWork();
       }
     }

@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;

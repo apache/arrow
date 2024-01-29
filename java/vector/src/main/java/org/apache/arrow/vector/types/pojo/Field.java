@@ -102,9 +102,7 @@ public class Field {
         children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
   }
 
-  /**
-   * Construct a new vector of this type using the given allocator.
-   */
+  /** Construct a new vector of this type using the given allocator. */
   public FieldVector createVector(BufferAllocator allocator) {
     FieldVector vector = fieldType.createNewSingleVector(this, allocator, null);
     vector.initializeChildrenFromFields(children);
@@ -279,12 +277,12 @@ public class Field {
       return false;
     }
     Field that = (Field) obj;
-    return Objects.equals(this.name, that.name) &&
-        this.isNullable() == that.isNullable() &&
-        Objects.equals(this.getType(), that.getType()) &&
-        Objects.equals(this.getDictionary(), that.getDictionary()) &&
-        Objects.equals(this.getMetadata(), that.getMetadata()) &&
-        Objects.equals(this.children, that.children);
+    return Objects.equals(this.name, that.name)
+        && this.isNullable() == that.isNullable()
+        && Objects.equals(this.getType(), that.getType())
+        && Objects.equals(this.getDictionary(), that.getDictionary())
+        && Objects.equals(this.getMetadata(), that.getMetadata())
+        && Objects.equals(this.children, that.children);
   }
 
   @Override

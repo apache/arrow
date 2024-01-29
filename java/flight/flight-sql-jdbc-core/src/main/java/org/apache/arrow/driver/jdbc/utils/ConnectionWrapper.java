@@ -314,8 +314,7 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public Struct createStruct(final String typeName, final Object[] attributes)
-      throws SQLException {
+  public Struct createStruct(final String typeName, final Object[] attributes) throws SQLException {
     return realConnection.createStruct(typeName, attributes);
   }
 

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Metadata;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;

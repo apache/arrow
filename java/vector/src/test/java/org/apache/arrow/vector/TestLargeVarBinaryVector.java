@@ -25,7 +25,6 @@ import static org.junit.Assert.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -74,7 +73,8 @@ public class TestLargeVarBinaryVector {
 
         // verify results
         assertTrue(vector.isNull(0));
-        assertEquals(str, new String(Objects.requireNonNull(vector.get(1)), StandardCharsets.UTF_8));
+        assertEquals(
+            str, new String(Objects.requireNonNull(vector.get(1)), StandardCharsets.UTF_8));
       }
     }
   }
@@ -102,7 +102,8 @@ public class TestLargeVarBinaryVector {
         vector.setSafe(1, nullHolder);
 
         // verify results
-        assertEquals(str, new String(Objects.requireNonNull(vector.get(0)), StandardCharsets.UTF_8));
+        assertEquals(
+            str, new String(Objects.requireNonNull(vector.get(0)), StandardCharsets.UTF_8));
         assertTrue(vector.isNull(1));
       }
     }
@@ -122,12 +123,16 @@ public class TestLargeVarBinaryVector {
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
       byte[] oldBuffer = reusableByteArray.getBuffer();
-      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str2.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());

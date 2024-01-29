@@ -18,6 +18,7 @@
 package org.apache.arrow.flight;
 
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -26,12 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.apache.arrow.flight.impl.Flight;
 
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-
-/**
- * A POJO representation of the execution of a long-running query.
- */
+/** A POJO representation of the execution of a long-running query. */
 public class PollInfo {
   private final FlightInfo flightInfo;
   private final FlightDescriptor flightDescriptor;
@@ -64,9 +60,11 @@ public class PollInfo {
     this.flightDescriptor =
         flt.hasFlightDescriptor() ? new FlightDescriptor(flt.getFlightDescriptor()) : null;
     this.progress = flt.hasProgress() ? flt.getProgress() : null;
-    this.expirationTime = flt.hasExpirationTime() ?
-        Instant.ofEpochSecond(flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime())) :
-        null;
+    this.expirationTime =
+        flt.hasExpirationTime()
+            ? Instant.ofEpochSecond(
+                flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()))
+            : null;
   }
 
   /**
