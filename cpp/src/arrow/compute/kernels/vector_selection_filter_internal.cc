@@ -166,10 +166,10 @@ class PrimitiveFilterImpl {
         values_length_(values.length),
         filter_(filter),
         null_selection_(null_selection) {
-    if (kByteWidth >= 0 && !kIsBoolean) {
+    if constexpr (kByteWidth >= 0 && !kIsBoolean) {
       DCHECK_EQ(kByteWidth, byte_width_);
     }
-    if (!kIsBoolean) {
+    if constexpr (!kIsBoolean) {
       // No offset applied for boolean because it's a bitmap
       values_data_ += values.offset * byte_width();
     }

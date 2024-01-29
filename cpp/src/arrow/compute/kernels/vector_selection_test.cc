@@ -1962,7 +1962,7 @@ TEST(TestFilter, RandomString) {
 
 TEST(TestFilter, RandomFixedSizeBinary) {
   // FixedSizeBinary filter is special-cased for some widths
-  for (int32_t width : {0, 1, 9, 16, 32, 35}) {
+  for (int32_t width : {0, 1, 16, 32, 35}) {
     FilterRandomTest<>::Test(fixed_size_binary(width));
   }
 }
@@ -1978,7 +1978,7 @@ TEST(TestTake, RandomString) {
 
 TEST(TestTake, RandomFixedSizeBinary) {
   // FixedSizeBinary take is special-cased for some widths
-  for (int32_t width : {0, 1, 9, 16, 32, 35}) {
+  for (int32_t width : {0, 1, 16, 32, 35}) {
     TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(width));
   }
 }

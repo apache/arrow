@@ -396,6 +396,8 @@ void TakeSetArgs(benchmark::internal::Benchmark* bench) {
 void TakeFSBSetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : g_data_sizes) {
     for (auto nulls : std::vector<ArgsType>({1000, 10, 2, 1, 0})) {
+      // FixedSizeBinary of primitive sizes (powers of two up to 32)
+      // have a faster path.
       for (int32_t byte_width : {8, 9}) {
         bench->Args({static_cast<ArgsType>(size), nulls, byte_width});
       }
