@@ -31,6 +31,7 @@ from pyarrow.tests import util
 from pyarrow.util import guid
 from pyarrow.vendored.version import Version
 
+from pyarrow.fs import (FileSelector, LocalFileSystem)
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
@@ -62,7 +63,7 @@ def test_filesystem_uri(tempdir):
 
     # filesystem object
     result = pq.read_table(
-        path, filesystem=fs.LocalFileSystem())
+        path, filesystem=LocalFileSystem())
     assert result.equals(table)
 
     # filesystem URI
@@ -73,17 +74,17 @@ def test_filesystem_uri(tempdir):
 
 @pytest.mark.pandas
 def test_read_partitioned_directory(tempdir):
-    fs = fs.LocalFileSystem()
-    _partition_test_for_filesystem(fs, tempdir)
+    local = LocalFileSystem()
+    _partition_test_for_filesystem(local, tempdir)
 
 
 @pytest.mark.pandas
 def test_read_partitioned_columns_selection(tempdir):
     # ARROW-3861 - do not include partition columns in resulting table when
     # `columns` keyword was passed without those columns
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
-    _partition_test_for_filesystem(fs, base_path)
+    _partition_test_for_filesystem(local, base_path)
 
     dataset = pq.ParquetDataset(base_path)
     result = dataset.read(columns=["values"])
@@ -92,7 +93,7 @@ def test_read_partitioned_columns_selection(tempdir):
 
 @pytest.mark.pandas
 def test_filters_equivalency(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1]
@@ -111,12 +112,12 @@ def test_filters_equivalency(tempdir):
                            3),
     }, columns=['integer', 'string', 'boolean'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     # Old filters syntax:
     #  integer == 1 AND string != b AND boolean == True
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[('integer', '=', 1), ('string', '!=', 'b'),
                  ('boolean', '==', 'True')],
     )
@@ -140,7 +141,7 @@ def test_filters_equivalency(tempdir):
         [('integer', '=', 0), ('boolean', '==', 'False')]
     ]
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs, filters=filters)
+        base_path, filesystem=local, filters=filters)
     table = dataset.read()
     result_df = table.to_pandas().reset_index(drop=True)
 
@@ -157,13 +158,13 @@ def test_filters_equivalency(tempdir):
     for filters in [[[('string', '==', b'1\0a')]],
                     [[('string', '==', '1\0a')]]]:
         dataset = pq.ParquetDataset(
-            base_path, filesystem=fs, filters=filters)
+            base_path, filesystem=local, filters=filters)
         assert dataset.read().num_rows == 0
 
 
 @pytest.mark.pandas
 def test_filters_cutoff_exclusive_integer(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -177,10 +178,10 @@ def test_filters_cutoff_exclusive_integer(tempdir):
         'integers': np.array(integer_keys, dtype='i4'),
     }, columns=['index', 'integers'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[
             ('integers', '<', 4),
             ('integers', '>', 1),
@@ -203,7 +204,7 @@ def test_filters_cutoff_exclusive_integer(tempdir):
 )
 @pytest.mark.pandas
 def test_filters_cutoff_exclusive_datetime(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     date_keys = [
@@ -223,10 +224,10 @@ def test_filters_cutoff_exclusive_datetime(tempdir):
         'dates': np.array(date_keys, dtype='datetime64'),
     }, columns=['index', 'dates'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[
             ('dates', '<', "2018-04-12"),
             ('dates', '>', "2018-04-10")
@@ -263,7 +264,7 @@ def test_filters_inclusive_datetime(tempdir):
 
 @pytest.mark.pandas
 def test_filters_inclusive_integer(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -277,10 +278,10 @@ def test_filters_inclusive_integer(tempdir):
         'integers': np.array(integer_keys, dtype='i4'),
     }, columns=['index', 'integers'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[
             ('integers', '<=', 3),
             ('integers', '>=', 2),
@@ -297,7 +298,7 @@ def test_filters_inclusive_integer(tempdir):
 
 @pytest.mark.pandas
 def test_filters_inclusive_set(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1]
@@ -316,10 +317,10 @@ def test_filters_inclusive_set(tempdir):
                            3),
     }, columns=['integer', 'string', 'boolean'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[('string', 'in', 'ab')],
     )
     table = dataset.read()
@@ -330,7 +331,7 @@ def test_filters_inclusive_set(tempdir):
     assert 'c' not in result_df['string'].values
 
     dataset = pq.ParquetDataset(
-        base_path, filesystem=fs,
+        base_path, filesystem=local,
         filters=[('integer', 'in', [1]), ('string', 'in', ('a', 'b')),
                  ('boolean', 'not in', {'False'})],
     )
@@ -344,7 +345,7 @@ def test_filters_inclusive_set(tempdir):
 
 @pytest.mark.pandas
 def test_filters_invalid_pred_op(tempdir):
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -358,26 +359,26 @@ def test_filters_invalid_pred_op(tempdir):
         'integers': np.array(integer_keys, dtype='i4'),
     }, columns=['index', 'integers'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     with pytest.raises(TypeError):
         pq.ParquetDataset(base_path,
-                          filesystem=fs,
+                          filesystem=local,
                           filters=[('integers', 'in', 3), ])
 
     with pytest.raises(ValueError):
         pq.ParquetDataset(base_path,
-                          filesystem=fs,
+                          filesystem=local,
                           filters=[('integers', '=<', 3), ])
 
     # Dataset API returns empty table
     dataset = pq.ParquetDataset(base_path,
-                                filesystem=fs,
+                                filesystem=local,
                                 filters=[('integers', 'in', set()), ])
     assert dataset.read().num_rows == 0
 
     dataset = pq.ParquetDataset(base_path,
-                                filesystem=fs,
+                                filesystem=local,
                                 filters=[('integers', '!=', {3})])
     with pytest.raises(NotImplementedError):
         assert dataset.read().num_rows == 0
@@ -387,7 +388,7 @@ def test_filters_invalid_pred_op(tempdir):
 def test_filters_invalid_column(tempdir):
     # ARROW-5572 - raise error on invalid name in filter specification
     # works with new dataset
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -399,11 +400,11 @@ def test_filters_invalid_column(tempdir):
         'integers': np.array(integer_keys, dtype='i4'),
     }, columns=['index', 'integers'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     msg = r"No match for FieldRef.Name\(non_existent_column\)"
     with pytest.raises(ValueError, match=msg):
-        pq.ParquetDataset(base_path, filesystem=fs,
+        pq.ParquetDataset(base_path, filesystem=local,
                           filters=[('non_existent_column', '<', 3), ]).read()
 
 
@@ -418,7 +419,7 @@ def test_filters_invalid_column(tempdir):
 def test_filters_read_table(tempdir, filters, read_method):
     read = getattr(pq, read_method)
     # test that filters keyword is passed through in read_table
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     integer_keys = [0, 1, 2, 3, 4]
@@ -433,9 +434,9 @@ def test_filters_read_table(tempdir, filters, read_method):
         'nested': np.array([{'a': i, 'b': str(i)} for i in range(N)])
     })
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
-    kwargs = dict(filesystem=fs, filters=filters)
+    kwargs = dict(filesystem=local, filters=filters)
 
     table = read(base_path, **kwargs)
     assert table.num_rows == 3
@@ -444,7 +445,7 @@ def test_filters_read_table(tempdir, filters, read_method):
 @pytest.mark.pandas
 def test_partition_keys_with_underscores(tempdir):
     # ARROW-5666 - partition field values with underscores preserve underscores
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
     base_path = tempdir
 
     string_keys = ["2019_2", "2019_3"]
@@ -458,7 +459,7 @@ def test_partition_keys_with_underscores(tempdir):
         'year_week': np.array(string_keys, dtype='object'),
     }, columns=['index', 'year_week'])
 
-    _generate_partition_directories(fs, base_path, partition_spec, df)
+    _generate_partition_directories(local, base_path, partition_spec, df)
 
     dataset = pq.ParquetDataset(base_path)
     result = dataset.read()
@@ -561,25 +562,41 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                 str(base_dir),
                 '{}={}'.format(name, value)
             ])
-            fs.mkdir(level_dir)
+            try:
+                fs.create_dir(level_dir)
+            except AttributeError:
+                fs.mkdir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
                 file_path = pathsep.join([level_dir, guid()])
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
-                with fs.open(file_path, 'wb') as f:
-                    _write_table(part_table, f)
-                assert fs.exists(file_path)
+                try:
+                    with fs.open_output_stream(file_path) as f:
+                        _write_table(part_table, f)
+                    assert os.path.exists(file_path)
+                except AttributeError:
+                    with fs.open(file_path, 'wb') as f:
+                        _write_table(part_table, f)
+                    assert fs.exists(file_path)
 
                 file_success = pathsep.join([level_dir, '_SUCCESS'])
-                with fs.open(file_success, 'wb') as f:
-                    pass
+                try:
+                    with fs.open_output_stream(file_success) as f:
+                        pass
+                except AttributeError:
+                    with fs.open(file_success, 'wb') as f:
+                        pass
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
                 file_success = pathsep.join([level_dir, '_SUCCESS'])
-                with fs.open(file_success, 'wb') as f:
-                    pass
+                try:
+                    with fs.open_output_stream(file_success) as f:
+                        pass
+                except AttributeError:
+                    with fs.open(file_success, 'wb') as f:
+                        pass
 
     _visit_level(base_dir, 0, [])
 
@@ -988,15 +1005,24 @@ def _test_write_to_dataset_no_partitions(base_path,
     output_table = pa.Table.from_pandas(output_df)
 
     if filesystem is None:
-        filesystem = fs.LocalFileSystem()
+        filesystem = LocalFileSystem()
 
     # Without partitions, append files to root_path
     n = 5
     for i in range(n):
         pq.write_to_dataset(output_table, base_path,
                             filesystem=filesystem)
-    output_files = [file for file in filesystem.ls(str(base_path))
-                    if file.endswith(".parquet")]
+
+    try:
+        output_files = [file for file in filesystem.ls(str(base_path))
+                        if file.endswith(".parquet")]
+    except AttributeError:
+        selector = FileSelector(str(base_path), allow_not_found=False,
+                                recursive=True)
+        assert selector.base_dir == str(base_path)
+
+        infos = filesystem.get_file_info(selector)
+        output_files = [info for info in infos if (info.path.endswith(".parquet"))]
     assert len(output_files) == n
 
     # Deduplicated incoming DataFrame should match
@@ -1082,14 +1108,14 @@ def test_write_to_dataset_filesystem(tempdir):
     table = pa.Table.from_pandas(df)
     path = str(tempdir)
 
-    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    pq.write_to_dataset(table, path, filesystem=LocalFileSystem())
     result = pq.read_table(path)
     assert result.equals(table)
 
 
 def _make_dataset_for_pickling(tempdir, N=100):
     path = tempdir / 'data.parquet'
-    fs = fs.LocalFileSystem()
+    local = LocalFileSystem()
 
     df = pd.DataFrame({
         'index': np.arange(N),
@@ -1106,11 +1132,11 @@ def _make_dataset_for_pickling(tempdir, N=100):
     assert reader.metadata.num_row_groups == num_groups
 
     metadata_path = tempdir / '_metadata'
-    with fs.open(metadata_path, 'wb') as f:
+    with local.open_output_stream(str(metadata_path)) as f:
         pq.write_metadata(table.schema, f)
 
     dataset = pq.ParquetDataset(
-        tempdir, filesystem=fs)
+        tempdir, filesystem=local)
 
     return dataset
 
@@ -1228,7 +1254,7 @@ def test_parquet_dataset_new_filesystem(tempdir):
     # Ensure we can pass new FileSystem object to ParquetDataset
     table = pa.table({'a': [1, 2, 3]})
     pq.write_table(table, tempdir / 'data.parquet')
-    filesystem = fs.SubTreeFileSystem(str(tempdir), fs.LocalFileSystem())
+    filesystem = fs.SubTreeFileSystem(str(tempdir), LocalFileSystem())
     dataset = pq.ParquetDataset('.', filesystem=filesystem)
     result = dataset.read()
     assert result.equals(table)
