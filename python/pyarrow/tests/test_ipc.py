@@ -142,11 +142,11 @@ def stream_fixture():
 
 @pytest.fixture(params=[
     pytest.param(
-        pytest.lazy_fixture('file_fixture'),
+        'file_fixture',
         id='File Format'
     ),
     pytest.param(
-        pytest.lazy_fixture('stream_fixture'),
+        'stream_fixture',
         id='Stream Format'
     )
 ])
@@ -590,7 +590,8 @@ def test_read_options_included_fields(stream_fixture):
     assert result1 == table
 
 
-def test_dictionary_delta(format_fixture):
+def test_dictionary_delta(format_fixture, request):
+    format_fixture = request.getfixturevalue(format_fixture)
     ty = pa.dictionary(pa.int8(), pa.utf8())
     data = [["foo", "foo", None],
             ["foo", "bar", "foo"],  # potential delta

@@ -127,7 +127,8 @@ class InvalidRowHandler:
                 other.result != self.result)
 
 
-def test_read_options(pickle_module):
+def test_read_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cls = ReadOptions
     opts = cls()
 
@@ -182,7 +183,8 @@ def test_read_options(pickle_module):
         opts.validate()
 
 
-def test_parse_options(pickle_module):
+def test_parse_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cls = ParseOptions
     skip_handler = InvalidRowHandler('skip')
 
@@ -242,7 +244,8 @@ def test_parse_options(pickle_module):
         opts.validate()
 
 
-def test_convert_options(pickle_module):
+def test_convert_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cls = ConvertOptions
     opts = cls()
 
@@ -624,7 +627,8 @@ class BaseTestCSV(abc.ABC):
                             read_options=read_options,
                             convert_options=convert_options)
 
-    def test_invalid_row_handler(self, pickle_module):
+    def test_invalid_row_handler(self, pickle_module, request):
+        pickle_module = request.getfixturevalue(pickle_module)
         rows = b"a,b\nc\nd,e\nf,g,h\ni,j\n"
         parse_opts = ParseOptions()
         with pytest.raises(

@@ -60,7 +60,8 @@ def check_options_class_pickling(cls, pickler, **attr_values):
         assert getattr(new_opts, name) == value
 
 
-def test_read_options(pickle_module):
+def test_read_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cls = ReadOptions
     opts = cls()
 
@@ -81,7 +82,8 @@ def test_read_options(pickle_module):
                                  use_threads=False)
 
 
-def test_parse_options(pickle_module):
+def test_parse_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cls = ParseOptions
     opts = cls()
     assert opts.newlines_in_values is False

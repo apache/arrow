@@ -800,7 +800,8 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable(pickle_module):
+def test_types_picklable(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     for ty in get_many_types():
         data = pickle_module.dumps(ty)
         assert pickle_module.loads(data) == ty

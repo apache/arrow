@@ -381,7 +381,8 @@ def check_buffer_pickling(buf, pickler):
         assert result.is_mutable == buf.is_mutable
 
 
-def test_buffer_bytes(pickle_module):
+def test_buffer_bytes(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     val = b'some data'
 
     buf = pa.py_buffer(val)
@@ -395,7 +396,8 @@ def test_buffer_bytes(pickle_module):
     check_buffer_pickling(buf, pickle_module)
 
 
-def test_buffer_null_data(pickle_module):
+def test_buffer_null_data(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     null_buff = pa.foreign_buffer(address=0, size=0)
     assert null_buff.to_pybytes() == b""
     assert null_buff.address == 0
@@ -408,7 +410,8 @@ def test_buffer_null_data(pickle_module):
     check_buffer_pickling(null_buff, pickle_module)
 
 
-def test_buffer_memoryview(pickle_module):
+def test_buffer_memoryview(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     val = b'some data'
 
     buf = pa.py_buffer(val)
@@ -422,7 +425,8 @@ def test_buffer_memoryview(pickle_module):
     check_buffer_pickling(buf, pickle_module)
 
 
-def test_buffer_bytearray(pickle_module):
+def test_buffer_bytearray(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     val = bytearray(b'some data')
 
     buf = pa.py_buffer(val)
@@ -712,7 +716,8 @@ def test_cache_options():
     assert opts6 != opts1
 
 
-def test_cache_options_pickling(pickle_module):
+def test_cache_options_pickling(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     options = [
         pa.CacheOptions(),
         pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192,

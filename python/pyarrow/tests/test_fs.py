@@ -362,54 +362,54 @@ def py_fsspec_s3fs(request, s3_server):
 
 @pytest.fixture(params=[
     pytest.param(
-        pytest.lazy_fixture('localfs'),
+        'localfs',
         id='LocalFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('localfs_with_mmap'),
+        'localfs_with_mmap',
         id='LocalFileSystem(use_mmap=True)'
     ),
     pytest.param(
-        pytest.lazy_fixture('subtree_localfs'),
+        'subtree_localfs',
         id='SubTreeFileSystem(LocalFileSystem())'
     ),
     pytest.param(
-        pytest.lazy_fixture('s3fs'),
+        's3fs',
         id='S3FileSystem',
         marks=pytest.mark.s3
     ),
     pytest.param(
-        pytest.lazy_fixture('gcsfs'),
+        'gcsfs',
         id='GcsFileSystem',
         marks=pytest.mark.gcs
     ),
     pytest.param(
-        pytest.lazy_fixture('hdfs'),
+        'hdfs',
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
     ),
     pytest.param(
-        pytest.lazy_fixture('mockfs'),
+        'mockfs',
         id='_MockFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_localfs'),
+        'py_localfs',
         id='PyFileSystem(ProxyHandler(LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_mockfs'),
+        'py_mockfs',
         id='PyFileSystem(ProxyHandler(_MockFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_localfs'),
+        'py_fsspec_localfs',
         id='PyFileSystem(FSSpecHandler(fsspec.LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_memoryfs'),
+        'py_fsspec_memoryfs',
         id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_s3fs'),
+        'py_fsspec_s3fs',
         id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
         marks=pytest.mark.s3
     ),
@@ -419,22 +419,26 @@ def filesystem_config(request):
 
 
 @pytest.fixture
-def fs(request, filesystem_config):
+def fs(filesystem_config, request):
+    filesystem_config = request.getfixturevalue(filesystem_config)
     return filesystem_config['fs']
 
 
 @pytest.fixture
-def pathfn(request, filesystem_config):
+def pathfn(filesystem_config, request):
+    filesystem_config = request.getfixturevalue(filesystem_config)
     return filesystem_config['pathfn']
 
 
 @pytest.fixture
-def allow_move_dir(request, filesystem_config):
+def allow_move_dir(filesystem_config, request):
+    filesystem_config = request.getfixturevalue(filesystem_config)
     return filesystem_config['allow_move_dir']
 
 
 @pytest.fixture
-def allow_append_to_file(request, filesystem_config):
+def allow_append_to_file(filesystem_config, request):
+    filesystem_config = request.getfixturevalue(filesystem_config)
     return filesystem_config['allow_append_to_file']
 
 
@@ -542,7 +546,8 @@ def test_filesystem_equals():
     assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
 
 
-def test_filesystem_equals_none(fs):
+def test_filesystem_equals_none(fs, request):
+    fs = request.getfixturevalue(fs)
     with pytest.raises(TypeError, match="got NoneType"):
         fs.equals(None)
 
@@ -565,7 +570,8 @@ def test_subtree_filesystem():
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
-def test_filesystem_pickling(fs, pickle_module):
+def test_filesystem_pickling(fs, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
 
@@ -575,7 +581,8 @@ def test_filesystem_pickling(fs, pickle_module):
     assert restored.equals(fs)
 
 
-def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module):
+def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
     skip_fsspec_s3fs(fs)
@@ -1089,7 +1096,8 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.gcs
-def test_gcs_options(pickle_module):
+def test_gcs_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     from pyarrow.fs import GcsFileSystem
     dt = datetime.now()
     fs = GcsFileSystem(access_token='abc',
@@ -1127,7 +1135,8 @@ def test_gcs_options(pickle_module):
 
 
 @pytest.mark.s3
-def test_s3_options(pickle_module):
+def test_s3_options(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
                             AwsStandardS3RetryStrategy, S3FileSystem,
                             S3RetryStrategy)
@@ -1211,7 +1220,8 @@ def test_s3_options(pickle_module):
 
 
 @pytest.mark.s3
-def test_s3_proxy_options(monkeypatch, pickle_module):
+def test_s3_proxy_options(monkeypatch, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     from pyarrow.fs import S3FileSystem
 
     # The following two are equivalent:
@@ -1376,7 +1386,8 @@ def test_s3fs_wrong_region():
 
 
 @pytest.mark.hdfs
-def test_hdfs_options(hdfs_connection, pickle_module):
+def test_hdfs_options(hdfs_connection, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     from pyarrow.fs import HadoopFileSystem
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
@@ -1553,7 +1564,8 @@ def test_py_filesystem_equality():
     assert fs1 != object()
 
 
-def test_py_filesystem_pickling(pickle_module):
+def test_py_filesystem_pickling(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     handler = DummyHandler()
     fs = PyFileSystem(handler)
 

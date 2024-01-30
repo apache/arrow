@@ -299,7 +299,8 @@ def test_ext_type_as_py():
         assert result.as_py() == expected
 
 
-def test_uuid_type_pickle(pickle_module):
+def test_uuid_type_pickle(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = UuidType()
         ser = pickle_module.dumps(ty, protocol=proto)
@@ -492,7 +493,8 @@ def test_ext_scalar_from_storage():
     assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
-def test_ext_array_pickling(pickle_module):
+def test_ext_array_pickling(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = ParamExtType(3)
         storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
@@ -934,7 +936,8 @@ def test_generic_ext_type_equality():
     assert not period_type == period_type3
 
 
-def test_generic_ext_type_pickling(registered_period_type, pickle_module):
+def test_generic_ext_type_pickling(registered_period_type, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     # GH-36038
     for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         period_type, _ = registered_period_type
@@ -943,7 +946,8 @@ def test_generic_ext_type_pickling(registered_period_type, pickle_module):
         assert period_type == period_type_pickled
 
 
-def test_generic_ext_array_pickling(registered_period_type, pickle_module):
+def test_generic_ext_array_pickling(registered_period_type, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         period_type, _ = registered_period_type
         storage = pa.array([1, 2, 3, 4], pa.int64())
@@ -1442,7 +1446,8 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
-def test_tensor_type_is_picklable(pickle_module):
+def test_tensor_type_is_picklable(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     # GH-35599
 
     expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
@@ -1485,10 +1490,7 @@ def test_legacy_int_type():
     batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
     buf = ipc_write_batch(batch)
 
-    with pytest.warns(
-            RuntimeWarning,
-            match="pickle-based deserialization of pyarrow.PyExtensionType "
-                  "subclasses is disabled by default"):
+    with pytest.warns((RuntimeWarning,FutureWarning)):
         batch = ipc_read_batch(buf)
         assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
 

@@ -1,8 +1,7 @@
 cffi
 cython
 hypothesis
-pytest<8
-pytest-lazy-fixture
+pytest
 pytz
 tzdata; sys_platform == 'win32'
 

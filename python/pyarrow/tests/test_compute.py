@@ -277,7 +277,8 @@ def test_call_function_with_memory_pool():
     assert result3.equals(expected)
 
 
-def test_pickle_functions(pickle_module):
+def test_pickle_functions(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     # Pickle registered functions
     for name in pc.list_functions():
         func = pc.get_function(name)
@@ -288,7 +289,8 @@ def test_pickle_functions(pickle_module):
         assert reconstructed.num_kernels == func.num_kernels
 
 
-def test_pickle_global_functions(pickle_module):
+def test_pickle_global_functions(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
         try:
@@ -3392,7 +3394,8 @@ def create_sample_expressions():
 # Tests the Arrow-specific serialization mechanism
 
 
-def test_expression_serialization_arrow(pickle_module):
+def test_expression_serialization_arrow(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     for expr in create_sample_expressions()["all"]:
         assert isinstance(expr, pc.Expression)
         restored = pickle_module.loads(pickle_module.dumps(expr))

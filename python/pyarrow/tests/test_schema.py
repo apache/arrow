@@ -584,7 +584,8 @@ two: int32""")
     assert repr(sch) == expected
 
 
-def test_type_schema_pickling(pickle_module):
+def test_type_schema_pickling(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     cases = [
         pa.int8(),
         pa.string(),

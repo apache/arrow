@@ -67,7 +67,8 @@ from pyarrow.tests import util
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass, pickle_module):
+def test_basics(value, ty, klass, pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -109,7 +110,8 @@ def test_null_singleton():
         pa.NullScalar()
 
 
-def test_nulls(pickle_module):
+def test_nulls(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     null = pa.scalar(None)
     assert null is pa.NA
     assert null.as_py() is None
@@ -691,7 +693,8 @@ def test_struct_duplicate_fields():
         s.as_py()
 
 
-def test_map(pickle_module):
+def test_map(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]
     s = pa.scalar(v, type=ty)
@@ -729,7 +732,8 @@ def test_map(pickle_module):
     assert restored.equals(s)
 
 
-def test_dictionary(pickle_module):
+def test_dictionary(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     indices = pa.array([2, None, 1, 2, 0, None])
     dictionary = pa.array(['foo', 'bar', 'baz'])
 
@@ -770,7 +774,8 @@ def test_run_end_encoded():
         pa.scalar(1, pa.run_end_encoded(pa.int64(), pa.int64()))
 
 
-def test_union(pickle_module):
+def test_union(pickle_module, request):
+    pickle_module = request.getfixturevalue(pickle_module)
     # sparse
     arr = pa.UnionArray.from_sparse(
         pa.array([0, 0, 1, 1], type=pa.int8()),
