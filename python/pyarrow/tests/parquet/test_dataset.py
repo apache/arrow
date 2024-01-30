@@ -1137,8 +1137,7 @@ def _make_dataset_for_pickling(tempdir, N=100):
 
 
 @pytest.mark.pandas
-def test_pickle_dataset(tempdir, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_pickle_dataset(tempdir, pickle_module):
 
     def is_pickleable(obj):
         return obj == pickle_module.loads(pickle_module.dumps(obj))

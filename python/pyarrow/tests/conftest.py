@@ -264,7 +264,7 @@ def gcs_server():
     scope='session'
 )
 def pickle_module(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(scope='session')

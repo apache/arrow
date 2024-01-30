@@ -2029,8 +2029,7 @@ pickle_test_parametrize = pytest.mark.parametrize(
 
 
 @pickle_test_parametrize
-def test_array_pickle(data, typ, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_array_pickle(data, typ, pickle_module):
     # Allocate here so that we don't have any Arrow data allocated.
     # This is needed to ensure that allocator tests can be reliable.
     array = pa.array(data, type=typ)
@@ -2039,8 +2038,7 @@ def test_array_pickle(data, typ, pickle_module, request):
         assert array.equals(result)
 
 
-def test_array_pickle_dictionary(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_array_pickle_dictionary(pickle_module):
     # not included in the above as dictionary array cannot be created with
     # the pa.array function
     array = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1], ['a', 'b', 'c'])
@@ -2056,16 +2054,14 @@ def test_array_pickle_dictionary(pickle_module, request):
         size=st.integers(min_value=0, max_value=10)
     )
 )
-def test_pickling(arr, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_pickling(arr, pickle_module):
     data = pickle_module.dumps(arr)
     restored = pickle_module.loads(data)
     assert arr.equals(restored)
 
 
 @pickle_test_parametrize
-def test_array_pickle_protocol5(data, typ, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_array_pickle_protocol5(data, typ, pickle_module):
     # Test zero-copy pickling with protocol 5 (PEP 574)
     array = pa.array(data, type=typ)
     addresses = [buf.address if buf is not None else 0

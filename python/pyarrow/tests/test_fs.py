@@ -570,8 +570,7 @@ def test_subtree_filesystem():
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
-def test_filesystem_pickling(fs, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_filesystem_pickling(fs, pickle_module):
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
 
@@ -581,8 +580,7 @@ def test_filesystem_pickling(fs, pickle_module, request):
     assert restored.equals(fs)
 
 
-def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module):
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
     skip_fsspec_s3fs(fs)
@@ -1096,8 +1094,7 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
 
 @pytest.mark.gcs
-def test_gcs_options(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_gcs_options(pickle_module):
     from pyarrow.fs import GcsFileSystem
     dt = datetime.now()
     fs = GcsFileSystem(access_token='abc',
@@ -1135,8 +1132,7 @@ def test_gcs_options(pickle_module, request):
 
 
 @pytest.mark.s3
-def test_s3_options(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_s3_options(pickle_module):
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
                             AwsStandardS3RetryStrategy, S3FileSystem,
                             S3RetryStrategy)
@@ -1220,8 +1216,7 @@ def test_s3_options(pickle_module, request):
 
 
 @pytest.mark.s3
-def test_s3_proxy_options(monkeypatch, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_s3_proxy_options(monkeypatch, pickle_module):
     from pyarrow.fs import S3FileSystem
 
     # The following two are equivalent:
@@ -1386,8 +1381,7 @@ def test_s3fs_wrong_region():
 
 
 @pytest.mark.hdfs
-def test_hdfs_options(hdfs_connection, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_hdfs_options(hdfs_connection, pickle_module):
     from pyarrow.fs import HadoopFileSystem
     if not pa.have_libhdfs():
         pytest.skip('Cannot locate libhdfs')
@@ -1564,8 +1558,7 @@ def test_py_filesystem_equality():
     assert fs1 != object()
 
 
-def test_py_filesystem_pickling(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_py_filesystem_pickling(pickle_module):
     handler = DummyHandler()
     fs = PyFileSystem(handler)
 

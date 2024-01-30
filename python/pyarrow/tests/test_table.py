@@ -300,8 +300,7 @@ def test_chunked_array_equals():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
-def test_chunked_array_pickle(data, typ, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
         arrays.append(pa.array(data[:2], type=typ))
@@ -750,8 +749,7 @@ def test_recordbatch_empty_metadata():
     assert batch.schema.metadata is None
 
 
-def test_recordbatch_pickle(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_recordbatch_pickle(pickle_module):
     data = [
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
@@ -1185,8 +1183,7 @@ def test_table_from_lists():
     assert result.equals(expected)
 
 
-def test_table_pickle(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_table_pickle(pickle_module):
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),

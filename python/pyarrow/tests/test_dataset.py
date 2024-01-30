@@ -711,8 +711,7 @@ def test_partitioning():
         assert load_back is None
 
 
-def test_partitioning_pickling(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_partitioning_pickling(pickle_module):
     schema = pa.schema([
         pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64())
@@ -844,8 +843,7 @@ def test_parquet_scan_options():
     assert opts7 != opts1
 
 
-def test_file_format_pickling(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_file_format_pickling(pickle_module):
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
@@ -884,8 +882,7 @@ def test_file_format_pickling(pickle_module, request):
         assert pickle_module.loads(pickle_module.dumps(file_format)) == file_format
 
 
-def test_fragment_scan_options_pickling(pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_fragment_scan_options_pickling(pickle_module):
     options = [
         ds.CsvFragmentScanOptions(),
         ds.CsvFragmentScanOptions(
@@ -1068,8 +1065,7 @@ def test_make_fragment_with_size(s3_example_simple):
         table = dataset_with_size.to_table()
 
 
-def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module):
     content = textwrap.dedent("""
         alpha,num,animal
         a,12,dog
@@ -1094,8 +1090,7 @@ def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module, request):
     assert dataset_reader.to_table(pickled).equals(fragment.to_table())
 
 
-def test_make_json_fragment_from_buffer(dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_make_json_fragment_from_buffer(dataset_reader, pickle_module):
     content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + \
         '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + \
         '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
@@ -1118,8 +1113,7 @@ def test_make_json_fragment_from_buffer(dataset_reader, pickle_module, request):
 
 
 @pytest.mark.parquet
-def test_make_parquet_fragment_from_buffer(dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_make_parquet_fragment_from_buffer(dataset_reader, pickle_module):
     arrays = [
         pa.array(['a', 'b', 'c']),
         pa.array([12, 11, 10]),
@@ -1222,8 +1216,7 @@ def test_fragments_implicit_cast(tempdir):
 
 
 @pytest.mark.parquet
-def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
     def assert_yields_projected(fragment, row_slice,
@@ -1348,8 +1341,7 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs,
-                                           pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                           pickle_module):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
         tempdir, chunk_size=2, filesystem=fs
@@ -1391,8 +1383,7 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs,
 
 @pytest.mark.parquet
 def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs,
-                                              pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                              pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-15796
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(tempdir, filesystem=fs)
@@ -1557,8 +1548,7 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 
 @pytest.mark.parquet
 def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
-                                                  pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                                  pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
     fragment = list(dataset.get_fragments())[0]
@@ -1747,8 +1737,7 @@ def test_fragments_repr(tempdir, dataset):
 @pytest.mark.parquet
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
-def test_partitioning_factory(mockfs, pickled, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_partitioning_factory(mockfs, pickled, pickle_module):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
 
@@ -1783,8 +1772,7 @@ def test_partitioning_factory(mockfs, pickled, pickle_module, request):
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
 def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled,
-                                         pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                         pickle_module):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
@@ -1817,8 +1805,7 @@ def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled,
 
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
-def test_partitioning_factory_segment_encoding(pickled, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_partitioning_factory_segment_encoding(pickled, pickle_module):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1921,9 +1908,7 @@ def test_partitioning_factory_segment_encoding(pickled, pickle_module, request):
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
 def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled,
-                                                                pickle_module,
-                                                                request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                                                pickle_module):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -2221,15 +2206,13 @@ def _check_dataset_from_path(path, table, dataset_reader, pickler, **kwargs):
 
 
 @pytest.mark.parquet
-def test_open_dataset_single_file(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_open_dataset_single_file(tempdir, dataset_reader, pickle_module):
     table, path = _create_single_file(tempdir)
     _check_dataset_from_path(path, table, dataset_reader, pickle_module)
 
 
 @pytest.mark.parquet
-def test_deterministic_row_order(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_deterministic_row_order(tempdir, dataset_reader, pickle_module):
     # ARROW-8447 Ensure that dataset.to_table (and Scanner::ToTable) returns a
     # deterministic row ordering. This is achieved by constructing a single
     # parquet file with one row per RowGroup.
@@ -2238,16 +2221,14 @@ def test_deterministic_row_order(tempdir, dataset_reader, pickle_module, request
 
 
 @pytest.mark.parquet
-def test_open_dataset_directory(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_open_dataset_directory(tempdir, dataset_reader, pickle_module):
     tables, _ = _create_directory_of_files(tempdir)
     table = pa.concat_tables(tables)
     _check_dataset_from_path(tempdir, table, dataset_reader, pickle_module)
 
 
 @pytest.mark.parquet
-def test_open_dataset_list_of_files(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_open_dataset_list_of_files(tempdir, dataset_reader, pickle_module):
     tables, (path1, path2) = _create_directory_of_files(tempdir)
     table = pa.concat_tables(tables)
 
@@ -2286,8 +2267,7 @@ def test_open_dataset_filesystem_fspath(tempdir):
 
 
 @pytest.mark.parquet
-def test_construct_from_single_file(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_construct_from_single_file(tempdir, dataset_reader, pickle_module):
     directory = tempdir / 'single-file'
     directory.mkdir()
     table, path = _create_single_file(directory)
@@ -2308,8 +2288,7 @@ def test_construct_from_single_file(tempdir, dataset_reader, pickle_module, requ
 
 @pytest.mark.parquet
 def test_construct_from_single_directory(tempdir, dataset_reader,
-                                         pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                         pickle_module):
     directory = tempdir / 'single-directory'
     directory.mkdir()
     tables, paths = _create_directory_of_files(directory)
@@ -2520,8 +2499,7 @@ def _create_partitioned_dataset(basedir):
 
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir, dataset_reader,
-                                            pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+                                            pickle_module):
     full_table, path = _create_partitioned_dataset(tempdir)
 
     # no partitioning specified, just read all individual files
@@ -2588,8 +2566,7 @@ def test_open_dataset_unsupported_format(tempdir):
 
 
 @pytest.mark.parquet
-def test_open_union_dataset(tempdir, dataset_reader, pickle_module, request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_open_union_dataset(tempdir, dataset_reader, pickle_module):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
 
@@ -2687,9 +2664,7 @@ def test_partition_discovery(
 
 
 @pytest.mark.pandas
-def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module,
-                                                         request):
-    pickle_module = request.getfixturevalue(pickle_module)
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-11400
     table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
     part = ds.partitioning(table.select(['part']).schema, flavor="hive")
