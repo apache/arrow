@@ -546,7 +546,6 @@ def test_fixed_size_binary():
     # (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
-    breakpoint()
     v = ['foo', None]
     s = pa.scalar(v, type=ty)
     assert s.type == ty
