@@ -283,8 +283,8 @@ struct AzureLocation {
 template <typename... PrefixArgs>
 Status ExceptionToStatus(const Storage::StorageException& exception,
                          PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)...,
-                         " Azure Error: ", exception.what());
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
 }
 
 Status PathNotFound(const AzureLocation& location) {
