@@ -1032,7 +1032,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
     Concrete class for fixed shape tensor extension scalar.
     """
 
-    def to_numpy_ndarray(self):
+    def to_numpy(self):
         """
         Convert fixed shape tensor scalar to a numpy.ndarray.
 

@@ -3568,7 +3568,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
     ]
     """
 
-    def to_numpy_ndarray(self):
+    def to_numpy(self):
         """
         Convert fixed shape tensor extension array to a multi-dimensional numpy.ndarray.
 
@@ -3615,7 +3615,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
-    def from_numpy_ndarray(obj):
+    def from_numpy(obj):
         """
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
@@ -3665,7 +3665,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
-            FixedSizeListArray.from_arrays(values, obj[0].size)
+            FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
 

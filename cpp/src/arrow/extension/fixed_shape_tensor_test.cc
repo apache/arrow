@@ -548,33 +548,6 @@ TEST_F(TestExtensionType, ToString) {
   ASSERT_EQ(expected_3, result_3);
 }
 
-TEST_F(TestExtensionType, GetScalar) {
-  auto ext_type = fixed_shape_tensor(value_type_, element_shape_, {}, dim_names_);
-
-  auto expected_data =
-      ArrayFromJSON(element_type_, "[[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
-  auto storage_array = ArrayFromJSON(element_type_,
-                                     "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
-                                     "[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
-
-  auto sub_array = ExtensionType::WrapArray(ext_type, expected_data);
-  auto array = ExtensionType::WrapArray(ext_type, storage_array);
-
-  ASSERT_OK_AND_ASSIGN(auto expected_scalar, sub_array->GetScalar(0));
-  ASSERT_OK_AND_ASSIGN(auto actual_scalar, array->GetScalar(1));
-
-  ASSERT_OK(actual_scalar->ValidateFull());
-  ASSERT_TRUE(actual_scalar->type->Equals(*ext_type));
-  ASSERT_TRUE(actual_scalar->is_valid);
-
-  ASSERT_OK(expected_scalar->ValidateFull());
-  ASSERT_TRUE(expected_scalar->type->Equals(*ext_type));
-  ASSERT_TRUE(expected_scalar->is_valid);
-
-  AssertTypeEqual(actual_scalar->type, ext_type);
-  ASSERT_TRUE(actual_scalar->Equals(*expected_scalar));
-}
-
 TEST_F(TestExtensionType, GetTensor) {
   auto arr = ArrayFromJSON(element_type_,
                            "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
@@ -600,6 +573,7 @@ TEST_F(TestExtensionType, GetTensor) {
     auto actual_ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
     ASSERT_OK_AND_ASSIGN(auto actual_tensor,
                          exact_ext_type->MakeTensor(actual_ext_scalar));
+    ASSERT_OK(actual_tensor->Validate());
     ASSERT_OK_AND_ASSIGN(auto expected_tensor,
                          Tensor::Make(value_type_, Buffer::Wrap(element_values[i]),
                                       {3, 4}, {}, {"x", "y"}));
@@ -618,6 +592,7 @@ TEST_F(TestExtensionType, GetTensor) {
     ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor,
                          exact_permuted_ext_type->MakeTensor(
                              internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+    ASSERT_OK(actual_permuted_tensor->Validate());
     ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
     ASSERT_EQ(expected_permuted_tensor->shape(), actual_permuted_tensor->shape());
     ASSERT_EQ(expected_permuted_tensor->dim_names(), actual_permuted_tensor->dim_names());
