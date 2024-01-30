@@ -665,6 +665,14 @@ cdef class LargeStringScalar(StringScalar):
     pass
 
 
+cdef class BinaryViewScalar(BinaryScalar):
+    pass
+
+
+cdef class StringViewScalar(StringScalar):
+    pass
+
+
 cdef class ListScalar(Scalar):
     """
     Concrete class for list-like scalars.
@@ -1051,8 +1059,10 @@ cdef dict _scalar_classes = {
     _Type_BINARY: BinaryScalar,
     _Type_LARGE_BINARY: LargeBinaryScalar,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryScalar,
+    _Type_BINARY_VIEW: BinaryViewScalar,
     _Type_STRING: StringScalar,
     _Type_LARGE_STRING: LargeStringScalar,
+    _Type_STRING_VIEW: StringViewScalar,
     _Type_LIST: ListScalar,
     _Type_LARGE_LIST: LargeListScalar,
     _Type_FIXED_SIZE_LIST: FixedSizeListScalar,
