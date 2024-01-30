@@ -50,6 +50,7 @@ echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
 export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
 
+# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
 pip install \
   --upgrade \
   --only-binary=:all: \
