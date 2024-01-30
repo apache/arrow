@@ -720,13 +720,11 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
-cdef class ListViewScalar(Scalar):
-    """
-    Concrete class for list view scalars.
-    """
+cdef class ListViewScalar(ListScalar):
+    pass
 
 
-cdef class LargeListViewScalar(ListViewScalar):
+cdef class LargeListViewScalar(ListScalar):
     pass
 
 

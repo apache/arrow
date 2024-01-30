@@ -4639,7 +4639,9 @@ cpdef ListViewType list_view(value_type):
     --------
     Create an instance of ListViewType:
 
-    TODO
+    >>> import pyarrow as pa
+    >>> pa.list_view(pa.string())
+    ListViewType(list<item: string>)
     """
     cdef:
         Field _field
@@ -4676,7 +4678,9 @@ cpdef LargeListViewType large_list_view(value_type):
     --------
     Create an instance of LargeListViewType:
 
-    TODO
+    >>> import pyarrow as pa
+    >>> pa.large_list_view(pa.int8())
+    LargeListViewType(large_list<item: int8>)
     """
     cdef:
         Field _field

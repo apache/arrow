@@ -20,6 +20,7 @@
 
 #include <datetime.h>
 
+#include <iostream>
 #include <algorithm>
 #include <limits>
 #include <sstream>
@@ -1227,9 +1228,10 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     options.strict = true;
   }
   DCHECK_GE(size, 0);
-
+  std::cout << "HELLO1" << std::endl;
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
+                                             std::cout << "HELLO2" << std::endl;
   if (converter->may_overflow()) {
     // The converter hierarchy contains binary- or list-like builders which can overflow
     // depending on the input values. Wrap the converter with a chunker which detects
