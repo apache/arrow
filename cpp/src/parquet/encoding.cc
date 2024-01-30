@@ -2411,7 +2411,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     InitHeader();
   }
 
@@ -2769,7 +2773,11 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     DecoderImpl::SetData(num_values, data, len);
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     DecodeLengths();
   }
 
