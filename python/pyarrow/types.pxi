@@ -4641,7 +4641,7 @@ cpdef ListViewType list_view(value_type):
 
     >>> import pyarrow as pa
     >>> pa.list_view(pa.string())
-    ListViewType(list<item: string>)
+    ListViewType(list_view<item: string>)
     """
     cdef:
         Field _field
@@ -4680,7 +4680,7 @@ cpdef LargeListViewType large_list_view(value_type):
 
     >>> import pyarrow as pa
     >>> pa.large_list_view(pa.int8())
-    LargeListViewType(large_list<item: int8>)
+    LargeListViewType(large_list_view<item: int8>)
     """
     cdef:
         Field _field
