@@ -144,7 +144,7 @@ final class StreamTest {
             Collections.singletonList(
                 new Field(
                     "dict",
-                    new FieldType(/*nullable=*/ true, indexType, encoding),
+                    new FieldType(/* nullable= */ true, indexType, encoding),
                     Collections.emptyList())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final CDataDictionaryProvider provider = new CDataDictionaryProvider();
@@ -277,7 +277,8 @@ final class StreamTest {
   private static void assertVectorsEqual(FieldVector expected, FieldVector actual) {
     assertThat(actual.getField().getType()).isEqualTo(expected.getField().getType());
     assertThat(actual.getValueCount()).isEqualTo(expected.getValueCount());
-    final Range range = new Range(/*leftStart=*/ 0, /*rightStart=*/ 0, expected.getValueCount());
+    final Range range =
+        new Range(/* leftStart= */ 0, /* rightStart= */ 0, expected.getValueCount());
     assertThat(new RangeEqualsVisitor(expected, actual).rangeEquals(range))
         .as("Vectors were not equal.\nExpected: %s\nGot: %s", expected, actual)
         .isTrue();

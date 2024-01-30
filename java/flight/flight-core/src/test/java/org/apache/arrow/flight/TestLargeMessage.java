@@ -135,7 +135,8 @@ public class TestLargeMessage {
         CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try (VectorSchemaRoot root = flightStream.getRoot()) {
-          while (flightStream.next()) {;
+          while (flightStream.next()) {
+            ;
           }
         }
       };

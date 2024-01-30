@@ -134,7 +134,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     if (buffers[0] == NULL) {
       return null;
     }
-    return importFixedBits(type, 0, /*bitsPerSlot=*/ 1);
+    return importFixedBits(type, 0, /* bitsPerSlot= */ 1);
   }
 
   @Override
@@ -198,7 +198,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     switch (type.getPrecision()) {
       case HALF:
         return Arrays.asList(
-            maybeImportBitmap(type), importFixedBytes(type, 1, /*bytesPerSlot=*/ 2));
+            maybeImportBitmap(type), importFixedBytes(type, 1, /* bytesPerSlot= */ 2));
       case SINGLE:
         return Arrays.asList(
             maybeImportBitmap(type), importFixedBytes(type, 1, Float4Vector.TYPE_WIDTH));
@@ -288,7 +288,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Bool type) {
-    return Arrays.asList(maybeImportBitmap(type), importFixedBits(type, 1, /*bitsPerSlot=*/ 1));
+    return Arrays.asList(maybeImportBitmap(type), importFixedBits(type, 1, /* bitsPerSlot= */ 1));
   }
 
   @Override

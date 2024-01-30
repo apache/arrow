@@ -227,60 +227,6 @@
         </plugins>
       </build>
     </profile>
-
-    <profile>
-      <id>spotless-jdk8</id>
-      <activation>
-        <jdk>1.8</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>com.diffplug.spotless</groupId>
-            <artifactId>spotless-maven-plugin</artifactId>
-            <version>${spotless.version.jdk8}</version>
-            <configuration>
-              <!-- optional: limit format enforcement to just the files changed by this feature branch -->
-              <!--          <ratchetFrom>HEAD</ratchetFrom>-->
-              <formats>
-                <format>
-                  <!-- configure license for xml files -->
-                  <includes>
-                    <include>pom.xml</include>
-                  </includes>
-                  <licenseHeader>
-                    <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
-                    <delimiter>(&lt;configuration|&lt;project)</delimiter>
-                  </licenseHeader>
-                </format>
-              </formats>
-              <pom>
-                <indent>
-                  <tabs>true</tabs>
-                  <spacesPerTab>2</spacesPerTab>
-                </indent>
-                <indent>
-                  <spaces>true</spaces>
-                  <spacesPerTab>2</spacesPerTab>
-                </indent>
-                <sortPom>
-                  <expandEmptyElements>false</expandEmptyElements>
-                </sortPom>
-              </pom>
-            </configuration>
-            <executions>
-              <execution>
-                <id>spotless-check</id>
-                <goals>
-                  <goal>check</goal>
-                </goals>
-                <phase>validate</phase>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
   </profiles>
 
 </project>
