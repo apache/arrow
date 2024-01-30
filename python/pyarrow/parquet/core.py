@@ -1118,10 +1118,6 @@ def _get_pandas_index_columns(keyvalues):
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
-def _is_local_file_system(fs):
-    return isinstance(fs, LocalFileSystem)
-
-
 _read_docstring_common = """\
 read_dictionary : list, default None
     List of names or column paths (for nested types) to read directly
@@ -1298,7 +1294,7 @@ Examples
         if (
             hasattr(path_or_paths, "__fspath__") and
             filesystem is not None and
-            not _is_local_file_system(filesystem)
+            not isinstance(filesystem, LocalFileSystem)
         ):
             raise TypeError(
                 "Path-like objects with __fspath__ must only be used with "
