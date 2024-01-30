@@ -272,7 +272,7 @@ class CompressedInputStream::Impl {
     int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
     if (compressed_avail == 0) {
       // Ensure compressed_ buffer is allocated with kChunkSize.
-      if (supports_zero_copy_from_raw_) {
+      if (!supports_zero_copy_from_raw_) {
         if (compressed_for_non_zero_copy_ == nullptr) {
           ARROW_ASSIGN_OR_RAISE(compressed_for_non_zero_copy_,
                                 AllocateResizableBuffer(kChunkSize, pool_));
