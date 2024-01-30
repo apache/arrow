@@ -1212,7 +1212,8 @@ garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
 /**
  * garrow_timestamp_data_type_new:
  * @unit: The unit of the timestamp data.
- * @time_zone: (nullable): The time zone of the timestamp data.
+ * @time_zone: (nullable): The time zone of the timestamp data. If based GLib
+ *   is less than 2.58, this is ignored.
  *
  * Returns: A newly created the number of
  *   seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
@@ -1226,9 +1227,11 @@ garrow_timestamp_data_type_new(GArrowTimeUnit unit,
 {
   auto arrow_unit = garrow_time_unit_to_raw(unit);
   std::string arrow_timezone;
+#if GLIB_CHECK_VERSION(2, 58, 0)
   if (time_zone) {
     arrow_timezone = g_time_zone_get_identifier(time_zone);
   }
+#endif
   auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_timezone);
   auto data_type =
     GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
