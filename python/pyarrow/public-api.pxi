@@ -424,3 +424,22 @@ cdef api object pyarrow_wrap_batch(
     cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch
+
+
+cdef api bint pyarrow_is_record_batch_reader(object record_batch_reader):
+    return isinstance(record_batch_reader, RecordBatchReader)
+
+
+cdef api shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(object record_batch_reader):
+    cdef RecordBatchReader reader
+    if pyarrow_is_record_batch_reader(record_batch_reader):
+        reader = <RecordBatchReader>(record_batch_reader)
+        return reader.reader
+
+    return shared_ptr[CRecordBatchReader]()
+
+
+cdef api object pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& sp_record_batch_reader):
+    cdef RecordBatchReader reader = RecordBatchReader.__new__(RecordBatchReader)
+    reader.reader = sp_record_batch_reader
+    return reader
