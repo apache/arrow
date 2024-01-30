@@ -51,9 +51,8 @@ from pyarrow.tests import util
     (b"bytes", None, pa.BinaryScalar),
     ("largestring", pa.large_string(), pa.LargeStringScalar),
     (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar),
-    # TODO(GH-39633) pa.scalar(..) requires python->arrow conversion to be implemented
-    # ("string_view", pa.string_view(), pa.StringViewScalar),
-    # (b"bytes_view", pa.binary_view(), pa.BinaryViewScalar),
+    ("string_view", pa.string_view(), pa.StringViewScalar),
+    (b"bytes_view", pa.binary_view(), pa.BinaryViewScalar),
     (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar),
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
@@ -492,7 +491,7 @@ def test_month_day_nano_interval():
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.string(), pa.StringScalar),
     (pa.large_string(), pa.LargeStringScalar),
-    # (pa.string_view(), pa.StringViewScalar),
+    (pa.string_view(), pa.StringViewScalar),
 ])
 def test_string(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)
@@ -507,30 +506,11 @@ def test_string(value, ty, scalar_typ):
     assert buf.to_pybytes() == value.encode()
 
 
-@pytest.mark.parametrize('value', ['foo', 'mañana'])
-def test_string_view(value):
-    # TODO: replace with normal scalar construction
-    builder = pa.lib.StringViewBuilder()
-    builder.append(value)
-    arr = builder.finish()
-
-    s = arr[0]
-    assert isinstance(s, pa.StringViewScalar)
-    assert s.as_py() == value
-    assert s.as_py() != 'something'
-    assert repr(value) in repr(s)
-    assert str(s) == str(value)
-
-    buf = s.as_buffer()
-    assert isinstance(buf, pa.Buffer)
-    assert buf.to_pybytes() == value.encode()
-
-
 @pytest.mark.parametrize('value', [b'foo', b'bar'])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
     (pa.large_binary(), pa.LargeBinaryScalar),
-    # (pa.binary_view(), pa.BinaryViewScalar),
+    (pa.binary_view(), pa.BinaryViewScalar),
 ])
 def test_binary(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)

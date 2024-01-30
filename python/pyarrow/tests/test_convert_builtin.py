@@ -763,6 +763,16 @@ def test_sequence_unicode():
     assert arr.to_pylist() == data
 
 
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string(), pa.string_view()])
+def test_sequence_unicode_explicit_type(ty):
+    data = ['foo', 'bar', None, 'mañana']
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    assert arr.type == ty
+    assert arr.to_pylist() == data
+
+
 def check_array_mixed_unicode_bytes(binary_type, string_type):
     values = ['qux', b'foo', bytearray(b'barz')]
     b_values = [b'qux', b'foo', b'barz']
@@ -787,6 +797,7 @@ def check_array_mixed_unicode_bytes(binary_type, string_type):
 def test_array_mixed_unicode_bytes():
     check_array_mixed_unicode_bytes(pa.binary(), pa.string())
     check_array_mixed_unicode_bytes(pa.large_binary(), pa.large_string())
+    check_array_mixed_unicode_bytes(pa.binary_view(), pa.string_view())
 
 
 @pytest.mark.large_memory
@@ -818,7 +829,7 @@ def test_large_binary_value(ty):
 
 
 @pytest.mark.large_memory
-@pytest.mark.parametrize("ty", [pa.binary(), pa.string()])
+@pytest.mark.parametrize("ty", [pa.binary(), pa.string(), pa.string_view()])
 def test_string_too_large(ty):
     # Construct a binary array with a single value larger than 4GB
     s = b"0123456789abcdefghijklmnopqrstuvwxyz"
@@ -836,7 +847,7 @@ def test_sequence_bytes():
             u1.decode('utf-8'),  # unicode gets encoded,
             bytearray(b'bar'),
             None]
-    for ty in [None, pa.binary(), pa.large_binary()]:
+    for ty in [None, pa.binary(), pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=ty)
         assert len(arr) == 6
         assert arr.null_count == 1
@@ -844,7 +855,7 @@ def test_sequence_bytes():
         assert arr.to_pylist() == [b'foo', b'dada', b'data', u1, b'bar', None]
 
 
-@pytest.mark.parametrize("ty", [pa.string(), pa.large_string()])
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string(), pa.string_view()])
 def test_sequence_utf8_to_unicode(ty):
     # ARROW-1225
     data = [b'foo', None, b'bar']
@@ -2431,6 +2442,8 @@ def test_array_from_pylist_offset_overflow():
         pa.binary(3)),
     ([b"a"], [pa.scalar("a", type=pa.large_binary())], pa.large_binary()),
     (["a"], [pa.scalar("a", type=pa.large_string())], pa.large_string()),
+    ([b"a"], [pa.scalar("a", type=pa.binary_view())], pa.binary_view()),
+    (["a"], [pa.scalar("a", type=pa.string_view())], pa.string_view()),
     (
         ["a"],
         [pa.scalar("a", type=pa.dictionary(pa.int64(), pa.string()))],

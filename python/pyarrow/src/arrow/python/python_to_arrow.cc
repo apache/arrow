@@ -486,6 +486,10 @@ class PyValue {
     return view.ParseString(obj);
   }
 
+  static Status Convert(const BinaryViewType*, const O&, I obj, PyBytesView& view) {
+    return view.ParseString(obj);
+  }
+
   static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
                         PyBytesView& view) {
     ARROW_RETURN_NOT_OK(view.ParseString(obj));
@@ -499,8 +503,8 @@ class PyValue {
   }
 
   template <typename T>
-  static enable_if_string<T, Status> Convert(const T*, const O& options, I obj,
-                                             PyBytesView& view) {
+  static enable_if_t<is_string_type<T>::value || is_string_view_type<T>::value, Status>
+  Convert(const T*, const O& options, I obj, PyBytesView& view) {
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
@@ -570,16 +574,10 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T,
-    enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                 !is_extension_type<T>::value && !is_binary_view_like_type<T>::value) ||
-                std::is_same<T, MonthDayNanoIntervalType>::value>> {
+    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                    !is_extension_type<T>::value) ||
+                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
-};
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_binary_view_like<T>> {
-  // not implemented
 };
 
 template <typename T>
@@ -725,6 +723,50 @@ class PyPrimitiveConverter<T, enable_if_base_binary<T>>
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
       this->primitive_builder_->UnsafeAppend(view_.bytes,
                                              static_cast<OffsetType>(view_.size));
+    }
+    return Status::OK();
+  }
+
+  Result<std::shared_ptr<Array>> ToArray() override {
+    ARROW_ASSIGN_OR_RAISE(auto array, (PrimitiveConverter<T, PyConverter>::ToArray()));
+    if (observed_binary_) {
+      // if we saw any non-unicode, cast results to BinaryArray
+      auto binary_type = TypeTraits<typename T::PhysicalType>::type_singleton();
+      return array->View(binary_type);
+    } else {
+      return array;
+    }
+  }
+
+ protected:
+  PyBytesView view_;
+  bool observed_binary_ = false;
+};
+
+template <typename T>
+class PyPrimitiveConverter<T, enable_if_t<is_binary_view_like_type<T>::value>>
+    : public PrimitiveConverter<T, PyConverter> {
+ public:
+  Status Append(PyObject* value) override {
+    if (PyValue::IsNull(this->options_, value)) {
+      this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+    } else {
+      ARROW_RETURN_NOT_OK(
+          PyValue::Convert(this->primitive_type_, this->options_, value, view_));
+      if (!view_.is_utf8) {
+        // observed binary value
+        observed_binary_ = true;
+      }
+      // Since we don't know the varying length input size in advance, we need to
+      // reserve space in the value builder one by one. ReserveData raises CapacityError
+      // if the value would not fit into the array.
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(view_.size));
+      this->primitive_builder_->UnsafeAppend(view_.bytes,
+                                             static_cast<int64_t>(view_.size));
     }
     return Status::OK();
   }
