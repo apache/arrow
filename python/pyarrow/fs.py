@@ -98,9 +98,7 @@ def _filesystem_from_str(uri):
     return filesystem
 
 
-def _ensure_filesystem(
-    filesystem, use_mmap=False, allow_legacy_filesystem=False
-):
+def _ensure_filesystem(filesystem, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
     elif isinstance(filesystem, str):
@@ -130,9 +128,7 @@ def _ensure_filesystem(
     )
 
 
-def _resolve_filesystem_and_path(
-    path, filesystem=None, allow_legacy_filesystem=False, memory_map=False
-):
+def _resolve_filesystem_and_path(path, filesystem=None, memory_map=False):
     """
     Return filesystem/path from path which could be an URI or a plain
     filesystem path.
@@ -146,10 +142,7 @@ def _resolve_filesystem_and_path(
         return filesystem, path
 
     if filesystem is not None:
-        filesystem = _ensure_filesystem(
-            filesystem, use_mmap=memory_map,
-            allow_legacy_filesystem=allow_legacy_filesystem
-        )
+        filesystem = _ensure_filesystem(filesystem, use_mmap=memory_map)
         if isinstance(filesystem, LocalFileSystem):
             path = _stringify_path(path)
         elif not isinstance(path, str):
@@ -157,8 +150,7 @@ def _resolve_filesystem_and_path(
                 "Expected string path; path-like objects are only allowed "
                 "with a local filesystem"
             )
-        if not allow_legacy_filesystem:
-            path = filesystem.normalize_path(path)
+        path = filesystem.normalize_path(path)
         return filesystem, path
 
     path = _stringify_path(path)
