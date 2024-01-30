@@ -233,6 +233,12 @@ namespace Apache.Arrow
                 throw new NotImplementedException();
             }
 
+            public TBuilder SetNull(int index)
+            {
+                // TODO: Implement
+                throw new NotImplementedException();
+            }
+
             /// <summary>
             /// Clear all contents appended so far.
             /// </summary>
