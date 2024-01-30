@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -40,9 +41,32 @@ func NewClientCookieMiddleware() ClientMiddleware {
 	return CreateClientMiddleware(&clientCookieMiddleware{jar: make(map[string]http.Cookie)})
 }
 
+func NewCookieMiddleware() CookieMiddleware {
+	return &clientCookieMiddleware{jar: make(map[string]http.Cookie)}
+}
+
+// CookieMiddleware is a go-routine safe middleware for flight clients
+// which properly handles Set-Cookie headers for storing cookies.
+// This can be passed into `CreateClientMiddleware` to create a new
+// middleware object. You can also clone it to create middleware for a
+// new client which starts with the same cookies.
+type CookieMiddleware interface {
+	CustomClientMiddleware
+	// Clone creates a new CookieMiddleware that starts out with the same
+	// cookies that this one already has. This is useful when creating a
+	// new client connection for the same server.
+	Clone() CookieMiddleware
+}
+
 type clientCookieMiddleware struct {
 	jar map[string]http.Cookie
 	mx  sync.Mutex
+}
+
+func (cc *clientCookieMiddleware) Clone() CookieMiddleware {
+	cc.mx.Lock()
+	defer cc.mx.Unlock()
+	return &clientCookieMiddleware{jar: maps.Clone(cc.jar)}
 }
 
 func (cc *clientCookieMiddleware) StartCall(ctx context.Context) context.Context {

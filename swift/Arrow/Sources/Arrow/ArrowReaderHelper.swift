@@ -21,8 +21,8 @@ import Foundation
 private func makeBinaryHolder(_ buffers: [ArrowBuffer],
                               nullCount: UInt) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowBinary), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<Int8>.stride)
+        let arrowType = ArrowType(ArrowType.ArrowBinary)
+        let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
         return .success(ArrowArrayHolder(BinaryArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
@@ -34,8 +34,8 @@ private func makeBinaryHolder(_ buffers: [ArrowBuffer],
 private func makeStringHolder(_ buffers: [ArrowBuffer],
                               nullCount: UInt) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<Int8>.stride)
+        let arrowType = ArrowType(ArrowType.ArrowString)
+        let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
         return .success(ArrowArrayHolder(StringArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
@@ -44,33 +44,17 @@ private func makeStringHolder(_ buffers: [ArrowBuffer],
     }
 }
 
-private func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingPoint,
-                             buffers: [ArrowBuffer],
-                             nullCount: UInt
-) -> Result<ArrowArrayHolder, ArrowError> {
-    switch floatType.precision {
-    case .single:
-        return makeFixedHolder(Float.self, buffers: buffers, arrowType: ArrowType.ArrowFloat, nullCount: nullCount)
-    case .double:
-        return makeFixedHolder(Double.self, buffers: buffers, arrowType: ArrowType.ArrowDouble, nullCount: nullCount)
-    default:
-        return .failure(.unknownType("Float precision \(floatType.precision) currently not supported"))
-    }
-}
-
-private func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date,
+private func makeDateHolder(_ field: ArrowField,
                             buffers: [ArrowBuffer],
                             nullCount: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        if dateType.unit == .day {
-            let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
-                                          nullCount: nullCount, stride: MemoryLayout<Date>.stride)
+        if field.type.id == .date32 {
+            let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
             return .success(ArrowArrayHolder(Date32Array(arrowData)))
         }
 
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<Date>.stride)
+        let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
         return .success(ArrowArrayHolder(Date64Array(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
@@ -79,22 +63,26 @@ private func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date,
     }
 }
 
-private func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time,
+private func makeTimeHolder(_ field: ArrowField,
                             buffers: [ArrowBuffer],
                             nullCount: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        if timeType.unit == .second || timeType.unit == .millisecond {
-            let arrowUnit: ArrowTime32Unit = timeType.unit == .second ? .seconds : .milliseconds
-            let arrowData = try ArrowData(ArrowTypeTime32(arrowUnit), buffers: buffers,
-                                          nullCount: nullCount, stride: MemoryLayout<Time32>.stride)
-            return .success(ArrowArrayHolder(FixedArray<Time32>(arrowData)))
+        if field.type.id == .time32 {
+            if let arrowType = field.type as? ArrowTypeTime32 {
+                let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
+                return .success(ArrowArrayHolder(FixedArray<Time32>(arrowData)))
+            } else {
+                return .failure(.invalid("Incorrect field type for time: \(field.type)"))
+            }
         }
 
-        let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .microseconds : .nanoseconds
-        let arrowData = try ArrowData(ArrowTypeTime64(arrowUnit), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<Time64>.stride)
-        return .success(ArrowArrayHolder(FixedArray<Time64>(arrowData)))
+        if let arrowType = field.type as? ArrowTypeTime64 {
+            let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
+            return .success(ArrowArrayHolder(FixedArray<Time64>(arrowData)))
+        } else {
+            return .failure(.invalid("Incorrect field type for time: \(field.type)"))
+        }
     } catch let error as ArrowError {
         return .failure(error)
     } catch {
@@ -105,8 +93,8 @@ private func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time,
 private func makeBoolHolder(_ buffers: [ArrowBuffer],
                             nullCount: UInt) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowBool), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<UInt8>.stride)
+        let arrowType = ArrowType(ArrowType.ArrowBool)
+        let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
         return .success(ArrowArrayHolder(BoolArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
@@ -116,13 +104,11 @@ private func makeBoolHolder(_ buffers: [ArrowBuffer],
 }
 
 private func makeFixedHolder<T>(
-    _: T.Type, buffers: [ArrowBuffer],
-    arrowType: ArrowType.Info,
+    _: T.Type, field: ArrowField, buffers: [ArrowBuffer],
     nullCount: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(arrowType), buffers: buffers,
-                                      nullCount: nullCount, stride: MemoryLayout<T>.stride)
+        let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
         return .success(ArrowArrayHolder(FixedArray<T>(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
@@ -131,67 +117,56 @@ private func makeFixedHolder<T>(
     }
 }
 
-func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity function_body_length
+func makeArrayHolder(
     _ field: org_apache_arrow_flatbuf_Field,
     buffers: [ArrowBuffer],
     nullCount: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
-    let type = field.typeType
-    switch type {
-    case .int:
-        let intType = field.type(type: org_apache_arrow_flatbuf_Int.self)!
-        let bitWidth = intType.bitWidth
-        if bitWidth == 8 {
-            if intType.isSigned {
-                return makeFixedHolder(Int8.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowInt8, nullCount: nullCount)
-            } else {
-                return makeFixedHolder(UInt8.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowUInt8, nullCount: nullCount)
-            }
-        } else if bitWidth == 16 {
-            if intType.isSigned {
-                return makeFixedHolder(Int16.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowInt16, nullCount: nullCount)
-            } else {
-                return makeFixedHolder(UInt16.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowUInt16, nullCount: nullCount)
-            }
-        } else if bitWidth == 32 {
-            if intType.isSigned {
-                return makeFixedHolder(Int32.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowInt32, nullCount: nullCount)
-            } else {
-                return makeFixedHolder(UInt32.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowUInt32, nullCount: nullCount)
-            }
-        } else if bitWidth == 64 {
-            if intType.isSigned {
-                return makeFixedHolder(Int64.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowInt64, nullCount: nullCount)
-            } else {
-                return makeFixedHolder(UInt64.self, buffers: buffers,
-                                       arrowType: ArrowType.ArrowUInt64, nullCount: nullCount)
-            }
-        }
-        return .failure(.unknownType("Int width \(bitWidth) currently not supported"))
-    case .bool:
+    let arrowField = fromProto(field: field)
+    return makeArrayHolder(arrowField, buffers: buffers, nullCount: nullCount)
+}
+
+func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
+    _ field: ArrowField,
+    buffers: [ArrowBuffer],
+    nullCount: UInt
+) -> Result<ArrowArrayHolder, ArrowError> {
+    let typeId = field.type.id
+    switch typeId {
+    case .int8:
+        return makeFixedHolder(Int8.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .uint8:
+        return makeFixedHolder(UInt8.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .int16:
+        return makeFixedHolder(Int16.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .uint16:
+        return makeFixedHolder(UInt16.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .int32:
+        return makeFixedHolder(Int32.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .uint32:
+        return makeFixedHolder(UInt32.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .int64:
+        return makeFixedHolder(Int64.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .uint64:
+        return makeFixedHolder(UInt64.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .boolean:
         return makeBoolHolder(buffers, nullCount: nullCount)
-    case .floatingpoint:
-        let floatType = field.type(type: org_apache_arrow_flatbuf_FloatingPoint.self)!
-        return makeFloatHolder(floatType, buffers: buffers, nullCount: nullCount)
-    case .utf8:
+    case .float:
+        return makeFixedHolder(Float.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .double:
+        return makeFixedHolder(Double.self, field: field, buffers: buffers, nullCount: nullCount)
+    case .string:
         return makeStringHolder(buffers, nullCount: nullCount)
     case .binary:
         return makeBinaryHolder(buffers, nullCount: nullCount)
-    case .date:
-        let dateType = field.type(type: org_apache_arrow_flatbuf_Date.self)!
-        return makeDateHolder(dateType, buffers: buffers, nullCount: nullCount)
-    case .time:
-        let timeType = field.type(type: org_apache_arrow_flatbuf_Time.self)!
-        return makeTimeHolder(timeType, buffers: buffers, nullCount: nullCount)
+    case .date32:
+        return makeDateHolder(field, buffers: buffers, nullCount: nullCount)
+    case .time32:
+        return makeTimeHolder(field, buffers: buffers, nullCount: nullCount)
+    case .time64:
+        return makeTimeHolder(field, buffers: buffers, nullCount: nullCount)
     default:
-        return .failure(.unknownType("Type \(type) currently not supported"))
+        return .failure(.unknownType("Type \(typeId) currently not supported"))
     }
 }
 
