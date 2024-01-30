@@ -1347,7 +1347,8 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 
 @pytest.mark.parquet
-def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_module, request):
+def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs,
+                                           pickle_module, request):
     pickle_module = request.getfixturevalue(pickle_module)
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
@@ -1389,7 +1390,8 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_modu
 
 
 @pytest.mark.parquet
-def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs, pickle_module, request):
+def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs,
+                                              pickle_module, request):
     pickle_module = request.getfixturevalue(pickle_module)
     # https://issues.apache.org/jira/browse/ARROW-15796
     fs, assert_opens = open_logging_fs
@@ -1918,7 +1920,9 @@ def test_partitioning_factory_segment_encoding(pickled, pickle_module, request):
 
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
-def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled, pickle_module, request):
+def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled,
+                                                                pickle_module,
+                                                                request):
     pickle_module = request.getfixturevalue(pickle_module)
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
@@ -2303,7 +2307,8 @@ def test_construct_from_single_file(tempdir, dataset_reader, pickle_module, requ
 
 
 @pytest.mark.parquet
-def test_construct_from_single_directory(tempdir, dataset_reader, pickle_module, request):
+def test_construct_from_single_directory(tempdir, dataset_reader,
+                                         pickle_module, request):
     pickle_module = request.getfixturevalue(pickle_module)
     directory = tempdir / 'single-directory'
     directory.mkdir()
@@ -2514,7 +2519,8 @@ def _create_partitioned_dataset(basedir):
 
 
 @pytest.mark.parquet
-def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_module, request):
+def test_open_dataset_partitioned_directory(tempdir, dataset_reader,
+                                            pickle_module, request):
     pickle_module = request.getfixturevalue(pickle_module)
     full_table, path = _create_partitioned_dataset(tempdir)
 
@@ -2681,7 +2687,8 @@ def test_partition_discovery(
 
 
 @pytest.mark.pandas
-def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module, request):
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module,
+                                                         request):
     pickle_module = request.getfixturevalue(pickle_module)
     # https://issues.apache.org/jira/browse/ARROW-11400
     table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
