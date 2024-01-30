@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/c/bridge.h"
-#include <sys/_types/_int64_t.h>
 
 #include <algorithm>
 #include <cerrno>
