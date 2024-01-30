@@ -4478,6 +4478,30 @@ TEST_F(TestArrayStreamExport, Errors) {
   ASSERT_EQ(EINVAL, c_stream.get_next(&c_stream, &c_array));
 }
 
+TEST_F(TestArrayStreamExport, ChunkedArrayExportEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({}, int32()));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+
+  ASSERT_OK(ExportChunkedArray(chunked_array, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    AssertStreamEnd(&c_stream);
+  }
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+}
+
 TEST_F(TestArrayStreamExport, ChunkedArrayExport) {
   ASSERT_OK_AND_ASSIGN(auto chunked_array,
                        ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
@@ -4678,6 +4702,15 @@ TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtrip) {
   ASSERT_OK_AND_ASSIGN(auto src,
                        ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
                                            ArrayFromJSON(int32(), "[4, 5, null]")}));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({}, int32()));
 
   Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
     AssertTypeEqual(*dst->type(), *src->type());

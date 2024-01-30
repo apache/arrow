@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/c/bridge.h"
+#include <sys/_types/_int64_t.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -1989,7 +1990,7 @@ Status ExportStreamSchema(const std::shared_ptr<ChunkedArray>& src,
   return ExportType(*src->type(), out_schema);
 }
 
-Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int i,
+Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
                         struct ArrowArray* out_array) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(src->ReadNext(&batch));
@@ -2002,14 +2003,14 @@ Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int i,
   }
 }
 
-Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int i,
+Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
                         struct ArrowArray* out_array) {
   if (i >= src->num_chunks()) {
     // End of stream
     ArrowArrayMarkReleased(out_array);
     return Status::OK();
   } else {
-    return ExportArray(*src->chunk(i), out_array);
+    return ExportArray(*src->chunk(static_cast<int>(i)), out_array);
   }
 }
 
@@ -2021,7 +2022,7 @@ class ExportedArrayStream {
         : reader_(std::move(reader)), batch_num_(0) {}
 
     std::shared_ptr<T> reader_;
-    int batch_num_;
+    int64_t batch_num_;
     std::string last_error_;
 
     PrivateData() = default;
@@ -2109,7 +2110,7 @@ class ExportedArrayStream {
 
   const std::shared_ptr<T>& reader() { return private_data()->reader_; }
 
-  int next_batch_num() { return private_data()->batch_num_++; }
+  int64_t next_batch_num() { return private_data()->batch_num_++; }
 
   struct ArrowArrayStream* stream_;
 };
@@ -2278,11 +2279,6 @@ class ArrayStreamArrayReader : public ArrayStreamReader {
     }
   }
 
-  Status Close() {
-    ReleaseStream();
-    return Status::OK();
-  }
-
  private:
   std::shared_ptr<Field> field_;
 };
@@ -2322,8 +2318,8 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
     chunks.push_back(std::move(chunk));
   }
 
-  ARROW_RETURN_NOT_OK(reader->Close());
-  return ChunkedArray::Make(chunks, data_type);
+  reader->ReleaseStream();
+  return ChunkedArray::Make(std::move(chunks), std::move(data_type));
 }
 
 }  // namespace arrow
