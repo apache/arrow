@@ -1816,7 +1816,7 @@ Structural transforms
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(6) Extract a child value based on a sequence of indices passed in
+* \(6) Extract a child value based on a sequence of indices and the field names passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:
