@@ -110,15 +110,65 @@ integration tests, you would do:
 Code Style
 ==========
 
-Code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
-You can also just check the style without building the project.
-This checks the code style of all source code under the current directory or from within an individual module.
+The current Java code styles are configured as follows:
+- Indent: Tabs & spaces (2 spaces per tab)
+- Google Java Format: Reformats Java source code to comply with `Google Java Style`_.
+- Configure license headers for Java & XML files
 
-.. code-block::
+Java code style is checked by `Spotless`_ during the build, and the continuous integration build will verify
+that changes adhere to the style guide.
 
-    $ mvn checkstyle:check
+.. code-block:: xml
+
+    <java>
+      <indent>
+        ...
+      </indent>
+      <googleJavaFormat/>
+      <licenseHeader>
+        ...
+      </licenseHeader>
+    </java>
+    <pom>
+      <indent>
+        ...
+      </indent>
+      <sortPom>
+        ...
+      </sortPom>
+    </pom>
+
+Automatically fixing code style issues
+--------------------------------------
+
+- You can also just check the style without building the project with `mvn spotless:check`.
+- The Java code style can be corrected from the command line by using the following commands: `mvn spotless:apply`.
+
+.. code-block:: bash
+
+    user@machine repo % mvn spotless:check
+    [ERROR]  > The following files had format violations:
+    [ERROR]  src\main\java\com\diffplug\gradle\spotless\FormatExtension.java
+    [ERROR]    -\t\t····if·(targets.length·==·0)·{
+    [ERROR]    +\t\tif·(targets.length·==·0)·{
+    [ERROR]  Run 'mvn spotless:apply' to fix these violations.
+    user@machine repo % mvn spotless:apply
+    [INFO] BUILD SUCCESS
+    user@machine repo % mvn spotless:check
+    [INFO] BUILD SUCCESS
+
+Code Formatter for Intellij IDEA and Eclipse
+--------------------------------------------
+
+Follow the instructions for:
+- `Eclipse`_
+- `IntelliJ`_
+
 
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/main/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
-.. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
+.. _Spotless: https://github.com/diffplug/spotless
+.. _Google Java Style: https://google.github.io/styleguide/javaguide.html
+.. _Eclipse: https://github.com/google/google-java-format?tab=readme-ov-file#eclipse
+.. _IntelliJ: https://github.com/google/google-java-format?tab=readme-ov-file#intellij-android-studio-and-other-jetbrains-ides
