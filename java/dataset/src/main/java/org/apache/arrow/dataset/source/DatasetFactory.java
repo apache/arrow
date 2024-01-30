@@ -20,9 +20,8 @@ package org.apache.arrow.dataset.source;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
- * DatasetFactory provides a way to inspect a Dataset potential
- * schema before materializing it. Thus, the user can peek the schema for
- * data sources and decide on a unified schema.
+ * DatasetFactory provides a way to inspect a Dataset potential schema before materializing it.
+ * Thus, the user can peek the schema for data sources and decide on a unified schema.
  */
 public interface DatasetFactory extends AutoCloseable {
 
@@ -34,8 +33,8 @@ public interface DatasetFactory extends AutoCloseable {
   Schema inspect();
 
   /**
-   * Create a Dataset with auto-inferred schema. Which means, the schema of the resulting Dataset will be
-   * the same with calling {@link #inspect()} manually.
+   * Create a Dataset with auto-inferred schema. Which means, the schema of the resulting Dataset
+   * will be the same with calling {@link #inspect()} manually.
    *
    * @return the Dataset instance
    */

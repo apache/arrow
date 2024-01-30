@@ -20,9 +20,7 @@ package org.apache.arrow.dataset.scanner;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * A high level interface for scanning data over dataset.
- */
+/** A high level interface for scanning data over dataset. */
 public interface Scanner extends AutoCloseable {
 
   /**
@@ -35,8 +33,8 @@ public interface Scanner extends AutoCloseable {
   /**
    * Perform the scan operation.
    *
-   * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is allowed
-   *     to execute the tasks concurrently to gain better performance.
+   * @return a iterable set of {@link ScanTask}s. Each task is considered independent and it is
+   *     allowed to execute the tasks concurrently to gain better performance.
    * @deprecated use {@link #scanBatches()} instead.
    */
   @Deprecated

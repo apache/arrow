@@ -18,7 +18,6 @@
 package org.apache.arrow.adapter.orc;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OwnershipTransferResult;
@@ -26,8 +25,8 @@ import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
 
 /**
- * A simple reference manager implementation for memory allocated by native code.
- * The underlying memory will be released when reference count reach zero.
+ * A simple reference manager implementation for memory allocated by native code. The underlying
+ * memory will be released when reference count reach zero.
  */
 public class OrcReferenceManager implements ReferenceManager {
   private final AtomicInteger bufRefCnt = new AtomicInteger(0);
@@ -50,8 +49,8 @@ public class OrcReferenceManager implements ReferenceManager {
 
   @Override
   public boolean release(int decrement) {
-    Preconditions.checkState(decrement >= 1,
-            "ref count decrement should be greater than or equal to 1");
+    Preconditions.checkState(
+        decrement >= 1, "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt;
     synchronized (this) {
@@ -89,18 +88,21 @@ public class OrcReferenceManager implements ReferenceManager {
     final long derivedBufferAddress = sourceBuffer.memoryAddress() + index;
 
     // create new ArrowBuf
-    final ArrowBuf derivedBuf = new ArrowBuf(
+    final ArrowBuf derivedBuf =
+        new ArrowBuf(
             this,
             null,
             length, // length (in bytes) in the underlying memory chunk for this new ArrowBuf
-            derivedBufferAddress // starting byte address in the underlying memory for this new ArrowBuf,
+            derivedBufferAddress // starting byte address in the underlying memory for this new
+            // ArrowBuf,
             );
 
     return derivedBuf;
   }
 
   @Override
-  public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
+  public OwnershipTransferResult transferOwnership(
+      ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
     throw new UnsupportedOperationException();
   }
 

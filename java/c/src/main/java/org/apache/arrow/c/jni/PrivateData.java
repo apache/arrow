@@ -21,8 +21,8 @@ import java.io.Closeable;
 
 /**
  * Interface for Java objects stored in C data interface private data.
- * <p>
- * This interface is used for exported structures.
+ *
+ * <p>This interface is used for exported structures.
  */
 public interface PrivateData extends Closeable {
 

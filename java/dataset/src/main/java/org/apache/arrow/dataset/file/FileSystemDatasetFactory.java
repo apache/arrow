@@ -21,18 +21,16 @@ import org.apache.arrow.dataset.jni.NativeDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.memory.BufferAllocator;
 
-/**
- * Java binding of the C++ FileSystemDatasetFactory.
- */
+/** Java binding of the C++ FileSystemDatasetFactory. */
 public class FileSystemDatasetFactory extends NativeDatasetFactory {
 
-  public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
-      String uri) {
+  public FileSystemDatasetFactory(
+      BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format, String uri) {
     super(allocator, memoryPool, createNative(format, uri));
   }
 
-  public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
-                                  String[] uris) {
+  public FileSystemDatasetFactory(
+      BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format, String[] uris) {
     super(allocator, memoryPool, createNative(format, uris));
   }
 
@@ -43,5 +41,4 @@ public class FileSystemDatasetFactory extends NativeDatasetFactory {
   private static long createNative(FileFormat format, String[] uris) {
     return JniWrapper.get().makeFileSystemDatasetFactory(uris, format.id());
   }
-
 }

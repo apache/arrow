@@ -17,8 +17,8 @@
     <version>16.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-memory</artifactId>
-  <name>Arrow Memory</name>
   <packaging>pom</packaging>
+  <name>Arrow Memory</name>
 
   <modules>
     <module>memory-core</module>

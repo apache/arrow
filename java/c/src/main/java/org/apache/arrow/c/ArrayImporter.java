@@ -24,7 +24,6 @@ import static org.apache.arrow.util.Preconditions.checkState;
 
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -34,9 +33,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
-/**
- * Importer for {@link ArrowArray}.
- */
+/** Importer for {@link ArrowArray}. */
 final class ArrayImporter {
   private static final int MAX_IMPORT_RECURSION_LEVEL = 64;
 
@@ -47,7 +44,8 @@ final class ArrayImporter {
   private ReferenceCountedArrowArray underlyingAllocation;
   private int recursionLevel;
 
-  ArrayImporter(BufferAllocator allocator, FieldVector vector, DictionaryProvider dictionaryProvider) {
+  ArrayImporter(
+      BufferAllocator allocator, FieldVector vector, DictionaryProvider dictionaryProvider) {
     this.allocator = Preconditions.checkNotNull(allocator);
     this.vector = Preconditions.checkNotNull(vector);
     this.dictionaryProvider = dictionaryProvider;
@@ -78,7 +76,9 @@ final class ArrayImporter {
     ArrowArray.Snapshot snapshot = src.snapshot();
     checkState(snapshot.release != NULL, "Cannot import released ArrowArray");
     recursionLevel = parent.recursionLevel + 1;
-    checkState(recursionLevel <= MAX_IMPORT_RECURSION_LEVEL, "Recursion level in ArrowArray struct exceeded");
+    checkState(
+        recursionLevel <= MAX_IMPORT_RECURSION_LEVEL,
+        "Recursion level in ArrowArray struct exceeded");
     // Child buffers will keep the entire parent import alive.
     underlyingAllocation = parent.underlyingAllocation;
     doImport(snapshot);
@@ -86,14 +86,19 @@ final class ArrayImporter {
 
   private void doImport(ArrowArray.Snapshot snapshot) {
     // First import children (required for reconstituting parent array data)
-    long[] children = NativeUtil.toJavaArray(snapshot.children, checkedCastToInt(snapshot.n_children));
+    long[] children =
+        NativeUtil.toJavaArray(snapshot.children, checkedCastToInt(snapshot.n_children));
     if (children != null && children.length > 0) {
       List<FieldVector> childVectors = vector.getChildrenFromFields();
-      checkState(children.length == childVectors.size(), "ArrowArray struct has %s children (expected %s)",
-          children.length, childVectors.size());
+      checkState(
+          children.length == childVectors.size(),
+          "ArrowArray struct has %s children (expected %s)",
+          children.length,
+          childVectors.size());
       for (int i = 0; i < children.length; i++) {
         checkState(children[i] != NULL, "ArrowArray struct has NULL child at position %s", i);
-        ArrayImporter childImporter = new ArrayImporter(allocator, childVectors.get(i), dictionaryProvider);
+        ArrayImporter childImporter =
+            new ArrayImporter(allocator, childVectors.get(i), dictionaryProvider);
         childImporter.importChild(this, ArrowArray.wrap(children[i]));
       }
     }
@@ -109,16 +114,18 @@ final class ArrayImporter {
       // reset the dictionary vector to the initial state
       dictionary.getVector().clear();
 
-      ArrayImporter dictionaryImporter = new ArrayImporter(allocator, dictionary.getVector(), dictionaryProvider);
+      ArrayImporter dictionaryImporter =
+          new ArrayImporter(allocator, dictionary.getVector(), dictionaryProvider);
       dictionaryImporter.importChild(this, ArrowArray.wrap(snapshot.dictionary));
     }
 
     // Import main data
     ArrowFieldNode fieldNode = new ArrowFieldNode(snapshot.length, snapshot.null_count);
-    long[] bufferPointers = NativeUtil.toJavaArray(snapshot.buffers, checkedCastToInt(snapshot.n_buffers));
+    long[] bufferPointers =
+        NativeUtil.toJavaArray(snapshot.buffers, checkedCastToInt(snapshot.n_buffers));
 
-    try (final BufferImportTypeVisitor visitor = new BufferImportTypeVisitor(
-        allocator, underlyingAllocation, fieldNode, bufferPointers)) {
+    try (final BufferImportTypeVisitor visitor =
+        new BufferImportTypeVisitor(allocator, underlyingAllocation, fieldNode, bufferPointers)) {
       final List<ArrowBuf> buffers;
       if (bufferPointers == null || bufferPointers.length == 0) {
         buffers = Collections.emptyList();
@@ -128,7 +135,11 @@ final class ArrayImporter {
       vector.loadFieldBuffers(fieldNode, buffers);
     } catch (Exception e) {
       throw new IllegalArgumentException(
-          "Could not load buffers for field " + vector.getField() + ". error message: " + e.getMessage(), e);
+          "Could not load buffers for field "
+              + vector.getField()
+              + ". error message: "
+              + e.getMessage(),
+          e);
     }
   }
 }

@@ -18,19 +18,15 @@
 package org.apache.arrow.dataset.scanner;
 
 import java.io.Reader;
-
 import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
- * Read record batches from a range of a single data fragment. A
- * ScanTask is meant to be a unit of work to be dispatched. The implementation
- * must be thread and concurrent safe.
+ * Read record batches from a range of a single data fragment. A ScanTask is meant to be a unit of
+ * work to be dispatched. The implementation must be thread and concurrent safe.
  */
 @Deprecated
 public interface ScanTask extends AutoCloseable {
 
-  /**
-   * Execute this ScanTask and return a {@link Reader} instance.
-   */
+  /** Execute this ScanTask and return a {@link Reader} instance. */
   ArrowReader execute();
 }

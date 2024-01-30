@@ -158,7 +158,8 @@ public interface BufferAllocator extends AutoCloseable {
    *
    * @return parent allocator
    */
-  @Nullable BufferAllocator getParentAllocator();
+  @Nullable
+  BufferAllocator getParentAllocator();
 
   /**
    * Returns the set of child allocators.

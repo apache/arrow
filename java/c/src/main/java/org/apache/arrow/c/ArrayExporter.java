@@ -23,7 +23,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.ArrowBuf;
@@ -33,9 +32,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
-/**
- * Exporter for {@link ArrowArray}.
- */
+/** Exporter for {@link ArrowArray}. */
 final class ArrayExporter {
   private final BufferAllocator allocator;
 
@@ -43,9 +40,7 @@ final class ArrayExporter {
     this.allocator = allocator;
   }
 
-  /**
-   * Private data structure for exported arrays.
-   */
+  /** Private data structure for exported arrays. */
   static class ExportedArrayPrivateData implements PrivateData {
     ArrowBuf buffers_ptrs;
     List<ArrowBuf> buffers;

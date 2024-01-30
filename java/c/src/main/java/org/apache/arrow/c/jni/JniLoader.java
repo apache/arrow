@@ -30,11 +30,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * The JniLoader for C Data Interface API's native implementation.
- */
+/** The JniLoader for C Data Interface API's native implementation. */
 public class JniLoader {
-  private static final JniLoader INSTANCE = new JniLoader(Collections.singletonList("arrow_cdata_jni"));
+  private static final JniLoader INSTANCE =
+      new JniLoader(Collections.singletonList("arrow_cdata_jni"));
 
   public static JniLoader get() {
     return INSTANCE;
@@ -50,9 +49,7 @@ public class JniLoader {
     return librariesToLoad.isEmpty();
   }
 
-  /**
-   * If required JNI libraries are not loaded, then load them.
-   */
+  /** If required JNI libraries are not loaded, then load them. */
   public void ensureLoaded() {
     if (finished()) {
       return;
@@ -82,9 +79,11 @@ public class JniLoader {
     final String libraryToLoad =
         name + "/" + getNormalizedArch() + "/" + System.mapLibraryName(name);
     try {
-      File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
+      File temp =
+          File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
       temp.deleteOnExit();
-      try (final InputStream is = JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
+      try (final InputStream is =
+          JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
         if (is == null) {
           throw new FileNotFoundException(libraryToLoad);
         }

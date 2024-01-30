@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
@@ -38,17 +37,15 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Loads buffers into {@link StructVector}.
- */
+/** Loads buffers into {@link StructVector}. */
 public class StructVectorLoader {
 
   private final Schema schema;
   private final CompressionCodec.Factory factory;
 
   /**
-   * A flag indicating if decompression is needed. This will affect the behavior
-   * of releasing buffers.
+   * A flag indicating if decompression is needed. This will affect the behavior of releasing
+   * buffers.
    */
   private boolean decompressionNeeded;
 
@@ -64,7 +61,7 @@ public class StructVectorLoader {
   /**
    * Construct with a schema and a compression codec factory.
    *
-   * @param schema  buffers are added based on schema.
+   * @param schema buffers are added based on schema.
    * @param factory the factory to create codec.
    */
   public StructVectorLoader(Schema schema, CompressionCodec.Factory factory) {
@@ -74,9 +71,8 @@ public class StructVectorLoader {
 
   /**
    * Loads the record batch into the struct vector.
-   * 
-   * <p>
-   * This will not close the record batch.
+   *
+   * <p>This will not close the record batch.
    *
    * @param recordBatch the batch to load
    */
@@ -86,22 +82,31 @@ public class StructVectorLoader {
 
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    CompressionUtil.CodecType codecType = CompressionUtil.CodecType
-        .fromCompressionType(recordBatch.getBodyCompression().getCodec());
+    CompressionUtil.CodecType codecType =
+        CompressionUtil.CodecType.fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
-    CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
+    CompressionCodec codec =
+        decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
     for (FieldVector fieldVector : result.getChildrenFromFields()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
-    result.loadFieldBuffers(new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
+    result.loadFieldBuffers(
+        new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
     if (nodes.hasNext() || buffers.hasNext()) {
-      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " + 
-        Collections2.toList(nodes).toString() + " buffers: " + Collections2.toList(buffers).toString());
+      throw new IllegalArgumentException(
+          "not all nodes and buffers were consumed. nodes: "
+              + Collections2.toList(nodes).toString()
+              + " buffers: "
+              + Collections2.toList(buffers).toString());
     }
     return result;
   }
 
-  private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes,
+  private void loadBuffers(
+      FieldVector vector,
+      Field field,
+      Iterator<ArrowBuf> buffers,
+      Iterator<ArrowFieldNode> nodes,
       CompressionCodec codec) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
@@ -111,7 +116,8 @@ public class StructVectorLoader {
       ArrowBuf nextBuf = buffers.next();
       // for vectors without nulls, the buffer is empty, so there is no need to
       // decompress it.
-      ArrowBuf bufferToAdd = nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
+      ArrowBuf bufferToAdd =
+          nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
       ownBuffers.add(bufferToAdd);
       if (decompressionNeeded) {
         // decompression performed
@@ -132,8 +138,10 @@ public class StructVectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(),
-          "should have as many children as in the schema: found %s expected %s", childrenFromFields.size(),
+      checkArgument(
+          children.size() == childrenFromFields.size(),
+          "should have as many children as in the schema: found %s expected %s",
+          childrenFromFields.size(),
           children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);

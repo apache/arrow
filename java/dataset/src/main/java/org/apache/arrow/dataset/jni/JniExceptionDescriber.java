@@ -20,16 +20,13 @@ package org.apache.arrow.dataset.jni;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/**
- * For native code to invoke to convert a java/lang/Throwable to jstring.
- */
+/** For native code to invoke to convert a java/lang/Throwable to jstring. */
 class JniExceptionDescriber {
-  private JniExceptionDescriber() {
-  }
+  private JniExceptionDescriber() {}
 
   /**
-   * Convert a java/lang/Throwable to jstring. See codes in arrow::dataset::jni::CheckException
-   * for more details.
+   * Convert a java/lang/Throwable to jstring. See codes in arrow::dataset::jni::CheckException for
+   * more details.
    *
    * @param throwable the exception instance.
    * @return a String including error message and stack trace of the exception.

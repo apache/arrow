@@ -20,9 +20,7 @@ package org.apache.arrow.dataset.jni;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.source.Dataset;
 
-/**
- * Native implementation of {@link Dataset}.
- */
+/** Native implementation of {@link Dataset}. */
 public class NativeDataset implements Dataset {
 
   private final NativeContext context;
@@ -41,10 +39,15 @@ public class NativeDataset implements Dataset {
       throw new NativeInstanceReleasedException();
     }
 
-    long scannerId = JniWrapper.get().createScanner(datasetId, options.getColumns().orElse(null),
-        options.getSubstraitProjection().orElse(null),
-        options.getSubstraitFilter().orElse(null),
-        options.getBatchSize(), context.getMemoryPool().getNativeInstanceId());
+    long scannerId =
+        JniWrapper.get()
+            .createScanner(
+                datasetId,
+                options.getColumns().orElse(null),
+                options.getSubstraitProjection().orElse(null),
+                options.getSubstraitFilter().orElse(null),
+                options.getBatchSize(),
+                context.getMemoryPool().getNativeInstanceId());
 
     return new NativeScanner(context, scannerId);
   }

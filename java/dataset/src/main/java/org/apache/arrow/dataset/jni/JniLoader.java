@@ -30,12 +30,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * The JniLoader for Dataset API's native implementation.
- */
+/** The JniLoader for Dataset API's native implementation. */
 public final class JniLoader {
 
-  private static final JniLoader INSTANCE = new JniLoader(Collections.singletonList("arrow_dataset_jni"));
+  private static final JniLoader INSTANCE =
+      new JniLoader(Collections.singletonList("arrow_dataset_jni"));
 
   public static JniLoader get() {
     return INSTANCE;
@@ -51,9 +50,7 @@ public final class JniLoader {
     return librariesToLoad.isEmpty();
   }
 
-  /**
-   * If required JNI libraries are not loaded, then load them.
-   */
+  /** If required JNI libraries are not loaded, then load them. */
   public void ensureLoaded() {
     if (finished()) {
       return;
@@ -65,7 +62,8 @@ public final class JniLoader {
   private synchronized void loadRemaining() {
     // The method is protected by a mutex via synchronized, if more than one thread race to call
     // loadRemaining, at same time only one will do the actual loading and the others will wait for
-    // the mutex to be acquired then check on the remaining list: if there are libraries that were not
+    // the mutex to be acquired then check on the remaining list: if there are libraries that were
+    // not
     // successfully loaded then the mutex owner will try to load them again.
     if (finished()) {
       return;
@@ -81,10 +79,11 @@ public final class JniLoader {
     final String libraryToLoad =
         name + "/" + getNormalizedArch() + "/" + System.mapLibraryName(name);
     try {
-      File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
+      File temp =
+          File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
       temp.deleteOnExit();
-      try (final InputStream is
-               = JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
+      try (final InputStream is =
+          JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
         if (is == null) {
           throw new FileNotFoundException(libraryToLoad);
         }
@@ -112,6 +111,11 @@ public final class JniLoader {
   }
 
   private void ensureS3FinalizedOnShutdown() {
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> { JniWrapper.get().ensureS3Finalized(); }));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  JniWrapper.get().ensureS3Finalized();
+                }));
   }
 }

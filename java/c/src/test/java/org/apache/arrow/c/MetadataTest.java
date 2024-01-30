@@ -23,9 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.arrow.c.Metadata;
-import org.apache.arrow.c.NativeUtil;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
@@ -48,11 +45,17 @@ public class MetadataTest {
     metadata.put("key2", "bar");
 
     if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
-      encoded = new byte[] { 2, 0, 0, 0, 4, 0, 0, 0, 'k', 'e', 'y', '1', 0, 0, 0, 0, 4, 0, 0, 0, 'k', 'e', 'y', '2', 3,
-          0, 0, 0, 'b', 'a', 'r' };
+      encoded =
+          new byte[] {
+            2, 0, 0, 0, 4, 0, 0, 0, 'k', 'e', 'y', '1', 0, 0, 0, 0, 4, 0, 0, 0, 'k', 'e', 'y', '2',
+            3, 0, 0, 0, 'b', 'a', 'r'
+          };
     } else {
-      encoded = new byte[] { 0, 0, 0, 2, 0, 0, 0, 4, 'k', 'e', 'y', '1', 0, 0, 0, 0, 0, 0, 0, 4, 'k', 'e', 'y', '2', 0,
-          0, 0, 3, 'b', 'a', 'r' };
+      encoded =
+          new byte[] {
+            0, 0, 0, 2, 0, 0, 0, 4, 'k', 'e', 'y', '1', 0, 0, 0, 0, 0, 0, 0, 4, 'k', 'e', 'y', '2',
+            0, 0, 0, 3, 'b', 'a', 'r'
+          };
     }
   }
 
@@ -70,7 +73,8 @@ public class MetadataTest {
   public void testEncode() {
     try (ArrowBuf buffer = Metadata.encode(allocator, metadata)) {
       int totalSize = LargeMemoryUtil.checkedCastToInt(buffer.readableBytes());
-      ByteBuffer reader = MemoryUtil.directBuffer(buffer.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
+      ByteBuffer reader =
+          MemoryUtil.directBuffer(buffer.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
       byte[] result = new byte[totalSize];
       reader.get(result);
       assertArrayEquals(encoded, result);
@@ -100,5 +104,4 @@ public class MetadataTest {
     Map<String, String> decoded = Metadata.decode(NativeUtil.NULL);
     assertNull(decoded);
   }
-
 }

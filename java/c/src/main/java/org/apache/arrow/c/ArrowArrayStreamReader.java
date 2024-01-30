@@ -24,15 +24,12 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * An implementation of an {@link ArrowReader} backed by an ArrowArrayStream.
- */
+/** An implementation of an {@link ArrowReader} backed by an ArrowArrayStream. */
 final class ArrowArrayStreamReader extends ArrowReader {
   private final ArrowArrayStream ownedStream;
   private final CDataDictionaryProvider provider;
@@ -53,7 +50,8 @@ final class ArrowArrayStreamReader extends ArrowReader {
 
   @Override
   public Map<Long, Dictionary> getDictionaryVectors() {
-    return provider.getDictionaryIds().stream().collect(Collectors.toMap(Function.identity(), provider::lookup));
+    return provider.getDictionaryIds().stream()
+        .collect(Collectors.toMap(Function.identity(), provider::lookup));
   }
 
   @Override

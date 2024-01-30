@@ -75,7 +75,8 @@ public abstract class AllocationManager {
     this.owningLedger = associate(accountingAllocator, false);
   }
 
-  @Nullable BufferLedger getOwningLedger() {
+  @Nullable
+  BufferLedger getOwningLedger() {
     return owningLedger;
   }
 

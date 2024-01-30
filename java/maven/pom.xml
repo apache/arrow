@@ -18,8 +18,8 @@
   <groupId>org.apache.arrow.maven.plugins</groupId>
   <artifactId>arrow-maven-plugins</artifactId>
   <version>16.0.0-SNAPSHOT</version>
-  <name>Arrow Maven Plugins</name>
   <packaging>pom</packaging>
+  <name>Arrow Maven Plugins</name>
 
   <modules>
     <module>module-info-compiler-maven-plugin</module>
@@ -27,23 +27,29 @@
 
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <spotless.version>2.42.0</spotless.version>
+    <spotless.version.jdk11>2.42.0</spotless.version.jdk11>
+    <spotless.version.jdk8>2.30.0</spotless.version.jdk8>
   </properties>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.7.1</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>rat-checks</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
         <configuration>
           <excludeSubProjects>false</excludeSubProjects>
           <excludes>
@@ -88,6 +94,15 @@
             <exclude>**/*.idea/**</exclude>
           </excludes>
         </configuration>
+        <executions>
+          <execution>
+            <id>rat-checks</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -125,7 +140,6 @@
         </executions>
       </plugin>
 
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
@@ -150,10 +164,10 @@
         <executions>
           <execution>
             <id>validate_java_and_maven_version</id>
-            <phase>verify</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
+            <phase>verify</phase>
             <inherited>false</inherited>
             <configuration>
               <rules>
@@ -165,10 +179,10 @@
           </execution>
           <execution>
             <id>avoid_bad_dependencies</id>
-            <phase>verify</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
+            <phase>verify</phase>
             <configuration>
               <rules>
                 <bannedDependencies>
@@ -189,28 +203,6 @@
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
         <version>4.0.5</version>
-        <executions>
-          <execution>
-            <id>for-jars</id>
-            <inherited>true</inherited>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-            <configuration>
-              <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
-            </configuration>
-          </execution>
-          <execution>
-            <id>for-source-tarball</id>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-            <inherited>false</inherited>
-            <configuration>
-              <generateGitPropertiesFilename>./arrow-git.properties</generateGitPropertiesFilename>
-            </configuration>
-          </execution>
-        </executions>
 
         <configuration>
           <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
@@ -226,6 +218,28 @@
             <forceLongFormat>true</forceLongFormat>
           </gitDescribe>
         </configuration>
+        <executions>
+          <execution>
+            <id>for-jars</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <inherited>true</inherited>
+            <configuration>
+              <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+          <execution>
+            <id>for-source-tarball</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <inherited>false</inherited>
+            <configuration>
+              <generateGitPropertiesFilename>./arrow-git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -234,10 +248,10 @@
         <version>2.7.10</version>
         <executions>
           <execution>
-            <phase>package</phase>
             <goals>
               <goal>makeBom</goal>
             </goals>
+            <phase>package</phase>
           </execution>
         </executions>
       </plugin>
@@ -248,19 +262,19 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
         <configuration>
           <descriptorRefs>
             <descriptorRef>src</descriptorRef>
           </descriptorRefs>
         </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -271,80 +285,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
       </plugin>
-      <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
-        <version>${spotless.version}</version>
-        <configuration>
-          <!-- optional: limit format enforcement to just the files changed by this feature branch -->
-          <!--          <ratchetFrom>HEAD</ratchetFrom>-->
-          <formats>
-            <format> <!-- configure license for xml files -->
-              <includes>
-                <include>src/main/**/*.xml</include>
-                <include>src/test/**/*.xml</include>
-                <include>**/pom.xml</include>
-              </includes>
-              <licenseHeader>
-                <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
-                <delimiter>(&lt;configuration|&lt;project)</delimiter>
-              </licenseHeader>
-            </format>
-          </formats>
-          <java>
-            <indent>
-              <tabs>true</tabs>
-              <spacesPerTab>2</spacesPerTab>
-            </indent>
-            <indent>
-              <spaces>true</spaces>
-              <spacesPerTab>2</spacesPerTab>
-            </indent>
-            <googleJavaFormat/>
-            <licenseHeader> <!-- configure license for java files -->
-              <file>${maven.multiModuleProjectDirectory}/spotless/asf-java.license</file>
-              <delimiter>(package|import)</delimiter>
-            </licenseHeader>
-          </java>
-          <pom>
-            <indent>
-              <tabs>true</tabs>
-              <spacesPerTab>2</spacesPerTab>
-            </indent>
-            <indent>
-              <spaces>true</spaces>
-              <spacesPerTab>2</spacesPerTab>
-            </indent>
-            <sortPom>
-              <expandEmptyElements>false</expandEmptyElements>
-            </sortPom>
-          </pom>
-        </configuration>
-        <executions>
-          <execution>
-            <id>spotless-check</id>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.5.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.7.1</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
   </build>
 
   <reporting>
@@ -361,4 +302,150 @@
       </plugin>
     </plugins>
   </reporting>
+
+  <profiles>
+    <profile>
+      <id>spotless-jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.diffplug.spotless</groupId>
+            <artifactId>spotless-maven-plugin</artifactId>
+            <version>${spotless.version.jdk11}</version>
+            <configuration>
+              <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+              <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+              <formats>
+                <format>
+                  <!-- configure license for xml files -->
+                  <includes>
+                    <include>src/main/**/*.xml</include>
+                    <include>src/test/**/*.xml</include>
+                    <include>**/pom.xml</include>
+                  </includes>
+                  <licenseHeader>
+                    <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
+                    <delimiter>(&lt;configuration|&lt;project)</delimiter>
+                  </licenseHeader>
+                </format>
+              </formats>
+              <java>
+                <indent>
+                  <tabs>true</tabs>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <indent>
+                  <spaces>true</spaces>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <googleJavaFormat/>
+                <licenseHeader>
+                  <!-- configure license for java files -->
+                  <file>${maven.multiModuleProjectDirectory}/spotless/asf-java.license</file>
+                  <delimiter>(package|import)</delimiter>
+                </licenseHeader>
+              </java>
+              <pom>
+                <indent>
+                  <tabs>true</tabs>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <indent>
+                  <spaces>true</spaces>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <sortPom>
+                  <expandEmptyElements>false</expandEmptyElements>
+                </sortPom>
+              </pom>
+            </configuration>
+            <executions>
+              <execution>
+                <id>spotless-check</id>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <phase>validate</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>spotless-jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.diffplug.spotless</groupId>
+            <artifactId>spotless-maven-plugin</artifactId>
+            <version>${spotless.version.jdk8}</version>
+            <configuration>
+              <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+              <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+              <formats>
+                <format>
+                  <!-- configure license for xml files -->
+                  <includes>
+                    <include>src/main/**/*.xml</include>
+                    <include>src/test/**/*.xml</include>
+                    <include>**/pom.xml</include>
+                  </includes>
+                  <licenseHeader>
+                    <file>${maven.multiModuleProjectDirectory}/spotless/asf-xml.license</file>
+                    <delimiter>(&lt;configuration|&lt;project)</delimiter>
+                  </licenseHeader>
+                </format>
+              </formats>
+              <java>
+                <indent>
+                  <tabs>true</tabs>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <indent>
+                  <spaces>true</spaces>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <googleJavaFormat/>
+                <licenseHeader>
+                  <!-- configure license for java files -->
+                  <file>${maven.multiModuleProjectDirectory}/spotless/asf-java.license</file>
+                  <delimiter>(package|import)</delimiter>
+                </licenseHeader>
+              </java>
+              <pom>
+                <indent>
+                  <tabs>true</tabs>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <indent>
+                  <spaces>true</spaces>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <sortPom>
+                  <expandEmptyElements>false</expandEmptyElements>
+                </sortPom>
+              </pom>
+            </configuration>
+            <executions>
+              <execution>
+                <id>spotless-check</id>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <phase>validate</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

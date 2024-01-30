@@ -24,11 +24,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Collections;
-
-import org.apache.arrow.c.ArrowArray;
-import org.apache.arrow.c.ArrowSchema;
-import org.apache.arrow.c.CDataDictionaryProvider;
-import org.apache.arrow.c.Data;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
@@ -75,14 +70,19 @@ public class DictionaryTest {
 
       // Consumer imports vector
       try (CDataDictionaryProvider cDictionaryProvider = new CDataDictionaryProvider();
-          FieldVector imported = Data.importVector(allocator, consumerArrowArray, consumerArrowSchema,
-              cDictionaryProvider);) {
-        assertTrue(clazz.isInstance(imported), String.format("expected %s but was %s", clazz, imported.getClass()));
-        assertTrue(VectorEqualsVisitor.vectorEquals(vector, imported), "vectors are not equivalent");
+          FieldVector imported =
+              Data.importVector(
+                  allocator, consumerArrowArray, consumerArrowSchema, cDictionaryProvider); ) {
+        assertTrue(
+            clazz.isInstance(imported),
+            String.format("expected %s but was %s", clazz, imported.getClass()));
+        assertTrue(
+            VectorEqualsVisitor.vectorEquals(vector, imported), "vectors are not equivalent");
         for (long id : cDictionaryProvider.getDictionaryIds()) {
           ValueVector exportedDictionaryVector = provider.lookup(id).getVector();
           ValueVector importedDictionaryVector = cDictionaryProvider.lookup(id).getVector();
-          assertTrue(VectorEqualsVisitor.vectorEquals(exportedDictionaryVector, importedDictionaryVector),
+          assertTrue(
+              VectorEqualsVisitor.vectorEquals(exportedDictionaryVector, importedDictionaryVector),
               String.format("Dictionary vectors for ID %d are not equivalent", id));
         }
       }
@@ -91,7 +91,8 @@ public class DictionaryTest {
 
   @Test
   public void testWithDictionary() throws Exception {
-    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    DictionaryProvider.MapDictionaryProvider provider =
+        new DictionaryProvider.MapDictionaryProvider();
     // create dictionary and provider
     final VarCharVector dictVector = new VarCharVector("dict", allocator);
     dictVector.allocateNewSafe();
@@ -100,7 +101,8 @@ public class DictionaryTest {
     dictVector.setSafe(2, "cc".getBytes());
     dictVector.setValueCount(3);
 
-    Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
+    Dictionary dictionary =
+        new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */ null));
     provider.put(dictionary);
 
     // create vector and encode it
@@ -129,29 +131,37 @@ public class DictionaryTest {
       // Load first batch
       reader.loadNextBatch();
       // Producer fills consumer schema structure
-      Data.exportSchema(allocator, reader.getVectorSchemaRoot().getSchema(), reader, consumerArrowSchema);
+      Data.exportSchema(
+          allocator, reader.getVectorSchemaRoot().getSchema(), reader, consumerArrowSchema);
       // Consumer loads it as an empty vector schema root
       try (CDataDictionaryProvider consumerDictionaryProvider = new CDataDictionaryProvider();
-          VectorSchemaRoot consumerRoot = Data.importVectorSchemaRoot(allocator, consumerArrowSchema,
-              consumerDictionaryProvider)) {
+          VectorSchemaRoot consumerRoot =
+              Data.importVectorSchemaRoot(
+                  allocator, consumerArrowSchema, consumerDictionaryProvider)) {
         do {
           try (ArrowArray consumerArray = ArrowArray.allocateNew(allocator)) {
             // Producer exports next data
-            Data.exportVectorSchemaRoot(allocator, reader.getVectorSchemaRoot(), reader, consumerArray);
+            Data.exportVectorSchemaRoot(
+                allocator, reader.getVectorSchemaRoot(), reader, consumerArray);
             // Consumer loads next data
-            Data.importIntoVectorSchemaRoot(allocator, consumerArray, consumerRoot, consumerDictionaryProvider);
+            Data.importIntoVectorSchemaRoot(
+                allocator, consumerArray, consumerRoot, consumerDictionaryProvider);
 
             // Roundtrip validation
-            assertTrue(consumerRoot.equals(reader.getVectorSchemaRoot()), "vector schema roots are not equivalent");
+            assertTrue(
+                consumerRoot.equals(reader.getVectorSchemaRoot()),
+                "vector schema roots are not equivalent");
             for (long id : consumerDictionaryProvider.getDictionaryIds()) {
               ValueVector exportedDictionaryVector = reader.lookup(id).getVector();
-              ValueVector importedDictionaryVector = consumerDictionaryProvider.lookup(id).getVector();
-              assertTrue(VectorEqualsVisitor.vectorEquals(exportedDictionaryVector, importedDictionaryVector),
+              ValueVector importedDictionaryVector =
+                  consumerDictionaryProvider.lookup(id).getVector();
+              assertTrue(
+                  VectorEqualsVisitor.vectorEquals(
+                      exportedDictionaryVector, importedDictionaryVector),
                   String.format("Dictionary vectors for ID %d are not equivalent", id));
             }
           }
-        }
-        while (reader.loadNextBatch());
+        } while (reader.loadNextBatch());
       }
     }
   }
@@ -161,7 +171,8 @@ public class DictionaryTest {
     try (final VarCharVector dictVector = new VarCharVector("dict", allocator);
         IntVector vector = new IntVector("foo", allocator)) {
       // create dictionary and provider
-      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      DictionaryProvider.MapDictionaryProvider provider =
+          new DictionaryProvider.MapDictionaryProvider();
       dictVector.allocateNewSafe();
       dictVector.setSafe(0, "aa".getBytes());
       dictVector.setSafe(1, "bb".getBytes());
@@ -169,14 +180,16 @@ public class DictionaryTest {
       dictVector.setSafe(3, "dd".getBytes());
       dictVector.setSafe(4, "ee".getBytes());
       dictVector.setValueCount(5);
-      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
+      Dictionary dictionary =
+          new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */ null));
       provider.put(dictionary);
 
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
-      try (
-          VectorSchemaRoot root = new VectorSchemaRoot(schema, Collections.singletonList(vector),
-              vector.getValueCount());
-          ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, Channels.newChannel(os));) {
+      try (VectorSchemaRoot root =
+              new VectorSchemaRoot(
+                  schema, Collections.singletonList(vector), vector.getValueCount());
+          ArrowStreamWriter writer =
+              new ArrowStreamWriter(root, provider, Channels.newChannel(os)); ) {
 
         writer.start();
 
@@ -215,5 +228,4 @@ public class DictionaryTest {
     ByteArrayInputStream in = new ByteArrayInputStream(os.toByteArray());
     return new ArrowStreamReader(in, allocator);
   }
-
 }

@@ -12,16 +12,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
+    <artifactId>arrow-flight</artifactId>
     <version>16.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>flight-sql</artifactId>
+  <packaging>jar</packaging>
   <name>Arrow Flight SQL</name>
   <description>(Experimental)Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight</description>
-  <packaging>jar</packaging>
 
   <properties>
     <forkCount>1</forkCount>

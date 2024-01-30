@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import org.apache.arrow.c.ArrowArray;
 import org.apache.arrow.c.Data;
 import org.apache.arrow.dataset.scanner.Scanner;
@@ -36,9 +35,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
 
 /**
- * Native implementation of {@link Scanner}. Note that it currently emits only a single scan task of type
- * {@link NativeScanTask}, which is internally a combination of all scan task instances returned by the
- * native scanner.
+ * Native implementation of {@link Scanner}. Note that it currently emits only a single scan task of
+ * type {@link NativeScanTask}, which is internally a combination of all scan task instances
+ * returned by the native scanner.
  */
 public class NativeScanner implements Scanner {
 
@@ -61,8 +60,9 @@ public class NativeScanner implements Scanner {
       throw new NativeInstanceReleasedException();
     }
     if (!executed.compareAndSet(false, true)) {
-      throw new UnsupportedOperationException("NativeScanner cannot be executed more than once. Consider creating " +
-          "new scanner instead");
+      throw new UnsupportedOperationException(
+          "NativeScanner cannot be executed more than once. Consider creating "
+              + "new scanner instead");
     }
     return new NativeReader(context.getAllocator());
   }
@@ -73,8 +73,8 @@ public class NativeScanner implements Scanner {
       throw new NativeInstanceReleasedException();
     }
     if (!executed.compareAndSet(false, true)) {
-      throw new UnsupportedOperationException("NativeScanner can only be executed once. Create a " +
-              "new scanner instead");
+      throw new UnsupportedOperationException(
+          "NativeScanner can only be executed once. Create a " + "new scanner instead");
     }
     return new NativeReader(context.getAllocator());
   }
@@ -95,7 +95,8 @@ public class NativeScanner implements Scanner {
       if (closed) {
         throw new NativeInstanceReleasedException();
       }
-      return SchemaUtility.deserialize(JniWrapper.get().getSchemaFromScanner(scannerId), context.getAllocator());
+      return SchemaUtility.deserialize(
+          JniWrapper.get().getSchemaFromScanner(scannerId), context.getAllocator());
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
@@ -117,9 +118,7 @@ public class NativeScanner implements Scanner {
     }
   }
 
-  /**
-   * {@link ArrowReader} implementation for NativeDataset.
-   */
+  /** {@link ArrowReader} implementation for NativeDataset. */
   public class NativeReader extends ArrowReader {
 
     private NativeReader(BufferAllocator allocator) {
