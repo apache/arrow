@@ -568,7 +568,7 @@ message SetSessionOptionsRequest {
  * EXPERIMENTAL: The results (individually) of setting a set of session options.
  *
  * Option names should only be present in the response if they were not successfully
- * set on the server; that is, a response without an Error for a key provided in the
+ * set on the server; that is, a response without an Error for a name provided in the
  * SetSessionOptionsRequest implies that the named option value was set successfully.
  */
 message SetSessionOptionsResult {

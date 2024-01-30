@@ -441,16 +441,16 @@ Status FromProto(const google::protobuf::Map<std::string, pb::SessionOptionValue
   if (pb_map.empty()) {
     return Status::OK();
   }
-  for (const auto& [key, pb_val] : pb_map) {
-    RETURN_NOT_OK(FromProto(pb_val, &(*map)[key]));
+  for (const auto& [name, pb_val] : pb_map) {
+    RETURN_NOT_OK(FromProto(pb_val, &(*map)[name]));
   }
   return Status::OK();
 }
 
 Status ToProto(const std::map<std::string, SessionOptionValue>& map,
                google::protobuf::Map<std::string, pb::SessionOptionValue>* pb_map) {
-  for (const auto& [key, val] : map) {
-    RETURN_NOT_OK(ToProto(val, &(*pb_map)[key]));
+  for (const auto& [name, val] : map) {
+    RETURN_NOT_OK(ToProto(val, &(*pb_map)[name]));
   }
   return Status::OK();
 }
