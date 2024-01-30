@@ -309,6 +309,33 @@ class TestFilterKernel : public ::testing::Test {
     AssertFilter(values_array, ree_filter, expected_array);
   }
 
+  void TestNumericBasics(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    AssertFilter(type, "[]", "[]", "[]");
+
+    AssertFilter(type, "[9]", "[0]", "[]");
+    AssertFilter(type, "[9]", "[1]", "[9]");
+    AssertFilter(type, "[9]", "[null]", "[null]");
+    AssertFilter(type, "[null]", "[0]", "[]");
+    AssertFilter(type, "[null]", "[1]", "[null]");
+    AssertFilter(type, "[null]", "[null]", "[null]");
+
+    AssertFilter(type, "[7, 8, 9]", "[0, 1, 0]", "[8]");
+    AssertFilter(type, "[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
+    AssertFilter(type, "[null, 8, 9]", "[0, 1, 0]", "[8]");
+    AssertFilter(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
+    AssertFilter(type, "[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+
+    AssertFilter(ArrayFromJSON(type, "[7, 8, 9]"),
+                 ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
+                 ArrayFromJSON(type, "[7, 9]"));
+
+    ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
+                                  ArrayFromJSON(boolean(), "[]"), emit_null_));
+    ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
+                                  ArrayFromJSON(boolean(), "[]"), drop_));
+  }
+
   const FilterOptions emit_null_, drop_;
 };
 
@@ -340,6 +367,33 @@ void ValidateFilter(const std::shared_ptr<Array>& values,
                     /*verbose=*/true);
   AssertArraysEqual(*expected_emit_null.make_array(), *filtered_emit_null,
                     /*verbose=*/true);
+}
+
+TEST_F(TestFilterKernel, Temporal) {
+  this->TestNumericBasics(time32(TimeUnit::MILLI));
+  this->TestNumericBasics(time64(TimeUnit::MICRO));
+  this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
+  this->TestNumericBasics(duration(TimeUnit::SECOND));
+  this->TestNumericBasics(date32());
+  this->AssertFilter(date64(), "[0, 86400000, null]", "[null, 1, 0]", "[null, 86400000]");
+}
+
+TEST_F(TestFilterKernel, Duration) {
+  for (auto type : DurationTypes()) {
+    this->TestNumericBasics(type);
+  }
+}
+
+TEST_F(TestFilterKernel, Interval) {
+  this->TestNumericBasics(month_interval());
+
+  auto type = day_time_interval();
+  this->AssertFilter(type, "[[1, -600], [2, 3000], null]", "[null, 1, 0]",
+                     "[null, [2, 3000]]");
+  type = month_day_nano_interval();
+  this->AssertFilter(type,
+                     "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+                     "[null, 1, 0]", "[null, [2, 3, -34567890123456789]]");
 }
 
 class TestFilterKernelWithNull : public TestFilterKernel {
@@ -401,30 +455,7 @@ class TestFilterKernelWithNumeric : public TestFilterKernel {
 
 TYPED_TEST_SUITE(TestFilterKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
-  auto type = this->type_singleton();
-  this->AssertFilter(type, "[]", "[]", "[]");
-
-  this->AssertFilter(type, "[9]", "[0]", "[]");
-  this->AssertFilter(type, "[9]", "[1]", "[9]");
-  this->AssertFilter(type, "[9]", "[null]", "[null]");
-  this->AssertFilter(type, "[null]", "[0]", "[]");
-  this->AssertFilter(type, "[null]", "[1]", "[null]");
-  this->AssertFilter(type, "[null]", "[null]", "[null]");
-
-  this->AssertFilter(type, "[7, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
-  this->AssertFilter(type, "[null, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
-
-  this->AssertFilter(ArrayFromJSON(type, "[7, 8, 9]"),
-                     ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
-                     ArrayFromJSON(type, "[7, 9]"));
-
-  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->emit_null_));
-  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->drop_));
+  this->TestNumericBasics(this->type_singleton());
 }
 
 template <typename CType>
@@ -588,7 +619,7 @@ TYPED_TEST(TestFilterKernelWithDecimal, FilterNumeric) {
                                 ArrayFromJSON(boolean(), "[]"), this->drop_));
 }
 
-TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+TEST_F(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
   auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
 
@@ -1136,6 +1167,20 @@ class TestTakeKernel : public ::testing::Test {
     TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
                                             ArrayFromJSON(int16(), indices));
   }
+
+  void TestNumericBasics(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckTake(type, "[7, 8, 9]", "[]", "[]");
+    CheckTake(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
+    CheckTake(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
+    CheckTake(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
+    CheckTake(type, "[null, 8, 9]", "[]", "[]");
+    CheckTake(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
+
+    std::shared_ptr<Array> arr;
+    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
+    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, -1, 0]", &arr));
+  }
 };
 
 template <typename ArrowType>
@@ -1201,6 +1246,34 @@ TEST_F(TestTakeKernel, TakeBoolean) {
                 TakeJSON(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
+TEST_F(TestTakeKernel, Temporal) {
+  this->TestNumericBasics(time32(TimeUnit::MILLI));
+  this->TestNumericBasics(time64(TimeUnit::MICRO));
+  this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
+  this->TestNumericBasics(duration(TimeUnit::SECOND));
+  this->TestNumericBasics(date32());
+  CheckTake(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
+            "[null, 86400000, 86400000, 0]");
+}
+
+TEST_F(TestTakeKernel, Duration) {
+  for (auto type : DurationTypes()) {
+    this->TestNumericBasics(type);
+  }
+}
+
+TEST_F(TestTakeKernel, Interval) {
+  this->TestNumericBasics(month_interval());
+
+  auto type = day_time_interval();
+  CheckTake(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
+            "[[1, -600], null, null, [2, 3000]]");
+  type = month_day_nano_interval();
+  CheckTake(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+            "[0, null, 2, 1]",
+            "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
+}
+
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
  protected:
@@ -1216,18 +1289,7 @@ class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
 
 TYPED_TEST_SUITE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
-  this->AssertTake("[7, 8, 9]", "[]", "[]");
-  this->AssertTake("[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
-  this->AssertTake("[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[]", "[]");
-  this->AssertTake("[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
-
-  std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError,
-                TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
-  ASSERT_RAISES(IndexError, TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(),
-                                     "[0, -1, 0]", &arr));
+  this->TestNumericBasics(this->type_singleton());
 }
 
 template <typename TypeClass>
@@ -1816,6 +1878,7 @@ TEST(TestTakeMetaFunction, ArityChecking) {
 template <typename Unused = void>
 struct FilterRandomTest {
   static void Test(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
     auto rand = random::RandomArrayGenerator(kRandomSeed);
     const int64_t length = static_cast<int64_t>(1ULL << 10);
     for (auto null_probability : {0.0, 0.01, 0.1, 0.999, 1.0}) {
@@ -1856,6 +1919,7 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
 template <typename ValuesType>
 struct TakeRandomTest {
   static void Test(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
     auto rand = random::RandomArrayGenerator(kRandomSeed);
     const int64_t values_length = 64 * 16 + 1;
     const int64_t indices_length = 64 * 4 + 1;
@@ -1897,8 +1961,10 @@ TEST(TestFilter, RandomString) {
 }
 
 TEST(TestFilter, RandomFixedSizeBinary) {
-  FilterRandomTest<>::Test(fixed_size_binary(0));
-  FilterRandomTest<>::Test(fixed_size_binary(16));
+  // FixedSizeBinary filter is special-cased for some widths
+  for (int32_t width : {0, 1, 16, 32, 35}) {
+    FilterRandomTest<>::Test(fixed_size_binary(width));
+  }
 }
 
 TEST(TestTake, PrimitiveRandom) { TestRandomPrimitiveCTypes<TakeRandomTest>(); }
@@ -1911,8 +1977,10 @@ TEST(TestTake, RandomString) {
 }
 
 TEST(TestTake, RandomFixedSizeBinary) {
-  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(0));
-  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(16));
+  // FixedSizeBinary take is special-cased for some widths
+  for (int32_t width : {0, 1, 16, 32, 35}) {
+    TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(width));
+  }
 }
 
 // ----------------------------------------------------------------------
