@@ -988,9 +988,7 @@ Examples
         # sure to close it when `self.close` is called.
         self.file_handle = None
 
-        filesystem, path = _resolve_filesystem_and_path(
-            where, filesystem, allow_legacy_filesystem=True
-        )
+        filesystem, path = _resolve_filesystem_and_path(where, filesystem)
         if filesystem is not None:
             # ARROW-10480: do not auto-detect compression.  While
             # a filename like foo.parquet.gz is nonconforming, it
