@@ -253,7 +253,8 @@ struct RandomDataTypeConstraints {
   int max_string_length;
 
   void Default() {
-    data_type_enabled_mask = kInt1 | kInt2 | kInt4 | kInt8 | kBool | kBinary | kString;
+    data_type_enabled_mask =
+        kInt1 | kInt2 | kInt4 | kInt8 | kBool | kBinary | kString | kLargeString;
     min_null_probability = 0.0;
     max_null_probability = 0.2;
     min_binary_length = 1;
@@ -289,6 +290,7 @@ struct RandomDataTypeConstraints {
   static constexpr int64_t kBool = 16;
   static constexpr int64_t kBinary = 32;
   static constexpr int64_t kString = 64;
+  static constexpr int64_t kLargeString = 128;
 };
 
 struct RandomDataType {
@@ -297,6 +299,7 @@ struct RandomDataType {
   int fixed_length;
   int min_string_length;
   int max_string_length;
+  bool is_large_string;
 
   static RandomDataType Random(Random64Bit& rng,
                                const RandomDataTypeConstraints& constraints) {
@@ -312,6 +315,15 @@ struct RandomDataType {
     } else {
       result.is_fixed_length = true;
     }
+
+    if (!result.is_fixed_length &&
+        (constraints.data_type_enabled_mask & constraints.kLargeString) != 0) {
+      // When selecting the string type, there's a 50% chance of choosing a large string.
+      result.is_large_string = ((rng.next() % 2) == 0);
+    } else {
+      result.is_large_string = false;
+    }
+
     if (constraints.max_null_probability > 0.0) {
       // 25% chance of no nulls
       // Uniform distribution of null probability from min to max
@@ -405,9 +417,16 @@ std::vector<std::shared_ptr<Array>> GenRandomRecords(
           break;
       }
     } else {
-      result.push_back(rag.String(num_rows, data_types[i].min_string_length,
-                                  data_types[i].max_string_length,
-                                  data_types[i].null_probability));
+      if (data_types[i].is_large_string) {
+        // Generate LargeString if is_large_string flag is true
+        result.push_back(rag.LargeString(num_rows, data_types[i].min_string_length,
+                                         data_types[i].max_string_length,
+                                         data_types[i].null_probability));
+      } else {
+        result.push_back(rag.String(num_rows, data_types[i].min_string_length,
+                                    data_types[i].max_string_length,
+                                    data_types[i].null_probability));
+      }
     }
   }
   return result;

@@ -18,13 +18,13 @@ namespace Apache.Arrow.Types
 {
     public sealed class Time64Type : TimeType
     {
-        public static readonly Time64Type Default = new Time64Type();
+        public static Time64Type Default => Nanosecond;
 
         public override ArrowTypeId TypeId => ArrowTypeId.Time64;
         public override string Name => "time64";
         public override int BitWidth => 64;
 
-        public Time64Type(TimeUnit unit = TimeUnit.Millisecond)
+        public Time64Type(TimeUnit unit = TimeUnit.Nanosecond)
             : base(unit) { }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

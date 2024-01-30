@@ -24,4 +24,5 @@ var (
 	ErrType           = errors.New("type error")
 	ErrKey            = errors.New("key error")
 	ErrIndex          = errors.New("index error")
+	ErrNotFound       = errors.New("not found")
 )

@@ -590,16 +590,36 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Commit/rollback a transaction.
   /// \param[in] context  The call context.
-  /// \param[in] request  The tranaction.
+  /// \param[in] request  The transaction.
   virtual Status EndTransaction(const ServerCallContext& context,
                                 const ActionEndTransactionRequest& request);
 
+  /// \brief Attempt to explicitly cancel a FlightInfo.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The CancelFlightInfoRequest.
+  /// \return             The cancellation result.
+  virtual arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const ServerCallContext& context, const CancelFlightInfoRequest& request);
+
   /// \brief Attempt to explicitly cancel a query.
+  ///
   /// \param[in] context  The call context.
   /// \param[in] request  The query to cancel.
   /// \return             The cancellation result.
+  /// \deprecated Deprecated in 13.0.0. You just need to implement
+  /// CancelFlightInfo() to support both the CancelFlightInfo action
+  /// (for newer clients) and the CancelQuery action (for older
+  /// clients).
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Implement CancelFlightInfo() instead.")
   virtual arrow::Result<CancelResult> CancelQuery(
       const ServerCallContext& context, const ActionCancelQueryRequest& request);
+
+  /// \brief Attempt to explicitly renew a FlightEndpoint.
+  /// \param[in] context  The call context.
+  /// \param[in] request  The RenewFlightEndpointRequest.
+  /// \return             The renew result.
+  virtual arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const ServerCallContext& context, const RenewFlightEndpointRequest& request);
 
   /// @}
 
@@ -653,6 +673,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "Response Message: ActionCreatePreparedStatementResult"};
   const ActionType kCancelQueryActionType =
       ActionType{"CancelQuery",
+                 "Deprecated since 13.0.0. Use CancelFlightInfo instead.\n"
                  "Explicitly cancel a running query.\n"
                  "Request Message: ActionCancelQueryRequest\n"
                  "Response Message: ActionCancelQueryResult"};

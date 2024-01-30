@@ -119,7 +119,7 @@ test_that("reading/writing a raw vector (sparklyr integration)", {
   }
   bytes <- write_to_raw(example_data)
   expect_type(bytes, "raw")
-  expect_identical(read_from_raw_test(bytes), example_data)
+  expect_equal_data_frame(read_from_raw_test(bytes), example_data)
   # this could just be `read_ipc_stream(x)`; propose that
-  expect_identical(read_ipc_stream(bytes), example_data)
+  expect_equal_data_frame(read_ipc_stream(bytes), example_data)
 })

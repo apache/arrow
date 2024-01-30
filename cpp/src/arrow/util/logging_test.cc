@@ -68,6 +68,33 @@ TEST(PrintLogTest, LogTestWithInit) {
   ArrowLog::ShutDownArrowLog();
 }
 
+struct LoggingTracer {
+  mutable bool was_printed = false;
+
+  friend std::ostream& operator<<(std::ostream& os, const LoggingTracer& x) {
+    x.was_printed = true;
+    return os;
+  }
+};
+
+TEST(ArrowCheck, PayloadNotEvaluatedOnSuccess) {
+  volatile bool cond = true;
+  LoggingTracer tracer;
+
+  ARROW_CHECK_OR_LOG(cond, WARNING) << "Some message" << tracer;
+  ASSERT_FALSE(tracer.was_printed);
+}
+
+TEST(ArrowCheck, PayloadEvaluatedOnFailure) {
+  volatile bool cond = false;
+  LoggingTracer tracer;
+
+  // Have to use a log level that actually gets printed, otherwise `operator<<`
+  // isn't called (which is good except for this test).
+  ARROW_CHECK_OR_LOG(cond, WARNING) << "Some message" << tracer;
+  ASSERT_TRUE(tracer.was_printed);
+}
+
 }  // namespace util
 
 TEST(DcheckMacros, DoNotEvaluateReleaseMode) {

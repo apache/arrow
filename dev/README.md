@@ -31,27 +31,22 @@ NOTE: It may take some time (a few hours) between when you complete
 the setup at GitBox, and when your GitHub account will be added as a
 committer.
 
-## How to merge a Pull request
+## How to Merge a Pull Request
 
-Please don't merge PRs using the Github Web interface.  Instead, set up
-your git clone such as to have a remote named ``apache`` pointing to the
-official Arrow repository:
-```
-git remote add apache git@github.com:apache/arrow.git
-```
+Please don't merge PRs using the GitHub Web interface. Instead, run
+the following command:
 
-and then run the following command:
-```
-./dev/merge_arrow_pr.sh
+```bash
+dev/merge_arrow_pr.sh
 ```
 
 This creates a new Python virtual environment under `dev/.venv[PY_VERSION]`
 and installs all the necessary dependencies to run the Arrow merge script.
 After installed, it runs the merge script.
 
-(we don't provide a wrapper script for Windows yet, so under Windows you'll
-have to install Python dependencies yourself and then run `dev/merge_arrow_pr.py`
-directly)
+(We don't provide a wrapper script for Windows yet, so under Windows
+you'll have to install Python dependencies yourself and then run
+`dev/merge_arrow_pr.py` directly.)
 
 The merge script uses the GitHub REST API. You must set a
 `ARROW_GITHUB_API_TOKEN` environment variable to use a 
@@ -64,30 +59,16 @@ of your JIRA account in the
 `APACHE_JIRA_TOKEN` environment variable.
 If the variable is not set, the script will ask you for it.
 
-Note that the directory name of your Arrow git clone must be called `arrow`.
+Example output:
 
-example output:
-```
+```text
 Which pull request would you like to merge? (e.g. 34):
 ```
-Type the pull request number (from https://github.com/apache/arrow/pulls) and hit enter.
-```
-=== Pull Request #X ===
-title	Blah Blah Blah
-source	repo/branch
-target	master
-url	https://api.github.com/apache/arrow/pulls/X
-=== JIRA ARROW-#Y ===
-Summary		Blah Blah Blah
-Assignee	Name
-Components	C++
-Status		In Progress
-URL		https://issues.apache.org/jira/browse/ARROW-#Y
 
-Proceed with merging pull request #X? (y/n):
-```
+Type the pull request number (from
+https://github.com/apache/arrow/pulls) and hit enter:
 
-```
+```text
 === Pull Request #X ===
 title	GH-#Y: [Component] Title
 source	repo/branch
@@ -103,17 +84,9 @@ URL		https://github.com/apache/arrow/issues/Y
 Proceed with merging pull request #X? (y/n): y
 ```
 
-If this looks good, type y and hit enter.
-```
-Author 1: Name
-Pull request #X merged!
-Merge hash: #hash
+If this looks good, type `y` and hit enter:
 
-Would you like to update the associated JIRA? (y/n): y
-Enter comma-separated fix version(s) [11.0.0]:
-```
-
-```
+```text
 Author 1: Name
 Pull request #X merged!
 Merge hash: #hash
@@ -122,27 +95,17 @@ Would you like to update the associated issue? (y/n): y
 Enter fix version [11.0.0]:
 ```
 
-You can just hit enter and the associated JIRA or GitHub issue
+You can just hit enter and the associated GitHub issue
 will be resolved with the current fix version.
 
-```
-Successfully resolved ARROW-#Y!
-=== JIRA ARROW-#Y ===
-Summary		Blah Blah Blah
-Assignee	Name
-Components	C++
-Status		Resolved
-URL		https://issues.apache.org/jira/browse/ARROW-#Y
-```
-
-```
+```text
 Successfully resolved #Y!
 === GITHUB #Y ===
 Summary		[Component] Title
 Assignee	Name
 Components	Python
 Status		closed
-URL		https://github.com/apache/arrow/issues/Y```
+URL		https://github.com/apache/arrow/issues/Y
 ```
 
 ## Verifying Release Candidates

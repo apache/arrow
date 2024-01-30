@@ -45,6 +45,7 @@ This minimal ``CMakeLists.txt`` file compiles a ``my_example.cc`` source
 file into an executable linked with the Arrow C++ shared library:
 
 .. code-block:: cmake
+
    cmake_minimum_required(VERSION 3.16)
    
    project(MyExample)

@@ -122,12 +122,12 @@ class ARROW_EXPORT KeyColumnArray {
 
   /// \brief Return one of the underlying mutable buffers
   uint8_t* mutable_data(int i) {
-    ARROW_DCHECK(i >= 0 && i <= kMaxBuffers);
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     return mutable_buffers_[i];
   }
   /// \brief Return one of the underlying read-only buffers
   const uint8_t* data(int i) const {
-    ARROW_DCHECK(i >= 0 && i <= kMaxBuffers);
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     return buffers_[i];
   }
   /// \brief Return a mutable version of the offsets buffer
@@ -183,6 +183,31 @@ class ARROW_EXPORT KeyColumnArray {
   // Starting bit offset within the first byte (between 0 and 7)
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
+
+  bool is_bool_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_fixed_width_types() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length != 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint32_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_large_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint64_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_null_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           metadata_.is_null_type;
+  }
 };
 
 /// \brief Create KeyColumnMetadata from a DataType
@@ -316,8 +341,7 @@ class ARROW_EXPORT ResizableArrayData {
   ///
   /// If i is 0 (kValidityBuffer) then this returns the validity buffer
   /// If i is 1 (kFixedLengthBuffer) then this returns the buffer used for values (if this
-  /// is a fixed
-  ///           length data type) or offsets (if this is a variable binary type)
+  /// is a fixed length data type) or offsets (if this is a variable binary type)
   /// If i is 2 (kVariableLengthBuffer) then this returns the buffer used for variable
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }
@@ -329,7 +353,7 @@ class ARROW_EXPORT ResizableArrayData {
   MemoryPool* pool_;
   int num_rows_;
   int num_rows_allocated_;
-  int var_len_buf_size_;
+  int64_t var_len_buf_size_;
   static constexpr int kMaxBuffers = 3;
   std::shared_ptr<ResizableBuffer> buffers_[kMaxBuffers];
 };
@@ -392,7 +416,9 @@ class ARROW_EXPORT ExecBatchBuilder {
   // without checking buffer bounds (useful with SIMD or fixed size memory loads
   // and stores).
   //
-  // The sequence of row_ids provided must be non-decreasing.
+  // The sequence of row_ids provided must be non-decreasing. In case of consecutive rows
+  // with the same row id, they are skipped all at once because they occupy the same
+  // space.
   //
   static int NumRowsToSkip(const std::shared_ptr<ArrayData>& column, int num_rows,
                            const uint16_t* row_ids, int num_tail_bytes_to_skip);

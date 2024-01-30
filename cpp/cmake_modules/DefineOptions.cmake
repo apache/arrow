@@ -31,24 +31,6 @@ function(check_description_length name description)
   endforeach()
 endfunction()
 
-function(list_join lst glue out)
-  if("${${lst}}" STREQUAL "")
-    set(${out}
-        ""
-        PARENT_SCOPE)
-    return()
-  endif()
-
-  list(GET ${lst} 0 joined)
-  list(REMOVE_AT ${lst} 0)
-  foreach(item ${${lst}})
-    set(joined "${joined}${glue}${item}")
-  endforeach()
-  set(${out}
-      ${joined}
-      PARENT_SCOPE)
-endfunction()
-
 macro(define_option name description default)
   set(options)
   set(one_value_args)
@@ -63,7 +45,7 @@ macro(define_option name description default)
   endif()
 
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   option(${name} "${multiline_description}" ${default})
 
@@ -76,7 +58,7 @@ endmacro()
 
 macro(define_option_string name description default)
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   set(${name}
       ${default}
@@ -87,8 +69,12 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
   set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
-
-  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
+  list(FIND ${name}_OPTION_POSSIBLE_VALUES "${default}" default_value_index)
+  if(NOT ${default_value_index} EQUAL -1)
+    list(REMOVE_AT ${name}_OPTION_POSSIBLE_VALUES ${default_value_index})
+    list(PREPEND ${name}_OPTION_POSSIBLE_VALUES "${default}")
+  endif()
+  list(JOIN "${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
@@ -210,6 +196,8 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
+  define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
@@ -294,6 +282,16 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
+
+  define_option(ARROW_AZURE
+                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
+
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
@@ -342,12 +340,16 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+  if(WIN32
+     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
+     OR NOT ARROW_ENABLE_THREADING)
     # jemalloc is not supported on Windows.
     #
     # jemalloc is the default malloc implementation on FreeBSD and can't
     # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
     # is required on FreeBSD. Lazy-lock feature requires libdl.
+    #
+    # jemalloc requires thread.
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
   else()
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
@@ -402,13 +404,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_IPC
                 ARROW_PARQUET)
 
-  define_option(ARROW_ACERO
-                "Build the Arrow Acero Engine Module"
-                OFF
-                DEPENDS
-                ARROW_COMPUTE
-                ARROW_IPC)
-
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   define_option(ARROW_TESTING
@@ -430,11 +425,10 @@ takes precedence over ccache if a storage backend is configured" ON)
   #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
   # * SYSTEM: Use CMake's find_package and find_library without any custom
   #   paths. If individual packages are on non-default locations, you can pass
-  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
-  #   with CMake 3.11 and higher.  If your system packages are in a non-default
-  #   location, or if you are using a non-standard toolchain, you can also pass
-  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
-  #   directory
+  #   $NAME_ROOT arguments to CMake, or set environment variables for the same.
+  #   If your system packages are in a non-default location, or if you are using
+  #   a non-standard toolchain, you can also pass ARROW_PACKAGE_PREFIX to set
+  #   the *_ROOT variables to look in that directory
   # * CONDA: Same as SYSTEM but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
@@ -479,6 +473,15 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_JEMALLOC_USE_SHARED
                 "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
+
+  if(MSVC)
+    # LLVM doesn't support shared library with MSVC.
+    set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_LLVM_USE_SHARED "Rely on LLVM shared libraries where relevant"
+                ${ARROW_LLVM_USE_SHARED_DEFAULT})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -748,7 +751,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION

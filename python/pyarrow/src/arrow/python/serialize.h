@@ -21,9 +21,9 @@
 #include <vector>
 
 #include "arrow/ipc/options.h"
+#include "arrow/python/visibility.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
-#include "arrow/python/visibility.h"
 
 // Forward declaring PyObject, see
 // https://mail.python.org/pipermail/python-dev/2003-August/037601.html

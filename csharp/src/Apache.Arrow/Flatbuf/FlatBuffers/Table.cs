@@ -16,18 +16,26 @@
 
 using System;
 using System.Text;
+using System.Runtime.InteropServices;
 
-namespace FlatBuffers
+namespace Google.FlatBuffers
 {
     /// <summary>
     /// All tables in the generated code derive from this struct, and add their own accessors.
     /// </summary>
     internal struct Table
     {
-        public int bb_pos;
-        public ByteBuffer bb;
+        public int bb_pos { get; private set; }
+        public ByteBuffer bb { get; private set; }
 
         public ByteBuffer ByteBuffer { get { return bb; } }
+
+        // Re-init the internal state with an external buffer {@code ByteBuffer} and an offset within.
+        public Table(int _i, ByteBuffer _bb) : this()
+        {
+            bb = _bb;
+            bb_pos = _i;
+        }
 
         // Look up a field in the vtable, return an offset into the object, or 0 if the field is not
         // present.
@@ -57,7 +65,11 @@ namespace FlatBuffers
         // Create a .NET String from UTF-8 data stored inside the flatbuffer.
         public string __string(int offset)
         {
-            offset += bb.GetInt(offset);
+            int stringOffset = bb.GetInt(offset);
+            if (stringOffset == 0)
+                return null;
+
+            offset += stringOffset;
             var len = bb.GetInt(offset);
             var startPos = offset + sizeof(int);
             return bb.GetStringUTF8(startPos, len);
@@ -78,24 +90,30 @@ namespace FlatBuffers
             return offset + bb.GetInt(offset) + sizeof(int);  // data starts after the length
         }
 
-#if ENABLE_SPAN_T
-        // Get the data of a vector whoses offset is stored at "offset" in this object as an
+#if ENABLE_SPAN_T && (UNSAFE_BYTEBUFFER || NETSTANDARD2_1)
+        // Get the data of a vector whose offset is stored at "offset" in this object as an
         // Spant&lt;byte&gt;. If the vector is not present in the ByteBuffer,
         // then an empty span will be returned.
-        public Span<byte> __vector_as_span(int offset)
+        public Span<T> __vector_as_span<T>(int offset, int elementSize) where T : struct
         {
+            if (!BitConverter.IsLittleEndian)
+            {
+               throw new NotSupportedException("Getting typed span on a Big Endian " +
+                                               "system is not support");
+            }
+
             var o = this.__offset(offset);
             if (0 == o)
             {
-                return new Span<byte>();
+                return new Span<T>();
             }
 
             var pos = this.__vector(o);
             var len = this.__vector_len(o);
-            return bb.ToSpan(pos, len);
+            return MemoryMarshal.Cast<byte, T>(bb.ToSpan(pos, len * elementSize));
         }
 #else
-        // Get the data of a vector whoses offset is stored at "offset" in this object as an
+        // Get the data of a vector whose offset is stored at "offset" in this object as an
         // ArraySegment&lt;byte&gt;. If the vector is not present in the ByteBuffer,
         // then a null value will be returned.
         public ArraySegment<byte>? __vector_as_arraysegment(int offset)
@@ -112,7 +130,7 @@ namespace FlatBuffers
         }
 #endif
 
-        // Get the data of a vector whoses offset is stored at "offset" in this object as an
+        // Get the data of a vector whose offset is stored at "offset" in this object as an
         // T[]. If the vector is not present in the ByteBuffer, then a null value will be
         // returned.
         public T[] __vector_as_array<T>(int offset)
@@ -138,9 +156,8 @@ namespace FlatBuffers
         // Initialize any Table-derived type to point to the union at the given offset.
         public T __union<T>(int offset) where T : struct, IFlatbufferObject
         {
-            offset += bb_pos;
             T t = new T();
-            t.__init(offset + bb.GetInt(offset), bb);
+            t.__init(__indirect(offset), bb);
             return t;
         }
 

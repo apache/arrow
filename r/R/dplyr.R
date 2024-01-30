@@ -216,7 +216,8 @@ unique.RecordBatchReader <- unique.arrow_dplyr_query
 
 #' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
-  collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  out <- collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  as.data.frame(out)
 }
 
 #' @export
@@ -315,8 +316,8 @@ ensure_group_vars <- function(x) {
     if (length(gv)) {
       # Add them back
       x$selected_columns <- c(
-        x$selected_columns,
-        make_field_refs(gv)
+        make_field_refs(gv),
+        x$selected_columns
       )
     }
   }

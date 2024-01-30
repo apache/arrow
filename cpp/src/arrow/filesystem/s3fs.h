@@ -130,7 +130,7 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency = 900;
@@ -143,6 +143,14 @@ struct ARROW_EXPORT S3Options {
 
   /// Type of credentials being used. Set along with credentials_provider.
   S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
+
+  /// Whether to use virtual addressing of buckets
+  ///
+  /// If true, then virtual addressing is always enabled.
+  /// If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+  ///
+  /// This can be used for non-AWS backends that only support virtual hosted-style access.
+  bool force_virtual_addressing = false;
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
@@ -185,7 +193,7 @@ struct ARROW_EXPORT S3Options {
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
-  /// Configure with credentials from role assumed using a web identitiy token
+  /// Configure with credentials from role assumed using a web identity token
   void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
@@ -247,6 +255,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;
@@ -331,17 +340,25 @@ struct ARROW_EXPORT S3GlobalOptions {
   ///
   /// For more details see Aws::Crt::Io::EventLoopGroup
   int num_event_loop_threads = 1;
+
+  /// \brief Initialize with default options
+  ///
+  /// For log_level, this method first tries to extract a suitable value from the
+  /// environment variable ARROW_S3_LOG_LEVEL.
+  static S3GlobalOptions Defaults();
 };
 
-/// Initialize the S3 APIs.  It is required to call this function at least once
-/// before using S3FileSystem.
+/// \brief Initialize the S3 APIs with the specified set of options.
+///
+/// It is required to call this function at least once before using S3FileSystem.
 ///
 /// Once this function is called you MUST call FinalizeS3 before the end of the
 /// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
-/// Ensure the S3 APIs are initialized, but only if not already done.
+/// \brief Ensure the S3 APIs are initialized, but only if not already done.
+///
 /// If necessary, this will call InitializeS3() with some default options.
 ARROW_EXPORT
 Status EnsureS3Initialized();
@@ -350,11 +367,25 @@ Status EnsureS3Initialized();
 ARROW_EXPORT
 bool IsS3Initialized();
 
-/// Shutdown the S3 APIs.
+/// Whether S3 was finalized.
+ARROW_EXPORT
+bool IsS3Finalized();
+
+/// \brief Shutdown the S3 APIs.
+///
+/// This can wait for some S3 concurrent calls to finish so as to avoid
+/// race conditions.
+/// After this function has been called, all S3 calls will fail with an error.
+///
+/// Calls to InitializeS3() and FinalizeS3() should be serialized by the
+/// application (this also applies to EnsureS3Initialized() and
+/// EnsureS3Finalized()).
 ARROW_EXPORT
 Status FinalizeS3();
 
-/// Ensure the S3 APIs are shutdown, but only if not already done.
+/// \brief Ensure the S3 APIs are shutdown, but only if not already done.
+///
+/// If necessary, this will call FinalizeS3().
 ARROW_EXPORT
 Status EnsureS3Finalized();
 

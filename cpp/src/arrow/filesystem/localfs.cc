@@ -52,37 +52,6 @@ using ::arrow::internal::IOErrorFromWinError;
 using ::arrow::internal::NativePathString;
 using ::arrow::internal::PlatformFilename;
 
-namespace internal {
-
-#ifdef _WIN32
-static bool IsDriveLetter(char c) {
-  // Can't use locale-dependent functions from the C/C++ stdlib
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-#endif
-
-bool DetectAbsolutePath(const std::string& s) {
-  // Is it a /-prefixed local path?
-  if (s.length() >= 1 && s[0] == '/') {
-    return true;
-  }
-#ifdef _WIN32
-  // Is it a \-prefixed local path?
-  if (s.length() >= 1 && s[0] == '\\') {
-    return true;
-  }
-  // Does it start with a drive letter in addition to being /- or \-prefixed,
-  // e.g. "C:\..."?
-  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
-      IsDriveLetter(s[0])) {
-    return true;
-  }
-#endif
-  return false;
-}
-
-}  // namespace internal
-
 namespace {
 
 Status ValidatePath(std::string_view s) {
@@ -90,6 +59,12 @@ Status ValidatePath(std::string_view s) {
     return Status::Invalid("Expected a local filesystem path, got a URI: '", s, "'");
   }
   return Status::OK();
+}
+
+Result<std::string> DoNormalizePath(std::string path) {
+  RETURN_NOT_OK(ValidatePath(path));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  return fn.ToString();
 }
 
 #ifdef _WIN32
@@ -263,13 +238,15 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
 #ifdef _WIN32
     std::stringstream ss;
     ss << "//" << host << "/" << internal::RemoveLeadingSlash(uri.path());
-    *out_path = ss.str();
+    *out_path =
+        std::string(internal::RemoveTrailingSlash(ss.str(), /*preserve_root=*/true));
 #else
     return Status::Invalid("Unsupported hostname in non-Windows local URI: '",
                            uri.ToString(), "'");
 #endif
   } else {
-    *out_path = uri.path();
+    *out_path =
+        std::string(internal::RemoveTrailingSlash(uri.path(), /*preserve_root=*/true));
   }
 
   // TODO handle use_mmap option
@@ -286,9 +263,17 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
 LocalFileSystem::~LocalFileSystem() {}
 
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
-  RETURN_NOT_OK(ValidatePath(path));
-  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  return fn.ToString();
+  return DoNormalizePath(std::move(path));
+}
+
+Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) const {
+#ifdef _WIN32
+  auto authority_handling = internal::AuthorityHandlingBehavior::kWindows;
+#else
+  auto authority_handling = internal::AuthorityHandlingBehavior::kDisallow;
+#endif
+  return internal::PathFromUriHelper(uri_string, {"file"}, /*accept_local_paths=*/true,
+                                     authority_handling);
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {
@@ -319,7 +304,7 @@ namespace {
 /// Workhorse for streaming async implementation of `GetFileInfo`
 /// (`GetFileInfoGenerator`).
 ///
-/// There are two variants of async discovery functions suported:
+/// There are two variants of async discovery functions supported:
 /// 1. `DiscoverDirectoryFiles`, which parallelizes traversal of individual directories
 ///    so that each directory results are yielded as a separate `FileInfoGenerator` via
 ///    an underlying `DiscoveryImplIterator`, which delivers items in chunks (default size
@@ -610,7 +595,7 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
                                "' to '", dfn.ToString(), "'");
   }
 #else
-  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) == -1) {
+  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) != 0) {
     return IOErrorFromErrno(errno, "Failed renaming '", sfn.ToString(), "' to '",
                             dfn.ToString(), "'");
   }

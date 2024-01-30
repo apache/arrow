@@ -21,6 +21,7 @@ Checks: |
   -clang-analyzer-alpha*,
   google-*,
   modernize-*,
+  -modernize-avoid-c-arrays,
   -modernize-use-trailing-return-type,
   -modernize-use-nodiscard,
 # produce HeaderFilterRegex from cpp/build-support/lint_exclusions.txt with:

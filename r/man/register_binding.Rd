@@ -2,6 +2,7 @@
 % Please edit documentation in R/dplyr-funcs.R
 \name{register_binding}
 \alias{register_binding}
+\alias{register_binding_agg}
 \title{Register compute bindings}
 \usage{
 register_binding(
@@ -9,6 +10,13 @@ register_binding(
   fun,
   registry = nse_funcs,
   update_cache = FALSE,
+  notes = character(0)
+)
+
+register_binding_agg(
+  fun_name,
+  agg_fun,
+  registry = agg_funcs,
   notes = character(0)
 )
 }

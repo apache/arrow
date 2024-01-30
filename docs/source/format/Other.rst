@@ -18,10 +18,10 @@
 Other Data Structures
 =====================
 
-Our Flatbuffers protocol files have metadata for some other data
-structures defined to allow other kinds of applications to take
-advantage of common interprocess communication machinery. These data
-structures are not considered to be part of the columnar format.
+Our `Flatbuffers protocol definition files`_ have metadata for some other data
+structures defined to allow other kinds of applications to take advantage of
+common interprocess communication machinery. These data structures are not
+considered to be part of the columnar format.
 
 An Arrow columnar implementation is not required to implement these
 types.
@@ -61,3 +61,5 @@ region) to be multiples of 64 bytes: ::
 
 The contents of the sparse tensor index depends on what kind of sparse
 format is used.
+
+.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/main/format

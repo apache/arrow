@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/encoded"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/encoded"
+	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -386,7 +386,7 @@ func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
 	}
 
-	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-nil decimal256 scalar to type %s", to)
 }
 
 func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {
@@ -512,7 +512,7 @@ func init() {
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
 		arrow.STRUCT: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.StructType)
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]Scalar, typ.NumFields())
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
@@ -520,10 +520,10 @@ func init() {
 		},
 		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.SparseUnionType)
-			if len(typ.Fields()) == 0 {
+			if typ.NumFields() == 0 {
 				panic("cannot make scalar of empty union type")
 			}
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]Scalar, typ.NumFields())
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
@@ -531,7 +531,7 @@ func init() {
 		},
 		arrow.DENSE_UNION: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.DenseUnionType)
-			if len(typ.Fields()) == 0 {
+			if typ.NumFields() == 0 {
 				panic("cannot make scalar of empty union type")
 			}
 			return NewDenseUnionScalar(MakeNullScalar(typ.Fields()[0].Type), typ.TypeCodes()[0], typ)

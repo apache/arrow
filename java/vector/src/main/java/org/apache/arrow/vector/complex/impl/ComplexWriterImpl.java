@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StateTool;
 import org.apache.arrow.vector.complex.StructVector;
@@ -32,6 +33,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   private NullableStructWriter structRoot;
   private UnionListWriter listRoot;
+  private UnionMapWriter mapRoot;
   private final NonNullableStructVector container;
 
   Mode mode = Mode.INIT;
@@ -39,7 +41,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode { INIT, STRUCT, LIST }
+  private enum Mode { INIT, STRUCT, LIST, MAP }
 
   /**
    * Constructs a new instance.
@@ -47,7 +49,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
    * @param name The name of the writer (for tracking).
    * @param container A container for the data field to be written.
    * @param unionEnabled Unused.
-   * @param caseSensitive Whether field names are case sensitive (if false field names will be lowercase.
+   * @param caseSensitive Whether field names are case-sensitive (if false field names will be lowercase.
    */
   public ComplexWriterImpl(
       String name,
@@ -107,6 +109,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
       case LIST:
         listRoot.clear();
         break;
+      case MAP:
+        mapRoot.clear();
+        break;
       default:
         break;
     }
@@ -120,6 +125,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
       case LIST:
         listRoot.setValueCount(count);
+        break;
+      case MAP:
+        mapRoot.setValueCount(count);
         break;
       default:
         break;
@@ -135,6 +143,9 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
         break;
       case LIST:
         listRoot.setPosition(index);
+        break;
+      case MAP:
+        mapRoot.setPosition(index);
         break;
       default:
         break;
@@ -223,5 +234,29 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
     return listRoot;
   }
 
+  @Override
+  public MapWriter rootAsMap(boolean keysSorted) {
+    switch (mode) {
 
+      case INIT:
+        int vectorCount = container.size();
+        // TODO allow dictionaries in complex types
+        MapVector mapVector = container.addOrGetMap(name, keysSorted);
+        if (container.size() > vectorCount) {
+          mapVector.allocateNew();
+        }
+        mapRoot = new UnionMapWriter(mapVector);
+        mapRoot.setPosition(idx());
+        mode = Mode.MAP;
+        break;
+
+      case MAP:
+        break;
+
+      default:
+        check(Mode.INIT, Mode.STRUCT);
+    }
+
+    return mapRoot;
+  }
 }

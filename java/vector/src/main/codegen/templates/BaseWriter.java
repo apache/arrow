@@ -106,6 +106,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void copyReader(FieldReader reader);
     StructWriter rootAsStruct();
     ListWriter rootAsList();
+    MapWriter rootAsMap(boolean keysSorted);
 
     void setPosition(int index);
     void setValueCount(int count);
@@ -116,7 +117,11 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void start();
     void end();
     StructOrListWriter struct(String name);
+    /**
+     * @deprecated use {@link #listOfStruct()} instead.
+     */
     StructOrListWriter listoftstruct(String name);
+    StructOrListWriter listOfStruct(String name);
     StructOrListWriter list(String name);
     boolean isStructWriter();
     boolean isListWriter();

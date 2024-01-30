@@ -35,13 +35,15 @@ namespace io {
 CacheOptions CacheOptions::Defaults() {
   return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
                       internal::ReadRangeCache::kDefaultRangeSizeLimit,
-                      /*lazy=*/false};
+                      /*lazy=*/false,
+                      /*prefetch_limit=*/0};
 }
 
 CacheOptions CacheOptions::LazyDefaults() {
   return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
                       internal::ReadRangeCache::kDefaultRangeSizeLimit,
-                      /*lazy=*/true};
+                      /*lazy=*/true,
+                      /*prefetch_limit=*/0};
 }
 
 CacheOptions CacheOptions::MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
@@ -125,7 +127,7 @@ CacheOptions CacheOptions::MakeFromNetworkMetrics(int64_t time_to_first_byte_mil
                                       (1 - ideal_bandwidth_utilization_frac))));
   DCHECK_GT(range_size_limit, 0) << "Computed range_size_limit must be > 0";
 
-  return {hole_size_limit, range_size_limit, false};
+  return {hole_size_limit, range_size_limit, /*lazy=*/false, /*prefetch_limit=*/0};
 }
 
 namespace internal {
@@ -172,8 +174,9 @@ struct ReadRangeCache::Impl {
 
   // Add the given ranges to the cache, coalescing them where possible
   virtual Status Cache(std::vector<ReadRange> ranges) {
-    ranges = internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
-                                          options.range_size_limit);
+    ARROW_ASSIGN_OR_RAISE(
+        ranges, internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
+                                             options.range_size_limit));
     std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
     // Add new entries, themselves ordered by offset
     if (entries.size() > 0) {
@@ -204,6 +207,18 @@ struct ReadRangeCache::Impl {
     if (it != entries.end() && it->range.Contains(range)) {
       auto fut = MaybeRead(&*it);
       ARROW_ASSIGN_OR_RAISE(auto buf, fut.result());
+      if (options.lazy && options.prefetch_limit > 0) {
+        int64_t num_prefetched = 0;
+        for (auto next_it = it + 1;
+             next_it != entries.end() && num_prefetched < options.prefetch_limit;
+             ++next_it) {
+          if (!next_it->future.is_valid()) {
+            next_it->future =
+                file->ReadAsync(ctx, next_it->range.offset, next_it->range.length);
+          }
+          ++num_prefetched;
+        }
+      }
       return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
     }
     return Status::Invalid("ReadRangeCache did not find matching cache entry");

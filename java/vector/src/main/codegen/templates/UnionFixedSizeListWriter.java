@@ -295,6 +295,62 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
+      <#if minor.class?ends_with("VarBinary")>
+  @Override
+  public void write${minor.class}(byte[] value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(byte[] value, int offset, int length) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+  <#elseif minor.class?ends_with("VarChar")>
+  @Override
+  public void write${minor.class}(Text value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(String value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+    }
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+      </#if>
+
       <#if !minor.typeParams?? >
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {

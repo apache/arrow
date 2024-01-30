@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // Decimal256 is a type that represents an immutable sequence of 256-bit decimal values.
@@ -48,12 +48,12 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 }
 
 func (a *Decimal256) Value(i int) decimal256.Num { return a.values[i] }
+
 func (a *Decimal256) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
-	} else {
-		return a.GetOneForMarshal(i).(string)
 	}
+	return a.GetOneForMarshal(i).(string)
 }
 
 func (a *Decimal256) Values() []decimal256.Num { return a.values }
@@ -67,7 +67,7 @@ func (a *Decimal256) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}
@@ -167,8 +167,20 @@ func (b *Decimal256Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Decimal256Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Decimal256Builder) AppendEmptyValue() {
 	b.Append(decimal256.Num{})
+}
+
+func (b *Decimal256Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Decimal256Builder) Type() arrow.DataType { return b.dtype }

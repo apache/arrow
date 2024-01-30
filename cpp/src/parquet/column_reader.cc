@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_primitive.h"
@@ -43,6 +44,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -103,7 +105,7 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
 
-LevelDecoder::~LevelDecoder() {}
+LevelDecoder::~LevelDecoder() = default;
 
 int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
                           int num_buffered_values, const uint8_t* data,
@@ -275,6 +277,11 @@ class SerializedPageReader : public PageReader {
   }
 
   // Implement the PageReader interface
+  //
+  // The returned Page contains references that aren't guaranteed to live
+  // beyond the next call to NextPage(). SerializedPageReader reuses the
+  // decryption and decompression buffers internally, so if NextPage() is
+  // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
@@ -357,10 +364,8 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
                                             int8_t module_type, std::string* page_aad) {
   ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
-    std::string aad = encryption::CreateModuleAad(
-        decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
-        crypto_ctx_.column_ordinal, kNonPageOrdinal);
-    decryptor->UpdateAad(aad);
+    UpdateDecryptor(decryptor, crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal,
+                    module_type);
   } else {
     encryption::QuickUpdatePageAad(page_ordinal_, page_aad);
     decryptor->UpdateAad(*page_aad);
@@ -430,9 +435,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // until a maximum allowed header limit
     while (true) {
       PARQUET_ASSIGN_OR_THROW(auto view, stream_->Peek(allowed_page_size));
-      if (view.size() == 0) {
-        return std::shared_ptr<Page>(nullptr);
-      }
+      if (view.size() == 0) return nullptr;
 
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(view.size());
@@ -441,9 +444,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
+        // Reset current page header to avoid unclearing the __isset flag.
+        current_page_header_ = format::PageHeader();
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
-                                        crypto_ctx_.meta_decryptor);
+                                        crypto_ctx_.meta_decryptor.get());
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -487,16 +492,16 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (properties_.page_checksum_verification() &&
-        (page_type == PageType::DATA_PAGE || page_type == PageType::DICTIONARY_PAGE) &&
-        current_page_header_.__isset.crc) {
+    if (properties_.page_checksum_verification() && current_page_header_.__isset.crc &&
+        PageCanUseChecksum(page_type)) {
       // verify crc
       uint32_t checksum =
           ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
       if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
         throw ParquetException(
-            "could not verify page integrity, CRC checksum verification failed");
+            "could not verify page integrity, CRC checksum verification failed for "
+            "page_ordinal " +
+            std::to_string(page_ordinal_));
       }
     }
 
@@ -580,10 +585,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Grow the uncompressed buffer if we need to.
-  if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(
-        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
@@ -592,10 +595,17 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Decompress the values
-  PARQUET_THROW_NOT_OK(decompressor_->Decompress(
-      compressed_len - levels_byte_len, page_buffer->data() + levels_byte_len,
-      uncompressed_len - levels_byte_len,
-      decompression_buffer_->mutable_data() + levels_byte_len));
+  PARQUET_ASSIGN_OR_THROW(
+      auto decompressed_len,
+      decompressor_->Decompress(compressed_len - levels_byte_len,
+                                page_buffer->data() + levels_byte_len,
+                                uncompressed_len - levels_byte_len,
+                                decompression_buffer_->mutable_data() + levels_byte_len));
+  if (decompressed_len != uncompressed_len - levels_byte_len) {
+    throw ParquetException("Page didn't decompress to expected size, expected: " +
+                           std::to_string(uncompressed_len - levels_byte_len) +
+                           ", but got:" + std::to_string(decompressed_len));
+  }
 
   return decompression_buffer_;
 }
@@ -750,7 +760,7 @@ class ColumnReaderImplBase {
 
     if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
         page->encoding() == Encoding::PLAIN) {
-      auto dictionary = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+      auto dictionary = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_, pool_);
       dictionary->SetData(page->num_values(), page->data(), page->size());
 
       // The dictionary is fully decoded during DictionaryDecoder::Init, so the
@@ -873,46 +883,20 @@ class ColumnReaderImplBase {
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {
-        case Encoding::PLAIN: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+        case Encoding::PLAIN:
+        case Encoding::BYTE_STREAM_SPLIT:
+        case Encoding::RLE:
+        case Encoding::DELTA_BINARY_PACKED:
+        case Encoding::DELTA_BYTE_ARRAY:
+        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
+          auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
           current_decoder_ = decoder.get();
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
-        case Encoding::BYTE_STREAM_SPLIT: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::RLE: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::RLE, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
+
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
-
-        case Encoding::DELTA_BINARY_PACKED: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_BYTE_ARRAY: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BYTE_ARRAY, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
 
         default:
           throw ParquetException("Unknown encoding type.");
@@ -1052,11 +1036,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
-      for (int64_t i = 0; i < *num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++(*values_to_read);
-        }
-      }
+      *values_to_read +=
+          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
       *values_to_read = batch_size;
@@ -1185,12 +1166,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     const bool has_spaced_values = HasSpacedValues(this->descr_);
     int64_t null_count = 0;
     if (!has_spaced_values) {
-      int values_to_read = 0;
-      for (int64_t i = 0; i < num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++values_to_read;
-        }
-      }
+      int64_t values_to_read =
+          std::count(def_levels, def_levels + num_def_levels, this->max_def_level_);
       total_values = this->ReadValues(values_to_read, values);
       ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
                                    /*length=*/total_values,
@@ -1262,11 +1239,10 @@ int64_t TypedColumnReaderImpl<DType>::Skip(int64_t num_values_to_skip) {
       ARROW_DCHECK_NE(this->scratch_for_skip_, nullptr);
       do {
         int64_t batch_size = std::min(kSkipScratchBatchSize, values_to_skip);
-        values_read = ReadBatch(
-            static_cast<int>(batch_size),
-            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
-            reinterpret_cast<int16_t*>(this->scratch_for_skip_->mutable_data()),
-            reinterpret_cast<T*>(this->scratch_for_skip_->mutable_data()), &values_read);
+        values_read = ReadBatch(static_cast<int>(batch_size),
+                                scratch_for_skip_->mutable_data_as<int16_t>(),
+                                scratch_for_skip_->mutable_data_as<int16_t>(),
+                                scratch_for_skip_->mutable_data_as<T>(), &values_read);
         values_to_skip -= values_read;
       } while (values_read > 0 && values_to_skip > 0);
     }
@@ -1310,8 +1286,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
     default:
       ParquetException::NYI("type reader not implemented");
   }
-  // Unreachable code, but suppress compiler warning
-  return std::shared_ptr<ColumnReader>(nullptr);
+  ::arrow::Unreachable();
 }
 
 // ----------------------------------------------------------------------
@@ -1360,6 +1335,26 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       throw ParquetException("Total size of items too large");
     }
     return bytes_for_values;
+  }
+
+  const void* ReadDictionary(int32_t* dictionary_length) override {
+    if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
+      dictionary_length = 0;
+      return nullptr;
+    }
+    // Verify the current data page is dictionary encoded. The current_encoding_ should
+    // have been set as RLE_DICTIONARY if the page encoding is RLE_DICTIONARY or
+    // PLAIN_DICTIONARY.
+    if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
+      std::stringstream ss;
+      ss << "Data page is not dictionary encoded. Encoding: "
+         << EncodingToString(this->current_encoding_);
+      throw ParquetException(ss.str());
+    }
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    const T* dictionary = nullptr;
+    decoder->GetDictionary(&dictionary, dictionary_length);
+    return reinterpret_cast<const void*>(dictionary);
   }
 
   int64_t ReadRecords(int64_t num_records) override {
@@ -1449,7 +1444,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t levels_remaining = levels_written_ - gap;
 
     auto left_shift = [&](::arrow::ResizableBuffer* buffer) {
-      int16_t* data = reinterpret_cast<int16_t*>(buffer->mutable_data());
+      auto* data = buffer->mutable_data_as<int16_t>();
       std::copy(data + levels_position_, data + levels_written_,
                 data + start_levels_position);
       PARQUET_THROW_NOT_OK(buffer->Resize(levels_remaining * sizeof(int16_t),
@@ -1614,7 +1609,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     do {
       int64_t batch_size = std::min<int64_t>(kSkipScratchBatchSize, values_left);
       values_read = this->ReadValues(
-          batch_size, reinterpret_cast<T*>(this->scratch_for_skip_->mutable_data()));
+          batch_size, this->scratch_for_skip_->template mutable_data_as<T>());
       values_left -= values_read;
     } while (values_read > 0 && values_left > 0);
     if (values_left > 0) {
@@ -1792,7 +1787,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
         // Avoid valgrind warnings
         memset(valid_bits_->mutable_data() + valid_bytes_old, 0,
-               valid_bytes_new - valid_bytes_old);
+               static_cast<size_t>(valid_bytes_new - valid_bytes_old));
       }
     }
   }
@@ -1901,11 +1896,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // When reading dense we need to figure out number of values to read.
     const int16_t* def_levels = this->def_levels();
-    for (int64_t i = start_levels_position; i < levels_position_; ++i) {
-      if (def_levels[i] == this->max_def_level_) {
-        ++(*values_to_read);
-      }
-    }
+    *values_to_read += std::count(def_levels + start_levels_position,
+                                  def_levels + levels_position_, this->max_def_level_);
     ReadValuesDense(*values_to_read);
   }
 
@@ -1935,7 +1927,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max<int64_t>(num_records, levels_written_ - levels_position_);
-    ReserveValues(possible_num_values);
+    ReserveValues(static_cast<size_t>(possible_num_values));
 
     const int64_t start_levels_position = levels_position_;
 
@@ -2028,28 +2020,34 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
  protected:
   template <typename T>
   T* ValuesHead() {
-    return reinterpret_cast<T*>(values_->mutable_data()) + values_written_;
+    return values_->mutable_data_as<T>() + values_written_;
   }
   LevelInfo leaf_info_;
 };
 
-class FLBARecordReader : public TypedRecordReader<FLBAType>,
-                         virtual public BinaryRecordReader {
+class FLBARecordReader final : public TypedRecordReader<FLBAType>,
+                               virtual public BinaryRecordReader {
  public:
   FLBARecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                    ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<FLBAType>(descr, leaf_info, pool, read_dense_for_nullable),
-        builder_(nullptr) {
+        byte_width_(descr_->type_length()),
+        empty_(byte_width_, 0),
+        type_(::arrow::fixed_size_binary(byte_width_)),
+        null_bitmap_builder_(pool),
+        data_builder_(pool) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::FIXED_LEN_BYTE_ARRAY);
-    int byte_width = descr_->type_length();
-    std::shared_ptr<::arrow::DataType> type = ::arrow::fixed_size_binary(byte_width);
-    builder_ = std::make_unique<::arrow::FixedSizeBinaryBuilder>(type, this->pool_);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
-    std::shared_ptr<::arrow::Array> chunk;
-    PARQUET_THROW_NOT_OK(builder_->Finish(&chunk));
-    return ::arrow::ArrayVector({chunk});
+    const int64_t null_count = null_bitmap_builder_.false_count();
+    const int64_t length = null_bitmap_builder_.length();
+    ARROW_DCHECK_EQ(length * byte_width_, data_builder_.length());
+    PARQUET_ASSIGN_OR_THROW(auto data_buffer, data_builder_.Finish());
+    PARQUET_ASSIGN_OR_THROW(auto null_bitmap, null_bitmap_builder_.Finish());
+    auto chunk = std::make_shared<::arrow::FixedSizeBinaryArray>(
+        type_, length, data_buffer, null_bitmap, null_count);
+    return ::arrow::ArrayVector({std::move(chunk)});
   }
 
   void ReadValuesDense(int64_t values_to_read) override {
@@ -2058,9 +2056,9 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
         this->current_decoder_->Decode(values, static_cast<int>(values_to_read));
     CheckNumberDecoded(num_decoded, values_to_read);
 
-    for (int64_t i = 0; i < num_decoded; i++) {
-      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-    }
+    PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(num_decoded));
+    PARQUET_THROW_NOT_OK(data_builder_.Reserve(num_decoded * byte_width_));
+    UnsafeAppendDense(values, num_decoded);
     ResetValues();
   }
 
@@ -2074,22 +2072,45 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
         valid_bits, valid_bits_offset);
     ARROW_DCHECK_EQ(num_decoded, values_to_read);
 
-    for (int64_t i = 0; i < num_decoded; i++) {
-      if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-        PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
-      } else {
-        PARQUET_THROW_NOT_OK(builder_->AppendNull());
-      }
+    PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(num_decoded));
+    PARQUET_THROW_NOT_OK(data_builder_.Reserve(num_decoded * byte_width_));
+    if (null_count == 0) {
+      UnsafeAppendDense(values, num_decoded);
+    } else {
+      UnsafeAppendSpaced(values, num_decoded, valid_bits, valid_bits_offset);
     }
     ResetValues();
   }
 
+  void UnsafeAppendDense(const FLBA* values, int64_t num_decoded) {
+    null_bitmap_builder_.UnsafeAppend(num_decoded, /*value=*/true);
+    for (int64_t i = 0; i < num_decoded; i++) {
+      data_builder_.UnsafeAppend(values[i].ptr, byte_width_);
+    }
+  }
+
+  void UnsafeAppendSpaced(const FLBA* values, int64_t num_decoded,
+                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    null_bitmap_builder_.UnsafeAppend(valid_bits, valid_bits_offset, num_decoded);
+    for (int64_t i = 0; i < num_decoded; i++) {
+      if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        data_builder_.UnsafeAppend(values[i].ptr, byte_width_);
+      } else {
+        data_builder_.UnsafeAppend(empty_.data(), byte_width_);
+      }
+    }
+  }
+
  private:
-  std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
+  const int byte_width_;
+  const std::vector<uint8_t> empty_;
+  std::shared_ptr<::arrow::DataType> type_;
+  ::arrow::TypedBufferBuilder<bool> null_bitmap_builder_;
+  ::arrow::BufferBuilder data_builder_;
 };
 
-class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
-                                     virtual public BinaryRecordReader {
+class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayType>,
+                                           virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
@@ -2130,8 +2151,8 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
-class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
-                                        virtual public DictionaryRecordReader {
+class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArrayType>,
+                                              virtual public DictionaryRecordReader {
  public:
   ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)

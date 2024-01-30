@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -31,6 +32,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
  * FixedSizeBinaryVector implements a fixed width vector of
@@ -39,7 +41,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   private final int byteWidth;
-  private final FieldReader reader;
 
   /**
    * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
@@ -74,18 +75,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public FixedSizeBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator, ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth());
-    reader = new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
     byteWidth = ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth();
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
   }
 
   /**
@@ -123,6 +118,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param buffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> buffer) {
+    final int startOffset = index * byteWidth;
+    buffer.set(valueBuffer, startOffset, byteWidth);
+  }
+
+  /**
    * Get the element at the given index from the vector and
    * sets the state in holder. If element at given index
    * is null, holder.isSet will be zero.
@@ -138,6 +145,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     }
     holder.isSet = 1;
     holder.buffer = valueBuffer.slice((long) index * byteWidth, byteWidth);
+    holder.byteWidth = byteWidth;
   }
 
   /**
@@ -257,7 +265,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, FixedSizeBinaryHolder holder) {
-    assert holder.byteWidth == byteWidth;
+    if (this.byteWidth != holder.byteWidth) {
+      throw new IllegalArgumentException(
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
+    }
     set(index, holder.buffer);
   }
 
@@ -282,9 +293,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableFixedSizeBinaryHolder holder) {
-    assert holder.byteWidth == byteWidth;
     if (holder.isSet < 0) {
       throw new IllegalArgumentException("holder has a negative isSet value");
+    } else if (this.byteWidth != holder.byteWidth) {
+      throw new IllegalArgumentException(
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {
@@ -321,6 +334,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     return dst;
   }
 
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      byte[] value = get(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(value.length == byteWidth,
+            "Invalid value for FixedSizeBinaryVector at position " + i + ". The length was " +
+                value.length + " but the length of each element should be " + byteWidth + ".");
+      }
+    }
+  }
+
   /*----------------------------------------------------------------*
    |                                                                |
    |                      vector transfer                           |
@@ -329,7 +354,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref       name of the target vector
@@ -339,6 +364,19 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(ref, allocator);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -357,6 +395,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new FixedSizeBinaryVector(ref, allocator, FixedSizeBinaryVector.this.byteWidth);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new FixedSizeBinaryVector(field, allocator);
     }
 
     public TransferImpl(FixedSizeBinaryVector to) {

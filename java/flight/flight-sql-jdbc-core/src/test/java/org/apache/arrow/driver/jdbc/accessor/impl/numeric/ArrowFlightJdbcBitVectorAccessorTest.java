@@ -68,7 +68,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
                            final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
-        ((accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse))
+        (accessor, currentRow) -> is(arrayToAssert[currentRow] ? result : resultIfFalse)
     );
   }
 

@@ -57,7 +57,7 @@ test_that("Table R metadata", {
     "$r$columns$c$columns$c1$attributes$extra_attr",
     fixed = TRUE
   )
-  expect_identical(as.data.frame(tab), example_with_metadata)
+  expect_equal_data_frame(tab, example_with_metadata)
 })
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
@@ -94,7 +94,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- "garbage"
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    as.data.frame(tab),
     "Invalid metadata$r",
     fixed = TRUE
   )
@@ -103,7 +103,7 @@ test_that("Garbage R metadata doesn't break things", {
   tab <- Table$create(example_data[1:6])
   tab$metadata$r <- rawToChar(serialize("garbage", NULL, ascii = TRUE))
   expect_warning(
-    expect_identical(as.data.frame(tab), example_data[1:6]),
+    as.data.frame(tab),
     "Invalid metadata$r",
     fixed = TRUE
   )
@@ -164,7 +164,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-  expect_identical(as.data.frame(record_batch(example_with_metadata)), example_with_metadata)
+  expect_equal_data_frame(record_batch(example_with_metadata), example_with_metadata)
 })
 
 test_that("R metadata roundtrip via parquet", {
@@ -195,14 +195,14 @@ test_that("haven types roundtrip via feather", {
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
-  expect_identical(as.data.frame(rb), example_with_times)
+  expect_equal_data_frame(rb, example_with_times)
 })
 
 test_that("metadata keeps attribute of top level data frame", {
   df <- structure(data.frame(x = 1, y = 2), foo = "bar")
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab), "foo"), "bar")
-  expect_identical(as.data.frame(tab), df)
+  expect_equal_data_frame(tab, df)
 })
 
 
@@ -387,7 +387,18 @@ test_that("grouped_df non-arrow metadata is preserved", {
   grouped_tab <- arrow_table(grouped)
 
   expect_equal(
-    attributes(as.data.frame(grouped_tab))$other_metadata,
+    attributes(collect.ArrowTabular(grouped_tab))$other_metadata,
     "look I'm still here!"
   )
+})
+
+test_that("data.frame class attribute is not saved", {
+  df <- data.frame(x = 1:5)
+  df_arrow <- arrow_table(df)
+  expect_null(df_arrow$r_metadata$attributes)
+
+  df <- data.frame(x = 1:5)
+  attributes(df)$foo <- "bar"
+  df_arrow <- arrow_table(df)
+  expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
 })

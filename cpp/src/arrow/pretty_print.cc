@@ -87,7 +87,7 @@ void PrettyPrinter::OpenArray(const Array& array) {
   if (!options_.skip_new_lines) {
     Indent();
   }
-  (*sink_) << "[";
+  (*sink_) << options_.array_delimiters.open;
   if (array.length() > 0) {
     Newline();
     indent_ += options_.indent_size;
@@ -101,7 +101,7 @@ void PrettyPrinter::CloseArray(const Array& array) {
       Indent();
     }
   }
-  (*sink_) << "]";
+  (*sink_) << options_.array_delimiters.close;
 }
 
 void PrettyPrinter::Write(std::string_view data) { (*sink_) << data; }
@@ -145,18 +145,20 @@ class ArrayPrinter : public PrettyPrinter {
     int window = is_container ? options_.container_window : options_.window;
     for (int64_t i = 0; i < array.length(); ++i) {
       const bool is_last = (i == array.length() - 1);
-      if ((i >= window) && (i < (array.length() - window))) {
+      // check if `length == 2 * window + 1` to eliminate ellipsis for only one element
+      if ((array.length() != 2 * window + 1) && (i >= window) &&
+          (i < (array.length() - window))) {
         IndentAfterNewline();
         (*sink_) << "...";
         if (!is_last && options_.skip_new_lines) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
         i = array.length() - window - 1;
       } else if (array.IsNull(i)) {
         IndentAfterNewline();
         (*sink_) << options_.null_rep;
         if (!is_last) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
       } else {
         if (indent_non_null_values) {
@@ -164,7 +166,7 @@ class ArrayPrinter : public PrettyPrinter {
         }
         RETURN_NOT_OK(func(i));
         if (!is_last) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
       }
       Newline();
@@ -227,18 +229,13 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_string_like<T, Status> WriteDataValues(const ArrayType& array) {
+  enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
-      (*sink_) << "\"" << array.GetView(i) << "\"";
-      return Status::OK();
-    });
-  }
-
-  template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_t<is_binary_like_type<T>::value && !is_decimal_type<T>::value, Status>
-  WriteDataValues(const ArrayType& array) {
-    return WriteValues(array, [&](int64_t i) {
-      (*sink_) << HexEncode(array.GetView(i));
+      if constexpr (T::is_utf8) {
+        (*sink_) << "\"" << array.GetView(i) << "\"";
+      } else {
+        (*sink_) << HexEncode(array.GetView(i));
+      }
       return Status::OK();
     });
   }
@@ -252,7 +249,8 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_list_like<T, Status> WriteDataValues(const ArrayType& array) {
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status>
+  WriteDataValues(const ArrayType& array) {
     const auto values = array.values();
     const auto child_options = ChildOptions();
     ArrayPrinter values_printer(child_options, sink_);
@@ -300,8 +298,11 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<FixedSizeBinaryArray, T>::value ||
                   std::is_base_of<BinaryArray, T>::value ||
                   std::is_base_of<LargeBinaryArray, T>::value ||
+                  std::is_base_of<BinaryViewArray, T>::value ||
                   std::is_base_of<ListArray, T>::value ||
                   std::is_base_of<LargeListArray, T>::value ||
+                  std::is_base_of<ListViewArray, T>::value ||
+                  std::is_base_of<LargeListViewArray, T>::value ||
                   std::is_base_of<MapArray, T>::value ||
                   std::is_base_of<FixedSizeListArray, T>::value,
               Status>
@@ -447,16 +448,16 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
-  (*sink) << "[";
+  (*sink) << options.chunked_array_delimiters.open;
   if (!skip_new_lines) {
     *sink << "\n";
   }
-  bool skip_comma = true;
+  bool skip_element_delimiter = true;
   for (int i = 0; i < num_chunks; ++i) {
-    if (skip_comma) {
-      skip_comma = false;
+    if (skip_element_delimiter) {
+      skip_element_delimiter = false;
     } else {
-      (*sink) << ",";
+      (*sink) << options.chunked_array_delimiters.element;
       if (!skip_new_lines) {
         *sink << "\n";
       }
@@ -465,12 +466,13 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       for (int i = 0; i < indent; ++i) {
         (*sink) << " ";
       }
-      (*sink) << "...,";
+      (*sink) << "...";
+      (*sink) << options.chunked_array_delimiters.element;
       if (!skip_new_lines) {
         *sink << "\n";
       }
       i = num_chunks - window - 1;
-      skip_comma = true;
+      skip_element_delimiter = true;
     } else {
       PrettyPrintOptions chunk_options = options;
       chunk_options.indent += options.indent_size;
@@ -485,7 +487,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
-  (*sink) << "]";
+  (*sink) << options.chunked_array_delimiters.close;
 
   return Status::OK();
 }

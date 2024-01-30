@@ -23,10 +23,12 @@ using System.Threading.Tasks;
 
 namespace Apache.Arrow.Ipc
 {
-    public class ArrowFileWriter: ArrowStreamWriter
+    public class ArrowFileWriter : ArrowStreamWriter
     {
         private long _currentRecordBatchOffset = -1;
+        private long _currentDictionaryOffset = -1;
 
+        private List<Block> DictionaryBlocks { get; set; }
         private List<Block> RecordBatchBlocks { get; }
 
         public ArrowFileWriter(Stream stream, Schema schema)
@@ -105,6 +107,34 @@ namespace Apache.Arrow.Ipc
             _currentRecordBatchOffset = -1;
         }
 
+        private protected override void StartingWritingDictionary()
+        {
+            if (DictionaryBlocks == null) { DictionaryBlocks = new List<Block>(); }
+            _currentDictionaryOffset = BaseStream.Position;
+        }
+
+        private protected override void FinishedWritingDictionary(long bodyLength, long metadataLength)
+        {
+            // Dictionaries only appear after a Schema is written, so the dictionary offsets must
+            // always be greater than 0.
+            Debug.Assert(_currentDictionaryOffset > 0, "_currentDictionaryOffset must be positive.");
+
+            int metadataLengthInt = checked((int)metadataLength);
+
+            Debug.Assert(BitUtility.IsMultipleOf8(_currentDictionaryOffset));
+            Debug.Assert(BitUtility.IsMultipleOf8(metadataLengthInt));
+            Debug.Assert(BitUtility.IsMultipleOf8(bodyLength));
+
+            var block = new Block(
+                offset: _currentDictionaryOffset,
+                length: bodyLength,
+                metadataLength: metadataLengthInt);
+
+            DictionaryBlocks.Add(block);
+
+            _currentDictionaryOffset = -1;
+        }
+
         private protected override void WriteEndInternal()
         {
             base.WriteEndInternal();
@@ -144,7 +174,7 @@ namespace Apache.Arrow.Ipc
 
             // Serialize the schema
 
-            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+            Google.FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
 
             // Serialize all record batches
 
@@ -158,18 +188,25 @@ namespace Apache.Arrow.Ipc
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
-            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
 
             // Serialize all dictionaries
-            // NOTE: Currently unsupported.
 
-            Flatbuf.Footer.StartDictionariesVector(Builder, 0);
+            int dictionaryCount = DictionaryBlocks?.Count ?? 0;
+            Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
 
-            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
+            for (int i = dictionaryCount - 1; i >= 0; i--)
+            {
+                Block dictionary = DictionaryBlocks[i];
+                Flatbuf.Block.CreateBlock(
+                    Builder, dictionary.Offset, dictionary.MetadataLength, dictionary.BodyLength);
+            }
+
+            Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
 
-            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+            Google.FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
                 schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
 
             Builder.Finish(footerOffset.Value);
@@ -178,7 +215,7 @@ namespace Apache.Arrow.Ipc
 
             // Write footer length
 
-            Buffers.RentReturn(4, (buffer) =>
+            using (Buffers.RentReturn(4, out Memory<byte> buffer))
             {
                 int footerLength;
                 checked
@@ -189,7 +226,7 @@ namespace Apache.Arrow.Ipc
                 BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
 
                 BaseStream.Write(buffer);
-            });
+            }
 
             // Write magic
 
@@ -204,7 +241,7 @@ namespace Apache.Arrow.Ipc
 
             // Serialize the schema
 
-            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+            Google.FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
 
             // Serialize all record batches
 
@@ -218,18 +255,25 @@ namespace Apache.Arrow.Ipc
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
-            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
 
             // Serialize all dictionaries
-            // NOTE: Currently unsupported.
 
-            Flatbuf.Footer.StartDictionariesVector(Builder, 0);
+            int dictionaryCount = DictionaryBlocks?.Count ?? 0;
+            Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
 
-            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
+            for (int i = dictionaryCount - 1; i >= 0; i--)
+            {
+                Block dictionary = DictionaryBlocks[i];
+                Flatbuf.Block.CreateBlock(
+                    Builder, dictionary.Offset, dictionary.MetadataLength, dictionary.BodyLength);
+            }
+
+            Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
 
-            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+            Google.FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
                 schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
 
             Builder.Finish(footerOffset.Value);
@@ -242,7 +286,7 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            await Buffers.RentReturnAsync(4, async (buffer) =>
+            using (Buffers.RentReturn(4, out Memory<byte> buffer))
             {
                 int footerLength;
                 checked
@@ -253,7 +297,7 @@ namespace Apache.Arrow.Ipc
                 BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
 
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }
 
             // Write magic
 

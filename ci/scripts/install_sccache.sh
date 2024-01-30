@@ -56,12 +56,12 @@ if [ ! -d $PREFIX ]; then
     mkdir -p $PREFIX
 fi
 
-# Extract only the sccache binary into $PREFIX and ignore README and LCIENSE.
+# Extract only the sccache binary into $PREFIX and ignore README and LICENSE.
 # --wildcards doesn't work on busybox.
 tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --exclude="sccache*/*E*E*"
 chmod u+x $PREFIX/sccache
 
-if [ "${GITHUB_ACTIONS}" = "true" ]; then
+if [ -n "${GITHUB_PATH}" ]; then
     echo "$PREFIX" >> $GITHUB_PATH
     # Add executable for windows as mingw workaround.
     echo "SCCACHE_PATH=$PREFIX/sccache.exe" >> $GITHUB_ENV

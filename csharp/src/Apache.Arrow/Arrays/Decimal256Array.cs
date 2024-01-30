@@ -14,15 +14,16 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray
+    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
@@ -61,6 +62,66 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public Builder Append(string value)
+            {
+                if (value == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                    DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, ByteWidth, bytes);
+                    Append(bytes);
+                }
+
+                return Instance;
+            }
+
+            public Builder AppendRange(IEnumerable<string> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (string s in values)
+                {
+                    Append(s);
+                }
+
+                return Instance;
+            }
+
+            public Builder Append(SqlDecimal value)
+            {
+                Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, bytes);
+                if (!value.IsPositive)
+                {
+                    var span = bytes.CastTo<long>();
+                    span[2] = -1;
+                    span[3] = -1;
+                }
+
+                return Append(bytes);
+            }
+
+            public Builder AppendRange(IEnumerable<SqlDecimal> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (SqlDecimal d in values)
+                {
+                    Append(d);
+                }
+
+                return Instance;
+            }
+
             public Builder Set(int index, decimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -92,5 +153,94 @@ namespace Apache.Arrow
 
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
         }
+
+        public IList<decimal?> ToList(bool includeNulls = false)
+        {
+            var list = new List<decimal?>(Length);
+
+            for (int i = 0; i < Length; i++)
+            {
+                decimal? value = GetValue(i);
+
+                if (value.HasValue)
+                {
+                    list.Add(value.Value);
+                }
+                else
+                {
+                    if (includeNulls)
+                    {
+                        list.Add(null);
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        public string GetString(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+        }
+
+        public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
+        {
+            if (IsNull(index))
+            {
+                value = null;
+                return true;
+            }
+
+            const int longWidth = 4;
+            var span = ValueBuffer.Span.CastTo<long>().Slice(index * longWidth);
+            if ((span[2] == 0 && span[3] == 0) ||
+                (span[2] == -1 && span[3] == -1))
+            {
+                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * index, Precision, Scale);
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
+        private SqlDecimal? GetSqlDecimal(int index)
+        {
+            SqlDecimal? value;
+            if (TryGetSqlDecimal(index, out value))
+            {
+                return value;
+            }
+
+            throw new OverflowException("decimal256 value out of range of SqlDecimal");
+        }
+
+        int IReadOnlyCollection<SqlDecimal?>.Count => Length;
+        SqlDecimal? IReadOnlyList<SqlDecimal?>.this[int index] => GetSqlDecimal(index);
+
+        IEnumerator<SqlDecimal?> IEnumerable<SqlDecimal?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetSqlDecimal(index);
+            }
+        }
+
+        int IReadOnlyCollection<string>.Count => Length;
+        string? IReadOnlyList<string>.this[int index] => GetString(index);
+
+        IEnumerator<string> IEnumerable<string>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetString(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
     }
 }

@@ -20,9 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
@@ -210,25 +209,40 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
-/// \brief Options for cumulative sum function
-class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+/// \brief Options for cumulative functions
+/// \note Also aliased as CumulativeSumOptions for backward compatibility
+class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
-                                bool check_overflow = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
-                                bool check_overflow = false);
-  static constexpr char const kTypeName[] = "CumulativeSumOptions";
-  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+  explicit CumulativeOptions(bool skip_nulls = false);
+  explicit CumulativeOptions(double start, bool skip_nulls = false);
+  explicit CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
+  static constexpr char const kTypeName[] = "CumulativeOptions";
+  static CumulativeOptions Defaults() { return CumulativeOptions(); }
 
-  /// Optional starting value for cumulative operation computation
-  std::shared_ptr<Scalar> start;
+  /// Optional starting value for cumulative operation computation, default depends on the
+  /// operation and input type.
+  /// - sum: 0
+  /// - prod: 1
+  /// - min: maximum of the input type
+  /// - max: minimum of the input type
+  /// - mean: start is ignored because it has no meaning for mean
+  std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
   /// When false, the first null encountered is propagated through the remaining output.
   bool skip_nulls = false;
+};
+using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 
-  /// When true, returns an Invalid Status when overflow is detected
-  bool check_overflow = false;
+/// \brief Options for pairwise functions
+class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
+ public:
+  explicit PairwiseOptions(int64_t periods = 1);
+  static constexpr char const kTypeName[] = "PairwiseOptions";
+  static PairwiseOptions Defaults() { return PairwiseOptions(); }
+
+  /// Periods to shift for applying the binary operation, accepts negative values.
+  int64_t periods = 1;
 };
 
 /// @}
@@ -259,12 +273,18 @@ namespace internal {
 // These internal functions are implemented in kernels/vector_selection.cc
 
 /// \brief Return the number of selected indices in the boolean filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection);
 
 /// \brief Compute uint64 selection indices for use with Take given a boolean
 /// filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
@@ -381,7 +401,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
-/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// This overload takes a PartitionNthOptions specifying the pivot index
 /// and the null handling.
 ///
 /// \param[in] values array to be partitioned
@@ -432,7 +452,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 
 /// \brief Return the indices that would sort an array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] array array to sort
@@ -466,7 +486,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 /// \brief Return the indices that would sort a chunked array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] chunked_array chunked array to sort
@@ -597,19 +617,81 @@ Result<Datum> RunEndEncode(
 ARROW_EXPORT
 Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the cumulative sum of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative sum behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
 Result<Datum> CumulativeSum(
-    const Datum& values,
-    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative product of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative prod behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeProd(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative max of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative max behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMax(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
+/// \brief Compute the cumulative min of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative min behavior
+/// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
+Result<Datum> CumulativeMin(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior, `start` is ignored
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMean(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Return the first order difference of an array.
+///
+/// Computes the first order difference of an array, i.e.
+///   output[i] = input[i] - input[i - p]  if i >= p
+///   output[i] = null                     otherwise
+/// where p is the period. For example, with p = 1,
+///   Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5].
+/// With p = 2,
+///   Diff([1, 4, 9, 10, 15]) = [null, null, 8, 6, 6]
+/// p can also be negative, in which case the diff is computed in
+/// the opposite direction.
+/// \param[in] array array input
+/// \param[in] options options, specifying overflow behavior and period
+/// \param[in] check_overflow whether to return error on overflow
+/// \param[in] ctx the function execution context, optional
+/// \return result as array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
+                                            const PairwiseOptions& options,
+                                            bool check_overflow = false,
+                                            ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

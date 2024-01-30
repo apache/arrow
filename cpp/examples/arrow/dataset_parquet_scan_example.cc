@@ -32,7 +32,7 @@
  * \brief Run Example
  *
  * Make sure there is a parquet dataset with the column_names
- * mentioned in the Congiguration struct.
+ * mentioned in the Configuration struct.
  *
  * Example run:
  * ./dataset_parquet_scan_example file:///<some-path>/data.parquet

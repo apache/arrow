@@ -1,4 +1,4 @@
-license:  #  Licensed to the Apache Software Foundation (ASF) under one
+license:  '#  Licensed to the Apache Software Foundation (ASF) under one
   #  or more contributor license agreements.  See the NOTICE file
   #  distributed with this work for additional information
   #  regarding copyright ownership.  The ASF licenses this file
@@ -13,8 +13,9 @@ license:  #  Licensed to the Apache Software Foundation (ASF) under one
   #  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
   #  KIND, either express or implied.  See the License for the
   #  specific language governing permissions and limitations
-  #  under the License.
+  #  under the License.'
 linters: linters_with_defaults(
+  indentation_linter = NULL,
   line_length_linter = line_length_linter(120),
   object_name_linter = NULL,
   # Even with a liberal definition of name styles, some of our names cause issues due to `.`s for s3 classes or NA in the name

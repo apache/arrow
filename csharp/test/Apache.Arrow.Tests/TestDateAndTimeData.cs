@@ -60,6 +60,11 @@ namespace Apache.Arrow.Tests
             select DateTime.SpecifyKind(date, kind);
 
         /// <summary>
+        /// Gets a collection of example times
+        /// </summary>
+        public static IEnumerable<TimeSpan> ExampleTimes => _exampleTimes;
+
+        /// <summary>
         /// Gets a collection of example date/times, of all different kinds.
         /// </summary>
         public static IEnumerable<DateTime> ExampleDateTimes =>

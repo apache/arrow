@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
-# Unless overriden use Python 3.10
+# Unless overridden use Python 3.10
 # Google GCS fails building with Python 3.11 at the moment.
 ARG python=3.10
 
@@ -35,7 +35,10 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
+        libnuma \
         python=${python} \
+        ucx \
+        ucx-proc=*=cpu \
         valgrind && \
     mamba clean --all
 
@@ -58,6 +61,7 @@ ENV ARROW_ACERO=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \

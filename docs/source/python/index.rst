@@ -15,8 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _python:
+
+Python
+======
+
 PyArrow - Apache Arrow Python bindings
-======================================
+--------------------------------------
 
 This is the documentation of the Python API of Apache Arrow.
 
@@ -47,6 +52,8 @@ files into Arrow structures.
    filesystems_deprecated
    numpy
    pandas
+   interchange_protocol
+   dlpack
    timestamps
    orc
    csv
@@ -61,3 +68,4 @@ files into Arrow structures.
    api
    getting_involved
    benchmarks
+   Python cookbook <https://arrow.apache.org/cookbook/py/>

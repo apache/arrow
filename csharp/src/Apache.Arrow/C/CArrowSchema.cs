@@ -39,7 +39,11 @@ namespace Apache.Arrow.C
         public long n_children;
         public CArrowSchema** children;
         public CArrowSchema* dictionary;
-        public delegate* unmanaged[Stdcall]<CArrowSchema*, void> release;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowSchema*, void> release;
+#else
+        internal IntPtr release;
+#endif
         public void* private_data;
 
         /// <summary>
@@ -52,15 +56,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowSchema*)Marshal.AllocHGlobal(sizeof(CArrowSchema));
 
-            ptr->format = null;
-            ptr->name = null;
-            ptr->metadata = null;
-            ptr->flags = 0;
-            ptr->n_children = 0;
-            ptr->children = null;
-            ptr->dictionary = null;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }
@@ -73,10 +69,14 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowSchema* schema)
         {
-            if (schema->release != null)
+            if (schema->release != default)
             {
                 // Call release if not already called.
+#if NET5_0_OR_GREATER
                 schema->release(schema);
+#else
+                Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(schema->release)(schema);
+#endif
             }
             Marshal.FreeHGlobal((IntPtr)schema);
         }

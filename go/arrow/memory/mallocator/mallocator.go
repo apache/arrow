@@ -37,7 +37,7 @@ import (
 
 // Mallocator is an allocator which defers to libc malloc.
 //
-// The priamry reason to use this is when exporting data across the C Data
+// The primary reason to use this is when exporting data across the C Data
 // Interface. CGO requires that pointers to Go memory are not stored in C
 // memory, which is exactly what the C Data Interface would otherwise
 // require. By allocating with Mallocator up front, we can safely export the

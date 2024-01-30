@@ -29,9 +29,6 @@ cmake \
   -S ${source_dir} \
   -B ${build_dir} \
   -G Ninja \
-  -D MATLAB_ARROW_INTERFACE=ON \
-  -D MATLAB_BUILD_TESTS=ON \
   -D CMAKE_INSTALL_PREFIX=${install_dir} \
   -D MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH=OFF
 cmake --build ${build_dir} --config Release --target install
-ctest --test-dir ${build_dir}

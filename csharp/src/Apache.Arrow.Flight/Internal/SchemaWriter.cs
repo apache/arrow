@@ -20,6 +20,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
+using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Ipc;
 using Google.Protobuf;
 
@@ -30,7 +31,7 @@ namespace Apache.Arrow.Flight.Internal
     /// </summary>
     internal class SchemaWriter : ArrowStreamWriter
     {
-        private SchemaWriter(Stream baseStream, Schema schema) : base(baseStream, schema)
+        internal SchemaWriter(Stream baseStream, Schema schema) : base(baseStream, schema)
         {
         }
 
@@ -51,5 +52,14 @@ namespace Apache.Arrow.Flight.Internal
                 return ByteString.FromStream(memoryStream);
             }
         }
+    }
+}
+
+public static class SchemaExtension
+{
+    // Translate an Apache.Arrow.Schema to FlatBuffer Schema to ByteString
+    public static ByteString ToByteString(this Apache.Arrow.Schema schema)
+    {
+        return SchemaWriter.SerializeSchema(schema);
     }
 }

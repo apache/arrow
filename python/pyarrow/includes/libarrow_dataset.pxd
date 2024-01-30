@@ -178,6 +178,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const c_string& path() const
         const shared_ptr[CFileSystem]& filesystem() const
         const shared_ptr[CBuffer]& buffer() const
+        const int64_t size() const
         # HACK: Cython can't handle all the overloads so don't declare them.
         # This means invalid construction of CFileSource won't be caught in
         # the C++ generation phase (though it will still be caught when
@@ -288,13 +289,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
+        c_bool Equals(const CPartitioning& other) const
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
-        pass
+        bint operator==(CSegmentEncoding)
 
-    CSegmentEncoding CSegmentEncodingNone\
+    CSegmentEncoding CSegmentEncoding_None\
         " arrow::dataset::SegmentEncoding::None"
-    CSegmentEncoding CSegmentEncodingUri\
+    CSegmentEncoding CSegmentEncoding_Uri\
         " arrow::dataset::SegmentEncoding::Uri"
 
     cdef cppclass CKeyValuePartitioningOptions \
@@ -329,6 +331,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                               CKeyValuePartitioningOptions options)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        CSegmentEncoding segment_encoding()
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
@@ -352,6 +355,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CHivePartitioningFactoryOptions)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        c_string null_fallback() const
 
     cdef cppclass CFilenamePartitioning \
             "arrow::dataset::FilenamePartitioning"(CPartitioning):

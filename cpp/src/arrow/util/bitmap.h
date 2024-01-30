@@ -33,10 +33,10 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/bytes_view.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
+#include "arrow/util/span.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
 
@@ -49,9 +49,6 @@ namespace internal {
 class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
                             public util::EqualityComparable<Bitmap> {
  public:
-  template <typename Word>
-  using View = std::basic_string_view<Word>;
-
   Bitmap() = default;
 
   Bitmap(const std::shared_ptr<Buffer>& buffer, int64_t offset, int64_t length)
@@ -72,17 +69,17 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
   Bitmap Slice(int64_t offset) const {
     if (mutable_data_ != NULLPTR) {
-      return Bitmap(mutable_data_, offset_ + offset, length_ - offset);
+      return {mutable_data_, offset_ + offset, length_ - offset};
     } else {
-      return Bitmap(data_, offset_ + offset, length_ - offset);
+      return {data_, offset_ + offset, length_ - offset};
     }
   }
 
   Bitmap Slice(int64_t offset, int64_t length) const {
     if (mutable_data_ != NULLPTR) {
-      return Bitmap(mutable_data_, offset_ + offset, length);
+      return {mutable_data_, offset_ + offset, length};
     } else {
-      return Bitmap(data_, offset_ + offset, length);
+      return {data_, offset_ + offset, length};
     }
   }
 
@@ -158,7 +155,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     Bitmap bitmaps[N];
     int64_t offsets[N];
     int64_t bit_length = BitLength(bitmaps_arg, N);
-    View<Word> words[N];
+    util::span<const Word> words[N];
     for (size_t i = 0; i < N; ++i) {
       bitmaps[i] = bitmaps_arg[i];
       offsets[i] = bitmaps[i].template word_offset<Word>();
@@ -386,15 +383,15 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// number of bits in this Bitmap
   int64_t length() const { return length_; }
 
-  /// string_view of all bytes which contain any bit in this Bitmap
-  util::bytes_view bytes() const {
+  /// span of all bytes which contain any bit in this Bitmap
+  util::span<const uint8_t> bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
-    return util::bytes_view(data_ + byte_offset, byte_count);
+    return {data_ + byte_offset, static_cast<size_t>(byte_count)};
   }
 
  private:
-  /// string_view of all Words which contain any bit in this Bitmap
+  /// span of all Words which contain any bit in this Bitmap
   ///
   /// For example, given Word=uint16_t and a bitmap spanning bits [20, 36)
   /// words() would span bits [16, 48).
@@ -407,15 +404,15 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// \warning The words may contain bytes which lie outside the buffer or are
   /// uninitialized.
   template <typename Word>
-  View<Word> words() const {
+  util::span<const Word> words() const {
     auto bytes_addr = reinterpret_cast<intptr_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =
         bit_util::RoundUpToPowerOf2(static_cast<int64_t>(bytes_addr + bytes().size()),
                                     static_cast<int64_t>(sizeof(Word))) -
         words_addr;
-    return View<Word>(reinterpret_cast<const Word*>(words_addr),
-                      word_byte_count / sizeof(Word));
+    return {reinterpret_cast<const Word*>(words_addr),
+            static_cast<size_t>(word_byte_count / sizeof(Word))};
   }
 
   /// offset of first bit relative to words<Word>().data()

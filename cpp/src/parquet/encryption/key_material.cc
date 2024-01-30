@@ -25,8 +25,7 @@
 using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::internal::ObjectWriter;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char KeyMaterial::kKeyMaterialTypeField[];
 constexpr const char KeyMaterial::kKeyMaterialType1[];
@@ -155,5 +154,4 @@ std::string KeyMaterial::SerializeToJson(
   return json_writer.Serialize();
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

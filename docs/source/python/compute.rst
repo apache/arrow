@@ -445,9 +445,9 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
 
 The implementation of a user-defined function always takes a first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
-:class:`pyarrow.compute.ScalarUdfContext`.
+:class:`pyarrow.compute.UdfContext`.
 This context exposes several useful attributes, particularly a
-:attr:`~pyarrow.compute.ScalarUdfContext.memory_pool` to be used for
+:attr:`~pyarrow.compute.UdfContext.memory_pool` to be used for
 allocations in the context of the user-defined function.
 
 You can call a user-defined function directly using :func:`pyarrow.compute.call_function`:
@@ -496,7 +496,7 @@ the GCD of one column with the scalar value 30.  We will be re-using the
    value: [[90,630,1827,2709]]
    category: [["A","B","C","D"]]
 
-Note that ``ds.field('')_call(...)`` returns a :func:`pyarrow.compute.Expression`.
+Note that ``ds.field('')._call(...)`` returns a :func:`pyarrow.compute.Expression`.
 The arguments passed to this function call are expressions, not scalar values 
 (notice the difference between :func:`pyarrow.scalar` and :func:`pyarrow.compute.scalar`,
 the latter produces an expression). 

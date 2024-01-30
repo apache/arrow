@@ -56,8 +56,6 @@ struct Kind {
   static Status ForType(const DataType& type, Kind::type* kind);
 };
 
-constexpr int32_t kMaxParserNumRows = 100000;
-
 /// \class BlockParser
 /// \brief A reusable block-based parser for JSON data
 ///

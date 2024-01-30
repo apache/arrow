@@ -51,12 +51,14 @@ namespace Apache.Arrow.Flight.TestWeb
 
         public FlightInfo GetFlightInfo()
         {
+            int batchArrayLength = _recordBatches.Sum(rb => rb.RecordBatch.Length);
+            int batchBytes = _recordBatches.Sum(rb => rb.RecordBatch.Arrays.Sum(arr => arr.Data.Buffers.Sum(b=>b.Length)));
             return new FlightInfo(_schema, _flightDescriptor, new List<FlightEndpoint>()
             {
                 new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()), new List<FlightLocation>(){
                     new FlightLocation(_location)
                 })
-            });
+            }, batchArrayLength, batchBytes);
         }
     }
 }

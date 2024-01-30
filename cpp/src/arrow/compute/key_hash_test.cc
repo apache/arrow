@@ -21,17 +21,25 @@
 #include <map>
 #include <random>
 #include <unordered_set>
+
 #include "arrow/array/builder_binary.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/pcg_random.h"
 
 namespace arrow {
 
 using internal::checked_pointer_cast;
+using internal::CpuInfo;
 
 namespace compute {
+
+std::vector<int64_t> HardwareFlagsForTesting() {
+  // Our key-hash and key-map routines currently only have AVX2 optimizations
+  return GetSupportedHardwareFlags({CpuInfo::AVX2});
+}
 
 class TestVectorHash {
  private:
@@ -131,85 +139,79 @@ class TestVectorHash {
     const offset_t* key_offsets =
         reinterpret_cast<const offset_t*>(keys_array->raw_value_offsets());
 
-    std::vector<uint32_t> hashes_scalar32;
-    std::vector<uint64_t> hashes_scalar64;
-    hashes_scalar32.resize(num_rows);
-    hashes_scalar64.resize(num_rows);
-    std::vector<uint32_t> hashes_simd32;
-    std::vector<uint64_t> hashes_simd64;
-    hashes_simd32.resize(num_rows);
-    hashes_simd64.resize(num_rows);
-
-    int64_t hardware_flags_scalar = 0LL;
-    int64_t hardware_flags_simd = ::arrow::internal::CpuInfo::AVX2;
+    // For each tested hardware flags, we will compute the hashes and check
+    // them for consistency.
+    const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+    ASSERT_GT(hardware_flags_for_testing.size(), 0);
+    std::vector<std::vector<uint32_t>> hashes32(hardware_flags_for_testing.size());
+    std::vector<std::vector<uint64_t>> hashes64(hardware_flags_for_testing.size());
+    for (auto& h : hashes32) {
+      h.resize(num_rows);
+    }
+    for (auto& h : hashes64) {
+      h.resize(num_rows);
+    }
 
     constexpr int mini_batch_size = 1024;
     std::vector<uint32_t> temp_buffer;
     temp_buffer.resize(mini_batch_size * 4);
 
-    for (bool use_simd : {false, true}) {
+    for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+      const auto hardware_flags = hardware_flags_for_testing[i];
       if (use_32bit_hash) {
         if (!use_varlen_input) {
-          Hashing32::HashFixed(use_simd ? hardware_flags_simd : hardware_flags_scalar,
+          Hashing32::HashFixed(hardware_flags,
                                /*combine_hashes=*/false, num_rows, fixed_length, keys,
-                               use_simd ? hashes_simd32.data() : hashes_scalar32.data(),
-                               temp_buffer.data());
+                               hashes32[i].data(), temp_buffer.data());
         } else {
           for (int first_row = 0; first_row < num_rows;) {
             int batch_size_next = std::min(num_rows - first_row, mini_batch_size);
 
-            Hashing32::HashVarLen(
-                use_simd ? hardware_flags_simd : hardware_flags_scalar,
-                /*combine_hashes=*/false, batch_size_next, key_offsets + first_row, keys,
-                (use_simd ? hashes_simd32.data() : hashes_scalar32.data()) + first_row,
-                temp_buffer.data());
+            Hashing32::HashVarLen(hardware_flags,
+                                  /*combine_hashes=*/false, batch_size_next,
+                                  key_offsets + first_row, keys,
+                                  hashes32[i].data() + first_row, temp_buffer.data());
 
             first_row += batch_size_next;
           }
         }
+        for (int j = 0; j < num_rows; ++j) {
+          hashes64[i][j] = hashes32[i][j];
+        }
       } else {
         if (!use_varlen_input) {
           Hashing64::HashFixed(
-              /*combine_hashes=*/false, num_rows, fixed_length, keys,
-              use_simd ? hashes_simd64.data() : hashes_scalar64.data());
+              /*combine_hashes=*/false, num_rows, fixed_length, keys, hashes64[i].data());
         } else {
           Hashing64::HashVarLen(
-              /*combine_hashes=*/false, num_rows, key_offsets, keys,
-              use_simd ? hashes_simd64.data() : hashes_scalar64.data());
+              /*combine_hashes=*/false, num_rows, key_offsets, keys, hashes64[i].data());
         }
       }
     }
 
-    if (use_32bit_hash) {
-      for (int i = 0; i < num_rows; ++i) {
-        hashes_scalar64[i] = hashes_scalar32[i];
-        hashes_simd64[i] = hashes_simd32[i];
-      }
-    }
-
-    // Verify that both scalar and AVX2 implementations give the same hashes
+    // Verify that all implementations (scalar, SIMD) give the same hashes
     //
-    for (int i = 0; i < num_rows; ++i) {
-      ASSERT_EQ(hashes_scalar64[i], hashes_simd64[i])
-          << "scalar and simd approaches yielded different hashes";
+    const auto& hashes_scalar64 = hashes64[0];
+    for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+      for (int j = 0; j < num_rows; ++j) {
+        ASSERT_EQ(hashes64[i][j], hashes_scalar64[j])
+            << "scalar and simd approaches yielded different hashes";
+      }
     }
 
     // Verify that the same key appearing multiple times generates the same hash
     // each time. Measure the number of unique hashes and compare to the number
     // of unique keys.
     //
-    std::map<int, uint64_t> unique_key_to_hash;
-    std::set<uint64_t> unique_hashes;
+    std::unordered_map<int, uint64_t> unique_key_to_hash;
+    std::unordered_set<uint64_t> unique_hashes;
     for (int i = 0; i < num_rows; ++i) {
-      std::map<int, uint64_t>::iterator iter = unique_key_to_hash.find(row_ids[i]);
-      if (iter == unique_key_to_hash.end()) {
-        unique_key_to_hash.insert(std::make_pair(row_ids[i], hashes_scalar64[i]));
-      } else {
-        ASSERT_EQ(iter->second, hashes_scalar64[i]);
+      auto [it, inserted] =
+          unique_key_to_hash.try_emplace(row_ids[i], hashes_scalar64[i]);
+      if (!inserted) {
+        ASSERT_EQ(it->second, hashes_scalar64[i]);
       }
-      if (unique_hashes.find(hashes_scalar64[i]) == unique_hashes.end()) {
-        unique_hashes.insert(hashes_scalar64[i]);
-      }
+      unique_hashes.insert(hashes_scalar64[i]);
     }
     float percent_hash_collisions =
         100.0f * static_cast<float>(num_unique - unique_hashes.size()) /
@@ -249,6 +251,65 @@ TEST(VectorHash, BasicLargeBinary) { RunTestVectorHash<LargeBinaryType>(); }
 TEST(VectorHash, BasicString) { RunTestVectorHash<StringType>(); }
 
 TEST(VectorHash, BasicLargeString) { RunTestVectorHash<LargeStringType>(); }
+
+void HashFixedLengthFrom(int key_length, int num_rows, int start_row) {
+  int num_rows_to_hash = num_rows - start_row;
+  auto num_bytes_aligned = arrow::bit_util::RoundUpToMultipleOf64(key_length * num_rows);
+
+  const auto hardware_flags_for_testing = HardwareFlagsForTesting();
+  ASSERT_GT(hardware_flags_for_testing.size(), 0);
+
+  std::vector<std::vector<uint32_t>> hashes32(hardware_flags_for_testing.size());
+  std::vector<std::vector<uint64_t>> hashes64(hardware_flags_for_testing.size());
+  for (auto& h : hashes32) {
+    h.resize(num_rows_to_hash);
+  }
+  for (auto& h : hashes64) {
+    h.resize(num_rows_to_hash);
+  }
+
+  FixedSizeBinaryBuilder keys_builder(fixed_size_binary(key_length));
+  for (int j = 0; j < num_rows; ++j) {
+    ASSERT_OK(keys_builder.Append(std::string(key_length, 42)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto keys, keys_builder.Finish());
+  // Make sure the buffer is aligned as expected.
+  ASSERT_EQ(keys->data()->buffers[1]->capacity(), num_bytes_aligned);
+
+  constexpr int mini_batch_size = 1024;
+  std::vector<uint32_t> temp_buffer;
+  temp_buffer.resize(mini_batch_size * 4);
+
+  for (int i = 0; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    const auto hardware_flags = hardware_flags_for_testing[i];
+    Hashing32::HashFixed(hardware_flags,
+                         /*combine_hashes=*/false, num_rows_to_hash, key_length,
+                         keys->data()->GetValues<uint8_t>(1) + start_row * key_length,
+                         hashes32[i].data(), temp_buffer.data());
+    Hashing64::HashFixed(
+        /*combine_hashes=*/false, num_rows_to_hash, key_length,
+        keys->data()->GetValues<uint8_t>(1) + start_row * key_length, hashes64[i].data());
+  }
+
+  // Verify that all implementations (scalar, SIMD) give the same hashes.
+  for (int i = 1; i < static_cast<int>(hardware_flags_for_testing.size()); ++i) {
+    for (int j = 0; j < num_rows_to_hash; ++j) {
+      ASSERT_EQ(hashes32[i][j], hashes32[0][j])
+          << "scalar and simd approaches yielded different 32-bit hashes";
+      ASSERT_EQ(hashes64[i][j], hashes64[0][j])
+          << "scalar and simd approaches yielded different 64-bit hashes";
+    }
+  }
+}
+
+// Some carefully chosen cases that may cause troubles like GH-39778.
+TEST(VectorHash, FixedLengthTailByteSafety) {
+  // Tow cases of key_length < stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/3, /*num_rows=*/1450, /*start_row=*/1447);
+  HashFixedLengthFrom(/*key_length=*/5, /*num_rows=*/883, /*start_row=*/858);
+  // Case of key_length > stripe (16-byte).
+  HashFixedLengthFrom(/*key_length=*/19, /*num_rows=*/64, /*start_row=*/63);
+}
 
 }  // namespace compute
 }  // namespace arrow

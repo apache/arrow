@@ -67,9 +67,10 @@ GLib (replace the version number in the following commands with the
 one you use):
 
 ```console
-% wget https://downloads.apache.org/arrow/arrow-3.0.0/apache-arrow-3.0.0.tar.gz
-% tar xf apache-arrow-3.0.0.tar.gz
-% cd apache-arrow-3.0.0
+$ wget 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-12.0.0/apache-arrow-12.0.0.tar.gz' \
+    --output-document apache-arrow-12.0.0.tar.gz
+$ tar xf apache-arrow-12.0.0.tar.gz
+$ cd apache-arrow-12.0.0
 ```
 
 You need to build and install Arrow C++ before you build and install
@@ -81,7 +82,7 @@ required packages.
 macOS:
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 $ meson setup c_glib.build c_glib --buildtype=release
 $ meson compile -C c_glib.build
 $ sudo meson install -C c_glib.build
@@ -127,7 +128,7 @@ $ sudo pip3 install meson
 On macOS with [Homebrew](https://brew.sh/):
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 ```
 
 You can build and install Arrow GLib by the followings:
@@ -140,6 +141,17 @@ $ meson setup c_glib.build c_glib -Dgtk_doc=true
 $ meson compile -C c_glib.build
 $ sudo meson install -C c_glib.build
 ```
+
+> [!WARNING]
+>
+> When building Arrow GLib, it typically uses the Arrow C++ installed via Homebrew. However, this can lead to build failures
+> if there are mismatches between the changes in Arrow's GLib and C++ libraries. To resolve this, you may need to
+> reference the Arrow C++ library built locally. In such cases, use the `--cmake-prefix-path` option with the `meson setup` 
+> command to explicitly specify the library path.
+>
+> ```console
+> $ meson setup c_glib.build c_glib --cmake-prefix-path=${arrow_cpp_install_prefix} -Dgtk_doc=true
+> ```
 
 Others:
 
@@ -230,8 +242,17 @@ Now, you can run unit tests by the followings:
 
 ```console
 $ cd c_glib.build
-$ bundle exec ../c_glib/test/run-test.sh
+$ BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
 ```
+
+
+> [!NOTE]
+>
+> If debugging is necessary, you can proceed using the `DEBUGGER` option as follows:
+>
+> ```console
+> $ DEBUGGER=lldb BUNDLE_GEMFILE=../c_glib/Gemfile bundle exec ../c_glib/test/run-test.sh
+> ```
 
 ## Common build problems
 

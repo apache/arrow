@@ -24,20 +24,23 @@
 package cdata
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"runtime"
 	"runtime/cgo"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -122,6 +125,7 @@ func TestPrimitiveSchemas(t *testing.T) {
 		{&arrow.Decimal128Type{Precision: 16, Scale: 4}, "d:16,4"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: 0}, "d:15,0"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: -4}, "d:15,-4"},
+		{&arrow.Decimal256Type{Precision: 15, Scale: -4}, "d:15,-4,256"},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +138,31 @@ func TestPrimitiveSchemas(t *testing.T) {
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
 			assert.True(t, schemaIsReleased(&sc))
+		})
+	}
+}
+
+func TestDecimalSchemaErrors(t *testing.T) {
+	tests := []struct {
+		fmt          string
+		errorMessage string
+	}{
+		{"d:", "invalid decimal spec 'd:': wrong number of properties"},
+		{"d:1", "invalid decimal spec 'd:1': wrong number of properties"},
+		{"d:1,2,3,4", "invalid decimal spec 'd:1,2,3,4': wrong number of properties"},
+		{"d:a,2,3", "could not parse decimal precision in 'd:a,2,3':"},
+		{"d:1,a,3", "could not parse decimal scale in 'd:1,a,3':"},
+		{"d:1,2,a", "could not parse decimal bitwidth in 'd:1,2,a':"},
+		{"d:1,2,384", "only decimal128 and decimal256 are supported, got 'd:1,2,384'"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fmt, func(t *testing.T) {
+			sc := testPrimitive(tt.fmt)
+
+			_, err := ImportCArrowField(&sc)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorMessage)
 		})
 	}
 }
@@ -156,13 +185,17 @@ func TestImportTemporalSchema(t *testing.T) {
 		{arrow.FixedWidthTypes.MonthInterval, "tiM"},
 		{arrow.FixedWidthTypes.DayTimeInterval, "tiD"},
 		{arrow.FixedWidthTypes.MonthDayNanoInterval, "tin"},
-		{arrow.FixedWidthTypes.Timestamp_s, "tss:"},
+		{arrow.FixedWidthTypes.Timestamp_s, "tss:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Second}, "tss:"},
 		{&arrow.TimestampType{Unit: arrow.Second, TimeZone: "Europe/Paris"}, "tss:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:"},
+		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Millisecond}, "tsm:"},
 		{&arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "Europe/Paris"}, "tsm:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_us, "tsu:"},
+		{arrow.FixedWidthTypes.Timestamp_us, "tsu:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Microsecond}, "tsu:"},
 		{&arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: "Europe/Paris"}, "tsu:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_ns, "tsn:"},
+		{arrow.FixedWidthTypes.Timestamp_ns, "tsn:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Nanosecond}, "tsn:"},
 		{&arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: "Europe/Paris"}, "tsn:Europe/Paris"},
 	}
 
@@ -456,12 +489,15 @@ func TestPrimitiveArrs(t *testing.T) {
 			arr := tt.fn()
 			defer arr.Release()
 
-			carr := createCArr(arr)
-			defer freeTestArr(carr)
+			mem := mallocator.NewMallocator()
+			defer mem.AssertSize(t, 0)
+
+			carr := createCArr(arr, mem)
+			defer freeTestMallocatorArr(carr, mem)
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
@@ -476,12 +512,15 @@ func TestPrimitiveSliced(t *testing.T) {
 	sl := array.NewSlice(arr, 1, 2)
 	defer sl.Release()
 
-	carr := createCArr(sl)
-	defer freeTestArr(carr)
+	mem := mallocator.NewMallocator()
+	defer mem.AssertSize(t, 0)
+
+	carr := createCArr(sl, mem)
+	defer freeTestMallocatorArr(carr, mem)
 
 	imported, err := ImportCArrayWithType(carr, arr.DataType())
 	assert.NoError(t, err)
-	assert.True(t, array.ArrayEqual(sl, imported))
+	assert.True(t, array.Equal(sl, imported))
 	assert.True(t, array.SliceEqual(arr, 1, 2, imported, 0, int64(imported.Len())))
 	assert.True(t, isReleased(carr))
 
@@ -555,6 +594,18 @@ func createTestStructArr() arrow.Array {
 	bld.Append(true)
 	f1bld.Append(2)
 	f2bld.AppendNull()
+
+	return bld.NewArray()
+}
+
+func createTestRunEndsArr() arrow.Array {
+	bld := array.NewRunEndEncodedBuilder(memory.DefaultAllocator,
+		arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int8)
+	defer bld.Release()
+
+	if err := json.Unmarshal([]byte(`[1, 2, 2, 3, null, null, null, 4]`), bld); err != nil {
+		panic(err)
+	}
 
 	return bld.NewArray()
 }
@@ -635,6 +686,7 @@ func TestNestedArrays(t *testing.T) {
 		{"map", createTestMapArr},
 		{"sparse union", createTestSparseUnion},
 		{"dense union", createTestDenseUnion},
+		{"run-end encoded", createTestRunEndsArr},
 	}
 
 	for _, tt := range tests {
@@ -642,12 +694,15 @@ func TestNestedArrays(t *testing.T) {
 			arr := tt.fn()
 			defer arr.Release()
 
-			carr := createCArr(arr)
-			defer freeTestArr(carr)
+			mem := mallocator.NewMallocator()
+			defer mem.AssertSize(t, 0)
+
+			carr := createCArr(arr, mem)
+			defer freeTestMallocatorArr(carr, mem)
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
@@ -656,11 +711,14 @@ func TestNestedArrays(t *testing.T) {
 }
 
 func TestRecordBatch(t *testing.T) {
+	mem := mallocator.NewMallocator()
+	defer mem.AssertSize(t, 0)
+
 	arr := createTestStructArr()
 	defer arr.Release()
 
-	carr := createCArr(arr)
-	defer freeTestArr(carr)
+	carr := createCArr(arr, mem)
+	defer freeTestMallocatorArr(carr, mem)
 
 	sc := testStruct([]string{"+s", "c", "u"}, []string{"", "a", "b"}, []int64{0, flagIsNullable, flagIsNullable})
 	defer freeMallocedSchemas(sc)
@@ -740,6 +798,34 @@ func TestExportRecordReaderStream(t *testing.T) {
 		i++
 	}
 	assert.EqualValues(t, len(reclist), i)
+}
+
+func TestExportRecordReaderStreamLifetime(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "strings", Type: arrow.BinaryTypes.String, Nullable: false},
+	}, nil)
+
+	bldr := array.NewBuilder(mem, &arrow.StringType{})
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, 0)
+	defer rec.Release()
+
+	rdr, _ := array.NewRecordReader(schema, []arrow.Record{rec})
+	defer rdr.Release()
+
+	out := createTestStreamObj()
+	ExportRecordReader(rdr, out)
+
+	// C Stream is holding on to memory
+	assert.NotEqual(t, 0, mem.CurrentAlloc())
+	releaseStream(out)
 }
 
 func TestEmptyListExport(t *testing.T) {
@@ -897,4 +983,45 @@ func TestRecordReaderError(t *testing.T) {
 		t.Fatalf("Expected error but got none")
 	}
 	assert.Contains(t, err.Error(), "Expected error message")
+}
+
+func TestRecordReaderImportError(t *testing.T) {
+	// Regression test for apache/arrow#35974
+
+	err := fallibleSchemaTestDeprecated()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+
+	err = fallibleSchemaTest()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+}
+
+func TestConfuseGoGc(t *testing.T) {
+	// Regression test for https://github.com/apache/arrow-adbc/issues/729
+	reclist := arrdata.Records["primitives"]
+
+	var wg sync.WaitGroup
+	concurrency := 32
+	wg.Add(concurrency)
+
+	// XXX: this test is a bit expensive
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			for i := 0; i < 256; i++ {
+				rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+				assert.NoError(t, err)
+				runtime.GC()
+				assert.NoError(t, confuseGoGc(rdr))
+				runtime.GC()
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }

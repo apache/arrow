@@ -31,17 +31,8 @@
 #pragma warning(disable : 4267)
 #endif
 
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/impl/codegen/config_protobuf.h>
-#else
-#include <grpc++/impl/codegen/config_protobuf.h>
-#endif
-
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/impl/codegen/proto_utils.h>
-#else
-#include <grpc++/impl/codegen/proto_utils.h>
-#endif
 
 #ifdef _MSC_VER
 #pragma warning(pop)

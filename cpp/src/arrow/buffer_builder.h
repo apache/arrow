@@ -118,6 +118,11 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  /// \brief Append the given data to the buffer
+  ///
+  /// The buffer is automatically expanded if necessary.
+  Status Append(std::string_view v) { return Append(v.data(), v.size()); }
+
   /// \brief Append copies of a value to the buffer
   ///
   /// The buffer is automatically expanded if necessary.
@@ -137,6 +142,10 @@ class ARROW_EXPORT BufferBuilder {
   void UnsafeAppend(const void* data, const int64_t length) {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
+  }
+
+  void UnsafeAppend(std::string_view v) {
+    UnsafeAppend(v.data(), static_cast<int64_t>(v.size()));
   }
 
   void UnsafeAppend(const int64_t num_copies, uint8_t value) {
@@ -196,6 +205,14 @@ class ARROW_EXPORT BufferBuilder {
   int64_t length() const { return size_; }
   const uint8_t* data() const { return data_; }
   uint8_t* mutable_data() { return data_; }
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data_);
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(data_);
+  }
 
  private:
   std::shared_ptr<ResizableBuffer> buffer_;
@@ -254,7 +271,7 @@ class TypedBufferBuilder<
 
   template <typename Iter>
   void UnsafeAppend(Iter values_begin, Iter values_end) {
-    int64_t num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
+    auto num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
     auto data = mutable_data() + length();
     bytes_builder_.UnsafeAdvance(num_elements * sizeof(T));
     std::copy(values_begin, values_end, data);

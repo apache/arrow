@@ -39,7 +39,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class IntervalYearVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
-  private final FieldReader reader;
 
   /**
    * Instantiate a IntervalYearVector. This doesn't allocate any memory for
@@ -73,17 +72,11 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    */
   public IntervalYearVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new IntervalYearReaderImpl(IntervalYearVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new IntervalYearReaderImpl(IntervalYearVector.this);
   }
 
   /**
@@ -154,6 +147,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Period getObject(int index) {
     if (isSet(index) == 0) {
       return null;
@@ -188,11 +182,11 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
     final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
     final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
 
-    return (new StringBuilder()
+    return new StringBuilder()
         .append(years)
         .append(yearString)
         .append(months)
-        .append(monthString));
+        .append(monthString);
   }
 
   /*----------------------------------------------------------------*
@@ -325,7 +319,7 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -335,6 +329,19 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(ref, allocator);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -353,6 +360,10 @@ public final class IntervalYearVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new IntervalYearVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new IntervalYearVector(field, allocator);
     }
 
     public TransferImpl(IntervalYearVector to) {

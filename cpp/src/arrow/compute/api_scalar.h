@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -268,19 +268,49 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
+  /// How to handle null values.
+  enum NullMatchingBehavior {
+    /// MATCH, any null in `value_set` is successfully matched in
+    /// the input.
+    MATCH,
+    /// SKIP, any null in `value_set` is ignored and nulls in the input
+    /// produce null (IndexIn) or false (IsIn) values in the output.
+    SKIP,
+    /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
+    /// input produce null (IndexIn and IsIn) values in the output.
+    EMIT_NULL,
+    /// INCONCLUSIVE, null values are regarded as unknown values, which is
+    /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
+    /// values in the output. Besides, if `value_set` contains a null,
+    /// non-null unmatched values in the input also produce null values
+    /// (IndexIn and IsIn) in the output.
+    INCONCLUSIVE
+  };
+
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
+
+  NullMatchingBehavior null_matching_behavior;
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  NullMatchingBehavior GetNullMatchingBehavior() const;
+
+  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
-  bool skip_nulls;
+  std::optional<bool> skip_nulls;
 };
 
 /// Options for struct_field function
@@ -461,7 +491,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
 
   /// How to interpret ambiguous local times (due to DST shifts)
   Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
+  /// How to interpret nonexistent local times (due to DST shifts)
   Nonexistent nonexistent;
 };
 
@@ -969,24 +999,6 @@ ARROW_EXPORT
 Result<Datum> RoundTemporal(
     const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
-
-/// \brief Compare a numeric array with a scalar.
-///
-/// \param[in] left datum to compare, must be an Array
-/// \param[in] right datum to compare, must be a Scalar of the same type than
-///            left Datum.
-/// \param[in] options compare options
-/// \param[in] ctx the function execution context, optional
-/// \return resulting datum
-///
-/// Note on floating point arrays, this uses ieee-754 compare semantics.
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
-ARROW_EXPORT
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx = NULLPTR);
 
 /// \brief Invert the values of a boolean datum
 /// \param[in] value datum to invert
@@ -1577,7 +1589,7 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
                                         ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// \brief Month Day Nano Between finds the number of months, days, and nanoseconds
 /// between two values
 ///
 /// \param[in] left input treated as the start time

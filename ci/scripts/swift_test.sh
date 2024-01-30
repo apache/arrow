@@ -19,8 +19,25 @@
 
 set -ex
 
-source_dir=${1}/swift/Arrow
+data_gen_dir=${1}/swift/data-generator/swift-datagen
+export GOPATH=/
+pushd ${data_gen_dir}
+go get -d ./...
+go run .
+cp *.arrow ../../Arrow
+popd
 
+source_dir=${1}/swift
+pushd ${source_dir}
+swiftlint --strict
+popd
+
+source_dir=${1}/swift/Arrow
+pushd ${source_dir}
+swift test
+popd
+
+source_dir=${1}/swift/ArrowFlight
 pushd ${source_dir}
 swift test
 popd

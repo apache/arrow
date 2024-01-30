@@ -22,6 +22,7 @@ export default {
     roots: [
         "<rootDir>/test/",
     ],
+    cacheDirectory: ".jest-cache",
     extensionsToTreatAsEsm: [".ts"],
     moduleFileExtensions: ["js", "mjs", "ts"],
     coverageReporters: ["lcov", "json",],

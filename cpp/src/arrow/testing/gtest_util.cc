@@ -47,6 +47,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
@@ -54,6 +55,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -143,42 +145,46 @@ void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
-                        bool check_metadata) {
+                        bool check_metadata, const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.Equals(actual, check_metadata);
+                 return expected.Equals(actual, check_metadata, options);
                });
 }
 
-void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual,
+                              const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.ApproxEquals(actual);
+                 return expected.ApproxEquals(actual, options);
                });
 }
 
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual,
+                        const EqualOptions& options) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_IGNORE_EXPR(c1->Equals(c2, options.diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }
 }
 
-void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
-  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected,
+                        const EqualOptions& options) {
+  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual, options);
 }
 
-void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual,
+                             const EqualOptions& options) {
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -212,7 +218,7 @@ void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expecte
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
+void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.length())
       << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
@@ -319,21 +325,23 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose,
+                       const EqualOptions& options) {
   ASSERT_EQ(expected.kind(), actual.kind())
       << "expected:" << expected.ToString() << " got:" << actual.ToString();
 
   switch (expected.kind()) {
     case Datum::SCALAR:
-      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose, options);
       break;
     case Datum::ARRAY: {
       auto expected_array = expected.make_array();
       auto actual_array = actual.make_array();
-      AssertArraysEqual(*expected_array, *actual_array, verbose);
+      AssertArraysEqual(*expected_array, *actual_array, verbose, options);
     } break;
     case Datum::CHUNKED_ARRAY:
-      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array(),
+                              options);
       break;
     default:
       // TODO: Implement better print
@@ -427,6 +435,24 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices) {
+  const int num_columns = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> encoded_columns;
+  encoded_columns.reserve(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    if (std::find(column_indices.begin(), column_indices.end(), i) !=
+        column_indices.end()) {
+      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
+      DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
+      encoded_columns.push_back(run_end_encoded.chunked_array());
+    } else {
+      encoded_columns.push_back(table.column(i));
+    }
+  }
+  return Table::Make(table.schema(), std::move(encoded_columns));
+}
+
 Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
                                                   const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
@@ -459,7 +485,7 @@ Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
-                       bool combine_chunks) {
+                       bool combine_chunks, const EqualOptions& options) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
 
   if (combine_chunks) {
@@ -467,13 +493,13 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
     ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
     ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
-    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    AssertTablesEqual(*new_expected, *new_actual, false, false, options);
     return;
   }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i), *actual.column(i));
+      AssertChunkedEqual(*expected.column(i), *actual.column(i), options);
     }
   } else {
     std::stringstream ss;
@@ -513,17 +539,18 @@ void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
 }
 
 void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+                  bool compare_metadata, const EqualOptions& options) {
   return CompareBatchWith(
       left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.Equals(right); });
+      [&](const Array& left, const Array& right) { return left.Equals(right, options); });
 }
 
 void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
-                        bool compare_metadata) {
-  return CompareBatchWith(
-      left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
+                        bool compare_metadata, const EqualOptions& options) {
+  return CompareBatchWith(left, right, compare_metadata,
+                          [&](const Array& left, const Array& right) {
+                            return left.ApproxEquals(right, options);
+                          });
 }
 
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
@@ -706,8 +733,25 @@ void TestInitialized(const ArrayData& array) {
 }
 
 void SleepFor(double seconds) {
+#ifdef ARROW_ENABLE_THREADING
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+#else
+  using Clock = std::chrono::steady_clock;
+  using DurationDouble = std::chrono::duration<double>;
+
+  auto secs_left = DurationDouble(seconds);
+  auto start_time = Clock::now();
+  auto end_time = start_time + secs_left;
+  while (Clock::now() < end_time) {
+    bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+    if (!run_task) {
+      // all executors are empty, just sleep for the rest of the time
+      std::this_thread::sleep_for(end_time - Clock::now());
+    }
+    // run one task then check time
+  }
+#endif
 }
 
 #ifdef _WIN32
@@ -1017,7 +1061,57 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     return unlocked_future_;
   }
 
+  void WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,
+                            arrow::internal::Executor* executor, Future<> future) {
+    if (unlocked_) {
+      num_finished_++;
+      future.MarkFinished(Status::OK());
+      return;
+    }
+    if (std::chrono::steady_clock::now() > end_time) {
+      num_finished_++;
+      future.MarkFinished(
+          Status::Invalid("Task unlock never happened - if threads are disabled you "
+                          "can't wait on gatedtask"));
+      return;
+    }
+
+    SleepABit();
+    auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
+      WaitForEndOrUnlocked(end_time, executor, future);
+    });
+    if (!spawn_status.ok()) {
+      status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+    }
+  }
+
+  Future<> RunTaskFuture() {
+    num_running_++;
+    // post the unlock check as a separate task
+    // otherwise we'll never let anything else run
+    // so nothing can unlock us
+    using Clock = std::chrono::steady_clock;
+    using DurationDouble = std::chrono::duration<double>;
+    using DurationClock = std::chrono::steady_clock::duration;
+
+    auto start_time = Clock::now();
+    auto secs_left = DurationDouble(timeout_seconds_);
+    auto end_time = std::chrono::time_point_cast<DurationClock, Clock, DurationDouble>(
+        start_time + secs_left);
+    auto executor = arrow::internal::GetCpuThreadPool();
+    auto future = Future<>::Make();
+    auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
+      WaitForEndOrUnlocked(end_time, executor, future);
+    });
+    if (!spawn_status.ok()) {
+      status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+      future.MarkFinished(Status::Invalid(""));
+    }
+    return future;
+  }
+
   void RunTask() {
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lk(mx_);
     num_running_++;
     running_cv_.notify_all();
@@ -1029,9 +1123,16 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
                                  " seconds) waiting for the gating task to be unlocked");
     }
     num_finished_++;
+#else
+    // can't wait here for anything, so make a future to do the waiting
+    num_running_++;
+    auto future = RunTaskFuture();
+    future.Wait();
+#endif
   }
 
   Status WaitForRunning(int count) {
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lk(mx_);
     if (running_cv_.wait_for(
             lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
@@ -1039,6 +1140,14 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       return Status::OK();
     }
     return Status::Invalid("Timed out waiting for tasks to launch");
+#else
+    BusyWait(timeout_seconds_, [this, count] { return num_running_ >= count; });
+    if (num_running_ >= count) {
+      return Status::OK();
+    } else {
+      return Status::Invalid("Timed out waiting for tasks to launch");
+    }
+#endif
   }
 
   Status Unlock() {
@@ -1048,6 +1157,12 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       unlocked_cv_.notify_all();
     }
     unlocked_future_.MarkFinished();
+#ifndef ARROW_ENABLE_THREADING
+    while (num_finished_ != num_running_) {
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+    }
+#endif
+
     return status_;
   }
 
@@ -1078,6 +1193,32 @@ Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(coun
 
 std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
   return std::make_shared<GatingTask>(timeout_seconds);
+}
+
+std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array) {
+  std::vector<std::shared_ptr<Buffer>> new_buffers;
+  new_buffers.reserve(array.buffers.size());
+
+  for (const auto& buffer : array.buffers) {
+    if (!buffer) {
+      new_buffers.emplace_back();
+      continue;
+    }
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<Buffer> padded,
+                         AllocateBuffer(buffer->size() + 1, default_memory_pool()));
+    memcpy(padded->mutable_data() + 1, buffer->data(), buffer->size());
+    std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
+    new_buffers.push_back(std::move(unaligned));
+  }
+
+  std::shared_ptr<ArrayData> array_data = std::make_shared<ArrayData>(array);
+  array_data->buffers = std::move(new_buffers);
+  return array_data;
+}
+
+std::shared_ptr<Array> UnalignBuffers(const Array& array) {
+  std::shared_ptr<ArrayData> array_data = UnalignBuffers(*array.data());
+  return MakeArray(array_data);
 }
 
 }  // namespace arrow

@@ -21,9 +21,9 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/status.h"
 #include "arrow/python/serialize.h"
 #include "arrow/python/visibility.h"
+#include "arrow/status.h"
 
 namespace arrow {
 

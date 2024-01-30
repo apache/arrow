@@ -23,6 +23,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "orc/OrcFile.hh"
 
 namespace liborc = orc;
@@ -34,6 +35,13 @@ namespace orc {
 Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type);
 
 Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema);
+
+Result<std::shared_ptr<const KeyValueMetadata>> GetFieldMetadata(
+    const liborc::Type* type);
+
+Result<std::shared_ptr<Field>> GetArrowField(const std::string& name,
+                                             const liborc::Type* type,
+                                             bool nullable = true);
 
 ARROW_EXPORT Status AppendBatch(const liborc::Type* type,
                                 liborc::ColumnVectorBatch* batch, int64_t offset,

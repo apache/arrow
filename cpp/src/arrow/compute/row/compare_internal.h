@@ -86,7 +86,7 @@ class ARROW_EXPORT KeyCompare {
   static void AndByteVectors(LightContext* ctx, uint32_t num_elements,
                              uint8_t* bytevector_A, const uint8_t* bytevector_B);
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
 
   template <bool use_selection>
   static uint32_t NullUpdateColumnToRowImp_avx2(

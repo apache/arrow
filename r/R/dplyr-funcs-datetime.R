@@ -61,12 +61,14 @@ register_bindings_datetime_utility <- function() {
         tz <- Sys.timezone()
       }
 
-      # if a timestamp does not contain timezone information (i.e. it is
+      # If a timestamp does not contain timezone information (i.e. it is
       # "timezone-naive") we can attach timezone information (i.e. convert it into
       # a "timezone-aware" timestamp) with `assume_timezone`
       # if we want to cast to a different timezone, we can only do it for
-      # timezone-aware timestamps, not for timezone-naive ones
-      if (!is.null(tz)) {
+      # timezone-aware timestamps, not for timezone-naive ones.
+      # strptime in Acero will return a timezone-aware timestamp if %z is
+      # part of the format string.
+      if (!is.null(tz) && !grepl("%z", format, fixed = TRUE)) {
         output <- Expression$create(
           "assume_timezone",
           output,
@@ -457,7 +459,7 @@ register_bindings_datetime_timezone <- function() {
         roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for non-existent times; other values")
+        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
       ambiguous <- switch(
@@ -465,7 +467,7 @@ register_bindings_datetime_timezone <- function() {
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times")
       )
 
       if (identical(tzone, "")) {

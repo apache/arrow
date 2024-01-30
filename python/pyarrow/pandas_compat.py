@@ -32,7 +32,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, builtin_pickle, frombytes  # noqa
+from pyarrow.lib import _pandas_api, frombytes  # noqa
 
 
 _logical_type_map = {}
@@ -97,7 +97,7 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    np.unicode_: 'string',
+    np.str_: 'string',
     np.bytes_: 'bytes',
 }
 
@@ -673,54 +673,7 @@ def get_datetimetz_type(values, dtype, type_):
     return values, type_
 
 # ----------------------------------------------------------------------
-# Converting pandas.DataFrame to a dict containing only NumPy arrays or other
-# objects friendly to pyarrow.serialize
-
-
-def dataframe_to_serialized_dict(frame):
-    block_manager = frame._data
-
-    blocks = []
-    axes = [ax for ax in block_manager.axes]
-
-    for block in block_manager.blocks:
-        values = block.values
-        block_data = {}
-
-        if _pandas_api.is_datetimetz(values.dtype):
-            block_data['timezone'] = pa.lib.tzinfo_to_string(values.tz)
-            if hasattr(values, 'values'):
-                values = values.values
-        elif _pandas_api.is_categorical(values):
-            block_data.update(dictionary=values.categories,
-                              ordered=values.ordered)
-            values = values.codes
-        block_data.update(
-            placement=block.mgr_locs.as_array,
-            block=values
-        )
-
-        # If we are dealing with an object array, pickle it instead.
-        if values.dtype == np.dtype(object):
-            block_data['object'] = None
-            block_data['block'] = builtin_pickle.dumps(
-                values, protocol=builtin_pickle.HIGHEST_PROTOCOL)
-
-        blocks.append(block_data)
-
-    return {
-        'blocks': blocks,
-        'axes': axes
-    }
-
-
-def serialized_dict_to_dataframe(data):
-    import pandas.core.internals as _int
-    reconstructed_blocks = [_reconstruct_block(block)
-                            for block in data['blocks']]
-
-    block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
-    return _pandas_api.data_frame(block_mgr)
+# Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
 def _reconstruct_block(item, columns=None, extension_columns=None):
@@ -761,13 +714,17 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
             ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
-        dtype = make_datetimetz(item['timezone'])
-        block = _int.make_block(block_arr, placement=placement,
-                                klass=_int.DatetimeTZBlock,
-                                dtype=dtype)
-    elif 'object' in item:
-        block = _int.make_block(builtin_pickle.loads(block_arr),
-                                placement=placement)
+        unit, _ = np.datetime_data(block_arr.dtype)
+        dtype = make_datetimetz(unit, item['timezone'])
+        if _pandas_api.is_ge_v21():
+            pd_arr = _pandas_api.pd.array(
+                block_arr.view("int64"), dtype=dtype, copy=False
+            )
+            block = _int.make_block(pd_arr, placement=placement)
+        else:
+            block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
+                                    dtype=dtype)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -785,18 +742,18 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     return block
 
 
-def make_datetimetz(tz):
+def make_datetimetz(unit, tz):
+    if _pandas_api.is_v1():
+        unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type('ns', tz=tz)
+    return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
-# ----------------------------------------------------------------------
-# Converting pyarrow.Table efficiently to pandas.DataFrame
-
-
-def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False, types_mapper=None):
+def table_to_dataframe(
+    options, table, categories=None, ignore_metadata=False, types_mapper=None
+):
     from pandas.core.internals import BlockManager
+    from pandas import DataFrame
 
     all_columns = []
     column_indexes = []
@@ -820,15 +777,21 @@ def table_to_blockmanager(options, table, categories=None,
     blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
     axes = [columns, index]
-    return BlockManager(blocks, axes)
+    mgr = BlockManager(blocks, axes)
+    if _pandas_api.is_ge_v21():
+        df = DataFrame._from_mgr(mgr, mgr.axes)
+    else:
+        df = DataFrame(mgr)
+    return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
-    str(np.dtype(typ))
-    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
-                ['object', 'bool'])
+    "int8", "int16", "int32", "int64",
+    "uint8", "uint16", "uint32", "uint64",
+    "float16", "float32", "float64",
+    "object", "bool"
 }
 
 
@@ -1004,20 +967,9 @@ def _extract_index_level(table, result_table, field_name,
         # The serialized index column was removed by the user
         return result_table, None, None
 
-    pd = _pandas_api.pd
-
     col = table.column(i)
-    values = col.to_pandas(types_mapper=types_mapper).values
-
-    if hasattr(values, 'flags') and not values.flags.writeable:
-        # ARROW-1054: in pandas 0.19.2, factorize will reject
-        # non-writeable arrays when calling MultiIndex.from_arrays
-        values = values.copy()
-
-    if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
-    else:
-        index_level = pd.Series(values, dtype=values.dtype, copy=False)
+    index_level = col.to_pandas(types_mapper=types_mapper)
+    index_level.name = None
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
@@ -1057,7 +1009,7 @@ _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
     'datetimetz': 'datetime64[ns]',
-    'unicode': np.unicode_,
+    'unicode': np.str_,
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,

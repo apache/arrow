@@ -425,9 +425,11 @@ struct _GArrowTimestampDataTypeClass
   GArrowTemporalDataTypeClass parent_class;
 };
 
-GArrowTimestampDataType *garrow_timestamp_data_type_new   (GArrowTimeUnit unit);
+GArrowTimestampDataType *
+garrow_timestamp_data_type_new(GArrowTimeUnit unit,
+                               GTimeZone *time_zone);
 GArrowTimeUnit
-garrow_timestamp_data_type_get_unit (GArrowTimestampDataType *timestamp_data_type);
+garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *data_type);
 
 
 #define GARROW_TYPE_TIME_DATA_TYPE (garrow_time_data_type_get_type())

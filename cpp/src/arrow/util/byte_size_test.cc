@@ -390,6 +390,33 @@ TEST(ByteRanges, SparseUnion) {
                     });
 }
 
+TEST(ByteRanges, RunEndEncodedArray) {
+  auto run_ends =
+      ArrayFromJSON(int32(), "[-1, -1, 100, 200, 300, 400, 500, -1]")->Slice(2, 5);
+  auto values = ArrayFromJSON(int32(), R"([-1, 1, 2, 3, 4, 5, -1, -1])")->Slice(1, 5);
+  ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(500, run_ends, values));
+  CheckBufferRanges(ree_array, {
+                                   {0, 8, 20},
+                                   {1, 4, 20},
+                               });
+  CheckBufferRanges(ree_array->Slice(50), {
+                                              {0, 8, 20},
+                                              {1, 4, 20},
+                                          });
+  CheckBufferRanges(ree_array->Slice(100, 400), {
+                                                    {0, 12, 16},
+                                                    {1, 8, 16},
+                                                });
+  CheckBufferRanges(ree_array->Slice(100, 301), {
+                                                    {0, 12, 16},
+                                                    {1, 8, 16},
+                                                });
+  CheckBufferRanges(ree_array->Slice(100, 300), {
+                                                    {0, 12, 12},
+                                                    {1, 8, 12},
+                                                });
+}
+
 TEST(ByteRanges, ExtensionArray) {
   std::shared_ptr<Array> ext_arr = ExampleUuid();
   CheckBufferRanges(ext_arr, {{0, 0, 1}, {1, 0, 64}});

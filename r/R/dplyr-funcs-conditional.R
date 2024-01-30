@@ -55,7 +55,7 @@ register_bindings_conditional <- function() {
       }
 
       if (last_arg && arg$type_id() %in% TYPES_WITH_NAN) {
-        # store the NA_real_ in the same type as arg to avoid avoid casting
+        # store the NA_real_ in the same type as arg to avoid casting
         # smaller float types to larger float types
         NA_expr <- Expression$scalar(Scalar$create(NA_real_, type = arg$type()))
         Expression$create("if_else", Expression$create("is_nan", arg), NA_expr, arg)
@@ -90,7 +90,15 @@ register_bindings_conditional <- function() {
     out
   })
 
-  register_binding("dplyr::case_when", function(...) {
+  register_binding("dplyr::case_when", function(..., .default = NULL, .ptype = NULL, .size = NULL) {
+    if (!is.null(.ptype)) {
+      arrow_not_supported("`case_when()` with `.ptype` specified")
+    }
+
+    if (!is.null(.size)) {
+      arrow_not_supported("`case_when()` with `.size` specified")
+    }
+
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
@@ -113,6 +121,14 @@ register_bindings_conditional <- function() {
         abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
       }
     }
+    if (!is.null(.default)) {
+      if (length(.default) != 1) {
+        abort(paste0("`.default` must have size 1, not size ", length(.default), "."))
+      }
+
+      query[n + 1] <- TRUE
+      value[n + 1] <- .default
+    }
     Expression$create(
       "case_when",
       args = c(
@@ -124,5 +140,6 @@ register_bindings_conditional <- function() {
         value
       )
     )
-  })
+  }, notes = "`.ptype` and `.size` arguments not supported"
+  )
 }

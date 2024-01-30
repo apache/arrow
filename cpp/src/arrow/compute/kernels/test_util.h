@@ -185,7 +185,10 @@ template <typename T>
 enable_if_decimal<T, std::shared_ptr<DataType>> default_type_instance() {
   return std::make_shared<T>(5, 2);
 }
-
+template <typename T>
+enable_if_duration<T, std::shared_ptr<DataType>> default_type_instance() {
+  return std::make_shared<T>(TimeUnit::type::SECOND);
+}
 // Random Generator Helpers
 class RandomImpl {
  protected:

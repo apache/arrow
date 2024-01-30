@@ -362,9 +362,12 @@ bool Expression::IsSatisfiable() const {
   }
 
   if (call->function_name == "and_kleene" || call->function_name == "and") {
-    for (const Expression& arg : call->arguments) {
-      if (!arg.IsSatisfiable()) return false;
-    }
+    return std::all_of(call->arguments.begin(), call->arguments.end(),
+                       [](const Expression& arg) { return arg.IsSatisfiable(); });
+  }
+  if (call->function_name == "or_kleene" || call->function_name == "or") {
+    return std::any_of(call->arguments.begin(), call->arguments.end(),
+                       [](const Expression& arg) { return arg.IsSatisfiable(); });
   }
 
   return true;
@@ -477,26 +480,26 @@ TypeHolder SmallestTypeFor(const arrow::Datum& value) {
           return value.type();
         case TimeUnit::MILLI:
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           return value.type();
         case TimeUnit::MICRO:
           if (ts % 1000000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::MILLI);
+            return timestamp(TimeUnit::MILLI, ts_type->timezone());
           }
           return value.type();
         case TimeUnit::NANO:
           if (ts % 1000000000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           if (ts % 1000000 == 0) {
-            return timestamp(TimeUnit::MILLI);
+            return timestamp(TimeUnit::MILLI, ts_type->timezone());
           }
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::MICRO);
+            return timestamp(TimeUnit::MICRO, ts_type->timezone());
           }
           return value.type();
         default:

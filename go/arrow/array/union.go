@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // Union is a convenience interface to encompass both Sparse and Dense
@@ -69,7 +69,7 @@ type Union interface {
 	// or arrow.DenseMode.
 	Mode() arrow.UnionMode
 	// Field returns the requested child array for this union. Returns nil if a
-	// non-existent position is passed in.
+	// nonexistent position is passed in.
 	//
 	// The appropriate child for an index can be retrieved with Field(ChildID(index))
 	Field(pos int) arrow.Array
@@ -344,13 +344,23 @@ func (a *SparseUnion) MarshalJSON() ([]byte, error) {
 }
 
 func (a *SparseUnion) ValueStr(i int) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	val := a.GetOneForMarshal(i)
+	if val == nil {
+		// child is nil
+		return NullValueStr
+	}
+
+	data, err := json.Marshal(val)
+	if err != nil {
 		panic(err)
 	}
-	return buf.String()
+	return string(data)
 }
+
 func (a *SparseUnion) String() string {
 	var b strings.Builder
 	b.WriteByte('[')
@@ -584,12 +594,12 @@ func (a *DenseUnion) GetOneForMarshal(i int) interface{} {
 	childID := a.ChildID(i)
 	data := a.Field(childID)
 
-	offsets := a.RawValueOffsets()
-	if data.IsNull(int(offsets[i])) {
+	offset := int(a.RawValueOffsets()[i])
+	if data.IsNull(offset) {
 		return nil
 	}
 
-	return []interface{}{typeID, data.GetOneForMarshal(int(offsets[i]))}
+	return []interface{}{typeID, data.GetOneForMarshal(offset)}
 }
 
 func (a *DenseUnion) MarshalJSON() ([]byte, error) {
@@ -610,12 +620,21 @@ func (a *DenseUnion) MarshalJSON() ([]byte, error) {
 }
 
 func (a *DenseUnion) ValueStr(i int) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	val := a.GetOneForMarshal(i)
+	if val == nil {
+		// child in nil
+		return NullValueStr
+	}
+
+	data, err := json.Marshal(val)
+	if err != nil {
 		panic(err)
 	}
-	return buf.String()
+	return string(data)
 }
 
 func (a *DenseUnion) String() string {
@@ -684,10 +703,6 @@ func arrayDenseUnionApproxEqual(l, r *DenseUnion, opt equalOption) bool {
 // either Dense or Sparse mode.
 type UnionBuilder interface {
 	Builder
-	// AppendNulls appends n nulls to the array
-	AppendNulls(n int)
-	// AppendEmptyValues appends n empty zero values to the array
-	AppendEmptyValues(n int)
 	// AppendChild allows constructing the union type on the fly by making new
 	// new array builder available to the union builder. The type code (index)
 	// of the new child is returned, which should be passed to the Append method
@@ -730,8 +745,8 @@ func newUnionBuilder(mem memory.Allocator, children []Builder, typ arrow.UnionTy
 		mode:            typ.Mode(),
 		codes:           typ.TypeCodes(),
 		children:        children,
-		typeIDtoChildID: make([]int, typ.MaxTypeCode()+1),
-		typeIDtoBuilder: make([]Builder, typ.MaxTypeCode()+1),
+		typeIDtoChildID: make([]int, int(typ.MaxTypeCode())+1),     // convert to int as int8(127) +1 panics
+		typeIDtoBuilder: make([]Builder, int(typ.MaxTypeCode())+1), // convert to int as int8(127) +1 panics
 		childFields:     make([]arrow.Field, len(children)),
 		typesBuilder:    newInt8BufferBuilder(mem),
 	}
@@ -881,7 +896,7 @@ func NewEmptySparseUnionBuilder(mem memory.Allocator) *SparseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewSparseUnionBuilder(mem memory.Allocator, typ *arrow.SparseUnionType) *SparseUnionBuilder {
-	children := make([]Builder, len(typ.Fields()))
+	children := make([]Builder, typ.NumFields())
 	for i, f := range typ.Fields() {
 		children[i] = NewBuilder(mem, f.Type)
 		defer children[i].Release()
@@ -965,7 +980,7 @@ func (b *SparseUnionBuilder) AppendEmptyValues(n int) {
 //
 // After appending to the corresponding child builder, all other child
 // builders should have a null or empty value appended to them (although
-// this is not enfoced and any value is theoretically allowed and will be
+// this is not enforced and any value is theoretically allowed and will be
 // ignored).
 func (b *SparseUnionBuilder) Append(nextType arrow.UnionTypeCode) {
 	b.typesBuilder.AppendValue(nextType)
@@ -1005,6 +1020,10 @@ func (b *SparseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (b *SparseUnionBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return b.UnmarshalOne(dec)
 }
@@ -1110,10 +1129,15 @@ func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewDenseUnionBuilder(mem memory.Allocator, typ *arrow.DenseUnionType) *DenseUnionBuilder {
-	children := make([]Builder, len(typ.Fields()))
-	for i, f := range typ.Fields() {
-		children[i] = NewBuilder(mem, f.Type)
-		defer children[i].Release()
+	children := make([]Builder, 0, typ.NumFields())
+	defer func() {
+		for _, child := range children {
+			child.Release()
+		}
+	}()
+
+	for _, f := range typ.Fields() {
+		children = append(children, NewBuilder(mem, f.Type))
 	}
 	return NewDenseUnionBuilderWithBuilders(mem, typ, children)
 }
@@ -1255,6 +1279,10 @@ func (b *DenseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (d *DenseUnionBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		d.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return d.UnmarshalOne(dec)
 }

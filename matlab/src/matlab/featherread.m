@@ -23,64 +23,45 @@ function t = featherread(filename)
 % specific language governing permissions and limitations
 % under the License.
 
-import arrow.util.*;
-
-% Validate input arguments.
-narginchk(1, 1);
-filename = convertStringsToChars(filename);
-if ~ischar(filename)
-    error('MATLAB:arrow:InvalidFilenameDatatype', ...
-        'Filename must be a character vector or string scalar.');
-end
-
-% FOPEN can be used to search for files without an extension on the MATLAB
-% path.
-fid = fopen(filename);
-if fid ~= -1
-    filename = fopen(fid);
-    fclose(fid);
-else
-    error('MATLAB:arrow:UnableToOpenFile', ...
-        'Unable to open file %s.', filename);
-end
-
-% Read table variables and metadata from the given Feather file using
-% libarrow.
-[variables, metadata] = arrow.cpp.call('featherread', filename);
-
-% Make valid MATLAB table variable names out of any of the
-% Feather table column names that are not valid MATLAB table
-% variable names.
-[variableNames, variableDescriptions] = makeValidMATLABTableVariableNames({variables.Name});
-
-% Iterate over each table variable, handling invalid (null) entries
-% and invalid MATLAB table variable names appropriately.
-% Note: All Arrow arrays can have an associated validity (null) bitmap.
-% The Apache Arrow specification defines 0 (false) to represent an
-% invalid (null) array entry and 1 (true) to represent a valid
-% (non-null) array entry.
-for ii = 1:length(variables)
-    if ~all(variables(ii).Valid)
-        switch variables(ii).Type
-            case {'uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64'}
-                % MATLAB does not support missing values for integer types, so
-                % cast to double and set missing values to NaN in this case.
-                variables(ii).Data = double(variables(ii).Data);
-        end
-
-        % Set invalid (null) entries to the appropriate MATLAB missing value using
-        % logical indexing.
-        variables(ii).Data(~variables(ii).Valid) = missing;
+    arguments
+        filename(1, 1) string {mustBeNonmissing, mustBeNonzeroLengthText}
     end
-end
 
-% Construct a MATLAB table from the Feather file data.
-t = table(variables.Data, 'VariableNames', cellstr(variableNames));
+    typesToCast = [arrow.type.ID.UInt8, ...
+                   arrow.type.ID.UInt16, ...
+                   arrow.type.ID.UInt32, ...
+                   arrow.type.ID.UInt64, ...
+                   arrow.type.ID.Int8, ...
+                   arrow.type.ID.Int16, ...
+                   arrow.type.ID.Int32, ...
+                   arrow.type.ID.Int64, ...
+                   arrow.type.ID.Boolean];
 
-% Store original Feather table column names in the table.Properties.VariableDescriptions
-% property if they were modified to be valid MATLAB table variable names.
-if ~isempty(variableDescriptions)
-    t.Properties.VariableDescriptions = cellstr(variableDescriptions);
-end
+    reader = arrow.internal.io.feather.Reader(filename);
+    recordBatch = reader.read();
+
+    % Convert RecordBatch to a MATLAB table.
+    t = table(recordBatch);
+
+    % Cast integer and boolean columns containing null values
+    % to double. Substitute null values with NaN.
+    for ii = 1:recordBatch.NumColumns
+        array = recordBatch.column(ii);
+        type = array.Type.ID;
+        if any(type == typesToCast) && any(~array.Valid)
+            % Cast to double.
+            t.(ii) = double(t.(ii));
+            % Substitute null values with NaN.
+            t{~array.Valid, ii} = NaN;
+        end
+    end
+
+    % Store original Feather table column names in the table.Properties.VariableDescriptions
+    % property if they were modified to be valid MATLAB table variable names.
+    modifiedColumnNameIndices = t.Properties.VariableNames ~= recordBatch.ColumnNames;
+    if any(modifiedColumnNameIndices)
+        originalColumnNames = recordBatch.ColumnNames(modifiedColumnNameIndices);
+        t.Properties.VariableDescriptions(modifiedColumnNameIndices) = compose("Original variable name: '%s'", originalColumnNames);
+    end
 
 end

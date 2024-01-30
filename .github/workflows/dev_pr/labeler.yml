@@ -45,6 +45,9 @@
 "Component: Ruby":
   - ruby/**/*
 
+"Component: Swift":
+  - swift/**/*
+
 "Component: FlightRPC":
   - cpp/src/arrow/flight/**/*
   - r/R/flight.*

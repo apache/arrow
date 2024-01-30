@@ -22,7 +22,7 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/x86_64
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -45,7 +45,7 @@ export ARROW_ORC
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -61,6 +61,7 @@ cmake \
   -DARROW_BUILD_TESTS=ON \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_SUBSTRAIT=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
@@ -71,7 +72,6 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -GNinja \
@@ -105,7 +105,7 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 

@@ -141,13 +141,13 @@ struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
 
+  using ArrowType = ::arrow::BinaryType;
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
     std::unique_ptr<::arrow::BinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
-  using ArrowType = ::arrow::BinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
 };
 
@@ -233,7 +233,7 @@ class DictEncoder : virtual public TypedEncoder<DType> {
 
   /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
   /// assumed (without any boundschecking) that the indices reference
-  /// pre-existing dictionary values
+  /// preexisting dictionary values
   /// \param[in] indices the dictionary index values. Only Int32Array currently
   /// supported
   virtual void PutIndices(const ::arrow::Array& indices) = 0;

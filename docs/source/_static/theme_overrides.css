@@ -21,43 +21,21 @@
 /* Customizing with theme CSS variables */
 
 :root {
-  --pst-color-active-navigation: 215, 70, 51;
-  --pst-color-link-hover: 215, 70, 51;
-  --pst-color-headerlink: 215, 70, 51;
-  /* Use normal text color (like h3, ..) instead of primary color */
-  --pst-color-h1: var(--color-text-base);
-  --pst-color-h2: var(--color-text-base);
-  /* Use softer blue from bootstrap's default info color */
-  --pst-color-info: 23, 162, 184;
-  --pst-header-height: 0px;
+  /* Make headings more bold */
+  --pst-font-weight-heading: 600;
 }
 
-code {
-  color: rgb(215, 70, 51);
+/* Change header hight to make the logo a bit larger */
+/* only on wider screens */
+@media only screen and (min-width: 1170px){
+  :root {
+    --pst-header-height: 6rem;
+  }
 }
 
-.footer {
-  text-align: center;
-}
-
-/* Ensure the logo is properly displayed */
-
-.navbar-brand {
-  height: auto;
-  width: auto;
-}
-
-a.navbar-brand img {
-  height: auto;
-  width: auto;
-  max-height: 15vh;
-  max-width: 100%;
-}
-
-/* Contibuting landing page overview cards */
+/* Contributing landing page overview cards */
 
 .contrib-card {
-  background: #fff;
   border-radius: 0;
   padding: 30px 10px 20px 10px;
   margin: 10px 0px;
@@ -70,12 +48,12 @@ a.navbar-brand img {
 .contrib-card .sd-card-img-top {
   margin: 2px;
   height: 75px;
+  background: none !important;
 }
 
 .contrib-card .sd-card-title {
-  /* color: rgb(var(--pst-color-h1)) !important; */
+  color: var(--pst-color-primary);
   font-size: var(--pst-font-size-h3);
-  /* font-weight: bold; */
   padding: 1rem 0rem 0.5rem 0rem;
 }
 
@@ -83,14 +61,8 @@ a.navbar-brand img {
   border: none;
 }
 
-.contib-card .sd-card-footer p.sd-card-text{
-  max-width: 220px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
-not yet provide an easy way to configure this globaly, it easier to simply
+not yet provide an easy way to configure this globally, it easier to simply
 include this snippet here than updating each table in all rst files to
 add ":class: table-striped" */
 
@@ -98,7 +70,7 @@ add ":class: table-striped" */
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Iprove the vertical spacing in the C++ API docs
+/* Improve the vertical spacing in the C++ API docs
 (ideally this should be upstreamed to the pydata-sphinx-theme */
 
 dl.cpp dd p {
@@ -111,49 +83,4 @@ dl.cpp.enumerator {
 
 p.breathe-sectiondef-title {
   margin-top: 1rem;
-}
-
-/* Limit the max height of the sidebar navigation section. Because in our
-custimized template, there is more content above the navigation, i.e.
-larger logo: if we don't decrease the max-height, it will overlap with
-the footer.
-Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
-
-@media (min-width:720px) {
-  @supports (position:-webkit-sticky) or (position:sticky) {
-    .bd-links {
-      max-height: calc(100vh - min(15vh, 110px) - 8rem)
-    }
-  }
-}
-
-/* Styling to get the version dropdown and search box side-by-side on wide screens */
-
-#version-search-wrapper {
-  width: inherit;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: left;
-  align-items: center;
-}
-
-#version-button {
-  padding-left: 0.5rem;
-  padding-right: 1rem;
-}
-
-#search-box {
-  flex: 1 0 12em;
-}
-
-/* Fix table text wrapping in RTD theme,
- * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
- */
-
-@media screen {
-    table.docutils td {
-        /* !important prevents the common CSS stylesheets from overriding
-          this as on RTD they are loaded after this stylesheet */
-        white-space: normal !important;
-    }
 }

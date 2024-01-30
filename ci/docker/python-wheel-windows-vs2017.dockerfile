@@ -55,7 +55,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
-# ssl related fixies as well as we can patch the vcpkg portfile to support
+# ssl related fixes as well as we can patch the vcpkg portfile to support
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build
@@ -66,7 +66,8 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet
+        --x-feature=parquet \
+        --x-feature=s3
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
@@ -76,13 +77,13 @@ RUN vcpkg install \
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
+# Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
 ARG python=3.8
-RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.9" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
+RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
     (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.8" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.0" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts")
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
+    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.5" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts") & \
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.0" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
 
@@ -96,4 +97,4 @@ RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
-# RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Depencencies"
+# RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Dependencies"

@@ -96,11 +96,7 @@ struct ARROW_EXPORT IOContext {
   StopToken stop_token_;
 };
 
-struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {
-  using IOContext::IOContext;
-};
-
-class ARROW_EXPORT FileInterface {
+class ARROW_EXPORT FileInterface : public std::enable_shared_from_this<FileInterface> {
  public:
   virtual ~FileInterface() = 0;
 
@@ -200,7 +196,7 @@ class ARROW_EXPORT Readable {
   /// EXPERIMENTAL: The IOContext associated with this file.
   ///
   /// By default, this is the same as default_io_context(), but it may be
-  /// overriden by subclasses.
+  /// overridden by subclasses.
   virtual const IOContext& io_context() const;
 };
 
@@ -209,9 +205,7 @@ class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable 
   OutputStream() = default;
 };
 
-class ARROW_EXPORT InputStream : virtual public FileInterface,
-                                 virtual public Readable,
-                                 public std::enable_shared_from_this<InputStream> {
+class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Readable {
  public:
   /// \brief Advance or skip stream indicated number of bytes
   /// \param[in] nbytes the number to move forward

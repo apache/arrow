@@ -236,10 +236,12 @@ ExecPlan <- R6Class("ExecPlan",
     },
     Write = function(node, ...) {
       # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      final_metadata <- prepare_key_value_metadata(node$final_metadata())
+
       ExecPlan_Write(
         self,
         node,
-        prepare_key_value_metadata(node$final_metadata()),
+        node$schema$WithMetadata(final_metadata),
         ...
       )
     },

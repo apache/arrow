@@ -36,5 +36,16 @@ class TestExpression < Test::Unit::TestCase
       assert_equal(Arrow::CallExpression.new("func", ["argument1"]),
                    Arrow::Expression.try_convert(["func", "argument1"]))
     end
+
+    test("[Symbol, String, Hash]") do
+      options = Arrow::MatchSubstringOptions.new
+      options.pattern = "hello"
+      assert_equal(Arrow::CallExpression.new("match_substring",
+                                             ["content"],
+                                             options),
+                   Arrow::Expression.try_convert([:match_substring,
+                                                  "content",
+                                                  {pattern: "hello"}]))
+    end
   end
 end

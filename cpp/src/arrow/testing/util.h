@@ -131,4 +131,10 @@ ARROW_TESTING_EXPORT std::string GetListenAddress();
 ARROW_TESTING_EXPORT
 const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types();
 
+// Get a list of supported hardware flags from the given candidates.
+// The result will always contain 0, meaning no optional CPU feature enabled at all.
+ARROW_TESTING_EXPORT
+std::vector<int64_t> GetSupportedHardwareFlags(
+    const std::vector<int64_t>& candidate_flags);
+
 }  // namespace arrow

@@ -14,8 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Grpc.Core;
 
@@ -54,6 +52,11 @@ namespace Apache.Arrow.Flight.Server
         }
 
         public virtual Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
         {
             throw new NotImplementedException();
         }

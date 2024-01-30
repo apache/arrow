@@ -204,6 +204,29 @@ TEST(AsyncTaskScheduler, InitialTaskFails) {
   ASSERT_FINISHES_AND_RAISES(Invalid, finished);
 }
 
+TEST(AsyncTaskScheduler, TaskDestroyedBeforeSchedulerEnds) {
+  bool my_task_destroyed = false;
+  Future<> task_fut = Future<>::Make();
+  struct DestroyTrackingTask : public AsyncTaskScheduler::Task {
+    DestroyTrackingTask(bool& my_task_destroyed, Future<> task_fut)
+        : my_task_destroyed(my_task_destroyed), task_fut(std::move(task_fut)) {}
+    ~DestroyTrackingTask() override { my_task_destroyed = true; }
+    std::string_view name() const override { return "DestroyTrackingTask"; }
+    Result<Future<>> operator()() override { return task_fut; }
+    bool& my_task_destroyed;
+    Future<> task_fut;
+  };
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+                        scheduler->AddTask(std::make_unique<DestroyTrackingTask>(
+                            my_task_destroyed, task_fut));
+                        return Status::OK();
+                      }).Then([&] { ASSERT_TRUE(my_task_destroyed); });
+  ASSERT_FALSE(my_task_destroyed);
+  task_fut.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(my_task_destroyed);
+}
+
 TEST(AsyncTaskScheduler, TaskGroup) {
   Future<> task = Future<>::Make();
   bool finish_callback_ran = false;

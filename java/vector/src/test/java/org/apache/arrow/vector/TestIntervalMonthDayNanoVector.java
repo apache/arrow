@@ -26,6 +26,9 @@ import java.time.Period;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.IntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
+import org.apache.arrow.vector.types.IntervalUnit;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -94,6 +97,12 @@ public class TestIntervalMonthDayNanoVector {
 
       assertEquals(0, vector.isSet(1));
       assertEquals(1, vector.isSet(2));
+
+      assertEquals(Types.MinorType.INTERVALMONTHDAYNANO, vector.getMinorType());
+      ArrowType fieldType = vector.getField().getType();
+      assertEquals(ArrowType.ArrowTypeID.Interval, fieldType.getTypeID());
+      ArrowType.Interval intervalType = (ArrowType.Interval) fieldType;
+      assertEquals(IntervalUnit.MONTH_DAY_NANO, intervalType.getUnit());
     }
   }
 }

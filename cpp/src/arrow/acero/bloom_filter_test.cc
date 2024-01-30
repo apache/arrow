@@ -22,12 +22,14 @@
 #include <condition_variable>
 #include <thread>
 #include <unordered_set>
+
 #include "arrow/acero/bloom_filter.h"
 #include "arrow/acero/task_util.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/config.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {
@@ -171,9 +173,7 @@ void TestBloomSmallHashHelper(int64_t num_input_hashes, const T* input_hashes,
 // Output FPR and build and probe cost.
 //
 void TestBloomSmall(BloomFilterBuildStrategy strategy, int64_t num_build,
-                    int num_build_copies, bool use_simd, bool enable_prefetch) {
-  int64_t hardware_flags = use_simd ? ::arrow::internal::CpuInfo::AVX2 : 0;
-
+                    int num_build_copies, int64_t hardware_flags, bool enable_prefetch) {
   // Generate input keys
   //
   int64_t num_probe = 4 * num_build;
@@ -324,10 +324,8 @@ void TestBloomLargeHashHelper(int64_t hardware_flags, int64_t block,
 // Test with larger size Bloom filters (use large prime with arithmetic
 // sequence modulo 2^64).
 //
-void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool use_simd,
-                    bool enable_prefetch) {
-  int64_t hardware_flags = use_simd ? ::arrow::internal::CpuInfo::AVX2 : 0;
-
+void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build,
+                    int64_t hardware_flags, bool enable_prefetch) {
   // Largest 63-bit prime
   constexpr uint64_t prime = 0x7FFFFFFFFFFFFFE7ULL;
 
@@ -458,42 +456,40 @@ TEST(BloomFilter, Basic) {
   num_build.push_back(1LL << log_large);
 #endif
 
-  constexpr int num_param_sets = 3;
-  struct {
-    bool use_avx2;
+  struct TestParam {
+    int64_t hardware_flags;
     bool enable_prefetch;
     bool insert_multiple_copies;
-  } params[num_param_sets];
-  for (int i = 0; i < num_param_sets; ++i) {
-    params[i].use_avx2 = (i == 1);
-    params[i].enable_prefetch = (i == 2);
-    params[i].insert_multiple_copies = (i == 3);
+  };
+  std::vector<TestParam> test_params;
+  for (const auto hardware_flags : HardwareFlagsForTesting()) {
+    test_params.push_back({hardware_flags, false, false});
   }
+  test_params.push_back({0, true, false});
+  test_params.push_back({0, false, true});
 
-  std::vector<BloomFilterBuildStrategy> strategy;
-  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#ifndef ARROW_VALGRIND
-  strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+  std::vector<BloomFilterBuildStrategy> strategies;
+  strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
+#if defined(ARROW_ENABLE_THREADING) && !defined(ARROW_VALGRIND)
+  strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
 #endif
 
   static constexpr int64_t min_rows_for_large = 2 * 1024 * 1024;
 
-  for (size_t istrategy = 0; istrategy < strategy.size(); ++istrategy) {
-    for (int iparam_set = 0; iparam_set < num_param_sets; ++iparam_set) {
-      ARROW_SCOPED_TRACE("%s ", params[iparam_set].use_avx2                 ? "AVX2"
-                                : params[iparam_set].enable_prefetch        ? "PREFETCH"
-                                : params[iparam_set].insert_multiple_copies ? "FOLDING"
-                                                                            : "REGULAR");
-      for (size_t inum_build = 0; inum_build < num_build.size(); ++inum_build) {
-        ARROW_SCOPED_TRACE("num_build ", static_cast<int>(num_build[inum_build]));
-        if (num_build[inum_build] >= min_rows_for_large) {
-          TestBloomLarge(strategy[istrategy], num_build[inum_build],
-                         params[iparam_set].use_avx2, params[iparam_set].enable_prefetch);
+  for (const auto& strategy : strategies) {
+    for (const auto& test_param : test_params) {
+      ARROW_SCOPED_TRACE("hardware_flags = ", test_param.hardware_flags,
+                         test_param.enable_prefetch ? " PREFETCH" : "",
+                         test_param.insert_multiple_copies ? " FOLDING" : "REGULAR");
+      for (const auto n : num_build) {
+        ARROW_SCOPED_TRACE("num_build ", n);
+        if (n >= min_rows_for_large) {
+          TestBloomLarge(strategy, n, test_param.hardware_flags,
+                         test_param.enable_prefetch);
 
         } else {
-          TestBloomSmall(strategy[istrategy], num_build[inum_build],
-                         params[iparam_set].insert_multiple_copies ? 8 : 1,
-                         params[iparam_set].use_avx2, params[iparam_set].enable_prefetch);
+          TestBloomSmall(strategy, n, test_param.insert_multiple_copies ? 8 : 1,
+                         test_param.hardware_flags, test_param.enable_prefetch);
         }
       }
     }
@@ -506,19 +502,21 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(1000000);
   num_build.push_back(4000000);
 
-  std::vector<BloomFilterBuildStrategy> strategy;
-  strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+  std::vector<BloomFilterBuildStrategy> strategies;
+#ifdef ARROW_ENABLE_THREADING
+  strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
+#endif
+  strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 
-  for (bool use_avx2 : {false, true}) {
-    for (size_t istrategy = 0; istrategy < strategy.size(); ++istrategy) {
-      for (size_t inum_build = 0; inum_build < num_build.size(); ++inum_build) {
-        ARROW_SCOPED_TRACE("num_build = ", static_cast<int>(num_build[inum_build]));
-        ARROW_SCOPED_TRACE("strategy = ",
-                           strategy[istrategy] == BloomFilterBuildStrategy::PARALLEL
-                               ? "PARALLEL"
-                               : "SINGLE_THREADED");
-        ARROW_SCOPED_TRACE("avx2 = ", use_avx2 ? "AVX2" : "SCALAR");
-        TestBloomLarge(strategy[istrategy], num_build[inum_build], use_avx2,
+  for (const auto hardware_flags : HardwareFlagsForTesting()) {
+    for (const auto& strategy : strategies) {
+      for (const auto n : num_build) {
+        ARROW_SCOPED_TRACE("num_build = ", n);
+        ARROW_SCOPED_TRACE("strategy = ", strategy == BloomFilterBuildStrategy::PARALLEL
+                                              ? "PARALLEL"
+                                              : "SINGLE_THREADED");
+        ARROW_SCOPED_TRACE("hardware_flags = ", hardware_flags);
+        TestBloomLarge(strategy, n, hardware_flags,
                        /*enable_prefetch=*/false);
       }
     }

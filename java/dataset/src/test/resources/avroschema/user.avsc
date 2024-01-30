@@ -18,7 +18,7 @@
 {
  "namespace": "org.apache.arrow.dataset",
  "type": "record",
- "name": "User",
+ "name": "Users",
  "fields": [
      {"name": "id", "type": ["int", "null"]},
      {"name": "name", "type": ["string", "null"]}

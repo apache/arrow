@@ -80,6 +80,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
 
     CRuntimeInfo GetRuntimeInfo()
 
+    cdef cppclass CGlobalOptions" arrow::GlobalOptions":
+        optional[c_string] timezone_db_path
+
+    CStatus Initialize(const CGlobalOptions& options)
+
 
 cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
     cdef cppclass CFuture_Void" arrow::Future<>":
@@ -121,6 +126,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
         _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_BINARY_VIEW" arrow::Type::BINARY_VIEW"
+        _Type_STRING_VIEW" arrow::Type::STRING_VIEW"
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
@@ -404,11 +411,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const shared_ptr[CDataType]& value_type()
 
     cdef cppclass CField" arrow::Field":
-        cppclass CMergeOptions "arrow::Field::MergeOptions":
+        cppclass CMergeOptions "MergeOptions":
+            CMergeOptions()
             c_bool promote_nullability
 
             @staticmethod
             CMergeOptions Defaults()
+
+            @staticmethod
+            CMergeOptions Permissive()
 
         const c_string& name()
         shared_ptr[CDataType] type()
@@ -509,7 +520,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     CResult[shared_ptr[CSchema]] UnifySchemas(
-        const vector[shared_ptr[CSchema]]& schemas)
+        const vector[shared_ptr[CSchema]]& schemas,
+        CField.CMergeOptions field_merge_options)
 
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()
@@ -663,11 +675,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
+            const shared_ptr[CArray]& values,
+            int32_t list_size,
+            shared_ptr[CBuffer] null_bitmap)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            const shared_ptr[CArray]& values, shared_ptr[CDataType])
+            const shared_ptr[CArray]& values,
+            shared_ptr[CDataType],
+            shared_ptr[CBuffer] null_bitmap)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -677,6 +693,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
@@ -1189,6 +1213,25 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef enum DLDeviceType:
+        kDLCPU = 1
+
+    ctypedef struct DLDevice:
+        DLDeviceType device_type
+        int32_t device_id
+
+    ctypedef struct DLManagedTensor:
+        void (*deleter)(DLManagedTensor*)
+
+
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+        const shared_ptr[CArray]& arr)
+
+    CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
+
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
@@ -1254,7 +1297,14 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
         CStringBuilder(CMemoryPool* pool)
+        CStatus Append(const c_string& value)
 
+    cdef cppclass CBinaryViewBuilder" arrow::BinaryViewBuilder"(CArrayBuilder):
+        CBinaryViewBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringViewBuilder" arrow::StringViewBuilder"(CBinaryViewBuilder):
+        CStringViewBuilder(CMemoryPool* pool)
         CStatus Append(const c_string& value)
 
     cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):
@@ -1337,6 +1387,22 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 
+    cdef cppclass CCacheOptions "arrow::io::CacheOptions":
+        int64_t hole_size_limit
+        int64_t range_size_limit
+        c_bool lazy
+        int64_t prefetch_limit
+        c_bool Equals "operator==" (CCacheOptions other)
+
+        @staticmethod
+        CCacheOptions MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
+                                             int64_t transfer_bandwidth_mib_per_sec,
+                                             double ideal_bandwidth_utilization_frac,
+                                             int64_t max_ideal_request_size_mib)
+
+        @staticmethod
+        CCacheOptions LazyDefaults()
+
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
         pass
@@ -1374,6 +1440,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
+
+        @staticmethod
+        CResult[shared_ptr[COutputStream]] OpenWithAppend" Open"(
+            const c_string& path, c_bool append)
 
         int file_descriptor()
 
@@ -2346,6 +2416,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
 
+    cdef cppclass CAggregate "arrow::compute::Aggregate":
+        c_string function
+        shared_ptr[CFunctionOptions] options
+        vector[CFieldRef] target
+        c_string name
+
     cdef enum CMapLookupOccurrence \
             "arrow::compute::MapLookupOptions::Occurrence":
         CMapLookupOccurrence_ALL "arrow::compute::MapLookupOptions::ALL"
@@ -2394,11 +2470,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t pivot
         CNullPlacement null_placement
 
-    cdef cppclass CCumulativeSumOptions \
-            "arrow::compute::CumulativeSumOptions"(CFunctionOptions):
-        CCumulativeSumOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
-        shared_ptr[CScalar] start
+    cdef cppclass CCumulativeOptions \
+            "arrow::compute::CumulativeOptions"(CFunctionOptions):
+        CCumulativeOptions(c_bool skip_nulls)
+        CCumulativeOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
+        optional[shared_ptr[CScalar]] start
         c_bool skip_nulls
+
+    cdef cppclass CPairwiseOptions \
+            "arrow::compute::PairwiseOptions"(CFunctionOptions):
+        CPairwiseOptions(int64_t period)
+        int64_t period
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
@@ -2721,13 +2803,13 @@ cdef extern from "arrow/array/concatenate.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/c/abi.h":
     cdef struct ArrowSchema:
-        pass
+        void (*release)(ArrowSchema*) noexcept nogil
 
     cdef struct ArrowArray:
-        pass
+        void (*release)(ArrowArray*) noexcept nogil
 
     cdef struct ArrowArrayStream:
-        pass
+        void (*release)(ArrowArrayStream*) noexcept nogil
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
@@ -2769,7 +2851,7 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
 
-ctypedef PyObject* CallbackUdf(object user_function, const CScalarUdfContext& context, object inputs)
+ctypedef PyObject* CallbackUdf(object user_function, const CUdfContext& context, object inputs)
 
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:
@@ -2780,7 +2862,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
-    cdef cppclass CScalarUdfContext" arrow::py::ScalarUdfContext":
+    cdef cppclass CUdfContext" arrow::py::UdfContext":
         CMemoryPool *pool
         int64_t batch_length
 
@@ -2798,6 +2880,14 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     CStatus RegisterTabularFunction(PyObject* function,
                                     function[CallbackUdf] wrapper, const CUdfOptions& options,
                                     CFunctionRegistry* registry)
+
+    CStatus RegisterAggregateFunction(PyObject* function,
+                                      function[CallbackUdf] wrapper, const CUdfOptions& options,
+                                      CFunctionRegistry* registry)
+
+    CStatus RegisterVectorFunction(PyObject* function,
+                                   function[CallbackUdf] wrapper, const CUdfOptions& options,
+                                   CFunctionRegistry* registry)
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)

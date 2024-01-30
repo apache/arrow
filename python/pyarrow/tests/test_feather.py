@@ -395,7 +395,7 @@ def test_strings(version):
     values = [b'foo', None, 'bar', 'qux', np.nan]
     df = pd.DataFrame({'strings': values * repeats})
 
-    ex_values = [b'foo', None, b'bar', b'qux', np.nan]
+    ex_values = [b'foo', None, b'bar', b'qux', None]
     expected = pd.DataFrame({'strings': ex_values * repeats})
     _check_pandas_roundtrip(df, expected, version=version)
 
@@ -407,7 +407,8 @@ def test_strings(version):
 
     values = ['foo', None, 'bar', 'qux', np.nan]
     df = pd.DataFrame({'strings': values * repeats})
-    expected = pd.DataFrame({'strings': values * repeats})
+    ex_values = ['foo', None, 'bar', 'qux', None]
+    expected = pd.DataFrame({'strings': ex_values * repeats})
     _check_pandas_roundtrip(df, expected, version=version)
 
 

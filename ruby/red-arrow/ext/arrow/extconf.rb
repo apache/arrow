@@ -41,9 +41,8 @@ end
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
                                    ],
+                                   conda: "libarrow",
                                    debian: "libarrow-dev",
                                    fedora: "libarrow-devel",
                                    homebrew: "apache-arrow",
@@ -58,6 +57,7 @@ unless required_pkg_config_package([
                                      Arrow::Version::MINOR,
                                      Arrow::Version::MICRO,
                                    ],
+                                   conda: "arrow-c-glib",
                                    debian: "libarrow-glib-dev",
                                    fedora: "libarrow-glib-devel",
                                    homebrew: "apache-arrow-glib",
@@ -84,7 +84,7 @@ when /darwin/
   symbols_in_external_bundles.each do |symbol|
     $DLDFLAGS << " -Wl,-U,#{symbol}"
   end
-  mmacosx_version_min = "-mmacosx-version-min=10.14"
+  mmacosx_version_min = "-mmacosx-version-min=10.15"
   $CFLAGS << " #{mmacosx_version_min}"
   $CXXFLAGS << " #{mmacosx_version_min}"
 end

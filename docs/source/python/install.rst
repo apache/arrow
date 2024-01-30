@@ -27,7 +27,7 @@ Linux distributions. We strongly recommend using a 64-bit system.
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.7, 3.8, 3.9, 3.10 and 3.11.
+PyArrow is currently compatible with Python 3.8, 3.9, 3.10 and 3.11.
 
 Using Conda
 -----------
@@ -56,8 +56,8 @@ need to install the `Visual C++ Redistributable for Visual Studio 2015
 .. warning::
    On Linux, you will need pip >= 19.0 to detect the prebuilt binary packages.
 
-Installing from source
-----------------------
+Installing nightly packages or from source
+------------------------------------------
 
 See :ref:`python-development`.
 
@@ -75,3 +75,20 @@ Optional dependencies
 
 Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
 and **pytz**, **dateutil** or **tzdata** package for timezones.
+
+tzdata on Windows
+^^^^^^^^^^^^^^^^^
+
+While Arrow uses the OS-provided timezone database on Linux and macOS, it requires a
+user-provided database on Windows. To download and extract the text version of
+the IANA timezone database follow the instructions in the C++
+:ref:`download-timezone-database`.
+
+By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``.
+If the database has been downloaded in a different location, you will need to set
+a custom path to the database from Python:
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> pa.set_timezone_db_path("custom_path")

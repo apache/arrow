@@ -201,10 +201,14 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
-          return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+          return [this, task_inner2 = std::move(task_inner)](const Status& st) mutable {
 #ifdef ARROW_WITH_OPENTELEMETRY
             TraceTaskFinished(task_inner2.get());
 #endif
+            // OnTaskFinished might trigger the scheduler to end.  We want to ensure that
+            // is the very last thing that happens after all task destructors have run so
+            // we eagerly destroy the task first.
+            task_inner2.reset();
             OnTaskFinished(st);
           };
         })) {

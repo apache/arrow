@@ -26,9 +26,10 @@ import { packBools, truncateBitmap } from '../util/bit.js';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
-    Float, Int, Date_, Interval, Time, Timestamp, Union,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type.js';
+import { bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */
 export interface VectorAssembler extends Visitor {
@@ -41,7 +42,9 @@ export interface VectorAssembler extends Visitor {
     visitInt<T extends Int>(data: Data<T>): this;
     visitFloat<T extends Float>(data: Data<T>): this;
     visitUtf8<T extends Utf8>(data: Data<T>): this;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): this;
     visitBinary<T extends Binary>(data: Data<T>): this;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>): this;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): this;
     visitDate<T extends Date_>(data: Data<T>): this;
     visitTimestamp<T extends Timestamp>(data: Data<T>): this;
@@ -51,6 +54,7 @@ export interface VectorAssembler extends Visitor {
     visitStruct<T extends Struct>(data: Data<T>): this;
     visitUnion<T extends Union>(data: Data<T>): this;
     visitInterval<T extends Interval>(data: Data<T>): this;
+    visitDuration<T extends Duration>(data: Data<T>): this;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>): this;
     visitMap<T extends Map_>(data: Data<T>): this;
 }
@@ -77,18 +81,23 @@ export class VectorAssembler extends Visitor {
         }
         const { type } = data;
         if (!DataType.isDictionary(type)) {
-            const { length, nullCount } = data;
+            const { length } = data;
             if (length > 2147483647) {
                 /* istanbul ignore next */
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
-            if (!DataType.isNull(type)) {
-                addBuffer.call(this, nullCount <= 0
-                    ? new Uint8Array(0) // placeholder validity buffer
-                    : truncateBitmap(data.offset, length, data.nullBitmap)
-                );
+            if (DataType.isUnion(type)) {
+                this.nodes.push(new FieldNode(length, 0));
+            } else {
+                const { nullCount } = data;
+                if (!DataType.isNull(type)) {
+                    addBuffer.call(this, nullCount <= 0
+                        ? new Uint8Array(0) // placeholder validity buffer
+                        : truncateBitmap(data.offset, length, data.nullBitmap)
+                    );
+                }
+                this.nodes.push(new FieldNode(length, nullCount));
             }
-            this.nodes.push(new FieldNode(length, nullCount));
         }
         return super.visit(data);
     }
@@ -141,31 +150,30 @@ function assembleUnion<T extends Union>(this: VectorAssembler, data: Data<T>) {
             // A sliced Dense Union is an unpleasant case. Because the offsets are different for
             // each child vector, we need to "rebase" the valueOffsets for each child
             // Union typeIds are not necessary 0-indexed
-            const maxChildTypeId = typeIds.reduce((x, y) => Math.max(x, y), typeIds[0]);
-            const childLengths = new Int32Array(maxChildTypeId + 1);
-            // Set all to -1 to indicate that we haven't observed a first occurrence of a particular child yet
-            const childOffsets = new Int32Array(maxChildTypeId + 1).fill(-1);
             const shiftedOffsets = new Int32Array(length);
+            const childOffsets = Object.create(null) as Record<string, number>;
+            const childLengths = Object.create(null) as Record<string, number>;
             // If we have a non-zero offset, then the value offsets do not start at
             // zero. We must a) create a new offsets array with shifted offsets and
             // b) slice the values array accordingly
-            const unshiftedOffsets = rebaseValueOffsets(-valueOffsets[0], length, valueOffsets);
             for (let typeId, shift, index = -1; ++index < length;) {
-                if ((shift = childOffsets[typeId = typeIds[index]]) === -1) {
-                    shift = childOffsets[typeId] = unshiftedOffsets[typeId];
+                if ((typeId = typeIds[index]) === undefined) {
+                    continue;
                 }
-                shiftedOffsets[index] = unshiftedOffsets[index] - shift;
-                ++childLengths[typeId];
+                if ((shift = childOffsets[typeId]) === undefined) {
+                    shift = childOffsets[typeId] = valueOffsets[index];
+                }
+                shiftedOffsets[index] = valueOffsets[index] - shift;
+                childLengths[typeId] = (childLengths[typeId] ?? 0) + 1;
             }
             addBuffer.call(this, shiftedOffsets);
             // Slice and visit children accordingly
-            for (let child: Data | null, childIndex = -1, numChildren = type.children.length; ++childIndex < numChildren;) {
-                if (child = data.children[childIndex]) {
-                    const typeId = type.typeIds[childIndex];
-                    const childLength = Math.min(length, childLengths[typeId]);
-                    this.visit(child.slice(childOffsets[typeId], childLength));
-                }
-            }
+            this.visitMany(data.children.map((child, childIndex) => {
+                const typeId = type.typeIds[childIndex];
+                const childOffset = childOffsets[typeId];
+                const childLength = childLengths[typeId];
+                return child.slice(childOffset, Math.min(length, childLength));
+            }));
         }
     }
     return this;
@@ -191,19 +199,19 @@ function assembleBoolVector<T extends Bool>(this: VectorAssembler, data: Data<T>
 }
 
 /** @ignore */
-function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval>(this: VectorAssembler, data: Data<T>) {
+function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval | Duration>(this: VectorAssembler, data: Data<T>) {
     return addBuffer.call(this, data.values.subarray(0, data.length * data.stride));
 }
 
 /** @ignore */
-function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, data: Data<T>) {
+function assembleFlatListVector<T extends Utf8 | LargeUtf8 | Binary | LargeBinary>(this: VectorAssembler, data: Data<T>) {
     const { length, values, valueOffsets } = data;
-    const firstOffset = valueOffsets[0];
-    const lastOffset = valueOffsets[length];
-    const byteLength = Math.min(lastOffset - firstOffset, values.byteLength - firstOffset);
+    const begin = bigIntToNumber(valueOffsets[0]);
+    const end = bigIntToNumber(valueOffsets[length]);
+    const byteLength = Math.min(end - begin, values.byteLength - begin);
     // Push in the order FlatList types read their buffers
-    addBuffer.call(this, rebaseValueOffsets(-valueOffsets[0], length, valueOffsets)); // valueOffsets buffer first
-    addBuffer.call(this, values.subarray(firstOffset, firstOffset + byteLength)); // sliced values buffer second
+    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets as any)); // valueOffsets buffer first
+    addBuffer.call(this, values.subarray(begin, begin + byteLength)); // sliced values buffer second
     return this;
 }
 
@@ -212,7 +220,10 @@ function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorA
     const { length, valueOffsets } = data;
     // If we have valueOffsets (MapVector, ListVector), push that buffer first
     if (valueOffsets) {
-        addBuffer.call(this, rebaseValueOffsets(valueOffsets[0], length, valueOffsets));
+        const { [0]: begin, [length]: end } = valueOffsets;
+        addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets));
+        // Then insert the List's values child
+        return this.visit(data.children[0].slice(begin, end - begin));
     }
     // Then insert the List's values child
     return this.visit(data.children[0]);
@@ -227,7 +238,9 @@ VectorAssembler.prototype.visitBool = assembleBoolVector;
 VectorAssembler.prototype.visitInt = assembleFlatVector;
 VectorAssembler.prototype.visitFloat = assembleFlatVector;
 VectorAssembler.prototype.visitUtf8 = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeUtf8 = assembleFlatListVector;
 VectorAssembler.prototype.visitBinary = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeBinary = assembleFlatListVector;
 VectorAssembler.prototype.visitFixedSizeBinary = assembleFlatVector;
 VectorAssembler.prototype.visitDate = assembleFlatVector;
 VectorAssembler.prototype.visitTimestamp = assembleFlatVector;
@@ -237,5 +250,6 @@ VectorAssembler.prototype.visitList = assembleListVector;
 VectorAssembler.prototype.visitStruct = assembleNestedVector;
 VectorAssembler.prototype.visitUnion = assembleUnion;
 VectorAssembler.prototype.visitInterval = assembleFlatVector;
+VectorAssembler.prototype.visitDuration = assembleFlatVector;
 VectorAssembler.prototype.visitFixedSizeList = assembleListVector;
 VectorAssembler.prototype.visitMap = assembleListVector;

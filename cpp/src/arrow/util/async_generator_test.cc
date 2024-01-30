@@ -32,6 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -718,7 +719,7 @@ TEST_P(MergedGeneratorTestFixture, MergedStress) {
       sources.push_back(source);
     }
     AsyncGenerator<AsyncGenerator<TestInt>> source_gen = util::AsyncVectorIt(sources);
-    auto outer_gaurd = ExpectNotAccessedReentrantly(&source_gen);
+    auto outer_guard = ExpectNotAccessedReentrantly(&source_gen);
 
     auto merged = MakeMergedGenerator(source_gen, 4);
     ASSERT_FINISHES_OK_AND_ASSIGN(auto items, CollectAsyncGenerator(merged));
@@ -994,6 +995,9 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, MakeTransferredGenerator) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   std::mutex mutex;
   std::condition_variable cv;
   std::atomic<bool> finished(false);
@@ -1091,7 +1095,7 @@ TEST_P(BackgroundGeneratorTestFixture, BadResult) {
   ASSERT_FINISHES_OK_AND_EQ(TestInt(1), generator());
   // Next three results may or may not be valid.
   // The typical case is the call for TestInt(2) restarts a full queue and then maybe
-  // TestInt(3) and TestInt(4) arrive quickly enough to not get pre-empted or maybe
+  // TestInt(3) and TestInt(4) arrive quickly enough to not get preempted or maybe
   // they don't.
   //
   // A more bizarre, but possible, case is the checking thread falls behind the producer
@@ -1478,6 +1482,10 @@ TEST(TestAsyncUtil, ReadaheadMove) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
   auto gating_task = GatingTask::Make();
@@ -1512,6 +1520,9 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   // If a failure causes an early end then we should not emit that failure
   // until all in-flight futures have completed.  This is to prevent tasks from

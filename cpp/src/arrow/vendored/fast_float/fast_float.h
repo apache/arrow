@@ -59,7 +59,7 @@ template<typename T>
 from_chars_result from_chars_advanced(const char *first, const char *last,
                                       T &value, parse_options options)  noexcept;
 
-}
+} // namespace fast_float
 } // namespace arrow_vendored
 #include "parse_number.h"
 #endif // FASTFLOAT_FAST_FLOAT_H

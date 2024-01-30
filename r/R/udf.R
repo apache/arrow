@@ -154,7 +154,7 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
       sprintf(
         paste0(
           "Expected `fun` to accept %d argument(s)\n",
-          "but found a function that acccepts %d argument(s)\n",
+          "but found a function that accepts %d argument(s)\n",
           "Did you forget to include `context` as the first argument?"
         ),
         expected_n_args,

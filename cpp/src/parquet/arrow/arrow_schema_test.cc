@@ -50,9 +50,7 @@ using parquet::schema::PrimitiveNode;
 
 using ::testing::ElementsAre;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 const auto BOOL = ::arrow::boolean();
 const auto UINT8 = ::arrow::uint8();
@@ -117,13 +115,13 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
                                                ParquetType::INT64,
                                                ConvertedType::TIMESTAMP_MILLIS));
   arrow_fields.push_back(
-      ::arrow::field("timestamp", ::arrow::timestamp(TimeUnit::MILLI), false));
+      ::arrow::field("timestamp", ::arrow::timestamp(TimeUnit::MILLI, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("timestamp[us]", Repetition::REQUIRED,
                                                ParquetType::INT64,
                                                ConvertedType::TIMESTAMP_MICROS));
   arrow_fields.push_back(
-      ::arrow::field("timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO), false));
+      ::arrow::field("timestamp[us]", ::arrow::timestamp(TimeUnit::MICRO, "UTC"), false));
 
   parquet_fields.push_back(PrimitiveNode::Make("date", Repetition::REQUIRED,
                                                ParquetType::INT32, ConvertedType::DATE));
@@ -238,6 +236,8 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::fixed_size_binary(12)},
       {"uuid", LogicalType::UUID(), ParquetType::FIXED_LEN_BYTE_ARRAY, 16,
        ::arrow::fixed_size_binary(16)},
+      {"float16", LogicalType::Float16(), ParquetType::FIXED_LEN_BYTE_ARRAY, 2,
+       ::arrow::float16()},
       {"none", LogicalType::None(), ParquetType::BOOLEAN, -1, ::arrow::boolean()},
       {"none", LogicalType::None(), ParquetType::INT32, -1, ::arrow::int32()},
       {"none", LogicalType::None(), ParquetType::INT64, -1, ::arrow::int64()},
@@ -853,6 +853,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        ParquetType::FIXED_LEN_BYTE_ARRAY, 7},
       {"decimal(32, 8)", ::arrow::decimal(32, 8), LogicalType::Decimal(32, 8),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
+      {"float16", ::arrow::float16(), LogicalType::Float16(),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 2},
       {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
        LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT32, -1},
       {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
@@ -869,9 +871,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
                               /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        ParquetType::INT64, -1},
-      // Parquet v1, values converted to microseconds
       {"timestamp(nanosecond)", ::arrow::timestamp(::arrow::TimeUnit::NANO),
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS,
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS,
                               /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        ParquetType::INT64, -1},
@@ -882,7 +883,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
        -1},
       {"timestamp(nanosecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), ParquetType::INT64,
        -1},
       {"timestamp(millisecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "CET"),
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
@@ -891,7 +892,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
        -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), ParquetType::INT64,
        -1}};
 
   std::vector<std::shared_ptr<Field>> arrow_fields;
@@ -916,7 +917,8 @@ TEST_F(TestConvertArrowSchema, ArrowNonconvertibleFields) {
   };
 
   std::vector<FieldConstructionArguments> cases = {
-      {"float16", ::arrow::float16()},
+      {"run_end_encoded",
+       ::arrow::run_end_encoded(::arrow::int32(), ::arrow::list(::arrow::int8()))},
   };
 
   for (const FieldConstructionArguments& c : cases) {
@@ -988,7 +990,7 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
@@ -1005,7 +1007,7 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::REQUIRED,
+    auto element = PrimitiveNode::Make("element", Repetition::REQUIRED,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
@@ -1086,7 +1088,7 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
@@ -1102,7 +1104,7 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
   //   }
   // }
   {
-    auto element = PrimitiveNode::Make("string", Repetition::OPTIONAL,
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
@@ -1777,5 +1779,4 @@ TEST_F(TestLevels, ListErrors) {
   }
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

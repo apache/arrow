@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis
@@ -34,7 +35,7 @@ class Accountant implements AutoCloseable {
   /**
    * The parent allocator.
    */
-  protected final Accountant parent;
+  protected final @Nullable Accountant parent;
 
   private final String name;
 
@@ -59,7 +60,7 @@ class Accountant implements AutoCloseable {
    */
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
-  public Accountant(Accountant parent, String name, long reservation, long maxAllocation) {
+  public Accountant(@Nullable Accountant parent, String name, long reservation, long maxAllocation) {
     Preconditions.checkNotNull(name, "name must not be null");
     Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
     Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be non-negative.");
@@ -73,12 +74,13 @@ class Accountant implements AutoCloseable {
     this.allocationLimit.set(maxAllocation);
 
     if (reservation != 0) {
+      Preconditions.checkArgument(parent != null, "parent must not be null");
       // we will allocate a reservation from our parent.
       final AllocationOutcome outcome = parent.allocateBytes(reservation);
       if (!outcome.isOk()) {
         throw new OutOfMemoryException(String.format(
-            "Failure trying to allocate initial reservation for Allocator. " +
-                "Attempted to allocate %d bytes.", reservation), outcome.getDetails());
+                "Failure trying to allocate initial reservation for Allocator. " +
+                        "Attempted to allocate %d bytes.", reservation), outcome.getDetails());
       }
     }
   }
@@ -103,7 +105,7 @@ class Accountant implements AutoCloseable {
     }
   }
 
-  private AllocationOutcome.Status allocateBytesInternal(long size, AllocationOutcomeDetails details) {
+  private AllocationOutcome.Status allocateBytesInternal(long size, @Nullable AllocationOutcomeDetails details) {
     final AllocationOutcome.Status status = allocate(size,
         true /*incomingUpdatePeek*/, false /*forceAllocation*/, details);
     if (!status.isOk()) {
@@ -168,10 +170,15 @@ class Accountant implements AutoCloseable {
    * @return The outcome of the allocation.
    */
   private AllocationOutcome.Status allocate(final long size, final boolean incomingUpdatePeak,
-      final boolean forceAllocation, AllocationOutcomeDetails details) {
-    final long newLocal = locallyHeldMemory.addAndGet(size);
+      final boolean forceAllocation, @Nullable AllocationOutcomeDetails details) {
+    final long oldLocal = locallyHeldMemory.getAndAdd(size);
+    final long newLocal = oldLocal + size;
+    // Borrowed from Math.addExact (but avoid exception here)
+    // Overflow if result has opposite sign of both arguments
+    // No need to reset locallyHeldMemory on overflow; allocateBytesInternal will releaseBytes on failure
+    final boolean overflow = ((oldLocal ^ newLocal) & (size ^ newLocal)) < 0;
     final long beyondReservation = newLocal - reservation;
-    final boolean beyondLimit = newLocal > allocationLimit.get();
+    final boolean beyondLimit = overflow || newLocal > allocationLimit.get();
     final boolean updatePeak = forceAllocation || (incomingUpdatePeak && !beyondLimit);
 
     if (details != null) {

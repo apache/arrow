@@ -18,7 +18,7 @@ using System;
 
 namespace Apache.Arrow.Types
 {
-    public sealed class TimestampType : FixedWidthType
+    public sealed class TimestampType : TimeBasedType
     {
         public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "+00:00");
 
@@ -26,7 +26,6 @@ namespace Apache.Arrow.Types
         public override string Name => "timestamp";
         public override int BitWidth => 64;
 
-        public TimeUnit Unit { get; }
         public string Timezone { get; }
 
         public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
@@ -34,16 +33,16 @@ namespace Apache.Arrow.Types
         public TimestampType(
             TimeUnit unit = TimeUnit.Millisecond,
             string timezone = default)
+            : base(unit)
         {
-            Unit = unit;
             Timezone = timezone;
         }
 
         public TimestampType(
             TimeUnit unit = TimeUnit.Millisecond,
             TimeZoneInfo timezone = default)
+            : base(unit)
         {
-            Unit = unit;
             Timezone = timezone?.BaseUtcOffset.ToTimeZoneOffsetString();
         }
 

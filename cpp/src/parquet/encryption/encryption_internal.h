@@ -26,8 +26,7 @@
 
 using parquet::ParquetCipher;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr int kGcmTagLength = 16;
 constexpr int kNonceLength = 12;
@@ -41,6 +40,8 @@ constexpr int8_t kDataPageHeader = 4;
 constexpr int8_t kDictionaryPageHeader = 5;
 constexpr int8_t kColumnIndex = 6;
 constexpr int8_t kOffsetIndex = 7;
+constexpr int8_t kBloomFilterHeader = 8;
+constexpr int8_t kBloomFilterBitset = 9;
 
 /// Performs AES encryption operations with GCM or CTR ciphers.
 class AesEncryptor {
@@ -129,5 +130,12 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD);
 // Wraps OpenSSL RAND_bytes function
 void RandBytes(unsigned char* buf, int num);
 
-}  // namespace encryption
-}  // namespace parquet
+// Ensure OpenSSL is initialized.
+//
+// This is only necessary in specific situations since OpenSSL otherwise
+// initializes itself automatically. For example, under Valgrind, a memory
+// leak will be reported if OpenSSL is initialized for the first time from
+// a worker thread; calling this function from the main thread prevents this.
+void EnsureBackendInitialized();
+
+}  // namespace parquet::encryption

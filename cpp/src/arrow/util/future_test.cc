@@ -1073,7 +1073,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   struct : internal::Executor {
     int GetCapacity() override { return pool_->GetCapacity(); }
 
-    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+    bool IsCurrentExecutor() override { return pool_->IsCurrentExecutor(); }
 
     Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
                      StopToken stop_token, StopCallback&& stop_callback) override {
@@ -1100,8 +1100,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut0_done = fut0.Then(
       [&] {
         // marked finished on main thread -> must be scheduled to executor
-        fut0_on_executor.store(executor.OwnsThisThread());
-
+        fut0_on_executor.store(executor.IsCurrentExecutor());
         fut1.MarkFinished();
       },
       pass_err, options);
@@ -1109,7 +1108,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut1_done = fut1.Then(
       [&] {
         // marked finished on executor -> no need to schedule
-        fut1_on_executor.store(executor.OwnsThisThread());
+        fut1_on_executor.store(executor.IsCurrentExecutor());
       },
       pass_err, options);
 

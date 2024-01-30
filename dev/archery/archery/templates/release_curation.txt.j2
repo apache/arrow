@@ -39,7 +39,7 @@
 {% for commit in noissue -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-### JIRA issues in version {{ release.version }} without a linked patch: {{ nopatch|length }}
+### GitHub issues in version {{ release.version }} without a linked patch: {{ nopatch|length }}
 {% for issue in nopatch -%}
  - https://github.com/apache/arrow/issues/{{ issue.key }}
 {% endfor %}

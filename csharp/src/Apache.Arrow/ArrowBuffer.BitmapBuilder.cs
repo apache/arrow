@@ -98,7 +98,7 @@ namespace Apache.Arrow
             public BitmapBuilder Append(ReadOnlySpan<byte> source, int validBits)
             {                
                 if (!source.IsEmpty && validBits > source.Length * 8)
-                    throw new ArgumentException($"Number of valid bits ({validBits}) cannot be greater than the the source span length ({source.Length * 8} bits).", nameof(validBits));
+                    throw new ArgumentException($"Number of valid bits ({validBits}) cannot be greater than the source span length ({source.Length * 8} bits).", nameof(validBits));
                 
                 // Check if memory copy can be used from the source array (performance optimization for byte-aligned coping)
                 if (!source.IsEmpty && Length % 8 == 0)
@@ -134,6 +134,27 @@ namespace Apache.Arrow
                         Append(v);
                     }
                 }
+
+                return this;
+            }
+
+            /// <summary>
+            /// Append multiple bits.
+            /// </summary>
+            /// <param name="value">Value of bits to append.</param>
+            /// <param name="length">Number of times the value should be added.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            public BitmapBuilder AppendRange(bool value, int length)
+            {
+                if (length < 0)
+                    throw new ArgumentOutOfRangeException(nameof(length));
+
+                EnsureAdditionalCapacity(length);
+                Span<byte> span = Span;
+                BitUtility.SetBits(span, Length, length, value);
+
+                Length += length;
+                SetBitCount += value ? length : 0;
 
                 return this;
             }

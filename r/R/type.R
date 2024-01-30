@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include arrow-object.R
-#' @title class arrow::DataType
+#' @title DataType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -27,7 +27,7 @@
 #' - `$ToString()`: String representation of the DataType
 #' - `$Equals(other)`: Is the DataType equal to `other`
 #' - `$fields()`: The children fields associated with this type
-#' - `$code()`: Produces an R call of the data type.
+#' - `$code(namespace)`: Produces an R call of the data type. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' There are also some active bindings:
 #' - `$id`: integer Arrow type id.
@@ -35,7 +35,7 @@
 #' - `$num_fields`: number of child fields.
 #'
 #' @seealso [infer_type()]
-#' @rdname DataType
+#' @rdname DataType-class
 #' @name DataType
 #' @seealso [`data-type`]
 DataType <- R6Class("DataType",
@@ -51,7 +51,7 @@ DataType <- R6Class("DataType",
       DataType__fields(self)
     },
     export_to_c = function(ptr) ExportType(self, ptr),
-    code = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
+    code = function(namespace = FALSE) call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
   ),
   active = list(
     id = function() DataType__id(self),
@@ -143,7 +143,7 @@ infer_type.Expression <- function(x, ...) x$type()
 
 #----- metadata
 
-#' @title class arrow::FixedWidthType
+#' @title FixedWidthType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -158,7 +158,7 @@ infer_type.Expression <- function(x, ...) x$type()
 FixedWidthType <- R6Class("FixedWidthType",
   inherit = DataType,
   public = list(
-    code = function() call(tolower(self$name))
+    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow")
   ),
   active = list(
     bit_width = function() FixedWidthType__bit_width(self)
@@ -178,45 +178,47 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64",
   inherit = FixedWidthType,
   public = list(
-    code = function() call("float64")
+    code = function(namespace = FALSE) call2("float64", .ns = if (namespace) "arrow")
   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
   inherit = DataType,
   public = list(
-    code = function() call("utf8")
+    code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
   )
 )
 LargeUtf8 <- R6Class("LargeUtf8",
   inherit = DataType,
   public = list(
-    code = function() call("large_utf8")
+    code = function(namespace = FALSE) call2("large_utf8", .ns = if (namespace) "arrow")
   )
 )
 Binary <- R6Class("Binary",
   inherit = DataType,
   public = list(
-    code = function() call("binary")
+    code = function(namespace = FALSE) call2("binary", .ns = if (namespace) "arrow")
   )
 )
 LargeBinary <- R6Class("LargeBinary",
   inherit = DataType, public = list(
-    code = function() call("large_binary")
+    code = function(namespace = FALSE) call2("large_binary", .ns = if (namespace) "arrow")
   )
 )
 FixedSizeBinary <- R6Class("FixedSizeBinary",
   inherit = FixedWidthType,
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
-    code = function() call2("fixed_size_binary", byte_width = self$byte_width())
+    code = function(namespace = FALSE) {
+      call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if (namespace) "arrow")
+    }
   )
 )
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
   public = list(
-    code = function() call2(tolower(self$name)),
+    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow"),
     unit = function() DateType__unit(self)
   )
 )
@@ -232,26 +234,26 @@ TimeType <- R6Class("TimeType",
 Time32 <- R6Class("Time32",
   inherit = TimeType,
   public = list(
-    code = function() {
+    code = function(namespace = FALSE) {
       unit <- if (self$unit() == TimeUnit$MILLI) {
         "ms"
       } else {
         "s"
       }
-      call2("time32", unit = unit)
+      call2("time32", unit = unit, .ns = if (namespace) "arrow")
     }
   )
 )
 Time64 <- R6Class("Time64",
   inherit = TimeType,
   public = list(
-    code = function() {
+    code = function(namespace = FALSE) {
       unit <- if (self$unit() == TimeUnit$NANO) {
         "ns"
       } else {
         "us"
       }
-      call2("time64", unit = unit)
+      call2("time64", unit = unit, .ns = if (namespace) "arrow")
     }
   )
 )
@@ -266,20 +268,20 @@ DurationType <- R6Class("DurationType",
 Null <- R6Class("Null",
   inherit = DataType,
   public = list(
-    code = function() call("null")
+    code = function(namespace = FALSE) call2("null", .ns = if (namespace) "arrow")
   )
 )
 
 Timestamp <- R6Class("Timestamp",
   inherit = FixedWidthType,
   public = list(
-    code = function() {
+    code = function(namespace = FALSE) {
       unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
       tz <- self$timezone()
       if (identical(tz, "")) {
-        call2("timestamp", unit = unit)
+        call2("timestamp", unit = unit, .ns = if (namespace) "arrow")
       } else {
-        call2("timestamp", unit = unit, timezone = tz)
+        call2("timestamp", unit = unit, timezone = tz, .ns = if (namespace) "arrow")
       }
     },
     timezone = function() TimestampType__timezone(self),
@@ -290,8 +292,8 @@ Timestamp <- R6Class("Timestamp",
 DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
-    code = function() {
-      call2("decimal", precision = self$precision(), scale = self$scale())
+    code = function(namespace = FALSE) {
+      call2("decimal", precision = self$precision(), scale = self$scale(), .ns = if (namespace) "arrow")
     },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
@@ -304,7 +306,7 @@ Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
 
 NestedType <- R6Class("NestedType", inherit = DataType)
 
-#' Apache Arrow data types
+#' Create Arrow data types
 #'
 #' These functions create type objects corresponding to Arrow types. Use them
 #' when defining a [schema()] or as inputs to other types, like `struct`. Most
@@ -378,6 +380,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
 #' @name data-type
+#' @rdname data-type
 #' @return An Arrow type object inheriting from [DataType].
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.
@@ -623,13 +626,13 @@ check_decimal_args <- function(precision, scale) {
 StructType <- R6Class("StructType",
   inherit = NestedType,
   public = list(
-    code = function() {
+    code = function(namespace = FALSE) {
       field_names <- StructType__field_names(self)
       codes <- map(field_names, function(name) {
-        self$GetFieldByName(name)$type$code()
+        self$GetFieldByName(name)$type$code(namespace)
       })
       codes <- set_names(codes, field_names)
-      call2("struct", !!!codes)
+      call2("struct", !!!codes, .ns = if (namespace) "arrow")
     },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
@@ -647,8 +650,8 @@ names.StructType <- function(x) StructType__field_names(x)
 ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
-    code = function() {
-      call("list_of", self$value_type$code())
+    code = function(namespace = FALSE) {
+      call2("list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
     }
   ),
   active = list(
@@ -664,8 +667,8 @@ list_of <- function(type) list__(type)
 LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
-    code = function() {
-      call2("large_list_of", self$value_type$code())
+    code = function(namespace = FALSE) {
+      call2("large_list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
     }
   ),
   active = list(
@@ -683,8 +686,10 @@ large_list_of <- function(type) large_list__(type)
 FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
-    code = function() {
-      call2("fixed_size_list_of", self$value_type$code(), list_size = self$list_size)
+    code = function(namespace = FALSE) {
+      call2("fixed_size_list_of", self$value_type$code(namespace),
+        list_size = self$list_size, .ns = if (namespace) "arrow"
+      )
     }
   ),
   active = list(

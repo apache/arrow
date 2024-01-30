@@ -18,11 +18,16 @@
 
 import pytest
 
+import numpy as np
+
 import pyarrow as pa
 from pyarrow import compute as pc
 
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
+
+# For convenience, most of the test here doesn't care about udf func docs
+empty_udf_doc = {"summary": "", "description": ""}
 
 try:
     import pyarrow.dataset as ds
@@ -30,13 +35,93 @@ except ImportError:
     ds = None
 
 
-def mock_scalar_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+def mock_udf_context(batch_length=10):
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
     pass
+
+
+@pytest.fixture(scope="session")
+def sum_agg_func_fixture():
+    """
+    Register a unary aggregate function (mean)
+    """
+    def func(ctx, x, *args):
+        return pa.scalar(np.nansum(x))
+
+    func_name = "sum_udf"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.float64(),
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def exception_agg_func_fixture():
+    def func(ctx, x):
+        raise RuntimeError("Oops")
+        return pa.scalar(len(x))
+
+    func_name = "y=exception_len(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def wrong_output_dtype_agg_func_fixture(scope="session"):
+    def func(ctx, x):
+        return pa.scalar(len(x), pa.int32())
+
+    func_name = "y=wrong_output_dtype(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def wrong_output_type_agg_func_fixture(scope="session"):
+    def func(ctx, x):
+        return len(x)
+
+    func_name = "y=wrong_output_type(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
 
 
 @pytest.fixture(scope="session")
@@ -214,6 +299,44 @@ def raising_func_fixture():
     return raising_func, func_name
 
 
+@pytest.fixture(scope="session")
+def unary_vector_func_fixture():
+    """
+    Register a vector function
+    """
+    def pct_rank(ctx, x):
+        # copy here to get around pandas 1.0 issue
+        return pa.array(x.to_pandas().copy().rank(pct=True))
+
+    func_name = "y=pct_rank(x)"
+    doc = empty_udf_doc
+    pc.register_vector_function(pct_rank, func_name, doc, {
+                                'x': pa.float64()}, pa.float64())
+
+    return pct_rank, func_name
+
+
+@pytest.fixture(scope="session")
+def struct_vector_func_fixture():
+    """
+    Register a vector function that returns a struct array
+    """
+    def pivot(ctx, k, v, c):
+        df = pa.RecordBatch.from_arrays([k, v, c], names=['k', 'v', 'c']).to_pandas()
+        df_pivot = df.pivot(columns='c', values='v', index='k').reset_index()
+        return pa.RecordBatch.from_pandas(df_pivot).to_struct_array()
+
+    func_name = "y=pivot(x)"
+    doc = empty_udf_doc
+    pc.register_vector_function(
+        pivot, func_name, doc,
+        {'k': pa.int64(), 'v': pa.float64(), 'c': pa.utf8()},
+        pa.struct([('k', pa.int64()), ('v1', pa.float64()), ('v2', pa.float64())])
+    )
+
+    return pivot, func_name
+
+
 def check_scalar_function(func_fixture,
                           inputs, *,
                           run_in_dataset=True,
@@ -228,11 +351,11 @@ def check_scalar_function(func_fixture,
         if all_scalar:
             batch_length = 1
 
-    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
     result = pc.call_function(name, inputs, length=batch_length)
+    expected_output = function(mock_udf_context(batch_length), *inputs)
     assert result == expected_output
     # At the moment there is an issue when handling nullary functions.
     # See: ARROW-15286 and ARROW-16290.
@@ -363,7 +486,7 @@ def test_function_doc_validation():
                                     func_doc, in_types,
                                     out_type)
 
-    # doc with no decription
+    # doc with no description
     func_doc = {
         "summary": "test summary"
     }
@@ -593,3 +716,154 @@ def test_udt_datasource1_generator():
 def test_udt_datasource1_exception():
     with pytest.raises(RuntimeError, match='datasource1_exception'):
         _test_datasource1_udt(datasource1_exception)
+
+
+def test_scalar_agg_basic(unary_agg_func_fixture):
+    arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    result = pc.call_function("mean_udf", [arr])
+    expected = pa.scalar(30.0)
+    assert result == expected
+
+
+def test_scalar_agg_empty(unary_agg_func_fixture):
+    empty = pa.array([], pa.float64())
+
+    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
+        pc.call_function("mean_udf", [empty])
+
+
+def test_scalar_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
+        pc.call_function("y=wrong_output_dtype(x)", [arr])
+
+
+def test_scalar_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output type"):
+        pc.call_function("y=wrong_output_type(x)", [arr])
+
+
+def test_scalar_agg_varargs(varargs_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
+
+    result = pc.call_function(
+        "sum_mean", [arr1, arr2]
+    )
+    expected = pa.scalar(33.0)
+    assert result == expected
+
+
+def test_scalar_agg_exception(exception_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+
+    with pytest.raises(RuntimeError, match='Oops'):
+        pc.call_function("y=exception_len(x)", [arr])
+
+
+def test_hash_agg_basic(unary_agg_func_fixture):
+    arr1 = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+
+    arr3 = pa.array([60.0, 70.0, 80.0, 90.0, 100.0], pa.float64())
+    arr4 = pa.array([5, 1, 1, 4, 1], pa.int32())
+
+    table1 = pa.table([arr2, arr1], names=["id", "value"])
+    table2 = pa.table([arr4, arr3], names=["id", "value"])
+    table = pa.concat_tables([table1, table2])
+
+    result = table.group_by("id").aggregate([("value", "mean_udf")])
+    expected = table.group_by("id").aggregate(
+        [("value", "mean")]).rename_columns(['id', 'value_mean_udf'])
+
+    assert result.sort_by('id') == expected.sort_by('id')
+
+
+def test_hash_agg_empty(unary_agg_func_fixture):
+    arr1 = pa.array([], pa.float64())
+    arr2 = pa.array([], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    result = table.group_by("id").aggregate([("value", "mean_udf")])
+    expected = pa.table([pa.array([], pa.int32()), pa.array(
+        [], pa.float64())], names=['id', 'value_mean_udf'])
+
+    assert result == expected
+
+
+def test_hash_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+
+    table = pa.table([arr2, arr1], names=["id", "value"])
+    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
+        table.group_by("id").aggregate([("value", "y=wrong_output_dtype(x)")])
+
+
+def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    with pytest.raises(pa.ArrowTypeError, match="output type"):
+        table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
+
+
+def test_hash_agg_exception(exception_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    with pytest.raises(RuntimeError, match='Oops'):
+        table.group_by("id").aggregate([("value", "y=exception_len(x)")])
+
+
+def test_hash_agg_random(sum_agg_func_fixture):
+    """Test hash aggregate udf with randomly sampled data"""
+
+    value_num = 1000000
+    group_num = 1000
+
+    arr1 = pa.array(np.repeat(1, value_num), pa.float64())
+    arr2 = pa.array(np.random.choice(group_num, value_num), pa.int32())
+
+    table = pa.table([arr2, arr1], names=['id', 'value'])
+
+    result = table.group_by("id").aggregate([("value", "sum_udf")])
+    expected = table.group_by("id").aggregate(
+        [("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
+
+    assert result.sort_by('id') == expected.sort_by('id')
+
+
+@pytest.mark.pandas
+def test_vector_basic(unary_vector_func_fixture):
+    arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    result = pc.call_function("y=pct_rank(x)", [arr])
+    expected = unary_vector_func_fixture[0](None, arr)
+    assert result == expected
+
+
+@pytest.mark.pandas
+def test_vector_empty(unary_vector_func_fixture):
+    arr = pa.array([1], pa.float64())
+    result = pc.call_function("y=pct_rank(x)", [arr])
+    expected = unary_vector_func_fixture[0](None, arr)
+    assert result == expected
+
+
+@pytest.mark.pandas
+def test_vector_struct(struct_vector_func_fixture):
+    k = pa.array(
+        [1, 1, 2, 2], pa.int64()
+    )
+    v = pa.array(
+        [1.0, 2.0, 3.0, 4.0], pa.float64()
+    )
+    c = pa.array(
+        ['v1', 'v2', 'v1', 'v2']
+    )
+    result = pc.call_function("y=pivot(x)", [k, v, c])
+    expected = struct_vector_func_fixture[0](None, k, v, c)
+    assert result == expected

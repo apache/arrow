@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "arrow/memory_pool_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
@@ -42,6 +43,8 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
   return std::move(new_buffer);
 }
+
+Buffer::Buffer() : Buffer(memory_pool::internal::kZeroSizeArea, 0) {}
 
 namespace {
 
@@ -111,14 +114,14 @@ void Buffer::CheckCPU() const {
 
 Result<std::shared_ptr<io::RandomAccessFile>> Buffer::GetReader(
     std::shared_ptr<Buffer> buf) {
-  return buf->memory_manager_->GetBufferReader(buf);
+  return buf->memory_manager_->GetBufferReader(std::move(buf));
 }
 
 Result<std::shared_ptr<io::OutputStream>> Buffer::GetWriter(std::shared_ptr<Buffer> buf) {
   if (!buf->is_mutable()) {
     return Status::Invalid("Expected mutable buffer");
   }
-  return buf->memory_manager_->GetBufferWriter(buf);
+  return buf->memory_manager_->GetBufferWriter(std::move(buf));
 }
 
 Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
@@ -147,11 +150,12 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
 
 class StlStringBuffer : public Buffer {
  public:
-  explicit StlStringBuffer(std::string data)
-      : Buffer(nullptr, 0), input_(std::move(data)) {
-    data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
-    size_ = static_cast<int64_t>(input_.size());
-    capacity_ = size_;
+  explicit StlStringBuffer(std::string data) : input_(std::move(data)) {
+    if (!input_.empty()) {
+      data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
+      size_ = static_cast<int64_t>(input_.size());
+      capacity_ = size_;
+    }
   }
 
  private:
@@ -209,8 +213,11 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
   ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length, pool));
   auto out_data = out->mutable_data();
   for (const auto& buffer : buffers) {
-    std::memcpy(out_data, buffer->data(), buffer->size());
-    out_data += buffer->size();
+    // Passing nullptr to std::memcpy is undefined behavior, so skip empty buffers
+    if (buffer->size() != 0) {
+      std::memcpy(out_data, buffer->data(), buffer->size());
+      out_data += buffer->size();
+    }
   }
   return std::move(out);
 }

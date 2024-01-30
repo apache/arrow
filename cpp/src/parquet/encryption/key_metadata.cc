@@ -24,8 +24,7 @@
 using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::internal::ObjectWriter;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char KeyMetadata::kKeyMaterialInternalStorageField[];
 constexpr const char KeyMetadata::kKeyReferenceField[];
@@ -85,5 +84,4 @@ std::string KeyMetadata::CreateSerializedForExternalMaterial(
   return json_writer.Serialize();
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

@@ -18,33 +18,38 @@
 import Foundation
 
 public class ArrowData {
-    let type: ArrowType.Info
-    let buffers: [ArrowBuffer]
-    let nullCount: UInt
-    let length: UInt
-    let stride: Int
+    public let type: ArrowType
+    public let buffers: [ArrowBuffer]
+    public let nullCount: UInt
+    public let length: UInt
+    public let stride: Int
 
-    init(_ type: ArrowType.Info, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
-        switch(type) {
-            case let .PrimitiveInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ValidationError.unknownType
-                }
-            case let .VariableInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ValidationError.unknownType
-                }
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt) throws {
+        let infoType = arrowType.info
+        switch infoType {
+        case let .primitiveInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown primitive type for data")
+            }
+        case let .variableInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown variable type for data")
+            }
+        case let .timeInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown time type for data")
+            }
         }
 
-        self.type = type
+        self.type = arrowType
         self.buffers = buffers
         self.nullCount = nullCount
         self.length = buffers[1].length
-        self.stride = stride
+        self.stride = arrowType.getStride()
     }
 
-    func isNull(_ at: UInt) -> Bool {
-        let nullBuffer = buffers[0];
-        return nullBuffer.length == 0 || BitUtility.isSet(at, buffer: nullBuffer)
+    public func isNull(_ at: UInt) -> Bool {
+        let nullBuffer = buffers[0]
+        return nullBuffer.length > 0 && !BitUtility.isSet(at, buffer: nullBuffer)
     }
 }

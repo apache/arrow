@@ -17,6 +17,7 @@ takes the following arguments:
 (e.g. \code{RandomAccessFile}).
 \item \code{props} Optional \link{ParquetArrowReaderProperties}
 \item \code{mmap} Logical: whether to memory-map the file (default \code{TRUE})
+\item \code{reader_props} Optional \link{ParquetReaderProperties}
 \item \code{...} Additional arguments, currently ignored
 }
 }

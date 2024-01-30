@@ -37,11 +37,11 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -55,7 +55,11 @@ jobs:
           ulimit -c unlimited
           archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -66,7 +70,7 @@ jobs:
     name: Source Release and Merge Script on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -74,32 +78,32 @@ jobs:
           - macos-latest
           - ubuntu-latest
     env:
-      GIT_AUTHOR_NAME: Github Actions
-      GIT_AUTHOR_EMAIL: github@actions
-      GIT_COMMITTER_NAME: Github Actions
-      GIT_COMMITTER_EMAIL: github@actions
+      GIT_AUTHOR_NAME: "github-actions[bot]"
+      GIT_AUTHOR_EMAIL: "github-actions[bot]@users.noreply.github.com"
+      GIT_COMMITTER_NAME: "github-actions[bot]"
+      GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: '3.8'
       - name: Install Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@250fcd6a742febb1123a77a841497ccaa8b9e939 # v1.152.0
         with:
           ruby-version: '2.7'
       - name: Install .NET
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4.0.0
         with:
           dotnet-version: '7.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
           gem install test-unit
-          pip install cython setuptools six pytest jira
+          pip install "cython>=0.29.31" setuptools six pytest jira
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

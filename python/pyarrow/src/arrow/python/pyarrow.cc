@@ -24,6 +24,7 @@
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
@@ -88,6 +89,11 @@ DEFINE_WRAP_FUNCTIONS(table, Table)
 namespace internal {
 
 int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
+
+PyObject* convert_status(const Status& status) {
+  DCHECK(!status.ok());
+  return ::pyarrow_internal_convert_status(status);
+}
 
 }  // namespace internal
 }  // namespace py

@@ -135,6 +135,7 @@ public class EchoServer {
         Preconditions.checkState(reader.bytesRead() == writer.bytesWritten());
         LOGGER.debug(String.format("Echoed %d records", echoed));
         reader.close(false);
+        writer.close();
       }
     }
 

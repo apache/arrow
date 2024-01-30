@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/klauspost/compress/gzip"
 )
@@ -49,7 +48,7 @@ func (gzipCodec) Decode(dst, src []byte) []byte {
 		return dst[:n]
 	}
 
-	dst, err = ioutil.ReadAll(rdr)
+	dst, err = io.ReadAll(rdr)
 	if err != nil {
 		panic(err)
 	}

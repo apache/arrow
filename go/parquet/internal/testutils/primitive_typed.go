@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 )
 
 type PrimitiveTypedTest struct {
@@ -116,7 +116,7 @@ func (p *PrimitiveTypedTest) UpdateStatsSpaced(stat metadata.TypedStatistics, nu
 	case *metadata.FixedLenByteArrayStatistics:
 		s.UpdateSpaced(p.Values.([]parquet.FixedLenByteArray), validBits, validBitsOffset, numNull)
 	default:
-		panic("uninplemented")
+		panic("unimplemented")
 	}
 }
 

@@ -217,11 +217,11 @@ Social aspects
 
 * If you know someone who has the competence to help on a blocking issue
   and past experience suggests they may be willing to do so, feel free to
-  add them to the discussion (for example by gently pinging their Github
+  add them to the discussion (for example by gently pinging their GitHub
   handle).
 
 * If the contributor has stopped giving feedback or updating their PR,
-  perhaps they're not interested any more, but perhaps also they're stuck
+  perhaps they're not interested anymore, but perhaps also they're stuck
   on some issue and feel unable to push their contribution any further.
   Don't hesitate to ask (*"I see this PR hasn't seen any updates recently,
   are you stuck on something? Do you need any help?"*).
@@ -295,3 +295,21 @@ In addition, we use the following labels to indicate priority:
 * **Priority: Critical**: Indicates issues that are high priority. This is a
   superset of issues marked "Critical Fix", as it also contains certain fixes
   to issues causing errors and crashes.
+
+Collaborators
+=============
+
+The collaborator role allows users to be given triage role to be able to help triaging
+issues. The role allows users to label and assign issues.
+
+A user can ask to become a collaborator or can be proposed by another community member
+when they have been collaborating in the project for a period of time. Collaborations
+can be but are not limited to: creating PRs, answering questions, creating
+issues, reviewing PRs, etcetera.
+
+In order to propose someone as a collaborator you must create a PR adding the user to
+the collaborators list on `.asf.yaml <https://github.com/apache/arrow/blob/main/.asf.yaml>`_.
+Committers can review the past collaborations for the user and approve.
+
+Collaborators that have been inactive for a period of time can be removed from the
+list of collaborators.

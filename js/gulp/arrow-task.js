@@ -15,19 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { targetDir, observableFromStreams } from './util.js';
+import { mainExport, targetDir, observableFromStreams } from './util.js';
 
-import { deleteAsync as del } from 'del';
 import gulp from 'gulp';
+import path from 'path';
 import { mkdirp } from 'mkdirp';
+import * as fs from 'fs/promises';
 import gulpRename from 'gulp-rename';
 import gulpReplace from 'gulp-replace';
 import { memoizeTask } from './memoize-task.js';
 import { ReplaySubject, forkJoin as ObservableForkJoin } from 'rxjs';
 import { share } from 'rxjs/operators';
-import util from 'util';
-import stream from 'stream';
-const pipeline = util.promisify(stream.pipeline);
+import { pipeline } from 'stream/promises';
 
 export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const out = targetDir(target);
@@ -42,6 +41,7 @@ export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target
     const esnextUmdSourceMapsGlob = `${targetDir(`esnext`, `umd`)}/*.map`;
     return ObservableForkJoin([
         observableFromStreams(gulp.src(dtsGlob), gulp.dest(out)), // copy d.ts files
+        observableFromStreams(gulp.src(dtsGlob), gulpRename((p) => { p.extname = '.mts'; }), gulp.dest(out)), // copy d.ts files as esm
         observableFromStreams(gulp.src(cjsGlob), gulp.dest(out)), // copy es2015 cjs files
         observableFromStreams(gulp.src(cjsSourceMapsGlob), gulp.dest(out)), // copy es2015 cjs sourcemaps
         observableFromStreams(gulp.src(esmSourceMapsGlob), gulp.dest(out)), // copy es2015 esm sourcemaps
@@ -54,9 +54,20 @@ export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target
 }))({});
 
 export const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
+    const umd = targetDir(`es5`, `umd`);
     const out = targetDir(target, format);
-    await mkdirp(out);
-    await pipeline(gulp.src(`src/**/*`), gulp.dest(out));
-    await del(`${out}/**/*.js`);
-}))({});
+    const arrowUMD = path.join(umd, `${mainExport}.js`);
+    const arrow2csvUMD = path.join(umd, `bin`, `arrow2csv.js`);
 
+    await mkdirp(path.join(out, 'bin'));
+
+    await Promise.all([
+        pipeline(gulp.src(`src/**/*`), gulp.dest(out)),
+        pipeline(
+            gulp.src([arrowUMD, arrow2csvUMD]),
+            gulpReplace(`../${mainExport}.js`, `./${mainExport}.js`),
+            gulp.dest(path.join(out, 'bin'))
+        ),
+        fs.writeFile(path.join(out, 'bin', 'package.json'), '{"type": "commonjs"}')
+    ]);
+}))({});

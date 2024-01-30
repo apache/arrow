@@ -20,11 +20,14 @@ package io.netty.buffer;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.patch.ArrowByteBufAllocator;
 import org.junit.Assert;
 import org.junit.Test;
+
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.NettyArrowBuf;
 
 public class TestNettyArrowBuf {
 
@@ -136,6 +139,17 @@ public class TestNettyArrowBuf {
       int actual = byteBufs.getInt(0);
       Assert.assertEquals(expected, actual);
       byteBufs.component(0).release();
+    }
+  }
+
+  @Test
+  public void testUnwrapReturnsNull() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(20);
+    ) {
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
+      // NettyArrowBuf cannot be unwrapped, so unwrap() should return null per the Netty ByteBuf API
+      Assert.assertNull(nettyBuf.unwrap());
     }
   }
 }

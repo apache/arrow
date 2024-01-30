@@ -20,7 +20,7 @@ message(STATUS "Using vcpkg to find dependencies")
 # ----------------------------------------------------------------------
 # Define macros
 
-# macro to list subdirectirectories (non-recursive)
+# macro to list subdirectories (non-recursive)
 macro(list_subdirs SUBDIRS DIR)
   file(GLOB children_
        RELATIVE ${DIR}

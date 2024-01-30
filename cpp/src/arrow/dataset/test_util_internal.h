@@ -516,16 +516,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
     SetProjection(opts_.get(), std::move(projection));
   }
 
+  void Project(std::vector<compute::Expression> exprs, std::vector<std::string> names) {
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::FromExpressions(
+                             std::move(exprs), std::move(names), *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
+  }
+
   void ProjectNested(std::vector<std::string> names) {
     std::vector<compute::Expression> exprs;
     for (const auto& name : names) {
       ASSERT_OK_AND_ASSIGN(auto ref, FieldRef::FromDotPath(name));
       exprs.push_back(field_ref(ref));
     }
-    ASSERT_OK_AND_ASSIGN(
-        auto descr, ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                                     *opts_->dataset_schema));
-    SetProjection(opts_.get(), std::move(descr));
+    Project(std::move(exprs), std::move(names));
   }
 
   // Shared test cases
@@ -1253,7 +1257,7 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
   int64_t expected_batches() const { return GetParam().num_batches; }
   int64_t expected_rows() const { return GetParam().expected_rows(); }
 
-  // Override FileFormatFixtureMixin::GetRandomData to paramterize the #
+  // Override FileFormatFixtureMixin::GetRandomData to parameterize the #
   // of batches and rows per batch
   std::shared_ptr<RecordBatchReader> GetRandomData(
       std::shared_ptr<Schema> schema) override {

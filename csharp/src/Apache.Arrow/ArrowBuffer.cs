@@ -58,7 +58,7 @@ namespace Apache.Arrow
 
         public ArrowBuffer Clone(MemoryAllocator allocator = default)
         {
-            return new Builder<byte>(Span.Length)
+            return Span.Length == 0 ? Empty : new Builder<byte>(Span.Length)
                 .Append(Span)
                 .Build(allocator);
         }
@@ -71,6 +71,26 @@ namespace Apache.Arrow
         public void Dispose()
         {
             _memoryOwner?.Dispose();
+        }
+
+        internal bool TryExport(ExportedAllocationOwner newOwner, out IntPtr ptr)
+        {
+            if (IsEmpty)
+            {
+                // _memoryOwner could be anything (for example null or a NullMemoryOwner), but it doesn't matter here
+                ptr = IntPtr.Zero;
+                return true;
+            }
+
+            if (_memoryOwner is IOwnableAllocation ownable && ownable.TryAcquire(out ptr, out int offset, out int length))
+            {
+                newOwner.Acquire(ptr, offset, length);
+                ptr += offset;
+                return true;
+            }
+
+            ptr = IntPtr.Zero;
+            return false;
         }
     }
 }

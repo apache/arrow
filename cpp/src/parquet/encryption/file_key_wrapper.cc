@@ -22,8 +22,7 @@
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
                                const KmsConnectionConfig& kms_connection_config,
@@ -124,5 +123,4 @@ KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
   return KeyEncryptionKey(kek_bytes, kek_id, encoded_wrapped_kek);
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

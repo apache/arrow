@@ -38,7 +38,7 @@ test_that("RecordBatchFileWriter / RecordBatchFileReader roundtrips", {
   writer$close()
   stream$close()
 
-  expect_equal(read_feather(tf, as_data_frame = FALSE), tab)
+  expect_equal(read_feather(tf, as_data_frame = FALSE, mmap = FALSE), tab)
   # Make sure connections are closed
   expect_error(file.remove(tf), NA)
   skip_on_os("windows") # This should pass, we've closed the stream

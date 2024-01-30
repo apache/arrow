@@ -58,7 +58,7 @@ namespace util {
 /// finish.  Note, it is not an error to add additional tasks after a scheduler has
 /// aborted. These tasks will be ignored and never submitted.  The scheduler returns a
 /// future which will complete when all submitted tasks have finished executing.  Once all
-/// tasks have been finsihed the scheduler is invalid and should no longer be used.
+/// tasks have been finished the scheduler is invalid and should no longer be used.
 ///
 /// Task failure (either the synchronous portion or the asynchronous portion) will cause
 /// the scheduler to enter an aborted state.  The first such failure will be reported in
@@ -117,7 +117,7 @@ class ARROW_EXPORT AsyncTaskScheduler {
   ///
   /// A task's name must remain valid for the duration of the task.  It is used for
   /// debugging (e.g. when debugging a deadlock to see which tasks still remain) and for
-  /// traceability (the name will be used for spans asigned to the task)
+  /// traceability (the name will be used for spans assigned to the task)
   ///
   /// \return true if the task was submitted or queued, false if the task was ignored
   virtual bool AddTask(std::unique_ptr<Task> task) = 0;
@@ -262,7 +262,7 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
     virtual void Pause() = 0;
     /// Resume the throttle
     ///
-    /// Allows taks to be submitted again.  If there is a max_concurrent_cost limit then
+    /// Allows task to be submitted again.  If there is a max_concurrent_cost limit then
     /// it will still apply.
     virtual void Resume() = 0;
   };
@@ -274,7 +274,7 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
   virtual void Pause() = 0;
   /// Resume the throttle
   ///
-  /// Allows taks to be submitted again.  If there is a max_concurrent_cost limit then
+  /// Allows task to be submitted again.  If there is a max_concurrent_cost limit then
   /// it will still apply.
   virtual void Resume() = 0;
 
@@ -383,7 +383,8 @@ bool AsyncTaskScheduler::AddAsyncGenerator(std::function<Future<T>()> generator,
           std::unique_ptr<AsyncTaskGroup> task_group, std::string_view name)
         : generator(std::move(generator)),
           visitor(std::move(visitor)),
-          task_group(std::move(task_group)) {}
+          task_group(std::move(task_group)),
+          name(name) {}
     std::function<Future<T>()> generator;
     std::function<Status(const T&)> visitor;
     std::unique_ptr<AsyncTaskGroup> task_group;

@@ -19,12 +19,12 @@ package arrjson
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,6 +34,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["primitives"] = makePrimitiveWantJSONs()
 	wantJSONs["structs"] = makeStructsWantJSONs()
 	wantJSONs["lists"] = makeListsWantJSONs()
+	wantJSONs["list_views"] = makeListViewsWantJSONs()
 	wantJSONs["strings"] = makeStringsWantJSONs()
 	wantJSONs["fixed_size_lists"] = makeFixedSizeListsWantJSONs()
 	wantJSONs["fixed_width_types"] = makeFixedWidthTypesWantJSONs()
@@ -41,11 +42,13 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["intervals"] = makeIntervalsWantJSONs()
 	wantJSONs["durations"] = makeDurationsWantJSONs()
 	wantJSONs["decimal128"] = makeDecimal128sWantJSONs()
+	wantJSONs["decimal256"] = makeDecimal256sWantJSONs()
 	wantJSONs["maps"] = makeMapsWantJSONs()
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
 	wantJSONs["union"] = makeUnionWantJSONs()
 	wantJSONs["run_end_encoded"] = makeRunEndEncodedWantJSONs()
+	wantJSONs["view_types"] = makeViewTypesWantJSONs()
 	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
@@ -53,7 +56,7 @@ func TestReadWrite(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-read-write-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-read-write-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +85,7 @@ func TestReadWrite(t *testing.T) {
 				t.Fatalf("could not sync data to disk: %v", err)
 			}
 
-			fileBytes, _ := ioutil.ReadFile(f.Name())
+			fileBytes, _ := os.ReadFile(f.Name())
 			assert.JSONEq(t, wantJSONs[name], string(fileBytes))
 
 			_, err = f.Seek(0, io.SeekStart)
@@ -92,7 +95,7 @@ func TestReadWrite(t *testing.T) {
 
 			r, err := NewReader(f, WithAllocator(mem), WithSchema(recs[0].Schema()))
 			if err != nil {
-				raw, _ := ioutil.ReadFile(f.Name())
+				raw, _ := os.ReadFile(f.Name())
 				t.Fatalf("could not read JSON file: %v\n%v\n", err, string(raw))
 			}
 			defer r.Release()
@@ -1365,7 +1368,7 @@ func makeListsWantJSONs() string {
             1,
             1,
             1
-          ],          
+          ],
           "children": [
             {
               "name": "item",
@@ -1549,6 +1552,237 @@ func makeListsWantJSONs() string {
           ],
           "OFFSET": [
             0
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeListViewsWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "list_view_nullable",
+        "type": {
+          "name": "listview"
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "item",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 15,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                1,
+                0,
+                0,
+                4,
+                5,
+                11,
+                0,
+                0,
+                14,
+                15,
+                21,
+                0,
+                0,
+                24,
+                25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10
+          ],
+          "SIZE": [
+            5,
+            5,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 15,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                0,
+                0,
+                -4,
+                -5,
+                -11,
+                0,
+                0,
+                -14,
+                -15,
+                -21,
+                0,
+                0,
+                -24,
+                -25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10
+          ],
+          "SIZE": [
+            5,
+            5,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 10,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                0,
+                0,
+                -4,
+                -5,
+                -21,
+                0,
+                0,
+                -24,
+                -25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            5
+          ],
+          "SIZE": [
+            5,
+            0,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 0,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 0,
+          "children": [
+            {
+              "name": "item",
+              "count": 0
+            }
+          ],
+          "OFFSET": [
+          ],
+          "SIZE": [
           ]
         }
       ]
@@ -3430,6 +3664,97 @@ func makeDecimal128sWantJSONs() string {
 }`
 }
 
+func makeDecimal256sWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "dec256s",
+        "type": {
+          "name": "decimal",
+          "scale": 2,
+          "precision": 72,
+          "bitWidth": 256
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "131819136443120296047697507592700702471267712715359757795349",
+            "138096238178506976811873579382829307350851889511329270071318",
+            "144373339913893657576049651172957912230436066307298782347287",
+            "150650441649280338340225722963086517110020243103268294623256",
+            "156927543384667019104401794753215121989604419899237806899225"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "194590153796987103689458225493986751267109480675054880555039",
+            "200867255532373784453634297284115356146693657471024392831008",
+            "207144357267760465217810369074243961026277834266993905106977",
+            "213421459003147145981986440864372565905862011062963417382946",
+            "219698560738533826746162512654501170785446187858932929658915"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "257361171150853911331218943395272800062951248634750003314729",
+            "263638272886240592095395015185401404942535425430719515590698",
+            "269915374621627272859571086975530009822119602226689027866667",
+            "276192476357013953623747158765658614701703779022658540142636",
+            "282469578092400634387923230555787219581287955818628052418605"
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
 func makeMapsWantJSONs() string {
 	return `{
   "schema": {
@@ -3483,7 +3808,7 @@ func makeMapsWantJSONs() string {
           "VALIDITY": [
             1,
             0
-          ],          
+          ],
           "children": [
             {
               "name": "entries",
@@ -5797,6 +6122,264 @@ func makeRunEndEncodedWantJSONs() string {
               ]
             }
           ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeViewTypesWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "binary_view",
+        "type": {
+          "name": "binaryview"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "string_view",
+        "type": {
+          "name": "utf8view"
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 3,
+              "INLINED": "31C3A9"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "34"
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "35"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [""]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 3,
+              "INLINED": "1é" 
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "4"
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "5"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [""]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 3,
+              "INLINED": "31C3A9"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "34343434"
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "35353535"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [""]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 3,
+              "INLINED": "1é"              
+            },
+            {
+              "SIZE": 14,
+              "PREFIX_HEX": "32323232",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 0
+            },
+            {
+              "SIZE": 14,
+              "PREFIX_HEX": "33333333",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 14
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "4444"
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "5555"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [
+            "32323232323232323232323232323333333333333333333333333333"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 6,
+              "INLINED": "31C3A931C3A9"
+            },
+            {
+              "SIZE": 14,
+              "PREFIX_HEX": "32323232",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 0
+            },
+            {
+              "SIZE": 14,
+              "PREFIX_HEX": "33333333",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 14
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "3434"
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "3535"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [
+            "32323232323232323232323232323333333333333333333333333333"
+          ]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "VIEWS": [
+            {
+              "SIZE": 6,
+              "INLINED": "1é1é"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "44"
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "55"
+            }
+          ],
+          "VARIADIC_DATA_BUFFERS": [""]
         }
       ]
     }

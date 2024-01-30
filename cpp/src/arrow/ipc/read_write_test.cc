@@ -140,7 +140,7 @@ TEST_P(TestMessage, SerializeTo) {
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-    // chech whether length is written in little endian
+    // check whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
               bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
@@ -159,7 +159,7 @@ TEST_P(TestMessage, SerializeCustomMetadata) {
     ASSERT_OK(internal::WriteRecordBatchMessage(
         /*length=*/0, /*body_length=*/0, metadata,
         /*nodes=*/{},
-        /*buffers=*/{}, options_, &serialized));
+        /*buffers=*/{}, /*variadic_counts=*/{}, options_, &serialized));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 
@@ -236,56 +236,93 @@ class TestSchemaMetadata : public ::testing::Test {
     io::BufferReader reader(buffer);
     DictionaryMemo in_memo;
     ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
-    AssertSchemaEqual(schema, *actual_schema);
+    AssertSchemaEqual(schema, *actual_schema, /* check_metadata= */ true);
   }
 };
 
-const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
-
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
-  auto f0 = field("f0", std::make_shared<Int8Type>());
-  auto f1 = field("f1", std::make_shared<Int16Type>(), false);
-  auto f2 = field("f2", std::make_shared<Int32Type>());
-  auto f3 = field("f3", std::make_shared<Int64Type>());
-  auto f4 = field("f4", std::make_shared<UInt8Type>());
-  auto f5 = field("f5", std::make_shared<UInt16Type>());
-  auto f6 = field("f6", std::make_shared<UInt32Type>());
-  auto f7 = field("f7", std::make_shared<UInt64Type>());
-  auto f8 = field("f8", std::make_shared<FloatType>());
-  auto f9 = field("f9", std::make_shared<DoubleType>(), false);
-  auto f10 = field("f10", std::make_shared<BooleanType>());
+  CheckSchemaRoundtrip(Schema({
+      field("f0", int8()),
+      field("f1", int16(), false),
+      field("f2", int32()),
+      field("f3", int64()),
+      field("f4", uint8()),
+      field("f5", uint16()),
+      field("f6", uint32()),
+      field("f7", uint64()),
+      field("f8", float32()),
+      field("f9", float64(), false),
+      field("f10", boolean()),
+  }));
+}
 
-  Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
+TEST_F(TestSchemaMetadata, BinaryFields) {
+  CheckSchemaRoundtrip(Schema({
+      field("f0", utf8()),
+      field("f1", binary()),
+      field("f2", large_utf8()),
+      field("f3", large_binary()),
+      field("f4", utf8_view()),
+      field("f5", binary_view()),
+      field("f6", fixed_size_binary(3)),
+      field("f7", fixed_size_binary(33)),
+  }));
+}
+
+TEST_F(TestSchemaMetadata, PrimitiveFieldsWithKeyValueMetadata) {
+  auto f1 = field("f1", std::make_shared<Int64Type>(), false,
+                  key_value_metadata({"k1"}, {"v1"}));
+  auto f2 = field("f2", std::make_shared<StringType>(), true,
+                  key_value_metadata({"k2"}, {"v2"}));
+  Schema schema({f1, f2});
   CheckSchemaRoundtrip(schema);
 }
 
 TEST_F(TestSchemaMetadata, NestedFields) {
-  auto type = list(int32());
-  auto f0 = field("f0", type);
+  CheckSchemaRoundtrip(Schema({
+      field("f0", list(int32())),
+      field("f1", struct_({
+                      field("k1", int32()),
+                      field("k2", int32()),
+                      field("k3", int32()),
+                  })),
+  }));
+}
 
-  std::shared_ptr<StructType> type2(
-      new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
-  auto f1 = field("f1", type2);
+// Verify that nullable=false is well-preserved for child fields of map type.
+TEST_F(TestSchemaMetadata, MapField) {
+  auto key = field("key", int32(), false);
+  auto item = field("value", int32(), false);
+  auto f0 = field("f0", std::make_shared<MapType>(key, item));
+  Schema schema({f0});
+  CheckSchemaRoundtrip(schema);
+}
 
-  Schema schema({f0, f1});
+// Verify that key value metadata is well-preserved for child fields of nested type.
+TEST_F(TestSchemaMetadata, NestedFieldsWithKeyValueMetadata) {
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+  auto inner_field = field("inner", int32(), false, metadata);
+  auto f0 = field("f0", list(inner_field), false, metadata);
+  auto f1 = field("f1", struct_({inner_field}), false, metadata);
+  auto f2 = field("f2",
+                  std::make_shared<MapType>(field("key", int32(), false, metadata),
+                                            field("value", int32(), false, metadata)),
+                  false, metadata);
+  Schema schema({f0, f1, f2});
   CheckSchemaRoundtrip(schema);
 }
 
 TEST_F(TestSchemaMetadata, DictionaryFields) {
   {
-    auto dict_type = dictionary(int8(), int32(), true /* ordered */);
-    auto f0 = field("f0", dict_type);
-    auto f1 = field("f1", list(dict_type));
-
-    Schema schema({f0, f1});
-    CheckSchemaRoundtrip(schema);
+    auto dict_type = dictionary(int8(), int32(), /*ordered=*/true);
+    CheckSchemaRoundtrip(Schema({
+        field("f0", dict_type),
+        field("f1", list(dict_type)),
+    }));
   }
   {
     auto dict_type = dictionary(int8(), list(int32()));
-    auto f0 = field("f0", dict_type);
-
-    Schema schema({f0});
-    CheckSchemaRoundtrip(schema);
+    CheckSchemaRoundtrip(Schema({field("f0", dict_type)}));
   }
 }
 
@@ -293,9 +330,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
   {
     auto inner_dict_type = dictionary(int8(), int32(), /*ordered=*/true);
     auto dict_type = dictionary(int16(), list(inner_dict_type));
-
-    Schema schema({field("f0", dict_type)});
-    CheckSchemaRoundtrip(schema);
+    CheckSchemaRoundtrip(Schema({field("f0", dict_type)}));
   }
   {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
@@ -328,7 +363,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
@@ -341,10 +376,12 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeListViewRecordBatch,
     &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
+    &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
     &MakeUnion,
@@ -483,7 +520,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
+  // Verify UBSAN is ok with casting out of range metadata version.
   EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
 }
 
@@ -542,12 +579,12 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
 
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
-  io::BufferReader reader(data);
-  ASSERT_RAISES(Invalid, ReadMessage(&reader));
+  auto reader = io::BufferReader::FromString(data);
+  ASSERT_RAISES(Invalid, ReadMessage(reader.get()));
 
   // But no error on unsignaled EOS
-  io::BufferReader reader2("");
-  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader2));
+  auto reader2 = io::BufferReader::FromString("");
+  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(reader2.get()));
   ASSERT_EQ(nullptr, message);
 }
 
@@ -939,6 +976,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   ASSERT_OK(MakeListRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
+  ASSERT_OK(MakeListViewRecordBatch(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
   ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
@@ -946,6 +986,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
+  ASSERT_OK(MakeDeeplyNestedListView(&batch));
   TestGetRecordBatchSize(options_, batch);
 }
 
@@ -1152,6 +1195,13 @@ struct FileWriterHelper {
     return reader->metadata();
   }
 
+  Result<std::shared_ptr<Table>> ReadAll() {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    return reader->ToTable();
+  }
+
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<RecordBatchWriter> writer_;
@@ -1280,11 +1330,44 @@ struct StreamWriterHelper {
   std::shared_ptr<RecordBatchWriter> writer_;
 };
 
+class CopyCollectListener : public CollectListener {
+ public:
+  CopyCollectListener() : CollectListener() {}
+
+  Status OnRecordBatchWithMetadataDecoded(
+      RecordBatchWithMetadata record_batch_with_metadata) override {
+    auto& record_batch = record_batch_with_metadata.batch;
+    for (auto column_data : record_batch->column_data()) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(column_data));
+    }
+    return CollectListener::OnRecordBatchWithMetadataDecoded(record_batch_with_metadata);
+  }
+
+ private:
+  Status CopyArrayData(std::shared_ptr<ArrayData> data) {
+    auto& buffers = data->buffers;
+    for (size_t i = 0; i < buffers.size(); ++i) {
+      auto& buffer = buffers[i];
+      if (!buffer) {
+        continue;
+      }
+      ARROW_ASSIGN_OR_RAISE(buffers[i], Buffer::Copy(buffer, buffer->memory_manager()));
+    }
+    for (auto child_data : data->child_data) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(child_data));
+    }
+    if (data->dictionary) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(data->dictionary));
+    }
+    return Status::OK();
+  }
+};
+
 struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr,
                      MetadataVector* out_metadata_list = nullptr) override {
-    auto listener = std::make_shared<CollectListener>();
+    auto listener = std::make_shared<CopyCollectListener>();
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
@@ -1308,7 +1391,10 @@ struct StreamDecoderWriterHelper : public StreamWriterHelper {
 
 struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
-    return decoder->Consume(buffer_->data(), buffer_->size());
+    // This data is valid only in this function.
+    ARROW_ASSIGN_OR_RAISE(auto temporary_buffer,
+                          Buffer::Copy(buffer_, arrow::default_cpu_memory_manager()));
+    return decoder->Consume(temporary_buffer->data(), temporary_buffer->size());
   }
 };
 
@@ -1319,7 +1405,9 @@ struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
 struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
+      // This data is valid only in this block.
+      ARROW_ASSIGN_OR_RAISE(auto temporary_buffer, buffer_->CopySlice(offset, 1));
+      RETURN_NOT_OK(decoder->Consume(temporary_buffer->data(), temporary_buffer->size()));
     }
     return Status::OK();
   }
@@ -1478,6 +1566,22 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
                     RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
                                     options, &out_batches));
     }
+  }
+
+  void TestWriteAfterClose() {
+    // Part of GH-35095.
+    std::shared_ptr<RecordBatch> batch_ints;
+    ASSERT_OK(MakeIntRecordBatch(&batch_ints));
+
+    auto schema = batch_ints->schema();
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(schema, IpcWriteOptions::Defaults()));
+    ASSERT_OK(writer_helper.WriteBatch(batch_ints));
+    ASSERT_OK(writer_helper.Finish());
+
+    // Write after close raises status
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
   }
 
   void TestWriteDifferentSchema() {
@@ -1843,6 +1947,21 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
+TEST(TestIpcFileFormat, ReaderToTable) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto out_table, helper.ReadAll());
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch, batch}));
+  ASSERT_TABLES_EQUAL(*expected_table, *out_table);
+}
+
 TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
   // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
   FileWriterHelper helper;
@@ -1937,6 +2056,9 @@ TEST_F(TestFileFormatGenerator, DictionaryRoundTrip) { TestDictionaryRoundtrip()
 TEST_F(TestFileFormatGeneratorCoalesced, DictionaryRoundTrip) {
   TestDictionaryRoundtrip();
 }
+TEST_F(TestFileFormat, WriteAfterClose) { TestWriteAfterClose(); }
+
+TEST_F(TestStreamFormat, WriteAfterClose) { TestWriteAfterClose(); }
 
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
@@ -2050,29 +2172,28 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
     io::BufferReader reader(stream);
-    ASSERT_OK_AND_ASSIGN(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
+    ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
-    Status s = ipc_reader->ReadNext(&batch);
-    ASSERT_TRUE(s.IsInvalid());
-    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+    return ipc_reader->ReadNext(&batch);
   };
 
   // Stream terminates before reading all dictionaries
   std::shared_ptr<Buffer> truncated_stream;
   SpliceMessages(buffer, {0, 1}, &truncated_stream);
-  std::string ex_message =
-      ("IPC stream ended without reading the expected number (3)"
-       " of dictionaries");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream ended without "
+                             "reading the expected number (3) of dictionaries",
+                             Read(truncated_stream));
 
   // One of the dictionaries is missing, then we see a record batch
   SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
-  ex_message =
-      ("IPC stream did not have the expected number (3) of dictionaries "
-       "at the start of the stream");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream did not have "
+                             "the expected number (3) of dictionaries "
+                             "at the start of the stream",
+                             Read(truncated_stream));
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
@@ -2087,6 +2208,41 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
 
   io::BufferReader garbage_reader(garbage);
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
+}
+
+class EndlessCollectListener : public CollectListener {
+ public:
+  EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
+
+  void SetDecoder(StreamDecoder* decoder) { decoder_ = decoder; }
+
+  arrow::Status OnEOS() override { return decoder_->Reset(); }
+
+ private:
+  StreamDecoder* decoder_;
+};
+
+TEST(TestStreamDecoder, Reset) {
+  auto listener = std::make_shared<EndlessCollectListener>();
+  StreamDecoder decoder(listener);
+  listener->SetDecoder(&decoder);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto all_buffer, ConcatenateBuffers({writer_helper.buffer_,
+                                                            writer_helper.buffer_}));
+  // Consume by Buffer
+  ASSERT_OK(decoder.Consume(all_buffer));
+  ASSERT_EQ(2, listener->num_record_batches());
+
+  // Consume by raw data
+  ASSERT_OK(decoder.Consume(all_buffer->data(), all_buffer->size()));
+  ASSERT_EQ(4, listener->num_record_batches());
 }
 
 TEST(TestStreamDecoder, NextRequiredSize) {
@@ -2838,21 +2994,21 @@ void GetReadRecordBatchReadRanges(
   // 1) read magic and footer length IO
   // 2) read footer IO
   // 3) read record batch metadata IO
-  ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
-  ASSERT_EQ(read_ranges[0].length, file_end_size);
+  EXPECT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
-  ASSERT_EQ(read_ranges[1].length, footer_length);
+  EXPECT_EQ(read_ranges[1].length, footer_length);
   // read record batch metadata.  The exact size is tricky to determine but it doesn't
   // matter for this test and it should be smaller than the footer.
-  ASSERT_LT(read_ranges[2].length, footer_length);
+  EXPECT_LE(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
-    ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+    EXPECT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
 }
 
@@ -2899,14 +3055,14 @@ TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
   GetReadRecordBatchReadRanges({0, 2}, {1, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFields) {
   // read the int32 field and the int64 field
   // + 5 int32: 5 * 4 bytes
   // + 5 int64: 5 * 8 bytes
   GetReadRecordBatchReadRanges({1, 2}, {20, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFieldsWithIoMerged) {
   // change the array length to 64 so that bool field and int32 are continuous without
   // padding
   // read the bool field and the int32 field since the bool field's aligned offset
@@ -2981,11 +3137,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
     auto read_options = IpcReadOptions::Defaults();
     EXPECT_OK_AND_ASSIGN(auto reader,
                          RecordBatchFileReader::Open(buffer_reader.get(), read_options));
-    std::vector<std::shared_ptr<RecordBatch>> expected_batches;
-    for (int i = 0; i < reader->num_record_batches(); i++) {
-      EXPECT_OK_AND_ASSIGN(auto expected_batch, reader->ReadRecordBatch(i));
-      expected_batches.push_back(expected_batch);
-    }
+    EXPECT_OK_AND_ASSIGN(auto expected_batches, reader->ToRecordBatches());
     return expected_batches;
   }
 

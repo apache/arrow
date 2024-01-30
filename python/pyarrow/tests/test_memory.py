@@ -134,8 +134,14 @@ def check_env_var(name, expected, *, expect_warning=False):
         res.check_returncode()  # fail
     errlines = res.stderr.splitlines()
     if expect_warning:
-        assert len(errlines) == 1
-        assert f"Unsupported backend '{name}'" in errlines[0]
+        assert len(errlines) in (1, 2)
+        if len(errlines) == 1:
+            # ARROW_USE_GLOG=OFF
+            assert f"Unsupported backend '{name}'" in errlines[0]
+        else:
+            # ARROW_USE_GLOG=ON
+            assert "InitGoogleLogging()" in errlines[0]
+            assert f"Unsupported backend '{name}'" in errlines[1]
     else:
         assert len(errlines) == 0
 

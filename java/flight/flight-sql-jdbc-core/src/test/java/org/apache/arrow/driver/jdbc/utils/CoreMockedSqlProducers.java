@@ -64,6 +64,7 @@ public final class CoreMockedSqlProducers {
   public static final String LEGACY_REGULAR_SQL_CMD = "SELECT * FROM TEST";
   public static final String LEGACY_METADATA_SQL_CMD = "SELECT * FROM METADATA";
   public static final String LEGACY_CANCELLATION_SQL_CMD = "SELECT * FROM TAKES_FOREVER";
+  public static final String LEGACY_REGULAR_WITH_EMPTY_SQL_CMD = "SELECT * FROM TEST_EMPTIES";
 
   private CoreMockedSqlProducers() {
     // Prevent instantiation.
@@ -80,7 +81,42 @@ public final class CoreMockedSqlProducers {
     addLegacyRegularSqlCmdSupport(producer);
     addLegacyMetadataSqlCmdSupport(producer);
     addLegacyCancellationSqlCmdSupport(producer);
+    addQueryWithEmbeddedEmptyRoot(producer);
     return producer;
+  }
+
+  private static void addQueryWithEmbeddedEmptyRoot(final MockFlightSqlProducer producer) {
+    final Schema querySchema = new Schema(ImmutableList.of(
+        new Field(
+            "ID",
+            new FieldType(true, new ArrowType.Int(64, true),
+                null),
+            null)
+    ));
+
+    final List<Consumer<ServerStreamListener>> resultProducers = new ArrayList<>();
+    Consumer<ServerStreamListener> dataRoot = listener -> {
+      try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+           final VectorSchemaRoot root = VectorSchemaRoot.create(querySchema, allocator)) {
+        root.allocateNew();
+        root.setRowCount(0);
+        listener.start(root);
+        listener.putNext(); // empty root
+        ((BigIntVector) root.getVector("ID")).setSafe(0, 100L);
+        root.setRowCount(1);
+        listener.putNext(); // data root
+        root.clear();
+        root.setRowCount(0);
+        listener.putNext(); // empty root
+        ((BigIntVector) root.getVector("ID")).setSafe(0, 100L);
+        root.setRowCount(1);
+        listener.putNext(); // data root
+      } finally {
+        listener.completed();
+      }
+    };
+    resultProducers.add(dataRoot);
+    producer.addSelectQuery(LEGACY_REGULAR_WITH_EMPTY_SQL_CMD, querySchema, resultProducers);
   }
 
   private static void addLegacyRegularSqlCmdSupport(final MockFlightSqlProducer producer) {

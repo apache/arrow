@@ -50,7 +50,7 @@ makes it easier for us to process the backlog of submitted Pull Requests.
 
 Any functionality change should have a GitHub issue opened. For minor changes that
 affect documentation, you do not need to open up a GitHub issue. Instead you can
-prefix the title of your PR with "MINOR: " if meets the following guidelines:
+prefix the title of your PR with "MINOR: " if meets one of the following:
 
 *  Grammar, usage and spelling fixes that affect no more than 2 files
 *  Documentation updates affecting no more than 2 files and not more
@@ -67,5 +67,5 @@ You can also ask on the mailing-list, see above.
 
 ## Further information
 
-Please read our [development documentation](https://arrow.apache.org/docs/developers/contributing.html)
+Please read our [development documentation](https://arrow.apache.org/docs/developers/index.html)
 or look through the [New Contributor's Guide](https://arrow.apache.org/docs/developers/guide/index.html).

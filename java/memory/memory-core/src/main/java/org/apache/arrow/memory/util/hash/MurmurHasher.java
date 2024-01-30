@@ -19,6 +19,7 @@ package org.apache.arrow.memory.util.hash;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Implementation of the Murmur hashing algorithm.
@@ -96,7 +97,7 @@ public class MurmurHasher implements ArrowBufHasher {
     if (index < length) {
       // process remaining data as a integer in little endian
       int intValue = 0;
-      for (int i = index - 1; i >= index; i--) {
+      for (long i = length - 1; i >= index; i--) {
         intValue <<= 8;
         intValue |= (MemoryUtil.UNSAFE.getByte(address + i) & 0x000000ff);
         index += 1;
@@ -157,7 +158,7 @@ public class MurmurHasher implements ArrowBufHasher {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }

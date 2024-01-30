@@ -46,14 +46,12 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_UNITY_BUILD=ON \
       -DARROW_BUILD_STATIC=OFF \
-      -DARROW_WITH_BZ2=ON \
-      -DARROW_WITH_ZLIB=ON \
-      -DARROW_WITH_ZSTD=ON \
-      -DARROW_WITH_LZ4=ON \
-      -DARROW_WITH_SNAPPY=ON \
-      -DARROW_WITH_BROTLI=ON \
-      -DARROW_PYTHON=ON \
+      -DARROW_COMPUTE=ON \
+      -DARROW_CSV=ON \
+      -DARROW_FILESYSTEM=ON \
+      -DARROW_JSON=ON \
       $ARROW_ROOT/cpp
 
 ninja install
@@ -64,7 +62,7 @@ popd
 # Build and test Python library
 pushd $ARROW_ROOT/python
 
-rm -rf build/  # remove any pesky pre-existing build directory
+rm -rf build/  # remove any pesky preexisting build directory
 
 export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
 export PYARROW_BUILD_TYPE=Debug

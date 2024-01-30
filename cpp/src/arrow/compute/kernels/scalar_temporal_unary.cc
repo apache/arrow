@@ -1237,7 +1237,6 @@ const std::string GetZone(const std::string& format) {
         zone = "UTC";
         break;
       }
-      cur++;
     } else {
       count = 0;
     }
@@ -1511,7 +1510,7 @@ struct ISOCalendar {
     for (int i = 0; i < 3; i++) {
       field_builders.push_back(
           checked_cast<BuilderType*>(struct_builder->field_builder(i)));
-      RETURN_NOT_OK(field_builders[i]->Reserve(1));
+      RETURN_NOT_OK(field_builders[i]->Reserve(in.length));
     }
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
     std::function<Status(typename InType::c_type arg)> visit_value;

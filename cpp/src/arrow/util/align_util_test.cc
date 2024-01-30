@@ -15,17 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
 #include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/align_util.h"
 
 namespace arrow {
@@ -166,6 +173,62 @@ TEST(BitmapWordAlign, UnalignedDataStart) {
 }
 }  // namespace internal
 
+TEST(EnsureAlignment, Buffer) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(/*size=*/1024));
+  std::shared_ptr<Buffer> unaligned_view = SliceBuffer(buffer, 1);
+  std::shared_ptr<Buffer> aligned_view = SliceBuffer(buffer, 0);
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned_view, kDefaultBufferAlignment));
+  ASSERT_FALSE(util::CheckAlignment(*unaligned_view, /*alignment=*/2));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> aligned_dupe,
+      util::EnsureAlignment(aligned_view, /*alignment=*/8, default_memory_pool()));
+
+  ASSERT_EQ(aligned_view->data(), aligned_dupe->data());
+  ASSERT_TRUE(util::CheckAlignment(*aligned_dupe, kDefaultBufferAlignment));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> realigned,
+      util::EnsureAlignment(unaligned_view, /*alignment=*/8, default_memory_pool()));
+
+  ASSERT_NE(realigned->data(), unaligned_view->data());
+  // Even though we only asked to check for 8 bytes of alignment, any reallocation will
+  // always allocate at least kDefaultBufferAlignment bytes of alignment
+  ASSERT_TRUE(util::CheckAlignment(*realigned, /*alignment=*/kDefaultBufferAlignment));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> realigned_large,
+      util::EnsureAlignment(unaligned_view, /*alignment=*/256, default_memory_pool()));
+  // If the user wants more than kDefaultBufferAlignment they should get it
+  ASSERT_TRUE(util::CheckAlignment(*realigned_large, /*alignment=*/128));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> realigned_huge,
+      util::EnsureAlignment(unaligned_view, /*alignment=*/2048, default_memory_pool()));
+  // It should even be valid for the alignment to be larger than the buffer size itself
+  ASSERT_TRUE(util::CheckAlignment(*realigned_huge, /*alignment=*/2048));
+}
+
+TEST(EnsureAlignment, BufferInvalid) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer, AllocateBuffer(/*size=*/1024));
+
+  // This is nonsense but not worth introducing a Status return.  We just return true.
+  ASSERT_TRUE(util::CheckAlignment(*buffer, 0));
+  ASSERT_TRUE(util::CheckAlignment(*buffer, -1));
+
+  ASSERT_THAT(util::EnsureAlignment(buffer, /*alignment=*/0, default_memory_pool()),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("Alignment must be a positive integer")));
+
+  ASSERT_THAT(
+      util::EnsureAlignment(buffer, /*alignment=*/util::kValueAlignment,
+                            default_memory_pool()),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr(
+                 "may only be used to call EnsureAlignment on arrays or tables")));
+}
+
 TEST(EnsureAlignment, Array) {
   MemoryPool* pool = default_memory_pool();
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
@@ -276,6 +339,274 @@ TEST(EnsureAlignment, Table) {
   ASSERT_OK_AND_ASSIGN(auto aligned_table,
                        util::EnsureAlignment(std::move(table), 2048, pool));
   ASSERT_EQ(util::CheckAlignment(*aligned_table, 2048, &needs_alignment), true);
+}
+
+using TypesRequiringSomeKindOfAlignment =
+    testing::Types<Int16Type, Int32Type, Int64Type, UInt16Type, UInt32Type, UInt64Type,
+                   FloatType, DoubleType, Date32Type, Date64Type, Time32Type, Time64Type,
+                   Decimal128Type, Decimal256Type, TimestampType, DurationType, MapType,
+                   DenseUnionType, LargeBinaryType, LargeListType, LargeStringType,
+                   MonthIntervalType, DayTimeIntervalType, MonthDayNanoIntervalType>;
+
+using TypesNotRequiringAlignment =
+    testing::Types<NullType, Int8Type, UInt8Type, FixedSizeListType, FixedSizeBinaryType,
+                   BooleanType, SparseUnionType>;
+
+template <typename ArrowType>
+std::shared_ptr<DataType> sample_type() {
+  return TypeTraits<ArrowType>::type_singleton();
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<FixedSizeBinaryType>() {
+  return fixed_size_binary(16);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<FixedSizeListType>() {
+  return fixed_size_list(uint8(), 16);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Decimal128Type>() {
+  return decimal128(32, 6);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Decimal256Type>() {
+  return decimal256(60, 10);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<LargeListType>() {
+  return large_list(int8());
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<DenseUnionType>() {
+  return dense_union({field("x", int8()), field("y", uint8())});
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<MapType>() {
+  return map(utf8(), field("item", utf8()));
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<DurationType>() {
+  return duration(TimeUnit::NANO);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<TimestampType>() {
+  return timestamp(TimeUnit::NANO);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Time32Type>() {
+  return time32(TimeUnit::SECOND);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<Time64Type>() {
+  return time64(TimeUnit::NANO);
+}
+
+template <>
+std::shared_ptr<DataType> sample_type<SparseUnionType>() {
+  return sparse_union({field("x", uint8()), field("y", int8())}, {1, 2});
+}
+
+template <typename ArrowType>
+std::shared_ptr<ArrayData> SampleArray() {
+  random::RandomArrayGenerator gen(42);
+  return gen.ArrayOf(sample_type<ArrowType>(), 100)->data();
+}
+
+template <>
+std::shared_ptr<ArrayData> SampleArray<SparseUnionType>() {
+  auto ty = sparse_union({field("ints", int64()), field("strs", utf8())}, {2, 7});
+  auto ints = ArrayFromJSON(int64(), "[0, 1, 2, 3]");
+  auto strs = ArrayFromJSON(utf8(), R"(["a", null, "c", "d"])");
+  auto ids = ArrayFromJSON(int8(), "[2, 7, 2, 7]")->data()->buffers[1];
+  const int length = 4;
+  SparseUnionArray arr(ty, length, {ints, strs}, ids);
+  return arr.data();
+}
+
+class ValueAlignment : public ::testing::Test {
+ public:
+  void CheckModified(const ArrayData& src, const ArrayData& dst) {
+    ASSERT_EQ(src.buffers.size(), dst.buffers.size());
+    for (std::size_t i = 0; i < src.buffers.size(); i++) {
+      if (!src.buffers[i] || !dst.buffers[i]) {
+        continue;
+      }
+      if (src.buffers[i]->address() != dst.buffers[i]->address()) {
+        return;
+      }
+    }
+    FAIL() << "Expected at least one buffer to have been modified by EnsureAlignment";
+  }
+
+  void CheckUnmodified(const ArrayData& src, const ArrayData& dst) {
+    ASSERT_EQ(src.buffers.size(), dst.buffers.size());
+    for (std::size_t i = 0; i < src.buffers.size(); i++) {
+      if (!src.buffers[i] || !dst.buffers[i]) {
+        continue;
+      }
+      ASSERT_EQ(src.buffers[i]->address(), dst.buffers[i]->address());
+    }
+  }
+};
+
+template <typename T>
+class ValueAlignmentRequired : public ValueAlignment {};
+template <typename T>
+class ValueAlignmentNotRequired : public ValueAlignment {};
+
+TYPED_TEST_SUITE(ValueAlignmentRequired, TypesRequiringSomeKindOfAlignment);
+TYPED_TEST_SUITE(ValueAlignmentNotRequired, TypesNotRequiringAlignment);
+
+// The default buffer alignment should always be large enough for value alignment
+TYPED_TEST(ValueAlignmentRequired, DefaultAlignmentSufficient) {
+  std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> aligned,
+      util::EnsureAlignment(data, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
+  AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
+  this->CheckUnmodified(*data, *aligned);
+}
+
+TYPED_TEST(ValueAlignmentRequired, RoundTrip) {
+  std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
+  std::shared_ptr<ArrayData> unaligned = UnalignBuffers(*data);
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> aligned,
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
+  AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
+  this->CheckModified(*unaligned, *aligned);
+}
+
+TYPED_TEST(ValueAlignmentNotRequired, RoundTrip) {
+  std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
+  std::shared_ptr<ArrayData> unaligned = UnalignBuffers(*data);
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> aligned,
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
+  AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
+  this->CheckUnmodified(*unaligned, *aligned);
+}
+
+TYPED_TEST(ValueAlignmentNotRequired, DefaultAlignmentSufficient) {
+  std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> aligned,
+      util::EnsureAlignment(data, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
+  AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
+  this->CheckUnmodified(*data, *aligned);
+}
+
+TEST_F(ValueAlignment, DenseUnion) {
+  std::shared_ptr<ArrayData> data = SampleArray<DenseUnionType>();
+  ASSERT_TRUE(util::CheckAlignment(*data, util::kValueAlignment));
+
+  std::shared_ptr<ArrayData> unaligned = UnalignBuffers(*data);
+  ASSERT_FALSE(util::CheckAlignment(*unaligned, util::kValueAlignment));
+  // Dense union arrays are the only array type where the buffer at index 2 is expected
+  // to be aligned (it contains 32-bit offsets and should be 4-byte aligned)
+  ASSERT_FALSE(util::CheckAlignment(*unaligned->buffers[2], 4));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> realigned,
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*realigned, util::kValueAlignment));
+  ASSERT_TRUE(util::CheckAlignment(*realigned->buffers[2], 4));
+  // The buffer at index 1 is the types buffer which does not require realignment
+  ASSERT_EQ(unaligned->buffers[1]->data(), realigned->buffers[1]->data());
+}
+
+TEST_F(ValueAlignment, RunEndEncoded) {
+  // Run end requires alignment, value type does not
+  std::shared_ptr<Array> run_ends = ArrayFromJSON(int32(), "[3, 5]");
+  std::shared_ptr<Array> values = ArrayFromJSON(int8(), "[50, 100]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> array,
+                       RunEndEncodedArray::Make(/*logical_length=*/5, std::move(run_ends),
+                                                std::move(values), 0));
+
+  std::shared_ptr<ArrayData> unaligned_ree = std::make_shared<ArrayData>(*array->data());
+  unaligned_ree->child_data[0] = UnalignBuffers(*unaligned_ree->child_data[0]);
+  unaligned_ree->child_data[1] = UnalignBuffers(*unaligned_ree->child_data[1]);
+
+  std::shared_ptr<ArrayData> aligned_ree = std::make_shared<ArrayData>(*unaligned_ree);
+
+  ASSERT_OK_AND_ASSIGN(
+      aligned_ree,
+      util::EnsureAlignment(aligned_ree, util::kValueAlignment, default_memory_pool()));
+  ASSERT_TRUE(util::CheckAlignment(*aligned_ree, util::kValueAlignment));
+
+  this->CheckModified(*unaligned_ree->child_data[0], *aligned_ree->child_data[0]);
+  this->CheckUnmodified(*unaligned_ree->child_data[1], *aligned_ree->child_data[1]);
+}
+
+TEST_F(ValueAlignment, Dictionary) {
+  // Dictionary values require alignment, dictionary indices do not
+  std::shared_ptr<DataType> int8_utf8 = dictionary(int8(), utf8());
+  std::shared_ptr<Array> array = ArrayFromJSON(int8_utf8, R"(["x", "x", "y"])");
+
+  std::shared_ptr<ArrayData> unaligned_dict = std::make_shared<ArrayData>(*array->data());
+  unaligned_dict->dictionary = UnalignBuffers(*unaligned_dict->dictionary);
+  unaligned_dict = UnalignBuffers(*unaligned_dict);
+
+  std::shared_ptr<ArrayData> aligned_dict = std::make_shared<ArrayData>(*unaligned_dict);
+
+  ASSERT_OK_AND_ASSIGN(
+      aligned_dict,
+      util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned_dict, util::kValueAlignment));
+  this->CheckUnmodified(*unaligned_dict, *aligned_dict);
+  this->CheckModified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
+
+  // Dictionary values do not require alignment, dictionary indices do
+  std::shared_ptr<DataType> int16_int8 = dictionary(int16(), int8());
+  array = ArrayFromJSON(int16_int8, R"([7, 11])");
+
+  unaligned_dict = std::make_shared<ArrayData>(*array->data());
+  unaligned_dict->dictionary = UnalignBuffers(*unaligned_dict->dictionary);
+  unaligned_dict = UnalignBuffers(*unaligned_dict);
+
+  aligned_dict = std::make_shared<ArrayData>(*unaligned_dict);
+
+  ASSERT_OK_AND_ASSIGN(
+      aligned_dict,
+      util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned_dict, util::kValueAlignment));
+  this->CheckModified(*unaligned_dict, *aligned_dict);
+  this->CheckUnmodified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
+}
+
+TEST_F(ValueAlignment, Extension) {
+  std::shared_ptr<Array> array = ExampleSmallint();
+
+  std::shared_ptr<ArrayData> unaligned = UnalignBuffers(*array->data());
+
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> aligned,
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
+
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
+  this->CheckModified(*unaligned, *aligned);
 }
 
 }  // namespace arrow

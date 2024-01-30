@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 

@@ -24,6 +24,7 @@
 #include <utility>
 
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
@@ -128,12 +129,19 @@ class ThreadedTaskGroup : public TaskGroup {
   bool ok() const override { return ok_.load(); }
 
   Status Finish() override {
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lock(mutex_);
     if (!finished_) {
       cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
       // Current tasks may start other tasks, so only set this when done
       finished_ = true;
     }
+#else
+    while (!finished_ && nremaining_.load() != 0) {
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+    }
+    finished_ = true;
+#endif
     return status_;
   }
 

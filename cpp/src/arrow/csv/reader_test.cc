@@ -315,6 +315,9 @@ TEST(StreamingReaderTests, InvalidRowsSkipped) {
   TestInvalidRowsSkipped(MakeStreamingFactory(/*use_threads=*/false), /*async=*/false);
 }
 TEST(StreamingReaderTests, InvalidRowsSkippedAsync) {
+  if (internal::GetCpuThreadPool()->GetCapacity() < 2) {
+    GTEST_SKIP() << "Test requires at least 2 threads";
+  }
   TestInvalidRowsSkipped(MakeStreamingFactory(), /*async=*/true);
 }
 

@@ -32,6 +32,10 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /*
  * This class is generated using FreeMarker on the ${.template_name} template.
  */
@@ -40,7 +44,11 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
 
   final ${name}Vector vector;
 
-  public ${eName}WriterImpl(${name}Vector vector) {
+<#if minor.class?ends_with("VarChar")>
+  private final Text textBuffer = new Text();
+</#if>
+
+public ${eName}WriterImpl(${name}Vector vector) {
     this.vector = vector;
   }
 
@@ -116,9 +124,17 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
   }
   </#if>
 
-  <#if minor.class == "VarChar">
+  <#if minor.class?ends_with("VarChar")>
+  @Override
   public void write${minor.class}(${friendlyType} value) {
     vector.setSafe(idx(), value);
+    vector.setValueCount(idx()+1);
+  }
+
+  @Override
+  public void write${minor.class}(String value) {
+    textBuffer.set(value);
+    vector.setSafe(idx(), textBuffer);
     vector.setValueCount(idx()+1);
   }
   </#if>
@@ -176,6 +192,28 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setValueCount(idx()+1);
   }
   </#if>
+
+  <#if minor.class?ends_with("VarBinary")>
+  public void write${minor.class}(byte[] value) {
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void write${minor.class}(byte[] value, int offset, int length) {
+    vector.setSafe(idx(), value, offset, length);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void write${minor.class}(ByteBuffer value) {
+    vector.setSafe(idx(), value, 0, value.remaining());
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
+    vector.setSafe(idx(), value, offset, length);
+    vector.setValueCount(idx() + 1);
+  }
+  </#if>
 }
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/writer/${eName}Writer.java" />
@@ -191,7 +229,15 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  <#if minor.class?starts_with("Decimal")>@Deprecated</#if>
+<#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  /**
+   * @deprecated
+   * The holder version should be used instead because the plain value version does not contain enough information
+   * to fully specify this field type.
+   * @see #write(${minor.class}Holder)
+   */
+  @Deprecated
+</#if>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
 <#if minor.class?starts_with("Decimal")>
 
@@ -201,8 +247,31 @@ public interface ${eName}Writer extends BaseWriter {
 
   public void writeBigEndianBytesTo${minor.class}(byte[] value, ArrowType arrowType);
 
+  /**
+   * @deprecated
+   * Use either the version that additionally takes in an ArrowType or use the holder version.
+   * This version does not contain enough information to fully specify this field type.
+   * @see #writeBigEndianBytesTo${minor.class}(byte[], ArrowType)
+   * @see #write(${minor.class}Holder)
+   */
   @Deprecated
   public void writeBigEndianBytesTo${minor.class}(byte[] value);
+</#if>
+
+<#if minor.class?ends_with("VarBinary")>
+  public void write${minor.class}(byte[] value);
+
+  public void write${minor.class}(byte[] value, int offset, int length);
+
+  public void write${minor.class}(ByteBuffer value);
+
+  public void write${minor.class}(ByteBuffer value, int offset, int length);
+</#if>
+
+<#if minor.class?ends_with("VarChar")>
+  public void write${minor.class}(${friendlyType} value);
+
+  public void write${minor.class}(String value);
 </#if>
 }
 

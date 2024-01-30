@@ -20,14 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/schema_ref"
-	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -182,6 +182,10 @@ type cancelQueryRequest struct {
 
 func (c *cancelQueryRequest) GetInfo() *flight.FlightInfo { return c.info }
 
+type cancelQueryServer interface {
+	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
+}
+
 type ActionEndTransactionRequest interface {
 	GetTransactionId() []byte
 	GetAction() EndTransactionRequestType
@@ -270,7 +274,7 @@ type BaseServer struct {
 	sqlInfoToResult SqlInfoResultMap
 	// Alloc allows specifying a particular allocator to use for any
 	// allocations done by the base implementation.
-	// Will use memory.DefaultAlloctor if nil
+	// Will use memory.DefaultAllocator if nil
 	Alloc memory.Allocator
 }
 
@@ -511,8 +515,29 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
-func (BaseServer) CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error) {
-	return CancelResultUnspecified, status.Error(codes.Unimplemented, "CancelQuery not implemented")
+func (BaseServer) CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error) {
+	return flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
+		status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
+}
+
+func (BaseServer) RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error) {
+	return nil, status.Error(codes.Unimplemented, "RenewFlightEndpoint not implemented")
+}
+
+func (BaseServer) PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfo not implemented")
+}
+
+func (BaseServer) PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoStatement not implemented")
+}
+
+func (BaseServer) PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoSubstraitPlan not implemented")
+}
+
+func (BaseServer) PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoPreparedStatement not implemented")
 }
 
 func (BaseServer) EndTransaction(context.Context, ActionEndTransactionRequest) error {
@@ -637,10 +662,20 @@ type Server interface {
 	BeginSavepoint(context.Context, ActionBeginSavepointRequest) (id []byte, err error)
 	// EndSavepoint releases or rolls back a savepoint
 	EndSavepoint(context.Context, ActionEndSavepointRequest) error
-	// EndTransaction commits or rollsback a transaction
+	// EndTransaction commits or rolls back a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
-	// CancelQuery attempts to explicitly cancel a query
-	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
+	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
+	CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error)
+	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
+	RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error)
+	// PollFlightInfo is a generic handler for PollFlightInfo requests.
+	PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoStatement handles polling for query execution.
+	PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoSubstraitPlan handles polling for query execution.
+	PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoPreparedStatement handles polling for query execution.
+	PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
 
 	mustEmbedBaseServer()
 }
@@ -716,6 +751,36 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 	}
 
 	return nil, status.Error(codes.InvalidArgument, "requested command is invalid")
+}
+
+func (f *flightSqlServer) PollFlightInfo(ctx context.Context, request *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	var (
+		anycmd anypb.Any
+		cmd    proto.Message
+		err    error
+	)
+	// If we can't parse things, be friendly and defer to the server
+	// implementation. This is especially important for this method since
+	// the server returns a custom FlightDescriptor for future requests.
+	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	if cmd, err = anycmd.UnmarshalNew(); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	switch cmd := cmd.(type) {
+	case *pb.CommandStatementQuery:
+		return f.srv.PollFlightInfoStatement(ctx, cmd, request)
+	case *pb.CommandStatementSubstraitPlan:
+		return f.srv.PollFlightInfoSubstraitPlan(ctx, &statementSubstraitPlan{cmd}, request)
+	case *pb.CommandPreparedStatementQuery:
+		return f.srv.PollFlightInfoPreparedStatement(ctx, cmd, request)
+	}
+	// XXX: for now we won't support the other methods
+
+	return f.srv.PollFlightInfo(ctx, request)
 }
 
 func (f *flightSqlServer) GetSchema(ctx context.Context, request *flight.FlightDescriptor) (*flight.SchemaResult, error) {
@@ -909,6 +974,8 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 
 func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightService_ListActionsServer) error {
 	actions := []string{
+		flight.CancelFlightInfoActionType,
+		flight.RenewFlightEndpointActionType,
 		CreatePreparedStatementActionType,
 		ClosePreparedStatementActionType,
 		BeginSavepointActionType,
@@ -927,10 +994,68 @@ func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightServi
 	return nil
 }
 
+func cancelStatusToCancelResult(status flight.CancelStatus) CancelResult {
+	switch status {
+	case flight.CancelStatusUnspecified:
+		return CancelResultUnspecified
+	case flight.CancelStatusCancelled:
+		return CancelResultCancelled
+	case flight.CancelStatusCancelling:
+		return CancelResultCancelling
+	case flight.CancelStatusNotCancellable:
+		return CancelResultNotCancellable
+	default:
+		return CancelResultUnspecified
+	}
+}
+
 func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightService_DoActionServer) error {
 	var anycmd anypb.Any
 
 	switch cmd.Type {
+	case flight.CancelFlightInfoActionType:
+		var (
+			request flight.CancelFlightInfoRequest
+			result  flight.CancelFlightInfoResult
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CancelFlightInfoRequest for CancelFlightInfo: %s", err.Error())
+		}
+
+		result, err = f.srv.CancelFlightInfo(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(&result)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.RenewFlightEndpointActionType:
+		var (
+			request flight.RenewFlightEndpointRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightEndpoint for RenewFlightEndpoint: %s", err.Error())
+		}
+
+		renewedEndpoint, err := f.srv.RenewFlightEndpoint(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(renewedEndpoint)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	case BeginSavepointActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
@@ -987,10 +1112,12 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		var (
+			//lint:ignore SA1019 for backward compatibility
 			request pb.ActionCancelQueryRequest
-			result  pb.ActionCancelQueryResult
-			info    flight.FlightInfo
-			err     error
+			//lint:ignore SA1019 for backward compatibility
+			result pb.ActionCancelQueryResult
+			info   flight.FlightInfo
+			err    error
 		)
 
 		if err = anycmd.UnmarshalTo(&request); err != nil {
@@ -1001,8 +1128,18 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
 		}
 
-		if result.Result, err = f.srv.CancelQuery(stream.Context(), &cancelQueryRequest{&info}); err != nil {
-			return err
+		if cancel, ok := f.srv.(cancelQueryServer); ok {
+			result.Result, err = cancel.CancelQuery(stream.Context(), &cancelQueryRequest{&info})
+			if err != nil {
+				return err
+			}
+		} else {
+			cancelFlightInfoRequest := flight.CancelFlightInfoRequest{Info: &info}
+			cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &cancelFlightInfoRequest)
+			if err != nil {
+				return err
+			}
+			result.Result = cancelStatusToCancelResult(cancelFlightInfoResult.Status)
 		}
 
 		out, err := packActionResult(&result)

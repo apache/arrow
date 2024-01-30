@@ -26,9 +26,11 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
@@ -639,6 +641,11 @@ struct ArithmeticFunction : ScalarFunction {
         if (TypeHolder type = CommonNumeric(*types)) {
           ReplaceTypes(type, types);
         }
+      }
+
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 
@@ -1279,12 +1286,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto absolute_value =
       MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
+
+  // abs(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    DCHECK_OK(
+        absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
       "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
+  // abs_checked(duraton)
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
+                                                OutputType(duration(unit)), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
@@ -1503,6 +1525,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
+
+  // Add divide(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingDivide>::Exec;
+    DCHECK_OK(
+        divide->AddKernel({duration(unit), duration(unit)}, float64(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
@@ -1517,17 +1547,40 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                         std::move(exec)));
   }
 
+  // Add divide_checked(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingDivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), duration(unit)}, float64(),
+                                        std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+
+  // Add neg(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
+
+  // Add neg_checked(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    DCHECK_OK(
+        negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
@@ -1558,6 +1611,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto sign =
       MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
+  // sign(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------

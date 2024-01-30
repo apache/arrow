@@ -42,9 +42,10 @@ class Table;
 namespace py {
 
 enum class MapConversionType {
-  DEFAULT, // convert arrow maps to assoc lists (list of kev-value tuples) in Pandas
-  LOSSY, // report warnings when lossiness is encountered due to duplicate keys
-  STRICT_, // raise a Python exception when lossiness is encountered due to duplicate keys
+  DEFAULT,  // convert arrow maps to assoc lists (list of kev-value tuples) in Pandas
+  LOSSY,    // report warnings when lossiness is encountered due to duplicate keys
+  STRICT_,  // raise a Python exception when lossiness is encountered due to duplicate
+            // keys
 };
 
 struct PandasOptions {
@@ -116,6 +117,10 @@ struct PandasOptions {
   // Columns that should be passed through to be converted to
   // ExtensionArray/Block
   std::unordered_set<std::string> extension_columns;
+
+  // Used internally to decipher between to_numpy() and to_pandas() when
+  // the expected output differs
+  bool to_numpy = false;
 };
 
 ARROW_PYTHON_EXPORT

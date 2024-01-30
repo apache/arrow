@@ -18,18 +18,21 @@
 # cython: profile=False
 # distutils: language = c++
 
+from collections.abc import Sequence
 from textwrap import indent
 import warnings
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
@@ -42,6 +45,8 @@ from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
 
 cimport cpython as cp
 
+_DEFAULT_ROW_GROUP_SIZE = 1024*1024
+_MAX_ROW_GROUP_SIZE = 64*1024*1024
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
@@ -72,7 +77,7 @@ cdef class Statistics(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of statistics.
+        Get dictionary representation of statistics.
 
         Returns
         -------
@@ -173,17 +178,18 @@ cdef class Statistics(_Weakrefable):
     @property
     def null_count(self):
         """Number of null values in chunk (int)."""
-        return self.statistics.get().null_count()
+        if self.has_null_count:
+            return self.statistics.get().null_count()
+        else:
+            return None
 
     @property
     def distinct_count(self):
-        """
-        Distinct number of values in chunk (int).
-
-        If this is not set, will return 0.
-        """
-        # This seems to be zero if not set. See: ARROW-11793
-        return self.statistics.get().distinct_count()
+        """Distinct number of values in chunk (int)."""
+        if self.has_distinct_count:
+            return self.statistics.get().distinct_count()
+        else:
+            return None
 
     @property
     def num_values(self):
@@ -346,7 +352,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of the column chunk metadata.
+        Get dictionary representation of the column chunk metadata.
 
         Returns
         -------
@@ -460,7 +466,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page reglative to column chunk offset (int)."""
+        """Offset of dictionary page relative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -468,7 +474,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page reglative to column chunk offset (int)."""
+        """Offset of data page relative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -483,13 +489,221 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def total_compressed_size(self):
-        """Compresssed size in bytes (int)."""
+        """Compressed size in bytes (int)."""
         return self.metadata.total_compressed_size()
 
     @property
     def total_uncompressed_size(self):
         """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
+
+    @property
+    def has_offset_index(self):
+        """Whether the column chunk has an offset index"""
+        return self.metadata.GetOffsetIndexLocation().has_value()
+
+    @property
+    def has_column_index(self):
+        """Whether the column chunk has a column index"""
+        return self.metadata.GetColumnIndexLocation().has_value()
+
+
+cdef class SortingColumn:
+    """
+    Sorting specification for a single column.
+
+    Returned by :meth:`RowGroupMetaData.sorting_columns` and used in
+    :class:`ParquetWriter` to specify the sort order of the data.
+
+    Parameters
+    ----------
+    column_index : int
+        Index of column that data is sorted by.
+    descending : bool, default False
+        Whether column is sorted in descending order.
+    nulls_first : bool, default False
+        Whether null values appear before valid values.
+
+    Notes
+    -----
+
+    Column indices are zero-based, refer only to leaf fields, and are in
+    depth-first order. This may make the column indices for nested schemas
+    different from what you expect. In most cases, it will be easier to
+    specify the sort order using column names instead of column indices
+    and converting using the ``from_ordering`` method.
+
+    Examples
+    --------
+
+    In other APIs, sort order is specified by names, such as:
+
+    >>> sort_order = [('id', 'ascending'), ('timestamp', 'descending')]
+
+    For Parquet, the column index must be used instead:
+
+    >>> import pyarrow.parquet as pq
+    >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
+    [SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False)]
+
+    Convert the sort_order into the list of sorting columns with
+    ``from_ordering`` (note that the schema must be provided as well):
+
+    >>> import pyarrow as pa
+    >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
+    >>> sorting_columns = pq.SortingColumn.from_ordering(schema, sort_order)
+    >>> sorting_columns
+    (SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False))
+
+    Convert back to the sort order with ``to_ordering``:
+
+    >>> pq.SortingColumn.to_ordering(schema, sorting_columns)
+    ((('id', 'ascending'), ('timestamp', 'descending')), 'at_end')
+
+    See Also
+    --------
+    RowGroupMetaData.sorting_columns
+    """
+    cdef int column_index
+    cdef c_bool descending
+    cdef c_bool nulls_first
+
+    def __init__(self, int column_index, c_bool descending=False, c_bool nulls_first=False):
+        self.column_index = column_index
+        self.descending = descending
+        self.nulls_first = nulls_first
+
+    @classmethod
+    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
+        """
+        Create a tuple of SortingColumn objects from the same arguments as
+        :class:`pyarrow.compute.SortOptions`.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema of the input data.
+        sort_keys : Sequence of (name, order) tuples
+            Names of field/column keys (str) to sort the input on,
+            along with the order each field/column is sorted in.
+            Accepted values for `order` are "ascending", "descending".
+        null_placement : {'at_start', 'at_end'}, default 'at_end'
+            Where null values should appear in the sort order.
+
+        Returns
+        -------
+        sorting_columns : tuple of SortingColumn
+        """
+        if null_placement == 'at_start':
+            nulls_first = True
+        elif null_placement == 'at_end':
+            nulls_first = False
+        else:
+            raise ValueError('null_placement must be "at_start" or "at_end"')
+
+        col_map = _name_to_index_map(schema)
+
+        sorting_columns = []
+
+        for sort_key in sort_keys:
+            if isinstance(sort_key, str):
+                name = sort_key
+                descending = False
+            elif (isinstance(sort_key, tuple) and len(sort_key) == 2 and
+                    isinstance(sort_key[0], str) and
+                    isinstance(sort_key[1], str)):
+                name, descending = sort_key
+                if descending == "descending":
+                    descending = True
+                elif descending == "ascending":
+                    descending = False
+                else:
+                    raise ValueError("Invalid sort key direction: {0}"
+                                     .format(descending))
+            else:
+                raise ValueError("Invalid sort key: {0}".format(sort_key))
+
+            try:
+                column_index = col_map[name]
+            except KeyError:
+                raise ValueError("Sort key name '{0}' not found in schema:\n{1}"
+                                 .format(name, schema))
+
+            sorting_columns.append(
+                cls(column_index, descending=descending, nulls_first=nulls_first)
+            )
+
+        return tuple(sorting_columns)
+
+    @staticmethod
+    def to_ordering(Schema schema, sorting_columns):
+        """
+        Convert a tuple of SortingColumn objects to the same format as
+        :class:`pyarrow.compute.SortOptions`.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema of the input data.
+        sorting_columns : tuple of SortingColumn
+            Columns to sort the input on.
+
+        Returns
+        -------
+        sort_keys : tuple of (name, order) tuples
+        null_placement : {'at_start', 'at_end'}
+        """
+        col_map = {i: name for name, i in _name_to_index_map(schema).items()}
+
+        sort_keys = []
+        nulls_first = None
+
+        for sorting_column in sorting_columns:
+            name = col_map[sorting_column.column_index]
+            if sorting_column.descending:
+                order = "descending"
+            else:
+                order = "ascending"
+            sort_keys.append((name, order))
+            if nulls_first is None:
+                nulls_first = sorting_column.nulls_first
+            elif nulls_first != sorting_column.nulls_first:
+                raise ValueError("Sorting columns have inconsistent null placement")
+
+        if nulls_first:
+            null_placement = "at_start"
+        else:
+            null_placement = "at_end"
+
+        return tuple(sort_keys), null_placement
+
+    def __repr__(self):
+        return """{}(column_index={}, descending={}, nulls_first={})""".format(
+            self.__class__.__name__,
+            self.column_index, self.descending, self.nulls_first)
+
+    def __eq__(self, SortingColumn other):
+        return (self.column_index == other.column_index and
+                self.descending == other.descending and
+                self.nulls_first == other.nulls_first)
+
+    def __hash__(self):
+        return hash((self.column_index, self.descending, self.nulls_first))
+
+    @property
+    def column_index(self):
+        """"Index of column data is sorted by (int)."""
+        return self.column_index
+
+    @property
+    def descending(self):
+        """Whether column is sorted in descending order (bool)."""
+        return self.descending
+
+    @property
+    def nulls_first(self):
+        """Whether null values appear before valid values (bool)."""
+        return self.nulls_first
 
 
 cdef class RowGroupMetaData(_Weakrefable):
@@ -551,14 +765,16 @@ cdef class RowGroupMetaData(_Weakrefable):
         return """{0}
   num_columns: {1}
   num_rows: {2}
-  total_byte_size: {3}""".format(object.__repr__(self),
+  total_byte_size: {3}
+  sorting_columns: {4}""".format(object.__repr__(self),
                                  self.num_columns,
                                  self.num_rows,
-                                 self.total_byte_size)
+                                 self.total_byte_size,
+                                 self.sorting_columns)
 
     def to_dict(self):
         """
-        Get dictionary represenation of the row group metadata.
+        Get dictionary representation of the row group metadata.
 
         Returns
         -------
@@ -571,6 +787,7 @@ cdef class RowGroupMetaData(_Weakrefable):
             num_rows=self.num_rows,
             total_byte_size=self.total_byte_size,
             columns=columns,
+            sorting_columns=[col.to_dict() for col in self.sorting_columns]
         )
         for i in range(self.num_columns):
             columns.append(self.column(i).to_dict())
@@ -590,6 +807,19 @@ cdef class RowGroupMetaData(_Weakrefable):
     def total_byte_size(self):
         """Total byte size of all the uncompressed column data in this row group (int)."""
         return self.metadata.total_byte_size()
+
+    @property
+    def sorting_columns(self):
+        """Columns the row group is sorted by (tuple of :class:`SortingColumn`))."""
+        out = []
+        cdef vector[CSortingColumn] sorting_columns = self.metadata.sorting_columns()
+        for sorting_col in sorting_columns:
+            out.append(SortingColumn(
+                sorting_col.column_idx,
+                sorting_col.descending,
+                sorting_col.nulls_first
+            ))
+        return tuple(out)
 
 
 def _reconstruct_filemetadata(Buffer serialized):
@@ -634,7 +864,7 @@ cdef class FileMetaData(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of the file metadata.
+        Get dictionary representation of the file metadata.
 
         Returns
         -------
@@ -708,7 +938,7 @@ cdef class FileMetaData(_Weakrefable):
         """
         Parquet format version used in file (str, such as '1.0', '2.4').
 
-        If version is missing or unparsable, will default to assuming '2.4'.
+        If version is missing or unparsable, will default to assuming '2.6'.
         """
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
@@ -720,9 +950,9 @@ cdef class FileMetaData(_Weakrefable):
         elif version == ParquetVersion_V2_6:
             return '2.6'
         else:
-            warnings.warn('Unrecognized file version, assuming 2.4: {}'
+            warnings.warn('Unrecognized file version, assuming 2.6: {}'
                           .format(version))
-            return '2.4'
+            return '2.6'
 
     @property
     def created_by(self):
@@ -1152,7 +1382,7 @@ cdef class ParquetReader(_Weakrefable):
     cdef:
         object source
         CMemoryPool* pool
-        unique_ptr[FileReader] reader
+        UniquePtrNoGIL[FileReader] reader
         FileMetaData _metadata
         shared_ptr[CRandomAccessFile] rd_handle
 
@@ -1169,7 +1399,25 @@ cdef class ParquetReader(_Weakrefable):
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
-             thrift_container_size_limit=None):
+             thrift_container_size_limit=None,
+             page_checksum_verification=False):
+        """
+        Open a parquet file for reading.
+
+        Parameters
+        ----------
+        source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
+        use_memory_map : bool, default False
+        read_dictionary : iterable[int or str], optional
+        metadata : FileMetaData, optional
+        buffer_size : int, default 0
+        pre_buffer : bool, default False
+        coerce_int96_timestamp_unit : str, optional
+        decryption_properties : FileDecryptionProperties, optional
+        thrift_string_size_limit : int, optional
+        thrift_container_size_limit : int, optional
+        page_checksum_verification : bool, default False
+        """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
@@ -1205,6 +1453,8 @@ cdef class ParquetReader(_Weakrefable):
                 decryption_properties.unwrap())
 
         arrow_props.set_pre_buffer(pre_buffer)
+
+        properties.set_page_checksum_verification(page_checksum_verification)
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()
@@ -1272,18 +1522,40 @@ cdef class ParquetReader(_Weakrefable):
         return self.reader.get().num_row_groups()
 
     def set_use_threads(self, bint use_threads):
+        """
+        Parameters
+        ----------
+        use_threads : bool
+        """
         self.reader.get().set_use_threads(use_threads)
 
     def set_batch_size(self, int64_t batch_size):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        """
         self.reader.get().set_batch_size(batch_size)
 
     def iter_batches(self, int64_t batch_size, row_groups, column_indices=None,
                      bint use_threads=True):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Yields
+        ------
+        next : RecordBatch
+        """
         cdef:
             vector[int] c_row_groups
             vector[int] c_column_indices
             shared_ptr[CRecordBatch] record_batch
-            unique_ptr[CRecordBatchReader] recordbatchreader
+            UniquePtrNoGIL[CRecordBatchReader] recordbatchreader
 
         self.set_batch_size(batch_size)
 
@@ -1315,7 +1587,6 @@ cdef class ParquetReader(_Weakrefable):
                 check_status(
                     recordbatchreader.get().ReadNext(&record_batch)
                 )
-
             if record_batch.get() == NULL:
                 break
 
@@ -1323,10 +1594,32 @@ cdef class ParquetReader(_Weakrefable):
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
+        """
+        Parameters
+        ----------
+        i : int
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         return self.read_row_groups([i], column_indices, use_threads)
 
     def read_row_groups(self, row_groups not None, column_indices=None,
                         bint use_threads=True):
+        """
+        Parameters
+        ----------
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_row_groups
@@ -1353,6 +1646,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
@@ -1374,6 +1677,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def scan_contents(self, column_indices=None, batch_size=65536):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        batch_size : int32, default 65536
+
+        Returns
+        -------
+        num_rows : int64
+        """
         cdef:
             vector[int] c_column_indices
             int32_t c_batch_size
@@ -1421,6 +1734,18 @@ cdef class ParquetReader(_Weakrefable):
         return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
+        """
+        Read the column at the specified index.
+
+        Parameters
+        ----------
+        column_index : int
+            Index of the column.
+
+        Returns
+        -------
+        column : pyarrow.ChunkedArray
+        """
         cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()
@@ -1441,6 +1766,28 @@ cdef class ParquetReader(_Weakrefable):
         return closed
 
 
+cdef CSortingColumn _convert_sorting_column(SortingColumn sorting_column):
+    cdef CSortingColumn c_sorting_column
+
+    c_sorting_column.column_idx = sorting_column.column_index
+    c_sorting_column.descending = sorting_column.descending
+    c_sorting_column.nulls_first = sorting_column.nulls_first
+
+    return c_sorting_column
+
+
+cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
+    if not (isinstance(sorting_columns, Sequence)
+            and all(isinstance(col, SortingColumn) for col in sorting_columns)):
+        raise ValueError(
+            "'sorting_columns' must be a list of `SortingColumn`")
+
+    cdef vector[CSortingColumn] c_sorting_columns = [_convert_sorting_column(col)
+                                                     for col in sorting_columns]
+
+    return c_sorting_columns
+
+
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
         compression=None,
@@ -1453,7 +1800,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_version=None,
         FileEncryptionProperties encryption_properties=None,
         write_batch_size=None,
-        dictionary_pagesize_limit=None) except *:
+        dictionary_pagesize_limit=None,
+        write_page_index=False,
+        write_page_checksum=False,
+        sorting_columns=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1538,13 +1888,18 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         for column in write_statistics:
             props.enable_statistics(tobytes(column))
 
+    # sorting_columns
+
+    if sorting_columns is not None:
+        props.set_sorting_columns(_convert_sorting_columns(sorting_columns))
+
     # use_byte_stream_split
 
     if isinstance(use_byte_stream_split, bool):
         if use_byte_stream_split:
             if column_encoding is not None:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
             else:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
@@ -1556,7 +1911,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 column_encoding[column] = 'BYTE_STREAM_SPLIT'
             else:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
 
     # column_encoding
@@ -1595,7 +1950,21 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # The user can always specify a smaller row group size (and the default
     # is smaller) when calling write_table.  If the call to write_table uses
     # a size larger than this then it will be latched to this value.
-    props.max_row_group_length(64*1024*1024)
+    props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
+
+    # checksum
+
+    if write_page_checksum:
+        props.enable_page_checksum()
+    else:
+        props.disable_page_checksum()
+
+    # page index
+
+    if write_page_index:
+        props.enable_write_page_index()
+    else:
+        props.disable_write_page_index()
 
     properties = props.build()
 
@@ -1607,7 +1976,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
         writer_engine_version=None,
-        use_compliant_nested_type=False,
+        use_compliant_nested_type=True,
         store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
@@ -1663,6 +2032,34 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
 
     return arrow_properties
 
+cdef _name_to_index_map(Schema arrow_schema):
+    cdef:
+        shared_ptr[CSchema] sp_arrow_schema
+        shared_ptr[SchemaDescriptor] sp_parquet_schema
+        shared_ptr[WriterProperties] props = _create_writer_properties()
+        shared_ptr[ArrowWriterProperties] arrow_props = _create_arrow_writer_properties(
+            use_deprecated_int96_timestamps=False,
+            coerce_timestamps=None,
+            allow_truncated_timestamps=False,
+            writer_engine_version="V2"
+        )
+
+    sp_arrow_schema = pyarrow_unwrap_schema(arrow_schema)
+
+    with nogil:
+        check_status(ToParquetSchema(
+            sp_arrow_schema.get(), deref(props.get()), deref(arrow_props.get()), &sp_parquet_schema))
+
+    out = dict()
+
+    cdef SchemaDescriptor* parquet_schema = sp_parquet_schema.get()
+
+    for i in range(parquet_schema.num_columns()):
+        name = frombytes(parquet_schema.Column(i).path().get().ToDotString())
+        out[name] = i
+
+    return out
+
 
 cdef class ParquetWriter(_Weakrefable):
     cdef:
@@ -1691,7 +2088,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t dictionary_pagesize_limit
         object store_schema
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
+    def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
                   write_statistics=None,
                   MemoryPool memory_pool=None,
@@ -1704,11 +2101,14 @@ cdef class ParquetWriter(_Weakrefable):
                   column_encoding=None,
                   writer_engine_version=None,
                   data_page_version=None,
-                  use_compliant_nested_type=False,
+                  use_compliant_nested_type=True,
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
-                  store_schema=True):
+                  store_schema=True,
+                  write_page_index=False,
+                  write_page_checksum=False,
+                  sorting_columns=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1738,7 +2138,10 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_version=data_page_version,
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
-            dictionary_pagesize_limit=dictionary_pagesize_limit
+            dictionary_pagesize_limit=dictionary_pagesize_limit,
+            write_page_index=write_page_index,
+            write_page_checksum=write_page_checksum,
+            sorting_columns=sorting_columns,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
@@ -1767,7 +2170,7 @@ cdef class ParquetWriter(_Weakrefable):
             int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            c_row_group_size = ctable.num_rows()
+            c_row_group_size = min(ctable.num_rows(), _DEFAULT_ROW_GROUP_SIZE)
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
         else:

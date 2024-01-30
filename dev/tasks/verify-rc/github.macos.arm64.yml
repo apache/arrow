@@ -45,7 +45,9 @@ jobs:
         run: |
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
-          export PATH="$(brew --prefix node@16)/bin:$PATH"
+          # Force node v20 due to GH-39469
+          brew install node@20
+          export PATH="$(brew --prefix node@20)/bin:$PATH"
           export PATH="$(brew --prefix ruby)/bin:$PATH"
           export PKG_CONFIG_PATH="$(brew --prefix ruby)/lib/pkgconfig"
           arrow/dev/release/verify-release-candidate.sh \

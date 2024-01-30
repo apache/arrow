@@ -36,7 +36,7 @@
  * The unit-test is called multiple times, each time to decrypt parquet files using
  * different decryption configuration as described below.
  * In each call two encrypted files are read: one temporary file that was generated using
- * encryption-write-configurations-test.cc test and will be deleted upon
+ * write_configurations_test.cc test and will be deleted upon
  * reading it, while the second resides in
  * parquet-testing/data repository. Those two encrypted files were encrypted using the
  * same encryption configuration.
@@ -59,8 +59,8 @@
  *                                  read the footer + all non-encrypted columns.
  *                                  (pairs with encryption configuration 3)
  *
- * The encrypted parquet files that is read was encrypted using one of the configurations
- * below:
+ * The encrypted parquet files that are read were encrypted using one of the
+ * configurations below:
  *
  *  - Encryption configuration 1:   Encrypt all columns and the footer with the same key.
  *                                  (uniform encryption)
@@ -81,9 +81,7 @@
 
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using parquet::test::ParquetTestException;
 
@@ -168,7 +166,11 @@ class TestDecryptionConfiguration
     vector_of_decryption_configurations_.push_back(NULL);
   }
 
-  void DecryptFile(std::string file, int decryption_config_num) {
+  void DecryptFileInternal(
+      const std::string& file, int decryption_config_num,
+      std::function<void(const std::string& file,
+                         const std::shared_ptr<FileDecryptionProperties>&)>
+          decrypt_func) {
     std::string exception_msg;
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties;
     // if we get decryption_config_num = x then it means the actual number is x+1
@@ -178,11 +180,29 @@ class TestDecryptionConfiguration
           vector_of_decryption_configurations_[decryption_config_num]->DeepClone();
     }
 
-    decryptor_.DecryptFile(file, file_decryption_properties);
+    decrypt_func(std::move(file), std::move(file_decryption_properties));
+  }
+
+  void DecryptFile(const std::string& file, int decryption_config_num) {
+    DecryptFileInternal(
+        file, decryption_config_num,
+        [&](const std::string& file,
+            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+          decryptor_.DecryptFile(file, file_decryption_properties);
+        });
+  }
+
+  void DecryptPageIndex(const std::string& file, int decryption_config_num) {
+    DecryptFileInternal(
+        file, decryption_config_num,
+        [&](const std::string& file,
+            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
+          decryptor_.DecryptPageIndex(file, file_decryption_properties);
+        });
   }
 
   // Check that the decryption result is as expected.
-  void CheckResults(const std::string file_name, unsigned decryption_config_num,
+  void CheckResults(const std::string& file_name, unsigned decryption_config_num,
                     unsigned encryption_config_num) {
     // Encryption_configuration number five contains aad_prefix and
     // disable_aad_prefix_storage.
@@ -190,6 +210,8 @@ class TestDecryptionConfiguration
     if (encryption_config_num == 5) {
       if (decryption_config_num == 1 || decryption_config_num == 3) {
         EXPECT_THROW(DecryptFile(file_name, decryption_config_num - 1), ParquetException);
+        EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
+                     ParquetException);
         return;
       }
     }
@@ -198,6 +220,8 @@ class TestDecryptionConfiguration
     if (decryption_config_num == 2) {
       if (encryption_config_num != 5 && encryption_config_num != 4) {
         EXPECT_THROW(DecryptFile(file_name, decryption_config_num - 1), ParquetException);
+        EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
+                     ParquetException);
         return;
       }
     }
@@ -207,6 +231,7 @@ class TestDecryptionConfiguration
       return;
     }
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
+    EXPECT_NO_THROW(DecryptPageIndex(file_name, decryption_config_num - 1));
   }
 
   // Returns true if file exists. Otherwise returns false.
@@ -219,14 +244,13 @@ class TestDecryptionConfiguration
 // Read encrypted parquet file.
 // The test reads two parquet files that were encrypted using the same encryption
 // configuration:
-// one was generated in encryption-write-configurations-test.cc tests and is deleted
+// one was generated in write_configurations_test.cc tests and is deleted
 // once the file is read and the second exists in parquet-testing/data folder.
 // The name of the files are passed as parameters to the unit-test.
 TEST_P(TestDecryptionConfiguration, TestDecryption) {
   int encryption_config_num = std::get<0>(GetParam());
   const char* param_file_name = std::get<1>(GetParam());
-  // Decrypt parquet file that was generated in encryption-write-configurations-test.cc
-  // test.
+  // Decrypt parquet file that was generated in write_configurations_test.cc test.
   std::string tmp_file_name = "tmp_" + std::string(param_file_name);
   std::string file_name = temp_dir->path().ToString() + tmp_file_name;
   if (!fexists(file_name)) {
@@ -236,7 +260,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
@@ -254,7 +278,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
@@ -272,6 +296,4 @@ INSTANTIATE_TEST_SUITE_P(
             5, "encrypt_columns_and_footer_disable_aad_storage.parquet.encrypted"),
         std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

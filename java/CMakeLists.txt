@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.16)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # find_package() uses <PackageName>_ROOT variables.
@@ -72,6 +72,23 @@ if(BUILD_TESTING)
   add_library(arrow_java_test INTERFACE IMPORTED)
   target_link_libraries(arrow_java_test INTERFACE ArrowTesting::arrow_testing_static
                                                   GTest::gtest_main)
+endif()
+
+# The ARROW_JAVA_JNI_ARCH_DIR will automatically be derived the normalized
+# operating system from system processor. The user can override this variable
+# if auto-detection fails.
+if("${ARROW_JAVA_JNI_ARCH_DIR}" STREQUAL "")
+  if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+    set(ARROW_JAVA_JNI_ARCH_DIR "aarch_64")
+  elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "i386")
+    set(ARROW_JAVA_JNI_ARCH_DIR "x86_64")
+  elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "arm64")
+    set(ARROW_JAVA_JNI_ARCH_DIR "aarch_64")
+  elseif("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "AMD64")
+    set(ARROW_JAVA_JNI_ARCH_DIR "x86_64")
+  else()
+    set(ARROW_JAVA_JNI_ARCH_DIR "${CMAKE_SYSTEM_PROCESSOR}")
+  endif()
 endif()
 
 if(ARROW_JAVA_JNI_ENABLE_C)

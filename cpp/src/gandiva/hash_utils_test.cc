@@ -50,7 +50,7 @@ TEST(TestShaHashUtils, TestSha1Numeric) {
     std::string sha1_as_str(sha_1, out_length);
     EXPECT_EQ(sha1_as_str.size(), sha1_size);
 
-    // The value can not exists inside the set with the hash results
+    // The value cannot exists inside the set with the hash results
     EXPECT_EQ(sha_values.find(sha1_as_str), sha_values.end());
     sha_values.insert(sha1_as_str);
   }
@@ -85,7 +85,7 @@ TEST(TestShaHashUtils, TestSha512Numeric) {
     std::string sha512_as_str(sha_512, out_length);
     EXPECT_EQ(sha512_as_str.size(), sha512_size);
 
-    // The value can not exists inside the set with the hash results
+    // The value cannot exists inside the set with the hash results
     EXPECT_EQ(sha_values.find(sha512_as_str), sha_values.end());
     sha_values.insert(sha512_as_str);
   }
@@ -120,7 +120,7 @@ TEST(TestShaHashUtils, TestSha256Numeric) {
     std::string sha256_as_str(sha_256, out_length);
     EXPECT_EQ(sha256_as_str.size(), sha256_size);
 
-    // The value can not exists inside the set with the hash results
+    // The value cannot exists inside the set with the hash results
     EXPECT_EQ(sha_values.find(sha256_as_str), sha_values.end());
     sha_values.insert(sha256_as_str);
   }
@@ -154,7 +154,7 @@ TEST(TestShaHashUtils, TestMD5Numeric) {
     std::string md5_as_str(md5, out_length);
     EXPECT_EQ(md5_as_str.size(), md5_size);
 
-    // The value can not exists inside the set with the hash results
+    // The value cannot exists inside the set with the hash results
     EXPECT_EQ(md5_values.find(md5_as_str), md5_values.end());
     md5_values.insert(md5_as_str);
   }

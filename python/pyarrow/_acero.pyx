@@ -155,7 +155,7 @@ class ProjectNodeOptions(_ProjectNodeOptions):
         List of expressions to evaluate against the source batch. This must
         be scalar expressions.
     names : list of str, optional
-        List of names for each of the ouptut columns (same length as
+        List of names for each of the output columns (same length as
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
     """
@@ -213,7 +213,7 @@ class AggregateNodeOptions(_AggregateNodeOptions):
     Parameters
     ----------
     aggregates : list of tuples
-        Aggregations which will be applied to the targetted fields.
+        Aggregations which will be applied to the targeted fields.
         Specified as a list of tuples, where each tuple is one aggregation
         specification and consists of: aggregation target column(s) followed
         by function name, aggregation function options object and the
@@ -527,35 +527,3 @@ cdef class Declaration(_Weakrefable):
             GetResultValue(DeclarationToReader(self.unwrap(), use_threads)).release()
         )
         return reader
-
-
-def _group_by(table, aggregates, keys):
-    cdef:
-        shared_ptr[CTable] c_table
-        vector[CAggregate] c_aggregates
-        vector[CFieldRef] c_keys
-        CAggregate c_aggr
-
-    c_table = (<Table> table).sp_table
-
-    for aggr_arg_indices, aggr_func_name, aggr_opts, aggr_name in aggregates:
-        c_aggr.function = tobytes(aggr_func_name)
-        if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
-        else:
-            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for field_idx in aggr_arg_indices:
-            c_aggr.target.push_back(CFieldRef(<int> field_idx))
-
-        c_aggr.name = tobytes(aggr_name)
-        c_aggregates.push_back(move(c_aggr))
-
-    for key_idx in keys:
-        c_keys.push_back(CFieldRef(<int> key_idx))
-
-    with nogil:
-        sp_table = GetResultValue(
-            CTableGroupBy(c_table, c_aggregates, c_keys)
-        )
-
-    return pyarrow_wrap_table(sp_table)

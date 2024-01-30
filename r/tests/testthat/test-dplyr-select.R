@@ -28,10 +28,21 @@ test_that("Empty select returns no columns", {
     tbl
   )
 })
+
 test_that("Empty select still includes the group_by columns", {
   expect_message(
     compare_dplyr_binding(
       .input %>% group_by(chr) %>% select() %>% collect(),
+      tbl
+    ),
+    "Adding missing grouping variables"
+  )
+})
+
+test_that("Missing grouping columns are added to the beginning of the list", {
+  expect_message(
+    compare_dplyr_binding(
+      .input %>% group_by(chr) %>% select(int) %>% collect(),
       tbl
     ),
     "Adding missing grouping variables"

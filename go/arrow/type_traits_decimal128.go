@@ -17,11 +17,10 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/endian"
 )
 
 // Decimal128 traits
@@ -47,28 +46,12 @@ func (decimal128Traits) PutValue(b []byte, v decimal128.Num) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (decimal128Traits) CastFromBytes(b []byte) []decimal128.Num {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []decimal128.Num
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / Decimal128SizeBytes
-	s.Cap = h.Cap / Decimal128SizeBytes
-
-	return res
+	return GetData[decimal128.Num](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (decimal128Traits) CastToBytes(b []decimal128.Num) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * Decimal128SizeBytes
-	s.Cap = h.Cap * Decimal128SizeBytes
-
-	return res
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.

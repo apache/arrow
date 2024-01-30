@@ -17,11 +17,12 @@
 package array_test
 
 import (
+	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -171,4 +172,83 @@ func TestMapArrayBuildIntToInt(t *testing.T) {
 	}
 
 	assert.Equal(t, "[{[0 1 2 3 4 5] [1 1 2 3 5 8]} (null) {[0 1 2 3 4 5] [(null) (null) 0 1 (null) 2]} {[] []}]", arr.String())
+}
+
+func TestMapStringRoundTrip(t *testing.T) {
+	// 1. create array
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32)
+
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewMapBuilderWithType(mem, dt)
+	defer b.Release()
+
+	kb := b.KeyBuilder().(*array.StringBuilder)
+	ib := b.ItemBuilder().(*array.Int32Builder)
+
+	for n := 0; n < 10; n++ {
+		b.AppendNull()
+		b.Append(true)
+
+		for r := 'a'; r <= 'z'; r++ {
+			kb.Append(string(r) + strconv.Itoa(n))
+			if (n+int(r))%2 == 0 {
+				ib.AppendNull()
+			} else {
+				ib.Append(int32(n + int(r)))
+			}
+		}
+	}
+
+	arr := b.NewArray().(*array.Map)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewMapBuilderWithType(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Map)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestMapBuilder_SetNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		arr          *array.Map
+		equalValid   = []bool{true, true, true, true, true, true, true}
+		equalOffsets = []int32{0, 1, 2, 5, 6, 7, 8, 10}
+		equalKeys    = []string{"a", "a", "a", "b", "c", "a", "a", "a", "a", "b"}
+		equalValues  = []int32{1, 2, 3, 4, 5, 2, 2, 2, 5, 6}
+	)
+
+	bldr := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
+	defer bldr.Release()
+
+	kb := bldr.KeyBuilder().(*array.StringBuilder)
+	ib := bldr.ItemBuilder().(*array.Int32Builder)
+
+	bldr.AppendValues(equalOffsets, equalValid)
+	for _, k := range equalKeys {
+		kb.Append(k)
+	}
+	ib.AppendValues(equalValues, nil)
+
+	bldr.SetNull(0)
+	bldr.SetNull(3)
+
+	arr = bldr.NewMapArray()
+	defer arr.Release()
+
+	assert.True(t, arr.IsNull(0))
+	assert.True(t, arr.IsValid(1))
+	assert.True(t, arr.IsNull(3))
 }

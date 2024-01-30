@@ -74,8 +74,7 @@
 #'    Modify or replace by assigning in (`tab$metadata <- new_metadata`).
 #'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `ChunkedArray`s
-#' @rdname Table
-#' @name Table
+#' @rdname Table-class
 #' @export
 Table <- R6Class("Table",
   inherit = ArrowTabular,
@@ -242,13 +241,15 @@ cbind.Table <- function(...) {
   Table$create(!!!columns)
 }
 
+#' Create an Arrow Table
+#'
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and named vectors, the inputs will be autospliced together
 #' (see examples). Alternatively, you can provide a single Arrow IPC
 #' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
-#' @rdname Table
+#' @rdname table
 #' @examples
 #' tbl <- arrow_table(name = rownames(mtcars), mtcars)
 #' dim(tbl)
@@ -257,6 +258,7 @@ cbind.Table <- function(...) {
 #' tbl$mpg
 #' tbl[["cyl"]]
 #' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
+#' @seealso [Table]
 #' @export
 arrow_table <- Table$create
 

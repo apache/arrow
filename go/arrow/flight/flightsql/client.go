@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -58,18 +58,6 @@ type Client struct {
 	Alloc memory.Allocator
 }
 
-// Ensure the result of a DoAction is fully consumed
-func readUntilEOF(stream pb.FlightService_DoActionClient) error {
-	for {
-		_, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		} else if err != nil {
-			return err
-		}
-	}
-}
-
 func descForCommand(cmd proto.Message) (*flight.FlightDescriptor, error) {
 	var any anypb.Any
 	if err := any.MarshalFrom(cmd); err != nil {
@@ -92,6 +80,17 @@ func flightInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, op
 		return nil, err
 	}
 	return cl.getFlightInfo(ctx, desc, opts...)
+}
+
+func pollInfoForCommand(ctx context.Context, cl *Client, cmd proto.Message, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if retryDescriptor != nil {
+		return cl.Client.PollFlightInfo(ctx, retryDescriptor, opts...)
+	}
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return cl.Client.PollFlightInfo(ctx, desc, opts...)
 }
 
 func schemaForCommand(ctx context.Context, cl *Client, cmd proto.Message, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -135,6 +134,14 @@ func (c *Client) Execute(ctx context.Context, query string, opts ...grpc.CallOpt
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
 }
 
+// ExecutePoll idempotently starts execution of a query/checks for completion.
+// To check for completion, pass the FlightDescriptor from the previous call
+// to ExecutePoll as the retryDescriptor.
+func (c *Client) ExecutePoll(ctx context.Context, query string, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	cmd := pb.CommandStatementQuery{Query: query}
+	return pollInfoForCommand(ctx, c, &cmd, retryDescriptor, opts...)
+}
+
 // GetExecuteSchema gets the schema of the result set of a query without
 // executing the query itself.
 func (c *Client) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -146,6 +153,12 @@ func (c *Client) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts 
 	cmd := pb.CommandStatementSubstraitPlan{
 		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
 	return flightInfoForCommand(ctx, c, &cmd, opts...)
+}
+
+func (c *Client) ExecuteSubstraitPoll(ctx context.Context, plan SubstraitPlan, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	cmd := pb.CommandStatementSubstraitPlan{
+		Plan: &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version}}
+	return pollInfoForCommand(ctx, c, &cmd, retryDescriptor, opts...)
 }
 
 func (c *Client) GetExecuteSubstraitSchema(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -475,7 +488,7 @@ func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.
 
 	// XXX: assuming server will not return a result and then an error
 	// (or else we need to also try to clean up the statement)
-	if err = readUntilEOF(results); err != nil {
+	if err = flight.ReadUntilEOF(results); err != nil {
 		return nil, err
 	}
 
@@ -498,6 +511,9 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 // Close will close the underlying flight Client in use by this flightsql.Client
 func (c *Client) Close() error { return c.Client.Close() }
 
+// Deprecated: In 13.0.0. Use CancelFlightInfo instead if you can
+// assume that server requires 13.0.0 or later. Otherwise, you may
+// need to use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
 	const actionType = CancelQueryActionType
 
@@ -527,7 +543,7 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 		return
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return
 	}
 
@@ -541,6 +557,14 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 
 	cancelResult = result.GetResult()
 	return
+}
+
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+	return c.Client.CancelFlightInfo(ctx, request, opts...)
+}
+
+func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
@@ -564,7 +588,7 @@ func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) 
 		return nil, err
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -607,6 +631,15 @@ func (tx *Txn) Execute(ctx context.Context, query string, opts ...grpc.CallOptio
 	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
 }
 
+func (tx *Txn) ExecutePoll(ctx context.Context, query string, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	// The server should encode the transaction into the retry descriptor
+	cmd := &pb.CommandStatementQuery{Query: query, TransactionId: tx.txn}
+	return pollInfoForCommand(ctx, tx.c, cmd, retryDescriptor, opts...)
+}
+
 func (tx *Txn) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	if !tx.txn.IsValid() {
 		return nil, ErrInvalidTxn
@@ -615,6 +648,18 @@ func (tx *Txn) ExecuteSubstrait(ctx context.Context, plan SubstraitPlan, opts ..
 		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
 		TransactionId: tx.txn}
 	return flightInfoForCommand(ctx, tx.c, cmd, opts...)
+}
+
+func (tx *Txn) ExecuteSubstraitPoll(ctx context.Context, plan SubstraitPlan, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if !tx.txn.IsValid() {
+		return nil, ErrInvalidTxn
+	}
+	// The server should encode the transaction into the retry descriptor
+	cmd := &pb.CommandStatementSubstraitPlan{
+		Plan:          &pb.SubstraitPlan{Plan: plan.Plan, Version: plan.Version},
+		TransactionId: tx.txn,
+	}
+	return pollInfoForCommand(ctx, tx.c, cmd, retryDescriptor, opts...)
 }
 
 func (tx *Txn) GetExecuteSchema(ctx context.Context, query string, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
@@ -801,7 +846,7 @@ func (tx *Txn) Commit(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
@@ -829,7 +874,7 @@ func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.CallOption) (Savepoint, error) {
@@ -861,7 +906,7 @@ func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.Cal
 		return nil, err
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -895,7 +940,7 @@ func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
@@ -921,7 +966,7 @@ func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 // PreparedStatement represents a constructed PreparedStatement on the server
@@ -980,6 +1025,52 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 	}
 
 	return p.client.getFlightInfo(ctx, desc, opts...)
+}
+
+// ExecutePoll executes the prepared statement on the server and returns a PollInfo
+// indicating the progress of execution.
+//
+// Will error if already closed.
+func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	if p.closed {
+		return nil, errors.New("arrow/flightsql: prepared statement already closed")
+	}
+
+	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+
+	desc := retryDescriptor
+	var err error
+
+	if desc == nil {
+		desc, err = descForCommand(cmd)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if retryDescriptor == nil {
+		if p.hasBindParameters() {
+			pstream, err := p.client.Client.DoPut(ctx, opts...)
+			if err != nil {
+				return nil, err
+			}
+
+			wr, err := p.writeBindParameters(pstream, desc)
+			if err != nil {
+				return nil, err
+			}
+			if err = wr.Close(); err != nil {
+				return nil, err
+			}
+			pstream.CloseSend()
+
+			// wait for the server to ack the result
+			if _, err = pstream.Recv(); err != nil && err != io.EOF {
+				return nil, err
+			}
+		}
+	}
+	return p.client.Client.PollFlightInfo(ctx, desc, opts...)
 }
 
 // ExecuteUpdate executes the prepared statement update query on the server
@@ -1073,6 +1164,9 @@ func (p *PreparedStatement) DatasetSchema() *arrow.Schema { return p.datasetSche
 // ParameterSchema may be nil if the server did not return it when creating
 // the prepared statement.
 func (p *PreparedStatement) ParameterSchema() *arrow.Schema { return p.paramSchema }
+
+// The handle associated with this PreparedStatement
+func (p *PreparedStatement) Handle() []byte { return p.handle }
 
 // GetSchema re-requests the schema of the result set of the prepared
 // statement from the server. It should otherwise be identical to DatasetSchema.
@@ -1170,5 +1264,5 @@ func (p *PreparedStatement) Close(ctx context.Context, opts ...grpc.CallOption) 
 	}
 
 	p.closed = true
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }

@@ -31,7 +31,7 @@ case ${normalized_arch} in
     ;;
 esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/${normalized_arch}
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -56,7 +56,7 @@ export ARROW_ORC
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -72,16 +72,16 @@ cmake \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_SUBSTRAIT=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
+  -DARROW_JSON=${ARROW_DATASET} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
-  -DAWSSDK_SOURCE=BUNDLED \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DGTest_SOURCE=BUNDLED \
@@ -97,6 +97,7 @@ if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
   # unstable
+  exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
   exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \
@@ -117,7 +118,7 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 
@@ -136,8 +137,8 @@ archery linking check-dependencies \
   --allow libncurses \
   --allow libobjc \
   --allow libz \
-  libarrow_cdata_jni.dylib \
-  libarrow_dataset_jni.dylib \
-  libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib
+  arrow_cdata_jni/${normalized_arch}/libarrow_cdata_jni.dylib \
+  arrow_dataset_jni/${normalized_arch}/libarrow_dataset_jni.dylib \
+  arrow_orc_jni/${normalized_arch}/libarrow_orc_jni.dylib \
+  gandiva_jni/${normalized_arch}/libgandiva_jni.dylib
 popd

@@ -477,6 +477,13 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testNullVector() {
+    try (final NullVector vector = new NullVector("v", 1024)) {
+      assertTrue(roundtrip(vector, NullVector.class));
+    }
+  }
+
+  @Test
   public void testVarBinaryVector() {
     try (final VarBinaryVector vector = new VarBinaryVector("v", allocator)) {
       setVector(vector, "abc".getBytes(), "def".getBytes(), null);
@@ -530,6 +537,14 @@ public class RoundtripTest {
     try (final ListVector vector = ListVector.empty("v", allocator)) {
       setVector(vector, Arrays.stream(new int[] { 1, 2 }).boxed().collect(Collectors.toList()),
           Arrays.stream(new int[] { 3, 4 }).boxed().collect(Collectors.toList()), new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, ListVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyListVector() {
+    try (final ListVector vector = ListVector.empty("v", allocator)) {
+      setVector(vector, new ArrayList<Integer>());
       assertTrue(roundtrip(vector, ListVector.class));
     }
   }

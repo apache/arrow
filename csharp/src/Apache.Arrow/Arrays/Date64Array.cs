@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
@@ -23,7 +24,10 @@ namespace Apache.Arrow
     /// stored as the number of milliseconds since the dawn of (UNIX) time, excluding leap seconds, in multiples of
     /// 86400000.
     /// </summary>
-    public class Date64Array: PrimitiveArray<long>
+    public class Date64Array : PrimitiveArray<long>, IReadOnlyList<DateTime?>
+#if NET6_0_OR_GREATER
+        , IReadOnlyList<DateOnly?>
+#endif
     {
         private const long MillisecondsPerDay = 86400000;
 
@@ -39,7 +43,7 @@ namespace Apache.Arrow
         /// </summary>
         public class Builder : DateArrayBuilder<long, Date64Array, Builder>
         {
-            private class DateBuilder: PrimitiveArrayBuilder<long, Date64Array, DateBuilder>
+            private class DateBuilder : PrimitiveArrayBuilder<long, Date64Array, DateBuilder>
             {
                 protected override Date64Array Build(
                     ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
@@ -69,6 +73,13 @@ namespace Apache.Arrow
                 long days = millis / MillisecondsPerDay;
                 return (millis < 0 ? days - 1 : days) * MillisecondsPerDay;
             }
+
+#if NET6_0_OR_GREATER
+            protected override long Convert(DateOnly date)
+            {
+                return ((long)date.DayNumber - _epochDayNumber) * MillisecondsPerDay;
+            }
+#endif
         }
 
         public Date64Array(ArrayData data)
@@ -112,6 +123,46 @@ namespace Apache.Arrow
             return value.HasValue
                 ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
                 : default(DateTimeOffset?);
+        }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the date at the specified index
+        /// </summary>
+        /// <param name="index">Index at which to get the date.</param>
+        /// <returns>Returns a <see cref="DateOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public DateOnly? GetDateOnly(int index)
+        {
+            long? value = GetValue(index);
+            return value.HasValue
+                ? DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(value.Value).UtcDateTime)
+                : default(DateOnly?);
+        }
+
+        int IReadOnlyCollection<DateOnly?>.Count => Length;
+
+        DateOnly? IReadOnlyList<DateOnly?>.this[int index] => GetDateOnly(index);
+
+        IEnumerator<DateOnly?> IEnumerable<DateOnly?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetDateOnly(index);
+            };
+        }
+#endif
+
+        int IReadOnlyCollection<DateTime?>.Count => Length;
+
+        DateTime? IReadOnlyList<DateTime?>.this[int index] => GetDateTime(index);
+
+        IEnumerator<DateTime?> IEnumerable<DateTime?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetDateTime(index);
+            };
         }
     }
 }

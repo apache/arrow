@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
@@ -202,8 +203,9 @@ class Ranker<Array> : public RankerMixin<Array, Ranker<Array>> {
     ARROW_ASSIGN_OR_RAISE(auto array_sorter, GetArraySorter(*physical_type_));
 
     ArrayType array(input_.data());
-    NullPartitionResult sorted = array_sorter(indices_begin_, indices_end_, array, 0,
-                                              ArraySortOptions(order_, null_placement_));
+    ARROW_ASSIGN_OR_RAISE(NullPartitionResult sorted,
+                          array_sorter(indices_begin_, indices_end_, array, 0,
+                                       ArraySortOptions(order_, null_placement_), ctx_));
 
     auto value_selector = [&array](int64_t index) {
       return GetView::LogicalValue(array.GetView(index));

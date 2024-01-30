@@ -30,6 +30,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -85,7 +86,7 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
-bool ChunkedArray::Equals(const ChunkedArray& other) const {
+bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) const {
   if (length_ != other.length()) {
     return false;
   }
@@ -101,9 +102,9 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
   // the underlying data independently of the chunk size.
   return internal::ApplyBinaryChunked(
              *this, other,
-             [](const Array& left_piece, const Array& right_piece,
-                int64_t ARROW_ARG_UNUSED(position)) {
-               if (!left_piece.Equals(right_piece)) {
+             [&](const Array& left_piece, const Array& right_piece,
+                 int64_t ARROW_ARG_UNUSED(position)) {
+               if (!left_piece.Equals(right_piece, opts)) {
                  return Status::Invalid("Unequal piece");
                }
                return Status::OK();
@@ -111,14 +112,32 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
       .ok();
 }
 
-bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
-  if (this == other.get()) {
-    return true;
+namespace {
+
+bool mayHaveNaN(const arrow::DataType& type) {
+  if (type.num_fields() == 0) {
+    return is_floating(type.id());
+  } else {
+    for (const auto& field : type.fields()) {
+      if (mayHaveNaN(*field->type())) {
+        return true;
+      }
+    }
   }
+  return false;
+}
+
+}  //  namespace
+
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other,
+                          const EqualOptions& opts) const {
   if (!other) {
     return false;
   }
-  return Equals(*other.get());
+  if (this == other.get() && !mayHaveNaN(*type_)) {
+    return true;
+  }
+  return Equals(*other.get(), opts);
 }
 
 bool ChunkedArray::ApproxEquals(const ChunkedArray& other,

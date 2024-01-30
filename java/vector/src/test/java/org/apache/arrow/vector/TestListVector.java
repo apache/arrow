@@ -20,7 +20,9 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,10 +30,15 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -100,9 +107,9 @@ public class TestListVector {
       Object result = outVector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
       assertEquals(3, resultSet.size());
-      assertEquals(new Long(1), (Long) resultSet.get(0));
-      assertEquals(new Long(2), (Long) resultSet.get(1));
-      assertEquals(new Long(3), (Long) resultSet.get(2));
+      assertEquals(Long.valueOf(1), resultSet.get(0));
+      assertEquals(Long.valueOf(2), resultSet.get(1));
+      assertEquals(Long.valueOf(3), resultSet.get(2));
 
       /* index 1 */
       result = outVector.getObject(1);
@@ -141,7 +148,7 @@ public class TestListVector {
       assertEquals(Integer.toString(-1), Integer.toString(listVector.getLastSet()));
 
       int index = 0;
-      int offset = 0;
+      int offset;
 
       /* write [10, 11, 12] to the list vector at index 0 */
       BitVectorHelper.setBit(validityBuffer, index);
@@ -220,36 +227,36 @@ public class TestListVector {
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       Long actual = dataVector.getObject(offset);
-      assertEquals(new Long(10), actual);
+      assertEquals(Long.valueOf(10), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(11), actual);
+      assertEquals(Long.valueOf(11), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(12), actual);
+      assertEquals(Long.valueOf(12), actual);
 
       index++;
       offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(13), actual);
+      assertEquals(Long.valueOf(13), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(14), actual);
+      assertEquals(Long.valueOf(14), actual);
 
       index++;
       offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(15), actual);
+      assertEquals(Long.valueOf(15), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(16), actual);
+      assertEquals(Long.valueOf(16), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(17), actual);
+      assertEquals(Long.valueOf(17), actual);
 
       index++;
       offset = offsetBuffer.getInt(index * ListVector.OFFSET_WIDTH);
@@ -321,8 +328,8 @@ public class TestListVector {
       /* check the vector output */
 
       int index = 0;
-      int offset = 0;
-      Long actual = null;
+      int offset;
+      Long actual;
 
       /* index 0 */
       assertFalse(listVector.isNull(index));
@@ -330,13 +337,13 @@ public class TestListVector {
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(10), actual);
+      assertEquals(Long.valueOf(10), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(11), actual);
+      assertEquals(Long.valueOf(11), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(12), actual);
+      assertEquals(Long.valueOf(12), actual);
 
       /* index 1 */
       index++;
@@ -345,10 +352,10 @@ public class TestListVector {
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(13), actual);
+      assertEquals(Long.valueOf(13), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(14), actual);
+      assertEquals(Long.valueOf(14), actual);
 
       /* index 2 */
       index++;
@@ -357,16 +364,16 @@ public class TestListVector {
       assertEquals(Integer.toString(5), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(15), actual);
+      assertEquals(Long.valueOf(15), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(16), actual);
+      assertEquals(Long.valueOf(16), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(17), actual);
+      assertEquals(Long.valueOf(17), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(18), actual);
+      assertEquals(Long.valueOf(18), actual);
 
       /* index 3 */
       index++;
@@ -375,7 +382,7 @@ public class TestListVector {
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(19), actual);
+      assertEquals(Long.valueOf(19), actual);
 
       /* index 4 */
       index++;
@@ -384,16 +391,16 @@ public class TestListVector {
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(20), actual);
+      assertEquals(Long.valueOf(20), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(21), actual);
+      assertEquals(Long.valueOf(21), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(22), actual);
+      assertEquals(Long.valueOf(22), actual);
       offset++;
       actual = dataVector.getObject(offset);
-      assertEquals(new Long(23), actual);
+      assertEquals(Long.valueOf(23), actual);
 
       /* index 5 */
       index++;
@@ -520,15 +527,15 @@ public class TestListVector {
       assertEquals(4, resultSet.get(1).size()); /* size of second inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(50), list.get(0));
-      assertEquals(new Long(100), list.get(1));
-      assertEquals(new Long(200), list.get(2));
+      assertEquals(Long.valueOf(50), list.get(0));
+      assertEquals(Long.valueOf(100), list.get(1));
+      assertEquals(Long.valueOf(200), list.get(2));
 
       list = resultSet.get(1);
-      assertEquals(new Long(75), list.get(0));
-      assertEquals(new Long(125), list.get(1));
-      assertEquals(new Long(150), list.get(2));
-      assertEquals(new Long(175), list.get(3));
+      assertEquals(Long.valueOf(75), list.get(0));
+      assertEquals(Long.valueOf(125), list.get(1));
+      assertEquals(Long.valueOf(150), list.get(2));
+      assertEquals(Long.valueOf(175), list.get(3));
 
       /* get listVector value at index 1 -- the value itself is a listvector */
       result = listVector.getObject(1);
@@ -540,16 +547,16 @@ public class TestListVector {
       assertEquals(3, resultSet.get(2).size()); /* size of third inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(10), list.get(0));
+      assertEquals(Long.valueOf(10), list.get(0));
 
       list = resultSet.get(1);
-      assertEquals(new Long(15), list.get(0));
-      assertEquals(new Long(20), list.get(1));
+      assertEquals(Long.valueOf(15), list.get(0));
+      assertEquals(Long.valueOf(20), list.get(1));
 
       list = resultSet.get(2);
-      assertEquals(new Long(25), list.get(0));
-      assertEquals(new Long(30), list.get(1));
-      assertEquals(new Long(35), list.get(2));
+      assertEquals(Long.valueOf(25), list.get(0));
+      assertEquals(Long.valueOf(30), list.get(1));
+      assertEquals(Long.valueOf(35), list.get(2));
 
       /* check underlying bitVector */
       assertFalse(listVector.isNull(0));
@@ -654,13 +661,13 @@ public class TestListVector {
       assertEquals(2, resultSet.get(1).size()); /* size of second inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(50), list.get(0));
-      assertEquals(new Long(100), list.get(1));
-      assertEquals(new Long(200), list.get(2));
+      assertEquals(Long.valueOf(50), list.get(0));
+      assertEquals(Long.valueOf(100), list.get(1));
+      assertEquals(Long.valueOf(200), list.get(2));
 
       list = resultSet.get(1);
-      assertEquals(new Long(75), list.get(0));
-      assertEquals(new Long(125), list.get(1));
+      assertEquals(Long.valueOf(75), list.get(0));
+      assertEquals(Long.valueOf(125), list.get(1));
 
       /* get listVector value at index 1 -- the value itself is a listvector */
       result = listVector.getObject(1);
@@ -671,13 +678,13 @@ public class TestListVector {
       assertEquals(3, resultSet.get(1).size()); /* size of second inner list */
 
       list = resultSet.get(0);
-      assertEquals(new Long(15), list.get(0));
-      assertEquals(new Long(20), list.get(1));
+      assertEquals(Long.valueOf(15), list.get(0));
+      assertEquals(Long.valueOf(20), list.get(1));
 
       list = resultSet.get(1);
-      assertEquals(new Long(25), list.get(0));
-      assertEquals(new Long(30), list.get(1));
-      assertEquals(new Long(35), list.get(2));
+      assertEquals(Long.valueOf(25), list.get(0));
+      assertEquals(Long.valueOf(30), list.get(1));
+      assertEquals(Long.valueOf(35), list.get(2));
 
       /* check underlying bitVector */
       assertFalse(listVector.isNull(0));
@@ -721,15 +728,15 @@ public class TestListVector {
       Object result = listVector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
       assertEquals(3, resultSet.size());
-      assertEquals(new Long(50), resultSet.get(0));
-      assertEquals(new Long(100), resultSet.get(1));
-      assertEquals(new Long(200), resultSet.get(2));
+      assertEquals(Long.valueOf(50), resultSet.get(0));
+      assertEquals(Long.valueOf(100), resultSet.get(1));
+      assertEquals(Long.valueOf(200), resultSet.get(2));
 
       result = listVector.getObject(1);
       resultSet = (ArrayList<Long>) result;
       assertEquals(2, resultSet.size());
-      assertEquals(new Long(250), resultSet.get(0));
-      assertEquals(new Long(300), resultSet.get(1));
+      assertEquals(Long.valueOf(250), resultSet.get(0));
+      assertEquals(Long.valueOf(300), resultSet.get(1));
 
       List<ArrowBuf> buffers = listVector.getFieldBuffers();
 
@@ -737,7 +744,7 @@ public class TestListVector {
       long offsetAddress = listVector.getOffsetBufferAddress();
 
       try {
-        long dataAddress = listVector.getDataBufferAddress();
+        listVector.getDataBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
@@ -770,7 +777,7 @@ public class TestListVector {
     try (final ListVector vector = ListVector.empty("", allocator)) {
       vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
-      /**
+      /*
        * use the default multiplier of 5,
        * 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value capacity.
        */
@@ -785,7 +792,7 @@ public class TestListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 512 * 0.1 => 51
        * For an int vector this is 204 bytes of memory for data buffer
        * and 7 bytes for validity buffer.
@@ -798,7 +805,7 @@ public class TestListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 51);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 512 * 0.01 => 5
        * For an int vector this is 20 bytes of memory for data buffer
        * and 1 byte for validity buffer.
@@ -811,7 +818,7 @@ public class TestListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 5);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 5 * 0.1 => 0
        * which is then rounded off to 1. So we pass value count as 1
        * to the inner int vector.
@@ -847,11 +854,11 @@ public class TestListVector {
 
       Object result = vector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
-      assertEquals(new Long(7), resultSet.get(0));
+      assertEquals(Long.valueOf(7), resultSet.get(0));
 
       result = vector.getObject(1);
       resultSet = (ArrayList<Long>) result;
-      assertEquals(new Long(8), resultSet.get(0));
+      assertEquals(Long.valueOf(8), resultSet.get(0));
 
       // Clear and release the buffers to trigger a realloc when adding next value
       vector.clear();
@@ -867,11 +874,11 @@ public class TestListVector {
 
       result = vector.getObject(0);
       resultSet = (ArrayList<Long>) result;
-      assertEquals(new Long(7), resultSet.get(0));
+      assertEquals(Long.valueOf(7), resultSet.get(0));
 
       result = vector.getObject(1);
       resultSet = (ArrayList<Long>) result;
-      assertEquals(new Long(8), resultSet.get(0));
+      assertEquals(Long.valueOf(8), resultSet.get(0));
     }
   }
 
@@ -896,6 +903,144 @@ public class TestListVector {
 
       assertEquals(expectedField, writer.getField());
     }
+  }
+
+  @Test
+  public void testWriterGetTimestampMilliTZField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.timeStampMilliTZ().writeTimeStampMilliTZ(1000L);
+      writer.timeStampMilliTZ().writeTimeStampMilliTZ(2000L);
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterUsingHolderGetTimestampMilliTZField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+      holder.timezone = "SomeFakeTimeZone";
+      writer.startList();
+      holder.value = 12341234L;
+      writer.timeStampMilliTZ().write(holder);
+      holder.value = 55555L;
+      writer.timeStampMilliTZ().write(holder);
+
+      // Writing with a different timezone should throw
+      holder.timezone = "AsdfTimeZone";
+      holder.value = 77777;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.timeStampMilliTZ().write(holder));
+      assertEquals("holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterGetDurationField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      DurationHolder durationHolder = new DurationHolder();
+      durationHolder.unit = TimeUnit.MILLISECOND;
+
+      writer.startList();
+      durationHolder.value = 812374L;
+      writer.duration().write(durationHolder);
+      durationHolder.value = 143451L;
+      writer.duration().write(durationHolder);
+
+      // Writing with a different unit should throw
+      durationHolder.unit = TimeUnit.SECOND;
+      durationHolder.value = 8888888;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.duration().write(durationHolder));
+      assertEquals("holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterGetFixedSizeBinaryField() throws Exception {
+    // Adapted from: TestComplexWriter.java:fixedSizeBinaryWriters
+    // test values
+    int numValues = 10;
+    int byteWidth = 9;
+    byte[][] values = new byte[numValues][byteWidth];
+    for (int i = 0; i < numValues; i++) {
+      for (int j = 0; j < byteWidth; j++) {
+        values[i][j] = ((byte) i);
+      }
+    }
+    ArrowBuf[] bufs = new ArrowBuf[numValues];
+    for (int i = 0; i < numValues; i++) {
+      bufs[i] = allocator.buffer(byteWidth);
+      bufs[i].setBytes(0, values[i]);
+    }
+
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      FixedSizeBinaryHolder binHolder = new FixedSizeBinaryHolder();
+      binHolder.byteWidth = byteWidth;
+      writer.startList();
+      for (int i = 0; i < numValues; i++) {
+        binHolder.buffer = bufs[i];
+        writer.fixedSizeBinary().write(binHolder);
+      }
+
+      // Writing with a different byteWidth should throw
+      // Note just reusing the last buffer value since that won't matter here anyway
+      binHolder.byteWidth = 3;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.fixedSizeBinary().write(binHolder));
+      assertEquals("holder.byteWidth: 3 not equal to vector byteWidth: 9", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.FixedSizeBinary(byteWidth)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+    AutoCloseables.close(bufs);
   }
 
   @Test
@@ -968,6 +1113,46 @@ public class TestListVector {
       assertFalse(vector.isNull(2));
       assertTrue(vector.isEmpty(2));
       assertFalse(vector.isEmpty(3));
+    }
+  }
+
+  @Test
+  public void testTotalCapacity() {
+    final FieldType type = FieldType.nullable(MinorType.INT.getType());
+    try (final ListVector vector = new ListVector("list", allocator, type, null)) {
+      // Force the child vector to be allocated based on the type
+      // (this is a bad API: we have to track and repeat the type twice)
+      vector.addOrGetVector(type);
+
+      // Specify the allocation size but do not actually allocate
+      vector.setInitialTotalCapacity(10, 100);
+
+      // Finally actually do the allocation
+      vector.allocateNewSafe();
+
+      // Note: allocator rounds up and can be greater than the requested allocation.
+      assertTrue(vector.getValueCapacity() >= 10);
+      assertTrue(vector.getDataVector().getValueCapacity() >= 100);
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (ListVector fromVector = ListVector.empty("input", allocator)) {
+      UnionListWriter writer = fromVector.getWriter();
+      writer.allocate();
+      writer.setPosition(0); // optional
+      writer.startList();
+      writer.bigInt().writeBigInt(1);
+      writer.bigInt().writeBigInt(2);
+      writer.bigInt().writeBigInt(3);
+      writer.endList();
+      writer.setValueCount(1);
+      final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(),
+          allocator);
+      final ListVector toVector = (ListVector) transferPair.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
     }
   }
 

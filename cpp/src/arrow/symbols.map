@@ -32,6 +32,7 @@
     };
     # Also export C-level helpers
     arrow_*;
+    Arrow*;
     # ARROW-14771: export Protobuf symbol table
     descriptor_table_Flight_2eproto;
     descriptor_table_FlightSql_2eproto;

@@ -29,6 +29,15 @@ namespace arrow {
 
 MemoryManager::~MemoryManager() {}
 
+Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSyncEvent() {
+  return nullptr;
+}
+
+Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::WrapDeviceSyncEvent(
+    void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
+  return nullptr;
+}
+
 Device::~Device() {}
 
 #define COPY_BUFFER_SUCCESS(maybe_buffer) \
@@ -232,7 +241,11 @@ bool CPUDevice::Equals(const Device& other) const {
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
-  return CPUMemoryManager::Make(Instance(), pool);
+  if (pool == default_memory_pool()) {
+    return default_cpu_memory_manager();
+  } else {
+    return CPUMemoryManager::Make(Instance(), pool);
+  }
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {

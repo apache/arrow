@@ -21,10 +21,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -69,20 +69,7 @@ func (l *List) Validate() (err error) {
 		return
 	}
 
-	var (
-		valueType arrow.DataType
-	)
-
-	switch dt := l.Type.(type) {
-	case *arrow.ListType:
-		valueType = dt.Elem()
-	case *arrow.LargeListType:
-		valueType = dt.Elem()
-	case *arrow.FixedSizeListType:
-		valueType = dt.Elem()
-	case *arrow.MapType:
-		valueType = dt.ValueType()
-	}
+	valueType := l.Type.(arrow.ListLikeType).Elem()
 	listType := l.Type
 
 	if !arrow.TypeEqual(l.Value.DataType(), valueType) {
@@ -145,7 +132,7 @@ func NewLargeListScalarData(val arrow.ArrayData) *LargeList {
 }
 
 func makeMapType(typ *arrow.StructType) *arrow.MapType {
-	debug.Assert(len(typ.Fields()) == 2, "must pass struct with only 2 fields for MapScalar")
+	debug.Assert(typ.NumFields() == 2, "must pass struct with only 2 fields for MapScalar")
 	return arrow.MapOf(typ.Field(0).Type, typ.Field(1).Type)
 }
 
@@ -278,7 +265,7 @@ func (s *Struct) Validate() (err error) {
 	}
 
 	st := s.Type.(*arrow.StructType)
-	num := len(st.Fields())
+	num := st.NumFields()
 	if len(s.Value) != num {
 		return fmt.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
 	}
@@ -316,7 +303,7 @@ func (s *Struct) ValidateFull() (err error) {
 	}
 
 	st := s.Type.(*arrow.StructType)
-	num := len(st.Fields())
+	num := st.NumFields()
 	if len(s.Value) != num {
 		return fmt.Errorf("non-null %s scalar should have %d child values, got %d", s.Type, num, len(s.Value))
 	}
@@ -584,8 +571,8 @@ func (s *SparseUnion) Release() {
 
 func (s *SparseUnion) Validate() (err error) {
 	dt := s.Type.(*arrow.SparseUnionType)
-	if len(dt.Fields()) != len(s.Value) {
-		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", len(dt.Fields()), len(s.Value))
+	if dt.NumFields() != len(s.Value) {
+		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", dt.NumFields(), len(s.Value))
 	}
 
 	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
@@ -606,8 +593,8 @@ func (s *SparseUnion) Validate() (err error) {
 
 func (s *SparseUnion) ValidateFull() (err error) {
 	dt := s.Type.(*arrow.SparseUnionType)
-	if len(dt.Fields()) != len(s.Value) {
-		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", len(dt.Fields()), len(s.Value))
+	if dt.NumFields() != len(s.Value) {
+		return fmt.Errorf("sparse union scalar value had %d fields but type has %d fields", dt.NumFields(), len(s.Value))
 	}
 
 	if s.TypeCode < 0 || int(s.TypeCode) >= len(dt.ChildIDs()) || dt.ChildIDs()[s.TypeCode] == arrow.InvalidUnionChildID {
@@ -656,7 +643,7 @@ func NewSparseUnionScalar(val []Scalar, code arrow.UnionTypeCode, dt *arrow.Spar
 
 func NewSparseUnionScalarFromValue(val Scalar, idx int, dt *arrow.SparseUnionType) *SparseUnion {
 	code := dt.TypeCodes()[idx]
-	values := make([]Scalar, len(dt.Fields()))
+	values := make([]Scalar, dt.NumFields())
 	for i, f := range dt.Fields() {
 		if i == idx {
 			values[i] = val

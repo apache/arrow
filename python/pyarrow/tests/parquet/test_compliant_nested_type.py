@@ -18,7 +18,6 @@
 import pytest
 
 import pyarrow as pa
-from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
@@ -58,23 +57,18 @@ parametrize_test_data = pytest.mark.parametrize(
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_enable(tempdir,
-                                            use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_enable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
-    # verify that we can read/write pandas df with new flag
+    # verify that we can read/write pandas df with new flag (default behaviour)
     _roundtrip_pandas_dataframe(df,
-                                write_kwargs={
-                                    'use_compliant_nested_type': True},
-                                use_legacy_dataset=use_legacy_dataset)
+                                write_kwargs={})
 
     # Write to a parquet file with compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
     path = str(tempdir / 'data.parquet')
     with pq.ParquetWriter(path, table.schema,
-                          use_compliant_nested_type=True,
                           version='2.6') as writer:
         writer.write_table(table)
     # Read back as a table
@@ -85,26 +79,23 @@ def test_write_compliant_nested_type_enable(tempdir,
     assert new_table.schema.types[0].value_field.name == 'element'
 
     # Verify that the new table can be read/written correctly
-    _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset,
-                     use_compliant_nested_type=True)
+    _check_roundtrip(new_table)
 
 
 @pytest.mark.pandas
-@parametrize_legacy_dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_disable(tempdir,
-                                             use_legacy_dataset, test_data):
+def test_write_compliant_nested_type_disable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
-    # verify that we can read/write with new flag disabled (default behaviour)
-    _roundtrip_pandas_dataframe(df, write_kwargs={},
-                                use_legacy_dataset=use_legacy_dataset)
+    # verify that we can read/write with new flag disabled
+    _roundtrip_pandas_dataframe(df, write_kwargs={
+        'use_compliant_nested_type': False})
 
     # Write to a parquet file while disabling compliant nested type
     table = pa.Table.from_pandas(df, preserve_index=False)
     path = str(tempdir / 'data.parquet')
-    with pq.ParquetWriter(path, table.schema, version='2.6') as writer:
+    with pq.ParquetWriter(path, table.schema, version='2.6',
+                          use_compliant_nested_type=False) as writer:
         writer.write_table(table)
     new_table = _read_table(path)
 
@@ -115,5 +106,4 @@ def test_write_compliant_nested_type_disable(tempdir,
 
     # Verify that the new table can be read/written correctly
     _check_roundtrip(new_table,
-                     use_legacy_dataset=use_legacy_dataset,
                      use_compliant_nested_type=False)

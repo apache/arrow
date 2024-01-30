@@ -23,7 +23,7 @@ module.exports = {
     },
     parser: "@typescript-eslint/parser",
     parserOptions: {
-        project: "tsconfig.json",
+        project: ["tsconfig.json", "tsconfig/tsconfig.bin.cjs.json"],
         sourceType: "module",
         ecmaVersion: 2020,
     },
@@ -102,9 +102,9 @@ module.exports = {
         "unicorn/text-encoding-identifier-case": "off",
         "unicorn/prefer-top-level-await": "off",
 
-        "unicorn/consistent-destructuring": "warn",
-        "unicorn/no-array-reduce": ["warn", { "allowSimpleOperations": true }],
-        "unicorn/no-await-expression-member": "warn",
+        "unicorn/consistent-destructuring": "off",
+        "unicorn/no-array-reduce": "off",
+        "unicorn/no-await-expression-member": "off",
         "unicorn/no-useless-undefined": "warn",
         "unicorn/consistent-function-scoping": "warn",
         "unicorn/prefer-math-trunc": "warn",

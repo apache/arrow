@@ -41,6 +41,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
+static const DeviceAllocationType kMyDeviceType = DeviceAllocationType::kEXT_DEV;
 
 static const int kMyDeviceAllowCopy = 1;
 static const int kMyDeviceAllowView = 2;
@@ -69,6 +70,8 @@ class MyDevice : public Device {
     }
     return checked_cast<const MyDevice&>(other).value_ == value_;
   }
+
+  DeviceAllocationType device_type() const override { return kMyDeviceType; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 
@@ -256,6 +259,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -263,6 +267,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -271,6 +276,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), my_copy_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), kMyDeviceType);
 #ifdef NDEBUG
   ASSERT_EQ(buffer->data(), nullptr);
 #endif
@@ -280,6 +286,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), my_copy_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), kMyDeviceType);
 #ifdef NDEBUG
   ASSERT_EQ(buffer->data(), nullptr);
 #endif
@@ -290,6 +297,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -297,6 +305,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -305,6 +314,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), my_copy_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
+  ASSERT_EQ(buffer->device_type(), kMyDeviceType);
 #ifdef NDEBUG
   ASSERT_EQ(buffer->data(), nullptr);
 #endif
@@ -315,6 +325,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), my_copy_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
+  ASSERT_EQ(buffer->device_type(), kMyDeviceType);
 #ifdef NDEBUG
   ASSERT_EQ(buffer->data(), nullptr);
 #endif
@@ -330,6 +341,7 @@ TEST_F(TestDevice, View) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_EQ(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -338,6 +350,7 @@ TEST_F(TestDevice, View) {
   ASSERT_EQ(buffer->device(), my_view_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_EQ(buffer->address(), cpu_src_->address());
+  ASSERT_EQ(buffer->device_type(), kMyDeviceType);
 #ifdef NDEBUG
   ASSERT_EQ(buffer->data(), nullptr);
 #endif
@@ -348,6 +361,7 @@ TEST_F(TestDevice, View) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_EQ(buffer->address(), my_copy_src_->address());
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -998,6 +1012,15 @@ TYPED_TEST(TypedTestBuffer, ResizeOOM) {
   to_alloc -= 63;
   ASSERT_RAISES(OutOfMemory, buf->Resize(to_alloc));
 #endif
+}
+
+TEST(TestBufferConcatenation, EmptyBuffer) {
+  // GH-36913: UB shouldn't be triggered by copying from a null pointer
+  const std::string contents = "hello, world";
+  auto buffer = std::make_shared<Buffer>(contents);
+  auto empty_buffer = std::make_shared<Buffer>(/*data=*/nullptr, /*size=*/0);
+  ASSERT_OK_AND_ASSIGN(auto result, ConcatenateBuffers({buffer, empty_buffer}));
+  AssertMyBufferEqual(*result, contents);
 }
 
 }  // namespace arrow

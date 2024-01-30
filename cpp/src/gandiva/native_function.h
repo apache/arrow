@@ -54,16 +54,16 @@ class GANDIVA_EXPORT NativeFunction {
   bool CanReturnErrors() const { return (flags_ & kCanReturnErrors) != 0; }
 
   NativeFunction(const std::string& base_name, const std::vector<std::string>& aliases,
-                 const DataTypeVector& param_types, DataTypePtr ret_type,
-                 const ResultNullableType& result_nullable_type,
-                 const std::string& pc_name, int32_t flags = 0)
+                 const DataTypeVector& param_types, const DataTypePtr& ret_type,
+                 const ResultNullableType& result_nullable_type, std::string pc_name,
+                 int32_t flags = 0)
       : signatures_(),
         flags_(flags),
         result_nullable_type_(result_nullable_type),
-        pc_name_(pc_name) {
-    signatures_.push_back(FunctionSignature(base_name, param_types, ret_type));
+        pc_name_(std::move(pc_name)) {
+    signatures_.emplace_back(base_name, param_types, ret_type);
     for (auto& func_name : aliases) {
-      signatures_.push_back(FunctionSignature(func_name, param_types, ret_type));
+      signatures_.emplace_back(func_name, param_types, ret_type);
     }
   }
 

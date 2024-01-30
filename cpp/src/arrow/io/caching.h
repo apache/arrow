@@ -42,19 +42,29 @@ struct ARROW_EXPORT CacheOptions {
   ///   size greater than this, they are not combined
   int64_t range_size_limit;
   /// \brief A lazy cache does not perform any I/O until requested.
+  ///   lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
+  ///   lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+  ///   needs them.
+  ///   lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
+  ///   range that is currently being read.
   bool lazy;
+  /// \brief The maximum number of ranges to be prefetched. This is only used
+  ///   for lazy cache to asynchronously read some ranges after reading the target range.
+  int64_t prefetch_limit = 0;
 
   bool operator==(const CacheOptions& other) const {
     return hole_size_limit == other.hole_size_limit &&
-           range_size_limit == other.range_size_limit && lazy == other.lazy;
+           range_size_limit == other.range_size_limit && lazy == other.lazy &&
+           prefetch_limit == other.prefetch_limit;
   }
 
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
   ///
   /// \param[in] time_to_first_byte_millis Seek-time or Time-To-First-Byte (TTFB) in
-  ///   milliseconds, also called call setup latency of a new S3 request.
+  ///   milliseconds, also called call setup latency of a new read request.
   ///   The value is a positive integer.
-  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec.
+  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec
+  ///   (per connection).
   ///   The value is a positive integer.
   /// \param[in] ideal_bandwidth_utilization_frac Transfer bandwidth utilization fraction
   ///   (per connection) to maximize the net data load.
@@ -109,11 +119,11 @@ class ARROW_EXPORT ReadRangeCache {
   /// Construct a read cache with given options
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                           CacheOptions options)
-      : ReadRangeCache(file, file.get(), ctx, options) {}
+      : ReadRangeCache(file, file.get(), std::move(ctx), options) {}
 
   /// Construct a read cache with an unowned file
   ReadRangeCache(RandomAccessFile* file, IOContext ctx, CacheOptions options)
-      : ReadRangeCache(NULLPTR, file, ctx, options) {}
+      : ReadRangeCache(NULLPTR, file, std::move(ctx), options) {}
 
   ~ReadRangeCache();
 

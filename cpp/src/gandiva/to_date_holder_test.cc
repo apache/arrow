@@ -16,7 +16,6 @@
 // under the License.
 
 #include <memory>
-#include <vector>
 
 #include "arrow/testing/gtest_util.h"
 
@@ -30,14 +29,18 @@ namespace gandiva {
 
 class TestToDateHolder : public ::testing::Test {
  public:
-  FunctionNode BuildToDate(std::string pattern) {
+  FunctionNode BuildToDate(std::string pattern,
+                           std::shared_ptr<Node> suppress_error_node = nullptr) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
         std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
-    auto suppress_error_node =
-        std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(0), false);
-    return FunctionNode("to_date_utf8_utf8_int32",
-                        {field, pattern_node, suppress_error_node}, arrow::int64());
+    if (suppress_error_node == nullptr) {
+      suppress_error_node =
+          std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(0), false);
+    }
+    return {"to_date_utf8_utf8_int32",
+            {field, pattern_node, std::move(suppress_error_node)},
+            arrow::int64()};
   }
 
  protected:
@@ -45,8 +48,7 @@ class TestToDateHolder : public ::testing::Test {
 };
 
 TEST_F(TestToDateHolder, TestSimpleDateTime) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -86,8 +88,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDate) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -119,10 +120,7 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-
-  auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 0, &to_date_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 0));
   auto& to_date = *to_date_holder;
   bool out_valid;
 
@@ -132,8 +130,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
   EXPECT_EQ(0, millis_since_epoch);
   std::string expected_error =
       "Error parsing value 1986-01-40 01:01:01 +0800 for given format";
-  EXPECT_TRUE(execution_context_.get_error().find(expected_error) != std::string::npos)
-      << status.message();
+  EXPECT_TRUE(execution_context_.get_error().find(expected_error) != std::string::npos);
 
   // not valid should not return error
   execution_context_.Reset();
@@ -143,10 +140,45 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
   // reject time stamps for now.
-  auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_date_holder);
-  EXPECT_EQ(status.IsInvalid(), true) << status.message();
+  ASSERT_RAISES(Invalid, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0).status());
 }
 
+TEST_F(TestToDateHolder, TestSimpleDateYearMonth) {
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM", 1));
+
+  auto& to_date = *to_date_holder;
+  bool out_valid;
+  std::string s("2012-12");
+  int64_t millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1354320000000);
+
+  s = std::string("2012-01");
+  millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1325376000000);
+}
+
+TEST_F(TestToDateHolder, TestSimpleDateYear) {
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY", 1));
+
+  auto& to_date = *to_date_holder;
+  bool out_valid;
+  std::string s("1999");
+  int64_t millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 915148800000);
+}
+
+TEST_F(TestToDateHolder, TestMakeFromFunctionNode) {
+  auto to_date_func = BuildToDate("YYYY");
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make(to_date_func));
+}
+
+TEST_F(TestToDateHolder, TestMakeFromInvalidSurpressParamFunctionNode) {
+  auto non_literal_param = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  auto to_date_func = BuildToDate("YYYY", std::move(non_literal_param));
+  ASSERT_RAISES(Invalid, ToDateHolder::Make(to_date_func).status());
+}
 }  // namespace gandiva

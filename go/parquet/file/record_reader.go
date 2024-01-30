@@ -23,14 +23,14 @@ import (
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -486,7 +486,7 @@ func (rr *recordReader) delimitRecords(numRecords int64) (recordsRead, valsToRea
 			// if at record start, we are seeing the start of a record
 			// for the second time, such as after repeated calls to delimitrecords.
 			// in this case we must continue until we find another record start
-			// or exaust the column chunk
+			// or exhaust the column chunk
 			if !rr.atRecStart {
 				// end of a record, increment count
 				recordsRead++
@@ -783,19 +783,19 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.
 	}}
 }
 
-func (fr *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
-	fr.bldr.Reserve(int(extra))
-	return fr.primitiveRecordReader.ReserveValues(extra, hasNullable)
+func (br *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
+	br.bldr.Reserve(int(extra))
+	return br.primitiveRecordReader.ReserveValues(extra, hasNullable)
 }
 
-func (fr *byteArrayRecordReader) Retain() {
-	fr.bldr.Retain()
-	fr.primitiveRecordReader.Retain()
+func (br *byteArrayRecordReader) Retain() {
+	br.bldr.Retain()
+	br.primitiveRecordReader.Retain()
 }
 
-func (fr *byteArrayRecordReader) Release() {
-	fr.bldr.Release()
-	fr.primitiveRecordReader.Release()
+func (br *byteArrayRecordReader) Release() {
+	br.bldr.Release()
+	br.primitiveRecordReader.Release()
 }
 
 func (br *byteArrayRecordReader) ReadValuesDense(toRead int64) error {

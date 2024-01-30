@@ -25,14 +25,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/internal"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/compute/exec"
+	"github.com/apache/arrow/go/v16/arrow/internal"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow/scalar"
 )
 
 // ExecCtx holds simple contextual information for execution
@@ -88,11 +88,11 @@ var (
 // then be modified to set into a context.
 //
 // The default exec context uses the following values:
-//	- ChunkSize = DefaultMaxChunkSize (MaxInt64)
-//	- PreallocContiguous = true
-// 	- Registry = GetFunctionRegistry()
-//	- ExecChannelSize = 10
-//	- NumParallel = runtime.NumCPU()
+//   - ChunkSize = DefaultMaxChunkSize (MaxInt64)
+//   - PreallocContiguous = true
+//   - Registry = GetFunctionRegistry()
+//   - ExecChannelSize = 10
+//   - NumParallel = runtime.NumCPU()
 func DefaultExecCtx() ExecCtx { return defaultExecCtx }
 
 func init() {
@@ -131,7 +131,7 @@ type ExecBatch struct {
 	Values []Datum
 	// Guarantee is a predicate Expression guaranteed to evaluate to true for
 	// all rows in this batch.
-	Guarantee Expression
+	// Guarantee Expression
 	// Len is the semantic length of this ExecBatch. When the values are
 	// all scalars, the length should be set to 1 for non-aggregate kernels.
 	// Otherwise the length is taken from the array values. Aggregate kernels
@@ -171,6 +171,8 @@ func addComputeDataPrealloc(dt arrow.DataType, widths []bufferPrealloc) []buffer
 		return append(widths, bufferPrealloc{bitWidth: 32, addLen: 1})
 	case arrow.LARGE_BINARY, arrow.LARGE_STRING, arrow.LARGE_LIST:
 		return append(widths, bufferPrealloc{bitWidth: 64, addLen: 1})
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
+		return append(widths, bufferPrealloc{bitWidth: arrow.ViewHeaderSizeBytes * 8})
 	}
 	return widths
 }
@@ -384,12 +386,12 @@ func inferBatchLength(values []Datum) (length int64, allSame bool) {
 	return
 }
 
-// kernelExecutor is the interface for all executors to initialize and
+// KernelExecutor is the interface for all executors to initialize and
 // call kernel execution functions on batches.
-type kernelExecutor interface {
+type KernelExecutor interface {
 	// Init must be called *after* the kernel's init method and any
 	// KernelState must be set into the KernelCtx *before* calling
-	// this Init method. This is to faciliate the case where
+	// this Init method. This is to facilitate the case where
 	// Init may be expensive and does not need to be called
 	// again for each execution of the kernel. For example,
 	// the same lookup table can be re-used for all scanned batches
@@ -407,8 +409,8 @@ type kernelExecutor interface {
 	// CheckResultType checks the actual result type against the resolved
 	// output type. If the types don't match an error is returned
 	CheckResultType(out Datum) error
-
-	clear()
+	// Clear resets the state in the executor so that it can be reused.
+	Clear()
 }
 
 // the base implementation for executing non-aggregate kernels.
@@ -422,7 +424,7 @@ type nonAggExecImpl struct {
 	preallocValidity bool
 }
 
-func (e *nonAggExecImpl) clear() {
+func (e *nonAggExecImpl) Clear() {
 	e.ctx, e.kernel, e.outType = nil, nil, nil
 	if e.dataPrealloc != nil {
 		e.dataPrealloc = e.dataPrealloc[:0]
@@ -478,6 +480,8 @@ func (e *nonAggExecImpl) CheckResultType(out Datum) error {
 }
 
 type spanIterator func() (exec.ExecSpan, int64, bool)
+
+func NewScalarExecutor() KernelExecutor { return &scalarExecutor{} }
 
 type scalarExecutor struct {
 	nonAggExecImpl
@@ -1005,6 +1009,10 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
+		if output == nil || ctx.Err() != nil {
+			return nil
+		}
+
 		// if the inputs contained at least one chunked array
 		// then we want to return chunked output
 		if hasChunked {

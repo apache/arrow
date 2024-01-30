@@ -71,7 +71,7 @@ class BaseBloomFilter {
   // For example 'b' (ASCII value 98) will set/test bit #34 in the filter.
   // If the bit is set in the filter, the given character *may* be part
   // of the matched characters.  If the bit is unset in the filter,
-  // the the given character *cannot* be part of the matched characters.
+  // the given character *cannot* be part of the matched characters.
   FilterType CharFilter(uint8_t c) const {
     return static_cast<FilterType>(1) << (c & kCharMask);
   }

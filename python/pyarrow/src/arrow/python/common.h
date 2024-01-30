@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -72,6 +73,37 @@ T GetResultValue(Result<T> result) {
   }
 }
 
+/// \brief Wrap a Result and return the corresponding Python object.
+///
+/// If the Result is successful, py_wrapper is called with its result value
+/// and should return a PyObject*. If py_wrapper is successful (returns
+/// a non-NULL value), its return value is returned.
+///
+/// If either the Result or py_wrapper fails, the associated Python exception
+/// is raised and NULL is returned.
+//
+/// \param result The Result whose value to wrap in a Python object.
+/// \param py_wrapper A function (likely defined in Cython) to convert the C++
+///   value of the Result to a Python object.
+/// \return A new Python reference, or NULL if an exception occurred
+template <typename T, typename PyWrapper = PyObject* (*)(T)>
+PyObject* WrapResult(Result<T> result, PyWrapper&& py_wrapper) {
+  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T>()))>,
+                "PyWrapper argument to WrapResult should return a PyObject* "
+                "when called with a T*");
+  Status st = result.status();
+  if (st.ok()) {
+    PyObject* py_value = py_wrapper(result.MoveValueUnsafe());
+    st = CheckPyError();
+    if (st.ok()) {
+      return py_value;
+    }
+    Py_XDECREF(py_value);  // should be null, but who knows
+  }
+  // Status is an error, convert it to an exception.
+  return internal::convert_status(st);
+}
+
 // A RAII-style helper that ensures the GIL is acquired inside a lexical block.
 class ARROW_PYTHON_EXPORT PyAcquireGIL {
  public:
@@ -103,13 +135,15 @@ class ARROW_PYTHON_EXPORT PyAcquireGIL {
 // A RAII-style helper that releases the GIL until the end of a lexical block
 class ARROW_PYTHON_EXPORT PyReleaseGIL {
  public:
-  PyReleaseGIL() { saved_state_ = PyEval_SaveThread(); }
-
-  ~PyReleaseGIL() { PyEval_RestoreThread(saved_state_); }
+  PyReleaseGIL() : ptr_(PyEval_SaveThread(), &unique_ptr_deleter) {}
 
  private:
-  PyThreadState* saved_state_;
-  ARROW_DISALLOW_COPY_AND_ASSIGN(PyReleaseGIL);
+  static void unique_ptr_deleter(PyThreadState* state) {
+    if (state) {
+      PyEval_RestoreThread(state);
+    }
+  }
+  std::unique_ptr<PyThreadState, decltype(&unique_ptr_deleter)> ptr_;
 };
 
 // A helper to call safely into the Python interpreter from arbitrary C++ code.
@@ -131,6 +165,19 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
   return maybe_status;
 }
 
+template <typename Function>
+auto SafeCallIntoPythonVoid(Function&& func) -> decltype(func()) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  func();
+  if (exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
+}
+
 // A RAII primitive that DECREFs the underlying PyObject* when it
 // goes out of scope.
 class ARROW_PYTHON_EXPORT OwnedRef {
@@ -144,7 +191,12 @@ class ARROW_PYTHON_EXPORT OwnedRef {
     return *this;
   }
 
-  ~OwnedRef() { reset(); }
+  ~OwnedRef() {
+    // GH-38626: destructor may be called after the Python interpreter is finalized.
+    if (Py_IsInitialized()) {
+      reset();
+    }
+  }
 
   void reset(PyObject* obj) {
     Py_XDECREF(obj_);
@@ -181,15 +233,55 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
   ~OwnedRefNoGIL() {
-    // This destructor may be called after the Python interpreter is finalized.
-    // At least avoid spurious attempts to take the GIL when not necessary.
-    if (obj() == NULLPTR) {
-      return;
+    // GH-38626: destructor may be called after the Python interpreter is finalized.
+    if (Py_IsInitialized() && obj() != NULLPTR) {
+      PyAcquireGIL lock;
+      reset();
     }
-    PyAcquireGIL lock;
-    reset();
   }
 };
+
+template <template <typename...> typename SmartPtr, typename... Ts>
+class SmartPtrNoGIL : public SmartPtr<Ts...> {
+  using Base = SmartPtr<Ts...>;
+
+ public:
+  template <typename... Args>
+  SmartPtrNoGIL(Args&&... args) : Base(std::forward<Args>(args)...) {}
+
+  ~SmartPtrNoGIL() { reset(); }
+
+  template <typename... Args>
+  void reset(Args&&... args) {
+    auto release_guard = optional_gil_release();
+    Base::reset(std::forward<Args>(args)...);
+  }
+
+  template <typename V>
+  SmartPtrNoGIL& operator=(V&& v) {
+    auto release_guard = optional_gil_release();
+    Base::operator=(std::forward<V>(v));
+    return *this;
+  }
+
+ private:
+  // Only release the GIL if we own an object *and* the Python runtime is
+  // valid *and* the GIL is held.
+  std::optional<PyReleaseGIL> optional_gil_release() const {
+    if (this->get() != nullptr && Py_IsInitialized() && PyGILState_Check()) {
+      return PyReleaseGIL();
+    }
+    return {};
+  }
+};
+
+/// \brief A std::shared_ptr<T, ...> subclass that releases the GIL when destroying T
+template <typename... Ts>
+using SharedPtrNoGIL = SmartPtrNoGIL<std::shared_ptr, Ts...>;
+
+/// \brief A std::unique_ptr<T, ...> subclass that releases the GIL when destroying T
+template <typename... Ts>
+using UniquePtrNoGIL = SmartPtrNoGIL<std::unique_ptr, Ts...>;
 
 template <typename Fn>
 struct BoundFunction;

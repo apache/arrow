@@ -24,7 +24,6 @@ arrow_install_dir=${2}
 build_dir=${3}/java_jni
 # The directory where the final binaries will be stored when scripts finish
 dist_dir=${4}
-
 prefix_dir="${build_dir}/java-jni"
 
 echo "=== Clear output directories and leftovers ==="
@@ -56,7 +55,6 @@ cmake \
   -DBUILD_TESTING=${ARROW_JAVA_BUILD_TESTS} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
   -DCMAKE_PREFIX_PATH=${arrow_install_dir} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${prefix_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
   -DProtobuf_USE_STATIC_LIBS=ON \

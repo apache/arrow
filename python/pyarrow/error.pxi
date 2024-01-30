@@ -77,8 +77,8 @@ class ArrowCancelled(ArrowException):
 ArrowIOError = IOError
 
 
-# This function could be written directly in C++ if we didn't
-# define Arrow-specific subclasses (ArrowInvalid etc.)
+# check_status() and convert_status() could be written directly in C++
+# if we didn't define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) except -1 nogil:
     if status.ok():
         return 0
@@ -88,60 +88,73 @@ cdef int check_status(const CStatus& status) except -1 nogil:
             RestorePyError(status)
             return -1
 
-        # We don't use Status::ToString() as it would redundantly include
-        # the C++ class name.
-        message = frombytes(status.message(), safe=True)
-        detail = status.detail()
-        if detail != nullptr:
-            message += ". Detail: " + frombytes(detail.get().ToString(),
-                                                safe=True)
+        raise convert_status(status)
 
-        if status.IsInvalid():
-            raise ArrowInvalid(message)
-        elif status.IsIOError():
-            # Note: OSError constructor is
-            #   OSError(message)
-            # or
-            #   OSError(errno, message, filename=None)
-            # or (on Windows)
-            #   OSError(errno, message, filename, winerror)
-            errno = ErrnoFromStatus(status)
-            winerror = WinErrorFromStatus(status)
-            if winerror != 0:
-                raise IOError(errno, message, None, winerror)
-            elif errno != 0:
-                raise IOError(errno, message)
-            else:
-                raise IOError(message)
-        elif status.IsOutOfMemory():
-            raise ArrowMemoryError(message)
-        elif status.IsKeyError():
-            raise ArrowKeyError(message)
-        elif status.IsNotImplemented():
-            raise ArrowNotImplementedError(message)
-        elif status.IsTypeError():
-            raise ArrowTypeError(message)
-        elif status.IsCapacityError():
-            raise ArrowCapacityError(message)
-        elif status.IsIndexError():
-            raise ArrowIndexError(message)
-        elif status.IsSerializationError():
-            raise ArrowSerializationError(message)
-        elif status.IsCancelled():
-            signum = SignalFromStatus(status)
-            if signum > 0:
-                raise ArrowCancelled(message, signum)
-            else:
-                raise ArrowCancelled(message)
+
+cdef object convert_status(const CStatus& status):
+    if IsPyError(status):
+        try:
+            RestorePyError(status)
+        except BaseException as e:
+            return e
+
+    # We don't use Status::ToString() as it would redundantly include
+    # the C++ class name.
+    message = frombytes(status.message(), safe=True)
+    detail = status.detail()
+    if detail != nullptr:
+        message += ". Detail: " + frombytes(detail.get().ToString(),
+                                            safe=True)
+
+    if status.IsInvalid():
+        return ArrowInvalid(message)
+    elif status.IsIOError():
+        # Note: OSError constructor is
+        #   OSError(message)
+        # or
+        #   OSError(errno, message, filename=None)
+        # or (on Windows)
+        #   OSError(errno, message, filename, winerror)
+        errno = ErrnoFromStatus(status)
+        winerror = WinErrorFromStatus(status)
+        if winerror != 0:
+            return IOError(errno, message, None, winerror)
+        elif errno != 0:
+            return IOError(errno, message)
         else:
-            message = frombytes(status.ToString(), safe=True)
-            raise ArrowException(message)
+            return IOError(message)
+    elif status.IsOutOfMemory():
+        return ArrowMemoryError(message)
+    elif status.IsKeyError():
+        return ArrowKeyError(message)
+    elif status.IsNotImplemented():
+        return ArrowNotImplementedError(message)
+    elif status.IsTypeError():
+        return ArrowTypeError(message)
+    elif status.IsCapacityError():
+        return ArrowCapacityError(message)
+    elif status.IsIndexError():
+        return ArrowIndexError(message)
+    elif status.IsSerializationError():
+        return ArrowSerializationError(message)
+    elif status.IsCancelled():
+        signum = SignalFromStatus(status)
+        if signum > 0:
+            return ArrowCancelled(message, signum)
+        else:
+            return ArrowCancelled(message)
+    else:
+        message = frombytes(status.ToString(), safe=True)
+        return ArrowException(message)
 
 
-# This is an API function for C++ PyArrow
+# These are API functions for C++ PyArrow
 cdef api int pyarrow_internal_check_status(const CStatus& status) \
         except -1 nogil:
     return check_status(status)
+
+cdef api object pyarrow_internal_convert_status(const CStatus& status):
+    return convert_status(status)
 
 
 cdef class StopToken:

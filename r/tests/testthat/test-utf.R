@@ -45,24 +45,24 @@ test_that("We handle non-UTF strings", {
   expect_identical(as.vector(ChunkedArray$create(df)), df)
 
   # Table (including field name)
-  expect_identical(as.data.frame(Table$create(df)), df)
-  expect_identical(as.data.frame(Table$create(df_struct)), df_struct)
+  expect_equal_data_frame(Table$create(df), df)
+  expect_equal_data_frame(Table$create(df_struct), df_struct)
 
   # RecordBatch
-  expect_identical(as.data.frame(record_batch(df)), df)
-  expect_identical(as.data.frame(record_batch(df_struct)), df_struct)
+  expect_equal_data_frame(record_batch(df), df)
+  expect_equal_data_frame(record_batch(df_struct), df_struct)
 
   # Schema field name
-  df_schema <- do.call(schema, raw_schema)
+  df_schema <- schema(raw_schema)
   expect_identical(names(df_schema), names(df))
 
   df_struct_schema <- schema(a = do.call(struct, raw_schema))
 
   # Create table/batch with schema
-  expect_identical(as.data.frame(Table$create(df, schema = df_schema)), df)
-  expect_identical(as.data.frame(Table$create(df_struct, schema = df_struct_schema)), df_struct)
-  expect_identical(as.data.frame(record_batch(df, schema = df_schema)), df)
-  expect_identical(as.data.frame(record_batch(df_struct, schema = df_struct_schema)), df_struct)
+  expect_equal_data_frame(Table$create(df, schema = df_schema), df)
+  expect_equal_data_frame(Table$create(df_struct, schema = df_struct_schema), df_struct)
+  expect_equal_data_frame(record_batch(df, schema = df_schema), df)
+  expect_equal_data_frame(record_batch(df_struct, schema = df_struct_schema), df_struct)
 
   # Serialization
   feather_file <- tempfile()

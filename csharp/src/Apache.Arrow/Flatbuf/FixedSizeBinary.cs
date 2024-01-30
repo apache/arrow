@@ -6,15 +6,17 @@ namespace Apache.Arrow.Flatbuf
 {
 
 using global::System;
-using global::FlatBuffers;
+using global::System.Collections.Generic;
+using global::Google.FlatBuffers;
 
 internal struct FixedSizeBinary : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_9(); }
   public static FixedSizeBinary GetRootAsFixedSizeBinary(ByteBuffer _bb) { return GetRootAsFixedSizeBinary(_bb, new FixedSizeBinary()); }
   public static FixedSizeBinary GetRootAsFixedSizeBinary(ByteBuffer _bb, FixedSizeBinary obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public void __init(int _i, ByteBuffer _bb) { __p.bb_pos = _i; __p.bb = _bb; }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public FixedSizeBinary __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /// Number of bytes per value
@@ -22,18 +24,28 @@ internal struct FixedSizeBinary : IFlatbufferObject
 
   public static Offset<FixedSizeBinary> CreateFixedSizeBinary(FlatBufferBuilder builder,
       int byteWidth = 0) {
-    builder.StartObject(1);
+    builder.StartTable(1);
     FixedSizeBinary.AddByteWidth(builder, byteWidth);
     return FixedSizeBinary.EndFixedSizeBinary(builder);
   }
 
-  public static void StartFixedSizeBinary(FlatBufferBuilder builder) { builder.StartObject(1); }
+  public static void StartFixedSizeBinary(FlatBufferBuilder builder) { builder.StartTable(1); }
   public static void AddByteWidth(FlatBufferBuilder builder, int byteWidth) { builder.AddInt(0, byteWidth, 0); }
   public static Offset<FixedSizeBinary> EndFixedSizeBinary(FlatBufferBuilder builder) {
-    int o = builder.EndObject();
+    int o = builder.EndTable();
     return new Offset<FixedSizeBinary>(o);
   }
-};
+}
 
+
+static internal class FixedSizeBinaryVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*ByteWidth*/, 4 /*int*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

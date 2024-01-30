@@ -153,8 +153,9 @@ PyArrow implements natively a S3 filesystem for S3 compatible storage.
 The :class:`S3FileSystem` constructor has several options to configure the S3
 connection (e.g. credentials, the region, an endpoint override, etc). In
 addition, the constructor will also inspect configured S3 credentials as
-supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
-``AWS_SECRET_ACCESS_KEY`` environment variables).
+supported by AWS (such as the ``AWS_ACCESS_KEY_ID`` and
+``AWS_SECRET_ACCESS_KEY`` environment variables, AWS configuration files,
+and EC2 Instance Metadata Service for EC2 nodes).
 
 
 Example how you can read contents from a S3 bucket::
@@ -206,6 +207,14 @@ Here are a couple examples in code::
 
    :func:`pyarrow.fs.resolve_s3_region` for resolving region from a bucket name.
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
+When using :class:`S3FileSystem`, output is only produced for fatal errors or
+when printing return values. For troubleshooting, the log level can be set using
+the environment variable ``ARROW_S3_LOG_LEVEL``. The log level must be set prior
+to running any code that interacts with S3. Possible values include ``FATAL`` (the
+default), ``ERROR``, ``WARN``, ``INFO``, ``DEBUG`` (recommended), ``TRACE``, and ``OFF``.
 
 .. _filesystem-gcs:
 

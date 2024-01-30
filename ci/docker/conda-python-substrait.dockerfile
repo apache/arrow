@@ -36,13 +36,16 @@ RUN mamba install -q -y \
 ARG substrait=latest
 COPY ci/scripts/install_substrait_consumer.sh /arrow/ci/scripts/
 
+RUN /arrow/ci/scripts/install_substrait_consumer.sh
+
 ENV ARROW_ACERO=ON \
-    ARROW_BUILD_TESTS=ON \
     ARROW_COMPUTE=ON \
     ARROW_CSV=ON \
     ARROW_DATASET=ON \
     ARROW_FILESYSTEM=ON \
+    ARROW_FLIGHT=OFF \
+    ARROW_FLIGHT_SQL=OFF \
+    ARROW_GANDIVA=OFF \
     ARROW_JSON=ON \
-    ARROW_SUBSTRAIT=ON
-
-RUN /arrow/ci/scripts/install_substrait_consumer.sh
+    ARROW_SUBSTRAIT=ON \
+    ARROW_TESTING=OFF

@@ -18,6 +18,9 @@
 name: "Label when reviewed"
 on: pull_request_review
 
+permissions:
+  contents: read
+
 jobs:
   # due to GitHub Actions permissions we can't change labels on the pull_request_review
   # workflow. We trigger a new workflow run which will have permissions to add labels.

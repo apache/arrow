@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/types"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
 )
 
 var (
@@ -40,6 +41,7 @@ func init() {
 	Records["primitives"] = makePrimitiveRecords()
 	Records["structs"] = makeStructsRecords()
 	Records["lists"] = makeListsRecords()
+	Records["list_views"] = makeListViewsRecords()
 	Records["strings"] = makeStringsRecords()
 	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
 	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
@@ -47,10 +49,12 @@ func init() {
 	Records["intervals"] = makeIntervalsRecords()
 	Records["durations"] = makeDurationsRecords()
 	Records["decimal128"] = makeDecimal128sRecords()
+	Records["decimal256"] = makeDecimal256sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
 	Records["union"] = makeUnionRecords()
 	Records["run_end_encoded"] = makeRunEndEncodedRecords()
+	Records["view_types"] = makeStringViewRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -299,6 +303,63 @@ func makeListsRecords() []arrow.Record {
 				defer bldr.Release()
 
 				return bldr.NewListArray()
+			}(),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+func makeListViewsRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	dtype := arrow.ListViewOf(arrow.PrimitiveTypes.Int32)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "list_view_nullable", Type: dtype, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, false, true, true}
+
+	chunks := [][]arrow.Array{
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{1, 2, 3, 4, 5}, mask),
+				arrayOf(mem, []int32{11, 12, 13, 14, 15}, mask),
+				arrayOf(mem, []int32{21, 22, 23, 24, 25}, mask),
+			}, nil),
+		},
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, mask),
+				arrayOf(mem, []int32{-11, -12, -13, -14, -15}, mask),
+				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
+			}, nil),
+		},
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, mask),
+				arrayOf(mem, []int32{}, []bool{}),
+				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
+			}, []bool{true, false, true}),
+		},
+		{
+			func() arrow.Array {
+				bldr := array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+				defer bldr.Release()
+
+				return bldr.NewListViewArray()
 			}(),
 		},
 	}
@@ -688,6 +749,7 @@ func makeDurationsRecords() []arrow.Record {
 
 var (
 	decimal128Type = &arrow.Decimal128Type{Precision: 10, Scale: 1}
+	decimal256Type = &arrow.Decimal256Type{Precision: 72, Scale: 2}
 )
 
 func makeDecimal128sRecords() []arrow.Record {
@@ -735,6 +797,51 @@ func makeDecimal128sRecords() []arrow.Record {
 	return recs
 }
 
+func makeDecimal256sRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "dec256s", Type: decimal256Type, Nullable: true},
+		}, nil,
+	)
+
+	dec256s := func(vs []uint64) []decimal256.Num {
+		o := make([]decimal256.Num, len(vs))
+		for i, v := range vs {
+			o[i] = decimal256.New(v, v, v, v)
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]arrow.Array{
+		{
+			arrayOf(mem, dec256s([]uint64{21, 22, 23, 24, 25}), mask),
+		},
+		{
+			arrayOf(mem, dec256s([]uint64{31, 32, 33, 34, 35}), mask),
+		},
+		{
+			arrayOf(mem, dec256s([]uint64{41, 42, 43, 44, 45}), mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func makeMapsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	dtype := arrow.MapOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)
@@ -745,7 +852,7 @@ func makeMapsRecords() []arrow.Record {
 	chunks := [][]arrow.Array{
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
@@ -767,7 +874,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"4111", "4222", "4333", "4444", "4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -793,7 +900,7 @@ func makeMapsRecords() []arrow.Record {
 		},
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -815,7 +922,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"-4111", "-4222", "-4333", "-4444", "-4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
@@ -1049,6 +1156,65 @@ func makeRunEndEncodedRecords() []arrow.Record {
 	return recs
 }
 
+func makeStringViewRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "binary_view", Type: arrow.BinaryTypes.BinaryView, Nullable: true},
+		{Name: "string_view", Type: arrow.BinaryTypes.StringView, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]arrow.Array{
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é"), []byte("2"), []byte("3"), []byte("4"), []byte("5")}, mask),
+			viewTypeArrayOf(mem, []string{"1é", "2", "3", "4", "5"}, mask),
+		},
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é"), []byte("22222222222222"), []byte("33333333333333"), []byte("4444"), []byte("5555")}, mask),
+			viewTypeArrayOf(mem, []string{"1é", "22222222222222", "33333333333333", "4444", "5555"}, nil),
+		},
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é1é"), []byte("22222222222222"), []byte("33333333333333"), []byte("44"), []byte("55")}, nil),
+			viewTypeArrayOf(mem, []string{"1é1é", "22222222222222", "33333333333333", "44", "55"}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+func viewTypeArrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	switch a := a.(type) {
+	case []string:
+		bldr := array.NewStringViewBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+	case [][]byte:
+		bldr := array.NewBinaryViewBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+	}
+	return nil
+}
+
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {
 	var storage arrow.Array
 	switch st := dt.StorageType().(type) {
@@ -1165,6 +1331,14 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 
 		bldr.AppendValues(a, valids)
 		aa := bldr.NewDecimal128Array()
+		return aa
+
+	case []decimal256.Num:
+		bldr := array.NewDecimal256Builder(mem, decimal256Type)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		aa := bldr.NewDecimal256Array()
 		return aa
 
 	case []string:
@@ -1381,6 +1555,30 @@ func listOf(mem memory.Allocator, values []arrow.Array, valids []bool) *array.Li
 	}
 
 	return bldr.NewListArray()
+}
+
+func listViewOf(mem memory.Allocator, values []arrow.Array, valids []bool) *array.ListView {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	bldr := array.NewListViewBuilder(mem, values[0].DataType())
+	defer bldr.Release()
+
+	valid := func(i int) bool {
+		return valids[i]
+	}
+
+	if valids == nil {
+		valid = func(i int) bool { return true }
+	}
+
+	for i, value := range values {
+		bldr.AppendWithSize(valid(i), value.Len())
+		buildArray(bldr.ValueBuilder(), value)
+	}
+
+	return bldr.NewListViewArray()
 }
 
 func fixedSizeListOf(mem memory.Allocator, n int32, values []arrow.Array, valids []bool) *array.FixedSizeList {
@@ -1604,6 +1802,27 @@ func buildArray(bldr array.Builder, data arrow.Array) {
 
 	case *array.LargeStringBuilder:
 		data := data.(*array.LargeString)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
+
+	case *array.BinaryViewBuilder:
+		data := data.(*array.BinaryView)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
+	case *array.StringViewBuilder:
+		data := data.(*array.StringView)
 		for i := 0; i < data.Len(); i++ {
 			switch {
 			case data.IsValid(i):

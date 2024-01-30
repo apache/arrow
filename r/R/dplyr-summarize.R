@@ -42,6 +42,13 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+  register_binding_agg("base::prod", function(..., na.rm = FALSE) {
+    list(
+      fun = "product",
+      data = ensure_one_arg(list2(...), "prod"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
   register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",
@@ -169,14 +176,23 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 
 # The following S3 methods are registered on load if dplyr is present
 
-summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
+summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) {
   call <- match.call()
-  .data <- as_adq(.data)
-  exprs <- expand_across(.data, quos(...))
+  out <- as_adq(.data)
+
+  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+
+  if (by$from_by) {
+    out$group_by_vars <- by$names
+    .groups <- "drop"
+  }
+
+  exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
+
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
-    dplyr::group_vars(.data) # vars needed for grouping
+    dplyr::group_vars(out) # vars needed for grouping
   ))
   # If exprs rely on the results of previous exprs
   # (total = sum(x), mean = total / n())
@@ -185,15 +201,15 @@ summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
   # Note that this select() isn't useful for the Arrow summarize implementation
   # because it will effectively project to keep what it needs anyway,
   # but the data.frame fallback version does benefit from select here
-  .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
+  out <- dplyr::select(out, intersect(vars_to_keep, names(out)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(.data, !!!exprs, .groups = .groups), silent = TRUE)
+  out <- try(do_arrow_summarize(out, !!!exprs, .groups = .groups), silent = TRUE)
   if (inherits(out, "try-error")) {
-    return(abandon_ship(call, .data, format(out)))
-  } else {
-    return(out)
+    out <- abandon_ship(call, .data, format(out))
   }
+
+  out
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- summarise.arrow_dplyr_query
 
@@ -315,7 +331,7 @@ summarize_projection <- function(.data) {
   c(
     unlist(unname(imap(
       .data$aggregations,
-      ~set_names(
+      ~ set_names(
         .x$data,
         aggregate_target_names(.x$data, .y)
       )
@@ -345,7 +361,7 @@ aggregate_types <- function(.data, hash, schema = NULL) {
   if (hash) dummy_groups <- Scalar$create(1L, uint32())
   map(
     .data$aggregations,
-    ~if (hash) {
+    ~ if (hash) {
       Expression$create(
         paste0("hash_", .$fun),
         # hash aggregate kernels must be passed an additional argument
@@ -367,11 +383,11 @@ aggregate_types <- function(.data, hash, schema = NULL) {
 # This function returns a named list of the data types of the group columns
 # returned by an aggregation
 group_types <- function(.data, schema = NULL) {
-  map(.data$selected_columns[.data$group_by_vars], ~.$type(schema))
+  map(.data$selected_columns[.data$group_by_vars], ~ .$type(schema))
 }
 
 format_aggregation <- function(x) {
-  paste0(x$fun, "(", paste(map(x$data, ~.$ToString()), collapse = ","), ")")
+  paste0(x$fun, "(", paste(map(x$data, ~ .$ToString()), collapse = ","), ")")
 }
 
 # This function handles each summarize expression and turns it into the
@@ -461,7 +477,7 @@ summarize_eval <- function(name, quosure, ctx, hash) {
       list(
         selected_columns = agg_field_refs,
         .data = list(
-          schema = schema(!!!agg_field_types)
+          schema = schema(agg_field_types)
         )
       )
     )

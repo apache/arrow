@@ -1,0 +1,70 @@
+{
+  "extensionUris": [],
+  "extensions": [],
+  "relations": [{
+    "root": {
+      "input": {
+        "project": {
+          "common": {
+            "emit": {
+              "outputMapping": [2, 3]
+            }
+          },
+          "input": {
+            "read": {
+              "common": {
+                "direct": {
+                }
+              },
+              "baseSchema": {
+                "names": ["ID", "NAME"],
+                "struct": {
+                  "types": [{
+                    "i32": {
+                      "typeVariationReference": 0,
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  }, {
+                    "varchar": {
+                      "length": 150,
+                      "typeVariationReference": 0,
+                      "nullability": "NULLABILITY_NULLABLE"
+                    }
+                  }],
+                  "typeVariationReference": 0,
+                  "nullability": "NULLABILITY_REQUIRED"
+                }
+              },
+              "namedTable": {
+                "names": ["USERS"]
+              }
+            }
+          },
+          "expressions": [{
+            "selection": {
+              "directReference": {
+                "structField": {
+                  "field": 0
+                }
+              },
+              "rootReference": {
+              }
+            }
+          }, {
+            "selection": {
+              "directReference": {
+                "structField": {
+                  "field": 1
+                }
+              },
+              "rootReference": {
+              }
+            }
+          }]
+        }
+      },
+      "names": ["ID", "NAME"]
+    }
+  }],
+  "expectedTypeUrls": []
+}

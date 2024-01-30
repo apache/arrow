@@ -24,7 +24,6 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/stubs/status.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/message_differencer.h>
 #include <google/protobuf/util/type_resolver.h>
@@ -36,12 +35,14 @@
 #include "arrow/compute/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/extended_expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -72,6 +73,20 @@ Result<std::shared_ptr<Buffer>> SerializePlan(
   ARROW_ASSIGN_OR_RAISE(auto subs_plan,
                         PlanToProto(declaration, ext_set, conversion_options));
   std::string serialized = subs_plan->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
+Result<std::shared_ptr<Buffer>> SerializeExpressions(
+    const BoundExpressions& bound_expressions,
+    const ConversionOptions& conversion_options, ExtensionSet* ext_set) {
+  ExtensionSet throwaway_ext_set;
+  if (ext_set == nullptr) {
+    ext_set = &throwaway_ext_set;
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::ExtendedExpression> extended_expression,
+      ToProto(bound_expressions, ext_set, conversion_options));
+  std::string serialized = extended_expression->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 
@@ -126,20 +141,14 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
-constexpr uint32_t kMinimumMajorVersion = 0;
-constexpr uint32_t kMinimumMinorVersion = 20;
-
 Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  if (plan.version().major_number() < kMinimumMajorVersion &&
-      plan.version().minor_number() < kMinimumMinorVersion) {
-    return Status::Invalid("Can only parse plans with a version >= ",
-                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
-  }
+  ARROW_RETURN_NOT_OK(
+      CheckVersion(plan.version().major_number(), plan.version().minor_number()));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
                         GetExtensionSetFromPlan(plan, conversion_options, registry));
@@ -153,6 +162,13 @@ Result<std::vector<acero::Declaration>> DeserializePlans(
     std::vector<std::string> names;
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
+    }
+    if (names.size() > 0) {
+      if (decl_info.output_schema->num_fields() != plan_rel.root().names_size()) {
+        return Status::Invalid("Substrait plan has ", plan_rel.root().names_size(),
+                               " names that cannot be applied to extension schema:\n",
+                               decl_info.output_schema->ToString(false));
+      }
     }
 
     // pipe each relation
@@ -190,12 +206,8 @@ ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
     const Buffer& buf, const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
-
-  if (plan.version().major_number() < kMinimumMajorVersion &&
-      plan.version().minor_number() < kMinimumMinorVersion) {
-    return Status::Invalid("Can only parse plans with a version >= ",
-                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
-  }
+  ARROW_RETURN_NOT_OK(
+      CheckVersion(plan.version().major_number(), plan.version().minor_number()));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
                         GetExtensionSetFromPlan(plan, conversion_options, registry));
@@ -225,6 +237,14 @@ ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
   }
 
   return PlanInfo{std::move(decl_info), std::move(names)};
+}
+
+Result<BoundExpressions> DeserializeExpressions(
+    const Buffer& buf, const ExtensionIdRegistry* registry,
+    const ConversionOptions& conversion_options, ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto extended_expression,
+                        ParseFromBuffer<substrait::ExtendedExpression>(buf));
+  return FromProto(extended_expression, ext_set_out, conversion_options, registry);
 }
 
 namespace {

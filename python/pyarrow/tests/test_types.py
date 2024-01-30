@@ -21,7 +21,6 @@ from functools import partial
 import datetime
 import sys
 
-import pickle
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
@@ -62,6 +61,8 @@ def get_many_types():
         pa.binary(10),
         pa.large_string(),
         pa.large_binary(),
+        pa.string_view(),
+        pa.binary_view(),
         pa.list_(pa.int32()),
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
@@ -244,6 +245,12 @@ def test_is_binary_string():
 
     assert types.is_fixed_size_binary(pa.binary(5))
     assert not types.is_fixed_size_binary(pa.binary())
+
+    assert types.is_string_view(pa.string_view())
+    assert not types.is_string_view(pa.string())
+    assert types.is_binary_view(pa.binary_view())
+    assert not types.is_binary_view(pa.binary())
+    assert not types.is_binary_view(pa.string_view())
 
 
 def test_is_temporal_date_time_timestamp():
@@ -486,6 +493,17 @@ def test_timestamp():
     for invalid_unit in ('m', 'arbit', 'rary'):
         with pytest.raises(ValueError, match='Invalid time unit'):
             pa.timestamp(invalid_unit)
+
+
+def test_timestamp_print():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas',
+                   'Mars/Mariner_Valley', '-00:42', '+42:00'):
+            ty = pa.timestamp(unit, tz=tz)
+            arr = pa.array([0], ty)
+            assert "Z" in str(arr)
+        arr = pa.array([0], pa.timestamp(unit))
+        assert "Z" not in str(arr)
 
 
 def test_time32_units():
@@ -790,10 +808,10 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable():
+def test_types_picklable(pickle_module):
     for ty in get_many_types():
-        data = pickle.dumps(ty)
-        assert pickle.loads(data) == ty
+        data = pickle_module.dumps(ty)
+        assert pickle_module.loads(data) == ty
 
 
 def test_types_weakref():
@@ -1020,7 +1038,7 @@ def test_key_value_metadata():
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
     assert md.get_all('b') == [b'beta']
-    assert md.get_all('unkown') == []
+    assert md.get_all('unknown') == []
 
     with pytest.raises(KeyError):
         md = pa.KeyValueMetadata([
@@ -1185,6 +1203,7 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(np.bool_(False))
 
 
+@h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.all_types |
     past.all_fields |
@@ -1193,9 +1212,9 @@ def test_is_boolean_value():
 @h.example(
     pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
 )
-def test_pickling(field):
-    data = pickle.dumps(field)
-    assert pickle.loads(data) == field
+def test_pickling(pickle_module, field):
+    data = pickle_module.dumps(field)
+    assert pickle_module.loads(data) == field
 
 
 @h.given(
@@ -1225,3 +1244,17 @@ def test_types_come_back_with_specific_type():
         schema = pa.schema([pa.field("field_name", arrow_type)])
         type_back = schema.field("field_name").type
         assert type(type_back) is type(arrow_type)
+
+
+def test_schema_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, schema):
+            self.schema = schema
+
+        def __arrow_c_schema__(self):
+            return self.schema.__arrow_c_schema__()
+
+    schema = pa.schema([pa.field("field_name", pa.int32())])
+    wrapped_schema = Wrapper(schema)
+
+    assert pa.schema(wrapped_schema) == schema

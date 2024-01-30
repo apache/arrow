@@ -27,12 +27,17 @@
 
 #include <arrow-glib/reader.h>
 
-GArrowRecordBatchReader *garrow_record_batch_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader);
-std::shared_ptr<arrow::ipc::RecordBatchReader> garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
+GArrowRecordBatchReader *
+garrow_record_batch_reader_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader,
+  GList *sources);
+std::shared_ptr<arrow::ipc::RecordBatchReader>
+garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
 
 GArrowTableBatchReader *
 garrow_table_batch_reader_new_raw(
-  std::shared_ptr<arrow::TableBatchReader> *arrow_reader);
+  std::shared_ptr<arrow::TableBatchReader> *arrow_reader,
+  GArrowTable *table);
 std::shared_ptr<arrow::TableBatchReader>
 garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader);
 

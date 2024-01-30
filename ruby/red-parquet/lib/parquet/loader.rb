@@ -29,6 +29,7 @@ module Parquet
     end
 
     def require_libraries
+      require "parquet/arrow-file-reader"
       require "parquet/arrow-table-loadable"
       require "parquet/arrow-table-savable"
       require "parquet/writer-properties"

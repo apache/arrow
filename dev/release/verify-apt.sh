@@ -45,10 +45,25 @@ echo "::group::Prepare repository"
 
 export DEBIAN_FRONTEND=noninteractive
 
-APT_INSTALL="apt install -y -V --no-install-recommends"
+retry()
+{
+  local n_retries=0
+  local max_n_retries=3
+  while ! "$@"; do
+    n_retries=$((n_retries + 1))
+    if [ ${n_retries} -eq ${max_n_retries} ]; then
+      echo "Failed: $@"
+      return 1
+    fi
+    echo "Retry: $@"
+  done
+}
+
+APT_INSTALL="retry apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
+  base-files \
   ca-certificates \
   curl \
   lsb-release
@@ -65,17 +80,17 @@ esac
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-bookworm)
+  debian-bullseye)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list.d/debian.sources
+      /etc/apt/sources.list
     ;;
   debian-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list
+      /etc/apt/sources.list.d/debian.sources
     ;;
 esac
 
@@ -151,7 +166,7 @@ pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
 ./arrow-example
 popd
 echo "::endgroup::"

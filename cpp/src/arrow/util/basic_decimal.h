@@ -45,13 +45,16 @@ class ARROW_EXPORT GenericBasicDecimal {
 
 #if ARROW_LITTLE_ENDIAN
   static constexpr int kHighWordIndex = NWORDS - 1;
+  static constexpr int kLowWordIndex = 0;
 #else
   static constexpr int kHighWordIndex = 0;
+  static constexpr int kLowWordIndex = NWORDS - 1;
 #endif
 
  public:
   static constexpr int kBitWidth = BIT_WIDTH;
   static constexpr int kByteWidth = kBitWidth / 8;
+  static constexpr int kNumWords = NWORDS;
 
   // A constructor tag to introduce a little-endian encoded array
   static constexpr LittleEndianArrayTag LittleEndianArray{};
@@ -64,8 +67,7 @@ class ARROW_EXPORT GenericBasicDecimal {
   /// \brief Create a decimal from the two's complement representation.
   ///
   /// Input array is assumed to be in native endianness.
-  constexpr GenericBasicDecimal(
-      const WordArray& array) noexcept  // NOLINT(runtime/explicit)
+  explicit constexpr GenericBasicDecimal(const WordArray& array) noexcept
       : array_(array) {}
 
   /// \brief Create a decimal from the two's complement representation.
@@ -73,6 +75,13 @@ class ARROW_EXPORT GenericBasicDecimal {
   /// Input array is assumed to be in little endianness, with native endian elements.
   GenericBasicDecimal(LittleEndianArrayTag, const WordArray& array) noexcept
       : GenericBasicDecimal(bit_util::little_endian::ToNative(array)) {}
+
+  /// \brief Create a decimal from any integer not wider than 64 bits.
+  template <typename T,
+            typename = typename std::enable_if<
+                std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
+  constexpr GenericBasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
+      : array_(WordsFromLowBits(value)) {}
 
   /// \brief Create a decimal from an array of bytes.
   ///
@@ -124,8 +133,37 @@ class ARROW_EXPORT GenericBasicDecimal {
 
   bool IsNegative() const { return static_cast<int64_t>(array_[kHighWordIndex]) < 0; }
 
+  explicit operator bool() const { return array_ != WordArray{}; }
+
+  friend bool operator==(const GenericBasicDecimal& left,
+                         const GenericBasicDecimal& right) {
+    return left.array_ == right.array_;
+  }
+
+  friend bool operator!=(const GenericBasicDecimal& left,
+                         const GenericBasicDecimal& right) {
+    return left.array_ != right.array_;
+  }
+
  protected:
   WordArray array_;
+
+  template <typename T>
+  static constexpr uint64_t SignExtend(T low_bits) noexcept {
+    return low_bits >= T{} ? uint64_t{0} : ~uint64_t{0};
+  }
+
+  template <typename T>
+  static constexpr WordArray WordsFromLowBits(T low_bits) {
+    WordArray words{};
+    if (low_bits < T{}) {
+      for (auto& word : words) {
+        word = ~uint64_t{0};
+      }
+    }
+    words[kLowWordIndex] = static_cast<uint64_t>(low_bits);
+    return words;
+  }
 };
 
 /// Represents a signed 128-bit integer in two's complement.
@@ -149,14 +187,6 @@ class ARROW_EXPORT BasicDecimal128 : public GenericBasicDecimal<BasicDecimal128,
   constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
       : BasicDecimal128(WordArray{static_cast<uint64_t>(high), low}) {}
 #endif
-
-  /// \brief Convert any integer value into a BasicDecimal128.
-  template <typename T,
-            typename = typename std::enable_if<
-                std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal128(T value) noexcept  // NOLINT(runtime/explicit)
-      : BasicDecimal128(value >= T{0} ? 0 : -1, static_cast<uint64_t>(value)) {  // NOLINT
-  }
 
   /// \brief Negate the current value (in-place)
   BasicDecimal128& Negate();
@@ -208,7 +238,9 @@ class ARROW_EXPORT BasicDecimal128 : public GenericBasicDecimal<BasicDecimal128,
     return res;
   }
 
-  /// \brief Shift right by the given number of bits. Negative values will
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend.
   BasicDecimal128& operator>>=(uint32_t bits);
 
   BasicDecimal128 operator>>(uint32_t bits) const {
@@ -284,8 +316,6 @@ class ARROW_EXPORT BasicDecimal128 : public GenericBasicDecimal<BasicDecimal128,
   }
 };
 
-ARROW_EXPORT bool operator==(const BasicDecimal128& left, const BasicDecimal128& right);
-ARROW_EXPORT bool operator!=(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator<(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator<=(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator>(const BasicDecimal128& left, const BasicDecimal128& right);
@@ -305,14 +335,6 @@ ARROW_EXPORT BasicDecimal128 operator%(const BasicDecimal128& left,
                                        const BasicDecimal128& right);
 
 class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256, 256> {
- private:
-  // Due to a bug in clang, we have to declare the extend method prior to its
-  // usage.
-  template <typename T>
-  static constexpr uint64_t extend(T low_bits) noexcept {
-    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
-  }
-
  public:
   using GenericBasicDecimal::GenericBasicDecimal;
 
@@ -321,19 +343,10 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
 
   constexpr BasicDecimal256() noexcept : GenericBasicDecimal() {}
 
-  /// \brief Convert any integer value into a BasicDecimal256.
-  template <typename T,
-            typename = typename std::enable_if<
-                std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal256(T value) noexcept  // NOLINT(runtime/explicit)
-      : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
-            {static_cast<uint64_t>(value), extend(value), extend(value),
-             extend(value)})) {}
-
   explicit BasicDecimal256(const BasicDecimal128& value) noexcept
       : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
             {value.low_bits(), static_cast<uint64_t>(value.high_bits()),
-             extend(value.high_bits()), extend(value.high_bits())})) {}
+             SignExtend(value.high_bits()), SignExtend(value.high_bits())})) {}
 
   /// \brief Negate the current value (in-place)
   BasicDecimal256& Negate();
@@ -352,6 +365,10 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
 
   /// \brief Get the lowest bits of the two's complement representation of the number.
   uint64_t low_bits() const { return bit_util::little_endian::Make(array_)[0]; }
+
+  /// \brief separate the integer and fractional parts for the given scale.
+  void GetWholeAndFraction(int32_t scale, BasicDecimal256* whole,
+                           BasicDecimal256* fraction) const;
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
@@ -403,6 +420,17 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
     return res;
   }
 
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend.
+  BasicDecimal256& operator>>=(uint32_t bits);
+
+  BasicDecimal256 operator>>(uint32_t bits) const {
+    auto res = *this;
+    res >>= bits;
+    return res;
+  }
+
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
 
@@ -434,16 +462,6 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
 #endif
   }
 };
-
-ARROW_EXPORT inline bool operator==(const BasicDecimal256& left,
-                                    const BasicDecimal256& right) {
-  return left.native_endian_array() == right.native_endian_array();
-}
-
-ARROW_EXPORT inline bool operator!=(const BasicDecimal256& left,
-                                    const BasicDecimal256& right) {
-  return left.native_endian_array() != right.native_endian_array();
-}
 
 ARROW_EXPORT bool operator<(const BasicDecimal256& left, const BasicDecimal256& right);
 

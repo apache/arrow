@@ -21,6 +21,36 @@ class TestFlightClientOptions < Test::Unit::TestCase
     @options = ArrowFlight::ClientOptions.new
   end
 
+  def test_tls_root_certificates
+    assert_equal("", @options.tls_root_certificates)
+    @options.tls_root_certificates = "root"
+    assert_equal("root", @options.tls_root_certificates)
+  end
+
+  def test_override_host_name
+    assert_equal("", @options.override_host_name)
+    @options.override_host_name = "client.example.com"
+    assert_equal("client.example.com", @options.override_host_name)
+  end
+
+  def test_certificate_chain
+    assert_equal("", @options.certificate_chain)
+    @options.certificate_chain = "chain"
+    assert_equal("chain", @options.certificate_chain)
+  end
+
+  def test_private_key
+    assert_equal("", @options.private_key)
+    @options.private_key = "private"
+    assert_equal("private", @options.private_key)
+  end
+
+  def test_write_size_limit_bytes
+    assert_equal(0, @options.write_size_limit_bytes)
+    @options.write_size_limit_bytes = 100
+    assert_equal(100, @options.write_size_limit_bytes)
+  end
+
   def test_disable_server_verifiation
     assert do
       not @options.disable_server_verification?

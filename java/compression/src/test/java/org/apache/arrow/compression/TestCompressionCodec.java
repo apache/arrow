@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -93,6 +94,9 @@ class TestCompressionCodec {
 
       CompressionCodec zstdCodec = new ZstdCompressionCodec();
       params.add(Arguments.arguments(len, zstdCodec));
+
+      CompressionCodec zstdCodecAndCompressionLevel = new ZstdCompressionCodec(7);
+      params.add(Arguments.arguments(len, zstdCodecAndCompressionLevel));
     }
     return params;
   }
@@ -111,6 +115,12 @@ class TestCompressionCodec {
       outputBuffers.add(codec.decompress(allocator, buf));
     }
     return outputBuffers;
+  }
+
+  private void assertWriterIndex(List<ArrowBuf> decompressedBuffers) {
+    for (ArrowBuf decompressedBuf : decompressedBuffers) {
+      assertTrue(decompressedBuf.writerIndex() > 0);
+    }
   }
 
   @ParameterizedTest
@@ -135,6 +145,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(2, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     IntVector newVec = new IntVector("new vec", allocator);
@@ -164,7 +175,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
-        origVec.setSafe(i, String.valueOf(i).getBytes());
+        origVec.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
     }
     origVec.setValueCount(vectorLength);
@@ -176,6 +187,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(3, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     VarCharVector newVec = new VarCharVector("new vec", allocator);
@@ -187,7 +199,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
-        assertArrayEquals(String.valueOf(i).getBytes(), newVec.get(i));
+        assertArrayEquals(String.valueOf(i).getBytes(StandardCharsets.UTF_8), newVec.get(i));
       }
     }
 
@@ -235,7 +247,7 @@ class TestCompressionCodec {
       try (final ArrowStreamWriter writer = new ArrowStreamWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          IpcOption.DEFAULT, factory, codec)) {
+          IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -262,7 +274,7 @@ class TestCompressionCodec {
       try (final ArrowFileWriter writer = new ArrowFileWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          new HashMap<>(), IpcOption.DEFAULT, factory, codec)) {
+          new HashMap<>(), IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -313,7 +325,7 @@ class TestCompressionCodec {
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
       final VarCharVector strings = (VarCharVector) root.getVector(1);
-      // Doesn't get compresed
+      // Doesn't get compressed
       ints.setSafe(0, 0x4a3e);
       ints.setSafe(1, 0x8aba);
       ints.setSafe(2, 0x4362);

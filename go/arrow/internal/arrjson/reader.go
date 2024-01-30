@@ -17,14 +17,14 @@
 package arrjson
 
 import (
-	"encoding/json"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/arrio"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 type Reader struct {
@@ -82,6 +82,8 @@ func (r *Reader) Release() {
 				r.recs[i] = nil
 			}
 		}
+		r.memo.Clear()
+		r.memo = nil
 	}
 }
 func (r *Reader) Schema() *arrow.Schema { return r.schema }
@@ -93,6 +95,14 @@ func (r *Reader) Read() (arrow.Record, error) {
 	}
 	rec := r.recs[r.irec]
 	r.irec++
+	return rec, nil
+}
+
+func (r *Reader) ReadAt(index int) (arrow.Record, error) {
+	if index >= r.NumRecords() {
+		return nil, io.EOF
+	}
+	rec := r.recs[index]
 	return rec, nil
 }
 

@@ -40,6 +40,7 @@ namespace flight {
 class ARROW_FLIGHT_EXPORT FlightTest {
  protected:
   virtual std::string transport() const = 0;
+  virtual bool supports_async() const { return false; }
   virtual void SetUpTest() {}
   virtual void TearDownTest() {}
 };
@@ -265,10 +266,17 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 
   // Test methods
   void TestGetFlightInfo();
+  void TestGetFlightInfoMetadata();
+  void TestAsyncGetFlightInfo();
   void TestDoPut();
   void TestDoExchange();
 
- private:
+ protected:
+  struct Impl;
+
+  std::vector<std::pair<std::string, std::string>> GetHeaders();
+
+  std::shared_ptr<Impl> impl_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
 };
@@ -276,9 +284,34 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 #define ARROW_FLIGHT_TEST_ERROR_HANDLING(FIXTURE)                                 \
   static_assert(std::is_base_of<ErrorHandlingTest, FIXTURE>::value,               \
                 ARROW_STRINGIFY(FIXTURE) " must inherit from ErrorHandlingTest"); \
+  TEST_F(FIXTURE, TestAsyncGetFlightInfo) { TestAsyncGetFlightInfo(); }           \
   TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                     \
+  TEST_F(FIXTURE, TestGetFlightInfoMetadata) { TestGetFlightInfoMetadata(); }     \
   TEST_F(FIXTURE, TestDoPut) { TestDoPut(); }                                     \
   TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }
+
+/// \brief Tests of the async client.
+class ARROW_FLIGHT_EXPORT AsyncClientTest : public FlightTest {
+ public:
+  void SetUpTest() override;
+  void TearDownTest() override;
+
+  // Test methods
+  void TestGetFlightInfo();
+  void TestGetFlightInfoFuture();
+  void TestListenerLifetime();
+
+ private:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+};
+
+#define ARROW_FLIGHT_TEST_ASYNC_CLIENT(FIXTURE)                                 \
+  static_assert(std::is_base_of<AsyncClientTest, FIXTURE>::value,               \
+                ARROW_STRINGIFY(FIXTURE) " must inherit from AsyncClientTest"); \
+  TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                   \
+  TEST_F(FIXTURE, TestGetFlightInfoFuture) { TestGetFlightInfoFuture(); }       \
+  TEST_F(FIXTURE, TestListenerLifetime) { TestListenerLifetime(); }
 
 }  // namespace flight
 }  // namespace arrow

@@ -21,6 +21,8 @@ import (
 	"io"
 )
 
+var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
+
 type unpackFunc func(in io.Reader, out []uint32)
 
 func unpack1_32(in io.Reader, out []uint32) {

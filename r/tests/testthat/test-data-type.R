@@ -609,7 +609,7 @@ test_that("DataType$code()", {
   expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
   expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
 
-  skip_if(packageVersion("rlang") < 1)
+  skip_if(packageVersion("rlang") < "1")
   # Are these unsupported for a reason?
   expect_error(
     eval(DayTimeInterval__initialize()$code()),

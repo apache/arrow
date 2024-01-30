@@ -22,11 +22,11 @@ module Helper
     type_register
 
     private
-    def virtual_do_authenticate(sender, reader)
+    def virtual_do_authenticate(context, sender, reader)
       true
     end
 
-    def virtual_do_is_valid(token)
+    def virtual_do_is_valid(context, token)
       "identity"
     end
   end

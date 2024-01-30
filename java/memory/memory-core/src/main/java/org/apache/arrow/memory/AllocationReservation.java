@@ -59,7 +59,7 @@ public interface AllocationReservation extends AutoCloseable {
    * requested is available, if the allocation cannot be made contiguously.</p>
    *
    * @return the buffer, or null, if the request cannot be satisfied
-   * @throws IllegalStateException if called called more than once
+   * @throws IllegalStateException if called more than once
    */
   ArrowBuf allocateBuffer();
 

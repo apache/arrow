@@ -37,7 +37,8 @@ static void BenchmarkTDigest(benchmark::State& state) {
     for (double value : values) {
       td.Add(value);
     }
-    benchmark::DoNotOptimize(td.Quantile(0));
+    auto quantile = td.Quantile(0);
+    benchmark::DoNotOptimize(quantile);
   }
   state.SetItemsProcessed(state.iterations() * items);
 }

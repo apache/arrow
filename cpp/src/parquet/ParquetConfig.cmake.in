@@ -29,8 +29,14 @@
 
 @PACKAGE_INIT@
 
+set(PARQUET_SYSTEM_DEPENDENCIES "@PARQUET_SYSTEM_DEPENDENCIES@")
+
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+
+if(ARROW_BUILD_STATIC)
+  arrow_find_dependencies("${PARQUET_SYSTEM_DEPENDENCIES}")
+endif()
 
 set(PARQUET_VERSION "@ARROW_VERSION@")
 set(PARQUET_SO_VERSION "@ARROW_SO_VERSION@")

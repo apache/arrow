@@ -49,13 +49,15 @@ to "us-east-1" if no other alternatives are found.
 such as "localhost:9000". This is useful for connecting to file systems
 that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
+\item \code{proxy_options}: optional string, URI of a proxy to use when connecting
+to S3
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
 \item \code{allow_bucket_creation}: logical, if TRUE, the filesystem will create
 buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
 \item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
 buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
-\item \code{request_timeout}: Socket read time on Windows and MacOS in seconds. If
+\item \code{request_timeout}: Socket read time on Windows and macOS in seconds. If
 negative, the AWS SDK default (typically 3 seconds).
 \item \code{connect_timeout}: Socket connection timeout in seconds. If negative, AWS
 SDK default is used (typically 1 second).
@@ -81,12 +83,20 @@ buckets in.
 \item \code{retry_limit_seconds}: the maximum amount of time to spend retrying if
 the filesystem encounters errors. Default is 15 seconds.
 \item \code{default_metadata}: default metadata to write in new objects.
+\item \code{project_id}: the project to use for creating buckets.
 }
 }
 
 \section{Methods}{
 
 \itemize{
+\item \code{path(x)}: Create a \code{SubTreeFileSystem} from the current \code{FileSystem}
+rooted at the specified path \code{x}.
+\item \code{cd(x)}: Create a \code{SubTreeFileSystem} from the current \code{FileSystem}
+rooted at the specified path \code{x}.
+\item \code{ls(path, ...)}: List files or objects at the given path or from the root
+of the \code{FileSystem} if \code{path} is not provided. Additional arguments passed
+to \code{FileSelector$create}, see \link{FileSelector}.
 \item \verb{$GetFileInfo(x)}: \code{x} may be a \link{FileSelector} or a character
 vector of paths. Returns a list of \link{FileInfo}
 \item \verb{$CreateDir(path, recursive = TRUE)}: Create a directory and subdirectories.
@@ -125,6 +135,8 @@ containing a \code{S3FileSystem}
 \item \verb{$base_fs}: for \code{SubTreeFileSystem}, the \code{FileSystem} it contains
 \item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
 root in this \code{SubTreeFileSystem}.
+\item \verb{$options}: for \code{GcsFileSystem}, the options used to create the
+\code{GcsFileSystem} instance as a \code{list}
 }
 }
 
@@ -137,5 +149,13 @@ it does not pass any non-default settings. In AWS S3, the bucket and all
 objects will be not publicly visible, and will have no bucket policies
 and no resource tags. To have more control over how buckets are created,
 use a different API to create them.
+
+On S3FileSystem, output is only produced for fatal errors or when printing
+return values. For troubleshooting, the log level can be set using the
+environment variable \code{ARROW_S3_LOG_LEVEL} (e.g.,
+\code{Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")}). The log level must be set prior
+to running any code that interacts with S3. Possible values include 'FATAL'
+(the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+'OFF'.
 }
 

@@ -27,8 +27,7 @@
 #include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 // This class will retrieve the key from "key metadata", following these steps:
 // 1. Parse "key metadata" (see structure in KeyMetadata class).
@@ -78,5 +77,4 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
   std::shared_ptr<::arrow::fs::FileSystem> file_system_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

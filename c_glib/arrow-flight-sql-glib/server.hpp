@@ -31,9 +31,37 @@ const arrow::flight::sql::StatementQuery *
 gaflightsql_statement_query_get_raw(
   GAFlightSQLStatementQuery *command);
 
+GAFlightSQLStatementUpdate *
+gaflightsql_statement_update_new_raw(
+  const arrow::flight::sql::StatementUpdate *flight_command);
+const arrow::flight::sql::StatementUpdate *
+gaflightsql_statement_update_get_raw(
+  GAFlightSQLStatementUpdate *command);
+
+GAFlightSQLPreparedStatementUpdate *
+gaflightsql_prepared_statement_update_new_raw(
+  const arrow::flight::sql::PreparedStatementUpdate *flight_command);
+const arrow::flight::sql::PreparedStatementUpdate *
+gaflightsql_prepared_statement_update_get_raw(
+  GAFlightSQLPreparedStatementUpdate *command);
+
 GAFlightSQLStatementQueryTicket *
 gaflightsql_statement_query_ticket_new_raw(
   const arrow::flight::sql::StatementQueryTicket *flight_command);
 const arrow::flight::sql::StatementQueryTicket *
 gaflightsql_statement_query_ticket_get_raw(
   GAFlightSQLStatementQueryTicket *command);
+
+GAFlightSQLCreatePreparedStatementRequest *
+gaflightsql_create_prepared_statement_request_new_raw(
+  const arrow::flight::sql::ActionCreatePreparedStatementRequest *flight_request);
+const arrow::flight::sql::ActionCreatePreparedStatementRequest *
+gaflightsql_create_prepared_statement_request_get_raw(
+  GAFlightSQLCreatePreparedStatementRequest *request);
+
+GAFlightSQLClosePreparedStatementRequest *
+gaflightsql_close_prepared_statement_request_new_raw(
+  const arrow::flight::sql::ActionClosePreparedStatementRequest *flight_request);
+const arrow::flight::sql::ActionClosePreparedStatementRequest *
+gaflightsql_close_prepared_statement_request_get_raw(
+  GAFlightSQLClosePreparedStatementRequest *request);

@@ -31,6 +31,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -200,12 +201,168 @@ class JitterNode : public ExecNode {
 
 }  // namespace
 
+class GateImpl {
+ public:
+  void ReleaseAllBatches() {
+    std::lock_guard lg(mutex_);
+    num_allowed_batches_ = -1;
+    NotifyAll();
+  }
+
+  void ReleaseOneBatch() {
+    std::lock_guard lg(mutex_);
+    DCHECK_GE(num_allowed_batches_, 0)
+        << "you can't call ReleaseOneBatch() after calling ReleaseAllBatches()";
+    num_allowed_batches_++;
+    NotifyAll();
+  }
+
+  Future<> WaitForNextReleasedBatch() {
+    std::lock_guard lg(mutex_);
+    if (current_waiter_.is_valid()) {
+      return current_waiter_;
+    }
+    Future<> fut;
+    if (num_allowed_batches_ < 0 || num_released_batches_ < num_allowed_batches_) {
+      num_released_batches_++;
+      return Future<>::MakeFinished();
+    }
+
+    current_waiter_ = Future<>::Make();
+    return current_waiter_;
+  }
+
+ private:
+  void NotifyAll() {
+    if (current_waiter_.is_valid()) {
+      Future<> to_unlock = current_waiter_;
+      current_waiter_ = {};
+      to_unlock.MarkFinished();
+    }
+  }
+
+  Future<> current_waiter_;
+  int num_released_batches_ = 0;
+  int num_allowed_batches_ = 0;
+  std::mutex mutex_;
+};
+
+std::shared_ptr<Gate> Gate::Make() { return std::make_shared<Gate>(); }
+
+Gate::Gate() : impl_(new GateImpl()) {}
+
+Gate::~Gate() { delete impl_; }
+
+void Gate::ReleaseAllBatches() { impl_->ReleaseAllBatches(); }
+
+void Gate::ReleaseOneBatch() { impl_->ReleaseOneBatch(); }
+
+Future<> Gate::WaitForNextReleasedBatch() { return impl_->WaitForNextReleasedBatch(); }
+
+namespace {
+
+struct GatedNode : public ExecNode, public TracedNode {
+  static constexpr auto kKindName = "BackpressureDelayingNode";
+  static constexpr const char* kFactoryName = "backpressure_delay";
+
+  static void Register() {
+    auto exec_reg = default_exec_factory_registry();
+    if (!exec_reg->GetFactory(kFactoryName).ok()) {
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, GatedNode::Make));
+    }
+  }
+
+  GatedNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+            std::shared_ptr<Schema> output_schema, const GatedNodeOptions& options)
+      : ExecNode(plan, inputs, {"input"}, output_schema),
+        TracedNode(this),
+        gate_(options.gate) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto gated_node_opts = static_cast<const GatedNodeOptions&>(options);
+    return plan->EmplaceNode<GatedNode>(plan, inputs, inputs[0]->output_schema(),
+                                        gated_node_opts);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    return output_->InputFinished(this, total_batches);
+  }
+  Status StartProducing() override {
+    NoteStartProducing(ToStringExtra());
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
+
+  Status StopProducingImpl() override { return Status::OK(); }
+
+  Status SendBatchesUnlocked(std::unique_lock<std::mutex>&& lock) {
+    while (!queued_batches_.empty()) {
+      // If we are ready to release the batch, do so immediately.
+      Future<> maybe_unlocked = gate_->WaitForNextReleasedBatch();
+      bool callback_added = maybe_unlocked.TryAddCallback([this] {
+        return [this](const Status& st) {
+          DCHECK_OK(st);
+          plan_->query_context()->ScheduleTask(
+              [this] {
+                std::unique_lock lk(mutex_);
+                return SendBatchesUnlocked(std::move(lk));
+              },
+              "GatedNode::ResumeAfterNotify");
+        };
+      });
+      if (callback_added) {
+        break;
+      }
+      // Otherwise, the future is already finished which means the gate is unlocked
+      // and we are allowed to send a batch
+      ExecBatch next = std::move(queued_batches_.front());
+      queued_batches_.pop();
+      lock.unlock();
+      ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(next)));
+      lock.lock();
+    }
+    return Status::OK();
+  }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    auto scope = TraceInputReceived(batch);
+    DCHECK_EQ(input, inputs_[0]);
+
+    // This may be called concurrently by the source and by a restart attempt.  Process
+    // one at a time (this critical section should be pretty small)
+    std::unique_lock lk(mutex_);
+    queued_batches_.push(std::move(batch));
+
+    return SendBatchesUnlocked(std::move(lk));
+  }
+
+  Gate* gate_;
+  std::queue<ExecBatch> queued_batches_;
+  std::mutex mutex_;
+};
+
+}  // namespace
+
 void RegisterTestNodes() {
   static std::once_flag registered;
   std::call_once(registered, [] {
     ExecFactoryRegistry* registry = default_exec_factory_registry();
     DCHECK_OK(
         registry->AddFactory(std::string(JitterNodeOptions::kName), JitterNode::Make));
+    DCHECK_OK(
+        registry->AddFactory(std::string(GatedNodeOptions::kName), GatedNode::Make));
   });
 }
 

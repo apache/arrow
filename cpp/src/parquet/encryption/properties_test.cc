@@ -22,9 +22,7 @@
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/test_encryption_util.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
   std::string column_path_1 = "column_1";
@@ -271,6 +269,4 @@ TEST(TestDecryptionProperties, UsingExplicitFooterAndColumnKeys) {
   ASSERT_EQ(kColumnEncryptionKey2, props->column_key(column_path_2));
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

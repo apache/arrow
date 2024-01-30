@@ -121,9 +121,11 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         "rightStart %s must be non negative.", range.getRightStart());
 
     Preconditions.checkArgument(range.getRightStart() + range.getLength() <= right.getValueCount(),
-        "(rightStart + length) %s out of range[0, %s].", 0, right.getValueCount());
+        "(rightStart + length) %s out of range[0, %s].",
+        range.getRightStart() + range.getLength(), right.getValueCount());
     Preconditions.checkArgument(range.getLeftStart() + range.getLength() <= left.getValueCount(),
-        "(leftStart + length) %s out of range[0, %s].", 0, left.getValueCount());
+        "(leftStart + length) %s out of range[0, %s].",
+        range.getLeftStart() + range.getLength(), left.getValueCount());
 
     return left.accept(this, range);
   }
@@ -366,7 +368,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
             return false;
           }
         } else {
-          boolean ret = ((BitVector) leftVector).get(leftIndex) == ((BitVector) rightVector).get(leftIndex);
+          boolean ret = ((BitVector) leftVector).get(leftIndex) == ((BitVector) rightVector).get(rightIndex);
           if (!ret) {
             return false;
           }

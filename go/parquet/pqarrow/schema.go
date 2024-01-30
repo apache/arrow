@@ -22,14 +22,15 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -124,7 +125,7 @@ func isDictionaryReadSupported(dt arrow.DataType) bool {
 }
 
 func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) schema.LogicalType {
-	utc := typ.TimeZone == "" || typ.TimeZone == "UTC"
+	isAdjustedToUTC := typ.TimeZone != ""
 
 	// for forward compatibility reasons, and because there's no other way
 	// to signal to old readers that values are timestamps, we force
@@ -145,7 +146,7 @@ func arrowTimestampToLogical(typ *arrow.TimestampType, unit arrow.TimeUnit) sche
 		return schema.NoLogicalType{}
 	}
 
-	return schema.NewTimestampLogicalTypeForce(utc, scunit)
+	return schema.NewTimestampLogicalTypeForce(isAdjustedToUTC, scunit)
 }
 
 func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (parquet.Type, schema.LogicalType, error) {
@@ -173,7 +174,7 @@ func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties,
 				return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
 			}
 		} else if target == arrow.Second {
-			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
+			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis, micros or nanos", props.Version())
 		}
 		return physical, logicalType, nil
 	}
@@ -232,11 +233,11 @@ func repFromNullable(isnullable bool) parquet.Repetition {
 }
 
 func structToNode(typ *arrow.StructType, name string, nullable bool, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
-	if len(typ.Fields()) == 0 {
+	if typ.NumFields() == 0 {
 		return nil, fmt.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
 	}
 
-	children := make(schema.FieldList, 0, len(typ.Fields()))
+	children := make(schema.FieldList, 0, typ.NumFields())
 	for _, f := range typ.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -304,19 +305,29 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
 		length = field.Type.(*arrow.FixedSizeBinaryType).ByteWidth
-	case arrow.DECIMAL:
-		typ = parquet.Types.FixedLenByteArray
-		dectype := field.Type.(*arrow.Decimal128Type)
-		precision = int(dectype.Precision)
-		scale = int(dectype.Scale)
-		length = int(DecimalSize(int32(precision)))
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dectype := field.Type.(arrow.DecimalType)
+		precision = int(dectype.GetPrecision())
+		scale = int(dectype.GetScale())
+
+		if props.StoreDecimalAsInteger() && 1 <= precision && precision <= 18 {
+			if precision <= 9 {
+				typ = parquet.Types.Int32
+			} else {
+				typ = parquet.Types.Int64
+			}
+		} else {
+			typ = parquet.Types.FixedLenByteArray
+			length = int(DecimalSize(int32(precision)))
+		}
+
 		logicalType = schema.NewDecimalLogicalType(int32(precision), int32(scale))
 	case arrow.DATE32:
 		typ = parquet.Types.Int32
 		logicalType = schema.DateLogicalType{}
 	case arrow.DATE64:
-		typ = parquet.Types.Int64
-		logicalType = schema.NewTimestampLogicalType(true, schema.TimeUnitMillis)
+		typ = parquet.Types.Int32
+		logicalType = schema.DateLogicalType{}
 	case arrow.TIMESTAMP:
 		typ, logicalType, err = getTimestampMeta(field.Type.(*arrow.TimestampType), props, arrprops)
 		if err != nil {
@@ -333,6 +344,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		} else {
 			logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitMicros)
 		}
+	case arrow.FLOAT16:
+		typ = parquet.Types.FixedLenByteArray
+		length = arrow.Float16SizeBytes
+		logicalType = schema.Float16LogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:
@@ -425,7 +440,7 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		props = parquet.NewWriterProperties()
 	}
 
-	nodes := make(schema.FieldList, 0, len(sc.Fields()))
+	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for _, f := range sc.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -504,9 +519,12 @@ func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 }
 
 func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error) {
-	tz := "UTC"
-	if logical.IsFromConvertedType() {
-		tz = ""
+	tz := ""
+
+	// ConvertedTypes are adjusted to UTC per backward compatibility guidelines
+	// https://github.com/apache/parquet-format/blob/eb4b31c1d64a01088d02a2f9aefc6c17c54cc6fc/LogicalTypes.md?plain=1#L480-L485
+	if logical.IsAdjustedToUTC() || logical.IsFromConvertedType() {
+		tz = "UTC"
 	}
 
 	switch logical.TimeUnit() {
@@ -521,6 +539,13 @@ func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error
 	}
 }
 
+func arrowDecimal(logical *schema.DecimalLogicalType) arrow.DataType {
+	if logical.Precision() <= decimal128.MaxPrecision {
+		return &arrow.Decimal128Type{Precision: logical.Precision(), Scale: logical.Scale()}
+	}
+	return &arrow.Decimal256Type{Precision: logical.Precision(), Scale: logical.Scale()}
+}
+
 func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case schema.NoLogicalType:
@@ -528,7 +553,7 @@ func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.TimeLogicalType:
 		return arrowTime32(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case schema.DateLogicalType:
@@ -547,7 +572,7 @@ func arrowFromInt64(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.TimeLogicalType:
 		return arrowTime64(logtype)
 	case *schema.TimestampLogicalType:
@@ -562,7 +587,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 	case schema.StringLogicalType:
 		return arrow.BinaryTypes.String, nil
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType,
 		schema.EnumLogicalType,
 		schema.JSONLogicalType,
@@ -576,9 +601,11 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
+	case schema.Float16LogicalType:
+		return &arrow.Float16Type{}, nil
 	default:
 		return nil, xerrors.New("unhandled logical type " + logical.String() + " for fixed-length byte array")
 	}
@@ -978,7 +1005,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
-		if nchildren != len(typ.Fields()) {
+		if nchildren != typ.NumFields() {
 			return
 		}
 
@@ -1002,7 +1029,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 			}
 			inferred.Field.Type = factory(modifiedChildren)
 		}
-	case arrow.FIXED_SIZE_LIST, arrow.LIST, arrow.MAP:
+	case arrow.FIXED_SIZE_LIST, arrow.LIST, arrow.LARGE_LIST, arrow.MAP: // arrow.ListLike
 		if nchildren != 1 {
 			return
 		}
@@ -1012,17 +1039,9 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		}
 
 		modified = origin.Type.ID() != inferred.Field.Type.ID()
-		var childModified bool
-		switch typ := origin.Type.(type) {
-		case *arrow.FixedSizeListType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.Elem()}, &inferred.Children[0])
-		case *arrow.ListType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.Elem()}, &inferred.Children[0])
-		case *arrow.MapType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.ValueType()}, &inferred.Children[0])
-		}
+		childModified, err := applyOriginalMetadata(arrow.Field{Type: origin.Type.(arrow.ListLikeType).Elem()}, &inferred.Children[0])
 		if err != nil {
-			return
+			return modified, err
 		}
 		modified = modified || childModified
 		if modified {
@@ -1056,6 +1075,11 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		inferred.Field.Type = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32,
 			ValueType: inferred.Field.Type, Ordered: dictOriginType.Ordered}
 		modified = true
+	case arrow.DECIMAL256:
+		if inferred.Field.Type.ID() == arrow.DECIMAL128 {
+			inferred.Field.Type = origin.Type
+			modified = true
+		}
 	}
 
 	if origin.HasMetadata() {

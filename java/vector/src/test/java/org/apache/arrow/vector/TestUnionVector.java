@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -403,16 +404,16 @@ public class TestUnionVector {
     assertTrue(vector.getField().equals(field));
 
     // Union has 2 child vectors
-    assertEquals(vector.size(), 2);
+    assertEquals(2, vector.size());
 
     // Check child field 0
     VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
-    assertEquals(intChild.ordinal, 0);
+    assertEquals(0, intChild.ordinal);
     assertEquals(intChild.vector.getField(), children.get(0));
 
     // Check child field 1
     VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
-    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(1, varcharChild.ordinal);
     assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
@@ -454,7 +455,7 @@ public class TestUnionVector {
 
 
       try {
-        long offsetAddress = vector.getOffsetBufferAddress();
+        vector.getOffsetBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
@@ -463,7 +464,7 @@ public class TestUnionVector {
       }
 
       try {
-        long dataAddress = vector.getDataBufferAddress();
+        vector.getDataBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
@@ -494,6 +495,28 @@ public class TestUnionVector {
       srcVector.setSafe(0, holder);
 
       assertNull(srcVector.getObject(0));
+    }
+  }
+
+  @Test
+  public void testCreateNewVectorWithoutTypeExceptionThrown() {
+    try (UnionVector vector =
+        new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+      IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getTimeStampMilliTZVector());
+      assertEquals("No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector", e1.getMessage());
+
+      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getDurationVector());
+      assertEquals("No Duration present. Provide ArrowType argument to create a new vector", e2.getMessage());
+
+      IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getFixedSizeBinaryVector());
+      assertEquals("No FixedSizeBinary present. Provide ArrowType argument to create a new vector", e3.getMessage());
+
+      IllegalArgumentException e4 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getDecimalVector());
+      assertEquals("No Decimal present. Provide ArrowType argument to create a new vector", e4.getMessage());
     }
   }
 

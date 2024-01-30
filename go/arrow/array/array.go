@@ -19,14 +19,18 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
 )
 
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
+
+	// NullValueStr represents a null value in arrow.Array.ValueStr and in Builder.AppendValueFromString.
+	// It should be returned from the arrow.Array.ValueStr implementations.
+	// Using it as the value in Builder.AppendValueFromString should be equivalent to Builder.AppendNull.
 	NullValueStr = "(null)"
 )
 
@@ -172,7 +176,10 @@ func init() {
 		arrow.LARGE_LIST:              func(data arrow.ArrayData) arrow.Array { return NewLargeListData(data) },
 		arrow.INTERVAL_MONTH_DAY_NANO: func(data arrow.ArrayData) arrow.Array { return NewMonthDayNanoIntervalData(data) },
 		arrow.RUN_END_ENCODED:         func(data arrow.ArrayData) arrow.Array { return NewRunEndEncodedData(data) },
-
+		arrow.LIST_VIEW:               func(data arrow.ArrayData) arrow.Array { return NewListViewData(data) },
+		arrow.LARGE_LIST_VIEW:         func(data arrow.ArrayData) arrow.Array { return NewLargeListViewData(data) },
+		arrow.BINARY_VIEW:             func(data arrow.ArrayData) arrow.Array { return NewBinaryViewData(data) },
+		arrow.STRING_VIEW:             func(data arrow.ArrayData) arrow.Array { return NewStringViewData(data) },
 		// invalid data types to fill out array to size 2^6 - 1
 		63: invalidDataType,
 	}

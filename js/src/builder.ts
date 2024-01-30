@@ -21,8 +21,8 @@ import { MapRow, kKeys } from './row/map.js';
 import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
-    Date_, Time, Timestamp, Interval,
-    Utf8, Binary, List, Map_,
+    Date_, Time, Timestamp, Interval, Duration,
+    Utf8, LargeUtf8, Binary, LargeBinary, List, Map_,
 } from './type.js';
 import { createIsValidFunction } from './builder/valid.js';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
@@ -72,7 +72,7 @@ export interface BuilderOptions<T extends DataType = any, TNull = any> {
  *
  * @example
  * ```ts
- * import { Builder, Utf8 } from 'apache-arrow';
+ * import { makeBuilder, Utf8 } from 'apache-arrow';
  *
  * const utf8Builder = makeBuilder({
  *     type: new Utf8(),
@@ -198,10 +198,10 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    declare protected _offsets: DataBufferBuilder<Int32Array>;
+    declare protected _offsets: DataBufferBuilder<T['TOffsetArray']>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
-    declare protected _values: BufferBuilder<T['TArray'], any>;
+    declare protected _values: BufferBuilder<T['TArray']>;
     public get values() { return this._values ? this._values.buffer : null; }
 
     declare protected _nulls: BitmapBufferBuilder;
@@ -277,20 +277,17 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @returns A `Data<T>` of the buffers and children representing the values written.
      */
     public flush(): Data<T> {
-
-        let data;
-        let typeIds;
-        let nullBitmap;
-        let valueOffsets;
+        let data: BufferBuilder<T['TArray']> | undefined;
+        let typeIds: Int8Array;
+        let nullBitmap: Uint8Array | undefined;
+        let valueOffsets: T['TOffsetArray'];
         const { type, length, nullCount, _typeIds, _offsets, _values, _nulls } = this;
 
-        if (typeIds = _typeIds?.flush(length)) { // Unions
-            // DenseUnions
+        if (typeIds = _typeIds?.flush(length)) { // Unions, DenseUnions
             valueOffsets = _offsets?.flush(length);
-        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
-            // Binary, Utf8
+        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, LargeBinary, Utf8, LargeUtf8), and Lists
             data = _values?.flush(_offsets.last());
-        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
+        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, Duration and Interval)
             data = _values?.flush(length);
         }
 
@@ -342,10 +339,10 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 (Builder.prototype as any)._isValid = () => true;
 
 /** @ignore */
-export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
+export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval | Duration = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
-        this._values = new DataBufferBuilder(new this.ArrayType(0), this.stride);
+        this._values = new DataBufferBuilder(this.ArrayType, 0, this.stride);
     }
     public setValue(index: number, value: T['TValue']) {
         const values = this._values;
@@ -355,13 +352,13 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 }
 
 /** @ignore */
-export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
+export abstract class VariableWidthBuilder<T extends Binary | LargeBinary | Utf8 | LargeUtf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength = 0;
-    protected _offsets: OffsetsBufferBuilder;
+    protected _offsets: OffsetsBufferBuilder<T>;
     protected _pending: Map<number, any> | undefined;
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
-        this._offsets = new OffsetsBufferBuilder();
+        this._offsets = new OffsetsBufferBuilder(opts.type);
     }
     public setValue(index: number, value: T['TValue']) {
         const pending = this._pending || (this._pending = new Map());

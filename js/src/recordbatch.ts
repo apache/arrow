@@ -25,7 +25,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 /** @ignore */
 export interface RecordBatch<T extends TypeMap = any> {
@@ -151,14 +150,6 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * Get the size (in bytes) of a row by index.
-     * @param index The row index for which to compute the byteLength.
-     */
-    public getByteLength(index: number): number {
-        return byteLengthVisitor.visit(this.data, index);
-    }
-
-    /**
      * Iterator for rows in this RecordBatch.
      */
     public [Symbol.iterator]() {
@@ -203,7 +194,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
-    public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
+    public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
             return new Vector([this.data.children[index]]) as Vector<R>;
         }
@@ -315,22 +306,24 @@ function ensureSameLengthData<T extends TypeMap = any>(
 }
 
 /** @ignore */
-function collectDictionaries(fields: Field[], children: Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
-    for (let i = -1, n = fields.length; ++i < n;) {
-        const field = fields[i];
-        const type = field.type;
-        const data = children[i];
-        if (DataType.isDictionary(type)) {
-            if (!dictionaries.has(type.id)) {
-                if (data.dictionary) {
-                    dictionaries.set(type.id, data.dictionary);
-                }
-            } else if (dictionaries.get(type.id) !== data.dictionary) {
-                throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
+function collectDictionaries(fields: Field[], children: readonly Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
+    if ((fields?.length ?? 0) > 0 && (fields?.length === children?.length)) {
+        for (let i = -1, n = fields.length; ++i < n;) {
+            const { type } = fields[i];
+            const data = children[i];
+            for (const next of [data, ...(data?.dictionary?.data || [])]) {
+                collectDictionaries(type.children, next?.children, dictionaries);
             }
-        }
-        if (type.children && type.children.length > 0) {
-            collectDictionaries(type.children, data.children, dictionaries);
+            if (DataType.isDictionary(type)) {
+                const { id } = type;
+                if (!dictionaries.has(id)) {
+                    if (data?.dictionary) {
+                        dictionaries.set(id, data.dictionary);
+                    }
+                } else if (dictionaries.get(id) !== data.dictionary) {
+                    throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
+                }
+            }
         }
     }
     return dictionaries;

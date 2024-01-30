@@ -45,8 +45,10 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/unreachable.h"
@@ -54,6 +56,7 @@
 
 namespace arrow {
 
+using arrow::internal::CpuInfo;
 using arrow::internal::Executor;
 
 using compute::SortKey;
@@ -62,6 +65,7 @@ using compute::Take;
 namespace acero {
 
 namespace {
+
 void ValidateOutputImpl(const ArrayData& output) {
   ASSERT_OK(::arrow::internal::ValidateArrayFull(output));
   TestInitialized(output);
@@ -114,6 +118,11 @@ void ValidateOutput(const Datum& output) {
     default:
       break;
   }
+}
+
+std::vector<int64_t> HardwareFlagsForTesting() {
+  // Acero currently only has AVX2 optimizations
+  return arrow::GetSupportedHardwareFlags({CpuInfo::AVX2});
 }
 
 namespace {
@@ -604,7 +613,7 @@ static inline void PrintToImpl(const std::string& factory_name,
       *os << ",";
       *os << "name=" << agg.name;
     }
-    *os << "},";
+    *os << "}";
 
     if (!o->keys.empty()) {
       *os << ",keys={";
@@ -640,8 +649,8 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
 
   *os << "{";
   for (const auto& input : decl.inputs) {
-    if (auto decl = std::get_if<Declaration>(&input)) {
-      PrintTo(*decl, os);
+    if (auto idecl = std::get_if<Declaration>(&input)) {
+      PrintTo(*idecl, os);
     }
   }
   *os << "}";

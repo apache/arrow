@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#define FASTFLOAT_ALLOWS_LEADING_PLUS 1
+
 #include "arrow/util/value_parsing.h"
 
 #include <string>

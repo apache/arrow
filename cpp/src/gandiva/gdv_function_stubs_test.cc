@@ -73,7 +73,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   EXPECT_FALSE(ctx.has_error());
 
   gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 
   // tests for big integer values as input
@@ -122,7 +122,7 @@ TEST(TestGdvFnStubs, TestBase64Encode) {
   value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -151,7 +151,7 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -323,7 +323,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromInt32) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -464,7 +464,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "Abc.DE.fGh", 10, ".", 1, -2, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "fGh");
+  EXPECT_EQ(std::string(out_str, out_len), "DE.fGh");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, 1, &out_len);
@@ -472,7 +472,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "S;DCGS;JO!L", 11, ";", 1, -1, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "DCGS;JO!L");
+  EXPECT_EQ(std::string(out_str, out_len), "JO!L");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "www.mysql.com", 13, "Q", 1, 1, &out_len);
@@ -496,7 +496,7 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "www||mysql||com", 15, "||", 2, -2, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "com");
+  EXPECT_EQ(std::string(out_str, out_len), "mysql||com");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "MÜNCHEN", 8, "Ü", 2, 1, &out_len);
@@ -505,6 +505,10 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
 
   out_str = gdv_fn_substring_index(ctx_ptr, "MÜNCHEN", 8, "Ü", 2, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "NCHEN");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "MÜëCHEN", 9, "Ü", 2, -1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ëCHEN");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_substring_index(ctx_ptr, "citroën", 8, "ë", 2, -1, &out_len);

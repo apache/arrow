@@ -68,7 +68,9 @@ ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
 ARG node=16
-RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
+RUN apt-get purge -y npm && \
+    apt-get autoremove -y --purge && \
+    wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \

@@ -152,6 +152,9 @@ class PARQUET_EXPORT PageReader {
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
+  //
+  // The returned Page may contain references that aren't guaranteed to live
+  // beyond the next call to NextPage().
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
@@ -364,6 +367,16 @@ class PARQUET_EXPORT RecordReader {
   virtual const ColumnDescriptor* descr() const = 0;
 
   virtual void DebugPrintState() = 0;
+
+  /// \brief Returns the dictionary owned by the current decoder. Throws an
+  /// exception if the current decoder is not for dictionary encoding. The caller is
+  /// responsible for casting the returned pointer to proper type depending on the
+  /// column's physical type. An example:
+  ///   const ByteArray* dict = reinterpret_cast<const ByteArray*>(ReadDictionary(&len));
+  /// or:
+  ///   const float* dict = reinterpret_cast<const float*>(ReadDictionary(&len));
+  /// \param[out] dictionary_length The number of dictionary entries.
+  virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
   int16_t* def_levels() const {

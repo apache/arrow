@@ -20,15 +20,17 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 
 from pyarrow import Buffer, py_buffer
+from pyarrow._compute cimport Expression
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
+# TODO GH-37235: Fix exception handling
 cdef CDeclaration _create_named_table_provider(
     dict named_args, const std_vector[c_string]& names, const CSchema& schema
-):
+) noexcept:
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table
@@ -164,7 +166,7 @@ def _parse_json_plan(plan):
 
     Parameters
     ----------
-    plan: bytes
+    plan : bytes
         Substrait plan in JSON.
 
     Returns
@@ -183,6 +185,144 @@ def _parse_json_plan(plan):
     with nogil:
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
+
+
+def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False):
+    """
+    Serialize a collection of expressions into Substrait
+
+    Substrait expressions must be bound to a schema.  For example,
+    the Substrait expression ``a:i32 + b:i32`` is different from the
+    Substrait expression ``a:i64 + b:i64``.  Pyarrow expressions are
+    typically unbound.  For example, both of the above expressions
+    would be represented as ``a + b`` in pyarrow.
+
+    This means a schema must be provided when serializing an expression.
+    It also means that the serialization may fail if a matching function
+    call cannot be found for the expression.
+
+    Parameters
+    ----------
+    exprs : list of Expression
+        The expressions to serialize
+    names : list of str
+        Names for the expressions
+    schema : Schema
+        The schema the expressions will be bound to
+    allow_arrow_extensions : bool, default False
+        If False then only functions that are part of the core Substrait function
+        definitions will be allowed.  Set this to True to allow pyarrow-specific functions
+        and user defined functions but the result may not be accepted by other
+        compute libraries.
+
+    Returns
+    -------
+    Buffer
+        An ExtendedExpression message containing the serialized expressions
+    """
+    cdef:
+        CResult[shared_ptr[CBuffer]] c_res_buffer
+        shared_ptr[CBuffer] c_buffer
+        CNamedExpression c_named_expr
+        CBoundExpressions c_bound_exprs
+        CConversionOptions c_conversion_options
+
+    if len(exprs) != len(names):
+        raise ValueError("exprs and names need to have the same length")
+    for expr, name in zip(exprs, names):
+        if not isinstance(expr, Expression):
+            raise TypeError(f"Expected Expression, got '{type(expr)}' in exprs")
+        if not isinstance(name, str):
+            raise TypeError(f"Expected str, got '{type(name)}' in names")
+        c_named_expr.expression = (<Expression> expr).unwrap()
+        c_named_expr.name = tobytes(<str> name)
+        c_bound_exprs.named_expressions.push_back(c_named_expr)
+
+    c_bound_exprs.schema = (<Schema> schema).sp_schema
+
+    c_conversion_options.allow_arrow_extensions = allow_arrow_extensions
+
+    with nogil:
+        c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
+        c_buffer = GetResultValue(c_res_buffer)
+    return pyarrow_wrap_buffer(c_buffer)
+
+
+cdef class BoundExpressions(_Weakrefable):
+    """
+    A collection of named expressions and the schema they are bound to
+
+    This is equivalent to the Substrait ExtendedExpression message
+    """
+
+    cdef:
+        CBoundExpressions c_bound_exprs
+
+    def __init__(self):
+        msg = 'BoundExpressions is an abstract class thus cannot be initialized.'
+        raise TypeError(msg)
+
+    cdef void init(self, CBoundExpressions bound_expressions):
+        self.c_bound_exprs = bound_expressions
+
+    @property
+    def schema(self):
+        """
+        The common schema that all expressions are bound to
+        """
+        return pyarrow_wrap_schema(self.c_bound_exprs.schema)
+
+    @property
+    def expressions(self):
+        """
+        A dict from expression name to expression
+        """
+        expr_dict = {}
+        for named_expr in self.c_bound_exprs.named_expressions:
+            name = frombytes(named_expr.name)
+            expr = Expression.wrap(named_expr.expression)
+            expr_dict[name] = expr
+        return expr_dict
+
+    @staticmethod
+    cdef wrap(const CBoundExpressions& bound_expressions):
+        cdef BoundExpressions self = BoundExpressions.__new__(BoundExpressions)
+        self.init(bound_expressions)
+        return self
+
+
+def deserialize_expressions(buf):
+    """
+    Deserialize an ExtendedExpression Substrait message into a BoundExpressions object
+
+    Parameters
+    ----------
+    buf : Buffer or bytes
+        The message to deserialize
+
+    Returns
+    -------
+    BoundExpressions
+        The deserialized expressions, their names, and the bound schema
+    """
+    cdef:
+        shared_ptr[CBuffer] c_buffer
+        CResult[CBoundExpressions] c_res_bound_exprs
+        CBoundExpressions c_bound_exprs
+
+    if isinstance(buf, bytes):
+        c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
+    elif isinstance(buf, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(buf)
+    else:
+        raise TypeError(
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
+
+    with nogil:
+        c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
+        c_bound_exprs = GetResultValue(c_res_bound_exprs)
+
+    return BoundExpressions.wrap(c_bound_exprs)
 
 
 def get_supported_functions():

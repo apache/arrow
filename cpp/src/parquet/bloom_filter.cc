@@ -21,7 +21,10 @@
 
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+
 #include "generated/parquet_types.h"
+
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -102,16 +105,24 @@ static ::arrow::Status ValidateBloomFilterHeader(
 }
 
 BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
-    const ReaderProperties& properties, ArrowInputStream* input) {
-  // NOTE: we don't know the bloom filter header size upfront, and we can't rely on
-  // InputStream::Peek() which isn't always implemented. Therefore, we must first
-  // Read() with an upper bound estimate of the header size, then once we know
-  // the bloom filter data size, we can Read() the exact number of remaining data bytes.
+    const ReaderProperties& properties, ArrowInputStream* input,
+    std::optional<int64_t> bloom_filter_length) {
   ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
+  int64_t bloom_filter_header_read_size = 0;
+  if (bloom_filter_length.has_value()) {
+    bloom_filter_header_read_size = bloom_filter_length.value();
+  } else {
+    // NOTE: we don't know the bloom filter header size upfront without
+    // bloom_filter_length, and we can't rely on InputStream::Peek() which isn't always
+    // implemented. Therefore, we must first Read() with an upper bound estimate of the
+    // header size, then once we know the bloom filter data size, we can Read() the exact
+    // number of remaining data bytes.
+    bloom_filter_header_read_size = kBloomFilterHeaderSizeGuess;
+  }
 
   // Read and deserialize bloom filter header
-  PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(kBloomFilterHeaderSizeGuess));
+  PARQUET_ASSIGN_OR_THROW(auto header_buf, input->Read(bloom_filter_header_read_size));
   // This gets used, then set by DeserializeThriftMsg
   uint32_t header_size = static_cast<uint32_t>(header_buf->size());
   try {
@@ -133,6 +144,14 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
+  if (bloom_filter_length && *bloom_filter_length != bloom_filter_size + header_size) {
+    // We know the bloom filter data size, but the real size is different.
+    std::stringstream ss;
+    ss << "Bloom filter length (" << bloom_filter_length.value()
+       << ") does not match the actual bloom filter (size: "
+       << bloom_filter_size + header_size << ").";
+    throw ParquetException(ss.str());
+  }
   // We have read a part of the bloom filter already, copy it to the target buffer
   // and read the remaining part from the InputStream.
   auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_size);
@@ -140,7 +159,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
   if (bloom_filter_bytes_in_header > 0) {
     std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
-                bloom_filter_bytes_in_header);
+                static_cast<size_t>(bloom_filter_bytes_in_header));
   }
 
   const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;
@@ -180,50 +199,41 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
   PARQUET_THROW_NOT_OK(sink->Write(data_->data(), num_bytes_));
 }
 
-void BlockSplitBloomFilter::SetMask(uint32_t key, BlockMask& block_mask) const {
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = key * SALT[i];
-  }
-
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = block_mask.item[i] >> 27;
-  }
-
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = UINT32_C(0x1) << block_mask.item[i];
-  }
-}
-
 bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
 
-  // Calculate mask for bucket.
-  BlockMask block_mask;
-  SetMask(key, block_mask);
-
   for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    if (0 == (bitset32[kBitsSetPerBlock * bucket_index + i] & block_mask.item[i])) {
+    // Calculate mask for key in the given bitset.
+    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
+    if (ARROW_PREDICT_FALSE(0 ==
+                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
       return false;
     }
   }
   return true;
 }
 
-void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
+void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
 
-  // Calculate mask for bucket.
-  BlockMask block_mask;
-  SetMask(key, block_mask);
-
   for (int i = 0; i < kBitsSetPerBlock; i++) {
-    bitset32[bucket_index * kBitsSetPerBlock + i] |= block_mask.item[i];
+    // Calculate mask for key in the given bitset.
+    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
+    bitset32[bucket_index * kBitsSetPerBlock + i] |= mask;
+  }
+}
+
+void BlockSplitBloomFilter::InsertHash(uint64_t hash) { InsertHashImpl(hash); }
+
+void BlockSplitBloomFilter::InsertHashes(const uint64_t* hashes, int num_values) {
+  for (int i = 0; i < num_values; ++i) {
+    InsertHashImpl(hashes[i]);
   }
 }
 

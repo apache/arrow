@@ -81,7 +81,7 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       rel.UnpackTo(&seg_agg_rel);
       return MakeSegmentedAggregateRel(conv_opts, inputs, seg_agg_rel, ext_set);
     }
-    return Status::NotImplemented("Unrecognized extension in Susbstrait plan: ",
+    return Status::NotImplemented("Unrecognized extension in Substrait plan: ",
                                   rel.DebugString());
   }
 
@@ -208,9 +208,9 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       aggregates.push_back(std::move(aggregate));
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
-                          acero::aggregate::MakeOutputSchema(
-                              input_schema, keys, /*segment_keys=*/{}, aggregates));
+    ARROW_ASSIGN_OR_RAISE(
+        auto aggregate_schema,
+        acero::aggregate::MakeOutputSchema(input_schema, keys, segment_keys, aggregates));
 
     return internal::MakeAggregateDeclaration(
         std::move(inputs[0].declaration), std::move(aggregate_schema),

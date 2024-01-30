@@ -19,11 +19,11 @@
 #include <sstream>
 #include <utility>
 
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/logging.h"
 #include "arrow/python/extension_type.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/pyarrow.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 

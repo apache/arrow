@@ -32,12 +32,14 @@ yarn lint:ci
 yarn build
 
 if [ "${BUILD_DOCS_JS}" == "ON" ]; then
-  if [ "$(git config --get remote.origin.url)" == "https://github.com/apache/arrow.git" ]; then
-    yarn doc
-  elif [ "$(git config --get remote.upstream.url)" == "https://github.com/apache/arrow.git" ]; then
-    yarn doc --gitRemote upstream
-  elif [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
+  # If apache or upstream are defined use those as remote.
+  # Otherwise use origin which could be a fork on PRs.
+  if [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
     yarn doc --gitRemote apache
+  elif [[ "$(git config --get remote.upstream.url)" =~ "https://github.com/apache/arrow" ]]; then
+    yarn doc --gitRemote upstream
+  elif [[ "$(basename -s .git $(git config --get remote.origin.url))" == "arrow" ]]; then
+    yarn doc
   else
     echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git or the apache remote to git@github.com:apache/arrow.git."
     exit 0

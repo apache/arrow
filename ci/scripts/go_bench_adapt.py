@@ -31,16 +31,39 @@ log.setLevel(logging.DEBUG)
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
 
-if os.environ.get("CONBENCH_REF") == "master":
-    github = {
-        "repository": os.environ["GITHUB_REPOSITORY"],
+# `github_commit_info` is meant to communicate GitHub-flavored commit
+# information to Conbench. See
+# https://github.com/conbench/conbench/blob/cf7931f/benchadapt/python/benchadapt/result.py#L66
+# for a specification.
+github_commit_info = {"repository": "https://github.com/apache/arrow"}
+
+if os.environ.get("CONBENCH_REF") == "main":
+    # Assume GitHub Actions CI. The environment variable lookups below are
+    # expected to fail when not running in GitHub Actions.
+    github_commit_info = {
+        "repository": f'{os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}',
         "commit": os.environ["GITHUB_SHA"],
         "pr_number": None,  # implying default branch
     }
     run_reason = "commit"
 else:
-    github = None  # scrape github info from the local repo
-    run_reason = "branch"
+    # Assume that the environment is not GitHub Actions CI. Error out if that
+    # assumption seems to be wrong.
+    assert os.getenv("GITHUB_ACTIONS") is None
+
+    # This is probably a local dev environment, for testing. In this case, it
+    # does usually not make sense to provide commit information (not a
+    # controlled CI environment). Explicitly leave out "commit" and "pr_number" to
+    # reflect that (to not send commit information).
+
+    # Reflect 'local dev' scenario in run_reason. Allow user to (optionally)
+    # inject a custom piece of information into the run reason here, from
+    # environment.
+    run_reason = "localdev"
+    custom_reason_suffix = os.getenv("CONBENCH_CUSTOM_RUN_REASON")
+    if custom_reason_suffix is not None:
+        run_reason += f" {custom_reason_suffix.strip()}"
+
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
@@ -63,16 +86,16 @@ class GoAdapter(BenchmarkAdapter):
                 data = benchmark["Mem"]["MBPerSec"] * 1e6
                 time = 1 / benchmark["NsPerOp"] * 1e9
 
-                name = benchmark["Name"].removeprefix('Benchmark')
-                ncpu = name[name.rfind('-')+1:]
-                pieces = name[:-(len(ncpu)+1)].split('/')
+                name = benchmark["Name"].removeprefix("Benchmark")
+                ncpu = name[name.rfind("-") + 1 :]
+                pieces = name[: -(len(ncpu) + 1)].split("/")
 
                 parsed = BenchmarkResult(
                     run_id=run_id,
                     batch_id=batch_id,
                     stats={
                         "data": [data],
-                        "unit": "b/s",
+                        "unit": "B/s",
                         "times": [time],
                         "time_unit": "i/s",
                         "iterations": benchmark["Runs"],
@@ -86,17 +109,19 @@ class GoAdapter(BenchmarkAdapter):
                         "pkg": pkg,
                         "num_cpu": ncpu,
                         "name": pieces[0],
-                        "params": '/'.join(pieces[1:]),
+                        "params": "/".join(pieces[1:]),
                     },
                     run_reason=run_reason,
-                    github=github,
+                    github=github_commit_info,
                 )
-                parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
+                parsed.run_name = (
+                    f"{parsed.run_reason}: {github_commit_info.get('commit')}"
+                )
                 parsed_results.append(parsed)
 
         return parsed_results
 
 
 if __name__ == "__main__":
-    go_adapter = GoAdapter(result_fields_override={"info":{}})
+    go_adapter = GoAdapter(result_fields_override={"info": {}})
     go_adapter()

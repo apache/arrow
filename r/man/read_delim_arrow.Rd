@@ -3,6 +3,7 @@
 \name{read_delim_arrow}
 \alias{read_delim_arrow}
 \alias{read_csv_arrow}
+\alias{read_csv2_arrow}
 \alias{read_tsv_arrow}
 \title{Read a CSV or other delimited file with Arrow}
 \usage{
@@ -24,10 +25,31 @@ read_delim_arrow(
   convert_options = NULL,
   read_options = NULL,
   as_data_frame = TRUE,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  decimal_point = "."
 )
 
 read_csv_arrow(
+  file,
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+)
+
+read_csv2_arrow(
   file,
   quote = "\\"",
   escape_double = TRUE,
@@ -120,15 +142,15 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{parse_options}{see \link[=CsvReadOptions]{file reader options}.
+\item{parse_options}{see \link[=csv_parse_options]{CSV parsing options}.
 If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 
-\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
 
-\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
@@ -139,18 +161,21 @@ starting from the beginning of this vector. Possible values are:
 \item a character vector of \link[base:strptime]{strptime} parse strings
 \item a list of \link{TimestampParser} objects
 }}
+
+\item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }
 \value{
-A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
+A \code{tibble}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
-These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.
+These functions uses the Arrow C++ CSV reader to read into a \code{tibble}.
 Arrow C++ options have been mapped to argument names that follow those of
 \code{readr::read_delim()}, and \code{col_select} was inspired by \code{vroom::vroom()}.
 }
 \details{
 \code{read_csv_arrow()} and \code{read_tsv_arrow()} are wrappers around
-\code{read_delim_arrow()} that specify a delimiter.
+\code{read_delim_arrow()} that specify a delimiter. \code{read_csv2_arrow()} uses \verb{;} for
+the delimiter and \verb{,} for the decimal point.
 
 Note that not all \code{readr} options are currently implemented here. Please file
 an issue if you encounter one that \code{arrow} should support.
@@ -205,7 +230,7 @@ be dropped.
 
 Note that if you are specifying column names, whether by \code{schema} or
 \code{col_names}, and the CSV file has a header row that would otherwise be used
-to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
+to identify column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{

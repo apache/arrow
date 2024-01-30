@@ -99,15 +99,18 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
         make \
         ninja-build \
         nlohmann-json3-dev \
+        npm \
         pkg-config \
         protobuf-compiler \
         python3-dev \
         python3-pip \
         python3-rados \
+        python3-venv \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
@@ -121,6 +124,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
 
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh
@@ -140,6 +146,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -154,6 +161,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
@@ -166,6 +174,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
+    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \

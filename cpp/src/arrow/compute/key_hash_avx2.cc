@@ -23,8 +23,6 @@
 namespace arrow {
 namespace compute {
 
-#if defined(ARROW_HAVE_AVX2)
-
 inline __m256i Hashing32::Avalanche_avx2(__m256i hash) {
   hash = _mm256_xor_si256(hash, _mm256_srli_epi32(hash, 15));
   hash = _mm256_mullo_epi32(hash, _mm256_set1_epi32(PRIME32_2));
@@ -192,7 +190,7 @@ uint32_t Hashing32::HashFixedLenImp_avx2(uint32_t num_rows, uint64_t length,
   // Do not process rows that could read past the end of the buffer using 16
   // byte loads. Round down number of rows to process to multiple of 2.
   //
-  uint64_t num_rows_to_skip = bit_util::CeilDiv(length, kStripeSize);
+  uint64_t num_rows_to_skip = bit_util::CeilDiv(kStripeSize, length);
   uint32_t num_rows_to_process =
       (num_rows_to_skip > num_rows)
           ? 0
@@ -314,8 +312,6 @@ uint32_t Hashing32::HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
                                                hashes, hashes_temp_for_combine);
   }
 }
-
-#endif
 
 }  // namespace compute
 }  // namespace arrow

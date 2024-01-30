@@ -115,7 +115,7 @@ Let's research the Arrow library to see where the ``pc.min_max``
 function is defined/connected with the C++ and get an idea
 where we could implement the new feature.
 
-.. figure:: /developers/images/python_tutorial_github_search.jpeg
+.. figure:: ../../images/python_tutorial_github_search.jpeg
    :scale: 50 %
    :alt: Apache Arrow GitHub repository dashboard where we are
          searching for a pc.min_max function reference.
@@ -123,7 +123,7 @@ where we could implement the new feature.
    We could try to search for the function reference in a
    GitHub Apache Arrow repository.
 
-.. figure:: /developers/images/python_tutorial_github_find_in_file.jpeg
+.. figure:: ../../images/python_tutorial_github_find_in_file.jpeg
    :scale: 50 %
    :alt: In the GitHub repository we are searching through the
          test_compute.py file for the pc.min_max function.
@@ -492,7 +492,7 @@ bar with a note that we made recent pushes to the branch
 ARROW-14977. That’s great, now we can make the Pull Request
 by clicking on **Compare & pull request**. 
 
-.. figure:: /developers/images/python_tutorial_github_pr_notice.jpeg
+.. figure:: ../../images/python_tutorial_github_pr_notice.jpeg
    :scale: 50 %
    :alt: GitHub page of the Apache Arrow repository showing a notice bar
          indicating change has been made in our branch and a Pull Request
@@ -514,7 +514,7 @@ trying to do.
 Once I click **Create pull request** my code can be reviewed as a
 Pull Request in the Apache Arrow repository.
 
-.. figure:: /developers/images/python_tutorial_pr.jpeg
+.. figure:: ../../images/python_tutorial_pr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the title and a
          description.

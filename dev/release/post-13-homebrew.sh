@@ -67,7 +67,7 @@ brew bump-formula-pr \
      apache-arrow-glib
 
 for dependency in $(grep -l -r 'depends_on "apache-arrow"' Formula); do
-  dependency=${dependency#Formula/}
+  dependency=${dependency#Formula/*/}
   dependency=${dependency%.rb}
   if [ ${dependency} = "apache-arrow-glib" ]; then
     continue

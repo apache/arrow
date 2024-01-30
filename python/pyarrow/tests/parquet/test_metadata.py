@@ -128,7 +128,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -161,33 +161,33 @@ def test_parquet_metadata_lifetime(tempdir):
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, 0
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, 0
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
             ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, 0
+            'BOOLEAN', False, True, 0, 5, None
         ),
         (
             [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
         ),
     ]
 )
@@ -301,6 +301,90 @@ def test_parquet_write_disable_statistics(tempdir):
     assert cc_b.statistics is None
 
 
+def test_parquet_sorting_column():
+    sorting_col = pq.SortingColumn(10)
+    assert sorting_col.column_index == 10
+    assert sorting_col.descending is False
+    assert sorting_col.nulls_first is False
+
+    sorting_col = pq.SortingColumn(0, descending=True, nulls_first=True)
+    assert sorting_col.column_index == 0
+    assert sorting_col.descending is True
+    assert sorting_col.nulls_first is True
+
+    schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
+    sorting_cols = (
+        pq.SortingColumn(1, descending=True),
+        pq.SortingColumn(0, descending=False),
+    )
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_cols)
+    assert sort_order == (('b', "descending"), ('a', "ascending"))
+    assert null_placement == "at_end"
+
+    sorting_cols_roundtripped = pq.SortingColumn.from_ordering(
+        schema, sort_order, null_placement)
+    assert sorting_cols_roundtripped == sorting_cols
+
+    sorting_cols = pq.SortingColumn.from_ordering(
+        schema, ('a', ('b', "descending")), null_placement="at_start")
+    expected = (
+        pq.SortingColumn(0, descending=False, nulls_first=True),
+        pq.SortingColumn(1, descending=True, nulls_first=True),
+    )
+    assert sorting_cols == expected
+
+    # Conversions handle empty tuples
+    empty_sorting_cols = pq.SortingColumn.from_ordering(schema, ())
+    assert empty_sorting_cols == ()
+
+    assert pq.SortingColumn.to_ordering(schema, ()) == ((), "at_end")
+
+    with pytest.raises(ValueError):
+        pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
+
+    with pytest.raises(ValueError, match="inconsistent null placement"):
+        sorting_cols = (
+            pq.SortingColumn(1, nulls_first=True),
+            pq.SortingColumn(0, nulls_first=False),
+        )
+        pq.SortingColumn.to_ordering(schema, sorting_cols)
+
+
+def test_parquet_sorting_column_nested():
+    schema = pa.schema({
+        'a': pa.struct([('x', pa.int64()), ('y', pa.int64())]),
+        'b': pa.int64()
+    })
+
+    sorting_columns = [
+        pq.SortingColumn(0, descending=True),  # a.x
+        pq.SortingColumn(2, descending=False)  # b
+    ]
+
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_columns)
+    assert null_placement == "at_end"
+    assert len(sort_order) == 2
+    assert sort_order[0] == ("a.x", "descending")
+    assert sort_order[1] == ("b", "ascending")
+
+
+def test_parquet_file_sorting_columns():
+    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
+
+    sorting_columns = (
+        pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
+        pq.SortingColumn(column_index=1, descending=False),
+    )
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, sorting_columns=sorting_columns)
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    assert metadata.num_row_groups == 1
+    assert sorting_columns == metadata.row_group(0).sorting_columns
+
+
 def test_field_id_metadata():
     # ARROW-7080
     field_id = b'PARQUET:field_id'
@@ -355,6 +439,21 @@ def test_field_id_metadata():
     # have field_id in parquet (not tested)
     assert schema[4].metadata[field_id] == b'xyz'
     assert schema[5].metadata[field_id] == b'-1000'
+
+
+def test_parquet_file_page_index():
+    for write_page_index in (False, True):
+        table = pa.table({'a': [1, 2, 3]})
+
+        writer = pa.BufferOutputStream()
+        _write_table(table, writer, write_page_index=write_page_index)
+        reader = pa.BufferReader(writer.getvalue())
+
+        # Can retrieve sorting columns from metadata
+        metadata = pq.read_metadata(reader)
+        cc = metadata.row_group(0).column(0)
+        assert cc.has_offset_index is write_page_index
+        assert cc.has_column_index is write_page_index
 
 
 @pytest.mark.pandas

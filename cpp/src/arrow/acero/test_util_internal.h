@@ -20,6 +20,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/vector.h"
 
+#include <cstdint>
 #include <functional>
 #include <random>
 #include <string>
@@ -33,11 +34,13 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/pcg_random.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 void ValidateOutput(const Datum& output);
+
+// Enumerate all hardware flags that can be tested on this platform
+// and would lead to different code paths being tested in Acero.
+std::vector<int64_t> HardwareFlagsForTesting();
 
 using StartProducingFunc = std::function<Status(ExecNode*)>;
 using StopProducingFunc = std::function<void(ExecNode*)>;
@@ -204,5 +207,4 @@ struct TableGenerationProperties {
 Result<std::shared_ptr<Table>> MakeRandomTimeSeriesTable(
     const TableGenerationProperties& properties);
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

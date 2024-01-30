@@ -169,6 +169,7 @@ namespace Apache.Arrow.Tests
                     length: 10,
                     nullCount: 3,
                     offset: 0))
+                .Append("NullColumn", true, new NullArray(10))
                 .Build();
 
             TestRoundTripRecordBatch(originalBatch);
@@ -540,6 +541,10 @@ namespace Apache.Arrow.Tests
         public void WriteMultipleDictionaryArrays()
         {
             List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData();
+            Assert.Equal("RecordBatch: 10 columns by 3 rows", originalRecordBatches[0].ToString());
+            Assert.Equal("Schema: Num fields=10, Num metadata=0", originalRecordBatches[0].Schema.ToString());
+            Assert.Equal("Field: Name=dictionaryField_int8, DataType=dictionary, IsNullable=False, Metadata count=0",
+                originalRecordBatches[0].Schema.FieldsLookup["dictionaryField_int8"].Single().ToString());
             TestRoundTripRecordBatches(originalRecordBatches);
         }
 

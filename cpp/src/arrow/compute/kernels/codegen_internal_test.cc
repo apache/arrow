@@ -159,6 +159,18 @@ TEST(TestDispatchBest, CommonTemporal) {
   args = {timestamp(TimeUnit::SECOND, "America/Phoenix"),
           timestamp(TimeUnit::SECOND, "UTC")};
   ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
+
+  args = {time32(TimeUnit::SECOND), time32(TimeUnit::MILLI)};
+  AssertTypeEqual(*time32(TimeUnit::MILLI), *CommonTemporal(args.data(), args.size()));
+
+  args = {time32(TimeUnit::SECOND), time64(TimeUnit::NANO)};
+  AssertTypeEqual(*time64(TimeUnit::NANO), *CommonTemporal(args.data(), args.size()));
+
+  args = {date32(), time32(TimeUnit::SECOND)};
+  ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
+
+  args = {timestamp(TimeUnit::SECOND), time32(TimeUnit::SECOND)};
+  ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
 }
 
 TEST(TestDispatchBest, CommonTemporalResolution) {

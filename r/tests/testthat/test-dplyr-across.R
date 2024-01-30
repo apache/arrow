@@ -120,7 +120,7 @@ test_that("expand_across correctly expands quosures", {
   # ellipses (...) are a deprecated argument
   expect_error(
     expand_across(
-      example_data,
+      as_adq(example_data),
       quos(across(c(dbl, dbl2), round, digits = -1))
     ),
     regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
@@ -206,7 +206,7 @@ test_that("expand_across correctly expands quosures", {
   # dodgy .names specification
   expect_error(
     expand_across(
-      example_data,
+      as_adq(example_data),
       quos(across(c(dbl, dbl2), list(round, "my_exp" = exp), .names = "zarg"))
     ),
     regexp = "`.names` specification must produce (number of columns * number of functions) names.",

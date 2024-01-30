@@ -33,10 +33,10 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
@@ -712,11 +712,140 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryLength) {
              "[6, null, 6]");
 }
 
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceEmpty) {
+  SliceOptions options{2, 4};
+  CheckScalarUnary("binary_slice", ArrayFromJSON(fixed_size_binary(0), R"([""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"([""])"), &options);
+
+  CheckScalarUnary("binary_slice",
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"), &options);
+
+  CheckUnary("binary_slice", R"([null, null])", fixed_size_binary(2), R"([null, null])",
+             &options);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceBasic) {
+  SliceOptions options{2, 4};
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["cd", null, "ob"])", &options);
+
+  SliceOptions options_edgecase_1{-3, 1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
+             R"(["", ""])", &options_edgecase_1);
+
+  SliceOptions options_edgecase_2{-10, -3};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null])", fixed_size_binary(3),
+             R"(["abc", "foo", null])", &options_edgecase_2);
+
+  auto input = ArrayFromJSON(this->type(), R"(["foobaz"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Function 'binary_slice' cannot be called without options"),
+      CallFunction("binary_slice", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("binary_slice", {input}, &options_invalid));
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosPos) {
+  SliceOptions options_step{1, 5, 2};
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz"])", fixed_size_binary(2),
+             R"([null, "bd", "ob"])", &options_step);
+
+  SliceOptions options_step_neg{5, 0, -2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosNeg) {
+  SliceOptions options{2, -1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["cde", "oba"])", &options);
+
+  SliceOptions options_step{1, -1, 2};
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["bd", null, "ob"])", &options_step);
+
+  SliceOptions options_step_neg{5, -4, -2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
+
+  options_step_neg.stop = -6;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegNeg) {
+  SliceOptions options{-2, -1};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(1),
+             R"(["e", "a"])", &options);
+
+  SliceOptions options_step{-4, -1, 2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null, null])", fixed_size_binary(2),
+             R"(["ce", "oa", null, null])", &options_step);
+
+  SliceOptions options_step_neg{-1, -3, -2};
+  CheckUnary("binary_slice", R"([null, "abcdef", null, "foobaz"])", fixed_size_binary(1),
+             R"([null, "f", null, "z"])", &options_step_neg);
+
+  options_step_neg.stop = -4;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegPos) {
+  SliceOptions options{-2, 4};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
+             R"(["", ""])", &options);
+
+  SliceOptions options_step{-4, 5, 2};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["ce", "oa"])", &options_step);
+
+  SliceOptions options_step_neg{-1, 1, -2};
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz", null])", fixed_size_binary(2),
+             R"([null, "fd", "zb", null])", &options_step_neg);
+
+  options_step_neg.stop = 0;
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceConsistentyWithVarLenBinary) {
+  std::string source_str = "abcdef";
+  for (size_t str_len = 0; str_len < source_str.size(); ++str_len) {
+    auto input_str = source_str.substr(0, str_len);
+    auto fixed_input = ArrayFromJSON(fixed_size_binary(static_cast<int32_t>(str_len)),
+                                     R"([")" + input_str + R"("])");
+    auto varlen_input = ArrayFromJSON(binary(), R"([")" + input_str + R"("])");
+    for (auto start = -6; start <= 6; ++start) {
+      for (auto stop = -6; stop <= 6; ++stop) {
+        for (auto step = -3; step <= 4; ++step) {
+          if (step == 0) {
+            continue;
+          }
+          SliceOptions options{start, stop, step};
+          auto expected =
+              CallFunction("binary_slice", {varlen_input}, &options).ValueOrDie();
+          auto actual =
+              CallFunction("binary_slice", {fixed_input}, &options).ValueOrDie();
+          actual = Cast(actual, binary()).ValueOrDie();
+          ASSERT_OK(actual.make_array()->ValidateFull());
+          AssertDatumsEqual(expected, actual);
+        }
+      }
+    }
+  }
+}
+
 TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "XXbcdef"])", &options);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["XXoobaz", null, "XXbcdef"])", &options);
 
   ReplaceSliceOptions options_shrink{0, 2, ""};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(4),
@@ -731,8 +860,8 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
              R"([null, "abXXef"])", &options_middle);
 
   ReplaceSliceOptions options_neg_start{-3, -2, "XX"};
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "abcXXef"])", &options_neg_start);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["fooXXaz", null, "abcXXef"])", &options_neg_start);
 
   ReplaceSliceOptions options_neg_end{2, -2, "XX"};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(6),
@@ -807,7 +936,7 @@ TEST_F(TestFixedSizeBinaryKernels, CountSubstringIgnoreCase) {
       offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
 
   MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
-  CheckUnary("count_substring", R"(["      ", null, "abcABc"])", offset_type(),
+  CheckUnary("count_substring", R"(["      ", null, "abcdef"])", offset_type(),
              "[7, null, 7]", &options_empty);
 }
 
@@ -1895,11 +2024,17 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   // N.B. BSD strptime only supports (+/-)HHMM and not the wider range
   // of values GNU strptime supports.
   std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
-  std::string output1 =
+  std::string output =
       R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
-  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
-                   &options);
+  StrptimeOptions options1("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options1);
+
+  // format without whitespace before %z (GH-35448)
+  std::string input2 = R"(["2020-05-01T00:00+0100", null, "1900-12-11T00:00-0130"])";
+  StrptimeOptions options2("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options2);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
@@ -2054,7 +2189,7 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"([""])",
                    &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("utf8_slice_codeunits", R"(["𝑓öõḍš"])", this->type(), R"(["𝑓öõ"])",
                    &options_edgecase_2);
@@ -2085,6 +2220,14 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{1, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "ö", "öḍ", "öḍ"])", &options_max_step);
+  SliceOptions options_max_step_neg{1, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
@@ -2101,6 +2244,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "ḍö"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "õ𝑓", "õ𝑓"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
@@ -2117,6 +2269,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "šõ"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{-2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{-2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "𝑓", "ö", "õ𝑓", "ḍö"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
@@ -2132,6 +2293,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{-3, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓", "𝑓õ", "öḍ", "õš"])",
+                   &options_max_step);
+  SliceOptions options_max_step_neg{-3, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 #endif  // ARROW_WITH_UTF8PROC
@@ -2148,7 +2318,7 @@ TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
                    "ds\"]",
                    this->type(), R"([""])", &options_edgecase_1);
 
-  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  // this is a safeguard against an optimization path possible, but actually a tricky case
   SliceOptions options_edgecase_2{-6, -2};
   this->CheckUnary("binary_slice",
                    "[\"f\xc2\xa2"
@@ -2341,5 +2511,4 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
 }
 #endif
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

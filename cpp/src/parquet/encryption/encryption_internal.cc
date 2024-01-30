@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/encryption/encryption_internal.h"
+
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -27,12 +28,12 @@
 #include <string>
 #include <vector>
 
+#include "parquet/encryption/openssl_internal.h"
 #include "parquet/exception.h"
 
 using parquet::ParquetException;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr int kGcmMode = 0;
 constexpr int kCtrMode = 1;
@@ -93,6 +94,8 @@ class AesEncryptor::AesEncryptorImpl {
 
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata, bool write_length) {
+  openssl::EnsureInitialized();
+
   ctx_ = nullptr;
 
   length_buffer_length_ = write_length ? kBufferSizeLength : 0;
@@ -359,6 +362,8 @@ AesDecryptor::~AesDecryptor() {}
 
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata, bool contains_length) {
+  openssl::EnsureInitialized();
+
   ctx_ = nullptr;
   length_buffer_length_ = contains_length ? kBufferSizeLength : 0;
   ciphertext_size_delta_ = length_buffer_length_ + kNonceLength;
@@ -647,7 +652,11 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
   std::memcpy(AAD->data() + AAD->length() - 2, page_ordinal_bytes.data(), 2);
 }
 
-void RandBytes(unsigned char* buf, int num) { RAND_bytes(buf, num); }
+void RandBytes(unsigned char* buf, int num) {
+  openssl::EnsureInitialized();
+  RAND_bytes(buf, num);
+}
 
-}  // namespace encryption
-}  // namespace parquet
+void EnsureBackendInitialized() { openssl::EnsureInitialized(); }
+
+}  // namespace parquet::encryption

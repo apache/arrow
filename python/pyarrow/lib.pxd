@@ -65,6 +65,7 @@ cdef extern from "Python.h":
 
 
 cdef int check_status(const CStatus& status) except -1 nogil
+cdef object convert_status(const CStatus& status)
 
 
 cdef class _Weakrefable:
@@ -444,6 +445,14 @@ cdef class BinaryArray(Array):
     pass
 
 
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
+    pass
+
+
 cdef class DictionaryArray(Array):
     cdef:
         object _indices, _dictionary
@@ -474,7 +483,11 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Tabular(_PandasConvertible):
+    pass
+
+
+cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
@@ -482,7 +495,7 @@ cdef class Table(_PandasConvertible):
     cdef void init(self, const shared_ptr[CTable]& table)
 
 
-cdef class RecordBatch(_PandasConvertible):
+cdef class RecordBatch(_Tabular):
     cdef:
         shared_ptr[CRecordBatch] sp_batch
         CRecordBatch* batch
@@ -514,6 +527,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
@@ -547,12 +561,24 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
+
+
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 
 cdef class Codec(_Weakrefable):

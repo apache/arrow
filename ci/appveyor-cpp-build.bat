@@ -37,10 +37,13 @@ call activate arrow
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)
 
-set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
+set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
+
+@rem Install GCS testbench
+call %CD%\ci\scripts\install_gcs_testbench.bat
 
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
@@ -55,7 +58,7 @@ pushd cpp\build
 @rem In release mode, disable optimizations (/Od) for faster compiling
 @rem and enable runtime assertions.
 
-cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_ACERO=ON ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
@@ -70,6 +73,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_FLIGHT_SQL=%ARROW_BUILD_FLIGHT_SQL% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
+      -DARROW_GCS=%ARROW_GCS% ^
       -DARROW_HDFS=ON ^
       -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
@@ -97,6 +101,9 @@ cmake --build . --target install --config Release || exit /B
 @rem For ORC C++
 set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
+@rem For finding Python executable for GCS tests
+set PYTHON=python
+
 ctest --output-on-failure || exit /B
 
 popd
@@ -114,6 +121,7 @@ set PYARROW_WITH_ACERO=ON
 set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
+set PYARROW_WITH_GCS=%ARROW_GCS%
 set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
@@ -123,6 +131,19 @@ set PYARROW_WITH_SUBSTRAIT=ON
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
+
+@rem Download IANA Timezone Database to a non-standard location to
+@rem test the configurability of the timezone database path
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+mkdir %USERPROFILE%\Downloads\test\tzdata
+tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
+@rem Remove the database from the default location
+rmdir /s /q %USERPROFILE%\Downloads\tzdata
+@rem Set the env var for the non-standard location of the database
+@rem (only needed for testing purposes)
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B
 

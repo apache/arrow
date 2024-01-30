@@ -28,6 +28,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
+
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /**
  * Source code generated using FreeMarker template ${.template_name}
  */
@@ -90,7 +95,7 @@ public class UnionReader extends AbstractFieldReader {
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
     case ${name?upper_case}:
       return (FieldReader) get${name}();
         </#if>
@@ -170,7 +175,7 @@ public class UnionReader extends AbstractFieldReader {
       <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
       <#assign safeType=friendlyType />
       <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
 
   private ${name}ReaderImpl ${uncappedName}Reader;
 

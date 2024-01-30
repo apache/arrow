@@ -9,6 +9,7 @@ read_parquet(
   col_select = NULL,
   as_data_frame = TRUE,
   props = ParquetArrowReaderProperties$create(),
+  mmap = TRUE,
   ...
 )
 }
@@ -24,16 +25,18 @@ open.}
 \link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{props}{\link{ParquetArrowReaderProperties}}
 
+\item{mmap}{Use TRUE to use memory mapping where possible}
+
 \item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }
 \value{
-A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_data_frame} is
-\code{TRUE} (the default).
+A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
+Arrow \link{Table} otherwise.
 }
 \description{
 '\href{https://parquet.apache.org/}{Parquet}' is a columnar storage file format.

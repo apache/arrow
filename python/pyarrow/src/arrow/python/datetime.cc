@@ -23,16 +23,16 @@
 #include <string_view>
 
 #include "arrow/array.h"
+#include "arrow/python/arrow_to_python_internal.h"
+#include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/platform.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/regex.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/python/arrow_to_python_internal.h"
-#include "arrow/python/common.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/platform.h"
 
 namespace arrow {
 

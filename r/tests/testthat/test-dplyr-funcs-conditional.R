@@ -19,6 +19,8 @@ library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 tbl <- example_data
 tbl$verses <- verses[[1]]
@@ -176,6 +178,14 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cw = case_when(int > 5 ~ 1, .default = 0)) %>%
+      collect(),
+    tbl
+  )
+
   compare_dplyr_binding(
     .input %>%
       transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
@@ -269,6 +279,29 @@ test_that("case_when()", {
         transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
       "case_when"
     )
+  )
+
+  expect_error(
+    expect_warning(
+      tbl %>%
+        arrow_table() %>%
+        mutate(cw = case_when(int > 5 ~ 1, .default = c(0, 1)))
+    ),
+    "`.default` must have size"
+  )
+
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .ptype = integer())),
+    "not supported in Arrow"
+  )
+
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .size = 10)),
+    "not supported in Arrow"
   )
 
   compare_dplyr_binding(

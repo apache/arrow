@@ -18,11 +18,20 @@
 # ----------------------------------------------------------------------
 # Tests that don't require the full kernel library
 
+# Define arrow_compute_testing object library for common test files
+if(ARROW_TESTING)
+  add_library(arrow_compute_kernels_testing OBJECT test_util.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_compute_kernels_testing PRIVATE ${ARROW_GTEST_GMOCK})
+endif()
+
 add_arrow_test(scalar_cast_test
                ${ARROW_COMPUTE_TEST_ARGS}
                SOURCES
                scalar_cast_test.cc
-               test_util.cc)
+               EXTRA_LINK_LIBS
+               arrow_compute_kernels_testing)
 
 # ----------------------------------------------------------------------
 # Scalar kernels
@@ -32,25 +41,36 @@ add_arrow_compute_test(scalar_type_test
                        scalar_boolean_test.cc
                        scalar_nested_test.cc
                        scalar_string_test.cc
-                       test_util.cc)
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
-add_arrow_compute_test(scalar_if_else_test SOURCES scalar_if_else_test.cc test_util.cc)
+add_arrow_compute_test(scalar_if_else_test
+                       SOURCES
+                       scalar_if_else_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
-add_arrow_compute_test(scalar_temporal_test SOURCES scalar_temporal_test.cc test_util.cc)
+add_arrow_compute_test(scalar_temporal_test
+                       SOURCES
+                       scalar_temporal_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
 add_arrow_compute_test(scalar_math_test
                        SOURCES
                        scalar_arithmetic_test.cc
                        scalar_compare_test.cc
                        scalar_round_arithmetic_test.cc
-                       test_util.cc)
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
 add_arrow_compute_test(scalar_utility_test
                        SOURCES
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
-                       test_util.cc)
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
 add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
@@ -69,14 +89,26 @@ add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
 add_arrow_compute_test(vector_test
                        SOURCES
                        vector_cumulative_ops_test.cc
+                       vector_pairwise_test.cc
                        vector_hash_test.cc
                        vector_nested_test.cc
                        vector_replace_test.cc
-                       vector_selection_test.cc
-                       vector_sort_test.cc
                        vector_run_end_encode_test.cc
                        select_k_test.cc
-                       test_util.cc)
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
+
+add_arrow_compute_test(vector_sort_test
+                       SOURCES
+                       vector_sort_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
+
+add_arrow_compute_test(vector_selection_test
+                       SOURCES
+                       vector_selection_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
@@ -90,7 +122,11 @@ add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # Aggregates
 
-add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
+add_arrow_compute_test(aggregate_test
+                       SOURCES
+                       aggregate_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
 
 # ----------------------------------------------------------------------
 # Utilities

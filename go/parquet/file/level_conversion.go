@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"unsafe"
 
-	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v12/parquet/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -94,7 +94,7 @@ func (l *LevelInfo) IncrementRepeated() int16 {
 	l.RepLevel++
 	l.DefLevel++
 
-	// For levels >= repeated_ancenstor_def_level it indicates the list was
+	// For levels >= repeated_ancestor_def_level it indicates the list was
 	// non-null and had at least one element.  This is important
 	// for later decoding because we need to add a slot for these
 	// values.  for levels < current_def_level no slots are added
@@ -144,7 +144,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 	var batch []int16
 	for len(defLevels) > 0 {
-		batchSize := shared_utils.MinInt(maxbatch, len(defLevels))
+		batchSize := shared_utils.Min(maxbatch, len(defLevels))
 		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
 		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
 
@@ -170,7 +170,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 // create a bitmap out of the definition Levels
 func defLevelsToBitmapInternal(defLevels []int16, info LevelInfo, out *ValidityBitmapInputOutput, hasRepeatedParent bool) {
-	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(len(defLevels)))
+	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(out.ReadUpperBound))
 	defer wr.Finish()
 	setCount := defLevelsBatchToBitmap(defLevels, out.ReadUpperBound, info, wr, hasRepeatedParent)
 	out.Read = int64(wr.Pos())

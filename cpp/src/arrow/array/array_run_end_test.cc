@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -127,34 +128,55 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
       RunEndEncodedArray::Make(30, run_end_values, ArrayFromJSON(int32(), "[2, 0]")));
 }
 
-TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
+TEST_P(TestRunEndEncodedArray, FindPhysicalRange) {
   auto run_ends = ArrayFromJSON(run_end_type, "[100, 200, 300, 400, 500]");
   auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "REE"])");
   ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(500, run_ends, values));
 
+  auto Range = [](int64_t offset, int64_t length) -> std::pair<int64_t, int64_t> {
+    return std::make_pair(offset, length);
+  };
   ASSERT_EQ(ree_array->FindPhysicalOffset(), 0);
   ASSERT_EQ(ree_array->FindPhysicalLength(), 5);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*ree_array->data(), ree_array->offset(),
+                                        ree_array->length()),
+            Range(0, 5));
 
   auto slice = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 5));
   ASSERT_EQ(slice->FindPhysicalOffset(), 1);
   ASSERT_EQ(slice->FindPhysicalLength(), 2);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*slice->data(), slice->offset(), slice->length()),
+            Range(1, 2));
 
   auto slice2 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 101));
   ASSERT_EQ(slice2->FindPhysicalOffset(), 1);
   ASSERT_EQ(slice2->FindPhysicalLength(), 2);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice2->data(), slice2->offset(), slice2->length()),
+      Range(1, 2));
 
   auto slice3 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(400, 100));
   ASSERT_EQ(slice3->FindPhysicalOffset(), 4);
   ASSERT_EQ(slice3->FindPhysicalLength(), 1);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice3->data(), slice3->offset(), slice3->length()),
+      Range(4, 1));
 
   auto slice4 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(0, 150));
   ASSERT_EQ(slice4->FindPhysicalOffset(), 0);
   ASSERT_EQ(slice4->FindPhysicalLength(), 2);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice4->data(), slice4->offset(), slice4->length()),
+      Range(0, 2));
 
   auto zero_length_at_end =
       std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(500, 0));
   ASSERT_EQ(zero_length_at_end->FindPhysicalOffset(), 5);
   ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*zero_length_at_end->data(),
+                                        zero_length_at_end->offset(),
+                                        zero_length_at_end->length()),
+            Range(5, 0));
 }
 
 TEST_P(TestRunEndEncodedArray, LogicalRunEnds) {

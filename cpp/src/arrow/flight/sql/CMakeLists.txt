@@ -27,10 +27,16 @@ set(FLIGHT_SQL_GENERATED_PROTO_FILES "${CMAKE_CURRENT_BINARY_DIR}/FlightSql.pb.c
 
 set(PROTO_DEPENDS ${FLIGHT_SQL_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF})
 
+set(FLIGHT_SQL_PROTOC_COMMAND
+    ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
+    "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}")
+if(Protobuf_VERSION VERSION_LESS 3.15)
+  list(APPEND FLIGHT_SQL_PROTOC_COMMAND "--experimental_allow_proto3_optional")
+endif()
+list(APPEND FLIGHT_SQL_PROTOC_COMMAND "${FLIGHT_SQL_PROTO}")
+
 add_custom_command(OUTPUT ${FLIGHT_SQL_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_SQL_PROTO_PATH}"
-                           "--cpp_out=dllexport_decl=ARROW_FLIGHT_SQL_EXPORT:${CMAKE_CURRENT_BINARY_DIR}"
-                           "${FLIGHT_SQL_PROTO}"
+                   COMMAND ${FLIGHT_SQL_PROTOC_COMMAND}
                    DEPENDS ${PROTO_DEPENDS})
 
 set_source_files_properties(${FLIGHT_SQL_GENERATED_PROTO_FILES} PROPERTIES GENERATED TRUE)
@@ -58,8 +64,12 @@ add_arrow_lib(arrow_flight_sql
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_flight_shared
+              SHARED_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_shared
               STATIC_LINK_LIBS
               arrow_flight_static
+              STATIC_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_static
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 

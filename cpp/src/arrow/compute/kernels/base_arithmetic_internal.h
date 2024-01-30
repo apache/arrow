@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -425,6 +426,44 @@ struct DivideChecked {
   }
 };
 
+struct FloatingDivide {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
+                                             Status*) {
+    return left / right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
+                                                    Arg1 right, Status* st) {
+    static_assert(std::is_same<Arg0, Arg1>::value);
+    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
+  }
+
+  // TODO: Add decimal
+};
+
+struct FloatingDivideChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
+                                             Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value);
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return left / right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
+                                                    Arg1 right, Status* st) {
+    static_assert(std::is_same<Arg0, Arg1>::value);
+    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
+  }
+  // TODO: Add decimal
+};
+
 struct Negate {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
@@ -603,6 +642,86 @@ struct Sign {
                                                         Status*) {
     return (arg == 0) ? 0 : arg.Sign();
   }
+};
+
+struct Max {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::max(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::max(left, right);
+    }
+  }
+};
+
+struct Min {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::min(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::min(left, right);
+    }
+  }
+};
+
+/// The term identity is from the mathematical notation monoid.
+/// For any associative binary operation, identity is defined as:
+///     Op(identity, x) = x for all x.
+template <typename Op>
+struct Identity;
+
+template <>
+struct Identity<Add> {
+  template <typename Value>
+  static constexpr Value value{0};
+};
+
+template <>
+struct Identity<AddChecked> : Identity<Add> {};
+
+template <>
+struct Identity<Multiply> {
+  template <typename Value>
+  static constexpr Value value{1};
+};
+
+template <>
+struct Identity<MultiplyChecked> : Identity<Multiply> {};
+
+template <>
+struct Identity<Max> {
+  template <typename Value>
+  static constexpr Value value{std::numeric_limits<Value>::min()};
+};
+
+template <>
+struct Identity<Min> {
+  template <typename Value>
+  static constexpr Value value{std::numeric_limits<Value>::max()};
 };
 
 }  // namespace internal

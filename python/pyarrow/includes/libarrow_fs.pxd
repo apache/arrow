@@ -211,6 +211,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CS3GlobalOptions& options)
     cdef CStatus CEnsureS3Initialized "arrow::fs::EnsureS3Initialized"()
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
+    cdef CStatus CEnsureS3Finalized "arrow::fs::EnsureS3Finalized"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
 
@@ -225,6 +226,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
+        optional[c_string] project_id
         optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)

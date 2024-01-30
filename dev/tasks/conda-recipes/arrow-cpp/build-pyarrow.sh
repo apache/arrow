@@ -6,6 +6,7 @@ export ARROW_HOME=$PREFIX
 export PARQUET_HOME=$PREFIX
 export SETUPTOOLS_SCM_PRETEND_VERSION=$PKG_VERSION
 export PYARROW_BUILD_TYPE=release
+export PYARROW_WITH_ACERO=1
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_GANDIVA=1
@@ -23,6 +24,10 @@ BUILD_EXT_FLAGS=""
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]; then
     export PYARROW_WITH_CUDA=1
+    if [[ "${build_platform}" != "${target_platform}" ]]; then
+        export CUDAToolkit_ROOT=${CUDA_HOME}
+        export CMAKE_LIBRARY_PATH=${CONDA_BUILD_SYSROOT}/lib
+    fi
 else
     export PYARROW_WITH_CUDA=0
 fi
@@ -37,9 +42,9 @@ if [[ "${target_platform}" == osx-* ]]; then
     CXXFLAGS="${CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
 fi
 
-# Limit number of threads used to avoid hardware oversubscription
 if [[ "${target_platform}" == "linux-aarch64" ]] || [[ "${target_platform}" == "linux-ppc64le" ]]; then
-     export CMAKE_BUILD_PARALLEL_LEVEL=4
+    # Limit number of threads used to avoid hardware oversubscription
+    export CMAKE_BUILD_PARALLEL_LEVEL=4
 fi
 
 cd python
