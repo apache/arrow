@@ -24,7 +24,7 @@ public class ArrowData {
     public let length: UInt
     public let stride: Int
 
-    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt) throws {
         let infoType = arrowType.info
         switch infoType {
         case let .primitiveInfo(typeId):
@@ -45,7 +45,7 @@ public class ArrowData {
         self.buffers = buffers
         self.nullCount = nullCount
         self.length = buffers[1].length
-        self.stride = stride
+        self.stride = arrowType.getStride()
     }
 
     public func isNull(_ at: UInt) -> Bool {

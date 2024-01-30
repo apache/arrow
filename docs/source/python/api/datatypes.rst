@@ -55,6 +55,8 @@ These should be used to create Arrow data types and schemas.
    large_binary
    large_string
    large_utf8
+   binary_view
+   string_view
    decimal128
    list_
    large_list
@@ -168,6 +170,8 @@ represents a given data type (such as ``int32``) or general category
    is_large_binary
    is_large_unicode
    is_large_string
+   is_binary_view
+   is_string_view
    is_fixed_size_binary
    is_map
    is_dictionary

@@ -334,11 +334,15 @@ using TakeState = OptionsWrapper<TakeOptions>;
 /// only generate one take function for each byte width.
 ///
 /// This function assumes that the indices have been boundschecked.
-template <typename IndexCType, typename ValueCType>
+template <typename IndexCType, typename ValueWidthConstant>
 struct PrimitiveTakeImpl {
+  static constexpr int kValueWidth = ValueWidthConstant::value;
+
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    const auto* values_data = values.GetValues<ValueCType>(1);
+    DCHECK_EQ(values.type->byte_width(), kValueWidth);
+    const auto* values_data =
+        values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
     const uint8_t* values_is_valid = values.buffers[0].data;
     auto values_offset = values.offset;
 
@@ -346,9 +350,10 @@ struct PrimitiveTakeImpl {
     const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
 
-    auto out = out_arr->GetMutableValues<ValueCType>(1);
+    auto out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
     auto out_offset = out_arr->offset;
+    DCHECK_EQ(out_offset, 0);
 
     // If either the values or indices have nulls, we preemptively zero out the
     // out validity bitmap so that we don't have to use ClearBit in each
@@ -356,6 +361,19 @@ struct PrimitiveTakeImpl {
     if (values.null_count != 0 || indices.null_count != 0) {
       bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
     }
+
+    auto WriteValue = [&](int64_t position) {
+      memcpy(out + position * kValueWidth,
+             values_data + indices_data[position] * kValueWidth, kValueWidth);
+    };
+
+    auto WriteZero = [&](int64_t position) {
+      memset(out + position * kValueWidth, 0, kValueWidth);
+    };
+
+    auto WriteZeroSegment = [&](int64_t position, int64_t length) {
+      memset(out + position * kValueWidth, 0, kValueWidth * length);
+    };
 
     OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
                                                 indices.length);
@@ -370,7 +388,7 @@ struct PrimitiveTakeImpl {
           // Fastest path: neither values nor index nulls
           bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
           for (int64_t i = 0; i < block.length; ++i) {
-            out[position] = values_data[indices_data[position]];
+            WriteValue(position);
             ++position;
           }
         } else if (block.popcount > 0) {
@@ -379,14 +397,14 @@ struct PrimitiveTakeImpl {
             if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
               // index is not null
               bit_util::SetBit(out_is_valid, out_offset + position);
-              out[position] = values_data[indices_data[position]];
+              WriteValue(position);
             } else {
-              out[position] = ValueCType{};
+              WriteZero(position);
             }
             ++position;
           }
         } else {
-          memset(out + position, 0, sizeof(ValueCType) * block.length);
+          WriteZeroSegment(position, block.length);
           position += block.length;
         }
       } else {
@@ -397,11 +415,11 @@ struct PrimitiveTakeImpl {
             if (bit_util::GetBit(values_is_valid,
                                  values_offset + indices_data[position])) {
               // value is not null
-              out[position] = values_data[indices_data[position]];
+              WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
               ++valid_count;
             } else {
-              out[position] = ValueCType{};
+              WriteZero(position);
             }
             ++position;
           }
@@ -414,16 +432,16 @@ struct PrimitiveTakeImpl {
                 bit_util::GetBit(values_is_valid,
                                  values_offset + indices_data[position])) {
               // index is not null && value is not null
-              out[position] = values_data[indices_data[position]];
+              WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
               ++valid_count;
             } else {
-              out[position] = ValueCType{};
+              WriteZero(position);
             }
             ++position;
           }
         } else {
-          memset(out + position, 0, sizeof(ValueCType) * block.length);
+          WriteZeroSegment(position, block.length);
           position += block.length;
         }
       }
@@ -554,6 +572,8 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   }
 }
 
+}  // namespace
+
 Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& indices = batch[1].array;
@@ -577,23 +597,39 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, int8_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+          values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, int16_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 2>>(
+          values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, int32_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 4>>(
+          values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, int64_t>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+          values, indices, out_arr);
+      break;
+    case 128:
+      // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+          values, indices, out_arr);
+      break;
+    case 256:
+      // For DECIMAL256
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+          values, indices, out_arr);
       break;
     default:
-      DCHECK(false) << "Invalid values byte width";
-      break;
+      return Status::NotImplemented("Unsupported primitive type for take: ",
+                                    *values.type);
   }
   return Status::OK();
 }
+
+namespace {
 
 // ----------------------------------------------------------------------
 // Null take
@@ -836,8 +872,8 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
       {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
-      {InputType(Type::DECIMAL128), take_indices, FSBTakeExec},
-      {InputType(Type::DECIMAL256), take_indices, FSBTakeExec},
+      {InputType(Type::DECIMAL128), take_indices, PrimitiveTakeExec},
+      {InputType(Type::DECIMAL256), take_indices, PrimitiveTakeExec},
       {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
       {InputType(Type::EXTENSION), take_indices, ExtensionTake},
       {InputType(Type::LIST), take_indices, ListTakeExec},
