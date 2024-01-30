@@ -161,7 +161,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid(
-                "Parquet cannot store strings with size 2GB or more, get: ", view.size());
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -573,7 +573,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid(
-                "Parquet cannot store strings with size 2GB or more, get: ", view.size());
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -588,7 +588,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
       auto v = array.GetView(i);
       if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
         throw ParquetException(
-            "Parquet cannot store strings with size 2GB or more, get: ", v.size());
+            "Parquet cannot store strings with size 2GB or more, got: ", v.size());
       }
       dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
       int32_t unused_memo_index;
@@ -2671,7 +2671,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid(
-                "Parquet cannot store strings with size 2GB or more, get: ", view.size());
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
           PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
@@ -3197,7 +3197,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
             return Status::Invalid(
-                "Parquet cannot store strings with size 2GB or more, get: ", view.size());
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           const ByteArray src{view};
 
@@ -3243,7 +3243,7 @@ struct ByteArrayVisitor {
 
   std::string_view operator[](int i) const {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
-      throw ParquetException("Parquet cannot store strings with size 2GB or more, get: ",
+      throw ParquetException("Parquet cannot store strings with size 2GB or more, got: ",
                              src[i].len);
     }
     return std::string_view{src[i]};
