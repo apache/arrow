@@ -4375,6 +4375,36 @@ def large_utf8():
     return large_string()
 
 
+def binary_view():
+    """
+    Create a variable-length binary view type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.binary_view()
+    DataType(binary_view)
+    """
+    return primitive_type(_Type_BINARY_VIEW)
+
+
+def string_view():
+    """
+    Create UTF8 variable-length string view type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.string_view()
+    DataType(string_view)
+    """
+    return primitive_type(_Type_STRING_VIEW)
+
+
 def list_(value_type, int list_size=-1):
     """
     Create ListType instance from child data type or field.
@@ -4991,6 +5021,8 @@ cdef dict _type_aliases = {
     'large_str': large_string,
     'large_utf8': large_string,
     'large_binary': large_binary,
+    'binary_view': binary_view,
+    'string_view': string_view,
     'date32': date32,
     'date64': date64,
     'date32[day]': date32,

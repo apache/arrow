@@ -63,6 +63,8 @@ may expose data type-specific methods or properties.
    FixedSizeBinaryArray
    LargeBinaryArray
    LargeStringArray
+   BinaryViewArray,
+   StringViewArray,
    Time32Array
    Time64Array
    Date32Array
@@ -119,6 +121,8 @@ classes may expose data type-specific methods or properties.
    FixedSizeBinaryScalar
    LargeBinaryScalar
    LargeStringScalar
+   BinaryViewScalar
+   StringViewScalar
    Time32Scalar
    Time64Scalar
    Date32Scalar
