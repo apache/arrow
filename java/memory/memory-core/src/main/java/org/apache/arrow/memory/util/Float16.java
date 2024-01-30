@@ -22,7 +22,7 @@ import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * Lifted from Apache Parquet MR project:
- * https://github.com/apache/parquet-mr/blob/master/parquet-column/src/main/java/org/apache/parquet/schema/Float16.java
+ * https://github.com/apache/parquet-mr/blob/e87b80308869b77f914fcfd04364686e11158950/parquet-column/src/main/java/org/apache/parquet/schema/Float16.java
  * <ul>
  * Changes made:
  * <li>Modify the data type input from Parquet-MR Binary (toFloat(Binary b)) to Arrow Java short (toFloat(short b))</li>
