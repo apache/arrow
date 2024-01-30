@@ -2942,6 +2942,12 @@ cdef class LargeStringArray(Array):
                                   null_count, offset)
 
 
+cdef class StringViewArray(Array):
+    """
+    Concrete class for Arrow arrays of string (or utf8) view data type.
+    """
+
+
 cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
@@ -2966,6 +2972,12 @@ cdef class LargeBinaryArray(Array):
         by the offsets of this LargeBinaryArray.
         """
         return (<CLargeBinaryArray*> self.ap).total_values_length()
+
+
+cdef class BinaryViewArray(Array):
+    """
+    Concrete class for Arrow arrays of variable-sized binary view data type.
+    """
 
 
 cdef class DictionaryArray(Array):
@@ -3669,6 +3681,8 @@ cdef dict _array_classes = {
     _Type_STRING: StringArray,
     _Type_LARGE_BINARY: LargeBinaryArray,
     _Type_LARGE_STRING: LargeStringArray,
+    _Type_BINARY_VIEW: BinaryViewArray,
+    _Type_STRING_VIEW: StringViewArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL128: Decimal128Array,
