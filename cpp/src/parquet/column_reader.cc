@@ -1487,6 +1487,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
           this->pool_, std::max<int64_t>(buffer_size, kMaxSkipLevelBufferSize));
     } else if (buffer_size > kMaxSkipLevelBufferSize) {
       // Increase the bitmap size.
+      DCHECK_EQ(valid_bits_for_skip_->size(), kMaxSkipLevelBufferSize);
       PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(buffer_size,
                                                         /*shrink_to_fit=*/false));
     }
