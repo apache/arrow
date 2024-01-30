@@ -445,6 +445,14 @@ cdef class BinaryArray(Array):
     pass
 
 
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
+    pass
+
+
 cdef class DictionaryArray(Array):
     cdef:
         object _indices, _dictionary
