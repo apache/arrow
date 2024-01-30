@@ -32,8 +32,6 @@
 
 namespace arrow {
 
-class MemoryManager;
-
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema
 ///

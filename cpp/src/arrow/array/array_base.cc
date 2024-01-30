@@ -307,6 +307,18 @@ Result<std::shared_ptr<Array>> Array::View(
   return MakeArray(result);
 }
 
+Result<std::shared_ptr<Array>> Array::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto copied_data, data()->CopyTo(to));
+  return MakeArray(copied_data);
+}
+
+Result<std::shared_ptr<Array>> Array::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ARROW_ASSIGN_OR_RAISE(auto new_data, data()->ViewOrCopyTo(to));
+  return MakeArray(new_data);
+}
+
 // ----------------------------------------------------------------------
 // NullArray
 

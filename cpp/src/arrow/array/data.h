@@ -27,16 +27,13 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
-class MemoryManager;
 
 namespace internal {
 // ----------------------------------------------------------------------

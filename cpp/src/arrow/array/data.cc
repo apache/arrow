@@ -37,6 +37,7 @@
 #include "arrow/util/dict_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/util/union_util.h"
@@ -147,16 +148,11 @@ Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
                                                 const std::shared_ptr<MemoryManager>& to,
                                                 Fn&& copy_fn) {
   auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
-  output->buffers.reserve(data.buffers.size());
-
-  for (const auto& buf : data.buffers) {
-    if (!buf) {
-      output->buffers.push_back(nullptr);
-      continue;
+  output->buffers.resize(data.buffers.size());
+  for (auto&& [buf, out_buf] : internal::Zip(data.buffers, output->buffers)) {
+    if (buf) {
+      ARROW_ASSIGN_OR_RAISE(out_buf, copy_fn(buf, to));
     }
-
-    ARROW_ASSIGN_OR_RAISE(auto temp_buf, copy_fn(buf, to));
-    output->buffers.push_back(std::move(temp_buf));
   }
 
   output->child_data.reserve(data.child_data.size());

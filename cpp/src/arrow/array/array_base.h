@@ -171,10 +171,7 @@ class ARROW_EXPORT Array {
   ///
   /// This method recursively copies the array's buffers and those of its children
   /// onto the destination MemoryManager device and returns the new Array.
-  Result<std::shared_ptr<Array>> CopyTo(const std::shared_ptr<MemoryManager>& to) const {
-    ARROW_ASSIGN_OR_RAISE(auto copied_data, data()->CopyTo(to));
-    return MakeArray(copied_data);
-  }
+  Result<std::shared_ptr<Array>> CopyTo(const std::shared_ptr<MemoryManager>& to) const;
 
   /// \brief Construct a new array attempting to zero-copy view if possible.
   ///
@@ -183,10 +180,7 @@ class ARROW_EXPORT Array {
   /// views on the destination MemoryManager device. If it can't, it falls back
   /// to performing a copy. See Buffer::ViewOrCopy.
   Result<std::shared_ptr<Array>> ViewOrCopyTo(
-      const std::shared_ptr<MemoryManager>& to) const {
-    ARROW_ASSIGN_OR_RAISE(auto new_data, data()->ViewOrCopyTo(to));
-    return MakeArray(new_data);
-  }
+      const std::shared_ptr<MemoryManager>& to) const;
 
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
