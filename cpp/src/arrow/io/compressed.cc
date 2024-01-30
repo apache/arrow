@@ -233,6 +233,7 @@ class CompressedInputStream::Impl {
       : pool_(pool),
         raw_(raw),
         is_open_(true),
+        supports_zero_copy_from_raw_(raw->supports_zero_copy()),
         compressed_pos_(0),
         decompressed_pos_(0),
         fresh_decompressor_(false),
@@ -271,28 +272,28 @@ class CompressedInputStream::Impl {
     int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
     if (compressed_avail == 0) {
       // Ensure compressed_ buffer is allocated with kChunkSize.
-      if (compressed_ == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(compressed_, AllocateResizableBuffer(kChunkSize, pool_));
+      if (supports_zero_copy_from_raw_) {
+        if (compressed_for_non_zero_copy_ == nullptr) {
+          ARROW_ASSIGN_OR_RAISE(compressed_for_non_zero_copy_,
+                                AllocateResizableBuffer(kChunkSize, pool_));
+        } else {
+          RETURN_NOT_OK(
+              compressed_for_non_zero_copy_->Resize(kChunkSize, /*shrink_to_fit=*/false));
+        }
+        compressed_ = nullptr;
+        ARROW_ASSIGN_OR_RAISE(
+            int64_t read_size,
+            raw_->Read(kChunkSize,
+                       compressed_for_non_zero_copy_->mutable_data_as<void>()));
+        RETURN_NOT_OK(
+            compressed_for_non_zero_copy_->Resize(read_size, /*shrink_to_fit=*/false));
+        compressed_ = compressed_for_non_zero_copy_;
       } else {
-        RETURN_NOT_OK(compressed_->Resize(kChunkSize, /*shrink_to_fit=*/false));
+        ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
       }
-      // No compressed data available, read a full chunk
-      ARROW_ASSIGN_OR_RAISE(int64_t read_size,
-                            raw_->Read(kChunkSize, compressed_->mutable_data_as<void>()));
-      RETURN_NOT_OK(compressed_->Resize(read_size, /*shrink_to_fit=*/false));
       compressed_pos_ = 0;
     }
     return Status::OK();
-  }
-
-  Result<std::shared_ptr<ResizableBuffer>> GetDecompressBuffer(int64_t decompress_size) {
-    if (decompressed_impl_ == nullptr) {
-      ARROW_ASSIGN_OR_RAISE(decompressed_impl_,
-                            AllocateResizableBuffer(decompress_size, pool_));
-    } else {
-      RETURN_NOT_OK(decompressed_impl_->Resize(decompress_size, /*shrink_to_fit=*/false));
-    }
-    return decompressed_impl_;
   }
 
   // Decompress some data from the compressed_ buffer.
@@ -303,7 +304,12 @@ class CompressedInputStream::Impl {
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
-      ARROW_ASSIGN_OR_RAISE(decompressed_, GetDecompressBuffer(decompress_size));
+      if (decompressed_ == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(decompressed_,
+                              AllocateResizableBuffer(decompress_size, pool_));
+      } else {
+        RETURN_NOT_OK(decompressed_->Resize(decompress_size, /*shrink_to_fit=*/false));
+      }
       decompressed_pos_ = 0;
 
       int64_t input_len = compressed_->size() - compressed_pos_;
@@ -336,11 +342,6 @@ class CompressedInputStream::Impl {
     if (read_bytes > 0) {
       memcpy(out, decompressed_->data() + decompressed_pos_, read_bytes);
       decompressed_pos_ += read_bytes;
-
-      if (decompressed_pos_ == decompressed_->size()) {
-        // Decompressed data is exhausted, release buffer
-        decompressed_.reset();
-      }
     }
 
     return read_bytes;
@@ -414,12 +415,16 @@ class CompressedInputStream::Impl {
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
   bool is_open_;
+  bool supports_zero_copy_from_raw_;
   std::shared_ptr<Decompressor> decompressor_;
-  std::shared_ptr<ResizableBuffer> compressed_;
+  // If `raw_->supports_zero_copy()`, this buffer would not allocate memory.
+  // Otherwise, this buffer would allocate `kChunkSize` memory and read data from
+  // `raw_`.
+  std::shared_ptr<ResizableBuffer> compressed_for_non_zero_copy_;
+  std::shared_ptr<Buffer> compressed_;
   // Position in compressed buffer
   int64_t compressed_pos_;
   std::shared_ptr<ResizableBuffer> decompressed_;
-  std::shared_ptr<ResizableBuffer> decompressed_impl_;
   // Position in decompressed buffer
   int64_t decompressed_pos_;
   // True if the decompressor hasn't read any data yet.

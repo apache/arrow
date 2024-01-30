@@ -45,8 +45,8 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
 
   /// \brief Create a compressed output stream wrapping the given output stream.
   ///
-  /// The codec must be able to streaming compress the data. Some codecs,
-  /// like snapppy, is not able to do so.
+  /// The codec must be capaable of streaming compression. Some codecs,
+  /// like Snappy, are not able to do so.
   static Result<std::shared_ptr<CompressedOutputStream>> Make(
       util::Codec* codec, const std::shared_ptr<OutputStream>& raw,
       MemoryPool* pool = default_memory_pool());
@@ -86,8 +86,8 @@ class ARROW_EXPORT CompressedInputStream
 
   /// \brief Create a compressed input stream wrapping the given input stream.
   ///
-  /// The codec must be able to streaming decompress the data. Some codecs,
-  /// like snapppy, is not able to do so.
+  /// The codec must be capaable of streaming decompression. Some codecs,
+  /// like Snappy, are not able to do so.
   static Result<std::shared_ptr<CompressedInputStream>> Make(
       util::Codec* codec, const std::shared_ptr<InputStream>& raw,
       MemoryPool* pool = default_memory_pool());
