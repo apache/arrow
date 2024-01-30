@@ -415,30 +415,26 @@ def py_fsspec_s3fs(request, s3_server):
     ),
 ])
 def filesystem_config(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture
-def fs(filesystem_config, request):
-    filesystem_config = request.getfixturevalue(filesystem_config)
+def fs(filesystem_config):
     return filesystem_config['fs']
 
 
 @pytest.fixture
-def pathfn(filesystem_config, request):
-    filesystem_config = request.getfixturevalue(filesystem_config)
+def pathfn(filesystem_config):
     return filesystem_config['pathfn']
 
 
 @pytest.fixture
-def allow_move_dir(filesystem_config, request):
-    filesystem_config = request.getfixturevalue(filesystem_config)
+def allow_move_dir(filesystem_config):
     return filesystem_config['allow_move_dir']
 
 
 @pytest.fixture
-def allow_append_to_file(filesystem_config, request):
-    filesystem_config = request.getfixturevalue(filesystem_config)
+def allow_append_to_file(filesystem_config):
     return filesystem_config['allow_append_to_file']
 
 
@@ -546,8 +542,7 @@ def test_filesystem_equals():
     assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
 
 
-def test_filesystem_equals_none(fs, request):
-    fs = request.getfixturevalue(fs)
+def test_filesystem_equals_none(fs):
     with pytest.raises(TypeError, match="got NoneType"):
         fs.equals(None)
 

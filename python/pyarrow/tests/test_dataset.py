@@ -1340,8 +1340,7 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 
 @pytest.mark.parquet
-def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs,
-                                           pickle_module):
+def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_module):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
         tempdir, chunk_size=2, filesystem=fs
@@ -1382,8 +1381,7 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs,
 
 
 @pytest.mark.parquet
-def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs,
-                                              pickle_module):
+def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs, pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-15796
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(tempdir, filesystem=fs)
@@ -1907,8 +1905,7 @@ def test_partitioning_factory_segment_encoding(pickled, pickle_module):
 
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
-def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled,
-                                                                pickle_module):
+def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled, pickle_module):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -2287,8 +2284,7 @@ def test_construct_from_single_file(tempdir, dataset_reader, pickle_module):
 
 
 @pytest.mark.parquet
-def test_construct_from_single_directory(tempdir, dataset_reader,
-                                         pickle_module):
+def test_construct_from_single_directory(tempdir, dataset_reader, pickle_module):
     directory = tempdir / 'single-directory'
     directory.mkdir()
     tables, paths = _create_directory_of_files(directory)
@@ -2498,8 +2494,7 @@ def _create_partitioned_dataset(basedir):
 
 
 @pytest.mark.parquet
-def test_open_dataset_partitioned_directory(tempdir, dataset_reader,
-                                            pickle_module):
+def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_module):
     full_table, path = _create_partitioned_dataset(tempdir)
 
     # no partitioning specified, just read all individual files

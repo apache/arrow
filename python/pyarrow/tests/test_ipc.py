@@ -151,7 +151,7 @@ def stream_fixture():
     )
 ])
 def format_fixture(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 def test_empty_file():
@@ -590,8 +590,7 @@ def test_read_options_included_fields(stream_fixture):
     assert result1 == table
 
 
-def test_dictionary_delta(format_fixture, request):
-    format_fixture = request.getfixturevalue(format_fixture)
+def test_dictionary_delta(format_fixture):
     ty = pa.dictionary(pa.int8(), pa.utf8())
     data = [["foo", "foo", None],
             ["foo", "bar", "foo"],  # potential delta
