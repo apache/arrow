@@ -88,8 +88,9 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    *
    * @param name Unused.
    *
-   * @deprecated use {@link #listOfStruct()} instead.
+   * @deprecated use {@link #listOfStruct(String)} instead.
    */
+  @Deprecated
   public StructOrListWriter listoftstruct(final String name) {
     return listOfStruct(name);
   }

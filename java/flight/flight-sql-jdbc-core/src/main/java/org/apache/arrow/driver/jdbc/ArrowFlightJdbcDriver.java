@@ -43,6 +43,7 @@ import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
 
+
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
  */
@@ -99,6 +100,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
+  @SuppressWarnings("StringSplitter")
   protected DriverVersion createDriverVersion() {
     if (version == null) {
       final InputStream flightProperties = this.getClass().getResourceAsStream("/properties/flight.properties");
