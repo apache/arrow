@@ -1691,14 +1691,9 @@ class AzureFileSystem::Impl {
   }
 
   Status DeleteFile(const AzureLocation& location) {
-    if (location.path.empty()) {
-      return Status::Invalid("Cannot delete an empty path");
-    }
-
-    auto file_client =
-      datalake_service_client_->GetFileSystemClient(location.container)
-        .GetFileClient(location.path);
-
+    RETURN_NOT_OK(ValidateFileLocation(location));
+    auto file_client = datalake_service_client_->GetFileSystemClient(location.container)
+                           .GetFileClient(location.path);
     try {
       auto response = file_client.Delete();
       // Only the "*IfExists" functions ever set Deleted to false.
@@ -1709,9 +1704,8 @@ class AzureFileSystem::Impl {
           exception.ErrorCode == "PathNotFound") {
         return PathNotFound(location);
       }
-      return ExceptionToStatus(exception,
-                               "Failed to delete a file: ", location.path, ": ",
-                               file_client.GetUrl());
+      return ExceptionToStatus(exception, "Failed to delete a file: ", location.path,
+                               ": ", file_client.GetUrl());
     }
     return Status::OK();
   }
