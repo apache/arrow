@@ -116,7 +116,7 @@ def test_coerce_timestamps(tempdir):
     df_expected = df.copy()
     for i, x in enumerate(df_expected['datetime64']):
         if isinstance(x, np.ndarray):
-            df_expected['datetime64'][i] = x.astype('M8[us]')
+            df_expected.loc[i, 'datetime64'] = x.astype('M8[us]')
 
     tm.assert_frame_equal(df_expected, df_read)
 
@@ -429,7 +429,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
-                      index=pd.date_range('2017-01-01', freq='1n', periods=n))
+                      index=pd.date_range('2017-01-01', freq='ns', periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'

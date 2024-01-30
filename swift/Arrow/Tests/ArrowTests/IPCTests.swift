@@ -64,14 +64,16 @@ func makeSchema() -> ArrowSchema {
     return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowUInt8), isNullable: true)
         .addField("col2", type: ArrowType(ArrowType.ArrowString), isNullable: false)
         .addField("col3", type: ArrowType(ArrowType.ArrowDate32), isNullable: false)
+        .addField("col4", type: ArrowType(ArrowType.ArrowInt32), isNullable: false)
+        .addField("col5", type: ArrowType(ArrowType.ArrowFloat), isNullable: false)
         .finish()
 }
 
 func makeRecordBatch() throws -> RecordBatch {
     let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
     uint8Builder.append(10)
-    uint8Builder.append(22)
-    uint8Builder.append(33)
+    uint8Builder.append(nil)
+    uint8Builder.append(nil)
     uint8Builder.append(44)
     let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
     stringBuilder.append("test10")
@@ -85,13 +87,28 @@ func makeRecordBatch() throws -> RecordBatch {
     date32Builder.append(date2)
     date32Builder.append(date1)
     date32Builder.append(date2)
-    let intHolder = ArrowArrayHolder(try uint8Builder.finish())
+    let int32Builder: NumberArrayBuilder<Int32> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+    int32Builder.append(1)
+    int32Builder.append(2)
+    int32Builder.append(3)
+    int32Builder.append(4)
+    let floatBuilder: NumberArrayBuilder<Float> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+    floatBuilder.append(211.112)
+    floatBuilder.append(322.223)
+    floatBuilder.append(433.334)
+    floatBuilder.append(544.445)
+
+    let uint8Holder = ArrowArrayHolder(try uint8Builder.finish())
     let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
     let date32Holder = ArrowArrayHolder(try date32Builder.finish())
+    let int32Holder = ArrowArrayHolder(try int32Builder.finish())
+    let floatHolder = ArrowArrayHolder(try floatBuilder.finish())
     let result = RecordBatch.Builder()
-        .addColumn("col1", arrowArray: intHolder)
+        .addColumn("col1", arrowArray: uint8Holder)
         .addColumn("col2", arrowArray: stringHolder)
         .addColumn("col3", arrowArray: date32Holder)
+        .addColumn("col4", arrowArray: int32Holder)
+        .addColumn("col5", arrowArray: floatHolder)
         .finish()
     switch result {
     case .success(let recordBatch):
@@ -182,15 +199,20 @@ final class IPCFileReaderTests: XCTestCase {
                 XCTAssertEqual(recordBatches.count, 1)
                 for recordBatch in recordBatches {
                     XCTAssertEqual(recordBatch.length, 4)
-                    XCTAssertEqual(recordBatch.columns.count, 3)
-                    XCTAssertEqual(recordBatch.schema.fields.count, 3)
+                    XCTAssertEqual(recordBatch.columns.count, 5)
+                    XCTAssertEqual(recordBatch.schema.fields.count, 5)
                     XCTAssertEqual(recordBatch.schema.fields[0].name, "col1")
                     XCTAssertEqual(recordBatch.schema.fields[0].type.info, ArrowType.ArrowUInt8)
                     XCTAssertEqual(recordBatch.schema.fields[1].name, "col2")
                     XCTAssertEqual(recordBatch.schema.fields[1].type.info, ArrowType.ArrowString)
                     XCTAssertEqual(recordBatch.schema.fields[2].name, "col3")
                     XCTAssertEqual(recordBatch.schema.fields[2].type.info, ArrowType.ArrowDate32)
+                    XCTAssertEqual(recordBatch.schema.fields[3].name, "col4")
+                    XCTAssertEqual(recordBatch.schema.fields[3].type.info, ArrowType.ArrowInt32)
+                    XCTAssertEqual(recordBatch.schema.fields[4].name, "col5")
+                    XCTAssertEqual(recordBatch.schema.fields[4].type.info, ArrowType.ArrowFloat)
                     let columns = recordBatch.columns
+                    XCTAssertEqual(columns[0].nullCount, 2)
                     let dateVal =
                         "\((columns[2].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(dateVal, "2014-09-10 00:00:00 +0000")
@@ -227,13 +249,17 @@ final class IPCFileReaderTests: XCTestCase {
             case .success(let result):
                 XCTAssertNotNil(result.schema)
                 let schema  = result.schema!
-                XCTAssertEqual(schema.fields.count, 3)
+                XCTAssertEqual(schema.fields.count, 5)
                 XCTAssertEqual(schema.fields[0].name, "col1")
                 XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
                 XCTAssertEqual(schema.fields[1].name, "col2")
                 XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
                 XCTAssertEqual(schema.fields[2].name, "col3")
                 XCTAssertEqual(schema.fields[2].type.info, ArrowType.ArrowDate32)
+                XCTAssertEqual(schema.fields[3].name, "col4")
+                XCTAssertEqual(schema.fields[3].type.info, ArrowType.ArrowInt32)
+                XCTAssertEqual(schema.fields[4].name, "col5")
+                XCTAssertEqual(schema.fields[4].type.info, ArrowType.ArrowFloat)
             case.failure(let error):
                 throw error
             }

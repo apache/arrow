@@ -476,7 +476,7 @@ public class TestJSONFile extends BaseFileTest {
           assertEquals(schema, readSchema);
           try (final VectorSchemaRoot data = reader.read()) {
             assertNotNull(data);
-            assertEquals(data.getRowCount(), 0);
+            assertEquals(0, data.getRowCount());
           }
           assertNull(reader.read());
         }
@@ -496,7 +496,7 @@ public class TestJSONFile extends BaseFileTest {
           assertEquals(schema, readSchema);
           try (final VectorSchemaRoot data = reader.read()) {
             assertNotNull(data);
-            assertEquals(data.getRowCount(), 0);
+            assertEquals(0, data.getRowCount());
           }
           assertNull(reader.read());
         }

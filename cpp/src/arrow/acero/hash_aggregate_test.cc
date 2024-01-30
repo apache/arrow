@@ -1694,6 +1694,42 @@ TEST_P(GroupBy, SumMeanProductScalar) {
   }
 }
 
+TEST_P(GroupBy, MeanOverflow) {
+  BatchesWithSchema input;
+  // would overflow if intermediate sum is integer
+  input.batches = {
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
+                        "[[9223372036854775805, 1], [9223372036854775805, 1], "
+                        "[9223372036854775805, 2], [9223372036854775805, 3]]"),
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+                        "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
+      ExecBatchFromJSON({int64(), int64()},
+                        "[[9223372036854775805, 1], [9223372036854775805, 2], "
+                        "[9223372036854775805, 3]]"),
+  };
+  input.schema = schema({field("argument", int64()), field("key", int64())});
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"key"},
+                                    {
+                                        {"hash_mean", nullptr, "argument", "hash_mean"},
+                                    },
+                                    use_threads));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("key", int64()),
+                                       field("hash_mean", float64()),
+                                   }),
+                                   R"([
+      [1, 9223372036854775805],
+      [2, 9223372036854775805],
+      [3, 9223372036854775805]
+    ])");
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
 TEST_P(GroupBy, VarianceAndStddev) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", int32()), field("key", int64())}), R"([

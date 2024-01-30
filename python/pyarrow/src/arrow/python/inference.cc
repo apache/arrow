@@ -468,10 +468,7 @@ class TypeInferrer {
     if (numpy_dtype_count_ > 0) {
       // All NumPy scalars and Nones/nulls
       if (numpy_dtype_count_ + none_count_ == total_count_) {
-        std::shared_ptr<DataType> type;
-        RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
-        *out = type;
-        return Status::OK();
+        return NumPyDtypeToArrow(numpy_unifier_.current_dtype()).Value(out);
       }
 
       // The "bad path": data contains a mix of NumPy scalars and

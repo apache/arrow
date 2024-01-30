@@ -169,6 +169,7 @@ std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name, FunctionD
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<true>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<true>));
 
   return func;
 }
@@ -187,7 +188,8 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name, FunctionDoc 
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
-
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<false>));
   return func;
 }
 
@@ -205,6 +207,8 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name, FunctionDoc 
       func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
   DCHECK_OK(
       func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DURATION)}, boolean(), ConstBoolExec<false>));
 
   return func;
 }

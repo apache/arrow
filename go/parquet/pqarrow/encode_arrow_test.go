@@ -25,22 +25,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/types"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/compress"
-	"github.com/apache/arrow/go/v15/parquet/file"
-	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v15/parquet/pqarrow"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/compress"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v16/parquet/pqarrow"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -164,6 +164,41 @@ func makeDateTypeTable(mem memory.Allocator, expected bool, partialDays bool) ar
 	} else {
 		bldr.Field(0).(*array.Date64Builder).AppendValues(d64Values, isValid)
 	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	return array.NewTableFromRecords(arrsc, []arrow.Record{rec})
+}
+
+func makeTimestampTypeTable(mem memory.Allocator, expected bool) arrow.Table {
+	isValid := []bool{true, true, true, false, true, true}
+
+	// Timestamp with relative (i.e. local) semantics. Make sure it roundtrips without being incorrectly converted to an absolute point in time.
+	f0 := arrow.Field{Name: "f0", Type: &arrow.TimestampType{Unit: arrow.Millisecond}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"1"})}
+
+	// Timestamp with absolute (i.e. instant) semantics. The physical representation is always from Unix epoch in UTC timezone.
+	// TimeZone is used for display purposes and can be stripped on roundtrip without changing the actual instant referred to.
+	// WithStoreSchema will preserve the original timezone, but the instant in will be equivalent even if it's not used.
+	f1 := arrow.Field{Name: "f1", Type: &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "EST"}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"2"})}
+	f1X := arrow.Field{Name: "f1", Type: &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"2"})}
+
+	fieldList := []arrow.Field{f0}
+	if expected {
+		fieldList = append(fieldList, f1X)
+	} else {
+		fieldList = append(fieldList, f1)
+	}
+
+	arrsc := arrow.NewSchema(fieldList, nil)
+
+	ts64msValues := []arrow.Timestamp{1489269, 1489270, 1489271, 1489272, 1489272, 1489273}
+
+	bldr := array.NewRecordBuilder(mem, arrsc)
+	defer bldr.Release()
+
+	bldr.Field(0).(*array.TimestampBuilder).AppendValues(ts64msValues, isValid)
+	bldr.Field(1).(*array.TimestampBuilder).AppendValues(ts64msValues, isValid)
 
 	rec := bldr.NewRecord()
 	defer rec.Release()
@@ -954,6 +989,25 @@ func (ps *ParquetIOTestSuite) TestDate64ReadWriteTable() {
 	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
 }
 
+func (ps *ParquetIOTestSuite) TestTimestampTZReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	inputTable := makeTimestampTypeTable(mem, false)
+	defer inputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, inputTable, inputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	expectedOutputTable := makeTimestampTypeTable(mem, true)
+	defer expectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(expectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", expectedOutputTable, roundTripOutputTable)
+}
+
 func (ps *ParquetIOTestSuite) TestDate64ReadWriteTableWithPartialDays() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
@@ -971,6 +1025,22 @@ func (ps *ParquetIOTestSuite) TestDate64ReadWriteTableWithPartialDays() {
 	defer date32ExpectedOutputTable.Release()
 
 	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
+}
+
+func (ps *ParquetIOTestSuite) TestTimestampTZStoreSchemaReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	inputTable := makeTimestampTypeTable(mem, false)
+	defer inputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, inputTable, inputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem), pqarrow.WithStoreSchema()))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	ps.Truef(array.TableEqual(inputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", inputTable, roundTripOutputTable)
 }
 
 func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {

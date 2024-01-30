@@ -103,6 +103,9 @@ TEST(TestValidityKernels, IsFinite) {
   }
   CheckScalar("is_finite", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_finite",
+              {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[true, true, true, null]"));
 }
 
 TEST(TestValidityKernels, IsInf) {
@@ -116,6 +119,8 @@ TEST(TestValidityKernels, IsInf) {
   }
   CheckScalar("is_inf", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_inf", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }
 
 TEST(TestValidityKernels, IsNan) {
@@ -129,6 +134,8 @@ TEST(TestValidityKernels, IsNan) {
   }
   CheckScalar("is_nan", {std::make_shared<NullArray>(4)},
               ArrayFromJSON(boolean(), "[null, null, null, null]"));
+  CheckScalar("is_nan", {ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 42, null]")},
+              ArrayFromJSON(boolean(), "[false, false, false, null]"));
 }
 
 TEST(TestValidityKernels, IsValidIsNullNullType) {

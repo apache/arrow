@@ -173,7 +173,7 @@ test_binary() {
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -568,10 +568,55 @@ test_package_java() {
   maybe_setup_conda maven openjdk
 
   pushd java
+
+  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
+    # Build JNI for C data interface
+    local -a cmake_options=()
+    # Enable only C data interface.
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
+    # Disable Testing because GTest might not be present.
+    cmake_options+=(-DBUILD_TESTING=OFF)
+    if [ ! -z "${CMAKE_GENERATOR}" ]; then
+      cmake_options+=(-G "${CMAKE_GENERATOR}")
+    fi
+    local build_dir="${ARROW_TMPDIR}/java-jni-build"
+    local install_dir="${ARROW_TMPDIR}/java-jni-install"
+    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
+    cmake \
+      -S . \
+      -B "${build_dir}" \
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
+      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
+      "${cmake_options[@]}"
+    cmake --build "${build_dir}"
+    cmake --install "${build_dir}"
+
+    local normalized_arch=$(arch)
+    case ${normalized_arch} in
+      aarch64|arm64)
+        normalized_arch=aarch_64
+        ;;
+      i386)
+        normalized_arch=x86_64
+        ;;
+    esac
+    mkdir -p ${dist_dir}/${normalized_arch}/
+    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mvn install \
+        -Darrow.c.jni.dist.dir=${dist_dir} \
+        -Parrow-c-data
+  fi
+
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
   fi
+
+  # Build jars
   mvn package
+
   popd
 }
 
@@ -632,6 +677,7 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_SUBSTRAIT=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -832,10 +878,10 @@ test_csharp() {
   fi
 
   if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourelink verification on local build"
+    echo "Skipping sourcelink verification on local build"
   else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd
@@ -889,7 +935,7 @@ test_go() {
         go_lib="arrow_go_integration.dll"
         ;;
     esac
-    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
     popd
   fi
   go clean -modcache
@@ -904,6 +950,7 @@ test_integration() {
   maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
+  pip install -e dev/archery[integration-java]
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
@@ -1089,7 +1136,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
