@@ -111,6 +111,7 @@ Code Style
 ==========
 
 The current Java code styles are configured as follows:
+
 - Indent: Tabs & spaces (2 spaces per tab)
 - Google Java Format: Reformats Java source code to comply with `Google Java Style`_.
 - Configure license headers for Java & XML files
@@ -161,6 +162,7 @@ Code Formatter for Intellij IDEA and Eclipse
 --------------------------------------------
 
 Follow the instructions for:
+
 - `Eclipse`_
 - `IntelliJ`_
 
