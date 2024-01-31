@@ -29,7 +29,7 @@ namespace Apache.Arrow.Ipc
 {
     public class ArrowStreamWriter : IDisposable
     {
-        internal class ArrowRecordBatchFlatBufferBuilder :
+        private class ArrowRecordBatchFlatBufferBuilder :
             IArrowArrayVisitor<Int8Array>,
             IArrowArrayVisitor<Int16Array>,
             IArrowArrayVisitor<Int32Array>,
@@ -81,14 +81,16 @@ namespace Apache.Arrow.Ipc
             }
 
             private readonly List<Buffer> _buffers;
+            private readonly ICompressionCodec _compressionCodec;
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
             public List<long> VariadicCounts { get; private set; } 
             public int TotalLength { get; private set; }
 
-            public ArrowRecordBatchFlatBufferBuilder()
+            public ArrowRecordBatchFlatBufferBuilder(ICompressionCodec compressionCodec)
             {
+                _compressionCodec = compressionCodec;
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
             }
@@ -239,10 +241,27 @@ namespace Apache.Arrow.Ipc
             {
                 int offset = TotalLength;
 
-                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
+                ArrowBuffer bufferToWrite;
+                if (_compressionCodec == null)
+                {
+                    bufferToWrite = buffer;
+                }
+                else
+                {
+                    // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
+                    // compressed buffers are stored.
+                    using var memoryStream = new MemoryStream();
+                    var uncompressedLengthBytes = new byte[8];
+                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, buffer.Length);
+                    memoryStream.Write(uncompressedLengthBytes);
+                    _compressionCodec.Compress(buffer.Memory, memoryStream);
+                    bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                }
+
+                int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(bufferToWrite.Length));
                 TotalLength += paddedLength;
 
-                return new Buffer(buffer, offset);
+                return new Buffer(bufferToWrite, offset);
             }
 
             public void Visit(IArrowArray array)
@@ -301,6 +320,13 @@ namespace Apache.Arrow.Ipc
 
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
             _options = options ?? IpcOptions.Default;
+
+            if (_options.CompressionCodec.HasValue && _options.CompressionCodecFactory == null)
+            {
+                throw new ArgumentException(
+                    "A CompressionCodecFactory must be provided when a CompressionCodec is specified",
+                    nameof(options));
+            }
         }
 
         private void CreateSelfAndChildrenFieldNodes(ArrayData data)
@@ -324,6 +350,23 @@ namespace Apache.Arrow.Ipc
                 CountSelfAndChildrenNodes(arrowArray.DataType, ref count);
             }
             return count;
+        }
+
+        private Offset<Flatbuf.BodyCompression> GetBodyCompression()
+        {
+            if (_options.CompressionCodec == null)
+            {
+                return default;
+            }
+
+            var compressionType = _options.CompressionCodec.Value switch
+            {
+                CompressionCodecType.Lz4Frame => Flatbuf.CompressionType.LZ4_FRAME,
+                CompressionCodecType.Zstd => Flatbuf.CompressionType.ZSTD,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+            return Flatbuf.BodyCompression.CreateBodyCompression(
+                Builder, compressionType, Flatbuf.BodyCompressionMethod.BUFFER);
         }
 
         private static void CountSelfAndChildrenNodes(IArrowType type, ref int count)
@@ -356,7 +399,7 @@ namespace Apache.Arrow.Ipc
             }
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
-                PreparingWritingRecordBatch(recordBatch);
+                PrepareWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -367,7 +410,7 @@ namespace Apache.Arrow.Ipc
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
                 buffersVectorOffset,
-                default,
+                GetBodyCompression(),
                 variadicCountsOffset);
 
             long metadataLength = WriteMessage(Flatbuf.MessageHeader.RecordBatch,
@@ -397,7 +440,7 @@ namespace Apache.Arrow.Ipc
             }
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
-                PreparingWritingRecordBatch(recordBatch);
+                PrepareWritingRecordBatch(recordBatch);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -408,7 +451,7 @@ namespace Apache.Arrow.Ipc
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, recordBatch.Length,
                 fieldNodesVectorOffset,
                 buffersVectorOffset,
-                default,
+                GetBodyCompression(),
                 variadicCountsOffset);
 
             long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.RecordBatch,
@@ -482,12 +525,12 @@ namespace Apache.Arrow.Ipc
             return bodyLength + bodyPaddingLength;
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PrepareWritingRecordBatch(RecordBatch recordBatch)
         {
-            return PreparingWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
+            return PrepareWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset, VectorOffset> PrepareWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
         {
             Builder.Clear();
 
@@ -507,7 +550,13 @@ namespace Apache.Arrow.Ipc
 
             // Serialize buffers
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
+            // CompressionCodec can be disposed after all data is visited by the builder,
+            // and doesn't need to be alive for the full lifetime of the ArrowRecordBatchFlatBufferBuilder
+            using var compressionCodec = _options.CompressionCodec.HasValue
+                ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
+                : null;
+
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec);
             for (int i = 0; i < fieldCount; i++)
             {
                 IArrowArray fieldArray = arrays[i];
@@ -599,7 +648,7 @@ namespace Apache.Arrow.Ipc
             var arrays = new List<IArrowArray> { dictionary };
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset, VectorOffset variadicCountsOffset) =
-                PreparingWritingRecordBatch(fields, arrays);
+                PrepareWritingRecordBatch(fields, arrays);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -607,7 +656,7 @@ namespace Apache.Arrow.Ipc
             Offset<Flatbuf.RecordBatch> recordBatchOffset = Flatbuf.RecordBatch.CreateRecordBatch(Builder, dictionary.Length,
                 fieldNodesVectorOffset,
                 buffersVectorOffset,
-                default,
+                GetBodyCompression(),
                 variadicCountsOffset);
 
             // TODO: Support delta.
