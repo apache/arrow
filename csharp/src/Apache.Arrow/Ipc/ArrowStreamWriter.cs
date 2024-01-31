@@ -240,22 +240,44 @@ namespace Apache.Arrow.Ipc
             private Buffer CreateBuffer(ArrowBuffer buffer)
             {
                 int offset = TotalLength;
+                const int UncompressedLengthSize = 8;
 
                 ArrowBuffer bufferToWrite;
                 if (_compressionCodec == null)
                 {
                     bufferToWrite = buffer;
                 }
+                else if (buffer.Length == 0)
+                {
+                    // Write zero length and skip compression
+                    var uncompressedLengthBytes = new byte[UncompressedLengthSize];
+                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, 0);
+                    bufferToWrite = new ArrowBuffer(uncompressedLengthBytes);
+                }
                 else
                 {
                     // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
                     // compressed buffers are stored.
                     using var memoryStream = new MemoryStream();
-                    var uncompressedLengthBytes = new byte[8];
+                    var uncompressedLengthBytes = new byte[UncompressedLengthSize];
                     BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, buffer.Length);
                     memoryStream.Write(uncompressedLengthBytes);
                     _compressionCodec.Compress(buffer.Memory, memoryStream);
-                    bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                    if (memoryStream.Length < buffer.Length + UncompressedLengthSize)
+                    {
+                        bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                    }
+                    else
+                    {
+                        // If the compressed buffer is larger than the uncompressed buffer, use the uncompressed
+                        // buffer instead, and indicate this by setting the uncompressed length to -1
+                        memoryStream.Seek(0, SeekOrigin.Begin);
+                        memoryStream.SetLength(0);
+                        BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, -1);
+                        memoryStream.Write(uncompressedLengthBytes);
+                        memoryStream.Write(buffer.Memory);
+                        bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                    }
                 }
 
                 int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(bufferToWrite.Length));
