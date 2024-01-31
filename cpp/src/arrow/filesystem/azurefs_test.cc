@@ -947,6 +947,22 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), new_empty_container, FileType::Directory);
   }
 
+  using StringMatcher =
+      ::testing::PolymorphicMatcher<::testing::internal::HasSubstrMatcher<std::string>>;
+
+  StringMatcher HasDirMoveToSubdirMessage(const std::string& src,
+                                          const std::string& dest) {
+    return ::testing::HasSubstr("Cannot Move to '" + dest + "' and make '" + src +
+                                "' a sub-directory of itself.");
+  }
+
+  StringMatcher HasCrossContainerNotImplementedMessage(const std::string& container_name,
+                                                       const std::string& dest) {
+    return ::testing::HasSubstr("Move of '" + container_name + "' to '" + dest +
+                                "' requires moving data between "
+                                "containers, which is not implemented.");
+  }
+
   void TestMoveContainerToPath() {
     auto data = SetUpPreexistingData();
     EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -954,10 +970,33 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->Move("missing-container", data.ContainerPath("new-subdir")));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        ::testing::HasSubstr("Cannot Move to '" + data.ContainerPath("new-subdir") +
-                             "' and make '" + data.container_name +
-                             "' a sub-directory of itself."),
+        HasDirMoveToSubdirMessage(data.container_name, data.ContainerPath("new-subdir")),
         fs()->Move(data.container_name, data.ContainerPath("new-subdir")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(data.container_name,
+                                               "a-container/new-subdir"),
+        fs()->Move(data.container_name, "a-container/new-subdir"));
+  }
+
+  void TestCreateContainerFromPath() {
+    auto data = SetUpPreexistingData();
+    auto missing_path = data.RandomDirectoryPath(rng_);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + missing_path + "'"),
+        fs()->Move(missing_path, "new-container"));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Creating files at '/' is not possible, only directories."),
+        fs()->Move(data.ObjectPath(), "new-file"));
+    auto src_dir_path = data.RandomDirectoryPath(rng_);
+    ASSERT_OK(fs()->CreateDir(src_dir_path, false));
+    EXPECT_OK_AND_ASSIGN(auto src_dir_info, fs()->GetFileInfo(src_dir_path));
+    EXPECT_EQ(src_dir_info.type(), FileType::Directory);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(src_dir_path, "new-container"),
+        fs()->Move(src_dir_path, "new-container"));
   }
 };
 
@@ -1218,6 +1257,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, RenameContainer) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, MoveContainerToPath) {
   this->TestMoveContainerToPath();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
+  this->TestCreateContainerFromPath();
 }
 
 // Tests using Azurite (the local Azure emulator)

@@ -300,6 +300,10 @@ Status NotAFile(const AzureLocation& location) {
   return ::arrow::fs::internal::NotAFile(location.all);
 }
 
+Status NotEmpty(const AzureLocation& location) {
+  return ::arrow::fs::internal::NotEmpty(location.all);
+}
+
 Status ValidateFileLocation(const AzureLocation& location) {
   if (location.container.empty()) {
     return PathNotFound(location);
@@ -2044,8 +2048,7 @@ class AzureFileSystem::Impl {
         auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
         dest_is_empty = dest_list_response.Blobs.empty();
         if (!dest_is_empty) {
-          return Status::IOError("Non-empty directory cannot be replaced: '", dest.all,
-                                 "'");
+          return NotEmpty(dest);
         }
       } catch (const Storage::StorageException& exception) {
         return ExceptionToStatus(exception, "Failed to check that '", dest.container,
@@ -2147,6 +2150,20 @@ class AzureFileSystem::Impl {
   Status CreateContainerFromPath(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.empty() && dest.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto src_file_info, GetFileInfoOfPathWithinContainer(src));
+    switch (src_file_info.type()) {
+      case FileType::Unknown:
+      case FileType::NotFound:
+        return PathNotFound(src);
+      case FileType::File:
+        return Status::Invalid(
+            "Creating files at '/' is not possible, only directories.");
+      case FileType::Directory:
+        break;
+    }
+    if (src.container == dest.container) {
+      return InvalidDirMoveToSubdir(src, dest);
+    }
     return CrossContainerMoveNotImplemented(src, dest);
   }
 
