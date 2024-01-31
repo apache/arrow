@@ -832,6 +832,8 @@ TEST_F(TestArray, ExtensionSpanRoundTrip) {
 }
 
 TEST_F(TestArray, TestAppendArraySlice) {
+  char* p = new char[4];
+  p[4] = 1;
   auto scalars = GetScalars();
   ArraySpan span;
   for (const auto& scalar : scalars) {
