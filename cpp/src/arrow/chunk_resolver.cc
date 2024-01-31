@@ -57,16 +57,13 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 }  // namespace
 
 ChunkResolver::ChunkResolver(const ArrayVector& chunks)
-    : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {
-}
+    : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {}
 
 ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
-    : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {
-}
+    : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {}
 
 ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
-    : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {
-}
+    : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {}
 
 }  // namespace internal
 }  // namespace arrow
