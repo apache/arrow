@@ -377,7 +377,7 @@ culpa qui officia deserunt mollit anim id est laborum.
   }
 
   static std::string RandomBlobName(RNG &rng) {
-    return RandomChars(10, rng) + RandomChars(3, rng);
+    return RandomChars(10, rng) + "." + RandomChars(3, rng);
   }
 
   static int RandomIndex(int end, RNG& rng) {
