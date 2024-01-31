@@ -779,7 +779,12 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
         return Status::IndexError("Index ", index, " is out of bounds");
       }
       indices_chunks[requested_index] = chunk_index;
-      ARROW_RETURN_NOT_OK(builders[chunk_index].Append(resolved_index.index_in_chunk));
+      Int64Builder &builder = builders[chunk_index];
+      if (builder.capacity() == builder.length()) {
+        // Preallocate to speed up appending
+        ARROW_RETURN_NOT_OK(builder.Reserve(1 << 13));
+      }
+      builder.UnsafeAppend(resolved_index.index_in_chunk);
     }
 
     // Take from the various chunks only the values we actually care about.
