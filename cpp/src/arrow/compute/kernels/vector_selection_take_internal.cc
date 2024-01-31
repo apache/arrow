@@ -786,7 +786,9 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // We first gather all values using Take and then we slice the resulting
     // arrays with the values to create the actual resulting chunks
     // as that is orders of magnitude faster than calling Take multiple times.
-    std::vector<std::shared_ptr<arrow::Array>> looked_up_values(num_chunks);
+    std::vector<std::shared_ptr<arrow::ArrayData>> looked_up_values_data(num_chunks);
+    std::vector<arrow::ArraySpan> looked_up_values;
+    looked_up_values.reserve(num_chunks);
     for (int i = 0; i < num_chunks; ++i) {
       if (builders[i].length() == 0) {
         // No indices refer to this chunk, so we can skip it
@@ -794,11 +796,9 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
       }
       std::shared_ptr<Int64Array> indices_array;
       ARROW_RETURN_NOT_OK(builders[i].Finish(&indices_array));
-      std::shared_ptr<ArrayData> looked_up_values_data;
       ARROW_ASSIGN_OR_RAISE(
-          looked_up_values_data,
-          TakeAA(values.chunk(i)->data(), indices_array->data(), options, ctx));
-      looked_up_values[i] = MakeArray(looked_up_values_data);
+        looked_up_values_data[i], TakeAA(values.chunk(i)->data(), indices_array->data(), options, ctx));
+      looked_up_values.emplace_back(*looked_up_values_data[i]);
     }
 
     // Slice the arrays with the values to create the new chunked array out of them
@@ -813,7 +813,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
       if (chunk_index != current_chunk) {
         // Values in previous chunk
         ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
-            *looked_up_values[current_chunk]->data(),
+            looked_up_values[current_chunk],
             consumed_chunk_offset[current_chunk], current_length));
         consumed_chunk_offset[current_chunk] += current_length;
         current_chunk = chunk_index;
@@ -824,7 +824,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     if (current_length > 0) {
       // Remaining values in last chunk
       ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
-          *looked_up_values[current_chunk]->data(), consumed_chunk_offset[current_chunk],
+          looked_up_values[current_chunk], consumed_chunk_offset[current_chunk],
           current_length));
     }
 
