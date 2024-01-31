@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
+
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
@@ -1707,6 +1709,84 @@ class AzureFileSystem::Impl {
                                "Failed to delete directory contents: ", location.path,
                                ": ", directory_client.GetUrl());
     }
+  }
+
+  /// \brief Create a BlobLeaseClient and acquire a lease on the container.
+  ///
+  /// \param allow_missing_container if true, a nullptr may be returned when the container
+  /// doesn't exist, otherwise a PathNotFound(location) error is produced right away
+  /// \return A BlobLeaseClient is wrapped as a unique_ptr so it's moveable and
+  /// optional (nullptr denotes container not found)
+  Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireContainerLease(
+      const AzureLocation& location, std::chrono::seconds lease_duration,
+      bool allow_missing_container = false, bool retry_allowed = true) {
+    DCHECK(!location.container.empty());
+    auto container_client = GetBlobContainerClient(location.container);
+    auto lease_id = Blobs::BlobLeaseClient::CreateUniqueLeaseId();
+    auto container_url = container_client.GetUrl();
+    auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(
+        std::move(container_client), std::move(lease_id));
+    try {
+      auto result = lease_client->Acquire(lease_duration);
+      DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception)) {
+        if (allow_missing_container) {
+          return nullptr;
+        }
+        return PathNotFound(location);
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "LeaseAlreadyPresent") {
+        if (retry_allowed) {
+          LeaseGuard::WaitUntilLatestKnownExpiryTime();
+          return AcquireContainerLease(location, lease_duration, allow_missing_container,
+                                       /*retry_allowed=*/false);
+        }
+      }
+      return ExceptionToStatus(exception, "Failed to acquire a lease on container '",
+                               location.container, "': ", container_url);
+    }
+    return lease_client;
+  }
+
+  /// \brief Create a BlobLeaseClient and acquire a lease on a blob/file (or
+  /// directory if Hierarchical Namespace is supported).
+  ///
+  /// \param allow_missing if true, a nullptr may be returned when the blob
+  /// doesn't exist, otherwise a PathNotFound(location) error is produced right away
+  /// \return A BlobLeaseClient is wrapped as a unique_ptr so it's moveable and
+  /// optional (nullptr denotes blob not found)
+  Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireBlobLease(
+      const AzureLocation& location, std::chrono::seconds lease_duration,
+      bool allow_missing = false, bool retry_allowed = true) {
+    DCHECK(!location.container.empty() && !location.path.empty());
+    auto path = std::string{internal::RemoveTrailingSlash(location.path)};
+    auto blob_client = GetBlobClient(location.container, std::move(path));
+    auto lease_id = Blobs::BlobLeaseClient::CreateUniqueLeaseId();
+    auto blob_url = blob_client.GetUrl();
+    auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(std::move(blob_client),
+                                                                 std::move(lease_id));
+    try {
+      [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
+      DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
+    } catch (const Storage::StorageException& exception) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        if (allow_missing) {
+          return nullptr;
+        }
+        return PathNotFound(location);
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "LeaseAlreadyPresent") {
+        if (retry_allowed) {
+          LeaseGuard::WaitUntilLatestKnownExpiryTime();
+          return AcquireBlobLease(location, lease_duration, allow_missing,
+                                  /*retry_allowed=*/false);
+        }
+      }
+      return ExceptionToStatus(exception, "Failed to acquire a lease on file '",
+                               location.all, "': ", blob_url);
+    }
+    return lease_client;
   }
 
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
