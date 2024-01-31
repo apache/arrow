@@ -804,6 +804,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // Slice the arrays with the values to create the new chunked array out of them
     std::unique_ptr<ArrayBuilder> result_builder;
     ARROW_RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), values.type(), &result_builder));
+    ARROW_RETURN_NOT_OK(result_builder->Reserve(num_indices));
     std::vector<int64_t> consumed_chunk_offset(num_chunks, 0);
     int64_t current_chunk = indices_chunks[0];
     int64_t current_length = 0;
