@@ -722,7 +722,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     // So we can't simply iterate over chunks and pick the slices we need.
     std::vector<Int64Builder> builders(num_chunks);
     std::vector<int64_t> indices_chunks(num_indices);
-    const void* indices_raw_data;    // Use Raw data to avoid invoking .Value() on indices
+    const void* indices_raw_data;  // Use Raw data to avoid invoking .Value() on indices
     auto indices_type_id = indices.type()->id();
     switch (indices_type_id) {
       case Type::UINT8:
@@ -795,34 +795,40 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
       std::shared_ptr<Int64Array> indices_array;
       ARROW_RETURN_NOT_OK(builders[i].Finish(&indices_array));
       std::shared_ptr<ArrayData> looked_up_values_data;
-      ARROW_ASSIGN_OR_RAISE(looked_up_values_data, TakeAA(values.chunk(i)->data(),
-                                                          indices_array->data(), options, ctx));
+      ARROW_ASSIGN_OR_RAISE(
+          looked_up_values_data,
+          TakeAA(values.chunk(i)->data(), indices_array->data(), options, ctx));
       looked_up_values[i] = MakeArray(looked_up_values_data);
     }
 
     // Slice the arrays with the values to create the new chunked array out of them
-    std::vector<std::shared_ptr<arrow::Array>> new_chunks;
+    std::unique_ptr<ArrayBuilder> result_builder;
+    ARROW_RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), values.type(), &result_builder));
     std::vector<int64_t> consumed_chunk_offset(num_chunks, 0);
     int64_t current_chunk = indices_chunks[0];
     int64_t current_length = 0;
     for (int64_t requested_index = 0; requested_index < num_indices; ++requested_index) {
       int64_t chunk_index = indices_chunks[requested_index];
       if (chunk_index != current_chunk) {
-        new_chunks.push_back(looked_up_values[current_chunk]->Slice(consumed_chunk_offset[current_chunk], current_length));
+        // Values in previous chunk
+        ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
+            *looked_up_values[current_chunk]->data(),
+            consumed_chunk_offset[current_chunk], current_length));
         consumed_chunk_offset[current_chunk] += current_length;
         current_chunk = chunk_index;
         current_length = 0;
       }
       ++current_length;
     }
-    if(current_length > 0) {
+    if (current_length > 0) {
       // Remaining values in last chunk
-      new_chunks.push_back(looked_up_values[current_chunk]->Slice(consumed_chunk_offset[current_chunk], current_length));
+      ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
+          *looked_up_values[current_chunk]->data(), consumed_chunk_offset[current_chunk],
+          current_length));
     }
 
-    auto chunked_array =
-        std::make_shared<arrow::ChunkedArray>(std::move(new_chunks), values.type());
-    return chunked_array;
+    ARROW_ASSIGN_OR_RAISE(auto result_array, result_builder->Finish());
+    return std::make_shared<ChunkedArray>(result_array);
   }
 }
 
