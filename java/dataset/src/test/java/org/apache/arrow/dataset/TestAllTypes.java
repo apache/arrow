@@ -32,6 +32,7 @@ import java.util.Objects;
 import org.apache.arrow.dataset.file.DatasetFileWriter;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.Float16;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -39,6 +40,7 @@ import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -89,7 +91,6 @@ public class TestAllTypes extends TestDataset {
 
   private VectorSchemaRoot generateAllTypesVector(BufferAllocator allocator) {
     // Notes:
-    // - Float16 is not supported by Java.
     // - IntervalMonthDayNano is not supported by Parquet.
     // - Map (GH-38250) and SparseUnion are resulting in serialization errors when writing with the Dataset API.
     // "Unhandled type for Arrow to Parquet schema conversion" errors: IntervalDay, IntervalYear, DenseUnion
@@ -109,6 +110,7 @@ public class TestAllTypes extends TestDataset {
         Field.nullablePrimitive("uint16", new ArrowType.Int(16, false)),
         Field.nullablePrimitive("uint32", new ArrowType.Int(32, false)),
         Field.nullablePrimitive("uint64", new ArrowType.Int(64, false)),
+        Field.nullablePrimitive("float16", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF)),
         Field.nullablePrimitive("float32", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
         Field.nullablePrimitive("float64", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
         Field.nullablePrimitive("utf8", ArrowType.Utf8.INSTANCE),
@@ -148,6 +150,7 @@ public class TestAllTypes extends TestDataset {
     root.getVector("uint16").setNull(0);
     root.getVector("uint32").setNull(0);
     root.getVector("uint64").setNull(0);
+    root.getVector("float16").setNull(0);
     root.getVector("float32").setNull(0);
     root.getVector("float64").setNull(0);
     root.getVector("utf8").setNull(0);
@@ -180,6 +183,7 @@ public class TestAllTypes extends TestDataset {
     ((UInt2Vector) root.getVector("uint16")).set(1, 1);
     ((UInt4Vector) root.getVector("uint32")).set(1, 1);
     ((UInt8Vector) root.getVector("uint64")).set(1, 1);
+    ((Float2Vector) root.getVector("float16")).set(1, Float16.toFloat16(+32.875f));
     ((Float4Vector) root.getVector("float32")).set(1, 1.0f);
     ((Float8Vector) root.getVector("float64")).set(1, 1.0);
     ((VarCharVector) root.getVector("utf8")).set(1, new Text("a"));
