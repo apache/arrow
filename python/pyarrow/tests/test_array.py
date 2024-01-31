@@ -3598,4 +3598,3 @@ def test_list_view_from_arrays(list_array_type):
     assert array.values.to_pylist() == values
     assert array.offsets.to_pylist() == offsets
     assert array.sizes.to_pylist() == sizes
-

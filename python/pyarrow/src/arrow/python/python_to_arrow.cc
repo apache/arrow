@@ -1227,6 +1227,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     options.strict = true;
   }
   DCHECK_GE(size, 0);
+
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
   if (converter->may_overflow()) {
