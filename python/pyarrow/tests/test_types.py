@@ -612,7 +612,7 @@ def test_list_view_type():
         pa.list_view(None)
 
 
-def test_large_list_type():
+def test_large_list_view_type():
     ty = pa.large_list_view(pa.utf8())
     assert isinstance(ty, pa.LargeListViewType)
     assert ty.value_type == pa.utf8()

@@ -3573,3 +3573,29 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+
+@pytest.mark.parametrize(('list_array_type'),
+                         [pa.ListViewArray, pa.LargeListViewArray])
+def test_list_view_from_arrays(list_array_type):
+    values = [[1, 2], [3, 4, 5], [6, None, 7], [8]]
+    offsets = [0, 0, 1, 2, 3]
+    sizes = [2, 0, 3, 3, 1]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.values.to_pylist() == values
+    assert array.values.values.to_pylist() == [1, 2, 3, 4, 5, 6, None, 7, 8]
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == sizes
+
+    # test out of order offsets with overlapping values
+    values = [1, 2, 3, 4]
+    offsets = [2, 1, 0]
+    sizes = [2, 2, 2]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.to_pylist() == [[3, 4], [2, 3], [1, 2]]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == sizes
+

@@ -2460,22 +2460,393 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
-cdef class BaseListViewArray(Array):
-    pass
-
-
-cdef class ListViewArray(BaseListViewArray):
+cdef class ListViewArray(Array):
     """
     Concrete class for Arrow arrays of a list view data type.
     """
 
+    @staticmethod
+    def from_arrays(offsets, sizes, values, DataType type=None, MemoryPool pool=None, mask=None):
+        """
+        Construct ListViewArray from arrays of int32 offsets, sizes, and values.
 
-cdef class LargeListViewArray(BaseListViewArray):
+        Parameters
+        ----------
+        offsets : Array (int32 type)
+        sizes : Array (int32 type)
+        values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
+        Returns
+        -------
+        list_view_array : ListViewArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 1, 2])
+        >>> sizes = pa.array([2, 2, 2])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # nulls in the offsets array become null lists
+        >>> offsets = pa.array([0, None, 2])
+        >>> sizes = pa.array([2, 0, 2])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        """
+        cdef:
+            Array _offsets, _sizes, _values
+            shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _sizes = asarray(sizes, type='int32')
+        _values = asarray(values)
+
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CListViewArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CListViewArray.FromArrays(
+                        _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        """
+        Return the underlying array of values which backs the ListViewArray
+        ignoring the array's offset and sizes.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Returns
+        -------
+        values : Array
+
+        Examples
+        --------
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray(offsets, sizes, values)
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
+        cdef CListViewArray* arr = <CListViewArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+    @property
+    def offsets(self):
+        """
+        Return the list offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListViewArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int32Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          0,
+          0,
+          2
+        ]
+        """
+        return pyarrow_wrap_array((<CListViewArray*> self.ap).offsets())
+
+    @property
+    def sizes(self):
+        """
+        Return the sizes offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListViewArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        sizes : Int32Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          2,
+          0,
+          4
+        ]
+        """
+        return pyarrow_wrap_array((<CListViewArray*> self.ap).sizes())
+
+cdef class LargeListViewArray(Array):
     """
     Concrete class for Arrow arrays of a large list view data type.
 
     Identical to ListViewArray, but with 64-bit offsets.
     """
+    @staticmethod
+    def from_arrays(offsets, sizes, values, DataType type=None, MemoryPool pool=None, mask=None):
+        """
+        Construct LargeListViewArray from arrays of int64 offsets and values.
+
+        Parameters
+        ----------
+        offsets : Array (int64 type)
+        sizes : Array (int64 type)
+        values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
+        Returns
+        -------
+        list_view_array : LargeListViewArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 1, 2])
+        >>> sizes = pa.array([2, 2, 2])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # nulls in the offsets array become null lists
+        >>> offsets = pa.array([0, None, 2])
+        >>> sizes = pa.array([2, 0, 2])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        """
+        cdef:
+            Array _offsets, _sizes, _values
+            shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int64')
+        _sizes = asarray(sizes, type='int64')
+        _values = asarray(values)
+
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListViewArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListViewArray.FromArrays(
+                        _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
+        cdef CLargeListViewArray* arr = <CLargeListViewArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+    @property
+    def offsets(self):
+        """
+        Return the list view offsets as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListViewArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int64Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          0,
+          0,
+          2
+        ]
+        """
+        return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).offsets())
+
+    @property
+    def sizes(self):
+        """
+        Return the list view sizes as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListViewArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        sizes : Int64Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> values = [[1, 2], None, [3, 4, None, 6]]
+        >>> offsets = [0, None, 2]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          0,
+          4
+        ]
+        """
+        return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).sizes())
 
 
 cdef class MapArray(ListArray):
@@ -3691,6 +4062,8 @@ cdef dict _array_classes = {
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
     _Type_LARGE_LIST: LargeListArray,
+    _Type_LIST_VIEW: ListViewArray,
+    _Type_LARGE_LIST_VIEW: LargeListViewArray,
     _Type_MAP: MapArray,
     _Type_FIXED_SIZE_LIST: FixedSizeListArray,
     _Type_SPARSE_UNION: UnionArray,

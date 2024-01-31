@@ -435,15 +435,11 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
-cdef class BaseListViewArray(Array):
+cdef class ListViewArray(Array):
     pass
 
 
-cdef class ListViewArray(BaseListViewArray):
-    pass
-
-
-cdef class LargeListViewArray(BaseListViewArray):
+cdef class LargeListViewArray(Array):
     pass
 
 
