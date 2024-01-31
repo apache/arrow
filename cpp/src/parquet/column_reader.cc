@@ -1482,14 +1482,13 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // First we need to figure out how many present/not-null values there are.
     int64_t buffer_size = bit_util::BytesForBits(skipped_records);
     if (valid_bits_for_skip_ == nullptr) {
-      // Preallocate kMaxSkipLevelBufferSize would help minimizing allocations.
-      valid_bits_for_skip_ = AllocateBuffer(
-          this->pool_, std::max<int64_t>(buffer_size, kMaxSkipLevelBufferSize));
-    } else if (buffer_size > kMaxSkipLevelBufferSize) {
+      valid_bits_for_skip_ = AllocateBuffer(this->pool_);
+    }
+    if (buffer_size > valid_bits_for_skip_->size()) {
       // Increase the bitmap size.
-      DCHECK_EQ(valid_bits_for_skip_->size(), kMaxSkipLevelBufferSize);
-      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(buffer_size,
-                                                        /*shrink_to_fit=*/false));
+      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(
+          std::max<int64_t>(buffer_size, kMaxSkipLevelBufferSize),
+          /*shrink_to_fit=*/false));
     }
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = skipped_records;
@@ -1497,12 +1496,13 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     validity_io.valid_bits_offset = 0;
     DefLevelsToBitmap(def_levels() + start_levels_position, skipped_records,
                       this->leaf_info_, &validity_io);
-    if (buffer_size > kMaxSkipLevelBufferSize) {
-      // Shrink to kMaxSkipLevelBufferSize bytes per column in case there are numerous
-      // columns.
-      PARQUET_THROW_NOT_OK(
-          valid_bits_for_skip_->Resize(kMaxSkipLevelBufferSize, /*shrink_to_fit=*/true));
+    // If the bitmap is too large, free it to avoid consuming too much memory when there
+    // are numerous columns. Otherwise, keep the small bitmap to reduce allocations for
+    // future skips.
+    if (valid_bits_for_skip_->size() > kMaxSkipLevelBufferSize) {
+      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(0, /*shrink_to_fit=*/true));
     }
+  
     int64_t values_to_read = validity_io.values_read - validity_io.null_count;
 
     // Now that we have figured out number of values to read, we do not need
