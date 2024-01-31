@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.IO;
 using Apache.Arrow.Ipc;
 using ZstdSharp;
 
@@ -22,15 +23,23 @@ namespace Apache.Arrow.Compression
     internal sealed class ZstdCompressionCodec : ICompressionCodec
     {
         private readonly Decompressor _decompressor;
+        private readonly int _compressionLevel;
 
-        public ZstdCompressionCodec()
+        public ZstdCompressionCodec(int? compressionLevel = null)
         {
             _decompressor = new Decompressor();
+            _compressionLevel = compressionLevel ?? Compressor.DefaultCompressionLevel;
         }
 
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)
         {
             return _decompressor.Unwrap(source.Span, destination.Span);
+        }
+
+        public void Compress(ReadOnlyMemory<byte> source, Stream destination)
+        {
+            using var compressor = new CompressionStream(destination, level: _compressionLevel, leaveOpen: true);
+            compressor.Write(source.Span);
         }
 
         public void Dispose()
