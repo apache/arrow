@@ -1120,6 +1120,22 @@ class AzureFileSystem::Impl {
     }
   }
 
+  Result<FileInfo> GetFileInfoOfPathWithinContainer(const AzureLocation& location) {
+    DCHECK(!location.container.empty() && !location.path.empty());
+    // There is a path to search within the container. Check HNS support to proceed.
+    auto adlfs_client = GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return FileInfo{location.all, FileType::NotFound};
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfo(adlfs_client, location);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+    auto container_client = GetBlobContainerClient(location.container);
+    return GetFileInfo(container_client, location);
+  }
+
  private:
   /// \pref location.container is not empty.
   template <typename ContainerClient>
@@ -1752,19 +1768,7 @@ Result<FileInfo> AzureFileSystem::GetFileInfo(const std::string& path) {
     auto container_client = impl_->GetBlobContainerClient(location.container);
     return GetContainerPropsAsFileInfo(location, container_client);
   }
-  // There is a path to search within the container. Check HNS support to proceed.
-  auto adlfs_client = impl_->GetFileSystemClient(location.container);
-  ARROW_ASSIGN_OR_RAISE(auto hns_support,
-                        impl_->HierarchicalNamespaceSupport(adlfs_client));
-  if (hns_support == HNSSupport::kContainerNotFound) {
-    return FileInfo{location.all, FileType::NotFound};
-  }
-  if (hns_support == HNSSupport::kEnabled) {
-    return impl_->GetFileInfo(adlfs_client, location);
-  }
-  DCHECK_EQ(hns_support, HNSSupport::kDisabled);
-  auto container_client = impl_->GetBlobContainerClient(location.container);
-  return impl_->GetFileInfo(container_client, location);
+  return impl_->GetFileInfoOfPathWithinContainer(location);
 }
 
 Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) {
