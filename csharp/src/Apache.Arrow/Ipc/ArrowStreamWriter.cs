@@ -22,6 +22,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using Google.FlatBuffers;
 
@@ -82,15 +83,17 @@ namespace Apache.Arrow.Ipc
 
             private readonly List<Buffer> _buffers;
             private readonly ICompressionCodec _compressionCodec;
+            private readonly MemoryAllocator _allocator;
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
             public List<long> VariadicCounts { get; private set; } 
             public int TotalLength { get; private set; }
 
-            public ArrowRecordBatchFlatBufferBuilder(ICompressionCodec compressionCodec)
+            public ArrowRecordBatchFlatBufferBuilder(ICompressionCodec compressionCodec, MemoryAllocator allocator)
             {
                 _compressionCodec = compressionCodec;
+                _allocator = allocator;
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
             }
@@ -250,8 +253,8 @@ namespace Apache.Arrow.Ipc
                 else if (buffer.Length == 0)
                 {
                     // Write zero length and skip compression
-                    var uncompressedLengthBytes = new byte[UncompressedLengthSize];
-                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, 0);
+                    var uncompressedLengthBytes = _allocator.Allocate(UncompressedLengthSize);
+                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes.Memory.Span, 0);
                     bufferToWrite = new ArrowBuffer(uncompressedLengthBytes);
                 }
                 else
@@ -259,24 +262,23 @@ namespace Apache.Arrow.Ipc
                     // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
                     // compressed buffers are stored.
                     using var memoryStream = new MemoryStream();
-                    var uncompressedLengthBytes = new byte[UncompressedLengthSize];
-                    BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, buffer.Length);
-                    memoryStream.Write(uncompressedLengthBytes);
                     _compressionCodec.Compress(buffer.Memory, memoryStream);
-                    if (memoryStream.Length < buffer.Length + UncompressedLengthSize)
+                    if (memoryStream.Length < buffer.Length)
                     {
-                        bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                        var newBuffer = _allocator.Allocate((int) memoryStream.Length + UncompressedLengthSize);
+                        BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, buffer.Length);
+                        memoryStream.Seek(0, SeekOrigin.Begin);
+                        memoryStream.ReadFullBuffer(newBuffer.Memory.Slice(UncompressedLengthSize));
+                        bufferToWrite = new ArrowBuffer(newBuffer);
                     }
                     else
                     {
                         // If the compressed buffer is larger than the uncompressed buffer, use the uncompressed
                         // buffer instead, and indicate this by setting the uncompressed length to -1
-                        memoryStream.Seek(0, SeekOrigin.Begin);
-                        memoryStream.SetLength(0);
-                        BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes, -1);
-                        memoryStream.Write(uncompressedLengthBytes);
-                        memoryStream.Write(buffer.Memory);
-                        bufferToWrite = new ArrowBuffer(memoryStream.ToArray());
+                        var newBuffer = _allocator.Allocate(buffer.Length + UncompressedLengthSize);
+                        BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, -1);
+                        buffer.Memory.CopyTo(newBuffer.Memory.Slice(UncompressedLengthSize));
+                        bufferToWrite = new ArrowBuffer(newBuffer);
                     }
                 }
 
@@ -310,6 +312,7 @@ namespace Apache.Arrow.Ipc
 
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
+        private readonly MemoryAllocator _allocator;
 
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
@@ -326,15 +329,21 @@ namespace Apache.Arrow.Ipc
         }
 
         public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen)
-            : this(baseStream, schema, leaveOpen, options: null)
+            : this(baseStream, schema, leaveOpen, options: null, allocator: null)
         {
         }
 
         public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen, IpcOptions options)
+            : this(baseStream, schema, leaveOpen, options, allocator: null)
+        {
+        }
+
+        public ArrowStreamWriter(Stream baseStream, Schema schema, bool leaveOpen, IpcOptions options, MemoryAllocator allocator)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             Schema = schema ?? throw new ArgumentNullException(nameof(schema));
             _leaveOpen = leaveOpen;
+            _allocator = allocator ?? MemoryAllocator.Default.Value;
 
             Buffers = ArrayPool<byte>.Create();
             Builder = new FlatBufferBuilder(1024);
@@ -578,7 +587,7 @@ namespace Apache.Arrow.Ipc
                 ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
                 : null;
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec);
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator);
             for (int i = 0; i < fieldCount; i++)
             {
                 IArrowArray fieldArray = arrays[i];
