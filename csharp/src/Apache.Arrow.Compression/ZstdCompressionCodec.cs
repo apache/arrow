@@ -29,6 +29,13 @@ namespace Apache.Arrow.Compression
         {
             _decompressor = new Decompressor();
             _compressionLevel = compressionLevel ?? Compressor.DefaultCompressionLevel;
+            if (_compressionLevel < Compressor.MinCompressionLevel ||
+                _compressionLevel > Compressor.MaxCompressionLevel)
+            {
+                throw new ArgumentException(
+                    $"Zstd compression level must be between {Compressor.MinCompressionLevel} and {Compressor.MaxCompressionLevel}",
+                    nameof(compressionLevel));
+            }
         }
 
         public int Decompress(ReadOnlyMemory<byte> source, Memory<byte> destination)

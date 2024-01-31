@@ -355,7 +355,7 @@ namespace Apache.Arrow.Ipc
             if (_options.CompressionCodec.HasValue && _options.CompressionCodecFactory == null)
             {
                 throw new ArgumentException(
-                    "A CompressionCodecFactory must be provided when a CompressionCodec is specified",
+                    $"A {nameof(_options.CompressionCodecFactory)} must be provided when a {nameof(_options.CompressionCodec)} is specified",
                     nameof(options));
             }
         }

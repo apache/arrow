@@ -24,7 +24,7 @@ using Xunit;
 
 namespace Apache.Arrow.Compression.Tests
 {
-    public class ArrowStreamWriterTests
+    public class ArrowFileWriterTests
     {
         [Fact]
         public void ThrowsWhenNoCompressionFactoryProvided()
@@ -37,7 +37,7 @@ namespace Apache.Arrow.Compression.Tests
 
             using var stream = new MemoryStream();
             var exception = Assert.Throws<ArgumentException>(
-                () => new ArrowStreamWriter(stream, batch.Schema, leaveOpen: true, options));
+                () => new ArrowFileWriter(stream, batch.Schema, leaveOpen: true, options));
 
             Assert.Contains("A CompressionCodecFactory must be provided", exception.Message);
         }
@@ -47,7 +47,7 @@ namespace Apache.Arrow.Compression.Tests
         [InlineData(CompressionCodecType.Zstd, 2)]
         [InlineData(CompressionCodecType.Lz4Frame, null)]
         [InlineData(CompressionCodecType.Lz4Frame, (int)LZ4Level.L03_HC)]
-        public void CanWriteCompressedIpcStream(CompressionCodecType codec, int? compressionLevel)
+        public void CanWriteCompressedIpcFile(CompressionCodecType codec, int? compressionLevel)
         {
             var batch = TestData.CreateSampleRecordBatch(length: 100);
             var codecFactory = new CompressionCodecFactory();
@@ -63,7 +63,7 @@ namespace Apache.Arrow.Compression.Tests
         [Theory]
         [InlineData(CompressionCodecType.Zstd)]
         [InlineData(CompressionCodecType.Lz4Frame)]
-        public async Task CanWriteCompressedIpcStreamAsync(CompressionCodecType codec)
+        public async Task CanWriteCompressedIpcFileAsync(CompressionCodecType codec)
         {
             var batch = TestData.CreateSampleRecordBatch(length: 100);
             var codecFactory = new CompressionCodecFactory();
@@ -75,49 +75,12 @@ namespace Apache.Arrow.Compression.Tests
             await TestRoundTripRecordBatchesAsync(new [] {batch}, options, codecFactory);
         }
 
-        [Fact]
-        public void CanWriteEmptyBatches()
-        {
-            var batch = TestData.CreateSampleRecordBatch(length: 0);
-            var codecFactory = new CompressionCodecFactory();
-            var options = new IpcOptions
-            {
-                CompressionCodecFactory = codecFactory,
-                CompressionCodec = CompressionCodecType.Lz4Frame,
-            };
-            TestRoundTripRecordBatches(new [] {batch}, options, codecFactory);
-        }
-
-        [Theory]
-        [InlineData(CompressionCodecType.Zstd)]
-        [InlineData(CompressionCodecType.Lz4Frame)]
-        public void ThrowsForInvalidCompressionLevel(CompressionCodecType codec)
-        {
-            var batch = TestData.CreateSampleRecordBatch(length: 100);
-            var codecFactory = new CompressionCodecFactory();
-            var options = new IpcOptions
-            {
-                CompressionCodecFactory = codecFactory,
-                CompressionCodec = codec,
-                CompressionLevel = 12345,
-            };
-
-            using var stream = new MemoryStream();
-
-            Assert.Throws<ArgumentException>(() =>
-            {
-                using var writer = new ArrowStreamWriter(stream, batch.Schema, leaveOpen: false, options);
-                writer.WriteRecordBatch(batch);
-                writer.WriteEnd();
-            });
-        }
-
         private static void TestRoundTripRecordBatches(
             IReadOnlyList<RecordBatch> originalBatches, IpcOptions options, ICompressionCodecFactory codecFactory)
         {
             using var stream = new MemoryStream();
 
-            using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
+            using (var writer = new ArrowFileWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
             {
                 foreach (var originalBatch in originalBatches)
                 {
@@ -130,13 +93,13 @@ namespace Apache.Arrow.Compression.Tests
             stream.Position = 0;
             var exception = Assert.Throws<Exception>(() =>
             {
-                using var reader = new ArrowStreamReader(stream, leaveOpen: true);
+                using var reader = new ArrowFileReader(stream, leaveOpen: true);
                 reader.ReadNextRecordBatch();
             });
             Assert.Contains(nameof(ICompressionCodecFactory), exception.Message);
 
             stream.Position = 0;
-            using (var reader = new ArrowStreamReader(stream, codecFactory))
+            using (var reader = new ArrowFileReader(stream, codecFactory))
             {
                 foreach (var originalBatch in originalBatches)
                 {
@@ -151,7 +114,7 @@ namespace Apache.Arrow.Compression.Tests
         {
             using var stream = new MemoryStream();
 
-            using (var writer = new ArrowStreamWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
+            using (var writer = new ArrowFileWriter(stream, originalBatches[0].Schema, leaveOpen: true, options))
             {
                 foreach (var originalBatch in originalBatches)
                 {
@@ -164,13 +127,13 @@ namespace Apache.Arrow.Compression.Tests
             stream.Position = 0;
             var exception = await Assert.ThrowsAsync<Exception>(async () =>
             {
-                using var reader = new ArrowStreamReader(stream, leaveOpen: true);
+                using var reader = new ArrowFileReader(stream, leaveOpen: true);
                 await reader.ReadNextRecordBatchAsync();
             });
             Assert.Contains(nameof(ICompressionCodecFactory), exception.Message);
 
             stream.Position = 0;
-            using (var reader = new ArrowStreamReader(stream, codecFactory))
+            using (var reader = new ArrowFileReader(stream, codecFactory))
             {
                 foreach (var originalBatch in originalBatches)
                 {
