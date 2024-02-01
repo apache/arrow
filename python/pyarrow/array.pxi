@@ -2625,7 +2625,7 @@ cdef class ListViewArray(Array):
     @property
     def sizes(self):
         """
-        Return the sizes offsets as an int32 array.
+        Return the list sizes as an int32 array.
 
         The returned array will not have a validity bitmap, so you cannot
         expect to pass it to `ListViewArray.from_arrays` and get back the same
