@@ -243,6 +243,16 @@ def is_fixed_size_binary(t):
     return t.id == lib.Type_FIXED_SIZE_BINARY
 
 
+@doc(is_null, datatype="variable-length binary view")
+def is_binary_view(t):
+    return t.id == lib.Type_BINARY_VIEW
+
+
+@doc(is_null, datatype="variable-length string (utf-8) view")
+def is_string_view(t):
+    return t.id == lib.Type_STRING_VIEW
+
+
 @doc(is_null, datatype="date")
 def is_date(t):
     return t.id in _DATE_TYPES

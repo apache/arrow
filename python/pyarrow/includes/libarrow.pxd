@@ -126,6 +126,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
         _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_BINARY_VIEW" arrow::Type::BINARY_VIEW"
+        _Type_STRING_VIEW" arrow::Type::STRING_VIEW"
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
@@ -1295,7 +1297,14 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
         CStringBuilder(CMemoryPool* pool)
+        CStatus Append(const c_string& value)
 
+    cdef cppclass CBinaryViewBuilder" arrow::BinaryViewBuilder"(CArrayBuilder):
+        CBinaryViewBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringViewBuilder" arrow::StringViewBuilder"(CBinaryViewBuilder):
+        CStringViewBuilder(CMemoryPool* pool)
         CStatus Append(const c_string& value)
 
     cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):

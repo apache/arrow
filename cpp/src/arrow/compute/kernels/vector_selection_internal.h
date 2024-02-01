@@ -70,7 +70,6 @@ void VisitPlainxREEFilterOutputSegments(
     FilterOptions::NullSelectionBehavior null_selection,
     const EmitREEFilterSegment& emit_segment);
 
-Status FSBFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
@@ -79,6 +78,7 @@ Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 
 Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeVarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status PrimitiveTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSBTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
