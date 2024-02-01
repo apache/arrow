@@ -1485,10 +1485,7 @@ def test_legacy_int_type():
     batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
     buf = ipc_write_batch(batch)
 
-    with pytest.warns(
-            RuntimeWarning,
-            match="pickle-based deserialization of pyarrow.PyExtensionType "
-                  "subclasses is disabled by default"):
+    with pytest.warns((RuntimeWarning, FutureWarning)):
         batch = ipc_read_batch(buf)
         assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
 

@@ -284,10 +284,6 @@ jobs:
             /t REG_DWORD `
             /d 1 `
             /f
-      - name: Installed Packages
-        run: choco list
-      - name: Install Dependencies
-        run: choco install -y --no-progress openssl
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
