@@ -28,7 +28,7 @@ ENV MANYLINUX_VERSION=${manylinux}
 RUN yum install -y dnf
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On manylinux2014 base images, system Python is 2.7.5, while
@@ -97,4 +97,5 @@ SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
-RUN pip install -r /arrow/python/requirements-wheel-build.txt
+# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
+RUN pip install -r /arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
