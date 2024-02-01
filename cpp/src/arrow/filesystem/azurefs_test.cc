@@ -1386,7 +1386,7 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
-TEST_F(TestAzuriteFileSystem, DeleteFileSuccessHaveFile) {
+TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
   const auto blob_name = PreexistingData::RandomBlobName(rng_);
   ASSERT_OK(CreateFile(fs(), blob_name, "abc"));
   arrow::fs::AssertFileInfo(fs(), blob_name, FileType::File);
