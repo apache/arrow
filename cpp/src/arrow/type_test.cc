@@ -1893,6 +1893,7 @@ TEST(TestListViewType, Equals) {
 
   AssertTypeEqual(list_view_type, list_view_type_named);
   ASSERT_FALSE(list_view_type.Equals(list_view_type_named, /*check_metadata=*/true));
+  ASSERT_NE(list_view_type.ToString(), list_view_type_named.ToString());
 }
 
 TEST(TestListType, Metadata) {
@@ -1914,15 +1915,19 @@ TEST(TestListType, Metadata) {
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  ASSERT_EQ(t1->ToString(true), t2->ToString(true));
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t3->ToString(true));
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t4->ToString(true));
 
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t5->ToString(true));
 }
 
 TEST(TestListViewType, Metadata) {
@@ -1944,15 +1949,26 @@ TEST(TestListViewType, Metadata) {
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  ASSERT_EQ(t1->ToString(true), t2->ToString(true));
+  ASSERT_NE(t1->ToString(true), t2->ToString());
+  ASSERT_NE(t1->ToString(), t2->ToString(true));
+  
+
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t3->ToString(true));
+
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t4->ToString(true));
+
 
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(true), t5->ToString(true));
+
 }
 
 TEST(TestLargeListViewType, Metadata) {
@@ -2124,6 +2140,12 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
 
   AssertTypeEqual(s0, s1);
   AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
+  ASSERT_NE(s0.ToString(), s1.ToString(true));
+
+  std::string expected = R"(struct<f: string
+-- metadata --
+foo: baz, f: string>)";
+  ASSERT_EQ(s1.ToString(true), expected);
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());

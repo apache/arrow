@@ -162,7 +162,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   Status Accept(TypeVisitor* visitor) const;
 
   /// \brief A string representation of the type, including any children
-  virtual std::string ToString() const = 0;
+  virtual std::string ToString(bool show_metadata = false) const = 0;
 
   /// \brief Return hash value (excluding metadata in child fields)
   size_t Hash() const;
@@ -266,11 +266,11 @@ struct ARROW_EXPORT TypeHolder {
 
   bool operator!=(const TypeHolder& other) const { return !(*this == other); }
 
-  std::string ToString() const {
-    return this->type ? this->type->ToString() : "<NULLPTR>";
+  std::string ToString(bool show_metadata = false) const {
+    return this->type ? this->type->ToString(show_metadata) : "<NULLPTR>";
   }
 
-  static std::string ToString(const std::vector<TypeHolder>&);
+  static std::string ToString(const std::vector<TypeHolder>&, bool show_metadata = false);
 
   static std::vector<TypeHolder> FromTypes(
       const std::vector<std::shared_ptr<DataType>>& types);
@@ -565,7 +565,7 @@ class ARROW_EXPORT CTypeImpl : public BASE {
 
   std::string name() const override { return DERIVED::type_name(); }
 
-  std::string ToString() const override { return this->name(); }
+  std::string ToString(bool show_metadata = false) const override { return this->name(); }
 };
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
@@ -587,7 +587,7 @@ class ARROW_EXPORT NullType : public DataType {
 
   NullType() : DataType(Type::NA) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   DataTypeLayout layout() const override {
     return DataTypeLayout({DataTypeLayout::AlwaysNull()});
@@ -769,7 +769,7 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
                            DataTypeLayout::VariableWidth()});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "binary"; }
 
  protected:
@@ -866,7 +866,7 @@ class ARROW_EXPORT BinaryViewType : public DataType {
                           DataTypeLayout::VariableWidth());
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "binary_view"; }
 
  protected:
@@ -894,7 +894,7 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
                            DataTypeLayout::VariableWidth()});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "large_binary"; }
 
  protected:
@@ -915,7 +915,7 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   StringType() : BinaryType(Type::STRING) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "utf8"; }
 
  protected:
@@ -933,7 +933,7 @@ class ARROW_EXPORT StringViewType : public BinaryViewType {
 
   StringViewType() : BinaryViewType(Type::STRING_VIEW) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "utf8_view"; }
 
  protected:
@@ -951,7 +951,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 
   LargeStringType() : LargeBinaryType(Type::LARGE_STRING) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "large_utf8"; }
 
  protected:
@@ -971,7 +971,7 @@ class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public Parametri
   explicit FixedSizeBinaryType(int32_t byte_width, Type::type override_type_id)
       : FixedWidthType(override_type_id), byte_width_(byte_width) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "fixed_size_binary"; }
 
   DataTypeLayout layout() const override {
@@ -1050,7 +1050,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   /// Decimal128Type constructor that returns an error on invalid input.
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "decimal128"; }
 
   static constexpr int32_t kMinPrecision = 1;
@@ -1083,7 +1083,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
   /// Decimal256Type constructor that returns an error on invalid input.
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "decimal256"; }
 
   static constexpr int32_t kMinPrecision = 1;
@@ -1134,7 +1134,7 @@ class ARROW_EXPORT ListType : public BaseListType {
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "list"; }
 
@@ -1166,7 +1166,7 @@ class ARROW_EXPORT LargeListType : public BaseListType {
         {DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "large_list"; }
 
@@ -1197,7 +1197,7 @@ class ARROW_EXPORT ListViewType : public BaseListType {
                            DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "list_view"; }
 
@@ -1231,7 +1231,7 @@ class ARROW_EXPORT LargeListViewType : public BaseListType {
                            DataTypeLayout::FixedWidth(sizeof(offset_type))});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "large_list_view"; }
 
@@ -1273,7 +1273,7 @@ class ARROW_EXPORT MapType : public ListType {
   std::shared_ptr<Field> item_field() const { return value_type()->field(1); }
   std::shared_ptr<DataType> item_type() const { return item_field()->type(); }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "map"; }
 
@@ -1308,7 +1308,7 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
     return DataTypeLayout({DataTypeLayout::Bitmap()});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "fixed_size_list"; }
 
@@ -1335,7 +1335,7 @@ class ARROW_EXPORT StructType : public NestedType {
     return DataTypeLayout({DataTypeLayout::Bitmap()});
   }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "struct"; }
 
   /// Returns null if name not found
@@ -1385,7 +1385,7 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   DataTypeLayout layout() const override;
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   /// The array of logical type ids.
   ///
@@ -1488,7 +1488,7 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
   const std::shared_ptr<DataType>& run_end_type() const { return fields()[0]->type(); }
   const std::shared_ptr<DataType>& value_type() const { return fields()[1]->type(); }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "run_end_encoded"; }
 
@@ -1544,7 +1544,7 @@ class ARROW_EXPORT Date32Type : public DateType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "date32"; }
   DateUnit unit() const override { return UNIT; }
@@ -1567,7 +1567,7 @@ class ARROW_EXPORT Date64Type : public DateType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "date64"; }
   DateUnit unit() const override { return UNIT; }
@@ -1605,7 +1605,7 @@ class ARROW_EXPORT Time32Type : public TimeType {
 
   explicit Time32Type(TimeUnit::type unit = TimeUnit::MILLI);
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "time32"; }
 };
@@ -1624,7 +1624,7 @@ class ARROW_EXPORT Time64Type : public TimeType {
 
   explicit Time64Type(TimeUnit::type unit = TimeUnit::NANO);
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "time64"; }
 };
@@ -1679,7 +1679,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   explicit TimestampType(TimeUnit::type unit, const std::string& timezone)
       : TemporalType(Type::TIMESTAMP), unit_(unit), timezone_(timezone) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "timestamp"; }
 
   TimeUnit::type unit() const { return unit_; }
@@ -1723,7 +1723,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   MonthIntervalType() : IntervalType(type_id) {}
 
-  std::string ToString() const override { return name(); }
+  std::string ToString(bool show_metadata = false) const override { return name(); }
   std::string name() const override { return "month_interval"; }
 };
 
@@ -1759,7 +1759,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString() const override { return name(); }
+  std::string ToString(bool show_metadata = false) const override { return name(); }
   std::string name() const override { return "day_time_interval"; }
 };
 
@@ -1799,7 +1799,7 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString() const override { return name(); }
+  std::string ToString(bool show_metadata = false) const override { return name(); }
   std::string name() const override { return "month_day_nano_interval"; }
 };
 
@@ -1823,7 +1823,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
   explicit DurationType(TimeUnit::type unit = TimeUnit::MILLI)
       : TemporalType(Type::DURATION), unit_(unit) {}
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "duration"; }
 
   TimeUnit::type unit() const { return unit_; }
@@ -1857,7 +1857,7 @@ class ARROW_EXPORT DictionaryType : public FixedWidthType {
       const std::shared_ptr<DataType>& index_type,
       const std::shared_ptr<DataType>& value_type, bool ordered = false);
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
   std::string name() const override { return "dictionary"; }
 
   int bit_width() const override;
