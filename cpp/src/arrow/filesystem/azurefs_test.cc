@@ -376,10 +376,6 @@ culpa qui officia deserunt mollit anim id est laborum.
     return s;
   }
 
-  static std::string RandomBlobName(RNG& rng) {
-    return RandomChars(10, rng) + "." + RandomChars(3, rng);
-  }
-
   static int RandomIndex(int end, RNG& rng) {
     return std::uniform_int_distribution<int>(0, end - 1)(rng);
   }
@@ -1387,17 +1383,15 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
-  const auto blob_name = PreexistingData::RandomBlobName(rng_);
-  ASSERT_OK(CreateFile(fs(), blob_name, "abc"));
-  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::File);
-  ASSERT_OK(fs()->DeleteFile(blob_name));
-  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
+  CreateFile(fs(), "abc", "data");
+  arrow::fs::AssertFileInfo(fs(), "abc", FileType::File);
+  ASSERT_OK(fs()->DeleteFile("abc"));
+  arrow::fs::AssertFileInfo(fs(), "abc, FileType::NotFound);
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
-  const auto blob_name = PreexistingData::RandomBlobName(rng_);
-  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
-  ASSERT_RAISES(IOError, fs()->DeleteFile(blob_name));
+  arrow::fs::AssertFileInfo(fs(), "abc", FileType::NotFound);
+  ASSERT_RAISES(IOError, fs()->DeleteFile("abc"));
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
