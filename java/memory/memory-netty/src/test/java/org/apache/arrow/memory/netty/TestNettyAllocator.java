@@ -41,7 +41,7 @@ public class TestNettyAllocator {
   @Test
   @SuppressWarnings("SynchronizeOnNonFinalField")
   public void testMemoryUsage() {
-    final ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
+    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
     memoryLogsAppender.list = Collections.synchronizedList(memoryLogsAppender.list);
     Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
     try {
