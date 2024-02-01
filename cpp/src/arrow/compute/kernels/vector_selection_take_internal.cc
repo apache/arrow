@@ -815,6 +815,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     int64_t current_length = 0;
     for (int64_t requested_index = 0; requested_index < num_indices; ++requested_index) {
       int64_t chunk_index = indices_chunks[requested_index];
+      // TODO: TAke the whole chunk and append it to a ChunkedArray when current_length == chunk_length 
       if (chunk_index != current_chunk) {
         // Values in previous chunk
         ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
