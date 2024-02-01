@@ -35,4 +35,4 @@ else
 fi
 
 # additional dependencies needed for dask's s3 tests
-pip install moto[server] flask requests
+pip install "moto[server]<5" flask requests
