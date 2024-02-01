@@ -1282,7 +1282,9 @@ class MyBuffer final : public MutableBuffer {
     default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_);
   }
 
-  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
+  std::shared_ptr<Device::SyncEvent> device_sync_event() const override {
+    return device_sync_;
+  }
 
  protected:
   std::shared_ptr<Device::SyncEvent> device_sync_;
