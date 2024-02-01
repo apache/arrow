@@ -376,7 +376,7 @@ culpa qui officia deserunt mollit anim id est laborum.
     return s;
   }
 
-  static std::string RandomBlobName(RNG &rng) {
+  static std::string RandomBlobName(RNG& rng) {
     return RandomChars(10, rng) + "." + RandomChars(3, rng);
   }
 
@@ -1386,27 +1386,27 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteFileSuccessHaveFile) {
-  const auto blob_name = PreexistingData::RandomBlobName();
-  ASSERT_OK(CreateFile(fs_.get(), blob_name, "abc"));
-  arrow::fs::AssertFileInfo(fs_.get(), blob_name, FileType::File);
-  ASSERT_OK(fs_->DeleteFile(blob_name));
-  arrow::fs::AssertFileInfo(fs_.get(), blob_name, FileType::NotFound);
+TEST_F(TestAzuriteFileSystem, DeleteFileSuccessHaveFile) {
+  const auto blob_name = PreexistingData::RandomBlobName(rng_);
+  ASSERT_OK(CreateFile(fs(), blob_name, "abc"));
+  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::File);
+  ASSERT_OK(fs()->DeleteFile(blob_name));
+  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNonexistent) {
-  const auto blob_name = PreexistingData::RandomBlobName();
-  arrow::fs::AssertFileInfo(fs_.get(), blob_name, FileType::NotFound);
-  ASSERT_RAISES(IOError, fs_->DeleteFile(blob_name));
+TEST_F(TestAzuriteFileSystem, DeleteFileSuccessNonexistent) {
+  const auto blob_name = PreexistingData::RandomBlobName(rng_);
+  arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
+  ASSERT_RAISES(IOError, fs()->DeleteFile(blob_name));
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteFileSuccessNotAFile) {
-  const auto container_name = RandomContainerName();
-  ASSERT_OK(fs_->CreateDir(container_name));
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
-  ASSERT_RAISES(IOError, fs_->DeleteFile(container_name));
-  ASSERT_OK(fs_->DeleteDir(container_name));
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
+TEST_F(TestAzuriteFileSystem, DeleteFileSuccessNotAFile) {
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  ASSERT_OK(fs()->CreateDir(container_name));
+  arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
+  ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
+  ASSERT_OK(fs()->DeleteDir(container_name));
+  arrow::fs::AssertFileInfo(fs(), container_name, FileType::NotFound);
 }
 
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
