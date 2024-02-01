@@ -196,7 +196,9 @@ test_apt() {
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
                 "ubuntu:mantic" \
-                "arm64v8/ubuntu:mantic"; do \
+                "arm64v8/ubuntu:mantic" \
+                "ubuntu:noble" \
+                "arm64v8/ubuntu:noble"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
