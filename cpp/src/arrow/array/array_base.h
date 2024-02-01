@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"

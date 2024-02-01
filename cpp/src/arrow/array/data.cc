@@ -144,7 +144,7 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
 
 namespace {
 template <typename Fn>
-Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
+Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
                                                 const std::shared_ptr<MemoryManager>& to,
                                                 Fn&& copy_fn) {
   auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
@@ -157,13 +157,13 @@ Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
 
   output->child_data.reserve(data.child_data.size());
   for (const auto& child : data.child_data) {
-    ARROW_ASSIGN_OR_RAISE(auto copied, copy_to_impl(*child, to, copy_fn));
+    ARROW_ASSIGN_OR_RAISE(auto copied, CopyToImpl(*child, to, copy_fn));
     output->child_data.push_back(std::move(copied));
   }
 
   if (data.dictionary) {
     ARROW_ASSIGN_OR_RAISE(output->dictionary,
-                          copy_to_impl(*data.dictionary, to, copy_fn));
+                          CopyToImpl(*data.dictionary, to, copy_fn));
   }
 
   return output;
@@ -172,12 +172,12 @@ Result<std::shared_ptr<ArrayData>> copy_to_impl(const ArrayData& data,
 
 Result<std::shared_ptr<ArrayData>> ArrayData::CopyTo(
     const std::shared_ptr<MemoryManager>& to) const {
-  return copy_to_impl(*this, to, MemoryManager::CopyBuffer);
+  return CopyToImpl(*this, to, MemoryManager::CopyBuffer);
 }
 
 Result<std::shared_ptr<ArrayData>> ArrayData::ViewOrCopyTo(
     const std::shared_ptr<MemoryManager>& to) const {
-  return copy_to_impl(*this, to, Buffer::ViewOrCopy);
+  return CopyToImpl(*this, to, Buffer::ViewOrCopy);
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
