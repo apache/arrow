@@ -1386,7 +1386,7 @@ TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
   CreateFile(fs(), "abc", "data");
   arrow::fs::AssertFileInfo(fs(), "abc", FileType::File);
   ASSERT_OK(fs()->DeleteFile("abc"));
-  arrow::fs::AssertFileInfo(fs(), "abc, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs(), "abc", FileType::NotFound);
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
