@@ -44,7 +44,7 @@ import java.nio.ByteOrder;
 public final class TensorDim extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static TensorDim getRootAsTensorDim(ByteBuffer _bb) { return getRootAsTensorDim(_bb, new TensorDim()); }
-  public static TensorDim getRootAsTensorDim(ByteBuffer _bb, TensorDim obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static TensorDim getRootAsTensorDim(ByteBuffer _bb, TensorDim obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public TensorDim __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

@@ -39,7 +39,7 @@ import java.nio.ByteOrder;
 public final class Interval extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Interval getRootAsInterval(ByteBuffer _bb) { return getRootAsInterval(_bb, new Interval()); }
-  public static Interval getRootAsInterval(ByteBuffer _bb, Interval obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Interval getRootAsInterval(ByteBuffer _bb, Interval obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Interval __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

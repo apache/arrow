@@ -44,7 +44,7 @@ import java.nio.ByteOrder;
 public final class ListView extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static ListView getRootAsListView(ByteBuffer _bb) { return getRootAsListView(_bb, new ListView()); }
-  public static ListView getRootAsListView(ByteBuffer _bb, ListView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static ListView getRootAsListView(ByteBuffer _bb, ListView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public ListView __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

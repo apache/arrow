@@ -48,7 +48,7 @@ import java.nio.ByteOrder;
 public final class Utf8View extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Utf8View getRootAsUtf8View(ByteBuffer _bb) { return getRootAsUtf8View(_bb, new Utf8View()); }
-  public static Utf8View getRootAsUtf8View(ByteBuffer _bb, Utf8View obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Utf8View getRootAsUtf8View(ByteBuffer _bb, Utf8View obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Utf8View __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

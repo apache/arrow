@@ -47,7 +47,7 @@ import java.nio.ByteOrder;
 public final class DictionaryBatch extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static DictionaryBatch getRootAsDictionaryBatch(ByteBuffer _bb) { return getRootAsDictionaryBatch(_bb, new DictionaryBatch()); }
-  public static DictionaryBatch getRootAsDictionaryBatch(ByteBuffer _bb, DictionaryBatch obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static DictionaryBatch getRootAsDictionaryBatch(ByteBuffer _bb, DictionaryBatch obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public DictionaryBatch __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

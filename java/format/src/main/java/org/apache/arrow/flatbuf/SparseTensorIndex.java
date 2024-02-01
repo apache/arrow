@@ -26,7 +26,7 @@ public final class SparseTensorIndex {
   public static final byte SparseMatrixIndexCSX = 2;
   public static final byte SparseTensorIndexCSF = 3;
 
-  public static final String[] names = { "NONE", "SparseTensorIndexCOO", "SparseMatrixIndexCSX", "SparseTensorIndexCSF", };
+  private static final String[] names = { "NONE", "SparseTensorIndexCOO", "SparseMatrixIndexCSX", "SparseTensorIndexCSF", };
 
   public static String name(int e) { return names[e]; }
 }

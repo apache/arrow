@@ -42,7 +42,7 @@ import java.nio.ByteOrder;
 public final class Utf8 extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Utf8 getRootAsUtf8(ByteBuffer _bb) { return getRootAsUtf8(_bb, new Utf8()); }
-  public static Utf8 getRootAsUtf8(ByteBuffer _bb, Utf8 obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Utf8 getRootAsUtf8(ByteBuffer _bb, Utf8 obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Utf8 __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
