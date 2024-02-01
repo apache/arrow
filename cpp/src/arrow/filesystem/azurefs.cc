@@ -1649,13 +1649,16 @@ class AzureFileSystem::Impl {
   /// \pre location.path is not empty.
   Status DeleteDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
                                const AzureLocation& location, bool recursive,
-                               bool require_dir_to_exist) {
+                               bool require_dir_to_exist,
+                               Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+    DataLake::DeleteDirectoryOptions options;
+    options.AccessConditions.LeaseId = std::move(lease_id);
     try {
-      auto response =
-          recursive ? directory_client.DeleteRecursive() : directory_client.DeleteEmpty();
+      auto response = recursive ? directory_client.DeleteRecursive(options)
+                                : directory_client.DeleteEmpty(options);
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
