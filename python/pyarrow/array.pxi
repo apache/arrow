@@ -2508,9 +2508,24 @@ cdef class ListViewArray(Array):
             4
           ]
         ]
-        >>> # nulls in the offsets array become null lists
+        >>> # use a null mask to represent null values
+        >>> mask = pa.array([False, True, False])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values, mask=mask)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # null values can be defined in either offsets or sizes arrays
+        >>> # WARNING: this will result in a copy of the offsets or sizes arrays
         >>> offsets = pa.array([0, None, 2])
-        >>> sizes = pa.array([2, 0, 2])
         >>> pa.ListViewArray.from_arrays(offsets, sizes, values)
         <pyarrow.lib.ListViewArray object at ...>
         [
@@ -2557,9 +2572,9 @@ cdef class ListViewArray(Array):
         Return the underlying array of values which backs the ListViewArray
         ignoring the array's offset and sizes.
 
-        If any of the list elements are null, but are backed by a
-        non-empty sub-list, those elements will be included in the
-        output.
+        The values array may be out of order and/or contain additional values
+        that are not found in the logical representation of the array. The only
+        guarantee is that each non-null value in the ListView Array is contiguous.
 
         Returns
         -------
@@ -2570,23 +2585,18 @@ cdef class ListViewArray(Array):
         The values include null elements from sub-lists:
 
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
         >>> array.values
-        <pyarrow.lib.ListArray object at ...>
+        <pyarrow.lib.Int64Array object at ...>
         [
-          [
-            1,
-            2
-          ],
-          [
-            3,
-            4,
-            null,
-            6
-          ]
+          1,
+          2,
+          null,
+          3,
+          4
         ]
         """
         cdef CListViewArray* arr = <CListViewArray*> self.ap
@@ -2608,8 +2618,8 @@ cdef class ListViewArray(Array):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
         >>> array.offsets
@@ -2617,7 +2627,7 @@ cdef class ListViewArray(Array):
         [
           0,
           0,
-          2
+          1
         ]
         """
         return pyarrow_wrap_array((<CListViewArray*> self.ap).offsets())
@@ -2638,16 +2648,16 @@ cdef class ListViewArray(Array):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
-        >>> array.offsets
+        >>> array.sizes
         <pyarrow.lib.Int32Array object at ...>
         [
+          2,
           0,
-          0,
-          2
+          4
         ]
         """
         return pyarrow_wrap_array((<CListViewArray*> self.ap).sizes())
@@ -2701,9 +2711,24 @@ cdef class LargeListViewArray(Array):
             4
           ]
         ]
-        >>> # nulls in the offsets array become null lists
+        >>> # use a null mask to represent null values
+        >>> mask = pa.array([False, True, False])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values, mask=mask)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # null values can be defined in either offsets or sizes arrays
+        >>> # WARNING: this will result in a copy of the offsets or sizes arrays
         >>> offsets = pa.array([0, None, 2])
-        >>> sizes = pa.array([2, 0, 2])
         >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values)
         <pyarrow.lib.LargeListViewArray object at ...>
         [
@@ -2751,12 +2776,9 @@ cdef class LargeListViewArray(Array):
         Return the underlying array of values which backs the LargeListArray
         ignoring the array's offset.
 
-        If any of the list elements are null, but are backed by a
-        non-empty sub-list, those elements will be included in the
-        output.
-
-        Compare with :meth:`flatten`, which returns only the non-null
-        values taking into consideration the array's offset.
+        The values array may be out of order and/or contain additional values
+        that are not found in the logical representation of the array. The only
+        guarantee is that each non-null value in the ListView Array is contiguous.
 
         Returns
         -------
@@ -2772,23 +2794,18 @@ cdef class LargeListViewArray(Array):
         The values include null elements from sub-lists:
 
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
         >>> array.values
-        <pyarrow.lib.ListArray object at ...>
+        <pyarrow.lib.Int64Array object at ...>
         [
-          [
-            1,
-            2
-          ],
-          [
-            3,
-            4,
-            null,
-            6
-          ]
+          1,
+          2,
+          null,
+          3,
+          4
         ]
         """
         cdef CLargeListViewArray* arr = <CLargeListViewArray*> self.ap
@@ -2811,8 +2828,8 @@ cdef class LargeListViewArray(Array):
         --------
 
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
         >>> array.offsets
@@ -2820,7 +2837,7 @@ cdef class LargeListViewArray(Array):
         [
           0,
           0,
-          2
+          1
         ]
         """
         return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).offsets())
@@ -2842,16 +2859,16 @@ cdef class LargeListViewArray(Array):
         --------
 
         >>> import pyarrow as pa
-        >>> values = [[1, 2], [3, 4, None, 6]]
-        >>> offsets = [0, None, 2]
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
-        >>> array.offsets
+        >>> array.sizes
         <pyarrow.lib.Int64Array object at ...>
         [
+          2,
           0,
-          0,
-          2
+          4
         ]
         """
         return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).sizes())

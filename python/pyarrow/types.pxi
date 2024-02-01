@@ -4627,6 +4627,9 @@ cpdef ListViewType list_view(value_type):
     """
     Create ListViewType instance from child data type or field.
 
+    This data type may not be supported by all Arrow implementations
+    because it is an alternative to the ListType.
+
     Parameters
     ----------
     value_type : DataType or Field
@@ -4662,9 +4665,8 @@ cpdef LargeListViewType large_list_view(value_type):
     """
     Create LargeListViewType instance from child data type or field.
 
-    This data type may not be supported by all Arrow implementations.
-    Unless you need to represent data larger than 2**31 elements, you should
-    prefer list_view().
+    This data type may not be supported by all Arrow implementations
+    because it is an alternative to the ListType.
 
     Parameters
     ----------
