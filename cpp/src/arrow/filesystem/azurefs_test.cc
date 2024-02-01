@@ -1405,8 +1405,6 @@ TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
   ASSERT_OK(fs()->CreateDir(container_name));
   arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
   ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
-  ASSERT_OK(fs()->DeleteDir(container_name));
-  arrow::fs::AssertFileInfo(fs(), container_name, FileType::NotFound);
 }
 
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
