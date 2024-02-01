@@ -175,6 +175,13 @@ void AssertParsePartial(BlockParser& parser, const std::string& str,
   ASSERT_EQ(parsed_size, expected_size);
 }
 
+void AssertParsePartial(BlockParser& parser, const std::vector<std::string_view>& data,
+                        uint32_t expected_size) {
+  uint32_t parsed_size = static_cast<uint32_t>(-1);
+  ASSERT_OK(parser.Parse(data, &parsed_size));
+  ASSERT_EQ(parsed_size, expected_size);
+}
+
 void AssertLastRowEq(const BlockParser& parser,
                      const std::vector<std::string>& expected) {
   std::vector<std::string> values;
@@ -374,6 +381,19 @@ TEST(BlockParser, TruncatedData) {
     AssertParsePartial(parser, csv.substr(0, csv.length() - trim), 4);
     AssertColumnsEq(parser, {{"a"}, {"b"}});
   }
+}
+
+TEST(BlockParser, TruncatedDataViews) {
+  // If non-last block is truncated, parsing stops
+  BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/3);
+  AssertParsePartial(parser, Views({"a,b,", "c\n"}), 0);
+  // (XXX should we guarantee this one below?)
+  AssertParsePartial(parser, Views({"a,b,c\nd,", "e,f\n"}), 6);
+
+  // More sophisticated: non-last block ends on some newline inside a quoted string
+  // (terse reproducer of gh-39857)
+  AssertParsePartial(parser, Views({"a,b,\"c\n", "\"\n"}), 0);
+  AssertParsePartial(parser, Views({"a,b,c\n\"d\n", "\",e,f\n"}), 6);
 }
 
 TEST(BlockParser, Final) {
