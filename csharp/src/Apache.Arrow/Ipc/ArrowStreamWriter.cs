@@ -84,15 +84,18 @@ namespace Apache.Arrow.Ipc
             private readonly List<Buffer> _buffers;
             private readonly ICompressionCodec _compressionCodec;
             private readonly MemoryAllocator _allocator;
+            private readonly MemoryStream _compressionStream;
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
             public List<long> VariadicCounts { get; private set; } 
             public int TotalLength { get; private set; }
 
-            public ArrowRecordBatchFlatBufferBuilder(ICompressionCodec compressionCodec, MemoryAllocator allocator)
+            public ArrowRecordBatchFlatBufferBuilder(
+                ICompressionCodec compressionCodec, MemoryAllocator allocator, MemoryStream compressionStream)
             {
                 _compressionCodec = compressionCodec;
+                _compressionStream = compressionStream;
                 _allocator = allocator;
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
@@ -261,14 +264,15 @@ namespace Apache.Arrow.Ipc
                 {
                     // See format/Message.fbs, and the BUFFER BodyCompressionMethod for documentation on how
                     // compressed buffers are stored.
-                    using var memoryStream = new MemoryStream();
-                    _compressionCodec.Compress(buffer.Memory, memoryStream);
-                    if (memoryStream.Length < buffer.Length)
+                    _compressionStream.Seek(0, SeekOrigin.Begin);
+                    _compressionStream.SetLength(0);
+                    _compressionCodec.Compress(buffer.Memory, _compressionStream);
+                    if (_compressionStream.Length < buffer.Length)
                     {
-                        var newBuffer = _allocator.Allocate((int) memoryStream.Length + UncompressedLengthSize);
+                        var newBuffer = _allocator.Allocate((int) _compressionStream.Length + UncompressedLengthSize);
                         BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, buffer.Length);
-                        memoryStream.Seek(0, SeekOrigin.Begin);
-                        memoryStream.ReadFullBuffer(newBuffer.Memory.Slice(UncompressedLengthSize));
+                        _compressionStream.Seek(0, SeekOrigin.Begin);
+                        _compressionStream.ReadFullBuffer(newBuffer.Memory.Slice(UncompressedLengthSize));
                         bufferToWrite = new ArrowBuffer(newBuffer);
                     }
                     else
@@ -313,6 +317,8 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
         private readonly MemoryAllocator _allocator;
+        // Reuse a single memory stream for writing compressed data to, to reduce memory allocations
+        private readonly MemoryStream _compressionStream = new MemoryStream();
 
         private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
@@ -587,7 +593,7 @@ namespace Apache.Arrow.Ipc
                 ? _options.CompressionCodecFactory.CreateCodec(_options.CompressionCodec.Value, _options.CompressionLevel)
                 : null;
 
-            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator);
+            var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _compressionStream);
             for (int i = 0; i < fieldCount; i++)
             {
                 IArrowArray fieldArray = arrays[i];
@@ -1074,6 +1080,7 @@ namespace Apache.Arrow.Ipc
             {
                 BaseStream.Dispose();
             }
+            _compressionStream.Dispose();
         }
     }
 
