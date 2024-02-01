@@ -1400,7 +1400,7 @@ TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
   ASSERT_RAISES(IOError, fs()->DeleteFile(blob_name));
 }
 
-TEST_F(TestAzuriteFileSystem, DeleteFileSuccessNotAFile) {
+TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
   const auto container_name = PreexistingData::RandomContainerName(rng_);
   ASSERT_OK(fs()->CreateDir(container_name));
   arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
