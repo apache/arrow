@@ -100,7 +100,6 @@ def assert_dataset_fragment_convenience_methods(dataset):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def mockfs():
     mockfs = fs._MockFileSystem()
 
@@ -219,7 +218,6 @@ def multisourcefs(request):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
@@ -2679,7 +2677,6 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module)
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
