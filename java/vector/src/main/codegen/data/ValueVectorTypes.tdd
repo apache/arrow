@@ -51,6 +51,16 @@
     },
     {
       major: "Fixed",
+      width: 2,
+      javaType: "short",
+      boxedType: "Short",
+      fields: [{name: "value", type: "short"}],
+      minor: [
+        { class: "Float2", valueHolder: "Int2Holder"},
+      ]
+    },
+    {
+      major: "Fixed",
       width: 4,
       javaType: "int",
       boxedType: "Integer",
