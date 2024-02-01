@@ -222,7 +222,7 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
     # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel", "darwin")
+    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))
