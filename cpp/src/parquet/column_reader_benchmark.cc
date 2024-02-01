@@ -235,16 +235,20 @@ void GenerateLevels(int level_repeats, int max_level, int num_levels,
 void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
                   const int16_t* input_levels, std::vector<uint8_t>* bytes) {
   LevelEncoder encoder;
-  bytes->resize(2 * num_levels);
   // encode levels
   if (encoding == Encoding::RLE) {
+    int rle_size = LevelEncoder::MaxBufferSize(encoding, max_level, num_levels);
+    bytes->resize(rle_size + sizeof(int32_t));
     // leave space to write the rle length value
     encoder.Init(encoding, max_level, num_levels, bytes->data() + sizeof(int32_t),
-                 static_cast<int>(bytes->size()));
-
+                 rle_size);
     encoder.Encode(num_levels, input_levels);
-    (reinterpret_cast<int32_t*>(bytes->data()))[0] = encoder.len();
+    int data_length = encoder.len();
+    memcpy(bytes->data(), &data_length, sizeof(int32_t));
   } else {
+    int bitpack_size =
+        LevelEncoder::MaxBufferSize(encoding, max_level, num_levels) + sizeof(int32_t);
+    bytes->resize(bitpack_size);
     encoder.Init(encoding, max_level, num_levels, bytes->data(),
                  static_cast<int>(bytes->size()));
     encoder.Encode(num_levels, input_levels);
@@ -281,7 +285,7 @@ static void DecodeLevels(Encoding::type level_encoding, int16_t max_level, int n
   state.SetItemsProcessed(state.iterations() * num_levels);
 }
 
-static void ReadLevels(::benchmark::State& state) {
+static void ReadLevels_Rle(::benchmark::State& state) {
   int16_t max_level = static_cast<int16_t>(state.range(0));
   int num_levels = static_cast<int>(state.range(1));
   int batch_size = static_cast<int>(state.range(2));
@@ -310,7 +314,7 @@ static void ReadLevelsArguments(::benchmark::internal::Benchmark* b) {
       ->Args({3, 8096, 1024, 7});
 }
 
-BENCHMARK(ReadLevels)->Apply(ReadLevelsArguments);
+BENCHMARK(ReadLevels_Rle)->Apply(ReadLevelsArguments);
 BENCHMARK(ReadLevels_BitPack)->Apply(ReadLevelsArguments);
 
 }  // namespace benchmark
