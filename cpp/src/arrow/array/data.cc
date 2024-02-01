@@ -145,8 +145,8 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
 namespace {
 template <typename Fn>
 Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
-                                                const std::shared_ptr<MemoryManager>& to,
-                                                Fn&& copy_fn) {
+                                              const std::shared_ptr<MemoryManager>& to,
+                                              Fn&& copy_fn) {
   auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
   output->buffers.resize(data.buffers.size());
   for (auto&& [buf, out_buf] : internal::Zip(data.buffers, output->buffers)) {
@@ -162,8 +162,7 @@ Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
   }
 
   if (data.dictionary) {
-    ARROW_ASSIGN_OR_RAISE(output->dictionary,
-                          CopyToImpl(*data.dictionary, to, copy_fn));
+    ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyToImpl(*data.dictionary, to, copy_fn));
   }
 
   return output;
