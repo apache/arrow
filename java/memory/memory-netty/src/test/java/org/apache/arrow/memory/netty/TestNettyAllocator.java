@@ -40,7 +40,7 @@ public class TestNettyAllocator {
 
   @Test
   public void testMemoryUsage() {
-    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
+    final ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
     memoryLogsAppender.list = Collections.synchronizedList(memoryLogsAppender.list);
     Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
     try {
