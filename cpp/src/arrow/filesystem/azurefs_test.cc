@@ -1394,7 +1394,7 @@ TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
   arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
 }
 
-TEST_F(TestAzuriteFileSystem, DeleteFileSuccessNonexistent) {
+TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
   const auto blob_name = PreexistingData::RandomBlobName(rng_);
   arrow::fs::AssertFileInfo(fs(), blob_name, FileType::NotFound);
   ASSERT_RAISES(IOError, fs()->DeleteFile(blob_name));
