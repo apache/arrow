@@ -362,79 +362,79 @@ def py_fsspec_s3fs(request, s3_server):
 
 @pytest.fixture(params=[
     pytest.param(
-        pytest.lazy_fixture('localfs'),
+        'localfs',
         id='LocalFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('localfs_with_mmap'),
+        'localfs_with_mmap',
         id='LocalFileSystem(use_mmap=True)'
     ),
     pytest.param(
-        pytest.lazy_fixture('subtree_localfs'),
+        'subtree_localfs',
         id='SubTreeFileSystem(LocalFileSystem())'
     ),
     pytest.param(
-        pytest.lazy_fixture('s3fs'),
+        's3fs',
         id='S3FileSystem',
         marks=pytest.mark.s3
     ),
     pytest.param(
-        pytest.lazy_fixture('gcsfs'),
+        'gcsfs',
         id='GcsFileSystem',
         marks=pytest.mark.gcs
     ),
     pytest.param(
-        pytest.lazy_fixture('hdfs'),
+        'hdfs',
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
     ),
     pytest.param(
-        pytest.lazy_fixture('mockfs'),
+        'mockfs',
         id='_MockFileSystem()'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_localfs'),
+        'py_localfs',
         id='PyFileSystem(ProxyHandler(LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_mockfs'),
+        'py_mockfs',
         id='PyFileSystem(ProxyHandler(_MockFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_localfs'),
+        'py_fsspec_localfs',
         id='PyFileSystem(FSSpecHandler(fsspec.LocalFileSystem()))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_memoryfs'),
+        'py_fsspec_memoryfs',
         id='PyFileSystem(FSSpecHandler(fsspec.filesystem("memory")))'
     ),
     pytest.param(
-        pytest.lazy_fixture('py_fsspec_s3fs'),
+        'py_fsspec_s3fs',
         id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
         marks=pytest.mark.s3
     ),
 ])
 def filesystem_config(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture
-def fs(request, filesystem_config):
+def fs(filesystem_config):
     return filesystem_config['fs']
 
 
 @pytest.fixture
-def pathfn(request, filesystem_config):
+def pathfn(filesystem_config):
     return filesystem_config['pathfn']
 
 
 @pytest.fixture
-def allow_move_dir(request, filesystem_config):
+def allow_move_dir(filesystem_config):
     return filesystem_config['allow_move_dir']
 
 
 @pytest.fixture
-def allow_append_to_file(request, filesystem_config):
+def allow_append_to_file(filesystem_config):
     return filesystem_config['allow_append_to_file']
 
 
