@@ -4172,6 +4172,8 @@ cdef class Table(_Tabular):
         reader.reset(new TableBatchReader(deref(self.table)))
 
         if max_chunksize is not None:
+            if not max_chunksize > 0:
+                raise ValueError("'max_chunksize' should be strictly positive")
             c_max_chunksize = max_chunksize
             reader.get().set_chunksize(c_max_chunksize)
 
