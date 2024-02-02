@@ -279,6 +279,8 @@ class PackageTask
       # "ubuntu-jammy-arm64",
       "ubuntu-mantic",
       # "ubuntu-mantic-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 
