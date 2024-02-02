@@ -519,6 +519,7 @@ set(ARROW_UTIL_SRCS
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc
+    util/otel_logging.cc
     util/ree_util.cc
     util/string.cc
     util/string_builder.cc
