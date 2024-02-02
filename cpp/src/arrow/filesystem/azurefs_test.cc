@@ -1401,8 +1401,8 @@ TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureDirectory) {
-  const auto directory_name = ConcatAbstractPath(
-    PreexistingData::RandomContainerName(rng_), "directory");
+  const auto directory_name =
+      ConcatAbstractPath(PreexistingData::RandomContainerName(rng_), "directory");
   ASSERT_OK(fs()->CreateDir(directory_name));
   arrow::fs::AssertFileInfo(fs(), directory_name, FileType::Directory);
   ASSERT_RAISES(IOError, fs()->DeleteFile(directory_name));
