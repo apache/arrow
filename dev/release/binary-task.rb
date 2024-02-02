@@ -1089,6 +1089,7 @@ class BinaryTask
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "mantic", "main"],
+      ["ubuntu", "noble", "main"],
     ]
   end
 
@@ -2121,8 +2122,10 @@ class LocalBinaryTask < BinaryTask
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-lunar",
-      # "ubuntu-lunar-arm64",
+      "ubuntu-mantic",
+      # "ubuntu-mantic-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 
