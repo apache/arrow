@@ -1039,8 +1039,6 @@ class LeaseGuard {
                                lease_client_->GetLeaseId(), " lease on '",
                                lease_client_->GetUrl(), "'");
     }
-    ARROW_LOG(WARNING) << ">>>> Released lease " << lease_client_->GetLeaseId() << " on "
-                       << lease_client_->GetUrl();
     return Status::OK();
   }
 
@@ -1942,9 +1940,6 @@ class AzureFileSystem::Impl {
     try {
       auto result = lease_client->Acquire(lease_duration);
       DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
-      ARROW_LOG(WARNING) << "<<<< Acquired lease " << lease_client->GetLeaseId()
-                         << " on container " << location.container
-                         << (retry_allowed ? "" : " (after retry)");
     } catch (const Storage::StorageException& exception) {
       if (IsContainerNotFound(exception)) {
         if (allow_missing_container) {
@@ -1985,9 +1980,6 @@ class AzureFileSystem::Impl {
     try {
       [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
       DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
-      ARROW_LOG(WARNING) << "<<<< Acquired lease " << lease_client->GetLeaseId()
-                         << " on blob " << lease_client->GetUrl()
-                         << (retry_allowed ? "" : " (after retry)");
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         if (allow_missing) {
@@ -2189,8 +2181,6 @@ class AzureFileSystem::Impl {
   Status MovePathsWithDataLakeAPI(
       const DataLake::DataLakeFileSystemClient& src_adlfs_client,
       const AzureLocation& src, const AzureLocation& dest) {
-    ARROW_LOG(WARNING) << "MovePathsWithDataLakeAPI '" << src.all << "' -> '" << dest.all
-                       << "'";
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
     const auto src_path = std::string{internal::RemoveTrailingSlash(src.path)};
