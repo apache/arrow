@@ -808,6 +808,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
 
     // Slice the arrays with the values to create the new chunked array out of them
     std::unique_ptr<ArrayBuilder> result_builder;
+    std::vector<std::shared_ptr<Array>> result_chunks;
     ARROW_RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), values.type(), &result_builder));
     ARROW_RETURN_NOT_OK(result_builder->Reserve(num_indices));
     std::vector<int64_t> consumed_chunk_offset(num_chunks, 0);
@@ -817,10 +818,23 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
       int64_t chunk_index = indices_chunks[requested_index];
       // TODO: TAke the whole chunk and append it to a ChunkedArray when current_length == chunk_length 
       if (chunk_index != current_chunk) {
-        // Values in previous chunk
-        ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
-            looked_up_values[current_chunk],
-            consumed_chunk_offset[current_chunk], current_length));
+        if (current_length == looked_up_values[current_chunk].length) {
+          // We have taken a whole chunk, so we can append it to the result.
+          if (result_builder->length() > 0) {
+            ARROW_ASSIGN_OR_RAISE(auto previous_chunk_array, result_builder->Finish());
+            result_chunks.emplace_back(std::move(previous_chunk_array));
+            result_builder->Reset();
+            ARROW_RETURN_NOT_OK(result_builder->Reserve(num_indices - requested_index));
+          }
+          // Append the whole chunk itself
+          result_chunks.emplace_back(std::move(looked_up_values[current_chunk].ToArray()));
+        }
+        else {
+          // Values in previous chunk
+          ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
+              looked_up_values[current_chunk],
+              consumed_chunk_offset[current_chunk], current_length));
+        }
         consumed_chunk_offset[current_chunk] += current_length;
         current_chunk = chunk_index;
         current_length = 0;
@@ -835,7 +849,8 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     }
 
     ARROW_ASSIGN_OR_RAISE(auto result_array, result_builder->Finish());
-    return std::make_shared<ChunkedArray>(result_array);
+    result_chunks.emplace_back(std::move(result_array));
+    return std::make_shared<ChunkedArray>(result_chunks);
   }
 }
 
