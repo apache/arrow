@@ -1938,7 +1938,7 @@ class AzureFileSystem::Impl {
     auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(
         std::move(container_client), std::move(lease_id));
     try {
-      auto result = lease_client->Acquire(lease_duration);
+      [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
       DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
     } catch (const Storage::StorageException& exception) {
       if (IsContainerNotFound(exception)) {
@@ -2008,7 +2008,7 @@ class AzureFileSystem::Impl {
 
   /// The conditions for a successful container rename are derived from the
   /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
-  /// The numbers here match the list in `Moove`.
+  /// The numbers here match the list in `Move`.
   ///
   /// 1. `src.container` must exist.
   /// 2. If `src.container` and `dest.container` are the same, do nothing and

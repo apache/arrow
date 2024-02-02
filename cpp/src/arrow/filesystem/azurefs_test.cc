@@ -483,21 +483,21 @@ class TestAzureFileSystem : public ::testing::Test {
 
   Blobs::BlobContainerClient CreateContainer(const std::string& name) {
     auto container_client = blob_service_client_->GetBlobContainerClient(name);
-    (void)container_client.CreateIfNotExists();
+    ARROW_UNUSED(container_client.CreateIfNotExists());
     return container_client;
   }
 
   DataLake::DataLakeFileSystemClient CreateFilesystem(const std::string& name) {
     auto adlfs_client = datalake_service_client_->GetFileSystemClient(name);
-    (void)adlfs_client.CreateIfNotExists();
+    ARROW_UNUSED(adlfs_client.CreateIfNotExists());
     return adlfs_client;
   }
 
   Blobs::BlobClient CreateBlob(Blobs::BlobContainerClient& container_client,
                                const std::string& name, const std::string& data = "") {
     auto blob_client = container_client.GetBlockBlobClient(name);
-    (void)blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
-                                 data.size());
+    ARROW_UNUSED(blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
+                                        data.size()));
     return blob_client;
   }
 
@@ -505,8 +505,8 @@ class TestAzureFileSystem : public ::testing::Test {
       DataLake::DataLakeFileSystemClient& filesystem_client, const std::string& name,
       const std::string& data = "") {
     auto file_client = filesystem_client.GetFileClient(name);
-    (void)file_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
-                                 data.size());
+    ARROW_UNUSED(file_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
+                                        data.size()));
     return file_client;
   }
 
@@ -1129,23 +1129,23 @@ class TestAzureFileSystem : public ::testing::Test {
                              "'"),
         fs()->Move(data.container_name, empty_container));
     // Renaming to a non-existing container creates it
-    auto new_container = PreexistingData::RandomContainerName(rng_);
-    AssertFileInfo(fs(), new_container, FileType::NotFound);
+    auto missing_container = PreexistingData::RandomContainerName(rng_);
+    AssertFileInfo(fs(), missing_container, FileType::NotFound);
     if (env->backend() == AzureBackend::kAzurite) {
       // Azurite returns a 201 Created for RenameBlobContainer, but the created
       // container doesn't contain the blobs from the source container and
-      // the source container reamins undeleted after the "rename".
+      // the source container remains undeleted after the "rename".
     } else {
       // See Azure SDK issue/question:
       // https://github.com/Azure/azure-sdk-for-cpp/issues/5262
       EXPECT_RAISES_WITH_MESSAGE_THAT(
           IOError,
           ::testing::HasSubstr("The 'rename' operation is not supported on containers."),
-          fs()->Move(data.container_name, new_container));
-      // ASSERT_MOVE_OK(data.container_name, new_container);
+          fs()->Move(data.container_name, missing_container));
+      // ASSERT_MOVE_OK(data.container_name, missing_container);
       // AssertFileInfo(fs(),
-      //                ConcatAbstractPath(new_container, PreexistingData::kObjectName),
-      //                FileType::File);
+      //                ConcatAbstractPath(missing_container,
+      //                PreexistingData::kObjectName), FileType::File);
     }
     // Renaming to an empty container can work if the source is also empty
     auto new_empty_container = PreexistingData::RandomContainerName(rng_);
@@ -1232,7 +1232,7 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_MOVE(data.Path("file1/"), data.Path("file0"), ENOTDIR);
     ASSERT_MOVE(data.Path("file1"), data.Path("file0/"), ENOTDIR);
     ASSERT_MOVE(data.Path("file1/"), data.Path("file0/"), ENOTDIR);
-    // "file1" and "file2" exist
+    // "file0" and "file1" exist
 
     // src is a file and dest exists (as an empty dir)
     CreateDirectory(adlfs_client, "subdir0");
@@ -1272,8 +1272,6 @@ class TestAzureFileSystem : public ::testing::Test {
 
     // src is directory and dest exists as a non-empty directory
     CreateDirectory(adlfs_client, "subdir0");
-    CreateDirectory(adlfs_client, "subdir1");
-    CreateDirectory(adlfs_client, "subdir2");
     ASSERT_MOVE(data.Path("subdir0"), data.Path("subdir3"), ENOTEMPTY);
     ASSERT_MOVE(data.Path("subdir0/"), data.Path("subdir3"), ENOTEMPTY);
     ASSERT_MOVE(data.Path("subdir0"), data.Path("subdir3/"), ENOTEMPTY);

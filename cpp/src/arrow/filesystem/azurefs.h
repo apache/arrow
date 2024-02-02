@@ -223,10 +223,10 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// 1. `src` must exist.
   /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
   ///    a directory can't be made a subdirectory of itself.
-  /// 3. If `dest` already exists and its a file, `src` must also be a file.
+  /// 3. If `dest` already exists and it's a file, `src` must also be a file.
   ///    `dest` is then replaced by `src`.
   /// 4. All components of `dest` must exist, except for the last.
-  /// 5. If `dest` already exists and its a directory, `src` must also be a
+  /// 5. If `dest` already exists and it's a directory, `src` must also be a
   ///    directory and `dest` must be empty. `dest` is then replaced by `src`
   ///    and its contents.
   Status Move(const std::string& src, const std::string& dest) override;
