@@ -750,15 +750,23 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 
   auto call = CallNotNull(expr);
 
-  std::vector<Datum> arguments(call->arguments.size());
-
+  size_t num_args = call->arguments.size();
+  std::vector<Datum> arguments(num_args);
   bool all_scalar = true;
-  for (size_t i = 0; i < arguments.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(
-        arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-    if (arguments[i].is_array()) {
-      all_scalar = false;
+
+  if (num_args) {
+    for (size_t i = 0; i < num_args; ++i) {
+      ARROW_ASSIGN_OR_RAISE(
+          arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
+      if (arguments[i].is_array()) {
+        all_scalar = false;
+      }
     }
+  } else {
+    // See ARROW-39860. When num_args == 0, there is no problem in continuing to execute
+    // subsequent logic, because we have already found the kernel that the current
+    // expression can execute during Bind.
+    all_scalar = false;
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
