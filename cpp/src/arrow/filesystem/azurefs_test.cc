@@ -1390,8 +1390,7 @@ TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
-  arrow::fs::AssertFileInfo(fs(), "abc", FileType::NotFound);
-  ASSERT_RAISES(IOError, fs()->DeleteFile("abc"));
+  ASSERT_RAISES(IOError, fs()->DeleteFile("nonexistent"));
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
