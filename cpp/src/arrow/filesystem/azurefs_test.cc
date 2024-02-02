@@ -50,6 +50,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
@@ -57,6 +58,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -887,29 +889,237 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_RAISES(IOError, fs()->DeleteDirContents(directory_path, false));
   }
 
+ private:
+  using StringMatcher =
+      ::testing::PolymorphicMatcher<::testing::internal::HasSubstrMatcher<std::string>>;
+
+  StringMatcher HasDirMoveToSubdirMessage(const std::string& src,
+                                          const std::string& dest) {
+    return ::testing::HasSubstr("Cannot Move to '" + dest + "' and make '" + src +
+                                "' a sub-directory of itself.");
+  }
+
+  StringMatcher HasCrossContainerNotImplementedMessage(const std::string& container_name,
+                                                       const std::string& dest) {
+    return ::testing::HasSubstr("Move of '" + container_name + "' to '" + dest +
+                                "' requires moving data between "
+                                "containers, which is not implemented.");
+  }
+
+  StringMatcher HasMissingParentDirMessage(const std::string& dest) {
+    return ::testing::HasSubstr("The parent directory of the destination path '" + dest +
+                                "' does not exist.");
+  }
+
+  /// \brief Expected POSIX semantics for the rename operation on multiple
+  /// scenarios.
+  ///
+  /// If the src doesn't exist, the error is always ENOENT, otherwise we are
+  /// left with the following combinations:
+  ///
+  /// 1. src's type
+  ///    a. File
+  ///    b. Directory
+  /// 2. dest's existence
+  ///    a. NotFound
+  ///    b. File
+  ///    c. Directory
+  ///       - empty
+  ///       - non-empty
+  /// 3. src path has a trailing slash (or not)
+  /// 4. dest path has a trailing slash (or not)
+  ///
+  /// Limitations: this function doesn't consider paths so it assumes that the
+  /// paths don't lead requests for moves that would make the source a subdir of
+  /// the destination.
+  ///
+  /// \param paths_are_equal src and dest paths without trailing slashes are equal
+  /// \return std::nullopt if success is expected in the scenario or the errno
+  /// if failure is expected.
+  static std::optional<int> RenameSemantics(FileType src_type, bool src_trailing_slash,
+                                            FileType dest_type, bool dest_trailing_slash,
+                                            bool dest_is_empty_dir = false,
+                                            bool paths_are_equal = false) {
+    DCHECK(src_type != FileType::Unknown && dest_type != FileType::Unknown);
+    DCHECK(!dest_is_empty_dir || dest_type == FileType::Directory)
+        << "dest_is_empty_dir must imply dest_type == FileType::Directory";
+    switch (src_type) {
+      case FileType::Unknown:
+        break;
+      case FileType::NotFound:
+        return {ENOENT};
+      case FileType::File:
+        switch (dest_type) {
+          case FileType::Unknown:
+            break;
+          case FileType::NotFound:
+            if (src_trailing_slash) {
+              return {ENOTDIR};
+            }
+            if (dest_trailing_slash) {
+              // A slash on the destination path requires that it exists,
+              // so a confirmation that it's a directory can be performed.
+              return {ENOENT};
+            }
+            return {};
+          case FileType::File:
+            if (src_trailing_slash || dest_trailing_slash) {
+              return {ENOTDIR};
+            }
+            // The existing file is replaced successfuly.
+            return {};
+          case FileType::Directory:
+            if (src_trailing_slash) {
+              return {ENOTDIR};
+            }
+            return EISDIR;
+        }
+        break;
+      case FileType::Directory:
+        switch (dest_type) {
+          case FileType::Unknown:
+            break;
+          case FileType::NotFound:
+            // We don't have to care about the slashes when the source is a directory.
+            return {};
+          case FileType::File:
+            return {ENOTDIR};
+          case FileType::Directory:
+            if (!paths_are_equal && !dest_is_empty_dir) {
+              return {ENOTEMPTY};
+            }
+            return {};
+        }
+        break;
+    }
+    Unreachable("Invalid parameters passed to RenameSemantics");
+  }
+
+  Status CheckExpectedErrno(const std::string& src, const std::string& dest,
+                            std::optional<int> expected_errno,
+                            const char* expected_errno_name, FileInfo* out_src_info) {
+    auto the_fs = fs();
+    const bool src_trailing_slash = internal::HasTrailingSlash(src);
+    const bool dest_trailing_slash = internal::HasTrailingSlash(dest);
+    const auto src_path = std::string{internal::RemoveTrailingSlash(src)};
+    const auto dest_path = std::string{internal::RemoveTrailingSlash(dest)};
+    ARROW_ASSIGN_OR_RAISE(*out_src_info, the_fs->GetFileInfo(src_path));
+    ARROW_ASSIGN_OR_RAISE(auto dest_info, the_fs->GetFileInfo(dest_path));
+    bool dest_is_empty_dir = false;
+    if (dest_info.type() == FileType::Directory) {
+      FileSelector select;
+      select.base_dir = dest_path;
+      select.recursive = false;
+      // TODO(felipecrv): investigate why this can't be false
+      select.allow_not_found = true;
+      ARROW_ASSIGN_OR_RAISE(auto dest_contents, the_fs->GetFileInfo(select));
+      if (dest_contents.empty()) {
+        dest_is_empty_dir = true;
+      }
+    }
+    auto paths_are_equal = src_path == dest_path;
+    auto truly_expected_errno =
+        RenameSemantics(out_src_info->type(), src_trailing_slash, dest_info.type(),
+                        dest_trailing_slash, dest_is_empty_dir, paths_are_equal);
+    if (truly_expected_errno != expected_errno) {
+      if (expected_errno.has_value()) {
+        return Status::Invalid("expected_errno=", expected_errno_name, "=",
+                               *expected_errno,
+                               " used in ASSERT_MOVE is incorrect. "
+                               "POSIX semantics for this scenario require errno=",
+                               strerror(truly_expected_errno.value_or(0)));
+      } else {
+        DCHECK(truly_expected_errno.has_value());
+        return Status::Invalid(
+            "ASSERT_MOVE used to assert success in a scenario for which "
+            "POSIX semantics requires errno=",
+            strerror(*truly_expected_errno));
+      }
+    }
+    return Status::OK();
+  }
+
+  void AssertAfterMove(const std::string& src, const std::string& dest, FileType type) {
+    if (internal::RemoveTrailingSlash(src) != internal::RemoveTrailingSlash(dest)) {
+      AssertFileInfo(fs(), src, FileType::NotFound);
+    }
+    AssertFileInfo(fs(), dest, type);
+  }
+
+  static bool WithErrno(const Status& status, int expected_errno) {
+    auto* detail = status.detail().get();
+    return detail &&
+           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
+  }
+
+  std::optional<StringMatcher> MoveErrorMessageMatcher(const FileInfo& src_info,
+                                                       const std::string& src,
+                                                       const std::string& dest,
+                                                       int for_errno) {
+    switch (for_errno) {
+      case ENOENT: {
+        auto& path = src_info.type() == FileType::NotFound ? src : dest;
+        return ::testing::HasSubstr("Path does not exist '" + path + "'");
+      }
+      case ENOTEMPTY:
+        return ::testing::HasSubstr("Directory not empty: '" + dest + "'");
+    }
+    return std::nullopt;
+  }
+
+#define ASSERT_MOVE(src, dest, expected_errno)                                          \
+  do {                                                                                  \
+    auto _src = (src);                                                                  \
+    auto _dest = (dest);                                                                \
+    std::optional<int> _expected_errno = (expected_errno);                              \
+    FileInfo _src_info;                                                                 \
+    ASSERT_OK(                                                                          \
+        CheckExpectedErrno(_src, _dest, _expected_errno, #expected_errno, &_src_info)); \
+    auto _move_st = ::arrow::internal::GenericToStatus(fs()->Move(_src, _dest));        \
+    if (_expected_errno.has_value()) {                                                  \
+      if (WithErrno(_move_st, *_expected_errno)) {                                      \
+        /* If the Move failed, the source should remain unchanged. */                   \
+        AssertFileInfo(fs(), std::string{internal::RemoveTrailingSlash(_src)},          \
+                       _src_info.type());                                               \
+        auto _message_matcher =                                                         \
+            MoveErrorMessageMatcher(_src_info, _src, _dest, *_expected_errno);          \
+        if (_message_matcher.has_value()) {                                             \
+          EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, *_message_matcher, _move_st);        \
+        } else {                                                                        \
+          SUCCEED();                                                                    \
+        }                                                                               \
+      } else {                                                                          \
+        FAIL() << "Move '" ARROW_STRINGIFY(src) "' to '" ARROW_STRINGIFY(dest)          \
+               << "' did not fail with errno=" << #expected_errno;                      \
+      }                                                                                 \
+    } else {                                                                            \
+      if (!_move_st.ok()) {                                                             \
+        FAIL() << "Move '" ARROW_STRINGIFY(src) "' to '" ARROW_STRINGIFY(dest)          \
+               << "' failed with " << _move_st.ToString();                              \
+      } else {                                                                          \
+        AssertAfterMove(_src, _dest, _src_info.type());                                 \
+      }                                                                                 \
+    }                                                                                   \
+  } while (false)
+
+#define ASSERT_MOVE_OK(src, dest) ASSERT_MOVE((src), (dest), std::nullopt)
+
   // Tests for Move()
 
+ public:
   void TestRenameContainer() {
     EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     auto data = SetUpPreexistingData();
     // Container exists, so renaming to the same name succeeds because it's a no-op.
-    ASSERT_OK(fs()->Move(data.container_name, data.container_name));
+    ASSERT_MOVE_OK(data.container_name, data.container_name);
     // Renaming a container that doesn't exist fails.
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
-        fs()->Move("missing-container", "missing-container"));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
-        fs()->Move("missing-container", data.container_name));
+    ASSERT_MOVE("missing-container", "missing-container", ENOENT);
+    ASSERT_MOVE("missing-container", data.container_name, ENOENT);
     // Renaming a container to an existing non-empty container fails.
     auto non_empty_container = PreexistingData::RandomContainerName(rng_);
     auto non_empty_container_client = CreateContainer(non_empty_container);
     CreateBlob(non_empty_container_client, "object1", PreexistingData::kLoremIpsum);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError,
-        ::testing::HasSubstr("Non-empty directory cannot be replaced: '" +
-                             non_empty_container + "'"),
-        fs()->Move(data.container_name, non_empty_container));
+    ASSERT_MOVE(data.container_name, non_empty_container, ENOTEMPTY);
     // Renaming to an empty container fails to replace it
     auto empty_container = PreexistingData::RandomContainerName(rng_);
     auto empty_container_client = CreateContainer(empty_container);
@@ -932,8 +1142,7 @@ class TestAzureFileSystem : public ::testing::Test {
           IOError,
           ::testing::HasSubstr("The 'rename' operation is not supported on containers."),
           fs()->Move(data.container_name, new_container));
-      // ASSERT_OK(fs()->Move(data.container_name, new_container));
-      // AssertFileInfo(fs(), new_container, FileType::Directory);
+      // ASSERT_MOVE_OK(data.container_name, new_container);
       // AssertFileInfo(fs(),
       //                ConcatAbstractPath(new_container, PreexistingData::kObjectName),
       //                FileType::File);
@@ -941,33 +1150,12 @@ class TestAzureFileSystem : public ::testing::Test {
     // Renaming to an empty container can work if the source is also empty
     auto new_empty_container = PreexistingData::RandomContainerName(rng_);
     auto new_empty_container_client = CreateContainer(new_empty_container);
-    AssertFileInfo(fs(), empty_container, FileType::Directory);
-    ASSERT_OK(fs()->Move(empty_container, new_empty_container));
-    AssertFileInfo(fs(), empty_container, FileType::NotFound);
-    AssertFileInfo(fs(), new_empty_container, FileType::Directory);
-  }
-
-  using StringMatcher =
-      ::testing::PolymorphicMatcher<::testing::internal::HasSubstrMatcher<std::string>>;
-
-  StringMatcher HasDirMoveToSubdirMessage(const std::string& src,
-                                          const std::string& dest) {
-    return ::testing::HasSubstr("Cannot Move to '" + dest + "' and make '" + src +
-                                "' a sub-directory of itself.");
-  }
-
-  StringMatcher HasCrossContainerNotImplementedMessage(const std::string& container_name,
-                                                       const std::string& dest) {
-    return ::testing::HasSubstr("Move of '" + container_name + "' to '" + dest +
-                                "' requires moving data between "
-                                "containers, which is not implemented.");
+    ASSERT_MOVE_OK(empty_container, new_empty_container);
   }
 
   void TestMoveContainerToPath() {
     auto data = SetUpPreexistingData();
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, ::testing::HasSubstr("Path does not exist 'missing-container'"),
-        fs()->Move("missing-container", data.ContainerPath("new-subdir")));
+    ASSERT_MOVE("missing-container", data.ContainerPath("new-subdir"), ENOENT);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
         HasDirMoveToSubdirMessage(data.container_name, data.ContainerPath("new-subdir")),
@@ -982,9 +1170,7 @@ class TestAzureFileSystem : public ::testing::Test {
   void TestCreateContainerFromPath() {
     auto data = SetUpPreexistingData();
     auto missing_path = data.RandomDirectoryPath(rng_);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, ::testing::HasSubstr("Path does not exist '" + missing_path + "'"),
-        fs()->Move(missing_path, "new-container"));
+    ASSERT_MOVE(missing_path, "new-container", ENOENT);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
         ::testing::HasSubstr("Creating files at '/' is not possible, only directories."),
@@ -999,12 +1185,100 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->Move(src_dir_path, "new-container"));
   }
 
-  static bool WithErrno(const Status& status, int expected_errno) {
-    auto* detail = status.detail().get();
-    return detail &&
-           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
-  }
+  void TestMovePaths() {
+    Status st;
+    auto data = SetUpPreexistingData();
+    // When source doesn't exist.
+    ASSERT_MOVE("missing-container/src-path", "a-container/dest-path", ENOENT);
+    auto missing_path1 = data.RandomDirectoryPath(rng_);
+    ASSERT_MOVE(missing_path1, "missing-container/path", ENOENT);
 
+    // But when source exists...
+    if (!WithHierarchicalNamespace()) {
+      // ...and containers are different, we get an error message telling cross-container
+      // moves are not implemented.
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          NotImplemented,
+          HasCrossContainerNotImplementedMessage(data.ObjectPath(),
+                                                 "missing-container/path"),
+          fs()->Move(data.ObjectPath(), "missing-container/path"));
+      GTEST_SKIP()
+          << "The rest of TestMovePaths is not implemented for non-HNS scenarios";
+    }
+    auto adlfs_client =
+        datalake_service_client_->GetFileSystemClient(data.container_name);
+    // ...and dest.container doesn't exist.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, HasMissingParentDirMessage("missing-container/path"),
+        fs()->Move(data.ObjectPath(), "missing-container/path"));
+    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, HasMissingParentDirMessage(data.Path("missing-subdir/file")),
+        fs()->Move(data.ObjectPath(), data.Path("missing-subdir/file")));
+    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
+    // src is a file and dest does not exists
+    ASSERT_MOVE_OK(data.ObjectPath(), data.Path("file0"));
+    ASSERT_MOVE(data.Path("file0/"), data.Path("file1"), ENOTDIR);
+    ASSERT_MOVE(data.Path("file0"), data.Path("file1/"), ENOENT);
+    ASSERT_MOVE(data.Path("file0/"), data.Path("file1/"), ENOTDIR);
+    // "file0" exists
+
+    // src is a file and dest exists (as a file)
+    CreateFile(adlfs_client, PreexistingData::kObjectName, PreexistingData::kLoremIpsum);
+    CreateFile(adlfs_client, "file1", PreexistingData::kLoremIpsum);
+    ASSERT_MOVE_OK(data.ObjectPath(), data.Path("file0"));
+    ASSERT_MOVE(data.Path("file1/"), data.Path("file0"), ENOTDIR);
+    ASSERT_MOVE(data.Path("file1"), data.Path("file0/"), ENOTDIR);
+    ASSERT_MOVE(data.Path("file1/"), data.Path("file0/"), ENOTDIR);
+    // "file1" and "file2" exist
+
+    // src is a file and dest exists (as an empty dir)
+    CreateDirectory(adlfs_client, "subdir0");
+    ASSERT_MOVE(data.Path("file0"), data.Path("subdir0"), EISDIR);
+    ASSERT_MOVE(data.Path("file0/"), data.Path("subdir0"), ENOTDIR);
+    ASSERT_MOVE(data.Path("file0"), data.Path("subdir0/"), EISDIR);
+    ASSERT_MOVE(data.Path("file0/"), data.Path("subdir0/"), ENOTDIR);
+
+    // src is a file and dest exists (as a non-empty dir)
+    CreateFile(adlfs_client, "subdir0/file-at-subdir");
+    ASSERT_MOVE(data.Path("file0"), data.Path("subdir0"), EISDIR);
+    ASSERT_MOVE(data.Path("file0/"), data.Path("subdir0"), ENOTDIR);
+    ASSERT_MOVE(data.Path("file0"), data.Path("subdir0/"), EISDIR);
+    ASSERT_MOVE(data.Path("file0/"), data.Path("subdir0/"), ENOTDIR);
+    // "subdir0/file-at-subdir" exists
+
+    // src is a directory and dest does not exists
+    CreateDirectory(adlfs_client, "subdir0");
+    ASSERT_MOVE_OK(data.Path("subdir0"), data.Path("subdir1"));
+    ASSERT_MOVE_OK(data.Path("subdir1/"), data.Path("subdir2"));
+    ASSERT_MOVE_OK(data.Path("subdir2"), data.Path("subdir3/"));
+    ASSERT_MOVE_OK(data.Path("subdir3/"), data.Path("subdir4/"));
+    AssertFileInfo(fs(), data.Path("subdir4/file-at-subdir"), FileType::File);
+    // "subdir4/file-at-subdir" exists
+
+    // src is a directory and dest exists as an empty directory
+    CreateDirectory(adlfs_client, "subdir0");
+    CreateDirectory(adlfs_client, "subdir1");
+    CreateDirectory(adlfs_client, "subdir2");
+    CreateDirectory(adlfs_client, "subdir3");
+    ASSERT_MOVE_OK(data.Path("subdir4"), data.Path("subdir0"));
+    ASSERT_MOVE_OK(data.Path("subdir0/"), data.Path("subdir1"));
+    ASSERT_MOVE_OK(data.Path("subdir1"), data.Path("subdir2/"));
+    ASSERT_MOVE_OK(data.Path("subdir2/"), data.Path("subdir3/"));
+    AssertFileInfo(fs(), data.Path("subdir3/file-at-subdir"), FileType::File);
+    // "subdir3/file-at-subdir" exists
+
+    // src is directory and dest exists as a non-empty directory
+    CreateDirectory(adlfs_client, "subdir0");
+    CreateDirectory(adlfs_client, "subdir1");
+    CreateDirectory(adlfs_client, "subdir2");
+    ASSERT_MOVE(data.Path("subdir0"), data.Path("subdir3"), ENOTEMPTY);
+    ASSERT_MOVE(data.Path("subdir0/"), data.Path("subdir3"), ENOTEMPTY);
+    ASSERT_MOVE(data.Path("subdir0"), data.Path("subdir3/"), ENOTEMPTY);
+    ASSERT_MOVE(data.Path("subdir0/"), data.Path("subdir3/"), ENOTEMPTY);
+  }
 };
 
 void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {
@@ -1269,6 +1543,8 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, MoveContainerToPath) {
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
   this->TestCreateContainerFromPath();
 }
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePaths) { this->TestMovePaths(); }
 
 // Tests using Azurite (the local Azure emulator)
 

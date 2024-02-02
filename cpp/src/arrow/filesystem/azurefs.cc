@@ -323,6 +323,11 @@ Status InvalidDirMoveToSubdir(const AzureLocation& src, const AzureLocation& des
                          "' a sub-directory of itself.");
 }
 
+Status DestinationParentPathNotFound(const AzureLocation& dest) {
+  return Status::IOError("The parent directory of the destination path '", dest.all,
+                         "' does not exist.");
+}
+
 Status CrossContainerMoveNotImplemented(const AzureLocation& src,
                                         const AzureLocation& dest) {
   return Status::NotImplemented(
@@ -1998,6 +2003,8 @@ class AzureFileSystem::Impl {
   static constexpr auto kLeaseDuration = std::chrono::seconds{15};
   static constexpr auto kTimeNeededForContainerDeletion = std::chrono::seconds{3};
   static constexpr auto kTimeNeededForContainerRename = std::chrono::seconds{3};
+  static constexpr auto kTimeNeededForFileOrDirectoryRename = std::chrono::seconds{3};
+  static constexpr auto kTimeNeededForEmptyDirectoryDeletion = std::chrono::seconds{3};
 
   /// The conditions for a successful container rename are derived from the
   /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
@@ -2171,20 +2178,147 @@ class AzureFileSystem::Impl {
     return CrossContainerMoveNotImplemented(src, dest);
   }
 
-  Status MovePathsWithinContainer(const AzureLocation& src, const AzureLocation& dest) {
+  Status MovePathsWithDataLakeAPI(
+      const DataLake::DataLakeFileSystemClient& src_adlfs_client,
+      const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    DCHECK_EQ(src.container, dest.container);
+    const auto src_path = std::string{internal::RemoveTrailingSlash(src.path)};
+    const auto dest_path = std::string{internal::RemoveTrailingSlash(dest.path)};
+
+    // Ensure that src exists and, if path has a trailing slash, that it's a directory.
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client, AcquireBlobLease(src, kLeaseDuration));
+    LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
+    // It might be necessary to check src is a directory 0-3 times in this function,
+    // so we use a lazy evaluation function to avoid redundant calls to GetFileInfo().
+    std::optional<bool> src_is_dir_opt{};
+    auto src_is_dir_lazy = [&]() -> Result<bool> {
+      if (src_is_dir_opt.has_value()) {
+        return *src_is_dir_opt;
+      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto src_info, GetFileInfo(src_adlfs_client, src, src_lease_guard.LeaseId()));
+      src_is_dir_opt = src_info.type() == FileType::Directory;
+      return *src_is_dir_opt;
+    };
+    // src must be a directory if it has a trailing slash.
+    if (internal::HasTrailingSlash(src.path)) {
+      ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+      if (!src_is_dir) {
+        return NotADir(src);
+      }
+    }
+    // The Azure SDK and the backend don't perform many important checks, so we have to
+    // do them ourselves. Additionally, based on many tests on a default-configuration
+    // storage account, if the destination is an empty directory, the rename operation
+    // will most likely fail due to a timeout. Providing both leases -- to source and
+    // destination -- seems to have made things work.
+    ARROW_ASSIGN_OR_RAISE(auto dest_lease_client,
+                          AcquireBlobLease(dest, kLeaseDuration, /*allow_missing=*/true));
+    std::optional<LeaseGuard> dest_lease_guard;
+    if (dest_lease_client) {
+      dest_lease_guard.emplace(std::move(dest_lease_client), kLeaseDuration);
+      // Perform all the checks on dest (and src) before proceeding with the rename.
+      auto dest_adlfs_client = GetFileSystemClient(dest.container);
+      ARROW_ASSIGN_OR_RAISE(auto dest_info, GetFileInfo(dest_adlfs_client, dest,
+                                                        dest_lease_guard->LeaseId()));
+      if (dest_info.type() == FileType::Directory) {
+        ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+        if (!src_is_dir) {
+          // If src is a regular file, complain that dest is a directory
+          // like POSIX rename() does.
+          return internal::IsADir(dest.all);
+        }
+      } else {
+        if (internal::HasTrailingSlash(dest.path)) {
+          return NotADir(dest);
+        }
+      }
+    } else {
+      // If the destination has trailing slash, we would have to check that it's a
+      // directory, but since it doesn't exist we must return PathNotFound...
+      if (internal::HasTrailingSlash(dest.path)) {
+        // ...unless the src is a directory, in which case we can proceed with the rename.
+        ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+        if (!src_is_dir) {
+          return PathNotFound(dest);
+        }
+      }
+    }
+
+    try {
+      // NOTE: The Azure SDK provides a RenameDirectory() function, but the
+      // implementation is the same as RenameFile() with the only difference being
+      // the type of the returned object (DataLakeDirectoryClient vs DataLakeFileClient).
+      //
+      // If we call RenameDirectory() and the source is a file, no error would
+      // be returned and the file would be renamed just fine (!).
+      //
+      // Since we don't use the returned object, we can just use RenameFile() for both
+      // files and directories. Ideally, the SDK would simply expose the PathClient
+      // that it uses internally for both files and directories.
+      DataLake::RenameFileOptions options;
+      options.DestinationFileSystem = dest.container;
+      options.SourceAccessConditions.LeaseId = src_lease_guard.LeaseId();
+      if (dest_lease_guard.has_value()) {
+        options.AccessConditions.LeaseId = dest_lease_guard->LeaseId();
+      }
+      src_lease_guard.BreakBeforeDeletion(kTimeNeededForFileOrDirectoryRename);
+      src_adlfs_client.RenameFile(src_path, dest_path, options);
+      src_lease_guard.Forget();
+    } catch (const Storage::StorageException& exception) {
+      // https://learn.microsoft.com/en-gb/rest/api/storageservices/datalakestoragegen2/path/create
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        if (exception.ErrorCode == "PathNotFound") {
+          return PathNotFound(src);
+        }
+        // "FilesystemNotFound" could be triggered by the source or destination filesystem
+        // not existing, but since we already checked the source filesystem exists (and
+        // hold a lease to it), we can assume the destination filesystem is the one the
+        // doesn't exist.
+        if (exception.ErrorCode == "FilesystemNotFound" ||
+            exception.ErrorCode == "RenameDestinationParentPathNotFound") {
+          return DestinationParentPathNotFound(dest);
+        }
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "PathAlreadyExists") {
+        // "PathAlreadyExists" is only produced when the destination exists and is a
+        // non-empty directory, so we produce the appropriate error.
+        return NotEmpty(dest);
+      }
+      return ExceptionToStatus(exception, "Failed to rename '", src.all, "' to '",
+                               dest.all, "': ", src_adlfs_client.GetUrl());
+    }
+    return Status::OK();
+  }
+
+  Status MovePathsUsingBlobsAPI(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    if (src.container != dest.container) {
+      ARROW_ASSIGN_OR_RAISE(auto src_file_info, GetFileInfoOfPathWithinContainer(src));
+      if (src_file_info.type() == FileType::NotFound) {
+        return PathNotFound(src);
+      }
+      return CrossContainerMoveNotImplemented(src, dest);
+    }
     return Status::NotImplemented("The Azure FileSystem is not fully implemented");
   }
 
   Status MovePaths(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    if (src.container == dest.container) {
-      return MovePathsWithinContainer(src, dest);
+    auto src_adlfs_client = GetFileSystemClient(src.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                          HierarchicalNamespaceSupport(src_adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return PathNotFound(src);
     }
-    return CrossContainerMoveNotImplemented(src, dest);
+    if (hns_support == HNSSupport::kEnabled) {
+      return MovePathsWithDataLakeAPI(src_adlfs_client, src, dest);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+    return MovePathsUsingBlobsAPI(src, dest);
   }
 
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
