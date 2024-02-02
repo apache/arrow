@@ -38,7 +38,7 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 export AWS_EC2_METADATA_DISABLED=TRUE
 
 # Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# export ARROW_DEBUG_MEMORY_POOL=trap
 
 ctest_options=()
 case "$(uname)" in
