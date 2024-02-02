@@ -397,7 +397,6 @@ func (w *columnWriter) FlushBufferedDataPages() (err error) {
 		}
 	}
 	w.pages = w.pages[:0]
-	w.totalCompressedBytes = 0
 	return
 }
 
@@ -542,7 +541,9 @@ func (w *columnWriter) Close() (err error) {
 	if !w.closed {
 		w.closed = true
 		if w.hasDict && !w.fallbackToNonDict {
-			w.WriteDictionaryPage()
+			if err = w.WriteDictionaryPage(); err != nil {
+				return err
+			}
 		}
 
 		if err = w.FlushBufferedDataPages(); err != nil {
