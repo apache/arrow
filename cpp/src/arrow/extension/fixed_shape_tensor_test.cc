@@ -371,9 +371,9 @@ void CheckToTensor(const std::vector<T>& values, const std::shared_ptr<DataType>
 }
 
 TEST_F(TestExtensionType, ToTensor) {
-  std::vector<float> values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                               12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                               24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
+  std::vector<float_t> float_values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+                                       12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                                       24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
 
   auto element_sizes = std::vector<int32_t>{6, 6, 18, 18, 18, 18};
 
@@ -398,9 +398,9 @@ TEST_F(TestExtensionType, ToTensor) {
       {"", "y", "z"}, {"", "H", "W", "C"}, {"", "C", "W", "H"}};
 
   for (size_t i = 0; i < element_shapes.size(); i++) {
-    CheckToTensor<float_t>(values, float32(), element_sizes[i], element_shapes[i],
-                           element_permutations[i], element_dim_names[i],
-                           tensor_shapes[i], tensor_dim_names[i], tensor_strides_32[i]);
+    CheckToTensor(float_values, float32(), element_sizes[i], element_shapes[i],
+                  element_permutations[i], element_dim_names[i], tensor_shapes[i],
+                  tensor_dim_names[i], tensor_strides_32[i]);
     CheckToTensor(values_, int64(), element_sizes[i], element_shapes[i],
                   element_permutations[i], element_dim_names[i], tensor_shapes[i],
                   tensor_dim_names[i], tensor_strides_64[i]);

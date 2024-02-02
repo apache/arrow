@@ -344,19 +344,22 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
       !is_fixed_width(*value_type),
       Status::TypeError(value_type->ToString(), " is not valid data type for a tensor"));
 
+  // ext_type->permutation() gives us permutation for a single row with values in
+  // range [0, ndim). Here want to create a ndim + 1 dimensional tensor from the entire
+  // array and we assume the first dimension will always have the greatest stride, so it
+  // will get permutation index 0 and remaining values from ext_type->permutation() need
+  // to be shifted to fill the [1, ndim+1) range. Computed permutation will be used to
+  // generate the new tensor's shape, strides and dim_names.
   std::vector<int64_t> permutation = ext_type->permutation();
   if (permutation.empty()) {
-    permutation.resize(ext_type->ndim());
-    for (int64_t i = 0; i <= static_cast<int64_t>(ext_type->ndim()); i++) {
-      permutation[i] = i + 1;
-    }
+    permutation.resize(ext_type->ndim() + 1);
+    std::iota(permutation.begin(), permutation.end(), 0);
   } else {
-    for (int64_t i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
+    for (auto i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
       permutation[i] += 1;
     }
+    permutation.insert(permutation.begin(), 1, 0);
   }
-
-  permutation.insert(permutation.begin(), 1, 0);
 
   std::vector<std::string> dim_names = ext_type->dim_names();
   if (!dim_names.empty()) {
