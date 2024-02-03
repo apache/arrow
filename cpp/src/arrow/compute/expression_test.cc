@@ -878,6 +878,8 @@ TEST(Expression, ExecuteCallWithNoArguments) {
   ASSERT_OK_AND_ASSIGN(Datum expected,
                        function->Execute(input, &random_options, exec_context));
   AssertDatumsEqual(actual, expected, /*verbose=*/true);
+
+  EXPECT_EQ(actual.length(), kCount);
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {
