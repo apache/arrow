@@ -886,6 +886,18 @@ std::string Scalar::ToString() const {
            dict_scalar->value.index->ToString() + "]";
   }
 
+  if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
+      type->id() == Type::LIST_VIEW || type->id() == Type::LARGE_LIST_VIEW ||
+      type->id() == Type::FIXED_SIZE_LIST) {
+      auto list_scalar = checked_cast<const BaseListScalar*>(this);
+      return list_scalar->value->ToString();
+  }
+
+  if (type->id() == Type::RUN_END_ENCODED) {
+    auto ree_scalar = checked_cast<const RunEndEncodedScalar*>(this);
+    return ree_scalar->value->ToString();
+  }
+
   auto non_const_shared_ptr = std::const_pointer_cast<arrow::Scalar>(shared_from_this());
   auto maybe_repr = Cast(non_const_shared_ptr, utf8());
   if (maybe_repr.ok()) {
