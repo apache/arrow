@@ -750,23 +750,24 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 
   auto call = CallNotNull(expr);
 
-  size_t num_args = call->arguments.size();
-  std::vector<Datum> arguments(num_args);
-  bool all_scalar = true;
+  std::vector<Datum> arguments(call->arguments.size());
 
-  if (num_args) {
-    for (size_t i = 0; i < num_args; ++i) {
-      ARROW_ASSIGN_OR_RAISE(
-          arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-      if (arguments[i].is_array()) {
-        all_scalar = false;
-      }
+  bool all_scalar = true;
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(
+        arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
+    if (arguments[i].is_array()) {
+      all_scalar = false;
     }
+  }
+
+  int64_t input_length;
+  if (!arguments.empty() && all_scalar) {
+    // all inputs are scalar, so use a 1-long batch to avoid
+    // computing input.length equivalent outputs
+    input_length = 1;
   } else {
-    // See ARROW-39860. When num_args == 0, there is no problem in continuing to execute
-    // subsequent logic, because we have already found the kernel that the current
-    // expression can execute during Bind.
-    all_scalar = false;
+    input_length = input.length;
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
@@ -780,8 +781,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(
-      ExecBatch(std::move(arguments), all_scalar ? 1 : input.length), &listener));
+  RETURN_NOT_OK(
+      executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
