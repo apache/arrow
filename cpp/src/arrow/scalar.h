@@ -76,8 +76,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
 
   size_t hash() const;
 
-  std::shared_ptr<Scalar> CastToExplicitScalar() const;
-
   std::string ToString() const;
 
   /// \brief Perform cheap validation checks

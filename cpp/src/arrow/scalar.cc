@@ -876,118 +876,6 @@ std::shared_ptr<Scalar> MakeNullScalar(std::shared_ptr<DataType> type) {
   return MakeNullImpl{std::move(type), nullptr}.Finish();
 }
 
-std::shared_ptr<Scalar> Scalar::CastToExplicitScalar() const {
-  switch (this->type->id()) {
-    case Type::BOOL:
-      return std::make_shared<BooleanScalar>(checked_cast<const BooleanScalar&>(*this));
-    case Type::UINT8:
-      return std::make_shared<UInt8Scalar>(checked_cast<const UInt8Scalar&>(*this));
-    case Type::INT8:
-      return std::make_shared<Int8Scalar>(checked_cast<const Int8Scalar&>(*this));
-    case Type::UINT16:
-      return std::make_shared<UInt16Scalar>(checked_cast<const UInt16Scalar&>(*this));
-    case Type::INT16:
-      return std::make_shared<Int16Scalar>(checked_cast<const Int16Scalar&>(*this));
-    case Type::UINT32:
-      return std::make_shared<UInt32Scalar>(checked_cast<const UInt32Scalar&>(*this));
-    case Type::INT32:
-      return std::make_shared<Int32Scalar>(checked_cast<const Int32Scalar&>(*this));
-    case Type::UINT64:
-      return std::make_shared<UInt64Scalar>(checked_cast<const UInt64Scalar&>(*this));
-    case Type::INT64:
-      return std::make_shared<Int64Scalar>(checked_cast<const Int64Scalar&>(*this));
-    case Type::HALF_FLOAT:
-      return std::make_shared<HalfFloatScalar>(
-          checked_cast<const HalfFloatScalar&>(*this));
-    case Type::FLOAT:
-      return std::make_shared<FloatScalar>(checked_cast<const FloatScalar&>(*this));
-    case Type::DOUBLE:
-      return std::make_shared<DoubleScalar>(checked_cast<const DoubleScalar&>(*this));
-    case Type::STRING:
-      return std::make_shared<StringScalar>(checked_cast<const StringScalar&>(*this));
-    case Type::BINARY:
-      return std::make_shared<BinaryScalar>(checked_cast<const BinaryScalar&>(*this));
-    case Type::FIXED_SIZE_BINARY:
-      return std::make_shared<FixedSizeBinaryScalar>(
-          checked_cast<const FixedSizeBinaryScalar&>(*this));
-    case Type::DATE32:
-      return std::make_shared<Date32Scalar>(checked_cast<const Date32Scalar&>(*this));
-    case Type::DATE64:
-      return std::make_shared<Date64Scalar>(checked_cast<const Date64Scalar&>(*this));
-    case Type::TIMESTAMP:
-      return std::make_shared<TimestampScalar>(
-          checked_cast<const TimestampScalar&>(*this));
-    case Type::TIME32:
-      return std::make_shared<Time32Scalar>(checked_cast<const Time32Scalar&>(*this));
-    case Type::TIME64:
-      return std::make_shared<Time64Scalar>(checked_cast<const Time64Scalar&>(*this));
-    case Type::INTERVAL_MONTHS:
-      return std::make_shared<MonthIntervalScalar>(
-          checked_cast<const MonthIntervalScalar&>(*this));
-    case Type::INTERVAL_DAY_TIME:
-      return std::make_shared<DayTimeIntervalScalar>(
-          checked_cast<const DayTimeIntervalScalar&>(*this));
-    case Type::DECIMAL128:
-      return std::make_shared<Decimal128Scalar>(
-          checked_cast<const Decimal128Scalar&>(*this));
-    case Type::DECIMAL256:
-      return std::make_shared<Decimal256Scalar>(
-          checked_cast<const Decimal256Scalar&>(*this));
-    case Type::LIST:
-      return std::make_shared<ListScalar>(checked_cast<const ListScalar&>(*this));
-    case Type::STRUCT:
-      return std::make_shared<StructScalar>(checked_cast<const StructScalar&>(*this));
-    case Type::SPARSE_UNION:
-      return std::make_shared<SparseUnionScalar>(
-          checked_cast<const SparseUnionScalar&>(*this));
-    case Type::DENSE_UNION:
-      return std::make_shared<DenseUnionScalar>(
-          checked_cast<const DenseUnionScalar&>(*this));
-    case Type::DICTIONARY:
-      return std::make_shared<DictionaryScalar>(
-          checked_cast<const DictionaryScalar&>(*this));
-    case Type::MAP:
-      return std::make_shared<MapScalar>(checked_cast<const MapScalar&>(*this));
-    case Type::EXTENSION:
-      return std::make_shared<ExtensionScalar>(
-          checked_cast<const ExtensionScalar&>(*this));
-    case Type::FIXED_SIZE_LIST:
-      return std::make_shared<FixedSizeListScalar>(
-          checked_cast<const FixedSizeListScalar&>(*this));
-    case Type::DURATION:
-      return std::make_shared<DurationScalar>(checked_cast<const DurationScalar&>(*this));
-    case Type::LARGE_STRING:
-      return std::make_shared<LargeStringScalar>(
-          checked_cast<const LargeStringScalar&>(*this));
-    case Type::LARGE_BINARY:
-      return std::make_shared<LargeBinaryScalar>(
-          checked_cast<const LargeBinaryScalar&>(*this));
-    case Type::LARGE_LIST:
-      return std::make_shared<LargeListScalar>(
-          checked_cast<const LargeListScalar&>(*this));
-    case Type::INTERVAL_MONTH_DAY_NANO:
-      return std::make_shared<MonthDayNanoIntervalScalar>(
-          checked_cast<const MonthDayNanoIntervalScalar&>(*this));
-    case Type::RUN_END_ENCODED:
-      return std::make_shared<RunEndEncodedScalar>(
-          checked_cast<const RunEndEncodedScalar&>(*this));
-    case Type::STRING_VIEW:
-      return std::make_shared<StringViewScalar>(
-          checked_cast<const StringViewScalar&>(*this));
-    case Type::BINARY_VIEW:
-      return std::make_shared<BinaryViewScalar>(
-          checked_cast<const BinaryViewScalar&>(*this));
-    case Type::LIST_VIEW:
-      return std::make_shared<ListViewScalar>(checked_cast<const ListViewScalar&>(*this));
-    case Type::LARGE_LIST_VIEW:
-      return std::make_shared<LargeListViewScalar>(
-          checked_cast<const LargeListViewScalar&>(*this));
-    default:
-      DCHECK(false) << "cannot cast to scalar: " << this->type->ToString();
-      return nullptr;
-  }
-}
-
 std::string Scalar::ToString() const {
   if (!this->is_valid) {
     return "null";
@@ -998,7 +886,8 @@ std::string Scalar::ToString() const {
            dict_scalar->value.index->ToString() + "]";
   }
 
-  auto maybe_repr = Cast(CastToExplicitScalar(), utf8());
+  auto non_const_shared_ptr = std::const_pointer_cast<arrow::Scalar>(shared_from_this());
+  auto maybe_repr = Cast(non_const_shared_ptr, utf8());
   if (maybe_repr.ok()) {
     return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie().scalar())
         .value->ToString();
