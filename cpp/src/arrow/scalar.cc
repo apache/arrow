@@ -889,8 +889,8 @@ std::string Scalar::ToString() const {
   if (type->id() == Type::LIST || type->id() == Type::LARGE_LIST ||
       type->id() == Type::LIST_VIEW || type->id() == Type::LARGE_LIST_VIEW ||
       type->id() == Type::FIXED_SIZE_LIST) {
-      auto list_scalar = checked_cast<const BaseListScalar*>(this);
-      return list_scalar->value->ToString();
+    auto list_scalar = checked_cast<const BaseListScalar*>(this);
+    return list_scalar->value->ToString();
   }
 
   if (type->id() == Type::RUN_END_ENCODED) {
