@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <memory>
 #include <sstream>
+#include <variant>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -73,86 +74,108 @@ std::shared_ptr<Array> Datum::make_array() const {
 }
 
 const std::shared_ptr<DataType>& Datum::type() const {
-  if (this->kind() == Datum::ARRAY) {
-    return std::get<std::shared_ptr<ArrayData>>(this->value)->type;
-  }
-  if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return std::get<std::shared_ptr<ChunkedArray>>(this->value)->type();
-  }
-  if (this->kind() == Datum::SCALAR) {
-    return std::get<std::shared_ptr<Scalar>>(this->value)->type;
-  }
-  static std::shared_ptr<DataType> no_type;
-  return no_type;
+  return std::visit(
+      [](const auto& value) -> const std::shared_ptr<DataType>& {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>> ||
+                      std::is_same_v<T, std::shared_ptr<ArrayData>>) {
+          return value->type;
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
+          return value->type();
+        } else {
+          static std::shared_ptr<DataType> no_type;
+          return no_type;
+        }
+      },
+      this->value);
 }
 
 const std::shared_ptr<Schema>& Datum::schema() const {
-  if (this->kind() == Datum::RECORD_BATCH) {
-    return std::get<std::shared_ptr<RecordBatch>>(this->value)->schema();
-  }
-  if (this->kind() == Datum::TABLE) {
-    return std::get<std::shared_ptr<Table>>(this->value)->schema();
-  }
-  static std::shared_ptr<Schema> no_schema;
-  return no_schema;
+  return std::visit(
+      [](const auto& value) -> const std::shared_ptr<Schema>& {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>> ||
+                      std::is_same_v<T, std::shared_ptr<Table>>) {
+          return value->schema();
+        } else {
+          static std::shared_ptr<Schema> no_schema;
+          return no_schema;
+        }
+      },
+      this->value);
 }
 
 int64_t Datum::length() const {
-  switch (this->kind()) {
-    case Datum::ARRAY:
-      return std::get<std::shared_ptr<ArrayData>>(this->value)->length;
-    case Datum::CHUNKED_ARRAY:
-      return std::get<std::shared_ptr<ChunkedArray>>(this->value)->length();
-    case Datum::RECORD_BATCH:
-      return std::get<std::shared_ptr<RecordBatch>>(this->value)->num_rows();
-    case Datum::TABLE:
-      return std::get<std::shared_ptr<Table>>(this->value)->num_rows();
-    case Datum::SCALAR:
-      return 1;
-    default:
-      return kUnknownLength;
-  }
+  return std::visit(
+      [](const auto& value) -> int64_t {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
+          return 1;
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>>) {
+          return value->length;
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
+          return value->length();
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>> ||
+                             std::is_same_v<T, std::shared_ptr<Table>>) {
+          return value->num_rows();
+        } else {
+          return kUnknownLength;
+        }
+      },
+      this->value);
 }
 
 int64_t Datum::TotalBufferSize() const {
-  switch (this->kind()) {
-    case Datum::ARRAY:
-      return util::TotalBufferSize(*std::get<std::shared_ptr<ArrayData>>(this->value));
-    case Datum::CHUNKED_ARRAY:
-      return util::TotalBufferSize(*std::get<std::shared_ptr<ChunkedArray>>(this->value));
-    case Datum::RECORD_BATCH:
-      return util::TotalBufferSize(*std::get<std::shared_ptr<RecordBatch>>(this->value));
-    case Datum::TABLE:
-      return util::TotalBufferSize(*std::get<std::shared_ptr<Table>>(this->value));
-    case Datum::SCALAR:
-      return 0;
-    default:
-      DCHECK(false);
-      return 0;
-  }
+  return std::visit(
+      [](const auto& value) -> int64_t {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
+          return 0;
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>> ||
+                             std::is_same_v<T, std::shared_ptr<ChunkedArray>> ||
+                             std::is_same_v<T, std::shared_ptr<RecordBatch>> ||
+                             std::is_same_v<T, std::shared_ptr<Table>>) {
+          return util::TotalBufferSize(*value);
+        } else {
+          DCHECK(false);
+          return 0;
+        }
+      },
+      this->value);
 }
 
 int64_t Datum::null_count() const {
-  if (this->kind() == Datum::ARRAY) {
-    return std::get<std::shared_ptr<ArrayData>>(this->value)->GetNullCount();
-  } else if (this->kind() == Datum::CHUNKED_ARRAY) {
-    return std::get<std::shared_ptr<ChunkedArray>>(this->value)->null_count();
-  } else if (this->kind() == Datum::SCALAR) {
-    const auto& val = *std::get<std::shared_ptr<Scalar>>(this->value);
-    return val.is_valid ? 0 : 1;
-  } else {
-    DCHECK(false) << "This function only valid for array-like values";
-    return 0;
-  }
+  return std::visit(
+      [](const auto& value) -> int64_t {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
+          return value->is_valid ? 0 : 1;
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>>) {
+          return value->GetNullCount();
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
+          return value->null_count();
+        } else {
+          DCHECK(false) << "This function only valid for array-like values";
+          return 0;
+        }
+      },
+      this->value);
 }
 
 ArrayVector Datum::chunks() const {
   if (!this->is_arraylike()) {
     return {};
   }
+
   if (this->is_array()) {
     return {this->make_array()};
   }
+
   return this->chunked_array()->chunks();
 }
 
@@ -178,23 +201,27 @@ bool Datum::Equals(const Datum& other) const {
 }
 
 std::string Datum::ToString() const {
-  switch (this->kind()) {
-    case Datum::NONE:
-      return "nullptr";
-    case Datum::SCALAR:
-      return "Scalar(" + scalar()->ToString() + ")";
-    case Datum::ARRAY:
-      return "Array(" + make_array()->ToString() + ")";
-    case Datum::CHUNKED_ARRAY:
-      return "ChunkedArray(" + chunked_array()->ToString() + ")";
-    case Datum::RECORD_BATCH:
-      return "RecordBatch(" + record_batch()->ToString() + ")";
-    case Datum::TABLE:
-      return "Table(" + table()->ToString() + ")";
-    default:
-      DCHECK(false);
-      return "";
-  }
+  return std::visit(
+      [this](const auto& value) -> std::string {
+        using T = std::decay_t<decltype(value)>;
+
+        if constexpr (std::is_same_v<T, Empty>) {
+          return "nullptr";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
+          return "Scalar(" + value->ToString() + ")";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>>) {
+          return "Array(" + make_array()->ToString() + ")";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
+          return "ChunkedArray(" + value->ToString() + ")";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>>) {
+          return "RecordBatch(" + value->ToString() + ")";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<Table>>) {
+          return "Table(" + value->ToString() + ")";
+        } else {
+          static_assert(!std::is_same_v<T, T>, "unhandled type");
+        }
+      },
+      this->value);
 }
 
 void PrintTo(const Datum& datum, std::ostream* os) {
