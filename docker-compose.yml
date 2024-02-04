@@ -1709,9 +1709,7 @@ services:
         arch: ${ARCH}
         # Use a newer JDK as it seems to improve stability
         jdk: 17
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
@@ -1843,9 +1841,7 @@ services:
         arch: ${ARCH}
         python: ${PYTHON}
         jdk: ${JDK}
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         hdfs: ${HDFS}
     links:
       - impala:impala
@@ -1886,9 +1882,7 @@ services:
         arch: ${ARCH}
         python: ${PYTHON}
         jdk: ${JDK}
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         spark: ${SPARK}
         numpy: ${NUMPY}
     shm_size: *shm-size

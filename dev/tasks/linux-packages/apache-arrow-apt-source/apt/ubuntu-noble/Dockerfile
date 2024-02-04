@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,23 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+FROM ubuntu:noble
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <dask version>"
-  exit 1
-fi
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
 
-dask=$1
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
-if [ "${dask}" = "upstream_devel" ]; then
-  pip install https://github.com/dask/dask/archive/main.tar.gz#egg=dask[dataframe]
-elif [ "${dask}" = "latest" ]; then
-  pip install dask[dataframe]
-else
-  pip install dask[dataframe]==${dask}
-fi
+ARG DEBUG
 
-# additional dependencies needed for dask's s3 tests
-# Moto 5 results in timeouts in s3 tests: https://github.com/dask/dask/issues/10869
-pip install "moto[server]<5" flask requests
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    build-essential \
+    debhelper \
+    devscripts \
+    fakeroot \
+    gnupg \
+    lsb-release && \
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*
