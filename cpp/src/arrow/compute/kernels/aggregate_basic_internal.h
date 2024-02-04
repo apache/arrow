@@ -1135,8 +1135,9 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   inline Status InitValueState() {
     if (this->value_state == nullptr) {
       const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
-      MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
-          nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
+      ScalarAggregateOptions options = ScalarAggregateOptions::Defaults();
+      MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(nullptr, value_type_ref,
+                                                            out_type, options);
       ARROW_ASSIGN_OR_RAISE(this->value_state, valueMinMaxInitState.Create());
     }
     return Status::OK();
