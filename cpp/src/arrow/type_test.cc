@@ -1952,23 +1952,18 @@ TEST(TestListViewType, Metadata) {
   ASSERT_EQ(t1->ToString(true), t2->ToString(true));
   ASSERT_NE(t1->ToString(true), t2->ToString());
   ASSERT_NE(t1->ToString(), t2->ToString(true));
-  
-
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
   ASSERT_NE(t1->ToString(true), t3->ToString(true));
 
-
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
   ASSERT_NE(t1->ToString(true), t4->ToString(true));
 
-
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
   ASSERT_NE(t1->ToString(true), t5->ToString(true));
-
 }
 
 TEST(TestLargeListViewType, Metadata) {
