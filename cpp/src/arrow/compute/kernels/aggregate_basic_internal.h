@@ -1064,6 +1064,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     }
     RETURN_NOT_OK(this->InitValueState());
 
+    // The minmax is computed from dictionay values, in case some values are not
+    // referenced by indices, a compaction needs to be excuted here.
     DictionaryArray dict_arr(batch[0].array.ToArrayData());
     ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
     const DictionaryArray& compacted_dict_arr =
