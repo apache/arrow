@@ -465,7 +465,8 @@ tasks:
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-mantic"] %}
+                  "ubuntu-mantic",
+                  "ubuntu-noble"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
