@@ -799,8 +799,8 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
   arrow::Result<GetSessionOptionsResult> GetSessionOptions(
       const ServerCallContext& context,
       const GetSessionOptionsRequest& request) override {
-    sql::ServerSessionMiddleware* middleware =
-        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
     if (!middleware->HasSession()) {
       return Status::Invalid("No existing session to get options from.");
     }
@@ -857,24 +857,24 @@ class SessionOptionsScenario : public Scenario {
                                                          "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}}};
     ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
     // Some errors
-    if (!(res1.errors ==
+    if (res1.errors !=
           std::map<std::string, SetSessionOptionsResult::Error>{
               {"lol_invalid",
                SetSessionOptionsResult::Error{SetSessionOptionErrorValue::kInvalidName}},
               {"key_with_invalid_value",
                SetSessionOptionsResult::Error{
-                   SetSessionOptionErrorValue::kInvalidValue}}})) {
+                   SetSessionOptionErrorValue::kInvalidValue}}}) {
       return Status::Invalid("res1 incorrect: " + res1.ToString());
     }
     // Some set, some omitted due to above errors
     ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
-    if (!(res2.session_options ==
+    if (res2.session_options !=
           std::map<std::string, SessionOptionValue>{
               {"foolong", 123L},
               {"bardouble", 456.0},
               {"big_ol_string_list",
                std::vector<std::string>{"a", "b", "sea", "dee", " ", "  ", "geee",
-                                        "(づ｡◕‿‿◕｡)づ"}}})) {
+                                        "(づ｡◕‿‿◕｡)づ"}}}) {
       return Status::Invalid("res2 incorrect: " + res2.ToString());
     }
     // Update
@@ -885,10 +885,10 @@ class SessionOptionsScenario : public Scenario {
                     {{"foolong", std::monostate{}},
                      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}}));
     ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
-    if (!(res4.session_options ==
+    if (res4.session_options !=
           std::map<std::string, SessionOptionValue>{
               {"bardouble", 456.0},
-              {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}})) {
+              {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}) {
       return Status::Invalid("res4 incorrect: " + res4.ToString());
     }
 

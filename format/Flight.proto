@@ -573,9 +573,8 @@ message SetSessionOptionsRequest {
  */
 message SetSessionOptionsResult {
   enum ErrorValue {
-    // The status of setting the option is unknown. Servers should avoid using
-    // this value (send a NOT_FOUND error if the requested query is
-    // not known). Clients can retry the request.
+    // The status is unknown or unrecognized. Servers should avoid using this value. The
+    // request may be retried by the client.
     UNSPECIFIED = 0;
     // The given session option name is invalid.
     INVALID_NAME = 1;
