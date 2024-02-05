@@ -25,7 +25,8 @@ import org.apache.arrow.flight.impl.Flight;
  * A union-like container interface for supported session option value types.
  */
 public abstract class SessionOptionValue {
-  SessionOptionValue() {}
+  SessionOptionValue() {
+  }
 
   /**
    * Value access via a caller-provided visitor/functor.

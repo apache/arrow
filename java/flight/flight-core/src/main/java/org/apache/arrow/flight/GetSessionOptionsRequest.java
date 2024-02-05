@@ -26,9 +26,11 @@ import org.apache.arrow.flight.impl.Flight;
  * A request to get current session options.
  */
 public class GetSessionOptionsRequest {
-  public GetSessionOptionsRequest() {}
+  public GetSessionOptionsRequest() {
+  }
 
-  GetSessionOptionsRequest(Flight.GetSessionOptionsRequest proto) {}
+  GetSessionOptionsRequest(Flight.GetSessionOptionsRequest proto) {
+  }
 
   Flight.GetSessionOptionsRequest toProtocol() {
     return Flight.GetSessionOptionsRequest.getDefaultInstance();

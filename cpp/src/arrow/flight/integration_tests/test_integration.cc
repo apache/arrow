@@ -858,23 +858,22 @@ class SessionOptionsScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
     // Some errors
     if (res1.errors !=
-          std::map<std::string, SetSessionOptionsResult::Error>{
-              {"lol_invalid",
-               SetSessionOptionsResult::Error{SetSessionOptionErrorValue::kInvalidName}},
-              {"key_with_invalid_value",
-               SetSessionOptionsResult::Error{
-                   SetSessionOptionErrorValue::kInvalidValue}}}) {
+        std::map<std::string, SetSessionOptionsResult::Error>{
+            {"lol_invalid",
+             SetSessionOptionsResult::Error{SetSessionOptionErrorValue::kInvalidName}},
+            {"key_with_invalid_value", SetSessionOptionsResult::Error{
+                                           SetSessionOptionErrorValue::kInvalidValue}}}) {
       return Status::Invalid("res1 incorrect: " + res1.ToString());
     }
     // Some set, some omitted due to above errors
     ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
     if (res2.session_options !=
-          std::map<std::string, SessionOptionValue>{
-              {"foolong", 123L},
-              {"bardouble", 456.0},
-              {"big_ol_string_list",
-               std::vector<std::string>{"a", "b", "sea", "dee", " ", "  ", "geee",
-                                        "(づ｡◕‿‿◕｡)づ"}}}) {
+        std::map<std::string, SessionOptionValue>{
+            {"foolong", 123L},
+            {"bardouble", 456.0},
+            {"big_ol_string_list",
+             std::vector<std::string>{"a", "b", "sea", "dee", " ", "  ", "geee",
+                                      "(づ｡◕‿‿◕｡)づ"}}}) {
       return Status::Invalid("res2 incorrect: " + res2.ToString());
     }
     // Update
@@ -886,9 +885,9 @@ class SessionOptionsScenario : public Scenario {
                      {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}}));
     ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
     if (res4.session_options !=
-          std::map<std::string, SessionOptionValue>{
-              {"bardouble", 456.0},
-              {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}) {
+        std::map<std::string, SessionOptionValue>{
+            {"bardouble", 456.0},
+            {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}) {
       return Status::Invalid("res4 incorrect: " + res4.ToString());
     }
 

@@ -24,9 +24,11 @@ import org.apache.arrow.flight.impl.Flight;
 
 /** A request to close/invalidate a server session context. */
 public class CloseSessionRequest {
-  public CloseSessionRequest() {}
+  public CloseSessionRequest() {
+  }
 
-  CloseSessionRequest(Flight.CloseSessionRequest proto) {}
+  CloseSessionRequest(Flight.CloseSessionRequest proto) {
+  }
 
   Flight.CloseSessionRequest toProtocol() {
     return Flight.CloseSessionRequest.getDefaultInstance();
