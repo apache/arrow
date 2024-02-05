@@ -65,11 +65,28 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
   return data;
 }
 
-class NonZeroCopyBufferReader final : public BufferReader {
+class NonZeroCopyBufferReader final : public InputStream {
  public:
-  using BufferReader::BufferReader;
+  NonZeroCopyBufferReader(std::shared_ptr<Buffer> buffer) : reader_(std::move(buffer)) {}
 
   bool supports_zero_copy() const override { return false; }
+
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    return reader_.Read(nbytes, out);
+  }
+
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_ASSIGN_OR_RAISE(auto buf, ::arrow::AllocateResizableBuffer(nbytes));
+    ARROW_ASSIGN_OR_RAISE(int64_t size, Read(nbytes, buf->mutable_data()));
+    ARROW_RETURN_NOT_OK(buf->Resize(size));
+    return buf;
+  }
+  Status Close() override { return reader_.Close(); }
+  Result<int64_t> Tell() const override { return reader_.Tell(); }
+  bool closed() const override { return reader_.closed(); }
+
+ private:
+  ::arrow::io::BufferReader reader_;
 };
 
 template <typename BufReader, Compression::type COMPRESSION>

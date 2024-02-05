@@ -415,7 +415,7 @@ class CompressedInputStream::Impl {
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
   bool is_open_;
-  bool supports_zero_copy_from_raw_;
+  const bool supports_zero_copy_from_raw_;
   std::shared_ptr<Decompressor> decompressor_;
   // If `raw_->supports_zero_copy()`, this buffer would not allocate memory.
   // Otherwise, this buffer would allocate `kChunkSize` memory and read data from
