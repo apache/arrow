@@ -1021,7 +1021,7 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
 }
 
 void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
-                          std::vector<int16_t>& input_levels,
+                          const std::vector<int16_t>& input_levels,
                           std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
@@ -1060,7 +1060,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
 }
 
 void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
-                                   std::vector<int16_t>& input_levels,
+                                   const std::vector<int16_t>& input_levels,
                                    std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
