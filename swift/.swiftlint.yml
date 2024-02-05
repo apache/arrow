@@ -20,6 +20,7 @@ included:
   - Arrow/Tests
   - ArrowFlight/Sources
   - ArrowFlight/Tests
+  - CDataWGo/Sources/go-swift
 excluded:
   - Arrow/Sources/Arrow/File_generated.swift
   - Arrow/Sources/Arrow/Message_generated.swift
