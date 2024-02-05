@@ -21,24 +21,26 @@ on:
   push:
     paths:
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
   pull_request:
     paths:
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
 
 concurrency:
@@ -256,6 +258,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # This must be done before r-lib/actions/setup-r because curl in
+      # Rtools doesn't work on non Rtools' MSYS2 environment. If we
+      # use "shell: bash" after r-lib/actions/setup-r, bash in Rtools
+      # is used on non Rtools' MSYS2 environment.
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          ci/scripts/install_minio.sh latest "$HOME/.local"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -282,15 +294,6 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-      - name: Install MinIO
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl \
-            --output "$HOME/.local/bin/minio.exe" \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x "$HOME/.local/bin/minio.exe"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
       # - name: Install Google Cloud Storage Testbench
       #   shell: bash
