@@ -84,9 +84,12 @@ if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
 fi
+git add docs
+git commit -m "[Website] Update documentations for ${version}"
+
 # Update DOCUMENTATION_OPTIONS.theme_switcher_version_match and
 # DOCUMENTATION_OPTIONS.show_version_warning_banner
-pushd docs/${previous_version}
+pushd docs/${previous_series}
 find ./ \
   -type f \
   -exec \
@@ -96,8 +99,8 @@ find ./ \
       {} \;
 find ./ -name '*.bak' -delete
 popd
-git add docs
-git commit -m "[Website] Update documentations for ${version}"
+git add docs/${previous_series}
+git commit -m "[Website] Update warning banner for ${previous_series}"
 git clean -d -f -x
 popd
 
