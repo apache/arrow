@@ -118,7 +118,7 @@ int64_t Datum::length() const {
           return value->length;
         } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
           return value->length();
-        } else if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>> ||
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>> ||  // NOLINT
                              std::is_same_v<T, std::shared_ptr<Table>>) {
           return value->num_rows();
         } else {
@@ -135,7 +135,7 @@ int64_t Datum::TotalBufferSize() const {
 
         if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
           return 0;
-        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>> ||
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>> ||  // NOLINT
                              std::is_same_v<T, std::shared_ptr<ChunkedArray>> ||
                              std::is_same_v<T, std::shared_ptr<RecordBatch>> ||
                              std::is_same_v<T, std::shared_ptr<Table>>) {
