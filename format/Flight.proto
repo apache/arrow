@@ -573,8 +573,8 @@ message SetSessionOptionsRequest {
  */
 message SetSessionOptionsResult {
   enum ErrorValue {
-    // The status is unknown or unrecognized. Servers should avoid using this value. The
-    // request may be retried by the client.
+    // Protobuf deserialization fallback value: The status is unknown or unrecognized.
+    // Servers should avoid using this value. The request may be retried by the client.
     UNSPECIFIED = 0;
     // The given session option name is invalid.
     INVALID_NAME = 1;
@@ -594,9 +594,10 @@ message SetSessionOptionsResult {
 /*
  * EXPERIMENTAL: A request to access the session options for the current server session.
  *
- * The existing session is referenced via a cookie header or similar (see SetSessionOptionsRequest
- * above); it is an error to make this request with a missing, invalid, or expired session cookie
- * header or other implementation-defined session reference token.
+ * The existing session is referenced via a cookie header or similar (see
+ * SetSessionOptionsRequest above); it is an error to make this request with a missing,
+ * invalid, or expired session cookie header or other implementation-defined session
+ * reference token.
  */
 message GetSessionOptionsRequest {
 }
@@ -621,9 +622,9 @@ message CloseSessionRequest {
  */
 message CloseSessionResult {
   enum Status {
-    // The session close status is unknown. Servers should avoid using
-    // this value (send a NOT_FOUND error if the requested session is
-    // not known). Clients can retry the request.
+    // Protobuf deserialization fallback value: The session close status is unknown or
+    // not recognized. Servers should avoid using this value (send a NOT_FOUND error if
+    // the requested session is not known or expired). Clients can retry the request.
     UNSPECIFIED = 0;
     // The session close request is complete. Subsequent requests with
     // the same session produce a NOT_FOUND error.
