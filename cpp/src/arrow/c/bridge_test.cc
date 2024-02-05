@@ -3695,6 +3695,8 @@ TEST_F(TestSchemaRoundtrip, Dictionary) {
   }
 }
 
+// Given an extension type, return a field of its storage type + the
+// serialized extension metadata.
 std::shared_ptr<Field> GetStorageWithMetadata(const std::string& field_name,
                                               const std::shared_ptr<DataType>& type) {
   const auto& ext_type = checked_cast<const ExtensionType&>(*type);
@@ -3708,7 +3710,9 @@ TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
   TestWithTypeFactory(uuid, []() { return fixed_size_binary(16); });
   TestWithTypeFactory(dict_extension_type, []() { return dictionary(int8(), utf8()); });
 
-  // Inside nested type
+  // Inside nested type.
+  // When an extension type is not known by the importer, it is imported
+  // as its storage type and the extension metadata is preserved on the field.
   TestWithTypeFactory(
       []() { return list(dict_extension_type()); },
       []() { return list(GetStorageWithMetadata("item", dict_extension_type())); });
@@ -3720,7 +3724,9 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
   TestWithTypeFactory(dict_extension_type);
   TestWithTypeFactory(complex128);
 
-  // Inside nested type
+  // Inside nested type.
+  // When the extension type is registered, the extension metadata is removed
+  // from the storage type's field to ensure roundtripping (GH-39865).
   TestWithTypeFactory([]() { return list(uuid()); });
   TestWithTypeFactory([]() { return list(dict_extension_type()); });
   TestWithTypeFactory([]() { return list(complex128()); });
