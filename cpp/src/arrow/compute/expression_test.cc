@@ -863,6 +863,25 @@ TEST(Expression, ExecuteCall) {
   ])"));
 }
 
+TEST(Expression, ExecuteCallWithNoArguments) {
+  const int kCount = 10;
+  auto random_options = RandomOptions::FromSeed(/*seed=*/0);
+  ExecBatch input({}, kCount);
+
+  Expression random_expr = call("random", {}, random_options);
+  ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
+
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(random_expr, input));
+  compute::ExecContext* exec_context = default_exec_context();
+  ASSERT_OK_AND_ASSIGN(auto function,
+                       exec_context->func_registry()->GetFunction("random"));
+  ASSERT_OK_AND_ASSIGN(Datum expected,
+                       function->Execute(input, &random_options, exec_context));
+  AssertDatumsEqual(actual, expected, /*verbose=*/true);
+
+  EXPECT_EQ(actual.length(), kCount);
+}
+
 TEST(Expression, ExecuteDictionaryTransparent) {
   ExpectExecute(
       equal(field_ref("a"), field_ref("b")),
