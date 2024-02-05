@@ -562,6 +562,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
 }
 
 arrow::Status Engine::AddGlobalMappings() {
+  ARROW_LOG(INFO) << "Adding global mappings for exported functions";
   ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
   ExternalCFunctions c_funcs(function_registry_);
   return c_funcs.AddMappings(this);

@@ -3683,4 +3683,26 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
+TEST_F(TestProjector, TestLiteralProjection) {
+  auto in_field = field("in", arrow::int64());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  auto literal =
+      TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeLiteral(1LL), out_field);
+
+  for (int i = 0; i < 1000; i++) {
+    std::shared_ptr<Projector> projector;
+    ARROW_EXPECT_OK(Projector::Make(schema, {literal}, TestConfiguration(), &projector));
+
+    int num_records = 4;
+    auto array = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+    auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+    auto out = MakeArrowArrayInt64({1, 1, 1, 1}, {true, true, true, true});
+
+    arrow::ArrayVector outs;
+    ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+    EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+  }
+}
+
 }  // namespace gandiva
