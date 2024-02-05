@@ -1101,6 +1101,9 @@ class LeaseGuard {
     ARROW_CHECK_OK(Break(break_period));
   }
 
+  // These functions are marked ARROW_NOINLINE because they are called from
+  // multiple locations, but are not performance-critical.
+
   ARROW_NOINLINE Status Release() {
     if (!PendingRelease()) {
       return Status::OK();
@@ -1922,6 +1925,7 @@ class AzureFileSystem::Impl {
     }
   }
 
+ private:
   /// \brief Create a BlobLeaseClient and acquire a lease on the container.
   ///
   /// \param allow_missing_container if true, a nullptr may be returned when the container
@@ -2000,12 +2004,38 @@ class AzureFileSystem::Impl {
     return lease_client;
   }
 
+  /// \brief The default lease duration used for acquiring a lease on a container or blob.
+  ///
+  /// Azure Storage leases can be acquired for a duration of 15 to 60 seconds.
+  ///
+  /// Operations consisting of an unpredictable number of sub-operations should
+  /// renew the lease periodically (heartbeat pattern) instead of acquiring an
+  /// infinite lease (very bad idea for a library like Arrow).
   static constexpr auto kLeaseDuration = std::chrono::seconds{15};
+
+  // These are conservative estimates of how long it takes for the client
+  // request to reach the server counting from the moment the Azure SDK function
+  // issuing the request is called. See their usage for more context.
+  //
+  // If the client connection to the server is unpredictably slow, operations
+  // may fail, but due to the use of leases, the entire arrow::FileSystem
+  // operation can be retried without risk of data loss. Thus, unexpected network
+  // slow downs can be fixed with retries (either by some system using Arrow or
+  // an user interactively retrying a failed operation).
+  //
+  // If a network is permanently slow, the lease time and these numbers should be
+  // increased but not so much so that the client gives up an operation because the
+  // values say it takes more time to reach the server than the remaining lease
+  // time on the resources.
+  //
+  // NOTE: The initial constant values were chosen conservatively. If we learn,
+  // from experience, that they are causing issues, we can increase them. And if
+  // broadly applicable values aren't possible, we can make them configurable.
   static constexpr auto kTimeNeededForContainerDeletion = std::chrono::seconds{3};
   static constexpr auto kTimeNeededForContainerRename = std::chrono::seconds{3};
   static constexpr auto kTimeNeededForFileOrDirectoryRename = std::chrono::seconds{3};
-  static constexpr auto kTimeNeededForEmptyDirectoryDeletion = std::chrono::seconds{3};
 
+ public:
   /// The conditions for a successful container rename are derived from the
   /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
   /// The numbers here match the list in `Move`.
@@ -2065,8 +2095,6 @@ class AzureFileSystem::Impl {
         return ExceptionToStatus(exception, "Failed to check that '", dest.container,
                                  "' is empty: ", dest_container_client.GetUrl());
       }
-    } else {
-      // dest.container doesn't exist, so we can just proceed.
     }
     DCHECK(!dest_exists || dest_is_empty);
 
