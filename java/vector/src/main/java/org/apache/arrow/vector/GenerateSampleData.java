@@ -27,7 +27,8 @@ import java.nio.charset.Charset;
  * with sample data. This class should be used for that purpose.
  */
 public class GenerateSampleData {
-  private GenerateSampleData() {}
+  private GenerateSampleData() {
+  }
 
   /** Populates <code>vector</code> with <code>valueCount</code> random values. */
   public static void generateTestData(final ValueVector vector, final int valueCount) {
