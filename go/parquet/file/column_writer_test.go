@@ -426,6 +426,26 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackEncoding(version parque
 	}
 }
 
+func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(version parquet.Version) {
+	p.GenerateData(SmallSize)
+	props := parquet.DefaultColumnProperties()
+	props.DictionaryEnabled = true
+
+	if version == parquet.V1_0 {
+		props.Encoding = parquet.Encodings.PlainDict
+	} else {
+		props.Encoding = parquet.Encodings.RLEDict
+	}
+
+	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version))
+	p.WriteBatchValues(writer, nil, nil)
+	writer.FallbackToPlain()
+	p.NotEqual(0, writer.TotalCompressedBytes())
+	writer.Close()
+	p.NotEqual(0, writer.TotalCompressedBytes())
+	p.NotEqual(0, writer.TotalBytesWritten())
+}
+
 func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {
 	p.testRequiredWithEncoding(parquet.Encodings.Plain)
 }
@@ -573,6 +593,14 @@ func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackEncodingV1() {
 
 func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackEncodingV2() {
 	p.testDictionaryFallbackEncoding(parquet.V2_LATEST)
+}
+
+func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackStatsV1() {
+	p.testDictionaryFallbackAndCompressedSize(parquet.V1_0)
+}
+
+func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackStatsV2() {
+	p.testDictionaryFallbackAndCompressedSize(parquet.V2_LATEST)
 }
 
 func (p *PrimitiveWriterTestSuite) TestOptionalNullValueChunk() {
