@@ -2594,16 +2594,11 @@ macro(build_re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
-  # include -std=c++11. It's not compatible with C source and C++
-  # source not uses C++ 11.
-  resolve_dependency(re2 HAVE_ALT TRUE)
-  if(${re2_SOURCE} STREQUAL "SYSTEM" AND ARROW_BUILD_STATIC)
-    get_target_property(RE2_TYPE re2::re2 TYPE)
-    if(NOT RE2_TYPE STREQUAL "INTERFACE_LIBRARY")
-      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:re2::re2>")
-    endif()
-  endif()
+  resolve_dependency(re2
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     re2)
   add_definitions(-DARROW_WITH_RE2)
 endif()
 
