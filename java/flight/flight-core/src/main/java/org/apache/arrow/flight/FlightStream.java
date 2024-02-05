@@ -194,7 +194,8 @@ public class FlightStream implements AutoCloseable {
           }
         }
         // Drain the stream without the lock (as next() implicitly needs the lock)
-        while (next()) { }
+        while (next()) {
+        }
       } catch (FlightRuntimeException e) {
         suppressor = e;
       }

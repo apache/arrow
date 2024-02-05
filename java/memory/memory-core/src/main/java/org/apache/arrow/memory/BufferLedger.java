@@ -478,20 +478,20 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    */
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
     CommonUtil.indent(sb, indent)
-      .append("ledger[")
-      .append(ledgerId)
-      .append("] allocator: ")
-      .append(allocator.getName())
-      .append("), isOwning: ")
-      .append(", size: ")
-      .append(", references: ")
-      .append(bufRefCnt.get())
-      .append(", life: ")
-      .append(lCreationTime)
-      .append("..")
-      .append(lDestructionTime)
-      .append(", allocatorManager: [")
-      .append(", life: ");
+        .append("ledger[")
+        .append(ledgerId)
+        .append("] allocator: ")
+        .append(allocator.getName())
+        .append("), isOwning: ")
+        .append(", size: ")
+        .append(", references: ")
+        .append(bufRefCnt.get())
+        .append(", life: ")
+        .append(lCreationTime)
+        .append("..")
+        .append(lDestructionTime)
+        .append(", allocatorManager: [")
+        .append(", life: ");
 
     if (!BaseAllocator.DEBUG) {
       sb.append("]\n");
@@ -499,8 +499,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
       Preconditions.checkArgument(buffers != null, "IdentityHashMap of buffers must not be null");
       synchronized (buffers) {
         sb.append("] holds ")
-          .append(buffers.size())
-          .append(" buffers. \n");
+            .append(buffers.size())
+            .append(" buffers. \n");
         for (ArrowBuf buf : buffers.keySet()) {
           buf.print(sb, indent + 2, verbosity);
           sb.append('\n');
