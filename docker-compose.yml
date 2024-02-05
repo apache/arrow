@@ -1030,7 +1030,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1053,7 +1053,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2_28
