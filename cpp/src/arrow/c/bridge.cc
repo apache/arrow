@@ -914,6 +914,8 @@ struct DecodedMetadata {
   std::shared_ptr<KeyValueMetadata> metadata;
   std::string extension_name;
   std::string extension_serialized;
+  int extension_name_index = -1;        // index of extension_name in metadata
+  int extension_serialized_index = -1;  // index of extension_serialized in metadata
 };
 
 Result<DecodedMetadata> DecodeMetadata(const char* metadata) {
@@ -956,8 +958,10 @@ Result<DecodedMetadata> DecodeMetadata(const char* metadata) {
     RETURN_NOT_OK(read_string(&values[i]));
     if (keys[i] == kExtensionTypeKeyName) {
       decoded.extension_name = values[i];
+      decoded.extension_name_index = i;
     } else if (keys[i] == kExtensionMetadataKeyName) {
       decoded.extension_serialized = values[i];
+      decoded.extension_serialized_index = i;
     }
   }
   decoded.metadata = key_value_metadata(std::move(keys), std::move(values));
@@ -1046,6 +1050,8 @@ struct SchemaImporter {
         ARROW_ASSIGN_OR_RAISE(
             type_, registered_ext_type->Deserialize(std::move(type_),
                                                     metadata_.extension_serialized));
+        RETURN_NOT_OK(metadata_.metadata->DeleteMany(
+            {metadata_.extension_name_index, metadata_.extension_serialized_index}));
       }
     }
 
