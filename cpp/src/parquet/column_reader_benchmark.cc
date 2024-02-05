@@ -267,7 +267,7 @@ static void DecodeLevels(Encoding::type level_encoding, int16_t max_level, int n
   }
 
   LevelDecoder decoder;
-  std::vector<int16_t> output_levels(num_levels);
+  std::vector<int16_t> output_levels(batch_size);
   for (auto _ : state) {
     state.PauseTiming();
     decoder.SetData(level_encoding, max_level, num_levels, bytes.data(),
