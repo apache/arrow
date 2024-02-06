@@ -415,6 +415,40 @@ def test_export_import_batch_reader(reader_factory):
 
 
 @needs_cffi
+def test_export_import_exception_reader():
+    # See: https://github.com/apache/arrow/issues/37164
+    c_stream = ffi.new("struct ArrowArrayStream*")
+    ptr_stream = int(ffi.cast("uintptr_t", c_stream))
+
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
+    old_allocated = pa.total_allocated_bytes()
+
+    def gen():
+        if True:
+            try:
+                raise ValueError('foo')
+            except ValueError as e:
+                raise NotImplementedError('bar') from e
+        else:
+            yield from make_batches()
+
+    original = pa.RecordBatchReader.from_batches(make_schema(), gen())
+    original._export_to_c(ptr_stream)
+
+    reader = pa.RecordBatchReader._import_from_c(ptr_stream)
+    with pytest.raises(OSError) as exc_info:
+        reader.read_next_batch()
+
+    # inner *and* outer exception should be present
+    assert 'ValueError: foo' in str(exc_info.value)
+    assert 'NotImplementedError: bar' in str(exc_info.value)
+    # Stacktrace containing line of the raise statement
+    assert 'raise ValueError(\'foo\')' in str(exc_info.value)
+
+    assert pa.total_allocated_bytes() == old_allocated
+
+
+@needs_cffi
 def test_imported_batch_reader_error():
     c_stream = ffi.new("struct ArrowArrayStream*")
     ptr_stream = int(ffi.cast("uintptr_t", c_stream))

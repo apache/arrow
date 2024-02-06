@@ -39,7 +39,7 @@ public enum FloatingPointPrecision {
     }
   }
 
-  private short flatbufID;
+  private final short flatbufID;
 
   private FloatingPointPrecision(short flatbufID) {
     this.flatbufID = flatbufID;

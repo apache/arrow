@@ -677,6 +677,31 @@ class TableTest < Test::Unit::TestCase
                                        format: :tsv,
                                        schema: @table.schema))
       end
+
+      def test_json
+        output = create_output(".json")
+        # TODO: Implement this.
+        # @table.save(output, format: :json)
+        columns = ""
+        @table.each_record.each do |record|
+          column = {
+            "count" => record.count,
+            "visible" => record.visible,
+          }
+          columns << column.to_json
+          columns << "\n"
+        end
+        if output.is_a?(String)
+          File.write(output, columns)
+        else
+          output.resize(columns.bytesize)
+          output.set_data(0, columns)
+        end
+        assert_equal(@table,
+                     Arrow::Table.load(output,
+                                       format: :json,
+                                       schema: @table.schema))
+      end
     end
 
     sub_test_case("path") do

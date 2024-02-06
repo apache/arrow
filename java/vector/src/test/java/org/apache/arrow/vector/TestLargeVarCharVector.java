@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -48,12 +49,12 @@ import org.junit.jupiter.api.Assertions;
 
 public class TestLargeVarCharVector {
 
-  private static final byte[] STR1 = "AAAAA1".getBytes();
-  private static final byte[] STR2 = "BBBBBBBBB2".getBytes();
-  private static final byte[] STR3 = "CCCC3".getBytes();
-  private static final byte[] STR4 = "DDDDDDDD4".getBytes();
-  private static final byte[] STR5 = "EEE5".getBytes();
-  private static final byte[] STR6 = "FFFFF6".getBytes();
+  private static final byte[] STR1 = "AAAAA1".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR2 = "BBBBBBBBB2".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR3 = "CCCC3".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR4 = "DDDDDDDD4".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR5 = "EEE5".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR6 = "FFFFF6".getBytes(StandardCharsets.UTF_8);
 
   private BufferAllocator allocator;
 
@@ -74,7 +75,7 @@ public class TestLargeVarCharVector {
          LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1);
          LargeVarCharVector v2 = new LargeVarCharVector("v2", childAllocator2);) {
       v1.allocateNew();
-      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setSafe(4094, "hello world".getBytes(StandardCharsets.UTF_8), 0, 11);
       v1.setValueCount(4001);
 
       long memoryBeforeTransfer = childAllocator1.getAllocatedMemory();
@@ -207,12 +208,12 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testSetLastSetUsage() {
-    final byte[] STR1 = "AAAAA1".getBytes();
-    final byte[] STR2 = "BBBBBBBBB2".getBytes();
-    final byte[] STR3 = "CCCC3".getBytes();
-    final byte[] STR4 = "DDDDDDDD4".getBytes();
-    final byte[] STR5 = "EEE5".getBytes();
-    final byte[] STR6 = "FFFFF6".getBytes();
+    final byte[] STR1 = "AAAAA1".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR2 = "BBBBBBBBB2".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR3 = "CCCC3".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR4 = "DDDDDDDD4".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR5 = "EEE5".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR6 = "FFFFF6".getBytes(StandardCharsets.UTF_8);
 
     try (final LargeVarCharVector vector = new LargeVarCharVector("myvector", allocator)) {
       vector.allocateNew(1024 * 10, 1024);
@@ -353,7 +354,7 @@ public class TestLargeVarCharVector {
           for (int i = 0; i < length; i++) {
             final boolean expectedSet = ((start + i) % 3) == 0;
             if (expectedSet) {
-              final byte[] expectedValue = compareArray[start + i].getBytes();
+              final byte[] expectedValue = compareArray[start + i].getBytes(StandardCharsets.UTF_8);
               assertFalse(newLargeVarCharVector.isNull(i));
               assertArrayEquals(expectedValue, newLargeVarCharVector.get(i));
             } else {
@@ -367,8 +368,8 @@ public class TestLargeVarCharVector {
 
   @Test
   public void testReallocAfterVectorTransfer() {
-    final byte[] STR1 = "AAAAA1".getBytes();
-    final byte[] STR2 = "BBBBBBBBB2".getBytes();
+    final byte[] STR1 = "AAAAA1".getBytes(StandardCharsets.UTF_8);
+    final byte[] STR2 = "BBBBBBBBB2".getBytes(StandardCharsets.UTF_8);
 
     try (final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator)) {
       /* 4096 values with 10 byte per record */
@@ -675,7 +676,7 @@ public class TestLargeVarCharVector {
 
       String str = "hello";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       stringHolder.start = 0;
       stringHolder.end = str.length();
@@ -686,7 +687,7 @@ public class TestLargeVarCharVector {
 
       // verify results
       assertTrue(vector.isNull(0));
-      assertEquals(str, new String(vector.get(1)));
+      assertEquals(str, new String(Objects.requireNonNull(vector.get(1)), StandardCharsets.UTF_8));
 
       buf.close();
     }
@@ -705,7 +706,7 @@ public class TestLargeVarCharVector {
 
       String str = "hello world";
       ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
       stringHolder.start = 0;
       stringHolder.end = str.length();
@@ -715,7 +716,7 @@ public class TestLargeVarCharVector {
       vector.setSafe(1, nullHolder);
 
       // verify results
-      assertEquals(str, new String(vector.get(0)));
+      assertEquals(str, new String(Objects.requireNonNull(vector.get(0)), StandardCharsets.UTF_8));
       assertTrue(vector.isNull(1));
 
       buf.close();
@@ -743,7 +744,7 @@ public class TestLargeVarCharVector {
       largeVarChVec.allocateNew(100, 1);
       largeVarChVec.setValueCount(1);
 
-      largeVarChVec.set(0, "abc".getBytes());
+      largeVarChVec.set(0, "abc".getBytes(StandardCharsets.UTF_8));
       largeVarChVec.setNull(0);
 
       assertEquals(0, largeVarChVec.hashCode(0));
@@ -756,7 +757,7 @@ public class TestLargeVarCharVector {
       largeVarCharVector.allocateNew(5, 2);
       largeVarCharVector.setValueCount(2);
 
-      largeVarCharVector.set(0, "abcd".getBytes());
+      largeVarCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
       List<ArrowBuf> bufs = largeVarCharVector.getFieldBuffers();
       assertEquals(3, bufs.size());
@@ -821,7 +822,7 @@ public class TestLargeVarCharVector {
     try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
         LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1)) {
       v1.allocateNew();
-      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setSafe(4094, "hello world".getBytes(StandardCharsets.UTF_8), 0, 11);
       v1.setValueCount(4001);
 
       TransferPair tp = v1.getTransferPair(v1.getField(), allocator);
@@ -835,7 +836,7 @@ public class TestLargeVarCharVector {
   private void populateLargeVarcharVector(final LargeVarCharVector vector, int valueCount, String[] values) {
     for (int i = 0; i < valueCount; i += 3) {
       final String s = String.format("%010d", i);
-      vector.set(i, s.getBytes());
+      vector.set(i, s.getBytes(StandardCharsets.UTF_8));
       if (values != null) {
         values[i] = s;
       }

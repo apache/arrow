@@ -470,7 +470,8 @@ class StringFormatter<TimestampType> {
   using value_type = int64_t;
 
   explicit StringFormatter(const DataType* type)
-      : unit_(checked_cast<const TimestampType&>(*type).unit()) {}
+      : unit_(checked_cast<const TimestampType&>(*type).unit()),
+        timezone_(checked_cast<const TimestampType&>(*type).timezone()) {}
 
   template <typename Duration, typename Appender>
   Return<Appender> operator()(Duration, value_type value, Appender&& append) {
@@ -503,6 +504,9 @@ class StringFormatter<TimestampType> {
     std::array<char, buffer_size> buffer;
     char* cursor = buffer.data() + buffer_size;
 
+    if (timezone_.size() > 0) {
+      detail::FormatOneChar('Z', &cursor);
+    }
     detail::FormatHH_MM_SS(arrow_vendored::date::make_time(since_midnight), &cursor);
     detail::FormatOneChar(' ', &cursor);
     detail::FormatYYYY_MM_DD(timepoint_days, &cursor);
@@ -516,6 +520,7 @@ class StringFormatter<TimestampType> {
 
  private:
   TimeUnit::type unit_;
+  std::string timezone_;
 };
 
 template <typename T>

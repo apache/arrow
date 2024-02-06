@@ -16,6 +16,7 @@
 // under the License.
 
 #include <stdlib.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -420,6 +421,35 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
   ASSERT_OK(status);
 }
 
+static void TimedTestExprCompilation(benchmark::State& state) {
+  int64_t iteration = 0;
+  for (auto _ : state) {
+    // schema for input fields
+    auto field0 = field("f0", int64());
+    auto field1 = field("f1", int64());
+    auto literal = TreeExprBuilder::MakeLiteral(iteration);
+    auto schema = arrow::schema({field0, field1});
+
+    // output field
+    auto field_add = field("c1", int64());
+    auto field_less_than = field("c2", boolean());
+
+    // Build expression
+    auto add_func = TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(field0), literal}, int64());
+    auto less_than_func = TreeExprBuilder::MakeFunction(
+        "less_than", {TreeExprBuilder::MakeField(field1), literal}, boolean());
+
+    auto expr_0 = TreeExprBuilder::MakeExpression(add_func, field_add);
+    auto expr_1 = TreeExprBuilder::MakeExpression(less_than_func, field_less_than);
+
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector));
+
+    ++iteration;
+  }
+}
+
 static void DecimalAdd2Fast(benchmark::State& state) {
   // use lesser precision to test the fast-path
   DoDecimalAdd2(state, DecimalTypeUtil::kMaxPrecision - 6, 18);
@@ -460,6 +490,7 @@ static void DecimalAdd3Large(benchmark::State& state) {
   DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
+BENCHMARK(TimedTestExprCompilation)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAdd3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExtractYear)->Unit(benchmark::kMicrosecond);

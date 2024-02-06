@@ -345,15 +345,25 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
     case ConvertedType::DATE:
       return DateLogicalType::Make();
     case ConvertedType::TIME_MILLIS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+      // ConvertedType::TIME_{*} are deprecated in favor of LogicalType::Time, the
+      // compatibility for ConvertedType::TIME_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-time-convertedtype
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MILLIS);
     case ConvertedType::TIME_MICROS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MICROS);
     case ConvertedType::TIMESTAMP_MILLIS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS,
+      // ConvertedType::TIMESTAMP_{*} are deprecated in favor of LogicalType::Timestamp,
+      // the compatibility for ConvertedType::TIMESTAMP_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-timestamp-convertedtype
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MILLIS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::TIMESTAMP_MICROS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS,
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MICROS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::INTERVAL:

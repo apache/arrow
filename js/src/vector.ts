@@ -24,6 +24,7 @@ import { BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
 import {
     isChunkedValid,
     computeChunkOffsets,
+    computeChunkNullable,
     computeChunkNullCounts,
     sliceChunks,
     wrapChunkedCall1,
@@ -35,7 +36,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 // @ts-ignore
 import type { vectorFromArray } from './factories.js';
@@ -55,7 +55,7 @@ export interface Vector<T extends DataType = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
-const visitorsByTypeId = {} as { [typeId: number]: { get: any; set: any; indexOf: any; byteLength: any } };
+const visitorsByTypeId = {} as { [typeId: number]: { get: any; set: any; indexOf: any } };
 const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
 /**
@@ -75,14 +75,13 @@ export class Vector<T extends DataType = any> {
             case 0: this._offsets = [0]; break;
             case 1: {
                 // special case for unchunked vectors
-                const { get, set, indexOf, byteLength } = visitorsByTypeId[type.typeId];
+                const { get, set, indexOf } = visitorsByTypeId[type.typeId];
                 const unchunkedData = data[0];
 
                 this.isValid = (index: number) => isChunkedValid(unchunkedData, index);
                 this.get = (index: number) => get(unchunkedData, index);
                 this.set = (index: number, value: T) => set(unchunkedData, index, value);
                 this.indexOf = (index: number) => indexOf(unchunkedData, index);
-                this.getByteLength = (index: number) => byteLength(unchunkedData, index);
                 this._offsets = [0, unchunkedData.length];
                 break;
             }
@@ -130,6 +129,13 @@ export class Vector<T extends DataType = any> {
      */
     public get byteLength() {
         return this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
+    }
+
+    /**
+     * Whether this Vector's elements can contain null values.
+     */
+    public get nullable() {
+        return computeChunkNullable(this.data);
     }
 
     /**
@@ -191,13 +197,6 @@ export class Vector<T extends DataType = any> {
         // eslint-disable-next-line unicorn/prefer-includes
         return this.indexOf(element, offset) > -1;
     }
-
-    /**
-     * Get the size in bytes of an element by index.
-     * @param index The index at which to get the byteLength.
-     */
-    // @ts-ignore
-    public getByteLength(index: number): number { return 0; }
 
     /**
      * Iterator for the Vector's elements.
@@ -358,15 +357,13 @@ export class Vector<T extends DataType = any> {
             const get = getVisitor.getVisitFnByTypeId(typeId);
             const set = setVisitor.getVisitFnByTypeId(typeId);
             const indexOf = indexOfVisitor.getVisitFnByTypeId(typeId);
-            const byteLength = byteLengthVisitor.getVisitFnByTypeId(typeId);
 
-            visitorsByTypeId[typeId] = { get, set, indexOf, byteLength };
+            visitorsByTypeId[typeId] = { get, set, indexOf };
             vectorPrototypesByTypeId[typeId] = Object.create(proto, {
                 ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
                 ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
                 ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
                 ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
-                ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
             });
         }
 

@@ -47,8 +47,23 @@ namespace arrow::fs {
 class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
+///
+/// By default, authentication is handled by the Azure SDK's credential chain
+/// which may read from multiple environment variables, such as:
+/// - `AZURE_TENANT_ID`
+/// - `AZURE_CLIENT_ID`
+/// - `AZURE_CLIENT_SECRET`
+/// - `AZURE_AUTHORITY_HOST`
+/// - `AZURE_CLIENT_CERTIFICATE_PATH`
+/// - `AZURE_FEDERATED_TOKEN_FILE`
+///
+/// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief account name of the Azure Storage account.
+  /// \brief The name of the Azure Storage Account being accessed.
+  ///
+  /// All service URLs will be constructed using this storage account name.
+  /// `ConfigureAccountKeyCredential` assumes the user wants to authenticate
+  /// this account.
   std::string account_name;
 
   /// \brief hostname[:port] of the Azure Blob Storage Service.
@@ -92,30 +107,30 @@ struct ARROW_EXPORT AzureOptions {
 
  private:
   enum class CredentialKind {
+    kDefault,
     kAnonymous,
-    kTokenCredential,
-    kStorageSharedKeyCredential,
-  } credential_kind_ = CredentialKind::kAnonymous;
+    kStorageSharedKey,
+    kClientSecret,
+    kManagedIdentity,
+    kWorkloadIdentity,
+  } credential_kind_ = CredentialKind::kDefault;
 
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
   Status ConfigureDefaultCredential();
-
-  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
-
-  Status ConfigureWorkloadIdentityCredential();
-
+  Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
-
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureWorkloadIdentityCredential();
 
   bool Equals(const AzureOptions& other) const;
 

@@ -478,7 +478,7 @@ TEST_F(TestSumKernelRoundOff, Basics) {
 
   // array = np.arange(321000, dtype='float64')
   // array -= np.mean(array)
-  // array *= arrray
+  // array *= array
   double index = 0;
   ASSERT_OK_AND_ASSIGN(
       auto array, ArrayFromBuilderVisitor(
@@ -3653,7 +3653,7 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
 
 #define INTYPE(x) Datum(static_cast<typename TypeParam::c_type>(x))
 #define DOUBLE(x) Datum(static_cast<double>(x))
-// output type per interplation: linear, lower, higher, nearest, midpoint
+// output type per interpolation: linear, lower, higher, nearest, midpoint
 #define O(a, b, c, d, e) \
   { DOUBLE(a), INTYPE(b), INTYPE(c), INTYPE(d), DOUBLE(e) }
 

@@ -126,6 +126,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
         _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_BINARY_VIEW" arrow::Type::BINARY_VIEW"
+        _Type_STRING_VIEW" arrow::Type::STRING_VIEW"
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
@@ -673,11 +675,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
+            const shared_ptr[CArray]& values,
+            int32_t list_size,
+            shared_ptr[CBuffer] null_bitmap)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            const shared_ptr[CArray]& values, shared_ptr[CDataType])
+            const shared_ptr[CArray]& values,
+            shared_ptr[CDataType],
+            shared_ptr[CBuffer] null_bitmap)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -687,6 +693,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
@@ -1283,7 +1297,14 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
         CStringBuilder(CMemoryPool* pool)
+        CStatus Append(const c_string& value)
 
+    cdef cppclass CBinaryViewBuilder" arrow::BinaryViewBuilder"(CArrayBuilder):
+        CBinaryViewBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringViewBuilder" arrow::StringViewBuilder"(CBinaryViewBuilder):
+        CStringViewBuilder(CMemoryPool* pool)
         CStatus Append(const c_string& value)
 
     cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):

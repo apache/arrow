@@ -66,8 +66,7 @@ cdef shared_ptr[CDataType] _ndarray_to_type(object values,
     dtype = values.dtype
 
     if type is None and dtype != object:
-        with nogil:
-            check_status(NumPyDtypeToArrow(dtype, &c_type))
+        c_type = GetResultValue(NumPyDtypeToArrow(dtype))
 
     if type is not None:
         c_type = type.sp_type
@@ -2467,7 +2466,7 @@ cdef class MapArray(ListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, keys, items, MemoryPool pool=None):
+    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None):
         """
         Construct MapArray from arrays of int32 offsets and key, item arrays.
 
@@ -2476,6 +2475,8 @@ cdef class MapArray(ListArray):
         offsets : array-like or sequence (int32 type)
         keys : array-like or sequence (any type)
         items : array-like or sequence (any type)
+        type : DataType, optional
+            If not specified, a default MapArray with the keys' and items' type is used.
         pool : MemoryPool
 
         Returns
@@ -2484,7 +2485,7 @@ cdef class MapArray(ListArray):
 
         Examples
         --------
-        First, let's understand the structure of our dataset when viewed in a rectangular data model. 
+        First, let's understand the structure of our dataset when viewed in a rectangular data model.
         The total of 5 respondents answered the question "How much did you like the movie x?".
         The value -1 in the integer array means that the value is missing. The boolean array
         represents the null bitmask corresponding to the missing values in the integer array.
@@ -2564,11 +2565,18 @@ cdef class MapArray(ListArray):
         _keys = asarray(keys)
         _items = asarray(items)
 
-        with nogil:
-            out = GetResultValue(
-                CMapArray.FromArrays(_offsets.sp_array,
-                                     _keys.sp_array,
-                                     _items.sp_array, cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CMapArray.FromArraysAndType(
+                        type.sp_type, _offsets.sp_array,
+                        _keys.sp_array, _items.sp_array, cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CMapArray.FromArrays(_offsets.sp_array,
+                                         _keys.sp_array,
+                                         _items.sp_array, cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -2590,7 +2598,7 @@ cdef class FixedSizeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(values, list_size=None, DataType type=None):
+    def from_arrays(values, list_size=None, DataType type=None, mask=None):
         """
         Construct FixedSizeListArray from array of values and a list length.
 
@@ -2602,6 +2610,9 @@ cdef class FixedSizeListArray(BaseListArray):
         type : DataType, optional
             If not specified, a default ListType with the values' type and
             `list_size` length is used.
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
 
         Returns
         -------
@@ -2652,19 +2663,21 @@ cdef class FixedSizeListArray(BaseListArray):
 
         _values = asarray(values)
 
+        c_mask = c_mask_inverted_from_obj(mask, None)
+
         if type is not None:
             if list_size is not None:
                 raise ValueError("Cannot specify both list_size and type")
             with nogil:
                 c_result = CFixedSizeListArray.FromArraysAndType(
-                    _values.sp_array, type.sp_type)
+                    _values.sp_array, type.sp_type, c_mask)
         else:
             if list_size is None:
                 raise ValueError("Should specify one of list_size and type")
             _list_size = <int32_t>list_size
             with nogil:
                 c_result = CFixedSizeListArray.FromArrays(
-                    _values.sp_array, _list_size)
+                    _values.sp_array, _list_size, c_mask)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result
@@ -2929,6 +2942,12 @@ cdef class LargeStringArray(Array):
                                   null_count, offset)
 
 
+cdef class StringViewArray(Array):
+    """
+    Concrete class for Arrow arrays of string (or utf8) view data type.
+    """
+
+
 cdef class BinaryArray(Array):
     """
     Concrete class for Arrow arrays of variable-sized binary data type.
@@ -2953,6 +2972,12 @@ cdef class LargeBinaryArray(Array):
         by the offsets of this LargeBinaryArray.
         """
         return (<CLargeBinaryArray*> self.ap).total_values_length()
+
+
+cdef class BinaryViewArray(Array):
+    """
+    Concrete class for Arrow arrays of variable-sized binary view data type.
+    """
 
 
 cdef class DictionaryArray(Array):
@@ -3656,6 +3681,8 @@ cdef dict _array_classes = {
     _Type_STRING: StringArray,
     _Type_LARGE_BINARY: LargeBinaryArray,
     _Type_LARGE_STRING: LargeStringArray,
+    _Type_BINARY_VIEW: BinaryViewArray,
+    _Type_STRING_VIEW: StringViewArray,
     _Type_DICTIONARY: DictionaryArray,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryArray,
     _Type_DECIMAL128: Decimal128Array,

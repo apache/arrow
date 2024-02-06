@@ -282,6 +282,7 @@ TEST(FlightTypes, PollInfo) {
                std::nullopt},
       PollInfo{std::make_unique<FlightInfo>(info), FlightDescriptor::Command("poll"), 0.1,
                expiration_time},
+      PollInfo{},
   };
   std::vector<std::string> reprs = {
       "<PollInfo info=" + info.ToString() +
@@ -290,6 +291,7 @@ TEST(FlightTypes, PollInfo) {
       "<PollInfo info=" + info.ToString() +
           " descriptor=<FlightDescriptor cmd='poll'> "
           "progress=0.1 expiration_time=2023-06-19 03:14:06.004339000>",
+      "<PollInfo info=null descriptor=null progress=null expiration_time=null>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::PollInfo>(values, reprs));

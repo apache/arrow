@@ -21,24 +21,26 @@ on:
   push:
     paths:
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
   pull_request:
     paths:
       - ".github/workflows/r.yml"
-      - "ci/scripts/r_*.sh"
-      - "ci/scripts/cpp_*.sh"
-      - "ci/scripts/PKGBUILD"
-      - "ci/etc/rprofile"
       - "ci/docker/**"
+      - "ci/etc/rprofile"
+      - "ci/scripts/PKGBUILD"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/install_minio.sh"
+      - "ci/scripts/r_*.sh"
       - "cpp/**"
-      - 'docker-compose.yml'
+      - "docker-compose.yml"
       - "r/**"
 
 concurrency:
@@ -73,7 +75,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -206,7 +208,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -256,6 +258,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # This must be done before r-lib/actions/setup-r because curl in
+      # Rtools doesn't work on non Rtools' MSYS2 environment. If we
+      # use "shell: bash" after r-lib/actions/setup-r, bash in Rtools
+      # is used on non Rtools' MSYS2 environment.
+      - name: Install MinIO
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          ci/scripts/install_minio.sh latest "$HOME/.local"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -282,15 +294,6 @@ jobs:
           working-directory: 'r'
           extra-packages: |
             any::rcmdcheck
-      - name: Install MinIO
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.local/bin"
-          curl \
-            --output "$HOME/.local/bin/minio.exe" \
-            https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
-          chmod +x "$HOME/.local/bin/minio.exe"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
       # TODO(ARROW-17149): figure out why the GCS tests are hanging on Windows
       # - name: Install Google Cloud Storage Testbench
       #   shell: bash

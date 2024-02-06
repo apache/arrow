@@ -4375,6 +4375,36 @@ def large_utf8():
     return large_string()
 
 
+def binary_view():
+    """
+    Create a variable-length binary view type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.binary_view()
+    DataType(binary_view)
+    """
+    return primitive_type(_Type_BINARY_VIEW)
+
+
+def string_view():
+    """
+    Create UTF8 variable-length string view type.
+
+    Examples
+    --------
+    Create an instance of a string type:
+
+    >>> import pyarrow as pa
+    >>> pa.string_view()
+    DataType(string_view)
+    """
+    return primitive_type(_Type_STRING_VIEW)
+
+
 def list_(value_type, int list_size=-1):
     """
     Create ListType instance from child data type or field.
@@ -4991,6 +5021,8 @@ cdef dict _type_aliases = {
     'large_str': large_string,
     'large_utf8': large_string,
     'large_binary': large_binary,
+    'binary_view': binary_view,
+    'string_view': string_view,
     'date32': date32,
     'date64': date64,
     'date32[day]': date32,
@@ -5140,12 +5172,8 @@ def from_numpy_dtype(object dtype):
     >>> pa.from_numpy_dtype(np.str_)
     DataType(string)
     """
-    cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
-    with nogil:
-        check_status(NumPyDtypeToArrow(dtype, &c_type))
-
-    return pyarrow_wrap_data_type(c_type)
+    return pyarrow_wrap_data_type(GetResultValue(NumPyDtypeToArrow(dtype)))
 
 
 def is_boolean_value(object obj):

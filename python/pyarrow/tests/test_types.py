@@ -61,6 +61,8 @@ def get_many_types():
         pa.binary(10),
         pa.large_string(),
         pa.large_binary(),
+        pa.string_view(),
+        pa.binary_view(),
         pa.list_(pa.int32()),
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
@@ -243,6 +245,12 @@ def test_is_binary_string():
 
     assert types.is_fixed_size_binary(pa.binary(5))
     assert not types.is_fixed_size_binary(pa.binary())
+
+    assert types.is_string_view(pa.string_view())
+    assert not types.is_string_view(pa.string())
+    assert types.is_binary_view(pa.binary_view())
+    assert not types.is_binary_view(pa.binary())
+    assert not types.is_binary_view(pa.string_view())
 
 
 def test_is_temporal_date_time_timestamp():
@@ -485,6 +493,17 @@ def test_timestamp():
     for invalid_unit in ('m', 'arbit', 'rary'):
         with pytest.raises(ValueError, match='Invalid time unit'):
             pa.timestamp(invalid_unit)
+
+
+def test_timestamp_print():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas',
+                   'Mars/Mariner_Valley', '-00:42', '+42:00'):
+            ty = pa.timestamp(unit, tz=tz)
+            arr = pa.array([0], ty)
+            assert "Z" in str(arr)
+        arr = pa.array([0], pa.timestamp(unit))
+        assert "Z" not in str(arr)
 
 
 def test_time32_units():

@@ -73,7 +73,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
 
-    CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+    CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
                            c_bool from_pandas,

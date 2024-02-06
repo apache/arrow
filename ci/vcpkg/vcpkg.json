@@ -81,8 +81,11 @@
           "default-features": false,
           "features": [
             "clang",
-            "default-options",
             "default-targets",
+            "enable-bindings",
+            "enable-terminfo",
+            "enable-zlib",
+            "enable-zstd",
             "enable-rtti",
             "lld",
             "tools"

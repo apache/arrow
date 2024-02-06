@@ -23,9 +23,8 @@ cloudpickle
 fsspec
 hypothesis
 numpy>=1.16.6
-pytest
+pytest<8
 pytest-faulthandler
-pytest-lazy-fixture
 s3fs>=2023.10.0
 setuptools
 setuptools_scm<8.0.0
