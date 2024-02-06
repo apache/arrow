@@ -2614,6 +2614,10 @@ cdef class ListViewArray(Array):
         expect to pass it to `ListViewArray.from_arrays` and get back the same
         list array if the original one has nulls.
 
+        Parameters
+        ----------
+        pool : MemoryPool, optional
+
         Returns
         -------
         offsets : Int32Array
@@ -2930,6 +2934,10 @@ cdef class LargeListViewArray(Array):
         Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
+
+        Parameters
+        ----------
+        pool : MemoryPool, optional
 
         Returns
         -------
