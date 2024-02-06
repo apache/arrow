@@ -15,9 +15,9 @@
 
 using System;
 using System.Collections.Generic;
-using Apache.Arrow.Ipc;
 using System.IO;
 using System.Threading.Tasks;
+using Apache.Arrow.Ipc;
 using Apache.Arrow.Tests;
 using K4os.Compression.LZ4;
 using Xunit;
