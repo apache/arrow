@@ -3644,4 +3644,3 @@ def test_list_view_flatten(list_array_type):
     array = list_array_type.from_arrays(offsets, sizes, values)
 
     assert array.flatten().to_pylist() == [4, 3, 2, 1]
-
