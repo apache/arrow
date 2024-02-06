@@ -19,8 +19,8 @@
 # when you update this file.
 
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
-# contains choco and vs2017 preinstalled
-FROM abrarov/msvc-2017:2.11.0
+# contains choco and vs2019 preinstalled
+FROM abrarov/msvc-2019:2.11.0
 
 # Install CMake and Ninja
 ARG cmake=3.21.4
