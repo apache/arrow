@@ -1036,8 +1036,7 @@ class LeaseGuard {
       lease_client_->Release();
     } catch (const Storage::StorageException& exception) {
       return ExceptionToStatus(exception, "Failed to release the ",
-                               lease_client_->GetLeaseId(), " lease on '",
-                               lease_client_->GetUrl(), "'");
+                               lease_client_->GetLeaseId(), " lease");
     }
     return Status::OK();
   }
@@ -1079,9 +1078,9 @@ class LeaseGuard {
           std::min(break_or_expires_at_,
                    SteadyClock::now() + break_period.ValueOr(std::chrono::seconds{0}));
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(
-          exception, "Failed to break the ", lease_client_->GetLeaseId(), " lease on '",
-          lease_client_->GetUrl(), "' expiring in ", remaining_time_ms().count(), "ms");
+      return ExceptionToStatus(exception, "Failed to break the ",
+                               lease_client_->GetLeaseId(), " lease expiring in ",
+                               remaining_time_ms().count(), "ms");
     }
     return Status::OK();
   }
