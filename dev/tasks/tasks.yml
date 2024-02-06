@@ -748,6 +748,10 @@ tasks:
       - arrow-jdbc-{no_rc_snapshot_version}-tests.jar
       - arrow-jdbc-{no_rc_snapshot_version}.jar
       - arrow-jdbc-{no_rc_snapshot_version}.pom
+      - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.xml
+      - arrow-maven-plugins-{no_rc_snapshot_version}-src.zip
+      - arrow-maven-plugins-{no_rc_snapshot_version}.pom
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-core-{no_rc_snapshot_version}-javadoc.jar
@@ -762,6 +766,13 @@ tasks:
       - arrow-memory-netty-{no_rc_snapshot_version}-tests.jar
       - arrow-memory-netty-{no_rc_snapshot_version}.jar
       - arrow-memory-netty-{no_rc_snapshot_version}.pom
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}-cyclonedx.json
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}-cyclonedx.xml
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}-javadoc.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}-sources.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}-tests.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}.jar
+      - arrow-memory-netty-buffer-patch-{no_rc_snapshot_version}.pom
       - arrow-memory-unsafe-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-unsafe-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-unsafe-{no_rc_snapshot_version}-javadoc.jar
@@ -839,6 +850,13 @@ tasks:
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.pom
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.json
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.xml
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-javadoc.jar
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-sources.jar
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-src.zip
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.jar
+      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.pom
 
   ############################## NuGet packages ###############################
 
