@@ -261,11 +261,10 @@ class SerialBlockReader : public BlockReader {
     auto consume_bytes = [this, bytes_before_buffer,
                           next_buffer](int64_t nbytes) -> Status {
       DCHECK_GE(nbytes, 0);
-      auto offset = nbytes - bytes_before_buffer;
-      if (offset < 0) {
-        // Should not happen
-        return Status::Invalid("CSV parser got out of sync with chunker");
-      }
+      int64_t offset = nbytes - bytes_before_buffer;
+      // All data before the buffer should have been consumed.
+      // This is checked in Parse() and BlockParsingOperator::operator().
+      DCHECK_GE(offset, 0);
       partial_ = SliceBuffer(buffer_, offset);
       buffer_ = next_buffer;
       return Status::OK();
@@ -400,6 +399,7 @@ class BlockParsingOperator {
         count_rows_(first_row >= 0),
         num_rows_seen_(first_row) {}
 
+  // TODO: this is almost entirely the same as ReaderMixin::Parse(). Refactor?
   Result<ParsedBlock> operator()(const CSVBlock& block) {
     constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
     auto parser = std::make_shared<BlockParser>(
@@ -427,9 +427,24 @@ class BlockParsingOperator {
     } else {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
+
+    // `partial + completion` should have been entirely consumed.
+    const int64_t bytes_before_buffer = block.partial->size() + block.completion->size();
+    if (static_cast<int64_t>(parsed_size) < bytes_before_buffer) {
+      // This can happen if `newlines_in_values` is not enabled and
+      // `partial + completion` ends with a newline inside a quoted string.
+      // In this case, the BlockParser stops at the truncated data in the first
+      // block (see gh-39857).
+      return Status::Invalid(
+          "CSV parser got out of sync with chunker. This can mean the data file "
+          "contains cell values spanning multiple lines; please consider enabling "
+          "the option 'newlines_in_values'.");
+    }
+
     if (count_rows_) {
       num_rows_seen_ += parser->total_num_rows();
     }
+
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
@@ -738,6 +753,15 @@ class ReaderMixin {
     } else {
       RETURN_NOT_OK(parser->Parse(views, &parsed_size));
     }
+    // See BlockParsingOperator for explanation.
+    const int64_t bytes_before_buffer = partial->size() + completion->size();
+    if (static_cast<int64_t>(parsed_size) < bytes_before_buffer) {
+      return Status::Invalid(
+          "CSV parser got out of sync with chunker. This can mean the data file "
+          "contains cell values spanning multiple lines; please consider enabling "
+          "the option 'newlines_in_values'.");
+    }
+
     if (count_rows_) {
       num_rows_seen_ += parser->total_num_rows();
     }
