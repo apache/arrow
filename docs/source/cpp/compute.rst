@@ -1816,17 +1816,17 @@ Structural transforms
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(6) Extract a child value based on a sequence of indices and the field names passed in
+* \(6) Extract a child value based on a field name or a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:
   float64>>``:
 
-  * An empty sequence of indices yields the original value unchanged.
-  * The index ``0`` yields an array of type ``int32`` whose validity
+  * An empty sequence of indices or an empty field name yields the original value unchanged.
+  * The index ``0`` or the field name ``a`` yields an array of type ``int32`` whose validity
     bitmap is the intersection of the bitmap for the outermost struct
     and the bitmap for the child ``a``.
-  * The index ``1, 1`` yields an array of type ``float64`` whose
+  * The index ``1, 1`` or the field name ``b.d`` yields an array of type ``float64`` whose
     validity bitmap is the intersection of the bitmaps for the
     outermost struct, for struct ``b``, and for the child ``d``.
 
@@ -1834,7 +1834,7 @@ Structural transforms
   codes. Also, the index is always the child index and not a type code.
   Hence for array with type ``sparse_union<2: int32, 7: utf8>``:
 
-  * The index ``0`` yields an array of type ``int32``, which is valid
+  * The index ``0`` or the field name ``2`` yields an array of type ``int32``, which is valid
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
