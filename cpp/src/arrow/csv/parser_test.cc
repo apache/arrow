@@ -384,10 +384,12 @@ TEST(BlockParser, TruncatedData) {
 }
 
 TEST(BlockParser, TruncatedDataViews) {
-  // If non-last block is truncated, parsing stops
+  // The BlockParser API mandates that, when passing a vector of views,
+  // only the last view may be a truncated CSV block.
+  // In the current implementation, receiving a truncated non-last view
+  // simply stops parsing after that view.
   BlockParser parser(ParseOptions::Defaults(), /*num_cols=*/3);
   AssertParsePartial(parser, Views({"a,b,", "c\n"}), 0);
-  // (XXX should we guarantee this one below?)
   AssertParsePartial(parser, Views({"a,b,c\nd,", "e,f\n"}), 6);
 
   // More sophisticated: non-last block ends on some newline inside a quoted string

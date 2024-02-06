@@ -683,6 +683,9 @@ class BaseTestCSV(abc.ABC):
                 rows, parse_options=ParseOptions(newlines_in_values=True),
                 read_options=ReadOptions(block_size=block_size)).to_pydict()
             assert d == expected
+        # With these block sizes, a block would end on the physical newline
+        # inside the quoted cell value, leading to a mismatch between
+        # CSV chunker and parser.
         for block_size in range(8, 11):
             with pytest.raises(ValueError,
                                match="cell values spanning multiple lines"):

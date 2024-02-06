@@ -261,7 +261,10 @@ class SerialBlockReader : public BlockReader {
     auto consume_bytes = [this, bytes_before_buffer,
                           next_buffer](int64_t nbytes) -> Status {
       DCHECK_GE(nbytes, 0);
-      auto offset = nbytes - bytes_before_buffer;
+      int64_t offset = nbytes - bytes_before_buffer;
+      // All data before the buffer should have been consumed.
+      // This is checked in Parse() and BlockParsingOperator::operator().
+      DCHECK_GE(offset, 0);
       partial_ = SliceBuffer(buffer_, offset);
       buffer_ = next_buffer;
       return Status::OK();
