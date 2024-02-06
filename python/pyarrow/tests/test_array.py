@@ -3633,3 +3633,15 @@ def test_list_view_from_arrays(list_array_type):
     assert array.values.to_pylist() == values
     assert array.offsets.to_pylist() == offsets
     assert array.sizes.to_pylist() == sizes
+
+
+@pytest.mark.parametrize(('list_array_type'),
+                         [pa.ListViewArray, pa.LargeListViewArray])
+def test_list_view_flatten(list_array_type):
+    values = [1, 2, 3, 4]
+    offsets = [3, 2, 1, 0]
+    sizes = [1, 1, 1, 1]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.flatten().to_pylist() == [4, 3, 2, 1]
+

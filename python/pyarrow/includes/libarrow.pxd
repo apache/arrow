@@ -730,6 +730,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             shared_ptr[CBuffer] null_bitmap,
         )
 
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
+        )
+
         const int32_t* raw_value_offsets()
         const int32_t* raw_value_sizes()
         int32_t value_offset(int i)
@@ -757,6 +761,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const CArray& values,
             CMemoryPool* pool,
             shared_ptr[CBuffer] null_bitmap,
+        )
+
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
         )
 
         int64_t value_offset(int i)
