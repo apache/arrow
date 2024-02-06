@@ -890,7 +890,14 @@ std::string Scalar::ToString() const {
       type->id() == Type::LIST_VIEW || type->id() == Type::LARGE_LIST_VIEW ||
       type->id() == Type::FIXED_SIZE_LIST) {
     auto list_scalar = checked_cast<const BaseListScalar*>(this);
-    return list_scalar->value->ToString();
+
+    arrow::PrettyPrintOptions options;
+    options.skip_new_lines = true;
+    options.array_delimiters.element = ", ";
+    std::string result;
+    DCHECK_OK(PrettyPrint(*list_scalar->value, options, &result));
+
+    return list_scalar->type->ToString() + result;
   }
 
   if (type->id() == Type::RUN_END_ENCODED) {
