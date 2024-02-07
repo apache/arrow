@@ -452,8 +452,6 @@ class BlockParsingOperator {
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }
 
-  int64_t num_rows_seen() const { return num_rows_seen_; }
-
   int num_csv_cols() const { return num_csv_cols_; }
 
  private:
