@@ -4767,17 +4767,22 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
                                                            opentelemetry-cpp::resources)
+  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::resources
+                                                          opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::http_client_curl
                         INTERFACE opentelemetry-cpp::ext CURL::libcurl)
   target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_link_libraries(opentelemetry-cpp::otlp_recordable
-                        INTERFACE opentelemetry-cpp::trace opentelemetry-cpp::resources
-                                  opentelemetry-cpp::proto)
+                        INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
+                        opentelemetry-cpp::resources opentelemetry-cpp::proto)
   target_link_libraries(opentelemetry-cpp::otlp_http_client
                         INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
                                   opentelemetry-cpp::http_client_curl
                                   nlohmann_json::nlohmann_json)
   target_link_libraries(opentelemetry-cpp::otlp_http_exporter
+                        INTERFACE opentelemetry-cpp::otlp_recordable
+                                  opentelemetry-cpp::otlp_http_client)
+  target_link_libraries(opentelemetry-cpp::otlp_http_log_record_exporter
                         INTERFACE opentelemetry-cpp::otlp_recordable
                                   opentelemetry-cpp::otlp_http_client)
 
