@@ -4400,6 +4400,17 @@ class TestArrayStreamExport : public BaseArrayStreamTest {
     ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_array, expected.schema()));
     AssertBatchesEqual(expected, *batch);
   }
+
+  void AssertStreamNext(struct ArrowArrayStream* c_stream, const Array& expected) {
+    struct ArrowArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    ArrayExportGuard guard(&c_array);
+    ASSERT_FALSE(ArrowArrayIsReleased(&c_array));
+
+    ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_array, expected.type()));
+    AssertArraysEqual(expected, *array);
+  }
 };
 
 TEST_F(TestArrayStreamExport, Empty) {
@@ -4495,6 +4506,67 @@ TEST_F(TestArrayStreamExport, Errors) {
   ASSERT_EQ(EINVAL, c_stream.get_next(&c_stream, &c_array));
 }
 
+TEST_F(TestArrayStreamExport, ChunkedArrayExportEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({}, int32()));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+
+  ASSERT_OK(ExportChunkedArray(chunked_array, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    AssertStreamEnd(&c_stream);
+  }
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+}
+
+TEST_F(TestArrayStreamExport, ChunkedArrayExport) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array,
+                       ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")}));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+  struct ArrowArray c_array0, c_array1;
+
+  ASSERT_OK(ExportChunkedArray(chunked_array, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array0));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array1));
+    AssertStreamEnd(&c_stream);
+  }
+
+  ArrayExportGuard guard0(&c_array0), guard1(&c_array1);
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+
+  ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+  ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_array0, chunked_array->type()));
+  AssertArraysEqual(*chunked_array->chunk(0), *array);
+  ASSERT_OK_AND_ASSIGN(array, ImportArray(&c_array1, chunked_array->type()));
+  AssertArraysEqual(*chunked_array->chunk(1), *array);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Array stream roundtrip tests
 
@@ -4532,6 +4604,29 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
     }
     // Stream was released when `new_reader` was destroyed
     ASSERT_TRUE(weak_reader.expired());
+  }
+
+  void Roundtrip(std::shared_ptr<ChunkedArray> src,
+                 std::function<void(const std::shared_ptr<ChunkedArray>&)> check_func) {
+    ArrowArrayStream c_stream;
+
+    // One original copy which to compare the result, one copy held by the stream
+    std::weak_ptr<ChunkedArray> weak_src(src);
+    int64_t initial_use_count = weak_src.use_count();
+
+    ASSERT_OK(ExportChunkedArray(std::move(src), &c_stream));
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    {
+      ASSERT_OK_AND_ASSIGN(auto dst, ImportChunkedArray(&c_stream));
+      // Stream was moved, consumed, and released
+      ASSERT_TRUE(ArrowArrayStreamIsReleased(&c_stream));
+
+      // Stream was released by ImportChunkedArray but original copy remains
+      ASSERT_EQ(weak_src.use_count(), initial_use_count - 1);
+
+      check_func(dst);
+    }
   }
 
   void AssertReaderNext(const std::shared_ptr<RecordBatchReader>& reader,
@@ -4629,6 +4724,26 @@ TEST_F(TestArrayStreamRoundtrip, SchemaError) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
                                   ImportRecordBatchReader(&stream));
   ASSERT_TRUE(state.released);
+}
+
+TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtrip) {
+  ASSERT_OK_AND_ASSIGN(auto src,
+                       ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")}));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({}, int32()));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
 }
 
 }  // namespace arrow
