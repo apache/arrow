@@ -2577,7 +2577,7 @@ cdef class ListViewArray(Array):
         guarantee is that each non-null value in the ListView Array is contiguous.
 
         Compare with :meth:`flatten`, which returns only the non-null
-        values taking into consideration the array's offset.
+        values taking into consideration the array's order and offset.
 
         Returns
         -------
@@ -2592,6 +2592,21 @@ cdef class ListViewArray(Array):
         >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [],
+          [
+            2,
+            null,
+            3,
+            4
+          ]
+        ]
         >>> array.values
         <pyarrow.lib.Int64Array object at ...>
         [
@@ -2665,7 +2680,7 @@ cdef class ListViewArray(Array):
         """
         return pyarrow_wrap_array((<CListViewArray*> self.ap).sizes())
 
-    def flatten(self, pool=None):
+    def flatten(self, memory_pool=None):
         """
         Unnest this ListViewArray by one level.
 
@@ -2678,7 +2693,7 @@ cdef class ListViewArray(Array):
 
         Parameters
         ----------
-        pool : MemoryPool, optional
+        memory_pool : MemoryPool, optional
 
         Returns
         -------
@@ -2692,6 +2707,22 @@ cdef class ListViewArray(Array):
         >>> offsets = [2, 1, 0]
         >>> sizes = [2, 2, 2]
         >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
         >>> array.flatten()
         <pyarrow.lib.Int64Array object at ...>
         [
@@ -2703,7 +2734,7 @@ cdef class ListViewArray(Array):
           2
         ]
         """
-        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
         with nogil:
             out = GetResultValue((<CListViewArray*> self.ap).Flatten(cpool))
         cdef Array result = pyarrow_wrap_array(out)
@@ -2829,7 +2860,7 @@ cdef class LargeListViewArray(Array):
         guarantee is that each non-null value in the ListView Array is contiguous.
 
         Compare with :meth:`flatten`, which returns only the non-null
-        values taking into consideration the array's offset.
+        values taking into consideration the array's order and offset.
 
         Returns
         -------
@@ -2849,6 +2880,21 @@ cdef class LargeListViewArray(Array):
         >>> offsets = [0, 0, 1]
         >>> sizes = [2, 0, 4]
         >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [],
+          [
+            2,
+            null,
+            3,
+            4
+          ]
+        ]
         >>> array.values
         <pyarrow.lib.Int64Array object at ...>
         [
@@ -2924,7 +2970,7 @@ cdef class LargeListViewArray(Array):
         """
         return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).sizes())
 
-    def flatten(self, pool=None):
+    def flatten(self, memory_pool=None):
         """
         Unnest this LargeListViewArray by one level.
 
@@ -2937,7 +2983,7 @@ cdef class LargeListViewArray(Array):
 
         Parameters
         ----------
-        pool : MemoryPool, optional
+        memory_pool : MemoryPool, optional
 
         Returns
         -------
@@ -2951,6 +2997,22 @@ cdef class LargeListViewArray(Array):
         >>> offsets = [2, 1, 0]
         >>> sizes = [2, 2, 2]
         >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
         >>> array.flatten()
         <pyarrow.lib.Int64Array object at ...>
         [
@@ -2962,7 +3024,7 @@ cdef class LargeListViewArray(Array):
           2
         ]
         """
-        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
         with nogil:
             out = GetResultValue((<CLargeListViewArray*> self.ap).Flatten(cpool))
         cdef Array result = pyarrow_wrap_array(out)
