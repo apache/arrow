@@ -298,7 +298,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Engine::~Engine() {}
 
-Status Engine::Init() {
+Status Engine::Init(std::unordered_set<std::string> function_names) {
+  used_functions_ = std::move(function_names);
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
 
   // Add mappings for global functions that can be accessed from LLVM/IR module.
@@ -331,7 +332,6 @@ Result<std::unique_ptr<Engine>> Engine::Make(
   std::unique_ptr<Engine> engine{
       new Engine(conf, std::move(jit), std::move(target_machine), cached)};
 
-  ARROW_RETURN_NOT_OK(engine->Init());
   return engine;
 }
 
@@ -557,13 +557,15 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
+  if (used_functions_.find(name) == used_functions_.end()) {
+    return;
+  }
   auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
   AddAbsoluteSymbol(lljit_->getMainJITDylib(), *mangle_, name, func);
 }
 
 arrow::Status Engine::AddGlobalMappings() {
-  ARROW_LOG(INFO) << "Adding global mappings for exported functions";
   ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
   ExternalCFunctions c_funcs(function_registry_);
   return c_funcs.AddMappings(this);

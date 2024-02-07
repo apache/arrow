@@ -91,13 +91,14 @@ class GANDIVA_EXPORT Engine {
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();
 
+  /// Post construction init. This _must_ be called after the constructor.
+  /// @param[in] used_functions set of function names that are expected to be used by the engine
+  Status Init(std::unordered_set<std::string> used_functions);
+
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,
          std::unique_ptr<llvm::TargetMachine> target_machine, bool cached);
-
-  // Post construction init. This _must_ be called after the constructor.
-  Status Init();
 
   static void InitOnce();
 
@@ -122,6 +123,7 @@ class GANDIVA_EXPORT Engine {
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;
+  std::unordered_set<std::string> used_functions_;
 
   bool optimize_ = true;
   bool module_finalized_ = false;

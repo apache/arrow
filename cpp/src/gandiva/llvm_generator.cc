@@ -66,12 +66,20 @@ Status LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   return engine_->SetLLVMObjectCache(object_cache);
 }
 
-Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
-  int idx = static_cast<int>(compiled_exprs_.size());
+arrow::Result<ValueValidityPairPtr> LLVMGenerator::Decompose(const ExpressionPtr& expr) {
   // decompose the expression to separate out value and validities.
   ExprDecomposer decomposer(*function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
+
+  auto& used_functions = decomposer.UsedFunctions();
+  functions_in_exprs_.insert(used_functions.begin(), used_functions.end());
+  return value_validity;
+}
+
+Status LLVMGenerator::Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity,
+                          const FieldDescriptorPtr output) {
+  int idx = static_cast<int>(compiled_exprs_.size());
   // Generate the IR function for the decomposed expression.
   auto compiled_expr = std::make_unique<CompiledExpr>(value_validity, output);
   std::string fn_name = "expr_" + std::to_string(idx) + "_" +
@@ -92,9 +100,19 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
 Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode mode) {
   selection_vector_mode_ = mode;
 
+  std::vector<ValueValidityPairPtr> expr_value_validities;
   for (auto& expr : exprs) {
+    ARROW_ASSIGN_OR_RAISE(auto value_validity, Decompose(expr));
+    expr_value_validities.push_back(value_validity);
+  }
+
+  ARROW_RETURN_NOT_OK(engine_->Init(std::move(functions_in_exprs_)));
+
+  for (size_t i = 0; i < exprs.size(); ++i) {
+    const auto& expr = exprs[i];
     auto output = annotator_.AddOutputFieldDescriptor(expr->result());
-    ARROW_RETURN_NOT_OK(Add(expr, output));
+    auto value_validity = expr_value_validities[i];
+    ARROW_RETURN_NOT_OK(Add(expr, std::move(value_validity), output));
   }
 
   // Compile and inject into the process' memory the generated function.
