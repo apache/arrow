@@ -339,8 +339,8 @@ install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
 }
 
 pyarrow_compatible_pointer <- function(ptr) {
-  # Workaround because there is no built-in way to send a 64-bit integer
-  # to Python from an R object
+  # GH-39933: Workaround because there is no built-in way to send a
+  # 64-bit integer to Python from an R object
   py <- reticulate::import_builtins(convert = FALSE)
   addr <- external_pointer_addr_character(ptr)
   py$int(addr)
