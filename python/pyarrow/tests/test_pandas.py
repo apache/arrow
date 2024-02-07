@@ -333,6 +333,14 @@ class TestConvertMetadata:
             )
             _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_rangeindex(self):
+        # https://github.com/apache/arrow/issues/33473
+        multiindex = pd.MultiIndex.from_arrays(
+            [pd.RangeIndex(0, 3), pd.Index([1, 2])]
+        )
+        df = pd.DataFrame(pd.Series([1, 2], name="a"), index=multiindex)
+        _check_pandas_roundtrip(df, preserve_index=None)
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
