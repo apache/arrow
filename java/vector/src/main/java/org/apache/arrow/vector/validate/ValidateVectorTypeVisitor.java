@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -61,6 +62,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -304,6 +306,15 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateVectorCommon(vector, ArrowType.LargeUtf8.class);
     } else if (vector instanceof LargeVarBinaryVector) {
       validateVectorCommon(vector, ArrowType.LargeBinary.class);
+    }
+    return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    // TODO: update this logic accordingly
+    if (vector instanceof ViewVarCharVector) {
+      validateVectorCommon(vector, ArrowType.Utf8.class);
     }
     return null;
   }

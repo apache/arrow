@@ -43,6 +43,7 @@ import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.Utf8ViewAvaticaParameterConverter;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -206,6 +207,11 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.Utf8 type) {
       return new Utf8AvaticaParameterConverter(type).createParameter(field);
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.Utf8View type) {
+      return new Utf8ViewAvaticaParameterConverter(type).createParameter(field);
     }
 
     @Override
