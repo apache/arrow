@@ -30,7 +30,7 @@ BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since de
 AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
           -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
           -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
-          -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
+          -luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp"
 # pkg-config --libs libcurl
 GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
           -lz -lws2_32 -lnghttp2 -ldbghelp"
