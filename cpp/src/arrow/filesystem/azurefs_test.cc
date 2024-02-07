@@ -1393,7 +1393,10 @@ TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
-  ASSERT_RAISES(IOError, fs()->DeleteFile("nonexistent"));
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  auto container_client = CreateContainer(container_name);
+  const auto blob_path = ConcatAbstractPath(container_name, "someblob");
+  ASSERT_RAISES(IOError, fs()->DeleteFile(blob_path));
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
