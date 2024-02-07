@@ -92,7 +92,8 @@ class GANDIVA_EXPORT Engine {
   Status LoadFunctionIRs();
 
   /// Post construction init. This _must_ be called after the constructor.
-  /// @param[in] used_functions set of function names that are expected to be used by the engine
+  /// @param[in] used_functions set of function names that are expected to be used by the
+  /// engine
   Status Init(std::unordered_set<std::string> used_functions);
 
  private:
@@ -124,6 +125,15 @@ class GANDIVA_EXPORT Engine {
 
   std::vector<std::string> functions_to_compile_;
   std::unordered_set<std::string> used_functions_;
+  std::unordered_set<std::string> used_c_functions_;
+  static inline const std::unordered_set<std::string> internal_functions_ = {
+      "gdv_fn_populate_varlen_vector",
+      "gdv_fn_context_arena_reset",
+      "bitMapGetBit",
+      "bitMapValidityGetBit",
+      "bitMapClearBitIfFalse",
+      "gdv_fn_context_arena_malloc",
+      "gdv_fn_context_set_error_msg"};
 
   bool optimize_ = true;
   bool module_finalized_ = false;

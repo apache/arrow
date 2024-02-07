@@ -308,7 +308,7 @@ Status Engine::Init(std::unordered_set<std::string> function_names) {
 }
 
 Status Engine::LoadFunctionIRs() {
-  if (!functions_loaded_) {
+  if (!functions_loaded_ && used_functions_.size() > used_c_functions_.size()) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
     ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
@@ -557,12 +557,16 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
-  if (used_functions_.find(name) == used_functions_.end()) {
-    return;
+  // if the function is not used, don't add it to the module for better performance
+  bool is_internal_func = internal_functions_.find(name) != internal_functions_.end();
+  if (is_internal_func || used_functions_.find(name) != used_functions_.end()) {
+    if (!is_internal_func) {
+      used_c_functions_.emplace(name);
+    }
+    auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
+    llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
+    AddAbsoluteSymbol(lljit_->getMainJITDylib(), *mangle_, name, func);
   }
-  auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
-  llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
-  AddAbsoluteSymbol(lljit_->getMainJITDylib(), *mangle_, name, func);
 }
 
 arrow::Status Engine::AddGlobalMappings() {
