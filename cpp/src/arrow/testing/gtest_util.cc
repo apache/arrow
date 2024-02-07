@@ -238,7 +238,7 @@ std::string ToStringWithMetadata(const T& t, bool show_metadata) {
 }
 
 std::string ToStringWithMetadata(const DataType& t, bool show_metadata) {
-  return t.ToString();
+  return t.ToString(show_metadata);
 }
 
 template <typename T>
