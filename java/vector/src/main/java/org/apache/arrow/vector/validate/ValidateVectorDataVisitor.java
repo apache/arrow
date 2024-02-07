@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -99,6 +100,14 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(BaseLargeVariableWidthVector vector, Void value) {
     validateLargeOffsetBuffer(vector, vector.getValueCount());
+    vector.validateScalars();
+    return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    // TODO: update logic for Views
+    validateOffsetBuffer(vector, vector.getValueCount());
     vector.validateScalars();
     return null;
   }

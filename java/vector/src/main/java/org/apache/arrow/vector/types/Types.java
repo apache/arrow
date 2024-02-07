@@ -65,6 +65,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
@@ -114,6 +115,7 @@ import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
+import org.apache.arrow.vector.complex.impl.ViewVarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
@@ -138,6 +140,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
@@ -502,6 +505,21 @@ public class Types {
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
         return new VarCharWriterImpl((VarCharVector) vector);
+      }
+    },
+    VIEWVARCHAR(Utf8View.INSTANCE) {
+      // TODO: check this logic for Utf8View
+      @Override
+      public FieldVector getNewVector(
+              Field field,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new ViewVarCharVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new ViewVarCharWriterImpl((ViewVarCharVector) vector);
       }
     },
     LARGEVARCHAR(LargeUtf8.INSTANCE) {
@@ -921,6 +939,12 @@ public class Types {
       @Override
       public MinorType visit(Utf8 type) {
         return MinorType.VARCHAR;
+      }
+
+      @Override
+      public MinorType visit(Utf8View type) {
+        // TODO: probably needs renming VARCHARVIEW
+        return MinorType.VIEWVARCHAR;
       }
 
       @Override

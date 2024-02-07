@@ -41,6 +41,7 @@ import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.Utf8ViewAvaticaParameterConverter;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -188,6 +189,12 @@ public class AvaticaParameterBinder {
     @Override
     public Boolean visit(ArrowType.Utf8 type) {
       return new Utf8AvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Utf8View type) {
+      // TODO: update the logic properly
+      return new Utf8ViewAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override

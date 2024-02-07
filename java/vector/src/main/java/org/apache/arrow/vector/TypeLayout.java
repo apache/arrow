@@ -46,6 +46,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
 
 /**
  * The buffer layout of vectors for a given type.
@@ -175,6 +176,12 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Utf8 type) {
+        return newVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(Utf8View type) {
+        // TODO: update this logic to match Utf8View
         return newVariableWidthTypeLayout();
       }
 
@@ -349,6 +356,11 @@ public class TypeLayout {
 
       @Override
       public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Utf8View type) {
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 

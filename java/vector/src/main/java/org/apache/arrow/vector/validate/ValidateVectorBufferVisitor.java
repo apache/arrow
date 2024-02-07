@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
@@ -129,6 +130,20 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     validateOffsetBuffer(vector, minOffsetCapacity);
     long lastOffset = valueCount == 0 ? 0L :
         vector.getOffsetBuffer().getLong((long) valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+    validateDataBuffer(vector, lastOffset);
+    return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    // TODO: update this logic accordingly
+    int valueCount = vector.getValueCount();
+    validateVectorCommon(vector);
+    validateValidityBuffer(vector, valueCount);
+    long minOffsetCapacity = valueCount == 0 ? 0L : (long) (valueCount + 1) * BaseVariableWidthViewVector.OFFSET_WIDTH;
+    validateOffsetBuffer(vector, minOffsetCapacity);
+    int lastOffset = valueCount == 0 ? 0 :
+            vector.getOffsetBuffer().getInt((long) valueCount * BaseVariableWidthViewVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
     return null;
   }
