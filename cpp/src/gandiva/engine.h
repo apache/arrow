@@ -26,6 +26,7 @@
 #include <vector>
 
 #include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/ExecutionEngine/Orc/Mangling.h>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -115,6 +116,7 @@ class GANDIVA_EXPORT Engine {
 
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::orc::LLJIT> lljit_;
+  std::unique_ptr<llvm::orc::MangleAndInterner> mangle_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
   std::unique_ptr<llvm::Module> module_;
   LLVMTypes types_;

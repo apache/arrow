@@ -156,10 +156,9 @@ std::string DumpModuleIR(const llvm::Module& module) {
   return ir;
 }
 
-void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
+void AddAbsoluteSymbol(llvm::orc::JITDylib& jit_dylib,
+                       llvm::orc::MangleAndInterner& mangle, const std::string& name,
                        void* function_ptr) {
-  llvm::orc::MangleAndInterner mangle(lljit.getExecutionSession(), lljit.getDataLayout());
-
   // https://github.com/llvm/llvm-project/commit/8b1771bd9f304be39d4dcbdcccedb6d3bcd18200#diff-77984a824d9182e5c67a481740f3bc5da78d5bd4cf6e1716a083ddb30a4a4931
   // LLVM 17 introduced ExecutorSymbolDef and move most of ORC APIs to ExecutorAddr
 #if LLVM_VERSION_MAJOR >= 17
@@ -171,21 +170,21 @@ void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
                                   llvm::JITSymbolFlags::Exported);
 #endif
 
-  auto error = lljit.getMainJITDylib().define(
-      llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
+  auto error = jit_dylib.define(llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
   llvm::cantFail(std::move(error));
 }
 
 // add current process symbol to dylib
 // LLVM >= 18 does this automatically
-void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
+void AddProcessSymbol(llvm::orc::LLJIT& lljit, llvm::orc::MangleAndInterner& mangle) {
   lljit.getMainJITDylib().addGenerator(
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
   // the `atexit` symbol cannot be found for ASAN
 #ifdef ADDRESS_SANITIZER
   if (!lljit.lookup("atexit")) {
-    AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
+    AddAbsoluteSymbol(lljit.getMainJITDylib(), mangle, "atexit",
+                      reinterpret_cast<void*>(atexit));
   }
 #endif
 }
@@ -237,7 +236,6 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
 
-  AddProcessSymbol(*jit);
   return jit;
 }
 
@@ -290,6 +288,9 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       function_registry_(conf->function_registry()),
       target_machine_(std::move(target_machine)),
       conf_(conf) {
+  mangle_ = std::make_unique<llvm::orc::MangleAndInterner>(lljit_->getExecutionSession(),
+                                                           lljit_->getDataLayout());
+  AddProcessSymbol(*lljit_, *mangle_);
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
@@ -558,7 +559,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
                                      const std::vector<llvm::Type*>& args, void* func) {
   auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
-  AddAbsoluteSymbol(*lljit_, name, func);
+  AddAbsoluteSymbol(lljit_->getMainJITDylib(), *mangle_, name, func);
 }
 
 arrow::Status Engine::AddGlobalMappings() {
