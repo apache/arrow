@@ -44,6 +44,18 @@
 
 namespace arrow {
 namespace telemetry {
+
+namespace {
+
+class NoopLogger : public Logger {
+ public:
+  void Log(LogLevel, std::string_view) override {}
+};
+
+}  // namespace
+
+std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
+
 #ifdef ARROW_WITH_OPENTELEMETRY
 
 namespace otel = ::opentelemetry;
@@ -169,11 +181,6 @@ otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
       new otel::logs::NoopLoggerProvider{});
 }
 
-class NoopLogger : public Logger {
- public:
-  void Log(LogLevel, std::string_view) override {}
-};
-
 class OtelLogger : public Logger {
  public:
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
@@ -224,8 +231,6 @@ Status LoggingEnvironment::Initialize(const LoggingOptions& options) {
 Status LoggingEnvironment::Initialize(const LoggingOptions&) { return Status::OK(); }
 
 #endif
-
-std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
 
 }  // namespace telemetry
 }  // namespace arrow
