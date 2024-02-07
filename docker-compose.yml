@@ -330,6 +330,8 @@ services:
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
       ARROW_CTEST_TIMEOUT: 500
+      # GH-39773: Do not use debug memory pool for valgrind
+      ARROW_DEBUG_MEMORY_POOL: "none"
     volumes: *conda-volumes
     command: *conda-cpp-command
 
@@ -613,6 +615,8 @@ services:
       # 1 GB isn't enough for a single sanitizer build
       CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
+      # GH-39773: Do not use debug memory pool for ASAN
+      ARROW_DEBUG_MEMORY_POOL: "none"
     command: *cpp-command
 
   ubuntu-cpp-thread-sanitizer:
