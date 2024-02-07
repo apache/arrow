@@ -105,6 +105,8 @@ class build_ext(_build_ext):
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
+                     ('with-azure', None, 
+                      'build the Azure Blob Storage extension'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-substrait', None, 'build the Substrait extension'),
@@ -150,6 +152,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_azure = strtobool(
+            os.environ.get('PYARROW_WITH_AZURE', '0'))
         self.with_gcs = strtobool(
             os.environ.get('PYARROW_WITH_GCS', '0'))
         self.with_s3 = strtobool(
@@ -347,6 +351,8 @@ class build_ext(_build_ext):
         if name == '_gcsfs' and not self.with_gcs:
             return True
         if name == '_s3fs' and not self.with_s3:
+            return True
+        if name == '_azurefs' and not self.with_azure:
             return True
         if name == '_hdfs' and not self.with_hdfs:
             return True
