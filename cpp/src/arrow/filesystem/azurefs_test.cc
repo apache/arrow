@@ -1383,10 +1383,13 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
-  CreateFile(fs(), "abc", "data");
-  arrow::fs::AssertFileInfo(fs(), "abc", FileType::File);
-  ASSERT_OK(fs()->DeleteFile("abc"));
-  arrow::fs::AssertFileInfo(fs(), "abc", FileType::NotFound);
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  ASSERT_OK(fs()->CreateDir(container_name));
+  const auto file_name = ConcatAbstractPath(container_name, "abc");
+  CreateFile(fs(), file_name, "data");
+  arrow::fs::AssertFileInfo(fs(), file_name, FileType::File);
+  ASSERT_OK(fs()->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs(), file_name, FileType::NotFound);
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
