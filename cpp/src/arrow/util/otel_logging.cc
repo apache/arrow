@@ -18,6 +18,8 @@
 // Pick up ARROW_WITH_OPENTELEMETRY first
 #include "arrow/util/config.h"
 
+#include <chrono>
+
 #include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -37,6 +39,7 @@
 #include <opentelemetry/sdk/resource/resource.h>
 #include <opentelemetry/sdk/resource/resource_detector.h>
 #include <opentelemetry/sdk/resource/semantic_conventions.h>
+#include <opentelemetry/trace/tracer.h>
 #endif
 
 namespace arrow {
@@ -51,23 +54,47 @@ namespace {
 
 template <typename T>
 using otel_shared_ptr = otel::nostd::shared_ptr<T>;
+using otel_string_view = otel::nostd::string_view;
 
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
 
+otel::logs::Severity ToOtelSeverity(LogLevel level) {
+  switch (level) {
+    case LogLevel::ARROW_TRACE:
+      return opentelemetry::logs::Severity::kTrace;
+    case LogLevel::ARROW_DEBUG:
+      return opentelemetry::logs::Severity::kDebug;
+    case LogLevel::ARROW_INFO:
+      return opentelemetry::logs::Severity::kInfo;
+    case LogLevel::ARROW_WARNING:
+      return opentelemetry::logs::Severity::kWarn;
+    case LogLevel::ARROW_ERROR:
+      return opentelemetry::logs::Severity::kError;
+    case LogLevel::ARROW_FATAL:
+      return opentelemetry::logs::Severity::kFatal;
+  }
+  return otel::logs::Severity::kInvalid;
+}
+
+enum class ExporterKind {
+  OSTREAM,
+  OTLP_HTTP,
+  OTLP_OSTREAM,
+};
+
 std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
-    ExporterType exporter_type, std::ostream* ostream = nullptr) {
-  switch (exporter_type) {
-    case ExporterType::OSTREAM: {
+    ExporterKind exporter_kind, std::ostream* ostream = nullptr) {
+  switch (exporter_kind) {
+    case ExporterKind::OSTREAM: {
       return std::make_unique<otel::exporter::logs::OStreamLogRecordExporter>(*ostream);
     } break;
-    case ExporterType::OTLP_HTTP: {
+    case ExporterKind::OTLP_HTTP: {
       namespace otlp = otel::exporter::otlp;
       // TODO: Allow user configuration here?
       otlp::OtlpHttpLogRecordExporterOptions options{};
       return std::make_unique<otlp::OtlpHttpLogRecordExporter>(options);
     } break;
-    case ExporterType::OTLP_STDOUT:
-    case ExporterType::OTLP_STDERR: {
+    case ExporterKind::OTLP_OSTREAM: {
       // TODO: These require custom (subclassed) exporters
     } break;
     default:
@@ -76,18 +103,23 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
   return nullptr;
 }
 
-std::unique_ptr<otel::sdk::logs::LogRecordExporter> GetExporter() {
+std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporterFromEnv(
+    const LoggingOptions& options) {
   auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingBackendEnvVar);
   if (maybe_env_var.ok()) {
     auto env_var = maybe_env_var.ValueOrDie();
+    auto* default_ostream =
+        options.default_export_stream ? options.default_export_stream : &std::cerr;
     if (env_var == "ostream") {
-      return MakeExporter(ExporterType::OSTREAM, &std::cerr);
+      return MakeExporter(ExporterKind::OSTREAM, default_ostream);
     } else if (env_var == "otlp_http") {
-      return MakeExporter(ExporterType::OTLP_HTTP);
+      return MakeExporter(ExporterKind::OTLP_HTTP);
     } else if (env_var == "arrow_otlp_stdout") {
-      return MakeExporter(ExporterType::OTLP_STDOUT, &std::cout);
+      return MakeExporter(ExporterKind::OTLP_OSTREAM, &std::cout);
     } else if (env_var == "arrow_otlp_stderr") {
-      return MakeExporter(ExporterType::OTLP_STDERR, &std::cerr);
+      return MakeExporter(ExporterKind::OTLP_OSTREAM, &std::cerr);
+    } else if (env_var == "arrow_otlp_ostream") {
+      return MakeExporter(ExporterKind::OTLP_OSTREAM, default_ostream);
     } else if (!env_var.empty()) {
       ARROW_LOG(WARNING) << "Requested unknown backend " << kLoggingBackendEnvVar << "="
                          << env_var;
@@ -96,37 +128,41 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> GetExporter() {
   return nullptr;
 }
 
-std::unique_ptr<otel::sdk::logs::LogRecordProcessor> GetProcessor(
+std::unique_ptr<otel::sdk::logs::LogRecordProcessor> MakeLogRecordProcessor(
     std::unique_ptr<otel::sdk::logs::LogRecordExporter> exporter) {
   otel::sdk::logs::BatchLogRecordProcessorOptions options{};
   return std::make_unique<otel::sdk::logs::BatchLogRecordProcessor>(std::move(exporter),
                                                                     options);
 }
 
-otel::sdk::resource::Resource GetResource() {
-  // TODO: We'll want to set custom key/value attributes here (with keys that respect
-  // OTel's semantic conventions). Some of them could probably be user-configurable, e.g:
-  //  - SemanticConventions::kServiceName
-  //  - SemanticConventions::kServiceInstanceId
-  //  - SemanticConventions::kServiceNamespace
-  //  - SemanticConventions::kServiceVersion
-  // We could also include process info...
+otel::sdk::resource::Resource MakeResource(const ServiceAttributes& service_attributes) {
+  // TODO: We could also include process info...
   //  - SemanticConventions::kProcessPid
   //  - SemanticConventions::kProcessExecutableName
   //  - SemanticConventions::kProcessExecutablePath
   //  - SemanticConventions::kProcessOwner
   //  - SemanticConventions::kProcessCommandArgs
-  otel::sdk::resource::ResourceAttributes attributes{};
-  auto resource = otel::sdk::resource::Resource::Create(attributes);
+  otel::sdk::resource::ResourceAttributes resource_attributes{};
+
+  auto set_attr = [&](const char* key, const std::optional<std::string>& val) {
+    if (val.has_value()) resource_attributes.SetAttribute(key, val.value());
+  };
+  set_attr(SemanticConventions::kServiceName, service_attributes.name);
+  set_attr(SemanticConventions::kServiceNamespace, service_attributes.name_space);
+  set_attr(SemanticConventions::kServiceInstanceId, service_attributes.instance_id);
+  set_attr(SemanticConventions::kServiceVersion, service_attributes.version);
+
+  auto resource = otel::sdk::resource::Resource::Create(resource_attributes);
   auto env_resource = otel::sdk::resource::OTELResourceDetector().Detect();
   return resource.Merge(env_resource);
 }
 
-otel_shared_ptr<otel::logs::LoggerProvider> GetLoggerProvider() {
-  auto exporter = GetExporter();
+otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
+    const LoggingOptions& options) {
+  auto exporter = MakeExporterFromEnv(options);
   if (exporter) {
-    auto processor = GetProcessor(std::move(exporter));
-    auto resource = GetResource();
+    auto processor = MakeLogRecordProcessor(std::move(exporter));
+    auto resource = MakeResource(options.service_attributes);
     return otel_shared_ptr<otel::sdk::logs::LoggerProvider>(
         new otel::sdk::logs::LoggerProvider(std::move(processor), resource));
   }
@@ -134,19 +170,64 @@ otel_shared_ptr<otel::logs::LoggerProvider> GetLoggerProvider() {
       new otel::logs::NoopLoggerProvider{});
 }
 
+class NoopLogger : public Logger {
+ public:
+  void Log(LogLevel, std::string_view) override {}
+};
+
+class OtelLogger : public Logger {
+ public:
+  OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
+      : logger_(ot_logger), options_(std::move(options)) {}
+
+  void Log(LogLevel severity, std::string_view body) override {
+    if (severity < options_.severity_threshold) {
+      return;
+    }
+
+    auto log = logger_->CreateLogRecord();
+    if (log == nullptr) {
+      return;
+    }
+
+    log->SetTimestamp(otel::common::SystemTimestamp(std::chrono::system_clock::now()));
+    log->SetSeverity(ToOtelSeverity(severity));
+    log->SetBody(otel_string_view(body.data(), body.length()));
+
+    auto span_ctx = otel::trace::Tracer::GetCurrentSpan()->GetContext();
+    log->SetSpanId(span_ctx.span_id());
+    log->SetTraceId(span_ctx.trace_id());
+    log->SetTraceFlags(span_ctx.trace_flags());
+
+    logger_->EmitLogRecord(std::move(log));
+  }
+
+ private:
+  otel_shared_ptr<otel::logs::Logger> logger_;
+  LoggingOptions options_;
+};
+
+std::unique_ptr<Logger> MakeOTelLogger(const LoggingOptions& options) {
+  otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(options));
+  return std::make_unique<OtelLogger>(
+      options, otel::logs::Provider::GetLoggerProvider()->GetLogger("arrow"));
+}
+
 }  // namespace
 
-void InitializeLoggerProvider() {
-  auto provider = GetLoggerProvider();
-  // The LoggerProvider can be accessed globally, serving as a factory for loggers
-  otel::logs::Provider::SetLoggerProvider(std::move(provider));
+Status LoggingEnvironment::Initialize(const LoggingOptions& options) {
+  logger_ = MakeOTelLogger(options);
+  return Status::OK();
 }
 
 #else
 
-void InitializeLoggerProvider() {}
+Status LoggingEnvironment::Initialize(const LoggingOptions&) { return Status::OK(); }
 
 #endif
+
+std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
+
 }  // namespace logging
 }  // namespace util
 }  // namespace arrow
