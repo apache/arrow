@@ -587,7 +587,8 @@ struct ArrayExporter {
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
                    [](const std::shared_ptr<Buffer>& buffer) -> const void* {
-                     return buffer ? reinterpret_cast<const void*>(buffer->address()) : nullptr;
+                     return buffer ? reinterpret_cast<const void*>(buffer->address())
+                                   : nullptr;
                    });
 
     if (need_variadic_buffer_sizes) {
@@ -1975,6 +1976,24 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
     return maybe_type.status();
   }
   return ImportDeviceArray(array, *maybe_type, mapper);
+}
+
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id) {
+  if (device_type != ARROW_DEVICE_CPU) {
+    return Status::NotImplemented("Only importing data on CPU is supported");
+  }
+  return default_cpu_memory_manager();
+}
+
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 std::shared_ptr<DataType> type) {
+  return ImportDeviceArray(array, type, DefaultDeviceMapper);
+}
+
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 struct ArrowSchema* type) {
+  return ImportDeviceArray(array, type, DefaultDeviceMapper);
 }
 
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(

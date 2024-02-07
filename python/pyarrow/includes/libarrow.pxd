@@ -2851,6 +2851,10 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
 
     CStatus ExportDeviceArray(const CArray&, shared_ptr[CSyncEvent],
                               ArrowDeviceArray* out, ArrowSchema*)
+    CResult[shared_ptr[CArray]] ImportDeviceArray(ArrowDeviceArray*,
+                                                  shared_ptr[CDataType])
+    CResult[shared_ptr[CArray]] ImportDeviceArray(ArrowDeviceArray*,
+                                                  ArrowSchema*)
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     CResult[int64_t] ReferencedBufferSize(const CArray& array_data)

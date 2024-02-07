@@ -601,3 +601,54 @@ def test_roundtrip_batch_reader_capsule():
     assert imported_reader.read_next_batch().equals(batch)
     with pytest.raises(StopIteration):
         imported_reader.read_next_batch()
+
+
+@needs_cffi
+def test_export_import_device_array():
+    c_schema = ffi.new("struct ArrowSchema*")
+    ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+    c_array = ffi.new("struct ArrowDeviceArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
+    old_allocated = pa.total_allocated_bytes()
+
+    # Type is known up front
+    typ = pa.list_(pa.int32())
+    arr = pa.array([[1], [2, 42]], type=typ)
+    py_value = arr.to_pylist()
+    arr._export_to_c_device(ptr_array)
+    assert pa.total_allocated_bytes() > old_allocated
+
+    # verify exported struct
+    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1
+    assert c_array.array.length == 2
+
+    # Delete recreate C++ object from exported pointer
+    del arr
+    arr_new = pa.Array._import_from_c_device(ptr_array, typ)
+    assert arr_new.to_pylist() == py_value
+    assert arr_new.type == pa.list_(pa.int32())
+    assert pa.total_allocated_bytes() > old_allocated
+    del arr_new, typ
+    assert pa.total_allocated_bytes() == old_allocated
+    # Now released
+    with assert_array_released:
+        pa.Array._import_from_c(ptr_array, pa.list_(pa.int32()))
+
+    # Type is exported and imported at the same time
+    arr = pa.array([[1], [2, 42]], type=pa.list_(pa.int32()))
+    py_value = arr.to_pylist()
+    arr._export_to_c(ptr_array, ptr_schema)
+    # Delete and recreate C++ objects from exported pointers
+    del arr
+    arr_new = pa.Array._import_from_c(ptr_array, ptr_schema)
+    assert arr_new.to_pylist() == py_value
+    assert arr_new.type == pa.list_(pa.int32())
+    assert pa.total_allocated_bytes() > old_allocated
+    del arr_new
+    assert pa.total_allocated_bytes() == old_allocated
+    # Now released
+    with assert_schema_released:
+        pa.Array._import_from_c(ptr_array, ptr_schema)

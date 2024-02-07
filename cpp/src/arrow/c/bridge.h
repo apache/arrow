@@ -249,6 +249,13 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  struct ArrowSchema* type,
                                                  const DeviceMemoryMapper& mapper);
 
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 std::shared_ptr<DataType> type);
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 struct ArrowSchema* type);
+
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device from the C data
 /// interface.
 ///
