@@ -375,6 +375,7 @@ set(ARROW_SRCS
     status.cc
     table.cc
     table_builder.cc
+    telemetry/logging.cc
     tensor.cc
     tensor/coo_converter.cc
     tensor/csf_converter.cc
@@ -519,7 +520,6 @@ set(ARROW_UTIL_SRCS
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc
-    util/otel_logging.cc
     util/ree_util.cc
     util/string.cc
     util/string_builder.cc
@@ -1202,6 +1202,7 @@ add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
 add_subdirectory(io)
+add_subdirectory(telemetry)
 add_subdirectory(tensor)
 add_subdirectory(util)
 add_subdirectory(vendored)

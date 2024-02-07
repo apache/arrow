@@ -21,9 +21,9 @@
 #include <chrono>
 
 #include "arrow/result.h"
+#include "arrow/telemetry/logging.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/otel_logging.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/exporters/ostream/log_record_exporter.h>
@@ -43,8 +43,7 @@
 #endif
 
 namespace arrow {
-namespace util {
-namespace logging {
+namespace telemetry {
 #ifdef ARROW_WITH_OPENTELEMETRY
 
 namespace otel = ::opentelemetry;
@@ -228,6 +227,5 @@ Status LoggingEnvironment::Initialize(const LoggingOptions&) { return Status::OK
 
 std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
 
-}  // namespace logging
-}  // namespace util
+}  // namespace telemetry
 }  // namespace arrow

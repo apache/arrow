@@ -29,10 +29,9 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace util {
-namespace logging {
+namespace telemetry {
 
-using LogLevel = ArrowLogLevel;
+using LogLevel = util::ArrowLogLevel;
 
 /// \brief Attributes to be set in an OpenTelemetry resource
 ///
@@ -102,6 +101,5 @@ class ARROW_EXPORT LoggingEnvironment {
   static inline std::unique_ptr<Logger> logger_{};
 };
 
-}  // namespace logging
-}  // namespace util
+}  // namespace telemetry
 }  // namespace arrow
