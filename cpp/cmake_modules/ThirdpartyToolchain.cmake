@@ -4774,7 +4774,7 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_link_libraries(opentelemetry-cpp::otlp_recordable
                         INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
-                        opentelemetry-cpp::resources opentelemetry-cpp::proto)
+                                  opentelemetry-cpp::resources opentelemetry-cpp::proto)
   target_link_libraries(opentelemetry-cpp::otlp_http_client
                         INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
                                   opentelemetry-cpp::http_client_curl
