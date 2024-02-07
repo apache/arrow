@@ -125,7 +125,7 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
     elif PyCapsule_CheckExact(v):
         capsule_name = PyCapsule_GetName(v)
         if capsule_name == NULL or strcmp(capsule_name, "r_extptr") != 0:
-            c_ptr = PyCapsule_GetPointer(v, NULL)
+            c_ptr = PyCapsule_GetPointer(v, capsule_name)
         else:
             capsule_name_str = capsule_name.decode("UTF-8")
             raise ValueError(
