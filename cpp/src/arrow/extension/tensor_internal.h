@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
+#include "arrow/status.h"
 #include "arrow/util/print.h"
 
 namespace arrow::internal {

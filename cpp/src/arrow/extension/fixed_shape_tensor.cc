@@ -18,7 +18,7 @@
 #include <numeric>
 #include <sstream>
 
-#include <arrow/scalar.h>
+#include "arrow/scalar.h"
 #include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/tensor_internal.h"
 
