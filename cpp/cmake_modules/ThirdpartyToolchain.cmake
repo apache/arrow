@@ -4776,7 +4776,7 @@ macro(build_opentelemetry)
                         INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
                                   opentelemetry-cpp::resources opentelemetry-cpp::proto)
   target_link_libraries(opentelemetry-cpp::otlp_http_client
-                        INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::proto
                                   opentelemetry-cpp::http_client_curl
                                   nlohmann_json::nlohmann_json)
   target_link_libraries(opentelemetry-cpp::otlp_http_exporter
