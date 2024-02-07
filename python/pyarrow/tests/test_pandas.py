@@ -336,7 +336,7 @@ class TestConvertMetadata:
     def test_multiindex_rangeindex(self):
         # https://github.com/apache/arrow/issues/33473
         multiindex = pd.MultiIndex.from_arrays(
-            [pd.RangeIndex(0, 3), pd.Index([1, 2])]
+            [pd.RangeIndex(0, 2), pd.Index([1, 2])]
         )
         df = pd.DataFrame(pd.Series([1, 2], name="a"), index=multiindex)
         _check_pandas_roundtrip(df, preserve_index=None)
