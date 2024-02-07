@@ -20,7 +20,6 @@
 : ${PKG_CONFIG:="pkg-config"}
 # Library settings
 PKG_CONFIG_NAME="arrow"
-PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
