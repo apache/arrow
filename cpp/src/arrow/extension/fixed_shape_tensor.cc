@@ -88,7 +88,7 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
   }
-  const auto& other_ext = dynamic_cast<const FixedShapeTensorType&>(other);
+  const auto& other_ext = internal::checked_cast<const FixedShapeTensorType&>(other);
 
   auto is_permutation_trivial = [](const std::vector<int64_t>& permutation) {
     for (size_t i = 1; i < permutation.size(); ++i) {
@@ -201,7 +201,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
-            dynamic_cast<const ExtensionType&>(*data->type).extension_name());
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
