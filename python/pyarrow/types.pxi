@@ -15,7 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New, PyCapsule_IsValid
+from cpython.pycapsule cimport (
+    PyCapsule_CheckExact,
+    PyCapsule_GetPointer,
+    PyCapsule_GetName,
+    PyCapsule_New,
+    PyCapsule_IsValid
+)
+
+from libc.string cimport strcmp
 
 import atexit
 from collections.abc import Mapping
@@ -105,6 +113,7 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
     (the latter for compatibility with raw pointers exported by reticulate)
     """
     cdef void* c_ptr
+    cdef const char* capsule_name
     if isinstance(v, int):
         c_ptr = <void*> <uintptr_t > v
     elif isinstance(v, float):
@@ -114,7 +123,14 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
             "Arrow library", UserWarning, stacklevel=2)
         c_ptr = <void*> <uintptr_t > v
     elif PyCapsule_CheckExact(v):
-        c_ptr = PyCapsule_GetPointer(v, NULL)
+        capsule_name = PyCapsule_GetName(v)
+        if capsule_name == NULL or strcmp(capsule_name, "r_extptr") != 0:
+            c_ptr = PyCapsule_GetPointer(v, NULL)
+        else:
+            capsule_name_str = capsule_name.decode("UTF-8")
+            raise ValueError(
+                f"Can't convert PyCapsule with name '{capsule_name_str}' to pointer address"
+            )
     else:
         raise TypeError(f"Expected a pointer value, got {type(v)!r}")
     if not allow_null and c_ptr == NULL:
