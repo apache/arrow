@@ -32,7 +32,8 @@ class OrcJniUtils {
   private static final String LIBRARY_NAME = "arrow_orc_jni";
   private static boolean isLoaded = false;
 
-  private OrcJniUtils() {}
+  private OrcJniUtils() {
+  }
 
   static void loadOrcAdapterLibraryFromJar()
           throws IOException, IllegalAccessException {

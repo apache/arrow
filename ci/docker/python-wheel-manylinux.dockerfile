@@ -62,15 +62,16 @@ COPY ci/vcpkg/*.patch \
 COPY ci/scripts/install_vcpkg.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
-ENV PATH="${PATH}:${VCPKG_ROOT}"
-
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="manifests"
+
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
+ENV PATH="${PATH}:${VCPKG_ROOT}"
+
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
 # ssl related fixes as well as we can patch the vcpkg portfile to support

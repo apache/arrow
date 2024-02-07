@@ -172,7 +172,7 @@ x-hierarchy:
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
-  - python-wheel-windows-vs2017
+  - python-wheel-windows-vs2019
   - python-wheel-windows-test
 
 volumes:
@@ -1030,7 +1030,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1053,7 +1053,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2_28
@@ -1098,19 +1098,19 @@ services:
       CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2019:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2017:2.11.0
-      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+      #   - abrarov/msvc-2019:2.11.0
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
@@ -1119,12 +1119,12 @@ services:
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
   python-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2017-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2017.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-test-vs2019.dockerfile
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind

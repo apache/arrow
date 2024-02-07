@@ -101,7 +101,7 @@ $ sudo meson install -C c_glib.build
 You need to install Arrow C++ before you install Arrow GLib. See Arrow
 C++ document about how to install Arrow C++.
 
-You need [GTK-Doc](https://www.gtk.org/gtk-doc/) and
+You need [GTK-Doc](https://gitlab.gnome.org/GNOME/gtk-doc) and
 [GObject Introspection](https://wiki.gnome.org/Projects/GObjectIntrospection)
 to build Arrow GLib. You can install them by the followings:
 

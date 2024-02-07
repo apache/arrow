@@ -914,6 +914,8 @@ struct DecodedMetadata {
   std::shared_ptr<KeyValueMetadata> metadata;
   std::string extension_name;
   std::string extension_serialized;
+  int extension_name_index = -1;        // index of extension_name in metadata
+  int extension_serialized_index = -1;  // index of extension_serialized in metadata
 };
 
 Result<DecodedMetadata> DecodeMetadata(const char* metadata) {
@@ -956,8 +958,10 @@ Result<DecodedMetadata> DecodeMetadata(const char* metadata) {
     RETURN_NOT_OK(read_string(&values[i]));
     if (keys[i] == kExtensionTypeKeyName) {
       decoded.extension_name = values[i];
+      decoded.extension_name_index = i;
     } else if (keys[i] == kExtensionMetadataKeyName) {
       decoded.extension_serialized = values[i];
+      decoded.extension_serialized_index = i;
     }
   }
   decoded.metadata = key_value_metadata(std::move(keys), std::move(values));
@@ -1046,6 +1050,8 @@ struct SchemaImporter {
         ARROW_ASSIGN_OR_RAISE(
             type_, registered_ext_type->Deserialize(std::move(type_),
                                                     metadata_.extension_serialized));
+        RETURN_NOT_OK(metadata_.metadata->DeleteMany(
+            {metadata_.extension_name_index, metadata_.extension_serialized_index}));
       }
     }
 
@@ -1537,6 +1543,8 @@ struct ArrayImporter {
     if (recursion_level_ >= kMaxImportRecursionLevel) {
       return Status::Invalid("Recursion level in ArrowArray struct exceeded");
     }
+    device_type_ = parent->device_type_;
+    memory_mgr_ = parent->memory_mgr_;
     // Child buffers will keep the entire parent import alive.
     // Perhaps we can move the child structs to an owned area
     // when the parent ImportedArrayData::Release() gets called,
@@ -1851,10 +1859,25 @@ struct ArrayImporter {
   template <typename OffsetType>
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
-    auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
+    if (device_type_ == DeviceAllocationType::kCPU) {
+      auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
+      // Compute visible size of buffer
+      int64_t buffer_size =
+          (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
+      return ImportBuffer(buffer_id, buffer_size);
+    }
+
+    // we only need the value of the last offset so let's just copy that
+    // one value from device to host.
+    auto single_value_buf =
+        SliceBuffer(data_->buffers[offsets_buffer_id],
+                    c_struct_->length * sizeof(OffsetType), sizeof(OffsetType));
+    ARROW_ASSIGN_OR_RAISE(
+        auto cpubuf, Buffer::ViewOrCopy(single_value_buf, default_cpu_memory_manager()));
+    auto offsets = cpubuf->data_as<OffsetType>();
     // Compute visible size of buffer
-    int64_t buffer_size =
-        (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
+    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * offsets[0] : 0;
+
     return ImportBuffer(buffer_id, buffer_size);
   }
 

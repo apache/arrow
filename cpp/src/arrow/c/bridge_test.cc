@@ -1872,7 +1872,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
     Reset();            // for further tests
     cb.AssertCalled();  // was released
-    AssertTypeEqual(*expected, *type);
+    AssertTypeEqual(*expected, *type, /*check_metadata=*/true);
   }
 
   void CheckImport(const std::shared_ptr<Field>& expected) {
@@ -1892,7 +1892,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
     Reset();            // for further tests
     cb.AssertCalled();  // was released
-    AssertSchemaEqual(*expected, *schema);
+    AssertSchemaEqual(*expected, *schema, /*check_metadata=*/true);
   }
 
   void CheckImportError() {
@@ -3571,7 +3571,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
     // Recreate the type
     ASSERT_OK_AND_ASSIGN(actual, ImportType(&c_schema));
     type = factory_expected();
-    AssertTypeEqual(*type, *actual);
+    AssertTypeEqual(*type, *actual, /*check_metadata=*/true);
     type.reset();
     actual.reset();
 
@@ -3602,7 +3602,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
     // Recreate the schema
     ASSERT_OK_AND_ASSIGN(actual, ImportSchema(&c_schema));
     schema = factory();
-    AssertSchemaEqual(*schema, *actual);
+    AssertSchemaEqual(*schema, *actual, /*check_metadata=*/true);
     schema.reset();
     actual.reset();
 
@@ -3695,13 +3695,27 @@ TEST_F(TestSchemaRoundtrip, Dictionary) {
   }
 }
 
+// Given an extension type, return a field of its storage type + the
+// serialized extension metadata.
+std::shared_ptr<Field> GetStorageWithMetadata(const std::string& field_name,
+                                              const std::shared_ptr<DataType>& type) {
+  const auto& ext_type = checked_cast<const ExtensionType&>(*type);
+  auto storage_type = ext_type.storage_type();
+  auto md = KeyValueMetadata::Make({kExtensionTypeKeyName, kExtensionMetadataKeyName},
+                                   {ext_type.extension_name(), ext_type.Serialize()});
+  return field(field_name, storage_type, /*nullable=*/true, md);
+}
+
 TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
   TestWithTypeFactory(uuid, []() { return fixed_size_binary(16); });
   TestWithTypeFactory(dict_extension_type, []() { return dictionary(int8(), utf8()); });
 
-  // Inside nested type
-  TestWithTypeFactory([]() { return list(dict_extension_type()); },
-                      []() { return list(dictionary(int8(), utf8())); });
+  // Inside nested type.
+  // When an extension type is not known by the importer, it is imported
+  // as its storage type and the extension metadata is preserved on the field.
+  TestWithTypeFactory(
+      []() { return list(dict_extension_type()); },
+      []() { return list(GetStorageWithMetadata("item", dict_extension_type())); });
 }
 
 TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
@@ -3710,7 +3724,9 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
   TestWithTypeFactory(dict_extension_type);
   TestWithTypeFactory(complex128);
 
-  // Inside nested type
+  // Inside nested type.
+  // When the extension type is registered, the extension metadata is removed
+  // from the storage type's field to ensure roundtripping (GH-39865).
   TestWithTypeFactory([]() { return list(uuid()); });
   TestWithTypeFactory([]() { return list(dict_extension_type()); });
   TestWithTypeFactory([]() { return list(complex128()); });
@@ -3810,7 +3826,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
-      AssertTypeEqual(*expected->type(), *array->type());
+      AssertTypeEqual(*expected->type(), *array->type(), /*check_metadata=*/true);
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
@@ -3850,7 +3866,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<RecordBatch> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
-      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertSchemaEqual(*expected->schema(), *batch->schema(), /*check_metadata=*/true);
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
@@ -4230,7 +4246,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
-      AssertTypeEqual(*expected->type(), *array->type());
+      AssertTypeEqual(*expected->type(), *array->type(), /*check_metadata=*/true);
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
@@ -4276,7 +4292,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<RecordBatch> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
-      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertSchemaEqual(*expected->schema(), *batch->schema(), /*check_metadata=*/true);
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
@@ -4302,6 +4318,16 @@ TEST_F(TestDeviceArrayRoundtrip, Primitive) {
   auto mm = device->default_memory_manager();
 
   TestWithJSON(mm, int32(), "[4, 5, null]");
+}
+
+TEST_F(TestDeviceArrayRoundtrip, Struct) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+  auto type = struct_({field("ints", int16()), field("strs", utf8())});
+
+  TestWithJSON(mm, type, "[]");
+  TestWithJSON(mm, type, R"([[4, "foo"], [5, "bar"]])");
+  TestWithJSON(mm, type, R"([[4, null], null, [5, "foo"]])");
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -4353,7 +4379,7 @@ class TestArrayStreamExport : public BaseArrayStreamTest {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(expected, *schema);
+    AssertSchemaEqual(expected, *schema, /*check_metadata=*/true);
   }
 
   void AssertStreamEnd(struct ArrowArrayStream* c_stream) {
@@ -4437,7 +4463,7 @@ TEST_F(TestArrayStreamExport, ArrayLifetime) {
   {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_OK_AND_ASSIGN(auto got_schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(*schema, *got_schema);
+    AssertSchemaEqual(*schema, *got_schema, /*check_metadata=*/true);
   }
 
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
@@ -4462,7 +4488,7 @@ TEST_F(TestArrayStreamExport, Errors) {
   {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(schema, arrow::schema({}));
+    AssertSchemaEqual(schema, arrow::schema({}), /*check_metadata=*/true);
   }
 
   struct ArrowArray c_array;
@@ -4539,7 +4565,7 @@ TEST_F(TestArrayStreamRoundtrip, Simple) {
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
 
   Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
-    AssertSchemaEqual(*orig_schema, *reader->schema());
+    AssertSchemaEqual(*orig_schema, *reader->schema(), /*check_metadata=*/true);
     AssertReaderNext(reader, *batches[0]);
     AssertReaderNext(reader, *batches[1]);
     AssertReaderEnd(reader);
