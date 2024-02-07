@@ -852,3 +852,5 @@ const (
 	// cancellation request.
 	CancelResultNotCancellable = pb.ActionCancelQueryResult_CANCEL_RESULT_NOT_CANCELLABLE
 )
+
+type CreatePreparedStatementResult = pb.ActionCreatePreparedStatementResult
