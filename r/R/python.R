@@ -339,15 +339,9 @@ install_pyarrow <- function(envname = NULL, nightly = FALSE, ...) {
 }
 
 pyarrow_compatible_pointer <- function(ptr) {
-  pa <- reticulate::import("pyarrow")
-  version_string <- pa$`__version__`
-  # remove trailing .devXXX because it won't work with package_version()
-  pyarrow_version <- package_version(gsub("\\.dev.*?$", "", version_string))
-
-  # pyarrow pointers changed in version 7.0.0
-  if (pyarrow_version >= "7.0.0") {
-    return(ptr)
-  } else {
-    return(external_pointer_addr_double(ptr))
-  }
+  # GH-39933: Workaround because there is no built-in way to send a
+  # 64-bit integer to Python from an R object
+  py <- reticulate::import_builtins(convert = FALSE)
+  addr <- external_pointer_addr_character(ptr)
+  py$int(addr)
 }
