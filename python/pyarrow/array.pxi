@@ -3620,6 +3620,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
         shape tensor array.
+        If input array data is not contiguous a copy will be made.
 
         Parameters
         ----------
@@ -3657,9 +3658,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         if len(obj.shape) < 2:
             raise ValueError(
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
-        if np.prod(obj.shape[1:]) == 0:
-            raise ValueError("Expected a non-empty ndarray")
-        if obj.shape[0] == 0:
+        if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
