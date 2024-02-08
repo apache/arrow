@@ -905,6 +905,24 @@ TEST_F(TestArray, TestAppendArraySlice) {
   }
 }
 
+// GH-39976: Test mis-calculation of out-of-line buffer size in BinaryViewBuilder.
+TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
+  BinaryViewBuilder src_builder(pool_);
+  ASSERT_OK(src_builder.AppendNull());
+  ASSERT_OK(src_builder.Append("long string; not inlined"));
+  ASSERT_EQ(2, src_builder.length());
+  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
+  ASSERT_OK(src->ValidateFull());
+
+  ArraySpan span;
+  span.SetMembers(*src->data());
+  BinaryViewBuilder dst_builder(pool_);
+  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
+  ASSERT_EQ(1, dst_builder.length());
+  ASSERT_OK_AND_ASSIGN(auto dst, dst_builder.Finish());
+  ASSERT_OK(dst->ValidateFull());
+}
+
 TEST_F(TestArray, ValidateBuffersPrimitive) {
   auto empty_buffer = std::make_shared<Buffer>("");
   auto null_buffer = Buffer::FromString("\xff");
