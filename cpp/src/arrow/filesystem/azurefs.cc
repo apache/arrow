@@ -1690,6 +1690,26 @@ class AzureFileSystem::Impl {
     }
   }
 
+  Status DeleteFile(const AzureLocation& location) {
+    RETURN_NOT_OK(ValidateFileLocation(location));
+    auto file_client = datalake_service_client_->GetFileSystemClient(location.container)
+                           .GetFileClient(location.path);
+    try {
+      auto response = file_client.Delete();
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
+    } catch (const Storage::StorageException& exception) {
+      if (exception.ErrorCode == "FilesystemNotFound" ||
+          exception.ErrorCode == "PathNotFound") {
+        return PathNotFound(location);
+      }
+      return ExceptionToStatus(exception, "Failed to delete a file: ", location.path,
+                               ": ", file_client.GetUrl());
+    }
+    return Status::OK();
+  }
+
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
     RETURN_NOT_OK(ValidateFileLocation(src));
     RETURN_NOT_OK(ValidateFileLocation(dest));
@@ -1875,7 +1895,8 @@ Status AzureFileSystem::DeleteRootDirContents() {
 }
 
 Status AzureFileSystem::DeleteFile(const std::string& path) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
+  return impl_->DeleteFile(location);
 }
 
 Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
