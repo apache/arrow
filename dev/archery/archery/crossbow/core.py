@@ -195,6 +195,8 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
         if self.attempts >= 5:
             # pygit2 doesn't propagate the exception properly
             msg = 'Wrong oauth personal access token'
+            print(url)
+            print(username_from_url)
             print(msg)
             raise CrossbowError(msg)
 
