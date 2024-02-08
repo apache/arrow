@@ -54,6 +54,63 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
+  ubuntu-minimum-cpp-version:
+    name: Check minimum supported Arrow C++ Version (${{ matrix.cpp_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - cpp_version: "13.0.0"
+    steps:
+    - name: Checkout Arrow
+      uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      with:
+        path: src
+        submodules: recursive
+
+    - name: Install Arrow C++ (${{ matrix.cpp_version }})
+      run: |
+        sudo apt update
+        sudo apt install -y -V ca-certificates lsb-release wget
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt update
+        # We have to list all packages to avoid version conflicts.
+        sudo apt install -y -V libarrow-dev=${{ matrix.cpp_version }}-1 \
+                               libarrow-acero-dev=${{ matrix.cpp_version }}-1 \
+                               libparquet-dev=${{ matrix.cpp_version }}-1 \
+                               libarrow-dataset-dev=${{ matrix.cpp_version }}-1
+
+    - name: Install checkbashisms
+      run: |
+        sudo apt-get install devscripts
+
+    - uses: r-lib/actions/setup-r@v2
+      with:
+        use-public-rspm: true
+        install-r: false
+
+    - uses: r-lib/actions/setup-r-dependencies@v2
+      with:
+        extra-packages: any::rcmdcheck
+        needs: check
+        working-directory: src/r
+
+    - uses: r-lib/actions/check-r-package@v2
+      with:
+        working-directory: src/r
+      env:
+        LIBARROW_BINARY: "false"
+        LIBARROW_BUILD: "false"
+        ARROW_R_VERBOSE_TEST: "true"
+        ARROW_R_ALLOW_CPP_VERSION_MISMATCH: "true"
+
+    - name: Show install output
+      if: always()
+      run: find src/r/check -name '00install.out*' -exec cat '{}' \; || true
+      shell: bash
+
+
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }} Force-Tests ${{ matrix.force-tests }}
     runs-on: ubuntu-latest
