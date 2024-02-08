@@ -127,7 +127,7 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
         if capsule_name == NULL or capsule_name == "r_extptr":
             c_ptr = PyCapsule_GetPointer(v, capsule_name)
         else:
-            capsule_name_str = capsule_name.decode("UTF-8")
+            capsule_name_str = capsule_name.decode()
             raise ValueError(
                 f"Can't convert PyCapsule with name '{capsule_name_str}' to pointer address"
             )
