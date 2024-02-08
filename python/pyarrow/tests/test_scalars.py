@@ -57,6 +57,9 @@ from pyarrow.tests import util
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
     ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
+    # TODO GH-39855
+    # ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
+    # ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
     (datetime.date.today(), None, pa.Date32Scalar),
     (datetime.date.today(), pa.date64(), pa.Date64Scalar),
     (datetime.datetime.now(), None, pa.TimestampScalar),
@@ -537,7 +540,10 @@ def test_fixed_size_binary():
 
 @pytest.mark.parametrize(('ty', 'klass'), [
     (pa.list_(pa.string()), pa.ListScalar),
-    (pa.large_list(pa.string()), pa.LargeListScalar)
+    (pa.large_list(pa.string()), pa.LargeListScalar),
+    # TODO GH-39855
+    # (pa.list_view(pa.string()), pa.ListViewScalar),
+    # (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
     v = ['foo', None]
