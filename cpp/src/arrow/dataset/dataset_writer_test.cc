@@ -198,9 +198,7 @@ class DatasetWriterTestFixture : public testing::Test {
       int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
                          *ReadAsBatch(written_file->data, &num_batches));
-      if (check_num_record_batches) {
-        ASSERT_EQ(expected_file.num_record_batches, num_batches);
-      }
+      ASSERT_EQ(expected_file.num_record_batches, num_batches);
     }
   }
 
@@ -299,9 +297,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
     expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
                                 kFileSizeLimit * i, kFileSizeLimit);
   }
-  // Not checking the number of record batches because file may contain the
-  // zero-length record batch.
-  AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
+  AssertCreatedData(expected_files);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
