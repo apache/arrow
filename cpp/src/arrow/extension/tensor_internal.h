@@ -18,16 +18,19 @@
 #pragma once
 #include "arrow/extension/tensor_internal.h"
 
+#include "arrow/array/array_nested.h"
+#include <cstdint>
+#include <vector>
 #include "arrow/tensor.h"
+#include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/sort_internal.h"
-
-#include "arrow/status.h"
 #include "arrow/util/print_internal.h"
 
 namespace arrow::internal {
 
+ARROW_EXPORT
 inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
   const auto size = static_cast<int64_t>(permutation.size());
   std::vector<uint8_t> dim_seen(size, 0);
