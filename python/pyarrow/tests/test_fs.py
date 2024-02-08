@@ -292,6 +292,28 @@ _minio_limited_policy = """{
 
 
 @pytest.fixture
+def azurefs(request, azure_server):
+    request.config.pyarrow.requires('azure')
+    from pyarrow.fs import AzureFileSystem
+
+    host, port = azure_server['connection']
+    container = 'pyarrow-filesystem/'
+
+    fs = AzureFileSystem(account_name='devstoreaccount1')
+    try:
+        fs.create_dir(container)
+    except OSError as e:
+        pytest.skip(f"Could not create directory in {fs}: {e}")
+
+    yield dict(
+        fs=fs,
+        pathfn=container.__add__,
+        allow_move_dir=False,  # TODO(GH-38704): Switch this to True when AzureFileSystem adds support for it.
+        allow_append_to_file=True,
+    )
+    fs.delete_dir(container)
+
+@pytest.fixture
 def hdfs(request, hdfs_connection):
     request.config.pyarrow.requires('hdfs')
     if not pa.have_libhdfs():
@@ -384,6 +406,11 @@ def py_fsspec_s3fs(request, s3_server):
         marks=pytest.mark.gcs
     ),
     pytest.param(
+        'azurefs',
+        id='AzureFileSystem',
+        marks=pytest.mark.azure
+    ),
+    pytest.param(
         'hdfs',
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
@@ -412,6 +439,11 @@ def py_fsspec_s3fs(request, s3_server):
         'py_fsspec_s3fs',
         id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
         marks=pytest.mark.s3
+    ),
+    pytest.param(
+        'py_fsspec_azurefs',
+        id='PyFileSystem(FSSpecHandler(azurefs.AzureFileSystem()))',
+        marks=pytest.mark.azure,
     ),
 ])
 def filesystem_config(request):
@@ -1378,6 +1410,10 @@ def test_s3fs_wrong_region():
     fs = S3FileSystem(region='us-east-2', anonymous=True)
     fs.get_file_info("voltrondata-labs-datasets")
 
+
+def test_azurefs_options():
+    # TODO(tomnewton)
+    pass
 
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection, pickle_module):

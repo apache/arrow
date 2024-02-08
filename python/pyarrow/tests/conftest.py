@@ -256,6 +256,32 @@ def gcs_server():
             proc.wait()
 
 
+@pytest.fixture(scope='session')
+def azure_server(tmpdir_factory):
+    port = find_free_port()
+    env = os.environ.copy()
+    tmpdir = tmpdir_factory.getbasetemp()
+    args = ['azurite', '--quiet', "--location", tmpdir]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+        # Make sure the server is alive.
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
+    except (ModuleNotFoundError, OSError) as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            'connection': ('localhost', port),
+            'process': proc,
+            'tempdir': tmpdir,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
+
+
 @pytest.fixture(
     params=[
         'builtin_pickle',
