@@ -652,3 +652,64 @@ def test_export_import_device_array():
     # Now released
     with assert_schema_released:
         pa.Array._import_from_c(ptr_array, ptr_schema)
+
+
+@needs_cffi
+def test_export_import_device_batch():
+    c_schema = ffi.new("struct ArrowSchema*")
+    ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+    c_array = ffi.new("struct ArrowDeviceArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+
+    gc.collect()  # Make sure no Arrow data dangles in a ref cycle
+    old_allocated = pa.total_allocated_bytes()
+
+    # Schema is known up front
+    batch = make_batch()
+    schema = batch.schema
+    py_value = batch.to_pydict()
+    batch._export_to_c_device(ptr_array)
+    assert pa.total_allocated_bytes() > old_allocated
+
+    # verify exported struct
+    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1
+    assert c_array.array.length == 2
+
+    # Delete and recreate C++ object from exported pointer
+    del batch
+    batch_new = pa.RecordBatch._import_from_c_device(ptr_array, schema)
+    assert batch_new.to_pydict() == py_value
+    assert batch_new.schema == schema
+    assert pa.total_allocated_bytes() > old_allocated
+    del batch_new, schema
+    assert pa.total_allocated_bytes() == old_allocated
+    # Now released
+    with assert_array_released:
+        pa.RecordBatch._import_from_c_device(ptr_array, make_schema())
+
+    # Type is exported and imported at the same time
+    batch = make_batch()
+    py_value = batch.to_pydict()
+    batch._export_to_c_device(ptr_array, ptr_schema)
+    # Delete and recreate C++ objects from exported pointers
+    del batch
+    batch_new = pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+    assert batch_new.to_pydict() == py_value
+    assert batch_new.schema == make_batch().schema
+    assert pa.total_allocated_bytes() > old_allocated
+    del batch_new
+    assert pa.total_allocated_bytes() == old_allocated
+    # Now released
+    with assert_schema_released:
+        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+
+    # Not a struct type
+    pa.int32()._export_to_c(ptr_schema)
+    make_batch()._export_to_c_device(ptr_array)
+    with pytest.raises(ValueError,
+                       match="ArrowSchema describes non-struct type"):
+        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+    # Now released
+    with assert_schema_released:
+        pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)

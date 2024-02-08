@@ -2016,6 +2016,16 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
   return ImportDeviceRecordBatch(array, *maybe_schema, mapper);
 }
 
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema) {
+  return ImportDeviceRecordBatch(array, schema, DefaultDeviceMapper);
+}
+
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, struct ArrowSchema* schema) {
+  return ImportDeviceRecordBatch(array, schema, DefaultDeviceMapper);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // C stream export
 

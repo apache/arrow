@@ -292,6 +292,13 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, struct ArrowSchema* schema,
     const DeviceMemoryMapper& mapper);
 
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema);
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, struct ArrowSchema* schema);
+
 /// @}
 
 /// \defgroup c-stream-interface Functions for working with the C data interface.
