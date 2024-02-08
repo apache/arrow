@@ -56,7 +56,7 @@ type Rows struct {
 
 func newRows() *Rows {
 	return &Rows{
-		recordChan:      make(chan arrow.Record),
+		recordChan:      make(chan arrow.Record, 1),
 		initializedChan: make(chan bool),
 	}
 }
@@ -69,8 +69,8 @@ func (r *Rows) Columns() []string {
 
 	// All records have the same columns
 	cols := make([]string, len(r.schema.Fields()))
-	for _, c := range r.schema.Fields() {
-		cols = append(cols, c.Name)
+	for i, c := range r.schema.Fields() {
+		cols[i] = c.Name
 	}
 
 	return cols
@@ -103,17 +103,19 @@ func (r *Rows) releaseRecord() {
 
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-	if r.recordChan != nil {
-		if _, ok := <-r.recordChan; ok {
-			close(r.recordChan)
+	go func() {
+		if r.recordChan != nil {
+			if _, ok := <-r.recordChan; ok {
+				close(r.recordChan)
+			}
 		}
-	}
 
-	if r.initializedChan != nil {
-		if _, ok := <-r.initializedChan; ok {
-			close(r.initializedChan)
+		if r.initializedChan != nil {
+			if _, ok := <-r.initializedChan; ok {
+				close(r.initializedChan)
+			}
 		}
-	}
+	}()
 
 	r.releaseRecord()
 
@@ -557,6 +559,7 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 
 	return s, nil
 }
+
 func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) > 0 {
 		// We cannot pass arguments to the client so we skip a direct query.
@@ -597,6 +600,10 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 
 			defer reader.Release()
 
+			r.schema = reader.Schema()
+
+			r.initializedChan <- true
+
 			// reads each record into a blocking channel
 			for reader.Next() {
 				record := reader.Record()
@@ -604,8 +611,7 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 
 				select {
 				case r.recordChan <- record:
-					r.schema = reader.Schema()
-					r.initializedChan <- true
+					fmt.Println("record spawned")
 
 				case <-ctx.Done():
 					r.releaseRecord()
