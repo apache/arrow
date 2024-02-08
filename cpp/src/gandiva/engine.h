@@ -107,6 +107,10 @@ class GANDIVA_EXPORT Engine {
   /// the main module.
   Status LoadPreCompiledIR();
 
+  /// load mandatory pre-compiled IR modules from precompiled_bitcode.cc and merge them into
+  /// the main module. Mandatory IR includes functions manipulating bitmaps
+  Status LoadMandatoryPreCompiledIR();
+
   // load external pre-compiled bitcodes into module
   Status LoadExternalPreCompiledIR();
 
@@ -130,6 +134,7 @@ class GANDIVA_EXPORT Engine {
       "gdv_fn_populate_varlen_vector",
       "gdv_fn_context_arena_reset",
       "bitMapGetBit",
+      "bitMapSetBit",
       "bitMapValidityGetBit",
       "bitMapClearBitIfFalse",
       "gdv_fn_context_arena_malloc",
@@ -139,6 +144,7 @@ class GANDIVA_EXPORT Engine {
   bool module_finalized_ = false;
   bool cached_;
   bool functions_loaded_ = false;
+  bool mandatory_functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
   std::string module_ir_;
   std::unique_ptr<llvm::TargetMachine> target_machine_;

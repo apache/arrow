@@ -36,6 +36,7 @@ provide_cmake_module(GandivaAddBitcode "Gandiva")
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
+set(GANDIVA_PRECOMPILED_MANDATORY_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/mandatory_ir.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
 set(GANDIVA_PRECOMPILED_CC_IN_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_bitcode.cc.in")

@@ -15,9 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
+function(generate_and_link_bitcode src_files bitcode_output_path)
+  set(local_precompiled_bc_files) 
+  foreach(SOURCE ${src_files})
+    gandiva_add_bitcode(${SOURCE}) 
+    get_filename_component(SOURCE_BASE ${SOURCE} NAME_WE)
+    list(APPEND local_precompiled_bc_files ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_BASE}.bc)
+  endforeach()
+
+# link all of the bitcode files into a single bitcode file.
+  add_custom_command(OUTPUT ${bitcode_output_path}
+                     COMMAND ${LLVM_LINK_EXECUTABLE} -o ${bitcode_output_path}
+                             ${local_precompiled_bc_files}
+                     DEPENDS ${local_precompiled_bc_files})
+endfunction()
+
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
-    bitmap.cc
     decimal_ops.cc
     decimal_wrapper.cc
     extended_math_ops.cc
@@ -27,29 +41,24 @@ set(PRECOMPILED_SRCS
     time.cc
     timestamp_arithmetic.cc
     ../../arrow/util/basic_decimal.cc)
-set(GANDIVA_PRECOMPILED_BC_FILES)
-foreach(SOURCE ${PRECOMPILED_SRCS})
-  gandiva_add_bitcode(${SOURCE})
-  get_filename_component(SOURCE_BASE ${SOURCE} NAME_WE)
-  list(APPEND GANDIVA_PRECOMPILED_BC_FILES ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_BASE}.bc)
-endforeach()
+generate_and_link_bitcode("${PRECOMPILED_SRCS}" ${GANDIVA_PRECOMPILED_BC_PATH})
 
-# link all of the bitcode files into a single bitcode file.
-add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
-                   COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
-                           ${GANDIVA_PRECOMPILED_BC_FILES}
-                   DEPENDS ${GANDIVA_PRECOMPILED_BC_FILES})
+set(MANDATORY_SRCS bitmap.cc)
+generate_and_link_bitcode("${MANDATORY_SRCS}" ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH})
 
 # turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
                    COMMAND ${PYTHON_EXECUTABLE}
                            "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
                            ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
                            ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH}
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
+                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
+                                          ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
                                           ${GANDIVA_PRECOMPILED_CC_PATH})
 
 # testing

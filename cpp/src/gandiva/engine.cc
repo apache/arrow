@@ -115,6 +115,9 @@ namespace gandiva {
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
+extern const unsigned char kPrecompiledMandatoryBitcode[];
+extern const size_t kPrecompiledMandatoryBitcodeSize;
+
 std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
@@ -308,6 +311,11 @@ Status Engine::Init(std::unordered_set<std::string> function_names) {
 }
 
 Status Engine::LoadFunctionIRs() {
+  if (!mandatory_functions_loaded_) {
+    ARROW_RETURN_NOT_OK(LoadMandatoryPreCompiledIR());
+    mandatory_functions_loaded_ = true;
+  }
+
   if (!functions_loaded_ && used_functions_.size() > used_c_functions_.size()) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
@@ -361,14 +369,11 @@ llvm::Module* Engine::module() {
   return module_.get();
 }
 
-// Handling for pre-compiled IR libraries.
-Status Engine::LoadPreCompiledIR() {
-  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
-                                       kPrecompiledBitcodeSize);
-
+Status LoadIR(const std::string& name, llvm::StringRef bitcode, llvm::Module& module,
+              llvm::LLVMContext& context) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
-      llvm::MemoryBuffer::getMemBuffer(bitcode, "precompiled", false);
+      llvm::MemoryBuffer::getMemBuffer(bitcode, name, false);
 
   ARROW_RETURN_IF(!buffer_or_error,
                   Status::CodeGenError("Could not load module from IR: ",
@@ -378,11 +383,25 @@ Status Engine::LoadPreCompiledIR() {
 
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
-      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+      llvm::getOwningLazyBitcodeModule(std::move(buffer), context);
   // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
   // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module, std::move(module_or_error)));
   return Status::OK();
+}
+
+// Handling for pre-compiled IR libraries.
+Status Engine::LoadPreCompiledIR() {
+  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+                                       kPrecompiledBitcodeSize);
+  return LoadIR("precompiled", bitcode, *module_, *context());
+}
+
+Status Engine::LoadMandatoryPreCompiledIR() {
+  auto const bitcode =
+      llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledMandatoryBitcode),
+                      kPrecompiledMandatoryBitcodeSize);
+  return LoadIR("mandatory_precompiled", bitcode, *module_, *context());
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
