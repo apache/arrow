@@ -297,13 +297,16 @@ def azurefs(request, azure_server):
     from pyarrow.fs import AzureFileSystem
 
     host, port = azure_server['connection']
+    azureite_authority = f"{host}:{port}"
+    azureite_scheme = "http"
+
     container = 'pyarrow-filesystem/'
 
-    fs = AzureFileSystem(account_name='devstoreaccount1')
-    try:
-        fs.create_dir(container)
-    except OSError as e:
-        pytest.skip(f"Could not create directory in {fs}: {e}")
+    fs = AzureFileSystem(account_name='devstoreaccount1', account_key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
+                         blob_storage_authority=azureite_authority, dfs_storage_authority=azureite_authority,
+                         blob_storage_scheme=azureite_scheme, dfs_storage_scheme=azureite_scheme)
+ 
+    fs.create_dir(container)
 
     yield dict(
         fs=fs,
