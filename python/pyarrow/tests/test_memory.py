@@ -269,5 +269,9 @@ def test_debug_memory_pool_empty(pool_factory):
 
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_unknown(pool_factory):
-    check_debug_memory_pool_disabled(pool_factory, "some_arbitrary_value",
-                                     "Invalid value for ARROW_DEBUG_MEMORY_POOL: 'some_arbitrary_value'. Valid values are 'abort', 'trap', 'warn', 'none'.")
+    env_value = "some_arbitrary_value"
+    msg = (
+        f"Invalid value for ARROW_DEBUG_MEMORY_POOL: '{env_value}'. "
+        "Valid values are 'abort', 'trap', 'warn', 'none'."
+    )
+    check_debug_memory_pool_disabled(pool_factory, env_value, msg)
