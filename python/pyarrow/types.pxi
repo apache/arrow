@@ -121,8 +121,8 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
             "Arrow library", UserWarning, stacklevel=2)
         c_ptr = <void*> <uintptr_t > v
     elif PyCapsule_CheckExact(v):
-        # An R external pointer was how the R passed pointer values to Python
-        # from versions 7 to 15 (inclusive); however, the reticulate 1.35.0
+        # An R external pointer was how the R bindings passed pointer values to
+        # Python from versions 7 to 15 (inclusive); however, the reticulate 1.35.0
         # update changed the name of the capsule from NULL to "r_extptr".
         # Newer versions of the R package pass a Python integer; however, this
         # workaround ensures that old versions of the R package continue to work
