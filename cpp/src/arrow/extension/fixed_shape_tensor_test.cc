@@ -610,7 +610,7 @@ TEST_F(TestExtensionType, GetTensor) {
   ext_type = fixed_shape_tensor(int64(), {1});
   exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
   auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
-  auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
+  auto tensor_array = internal::checked_pointer_cast<ExtensionArray>(ext_arr);
 
   ASSERT_OK_AND_ASSIGN(auto scalar, tensor_array->GetScalar(0));
   ASSERT_OK_AND_ASSIGN(auto tensor,
