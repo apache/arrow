@@ -1344,17 +1344,13 @@ cdef class ChunkedArray(_PandasConvertible):
             A capsule containing a C ArrowArrayStream struct.
         """
         cdef:
-            ArrowArrayStream* c_stream
-            ChunkedArray chunked
+            ArrowArrayStream* c_stream = NULL
+            ChunkedArray chunked = self
 
         if requested_schema is not None:
-            out_schema = DataType._import_from_c_capsule(requested_schema)
-            if self.schema != out_schema:
-                chunked = self.cast(type)
-            else:
-                chunked = self
-        else:
-            chunked = self
+            out_type = DataType._import_from_c_capsule(requested_schema)
+            if self.type != out_type:
+                chunked = self.cast(out_type)
 
         stream_capsule = alloc_c_stream(&c_stream)
 
@@ -4998,7 +4994,13 @@ cdef class Table(_Tabular):
         -------
         PyCapsule
         """
-        return self.to_reader().__arrow_c_stream__(requested_schema)
+        cdef Table table = self
+        if requested_schema is not None:
+            out_schema = Schema._import_from_c_capsule(requested_schema)
+            if self.schema != out_schema:
+                table = self.cast(out_schema)
+
+        return table.to_reader().__arrow_c_stream__()
 
 
 def _reconstruct_table(arrays, schema):
