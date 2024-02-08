@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/apache/arrow/go/v15/arrow"
@@ -37,20 +38,37 @@ import (
 )
 
 type Rows struct {
-	schema        *arrow.Schema
-	records       []arrow.Record
-	currentRecord int
-	currentRow    int
+	schema           *arrow.Schema
+	recordChan       chan arrow.Record
+	currentRecord    arrow.Record
+	currentRecordMux sync.Mutex
+	currentRow       uint64
+	initializedChan  chan bool
+	streamError      error
+}
+
+// type Rows struct {
+// 	schema        *arrow.Schema
+// 	records       []arrow.Record
+// 	currentRecord int
+// 	currentRow    int
+// }
+
+func newRows() *Rows {
+	return &Rows{
+		recordChan:      make(chan arrow.Record),
+		initializedChan: make(chan bool),
+	}
 }
 
 // Columns returns the names of the columns.
 func (r *Rows) Columns() []string {
-	if len(r.records) == 0 {
+	if r.schema == nil {
 		return nil
 	}
 
 	// All records have the same columns
-	var cols []string
+	cols := make([]string, len(r.schema.Fields()))
 	for _, c := range r.schema.Fields() {
 		cols = append(cols, c.Name)
 	}
@@ -58,16 +76,60 @@ func (r *Rows) Columns() []string {
 	return cols
 }
 
+// Columns returns the names of the columns.
+// func (r *Rows) Columns() []string {
+// 	if len(r.records) == 0 {
+// 		return nil
+// 	}
+
+// 	// All records have the same columns
+// 	var cols []string
+// 	for _, c := range r.schema.Fields() {
+// 		cols = append(cols, c.Name)
+// 	}
+
+// 	return cols
+// }
+
+func (r *Rows) releaseRecord() {
+	r.currentRecordMux.Lock()
+	defer r.currentRecordMux.Unlock()
+
+	if r.currentRecord != nil {
+		r.currentRecord.Release()
+		r.currentRecord = nil
+	}
+}
+
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-	for _, rec := range r.records {
-		rec.Release()
+	if r.recordChan != nil {
+		if _, ok := <-r.recordChan; ok {
+			close(r.recordChan)
+		}
 	}
-	r.currentRecord = 0
-	r.currentRow = 0
+
+	if r.initializedChan != nil {
+		if _, ok := <-r.initializedChan; ok {
+			close(r.initializedChan)
+		}
+	}
+
+	r.releaseRecord()
 
 	return nil
 }
+
+// // Close closes the rows iterator.
+// func (r *Rows) Close() error {
+// 	for _, rec := range r.records {
+// 		rec.Release()
+// 	}
+// 	r.currentRecord = 0
+// 	r.currentRow = 0
+
+// 	return nil
+// }
 
 // Next is called to populate the next row of data into
 // the provided slice. The provided slice will be the same
@@ -79,31 +141,60 @@ func (r *Rows) Close() error {
 // should be taken when closing Rows not to modify
 // a buffer held in dest.
 func (r *Rows) Next(dest []driver.Value) error {
-	if r.currentRecord >= len(r.records) {
-		return io.EOF
-	}
-	record := r.records[r.currentRecord]
+	if r.currentRecord == nil || int64(r.currentRow) >= r.currentRecord.NumRows() {
+		if r.streamError != nil {
+			return r.streamError
+		}
 
-	if int64(r.currentRow) >= record.NumRows() {
-		return ErrOutOfRange
+		// Get the next record from the channel
+		var ok bool
+		if r.currentRecord, ok = <-r.recordChan; !ok || r.currentRecord == nil {
+			return io.EOF // Channel closed, no more records
+		}
+
+		r.currentRow = 0
 	}
 
-	for i, arr := range record.Columns() {
-		v, err := fromArrowType(arr, r.currentRow)
+	for i, col := range r.currentRecord.Columns() {
+		v, err := fromArrowType(col, int(r.currentRow))
 		if err != nil {
 			return err
 		}
+
 		dest[i] = v
 	}
 
 	r.currentRow++
-	if int64(r.currentRow) >= record.NumRows() {
-		r.currentRecord++
-		r.currentRow = 0
-	}
 
 	return nil
 }
+
+// func (r *Rows) Next(dest []driver.Value) error {
+// 	if r.currentRecord >= len(r.records) {
+// 		return io.EOF
+// 	}
+// 	record := r.records[r.currentRecord]
+
+// 	if int64(r.currentRow) >= record.NumRows() {
+// 		return ErrOutOfRange
+// 	}
+
+// 	for i, arr := range record.Columns() {
+// 		v, err := fromArrowType(arr, r.currentRow)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		dest[i] = v
+// 	}
+
+// 	r.currentRow++
+// 	if int64(r.currentRow) >= record.NumRows() {
+// 		r.currentRecord++
+// 		r.currentRow = 0
+// 	}
+
+// 	return nil
+// }
 
 type Result struct {
 	affected   int64
@@ -226,20 +317,44 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
-	rows := Rows{}
-	for _, endpoint := range info.Endpoint {
-		schema, records, err := readEndpoint(ctx, s.client, endpoint)
-		if err != nil {
-			return &rows, err
-		}
-		if rows.schema == nil {
-			rows.schema = schema
-		}
-		rows.records = append(rows.records, records...)
-	}
+	rows := newRows()
+	go rows.streamRecordset(ctx, s.client, info.Endpoint)
 
-	return &rows, nil
+	<-rows.initializedChan
+
+	return rows, nil
 }
+
+// func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+// 	if err := s.setParameters(args); err != nil {
+// 		return nil, err
+// 	}
+
+// 	if _, set := ctx.Deadline(); !set && s.timeout > 0 {
+// 		var cancel context.CancelFunc
+// 		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+// 		defer cancel()
+// 	}
+
+// 	info, err := s.stmt.Execute(ctx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	rows := Rows{}
+// 	for _, endpoint := range info.Endpoint {
+// 		schema, records, err := readEndpoint(ctx, s.client, endpoint)
+// 		if err != nil {
+// 			return &rows, err
+// 		}
+// 		if rows.schema == nil {
+// 			rows.schema = schema
+// 		}
+// 		rows.records = append(rows.records, records...)
+// 	}
+
+// 	return &rows, nil
+// }
 
 func (s *Stmt) setParameters(args []driver.NamedValue) error {
 	if len(args) == 0 {
@@ -442,7 +557,6 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 
 	return s, nil
 }
-
 func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if len(args) > 0 {
 		// We cannot pass arguments to the client so we skip a direct query.
@@ -461,43 +575,148 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 		return nil, err
 	}
 
-	rows := Rows{}
-	for _, endpoint := range info.Endpoint {
-		schema, records, err := readEndpoint(ctx, c.client, endpoint)
-		if err != nil {
-			return &rows, err
-		}
-		if rows.schema == nil {
-			rows.schema = schema
-		}
-		rows.records = append(rows.records, records...)
-	}
+	rows := newRows()
+	go rows.streamRecordset(ctx, c.client, info.Endpoint)
 
-	return &rows, nil
+	<-rows.initializedChan
 
+	return rows, nil
 }
 
-func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *flight.FlightEndpoint) (*arrow.Schema, []arrow.Record, error) {
-	reader, err := client.DoGet(ctx, endpoint.GetTicket())
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting ticket failed: %w", err)
-	}
-	defer reader.Release()
+func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoints []*flight.FlightEndpoint) {
+	defer close(r.recordChan)
 
-	schema := reader.Schema()
-	var records []arrow.Record
-	for reader.Next() {
-		record := reader.Record()
-		record.Retain()
-		records = append(records, record)
-	}
+	// reads each endpoint
+	for _, endpoint := range endpoints {
+		func() { // with a func() is possible to {defer reader.Release()}
+			reader, err := c.DoGet(ctx, endpoint.GetTicket())
+			if err != nil {
+				r.streamError = fmt.Errorf("getting ticket failed: %w", err)
+				return
+			}
 
-	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return nil, nil, err
-	}
+			defer reader.Release()
 
-	return schema, records, nil
+			// reads each record into a blocking channel
+			for reader.Next() {
+				record := reader.Record()
+				record.Retain()
+
+				select {
+				case r.recordChan <- record:
+					r.schema = reader.Schema()
+					r.initializedChan <- true
+
+				case <-ctx.Done():
+					r.releaseRecord()
+					r.streamError = fmt.Errorf("stream recordset context timed out")
+					return
+				}
+			}
+
+			if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+				r.streamError = err
+				return
+			}
+		}()
+	}
 }
+
+// for _, endpoint := range info.Endpoint {
+// 	schema, records, err := readEndpoint(ctx, c.client, endpoint)
+// 	if err != nil {
+// 		return &rows, err
+// 	}
+// 	if rows.schema == nil {
+// 		rows.schema = schema
+// 	}
+// 	rows.records = append(rows.records, records...)
+// }
+
+// return &rows, nil
+
+// defer close(recordChan)
+
+// for _, endpoint := range endpoints {
+// 	reader, err := s.client.DoGet(ctx, endpoint.GetTicket())
+// 	if err != nil {
+// 		r.streamError = fmt.Errorf("getting ticket failed: %w", err)
+// 		return
+// 	}
+
+// 	for reader.Next() {
+// 		record := reader.Record()
+// 		record.Retain()
+// 		select {
+// 		case recordChan <- record:
+// 		case <-ctx.Done():
+// 			record.Release()
+// 			return
+// 		}
+// 	}
+
+// 	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+// 		r.streamError = err
+// 		return
+// 	}
+// 	reader.Release()
+// }
+
+// func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+// 	if len(args) > 0 {
+// 		// We cannot pass arguments to the client so we skip a direct query.
+// 		// This will force the sql-framework to prepare and execute queries.
+// 		return nil, driver.ErrSkip
+// 	}
+
+// 	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
+// 		var cancel context.CancelFunc
+// 		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+// 		defer cancel()
+// 	}
+
+// 	info, err := c.client.Execute(ctx, query)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	rows := Rows{}
+// 	for _, endpoint := range info.Endpoint {
+// 		schema, records, err := readEndpoint(ctx, c.client, endpoint)
+// 		if err != nil {
+// 			return &rows, err
+// 		}
+// 		if rows.schema == nil {
+// 			rows.schema = schema
+// 		}
+// 		rows.records = append(rows.records, records...)
+// 	}
+
+// 	return &rows, nil
+
+// }
+
+// func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *flight.FlightEndpoint) (*arrow.Schema, []arrow.Record, error) {
+// 	reader, err := client.DoGet(ctx, endpoint.GetTicket())
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("getting ticket failed: %w", err)
+// 	}
+// 	defer reader.Release()
+
+// 	schema := reader.Schema()
+// 	var records []arrow.Record
+// 	for reader.Next() {
+// 		record := reader.Record()
+// 		record.Retain()
+// 		records = append(records, record)
+// 	}
+
+// 	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+// 		return nil, nil, err
+// 	}
+
+// 	return schema, records, nil
+// }
 
 // Close invalidates and potentially stops any current
 // prepared statements and transactions, marking this
