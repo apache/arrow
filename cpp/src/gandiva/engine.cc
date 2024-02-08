@@ -135,8 +135,8 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
 
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
-  llvm::orc::JITTargetMachineBuilder jtmb(
-      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
+  static auto default_target_triple = llvm::sys::getDefaultTargetTriple();
+  llvm::orc::JITTargetMachineBuilder jtmb((llvm::Triple(default_target_triple)));
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);
@@ -213,6 +213,7 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
+    std::unique_ptr<llvm::TargetMachine> target_machine,
     std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
   llvm::orc::LLJITBuilder jit_builder;
 
@@ -223,22 +224,17 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(
-        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+        [&object_cache, &target_machine](llvm::orc::JITTargetMachineBuilder JTMB)
             -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          auto target_machine = JTMB.createTargetMachine();
-          if (!target_machine) {
-            return target_machine.takeError();
-          }
           // after compilation, the object code will be stored into the given object
           // cache
           return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-              std::move(*target_machine), &object_cache.value().get());
+              std::move(target_machine), &object_cache.value().get());
         });
   }
   auto maybe_jit = jit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
-
   return jit;
 }
 
@@ -281,7 +277,7 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
-               std::unique_ptr<llvm::TargetMachine> target_machine, bool cached)
+               llvm::TargetIRAnalysis target_ir_analysis, bool cached)
     : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
@@ -289,7 +285,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       optimize_(conf->optimize()),
       cached_(cached),
       function_registry_(conf->function_registry()),
-      target_machine_(std::move(target_machine)),
+      target_ir_analysis_(std::move(target_ir_analysis)),
       conf_(conf) {
   mangle_ = std::make_unique<llvm::orc::MangleAndInterner>(lljit_->getExecutionSession(),
                                                            lljit_->getDataLayout());
@@ -332,13 +328,15 @@ Result<std::unique_ptr<Engine>> Engine::Make(
   std::call_once(llvm_init_once_flag, InitOnce);
 
   ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));
-  ARROW_ASSIGN_OR_RAISE(auto jit, BuildJIT(jtmb, object_cache));
   auto maybe_tm = jtmb.createTargetMachine();
   ARROW_ASSIGN_OR_RAISE(auto target_machine,
                         AsArrowResult(maybe_tm, "Could not create target machine: "));
+  auto target_ir_analysis = target_machine->getTargetIRAnalysis();
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        BuildJIT(jtmb, std::move(target_machine), object_cache));
 
   std::unique_ptr<Engine> engine{
-      new Engine(conf, std::move(jit), std::move(target_machine), cached)};
+      new Engine(conf, std::move(jit), std::move(target_ir_analysis), cached)};
 
   return engine;
 }
@@ -521,12 +519,11 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
-      auto target_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
 #if LLVM_VERSION_MAJOR >= 14
-      OptimizeModuleWithNewPassManager(*module_, std::move(target_analysis));
+      OptimizeModuleWithNewPassManager(*module_, std::move(target_ir_analysis_));
 #else
-      OptimizeModuleWithLegacyPassManager(*module_, std::move(target_analysis));
+      OptimizeModuleWithLegacyPassManager(*module_, std::move(target_ir_analysis_));
 #endif
     }
 
@@ -589,9 +586,12 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
 }
 
 arrow::Status Engine::AddGlobalMappings() {
-  ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
-  ExternalCFunctions c_funcs(function_registry_);
-  return c_funcs.AddMappings(this);
+  if (!cached_) {
+    ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
+    ExternalCFunctions c_funcs(function_registry_);
+    return c_funcs.AddMappings(this);
+  }
+  return Status::OK();
 }
 
 const std::string& Engine::ir() {

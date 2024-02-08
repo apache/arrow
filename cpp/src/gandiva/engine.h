@@ -99,7 +99,7 @@ class GANDIVA_EXPORT Engine {
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,
-         std::unique_ptr<llvm::TargetMachine> target_machine, bool cached);
+         llvm::TargetIRAnalysis target_is_analysis, bool cached);
 
   static void InitOnce();
 
@@ -107,8 +107,8 @@ class GANDIVA_EXPORT Engine {
   /// the main module.
   Status LoadPreCompiledIR();
 
-  /// load mandatory pre-compiled IR modules from precompiled_bitcode.cc and merge them into
-  /// the main module. Mandatory IR includes functions manipulating bitmaps
+  /// load mandatory pre-compiled IR modules from precompiled_bitcode.cc and merge them
+  /// into the main module. Mandatory IR includes functions manipulating bitmaps
   Status LoadMandatoryPreCompiledIR();
 
   // load external pre-compiled bitcodes into module
@@ -148,6 +148,7 @@ class GANDIVA_EXPORT Engine {
   std::shared_ptr<FunctionRegistry> function_registry_;
   std::string module_ir_;
   std::unique_ptr<llvm::TargetMachine> target_machine_;
+  llvm::TargetIRAnalysis target_ir_analysis_;
   const std::shared_ptr<Configuration> conf_;
 };
 
