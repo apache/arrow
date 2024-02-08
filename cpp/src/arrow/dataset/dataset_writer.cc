@@ -610,31 +610,32 @@ class DatasetWriter::DatasetWriterImpl {
       bool will_open_file = false;
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
-
-      backpressure =
-          writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
-      if (!backpressure.is_finished()) {
-        EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
-        break;
-      }
-      if (will_open_file) {
-        backpressure = writer_state_.open_files_throttle.Acquire(1);
+      if (next_chunk->num_rows() > 0) {
+        backpressure =
+            writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
         if (!backpressure.is_finished()) {
-          EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
-          writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
-          RETURN_NOT_OK(TryCloseLargestFile());
+          EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
           break;
         }
-      }
-      auto s = dir_queue->StartWrite(next_chunk);
-      if (!s.ok()) {
-        // If `StartWrite` succeeded, it will Release the
-        // `rows_in_flight_throttle` when the write task is finished.
-        //
-        // `open_files_throttle` will be handed by `DatasetWriterDirectoryQueue`
-        // so we don't need to release it here.
-        writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
-        return s;
+        if (will_open_file) {
+          backpressure = writer_state_.open_files_throttle.Acquire(1);
+          if (!backpressure.is_finished()) {
+            EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
+            writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
+            RETURN_NOT_OK(TryCloseLargestFile());
+            break;
+          }
+        }
+        auto s = dir_queue->StartWrite(next_chunk);
+        if (!s.ok()) {
+          // If `StartWrite` succeeded, it will Release the
+          // `rows_in_flight_throttle` when the write task is finished.
+          //
+          // `open_files_throttle` will be handed by `DatasetWriterDirectoryQueue`
+          // so we don't need to release it here.
+          writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
+          return s;
+        }
       }
       batch = std::move(remainder);
       if (batch) {
