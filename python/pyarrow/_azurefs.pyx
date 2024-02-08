@@ -33,13 +33,27 @@ cdef class AzureFileSystem(FileSystem):
     cdef:
         CAzureFileSystem* azurefs
 
-    def __init__(self, *, account_name):
+    def __init__(self, *, account_name, account_key=None, blob_storage_authority=None, 
+                 dfs_storage_authority=None, blob_storage_scheme=None, 
+                 dfs_storage_scheme=None):
         cdef:
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
 
         options.account_name = tobytes(account_name)
-        options.ConfigureDefaultCredential()
+        if blob_storage_authority:
+            options.blob_storage_authority = tobytes(blob_storage_authority)
+        if dfs_storage_authority:
+            options.dfs_storage_authority = tobytes(dfs_storage_authority)
+        if blob_storage_scheme:
+            options.blob_storage_scheme = tobytes(blob_storage_scheme)
+        if dfs_storage_scheme:
+            options.dfs_storage_scheme = tobytes(dfs_storage_scheme)
+        
+        if account_key:
+            options.ConfigureAccountKeyCredential(tobytes(account_key))
+        else:
+            options.ConfigureDefaultCredential()
 
         with nogil:
             wrapped = GetResultValue(CAzureFileSystem.Make(options))
