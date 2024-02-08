@@ -3541,7 +3541,7 @@ cdef class ExtensionArray(Array):
         return result
 
 
-class FixedShapeTensorArray(ExtensionArray):
+cdef class FixedShapeTensorArray(ExtensionArray):
     """
     Concrete class for fixed shape tensor extension arrays.
 
@@ -3582,17 +3582,48 @@ class FixedShapeTensorArray(ExtensionArray):
 
     def to_numpy_ndarray(self):
         """
-        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+        Convert fixed shape tensor extension array to a multi-dimensional numpy.ndarray.
 
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        The resulting ndarray will have (ndim + 1) dimensions.
+        The size of the first dimension will be the length of the fixed shape tensor array
+        and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        numpy.ndarray
+            Ndarray representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
         """
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.flatten())
-            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
-            return numpy_tensor
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
+        """
+        Convert fixed shape tensor extension array to a pyarrow.Tensor.
+
+        The resulting Tensor will have (ndim + 1) dimensions.
+        The size of the first dimension will be the length of the fixed shape tensor array
+        and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
+        """
+
+        cdef:
+            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+        with nogil:
+            ctensor = ext_array.ToTensor()
+        return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
     def from_numpy_ndarray(obj):
@@ -3600,9 +3631,7 @@ class FixedShapeTensorArray(ExtensionArray):
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
         shape tensor array.
-
-        Numpy array needs to be C-contiguous in memory
-        (``obj.flags["C_CONTIGUOUS"]==True``).
+        If input array data is not contiguous a copy will be made.
 
         Parameters
         ----------
@@ -3636,17 +3665,25 @@ class FixedShapeTensorArray(ExtensionArray):
           ]
         ]
         """
-        if not obj.flags["C_CONTIGUOUS"]:
-            raise ValueError('The data in the numpy array need to be in a single, '
-                             'C-style contiguous segment.')
+
+        if len(obj.shape) < 2:
+            raise ValueError(
+                "Cannot convert 1D array or scalar to fixed shape tensor array")
+        if np.prod(obj.shape) == 0:
+            raise ValueError("Expected a non-empty ndarray")
+
+        permutation = (-np.array(obj.strides)).argsort(kind='stable')
+        if permutation[0] != 0:
+            raise ValueError('First stride needs to be largest to ensure that '
+                             'individual tensor data is contiguous in memory.')
 
         arrow_type = from_numpy_dtype(obj.dtype)
-        shape = obj.shape[1:]
-        size = obj.size / obj.shape[0]
+        shape = np.take(obj.shape, permutation)
+        values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape),
-            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
 
