@@ -1367,7 +1367,6 @@ def test_variable_shape_tensor_type():
     assert tensor_type.permutation is None
     assert tensor_type.uniform_shape == [1, None]
 
-
 @pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
 def test_tensor_class_methods(value_type):
     from numpy.lib.stride_tricks import as_strided
