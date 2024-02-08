@@ -3579,7 +3579,6 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         The conversion is zero-copy.
 
-
         Returns
         -------
         numpy.ndarray
