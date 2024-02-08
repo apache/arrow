@@ -77,10 +77,44 @@ the source tarball from the SVN dist system that you wish to verify:
 System Configuration Instructions
 =================================
 
+You will need some tools installed like curl, git, etcetera.
+
 Ubuntu 22.04
 ------------
 
-To be defined
+You might have to install some packages on your system. The following
+packages were required to perform a source verification on a clean
+Ubuntu 22.04 from an AWS instance:
+
+.. code-block::
+
+   sudo apt update
+
+   # Install miscellanious required packages
+   sudo apt install \
+      build-essential \
+      clang \
+      cmake \
+      libsqlite3-dev \
+      libssh-dev \
+      libyaml-dev \
+      llvm-dev \
+      python3-dev \
+      python3.10-venv
+
+   # Install ruby
+   RUBY_VERSION=3.3.0
+   wget https://cache.ruby-lang.org/pub/ruby/$(echo $RUBY_VERSION | sed -e 's/\.[0-9]*$//')/ruby-$RUBY_VERSION.tar.gz
+   tar xvf ruby-$RUBY_VERSION.tar.gz
+   pushd ruby-$RUBY_VERSION
+   CC=gcc ./configure --prefix=$HOME/ruby
+   CC=gcc make -j8
+   make install
+   popd
+   rm -rf ruby-$RUBY_VERSION
+   rm -rf ruby-$RUBY_VERSION.tar.gz
+
+   sudo gem install --no-document bundler
 
 macOS ARM
 ---------
