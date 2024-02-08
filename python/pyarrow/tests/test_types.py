@@ -66,6 +66,8 @@ def get_many_types():
         pa.list_(pa.int32()),
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
+        pa.list_view(pa.int32()),
+        pa.large_list_view(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
         pa.map_(pa.field('key', pa.int32(), nullable=False),
                 pa.field('value', pa.int32())),
@@ -167,6 +169,18 @@ def test_is_list():
     assert not types.is_large_list(c)
 
     assert not types.is_list(pa.int32())
+
+
+def test_is_list_view():
+    a = pa.list_view(pa.int32())
+    b = pa.large_list_view(pa.int32())
+
+    assert types.is_list_view(a)
+    assert not types.is_large_list_view(a)
+    assert not types.is_list(a)
+    assert types.is_large_list_view(b)
+    assert not types.is_list_view(b)
+    assert not types.is_large_list(b)
 
 
 def test_is_map():
@@ -571,6 +585,41 @@ def test_large_list_type():
 
     with pytest.raises(TypeError):
         pa.large_list(None)
+
+
+def test_list_view_type():
+    ty = pa.list_view(pa.int64())
+    assert isinstance(ty, pa.ListViewType)
+    assert ty.value_type == pa.int64()
+    assert ty.value_field == pa.field("item", pa.int64(), nullable=True)
+
+    # nullability matters in comparison
+    ty_non_nullable = pa.list_view(pa.field("item", pa.int64(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.list_view(pa.field("element", pa.int64()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_metadata=True)
+
+    # metadata doesn't matter by default
+    ty_metadata = pa.list_view(
+        pa.field("item", pa.int64(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
+
+    with pytest.raises(TypeError):
+        pa.list_view(None)
+
+
+def test_large_list_view_type():
+    ty = pa.large_list_view(pa.utf8())
+    assert isinstance(ty, pa.LargeListViewType)
+    assert ty.value_type == pa.utf8()
+    assert ty.value_field == pa.field("item", pa.utf8(), nullable=True)
+
+    with pytest.raises(TypeError):
+        pa.large_list_view(None)
 
 
 def test_map_type():

@@ -720,6 +720,14 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
+cdef class ListViewScalar(ListScalar):
+    pass
+
+
+cdef class LargeListViewScalar(ListScalar):
+    pass
+
+
 cdef class StructScalar(Scalar, collections.abc.Mapping):
     """
     Concrete class for struct scalars.
@@ -1108,6 +1116,8 @@ cdef dict _scalar_classes = {
     _Type_LIST: ListScalar,
     _Type_LARGE_LIST: LargeListScalar,
     _Type_FIXED_SIZE_LIST: FixedSizeListScalar,
+    _Type_LIST_VIEW: ListViewScalar,
+    _Type_LARGE_LIST_VIEW: LargeListViewScalar,
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,

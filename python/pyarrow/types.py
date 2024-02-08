@@ -151,6 +151,16 @@ def is_fixed_size_list(t):
     return t.id == lib.Type_FIXED_SIZE_LIST
 
 
+@doc(is_null, datatype="list view")
+def is_list_view(t):
+    return t.id == lib.Type_LIST_VIEW
+
+
+@doc(is_null, datatype="large list view")
+def is_large_list_view(t):
+    return t.id == lib.Type_LARGE_LIST_VIEW
+
+
 @doc(is_null, datatype="struct")
 def is_struct(t):
     return t.id == lib.Type_STRUCT
