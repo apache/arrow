@@ -206,6 +206,7 @@ class build_ext(_build_ext):
         '_dataset_orc',
         '_dataset_parquet',
         '_acero',
+        '_azurefs',
         '_feather',
         '_parquet',
         '_parquet_encryption',
@@ -284,6 +285,7 @@ class build_ext(_build_ext):
                               'PYARROW_BUILD_PARQUET_ENCRYPTION')
             append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
+            append_cmake_bool(self.with_azure, 'PYARROW_BUILD_AZURE')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')

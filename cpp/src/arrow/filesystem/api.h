@@ -21,6 +21,9 @@
 
 #include "arrow/filesystem/filesystem.h"  // IWYU pragma: export
 #include "arrow/filesystem/hdfs.h"        // IWYU pragma: export
+#ifdef ARROW_AZURE
+#include "arrow/filesystem/azurefs.h"  // IWYU pragma: export
+#endif
 #ifdef ARROW_GCS
 #include "arrow/filesystem/gcsfs.h"  // IWYU pragma: export
 #endif

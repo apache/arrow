@@ -554,6 +554,10 @@ set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 
 set(LINK_LIBS arrow_python)
 
+if(PYARROW_BUILD_AZURE)
+  list(APPEND CYTHON_EXTENSIONS _azurefs)
+endif()
+
 if(PYARROW_BUILD_GCS)
   list(APPEND CYTHON_EXTENSIONS _gcsfs)
 endif()

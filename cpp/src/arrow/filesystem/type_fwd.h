@@ -47,6 +47,7 @@ class SlowFileSystem;
 class LocalFileSystem;
 class S3FileSystem;
 class GcsFileSystem;
+class AzureFileSystem;
 
 }  // namespace fs
 }  // namespace arrow

@@ -53,6 +53,7 @@
 #cmakedefine ARROW_SUBSTRAIT
 
 #cmakedefine ARROW_ENABLE_THREADING
+#cmakedefine ARROW_AZURE
 #cmakedefine ARROW_GCS
 #cmakedefine ARROW_HDFS
 #cmakedefine ARROW_S3
