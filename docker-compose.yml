@@ -320,6 +320,8 @@ services:
       # Shrink test runtime by enabling minimal optimizations
       ARROW_C_FLAGS_DEBUG: "-g1 -Og"
       ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
+      # GH-39973: Do not use debug memory pool for valgrind
+      ARROW_DEBUG_MEMORY_POOL: "none"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
@@ -598,6 +600,8 @@ services:
       CXX: clang++-${CLANG_TOOLS}
       # Avoid creating huge static libraries
       ARROW_BUILD_STATIC: "OFF"
+      # GH-39973: Do not use debug memory pool for ASAN
+      ARROW_DEBUG_MEMORY_POOL: "none"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
