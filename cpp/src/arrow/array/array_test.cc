@@ -905,7 +905,8 @@ TEST_F(TestArray, TestAppendArraySlice) {
   }
 }
 
-// GH-39976: Test mis-calculation of out-of-line buffer size in BinaryViewBuilder.
+// GH-39976: Test out-of-line data size calculation in
+// BinaryViewBuilder::AppendArraySlice.
 TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   BinaryViewBuilder src_builder(pool_);
   ASSERT_OK(src_builder.AppendNull());
