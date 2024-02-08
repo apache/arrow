@@ -23,8 +23,6 @@ from cpython.pycapsule cimport (
     PyCapsule_IsValid
 )
 
-from libc.string cimport strcmp
-
 import atexit
 from collections.abc import Mapping
 import pickle
@@ -123,8 +121,14 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
             "Arrow library", UserWarning, stacklevel=2)
         c_ptr = <void*> <uintptr_t > v
     elif PyCapsule_CheckExact(v):
+        # An R external pointer was how the R passed pointer values to Python
+        # from versions 7 to 15 (inclusive); however, the reticulate 1.35.0
+        # update changed the name of the capsule from NULL to "r_extptr".
+        # Newer versions of the R package pass a Python integer; however, this
+        # workaround ensures that old versions of the R package continue to work
+        # with newer versions of pyarrow.
         capsule_name = PyCapsule_GetName(v)
-        if capsule_name == NULL or capsule_name == "r_extptr":
+        if capsule_name == NULL or capsule_name == b"r_extptr":
             c_ptr = PyCapsule_GetPointer(v, capsule_name)
         else:
             capsule_name_str = capsule_name.decode()
