@@ -76,12 +76,12 @@ this one can be created with :func:`~pyarrow.ipc.new_stream`:
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   
+
    with pa.ipc.new_stream(sink, batch.schema) as writer:
       for i in range(5):
          writer.write_batch(batch)
 
-Here we used an in-memory Arrow buffer stream (``sink``), 
+Here we used an in-memory Arrow buffer stream (``sink``),
 but this could have been a socket or some other IO sink.
 
 When creating the ``StreamWriter``, we pass the schema, since the schema
@@ -102,7 +102,7 @@ convenience function ``pyarrow.ipc.open_stream``:
    with pa.ipc.open_stream(buf) as reader:
          schema = reader.schema
          batches = [b for b in reader]
-   
+
    schema
    len(batches)
 
@@ -126,7 +126,7 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 .. ipython:: python
 
    sink = pa.BufferOutputStream()
-   
+
    with pa.ipc.new_file(sink, batch.schema) as writer:
       for i in range(10):
          writer.write_batch(batch)
@@ -164,7 +164,7 @@ DataFrame output:
 
    with pa.ipc.open_file(buf) as reader:
       df = reader.read_pandas()
-   
+
    df[:5]
 
 Efficiently Writing and Reading Arrow Data

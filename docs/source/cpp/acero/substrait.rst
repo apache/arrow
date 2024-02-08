@@ -111,7 +111,7 @@ Aggregate Relations
 * Each measure's arguments must be direct references.
 * A measure may not have a filter
 * A measure may not have sorts
-* A measure's invocation must be AGGREGATION_INVOCATION_ALL or 
+* A measure's invocation must be AGGREGATION_INVOCATION_ALL or
   AGGREGATION_INVOCATION_UNSPECIFIED
 * A measure's phase must be AGGREGATION_PHASE_INITIAL_TO_RESULT
 
@@ -146,73 +146,73 @@ Types
      - Caveat
    * - boolean
      - boolean
-     - 
+     -
    * - i8
      - int8
-     - 
+     -
    * - i16
      - int16
-     - 
+     -
    * - i32
      - int32
-     - 
+     -
    * - i64
      - int64
-     - 
+     -
    * - fp32
      - float32
-     - 
+     -
    * - fp64
      - float64
-     - 
+     -
    * - string
      - string
-     - 
+     -
    * - binary
      - binary
-     - 
+     -
    * - timestamp
      - timestamp<MICRO,"">
-     - 
+     -
    * - timestamp_tz
      - timestamp<MICRO,"UTC">
-     - 
+     -
    * - date
      - date32<DAY>
-     - 
+     -
    * - time
      - time64<MICRO>
-     - 
+     -
    * - interval_year
-     - 
+     -
      - Not currently supported
    * - interval_day
-     - 
+     -
      - Not currently supported
    * - uuid
-     - 
+     -
      - Not currently supported
    * - FIXEDCHAR<L>
-     - 
+     -
      - Not currently supported
    * - VARCHAR<L>
-     - 
+     -
      - Not currently supported
    * - FIXEDBINARY<L>
      - fixed_size_binary<L>
-     - 
+     -
    * - DECIMAL<P,S>
      - decimal128<P,S>
-     - 
+     -
    * - STRUCT<T1...TN>
      - struct<T1...TN>
      - Arrow struct fields will have no name (empty string)
    * - NSTRUCT<N:T1...N:Tn>
-     - 
+     -
      - Not currently supported
    * - LIST<T>
      - list<T>
-     - 
+     -
    * - MAP<K,V>
      - map<K,V>
      - K must not be nullable

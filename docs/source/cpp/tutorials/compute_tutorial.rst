@@ -34,7 +34,7 @@ functionality to:
 
 3. Search for a value in a column
 
-Pre-requisites 
+Pre-requisites
 ---------------
 
 Before continuing, make sure you have:
@@ -49,16 +49,16 @@ Setup
 Before running some computations, we need to fill in a couple gaps:
 
 1. We need to include necessary headers.
-   
+
 2. ``A main()`` is needed to glue things together.
 
 3. We need data to play with.
-   
+
 Includes
 ^^^^^^^^
 
-Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's 
-compute functionality: 
+Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's
+compute functionality:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/compute_example.cc
   :language: cpp
