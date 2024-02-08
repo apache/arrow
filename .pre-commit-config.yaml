@@ -35,6 +35,12 @@ repos:
       - id: hadolint-docker
         name: Docker Format
         exclude: ^dev/.*$
+      - id: sphinx-lint
+        name: Sphinx Lint
+        entry: archery lint --docs
+        language: system
+        files: ^docs/
+
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
