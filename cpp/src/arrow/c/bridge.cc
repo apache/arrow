@@ -587,8 +587,7 @@ struct ArrayExporter {
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
                    [](const std::shared_ptr<Buffer>& buffer) -> const void* {
-                     return buffer ? reinterpret_cast<const void*>(buffer->address())
-                                   : nullptr;
+                     return buffer ? buffer->data() : nullptr;
                    });
 
     if (need_variadic_buffer_sizes) {
