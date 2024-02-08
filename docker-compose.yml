@@ -1740,6 +1740,7 @@ services:
       args:
         r: ${R}
         jdk: ${JDK}
+        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
