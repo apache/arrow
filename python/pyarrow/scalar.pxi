@@ -665,6 +665,14 @@ cdef class LargeStringScalar(StringScalar):
     pass
 
 
+cdef class BinaryViewScalar(BinaryScalar):
+    pass
+
+
+cdef class StringViewScalar(StringScalar):
+    pass
+
+
 cdef class ListScalar(Scalar):
     """
     Concrete class for list-like scalars.
@@ -1035,6 +1043,48 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+cdef class FixedShapeTensorScalar(ExtensionScalar):
+    """
+    Concrete class for fixed shape tensor extension scalar.
+    """
+
+    def to_numpy(self):
+        """
+        Convert fixed shape tensor scalar to a numpy.ndarray.
+
+        The resulting ndarray's shape matches the permuted shape of the
+        fixed shape tensor scalar.
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        numpy.ndarray
+        """
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
+        """
+        Convert fixed shape tensor extension scalar to a pyarrow.Tensor, using shape
+        and strides derived from corresponding FixedShapeTensorType.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor represented stored in FixedShapeTensorScalar.
+        """
+        cdef:
+            CFixedShapeTensorType* c_type = static_pointer_cast[CFixedShapeTensorType, CDataType](
+                self.wrapped.get().type).get()
+            shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
+            shared_ptr[CTensor] ctensor
+
+        with nogil:
+            ctensor = GetResultValue(c_type.MakeTensor(scalar))
+        return pyarrow_wrap_tensor(ctensor)
+
+
 cdef class VariableShapeTensorScalar(ExtensionScalar):
     """
     Concrete class for variable shape tensor extension scalar.
@@ -1049,7 +1099,6 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
     def to_tensor(self):
         """
         Convert variable shape tensor extension scalar to a pyarrow.Tensor.
-
         Returns
         -------
         tensor : pyarrow.Tensor
@@ -1089,8 +1138,10 @@ cdef dict _scalar_classes = {
     _Type_BINARY: BinaryScalar,
     _Type_LARGE_BINARY: LargeBinaryScalar,
     _Type_FIXED_SIZE_BINARY: FixedSizeBinaryScalar,
+    _Type_BINARY_VIEW: BinaryViewScalar,
     _Type_STRING: StringScalar,
     _Type_LARGE_STRING: LargeStringScalar,
+    _Type_STRING_VIEW: StringViewScalar,
     _Type_LIST: ListScalar,
     _Type_LARGE_LIST: LargeListScalar,
     _Type_FIXED_SIZE_LIST: FixedSizeListScalar,
