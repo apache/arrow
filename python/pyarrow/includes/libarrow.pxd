@@ -2704,9 +2704,11 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
+
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
@@ -2714,16 +2716,14 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names)
 
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
-
         const shared_ptr[CDataType] value_type()
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+    cdef cppclass CFixedShapeTensorArray \
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
+        const CResult[shared_ptr[CTensor]] ToTensor() const
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
