@@ -118,8 +118,11 @@ func (r *Rows) Next(dest []driver.Value) error {
 			return r.streamError
 		}
 
+		r.releaseRecord()
+
 		// Get the next record from the channel
 		var ok bool
+
 		if r.currentRecord, ok = <-r.recordChan; !ok || r.currentRecord == nil {
 			return io.EOF // Channel closed, no more records
 		}
