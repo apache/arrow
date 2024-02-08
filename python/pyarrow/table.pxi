@@ -1353,6 +1353,8 @@ cdef class ChunkedArray(_PandasConvertible):
                 chunked = self.cast(type)
             else:
                 chunked = self
+        else:
+            chunked = self
 
         stream_capsule = alloc_c_stream(&c_stream)
 
