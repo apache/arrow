@@ -38,7 +38,7 @@ cdef class AzureFileSystem(FileSystem):
             CAzureOptions options
             shared_ptr[CAzureFileSystem] wrapped
 
-        options.account_name
+        options.account_name = tobytes(account_name)
         options.ConfigureDefaultCredential()
 
         with nogil:
