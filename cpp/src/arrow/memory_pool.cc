@@ -212,7 +212,7 @@ bool IsDebugEnabled() {
       return true;
     }
     ARROW_LOG(WARNING) << "Invalid value for " << kDebugMemoryEnvVar << ": '" << env_value
-                       << "'. Valid values are 'abort', 'trap', 'warn'.";
+                       << "'. Valid values are 'abort', 'trap', 'warn', 'none'.";
     return false;
   }();
 
