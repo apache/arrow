@@ -215,6 +215,7 @@ function configure_rtools() {
   # Success means the found C++ library is ok to use.
   # Error means the versions don't line up and we shouldn't use it.
   # More specific messaging to the user is in the R script
+  export ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true
   if ! ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null; then
     _LIBARROW_FOUND="false"
   fi

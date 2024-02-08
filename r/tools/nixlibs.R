@@ -112,6 +112,9 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
     # Munge the path to the correct sha file which we include during the
     # release process
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    if (grepl("rwinlib", binary_url)) {
+      checksum_file <- "windows/arrow-13.0.0.zip.sha512"
+    }
     checksum_file <- file.path(checksum_path, checksum_file)
 
     # Try `shasum`, and if that doesn't work, fall back to `sha512sum` if not found
@@ -152,6 +155,12 @@ validate_checksum <- function(binary_url, libfile, hush = quietly) {
 download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+
+  if (lib == "windows") {
+    binary_url <- "https://github.com/rwinlib/arrow/archive/refs/tags/v13.0.0.zip"
+    libfile <- "arrow-13.0.0.zip"
+  }
+
   if (try_download(binary_url, libfile) && validate_checksum(binary_url, libfile)) {
     lg("Successfully retrieved libarrow (%s)", lib)
   } else {
