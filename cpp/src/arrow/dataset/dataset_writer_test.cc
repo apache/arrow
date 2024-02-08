@@ -345,6 +345,7 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
 }
 
 TEST_F(DatasetWriterTestFixture, NotProduceZeroSizedBatch) {
+  // GH-39965: avoid creating zero-sized batch when max_rows_per_file enabled.
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;
   auto dataset_writer = MakeDatasetWriter();
