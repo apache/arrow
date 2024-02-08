@@ -918,10 +918,14 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   ArraySpan span;
   span.SetMembers(*src->data());
   BinaryViewBuilder dst_builder(pool_);
-  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
+  ASSERT_OK(dst_builder.AppendArraySlice(span, 0, 1));
   ASSERT_EQ(1, dst_builder.length());
+  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
+  ASSERT_EQ(2, dst_builder.length());
   ASSERT_OK_AND_ASSIGN(auto dst, dst_builder.Finish());
   ASSERT_OK(dst->ValidateFull());
+
+  AssertArraysEqual(*src, *dst);
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
