@@ -344,6 +344,22 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
       {{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
 }
 
+TEST_F(DatasetWriterTestFixture, NotProduceZeroSizedBatch) {
+  write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
+  auto dataset_writer = MakeDatasetWriter();
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({
+      {"testdir/chunk-0.arrow", 0, 10, 1},
+      {"testdir/chunk-1.arrow", 10, 10, 1},
+      {"testdir/chunk-2.arrow", 20, 10, 1},
+      {"testdir/chunk-3.arrow", 30, 10, 1},
+  });
+  AssertNotFiles({"testdir/chunk-4.arrow"});
+}
+
 TEST_F(DatasetWriterTestFixture, MinRowGroup) {
   write_options_.min_rows_per_group = 20;
   auto dataset_writer = MakeDatasetWriter();
