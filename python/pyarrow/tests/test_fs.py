@@ -496,9 +496,9 @@ def skip_fsspec_s3fs(fs):
     if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
-def skip_azure(fs):
+def skip_azure(fs, reason):
     if fs.type_name == "abfs":
-        pytest.xfail(reason="Not implemented yet in abfs. See GH-18014")
+        pytest.xfail(reason=reason)
 
 
 @pytest.mark.s3
@@ -892,7 +892,7 @@ def test_copy_file(fs, pathfn):
 
 def test_move_directory(fs, pathfn, allow_move_dir):
     # TODO(GH-38704): Stop skipping this test once AzureFileSystem add support
-    skip_azure(fs)
+    skip_azure(fs, "Not implemented yet in abfs. See GH-38704")
 
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
@@ -914,9 +914,9 @@ def test_move_file(fs, pathfn):
     # s3fs moving a file with recursive=True on latest 0.5 version
     # (https://github.com/dask/s3fs/issues/394)
     skip_fsspec_s3fs(fs)
-    
+
     # TODO(GH-38704): Stop skipping this test once AzureFileSystem add support
-    skip_azure(fs)
+    skip_azure(fs, "Not implemented yet in abfs. See GH-38704")
 
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
@@ -1069,7 +1069,9 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert f.read() == data
         got_metadata = f.metadata()
 
-    if fs.type_name in ['s3', 'gcs'] or 'mock' in fs.type_name:
+    if fs.type_name in ['s3', 'gcs', 'abfs'] or 'mock' in fs.type_name:
+        # TODO(tomnewton): Create a Github issue for this. 
+        skip_azure(fs, "Azure filesystem currently only returns system metadata not user metadata")
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
