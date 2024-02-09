@@ -311,7 +311,7 @@ def azurefs(request, azure_server):
     yield dict(
         fs=fs,
         pathfn=container.__add__,
-        allow_move_dir=False,  # TODO(GH-38704): Switch this to True when AzureFileSystem adds support for it.
+        allow_move_dir=False,  # AzureFileSystem will only support this in hierachical namespace accounts.
         allow_append_to_file=True,
     )
     fs.delete_dir(container)
@@ -443,11 +443,6 @@ def py_fsspec_s3fs(request, s3_server):
         id='PyFileSystem(FSSpecHandler(s3fs.S3FileSystem()))',
         marks=pytest.mark.s3
     ),
-    pytest.param(
-        'py_fsspec_azurefs',
-        id='PyFileSystem(FSSpecHandler(azurefs.AzureFileSystem()))',
-        marks=pytest.mark.azure,
-    ),
 ])
 def filesystem_config(request):
     return request.getfixturevalue(request.param)
@@ -500,6 +495,10 @@ def check_mtime_or_absent(file_info):
 def skip_fsspec_s3fs(fs):
     if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
+
+def skip_azure(fs):
+    if fs.type_name == "abfs":
+        pytest.xfail(reason="Not implemented yet in abfs. See GH-18014")
 
 
 @pytest.mark.s3
@@ -892,6 +891,9 @@ def test_copy_file(fs, pathfn):
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
+    # TODO(GH-38704): Stop skipping this test once AzureFileSystem add support
+    skip_azure(fs)
+
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
     t = pathfn('target-dir/')
@@ -912,6 +914,9 @@ def test_move_file(fs, pathfn):
     # s3fs moving a file with recursive=True on latest 0.5 version
     # (https://github.com/dask/s3fs/issues/394)
     skip_fsspec_s3fs(fs)
+    
+    # TODO(GH-38704): Stop skipping this test once AzureFileSystem add support
+    skip_azure(fs)
 
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
