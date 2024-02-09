@@ -1054,7 +1054,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
         The resulting ndarray's shape matches the permuted shape of the
         fixed shape tensor scalar.
-        The conversion is zero-copy.
+        The conversion is zero-copy if data is primitive numeric and without nulls.
 
         Returns
         -------
@@ -1093,6 +1093,8 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
     def to_numpy_ndarray(self):
         """
         Convert variable shape tensor extension scalar to a numpy array.
+
+        The conversion is zero-copy if data is primitive numeric and without nulls.
         """
         return self.to_tensor().to_numpy()
 
