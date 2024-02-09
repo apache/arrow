@@ -4438,8 +4438,9 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         numpy_type = obj[0].dtype
         arrow_type = from_numpy_dtype(numpy_type)
         ndim = obj[0].ndim
-        permutations = [(-np.array(o.strides)).argsort() for o in obj]
+        permutations = [(-np.array(o.strides)).argsort(kind="stable") for o in obj]
         permutation = permutations[0]
+        shapes = [np.take(o.shape, permutation) for o in obj]
 
         if not all([o.dtype == numpy_type for o in obj]):
             raise TypeError('All numpy arrays must have matching dtype.')
@@ -4450,13 +4451,18 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         if not all([np.array_equal(p, permutation) for p in permutations]):
             raise ValueError('All numpy arrays must have matching permutation.')
 
-        values = array([np.ravel(o, order="K") for o in obj], list_(arrow_type))
-        shapes = array([np.take(o.shape, permutation)
-                       for o in obj], list_(int32(), list_size=ndim))
-        struct_arr=StructArray.from_arrays([shapes, values], names=["shape", "data"])
+        for shape in shapes:
+            if len(shape) < 2:
+                raise ValueError(
+                    "Cannot convert 1D array or scalar to fixed shape tensor array")
+            if np.prod(shape) == 0:
+                raise ValueError("Expected a non-empty ndarray")
 
-        typ=variable_shape_tensor(arrow_type, ndim, permutation=permutation)
-        return ExtensionArray.from_storage(typ, struct_arr)
+        values = array([np.ravel(o, order="K") for o in obj], list_(arrow_type))
+        shapes = array(shapes, list_(int32(), list_size=ndim))
+        struct_arr = StructArray.from_arrays([shapes, values], names=["shape", "data"])
+
+        return ExtensionArray.from_storage(variable_shape_tensor(arrow_type, ndim, permutation=permutation), struct_arr)
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,

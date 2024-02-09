@@ -24,6 +24,7 @@ from uuid import uuid4, UUID
 import sys
 
 import numpy as np
+from numpy.lib.stride_tricks import as_strided
 import pyarrow as pa
 from pyarrow.vendored.version import Version
 
@@ -1369,8 +1370,7 @@ def test_variable_shape_tensor_type():
 
 
 @pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_class_methods(value_type):
-    from numpy.lib.stride_tricks import as_strided
+def test_fixed_shape_tensor_class_methods(value_type):
     arrow_type = pa.from_numpy_dtype(value_type)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
@@ -1421,8 +1421,7 @@ def test_tensor_class_methods(value_type):
 
 
 @pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_array_from_numpy(value_type):
-    from numpy.lib.stride_tricks import as_strided
+def test_fixed_shape_tensor_array_from_numpy(value_type):
     arrow_type = pa.from_numpy_dtype(value_type)
 
     arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
@@ -1552,43 +1551,67 @@ def test_variable_shape_tensor_class_methods(value_type):
         [], dtype=value_type).reshape(shapes[1].as_py()))
 
 
-@pytest.mark.parametrize("value_type", (np.int8, np.int32, np.int64, np.float64))
-def test_variable_shape_tensor_strided(value_type):
-    from numpy.lib.stride_tricks import as_strided
-    bw = value_type().itemsize
-    arrow_type = pa.from_numpy_dtype(value_type())
-    vals = np.arange(1, 13, dtype=value_type)
+@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
+def test_variable_shape_tensor_array_from_numpy(value_type):
+    arrow_type = pa.from_numpy_dtype(value_type)
 
-    for arr_in, arr_out in [
-        (as_strided(vals, shape=(12,), strides=(bw,)), vals),
-        (as_strided(vals, shape=(3, 4), strides=(bw * 4, bw)), vals.reshape(3, 4)),
-        # TODO: strides are not correctly handled for non-C layouts
-        # (
-        #     as_strided(vals, shape=(3, 4), strides=(bw, bw * 3)),
-        #     np.array([[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]], value_type())
-        # )
-    ]:
-        ndim = len(arr_in.shape)
-        shape = arr_in.shape
-        permutation = (-np.array(arr_in.strides)).argsort()
-        tensor_array_type = pa.variable_shape_tensor(
-            arrow_type, ndim, permutation=permutation)
+    arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                   dtype=value_type, order="C")
+    tensor_array_from_numpy = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert isinstance(tensor_array_from_numpy.type, pa.VariableShapeTensorType)
+    assert tensor_array_from_numpy.type.value_type == arrow_type
+    assert tensor_array_from_numpy.type.ndim == 3
+    assert tensor_array_from_numpy.type.permutation == [0, 1, 2]
 
-        fields = [pa.field("shape", pa.list_(pa.int32(), ndim)),
-                  pa.field("data", pa.list_(arrow_type))]
-        shapes = pa.array([shape], type=fields[0].type)
-        values = pa.array([vals.tolist()], type=fields[1].type)
-        struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
+    f_arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+                     dtype=value_type, order="F")
+    with pytest.raises(ValueError, match="numpy arrays must have matching permutation"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([f_arr, arr])
+    with pytest.raises(ValueError, match="numpy arrays must have matching ndim"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((12, 1)), arr])
+    with pytest.raises(TypeError, match="numpy arrays must have matching dtype"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.astype(np.int32()), arr])
 
-        arrow_array = pa.ExtensionArray.from_storage(tensor_array_type, struct_arr)
-        np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
-        np.testing.assert_array_equal(
-            arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
+    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
+    bw = value_type.itemsize
 
-        arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr_in])
-        np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
-        np.testing.assert_array_equal(
-            arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
+    arr = flat_arr.reshape(1, 3, 4)
+    tensor_array_from_numpy = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert tensor_array_from_numpy.type.ndim == 3
+    assert tensor_array_from_numpy.type.permutation == [0, 1, 2]
+    assert tensor_array_from_numpy[0].to_tensor() == pa.Tensor.from_numpy(arr)
+
+    arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
+                     strides=(bw * 12, bw * 6, bw, bw * 3))
+    tensor_array_from_numpy = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert tensor_array_from_numpy.type.ndim == 4
+    assert tensor_array_from_numpy.type.permutation == [0, 1, 3, 2]
+    assert tensor_array_from_numpy[0].to_tensor() == pa.Tensor.from_numpy(arr)
+
+    arr = flat_arr.reshape(1, 2, 3, 2)
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    expected = np.array(
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+    np.testing.assert_array_equal(result[0].to_numpy_ndarray(), expected)
+
+    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
+    with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+
+    arr = np.array(1, dtype=value_type)
+    with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+
+    arr = np.array([], dtype=value_type)
+
+    with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((0))])
+
+    with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((0, 3, 2))])
+
+    with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((3, 0, 2))])
 
 
 @pytest.mark.parametrize("tensor_type", (
