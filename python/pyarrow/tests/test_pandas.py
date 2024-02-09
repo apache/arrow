@@ -3650,7 +3650,8 @@ def test_singleton_blocks_zero_copy():
 
     prior_allocation = pa.total_allocated_bytes()
     result = t.to_pandas()
-    assert result['f0'].values.flags.writeable
+    # access private `_values` because the public `values` is made read-only by pandas
+    assert result['f0']._values.flags.writeable
     assert pa.total_allocated_bytes() > prior_allocation
 
 

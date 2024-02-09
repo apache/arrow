@@ -442,7 +442,8 @@ class SerializedPageWriter : public PageWriter {
     if (offset_index_builder_ != nullptr) {
       const int64_t compressed_size = output_data_len + header_size;
       if (compressed_size > std::numeric_limits<int32_t>::max()) {
-        throw ParquetException("Compressed page size overflows INT32_MAX.");
+        throw ParquetException("Compressed page size ", compressed_size,
+                               " overflows INT32_MAX.");
       }
       if (!page.first_row_index().has_value()) {
         throw ParquetException("First row index is not set in data page.");

@@ -186,6 +186,25 @@ class ARROW_EXPORT RecordBatch {
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
 
+  /// \brief Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::CopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been copied to the destination MemoryManager. This uses
+  /// MemoryManager::CopyBuffer under the hood.
+  Result<std::shared_ptr<RecordBatch>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief View or Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::ViewOrCopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been zero-copy viewed on the destination MemoryManager, falling back
+  /// to performing a copy if it can't be viewed as a zero-copy buffer. This uses
+  /// Buffer::ViewOrCopy under the hood.
+  Result<std::shared_ptr<RecordBatch>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice, through end of batch
   /// \return new record batch

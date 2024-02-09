@@ -235,7 +235,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.19</version>
+            <version>8.29</version>
           </dependency>
           <dependency>
             <groupId>org.slf4j</groupId>
@@ -271,7 +271,7 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.10</version>
+        <version>2.7.11</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -333,7 +333,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

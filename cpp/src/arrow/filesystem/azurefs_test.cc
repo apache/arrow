@@ -1816,6 +1816,57 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
+TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  const auto file_name = ConcatAbstractPath(container_name, "filename");
+  if (WithHierarchicalNamespace()) {
+    auto adlfs_client = CreateFilesystem(container_name);
+    CreateFile(adlfs_client, "filename", "data");
+  } else {
+    auto container = CreateContainer(container_name);
+    CreateBlob(container, "filename", "data");
+  }
+  arrow::fs::AssertFileInfo(fs(), file_name, FileType::File);
+  ASSERT_OK(fs()->DeleteFile(file_name));
+  arrow::fs::AssertFileInfo(fs(), file_name, FileType::NotFound);
+}
+
+TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  const auto nonexistent_file_name = ConcatAbstractPath(container_name, "nonexistent");
+  if (WithHierarchicalNamespace()) {
+    ARROW_UNUSED(CreateFilesystem(container_name));
+  } else {
+    ARROW_UNUSED(CreateContainer(container_name));
+  }
+  ASSERT_RAISES(IOError, fs()->DeleteFile(nonexistent_file_name));
+}
+
+TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
+  if (WithHierarchicalNamespace()) {
+    ARROW_UNUSED(CreateFilesystem(container_name));
+  } else {
+    ARROW_UNUSED(CreateContainer(container_name));
+  }
+  arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
+  ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
+}
+
+TEST_F(TestAzuriteFileSystem, DeleteFileFailureDirectory) {
+  auto container_name = PreexistingData::RandomContainerName(rng_);
+  if (WithHierarchicalNamespace()) {
+    auto adlfs_client = CreateFilesystem(container_name);
+    CreateDirectory(adlfs_client, "directory");
+  } else {
+    auto container = CreateContainer(container_name);
+    CreateBlob(container, "directory/");
+  }
+  auto directory_path = ConcatAbstractPath(container_name, "directory");
+  arrow::fs::AssertFileInfo(fs(), directory_path, FileType::Directory);
+  ASSERT_RAISES(IOError, fs()->DeleteFile(directory_path));
+}
+
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   auto data = SetUpPreexistingData();
   const auto destination_path = data.ContainerPath("copy-destionation");
@@ -2302,6 +2353,5 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
 }
-
 }  // namespace fs
 }  // namespace arrow

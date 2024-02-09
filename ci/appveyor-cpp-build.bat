@@ -26,7 +26,10 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
-set ARROW_DEBUG_MEMORY_POOL=trap
+@rem Enable memory debug checks if the env is not set already
+IF "%ARROW_DEBUG_MEMORY_POOL%"=="" (
+  set ARROW_DEBUG_MEMORY_POOL=trap
+)
 
 set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%

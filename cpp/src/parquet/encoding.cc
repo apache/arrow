@@ -160,7 +160,8 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -571,7 +572,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -585,7 +587,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     for (int64_t i = 0; i < array.length(); i++) {
       auto v = array.GetView(i);
       if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
-        throw ParquetException("Parquet cannot store strings with size 2GB or more");
+        throw ParquetException(
+            "Parquet cannot store strings with size 2GB or more, got: ", v.size());
       }
       dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
       int32_t unused_memo_index;
@@ -2411,7 +2414,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     InitHeader();
   }
 
@@ -2667,7 +2674,8 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
           PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
@@ -2769,7 +2777,11 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     DecoderImpl::SetData(num_values, data, len);
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     DecodeLengths();
   }
 
@@ -3192,7 +3204,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           const ByteArray src{view};
 
@@ -3238,7 +3251,8 @@ struct ByteArrayVisitor {
 
   std::string_view operator[](int i) const {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
-      throw ParquetException("Parquet cannot store strings with size 2GB or more");
+      throw ParquetException("Parquet cannot store strings with size 2GB or more, got: ",
+                             src[i].len);
     }
     return std::string_view{src[i]};
   }
