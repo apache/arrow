@@ -121,7 +121,7 @@ void RowTableMetadata::FromColumnMetadataVector(
 
   column_offsets.resize(num_cols);
   int32_t num_varbinary_cols = 0;
-  uint32_t offset_within_row = 0;
+  int32_t offset_within_row = 0;
   for (uint32_t i = 0; i < num_cols; ++i) {
     const KeyColumnMetadata& col = cols[column_order[i]];
     if (col.is_fixed_length && col.fixed_length != 0 &&
@@ -135,7 +135,7 @@ void RowTableMetadata::FromColumnMetadataVector(
         varbinary_end_array_offset = offset_within_row;
       }
       DCHECK(column_offsets[i] - varbinary_end_array_offset ==
-             num_varbinary_cols * sizeof(uint32_t));
+             num_varbinary_cols * static_cast<int32_t>(sizeof(int32_t)));
       ++num_varbinary_cols;
       offset_within_row += sizeof(uint32_t);
     } else {
