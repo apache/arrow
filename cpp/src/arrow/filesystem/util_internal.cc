@@ -17,6 +17,7 @@
 
 #include "arrow/filesystem/util_internal.h"
 
+#include <algorithm>
 #include <cerrno>
 
 #include "arrow/buffer.h"
