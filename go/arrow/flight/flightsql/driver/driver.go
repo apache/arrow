@@ -81,22 +81,6 @@ func (r *Rows) releaseRecord() {
 
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-	go func() {
-		if r.recordChan != nil {
-			if _, ok := <-r.recordChan; ok {
-				close(r.recordChan)
-			}
-		}
-	}()
-
-	go func() {
-		if r.initializedChan != nil {
-			if _, ok := <-r.initializedChan; ok {
-				close(r.initializedChan)
-			}
-		}
-	}()
-
 	r.releaseRecord()
 
 	return nil
@@ -121,12 +105,16 @@ func (r *Rows) Next(dest []driver.Value) error {
 
 		// Get the next record from the channel
 		var ok bool
-
-		if r.currentRecord, ok = <-r.recordChan; !ok || r.currentRecord == nil || r.currentRecord.NumRows() < 1 {
+		if r.currentRecord, ok = <-r.recordChan; !ok {
 			return io.EOF // Channel closed, no more records
 		}
 
 		r.currentRow = 0
+
+		// safety double-check
+		if r.currentRecord == nil || int64(r.currentRow) >= r.currentRecord.NumRows() {
+			return io.EOF // Channel closed, no more records
+		}
 	}
 
 	for i, col := range r.currentRecord.Columns() {
@@ -503,13 +491,10 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoints []*flight.FlightEndpoint) {
 	defer close(r.recordChan)
 
+	initializeOnceOnly := &sync.Once{}
+
 	defer func() { // in case of error, init anyway
-		select {
-		case <-r.initializedChan:
-			r.initializedChan <- true
-		default:
-			r.initializedChan <- true
-		}
+		initializeOnceOnly.Do(func() { r.initializedChan <- true })
 	}()
 
 	// reads each endpoint
@@ -525,15 +510,19 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 
 			r.schema = reader.Schema()
 
-			r.initializedChan <- true
-
 			// reads each record into a blocking channel
 			for reader.Next() {
 				record := reader.Record()
 				record.Retain()
 
+				if record.NumRows() < 1 {
+					record.Release()
+					continue
+				}
+
 				select {
 				case r.recordChan <- record:
+					go initializeOnceOnly.Do(func() { r.initializedChan <- true })
 
 				case <-ctx.Done():
 					r.releaseRecord()
