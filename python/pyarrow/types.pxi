@@ -1805,12 +1805,6 @@ cdef class VariableShapeTensorType(BaseExtensionType):
     def __arrow_ext_class__(self):
         return VariableShapeTensorArray
 
-    def __arrow_ext_serialize__(self):
-        return b''
-
-    def __arrow_ext_class__(self):
-        return VariableShapeTensorArray
-
     def __reduce__(self):
         return variable_shape_tensor, (self.value_type, self.ndim,
                                        self.permutation, self.dim_names, self.uniform_shape)
