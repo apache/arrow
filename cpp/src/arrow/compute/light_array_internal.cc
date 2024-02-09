@@ -201,8 +201,7 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
 
 Status ColumnArraysFromExecBatch(const ExecBatch& batch,
                                  std::vector<KeyColumnArray>* column_arrays) {
-  return ColumnArraysFromExecBatch(batch, 0, static_cast<int>(batch.length),
-                                   column_arrays);
+  return ColumnArraysFromExecBatch(batch, 0, batch.length, column_arrays);
 }
 
 void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
@@ -355,9 +354,9 @@ std::shared_ptr<ArrayData> ResizableArrayData::array_data() const {
   KeyColumnMetadata column_metadata;
   column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
-  auto valid_count = arrow::internal::CountSetBits(
-      buffers_[kValidityBuffer]->data(), /*offset=*/0, static_cast<int64_t>(num_rows_));
-  int null_count = static_cast<int>(num_rows_) - static_cast<int>(valid_count);
+  auto valid_count = arrow::internal::CountSetBits(buffers_[kValidityBuffer]->data(),
+                                                   /*offset=*/0, num_rows_);
+  auto null_count = num_rows_ - valid_count;
 
   if (column_metadata.is_fixed_length) {
     return ArrayData::Make(data_type_, num_rows_,
