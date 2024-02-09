@@ -122,7 +122,7 @@ class ARROW_EXPORT RowTableEncoder {
 
 class EncoderInteger {
  public:
-  static void Decode(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+  static void Decode(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                      const RowTableImpl& rows, KeyColumnArray* col, LightContext* ctx,
                      KeyColumnArray* temp);
   static bool UsesTransform(const KeyColumnArray& column);
@@ -137,24 +137,24 @@ class EncoderInteger {
 
 class EncoderBinary {
  public:
-  static void EncodeSelected(uint32_t offset_within_row, RowTableImpl* rows,
+  static void EncodeSelected(int32_t offset_within_row, RowTableImpl* rows,
                              const KeyColumnArray& col, uint32_t num_selected,
                              const uint16_t* selection);
-  static void Decode(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+  static void Decode(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                      const RowTableImpl& rows, KeyColumnArray* col, LightContext* ctx,
                      KeyColumnArray* temp);
   static bool IsInteger(const KeyColumnMetadata& metadata);
 
  private:
   template <class COPY_FN, class SET_NULL_FN>
-  static void EncodeSelectedImp(uint32_t offset_within_row, RowTableImpl* rows,
+  static void EncodeSelectedImp(int32_t offset_within_row, RowTableImpl* rows,
                                 const KeyColumnArray& col, uint32_t num_selected,
                                 const uint16_t* selection, COPY_FN copy_fn,
                                 SET_NULL_FN set_null_fn);
 
   template <bool is_row_fixed_length, class COPY_FN>
   static inline void DecodeHelper(uint32_t start_row, uint32_t num_rows,
-                                  uint32_t offset_within_row,
+                                  int32_t offset_within_row,
                                   const RowTableImpl* rows_const,
                                   RowTableImpl* rows_mutable_maybe_null,
                                   const KeyColumnArray* col_const,
@@ -185,15 +185,15 @@ class EncoderBinary {
   }
 
   template <bool is_row_fixed_length>
-  static void DecodeImp(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+  static void DecodeImp(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                         const RowTableImpl& rows, KeyColumnArray* col);
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   static void DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
-                                uint32_t num_rows, uint32_t offset_within_row,
+                                uint32_t num_rows, int32_t offset_within_row,
                                 const RowTableImpl& rows, KeyColumnArray* col);
   template <bool is_row_fixed_length>
   static void DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                             uint32_t offset_within_row, const RowTableImpl& rows,
+                             int32_t offset_within_row, const RowTableImpl& rows,
                              KeyColumnArray* col);
 #endif
 };
@@ -204,23 +204,23 @@ class EncoderBinaryPair {
                              const KeyColumnMetadata& col2) {
     return EncoderBinary::IsInteger(col1) && EncoderBinary::IsInteger(col2);
   }
-  static void Decode(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+  static void Decode(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                      const RowTableImpl& rows, KeyColumnArray* col1, KeyColumnArray* col2,
                      LightContext* ctx, KeyColumnArray* temp1, KeyColumnArray* temp2);
 
  private:
   template <bool is_row_fixed_length, typename col1_type, typename col2_type>
   static void DecodeImp(uint32_t num_rows_to_skip, uint32_t start_row, uint32_t num_rows,
-                        uint32_t offset_within_row, const RowTableImpl& rows,
+                        int32_t offset_within_row, const RowTableImpl& rows,
                         KeyColumnArray* col1, KeyColumnArray* col2);
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   static uint32_t DecodeHelper_avx2(bool is_row_fixed_length, uint32_t col_width,
                                     uint32_t start_row, uint32_t num_rows,
-                                    uint32_t offset_within_row, const RowTableImpl& rows,
+                                    int32_t offset_within_row, const RowTableImpl& rows,
                                     KeyColumnArray* col1, KeyColumnArray* col2);
   template <bool is_row_fixed_length, uint32_t col_width>
   static uint32_t DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                 uint32_t offset_within_row, const RowTableImpl& rows,
+                                 int32_t offset_within_row, const RowTableImpl& rows,
                                  KeyColumnArray* col1, KeyColumnArray* col2);
 #endif
 };
@@ -278,7 +278,8 @@ class EncoderVarBinary {
       int32_t row_offset = row_offsets_for_batch[i];
       const uint8_t* row = rows_const->data(2) + row_offset;
 
-      int32_t offset_within_row, length;
+      int32_t offset_within_row;
+      int32_t length;
       if (first_varbinary_col) {
         rows_const->metadata().first_varbinary_offset_and_length(row, &offset_within_row,
                                                                  &length);

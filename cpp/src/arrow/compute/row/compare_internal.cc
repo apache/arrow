@@ -105,7 +105,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
     for (int32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      uint32_t offset_right = irow_right * fixed_length + offset_within_row;
+      int32_t offset_right = irow_right * fixed_length + offset_within_row;
       match_bytevector[i] = compare_fn(rows_left, rows_right, irow_left, offset_right);
     }
   } else {
