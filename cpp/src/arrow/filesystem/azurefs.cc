@@ -1057,8 +1057,8 @@ class LeaseGuard {
   /// https://learn.microsoft.com/en-us/rest/api/storageservices/lease-blob#outcomes-of-use-attempts-on-blobs-by-lease-state
   Status Break(Azure::Nullable<std::chrono::seconds> break_period = {}) {
     auto remaining_time_ms = [this]() {
-      const auto remaing_time = break_or_expires_at_ - SteadyClock::now();
-      return std::chrono::duration_cast<std::chrono::milliseconds>(remaing_time);
+      const auto remaining_time = break_or_expires_at_ - SteadyClock::now();
+      return std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
     };
 #ifndef NDEBUG
     if (break_period.HasValue() && !StillValidFor(*break_period)) {
@@ -2136,6 +2136,8 @@ class AzureFileSystem::Impl {
       try {
         auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
         if (!src_list_response.Blobs.empty()) {
+          // Reminder: dest is used here because we're semantically replacing dest
+          // with src. By deleting src if it's empty just like dest.
           return Status::IOError("Unable to replace empty container: '", dest.all, "'");
         }
         // Delete the source container now that we know it's empty.
@@ -2152,10 +2154,10 @@ class AzureFileSystem::Impl {
         }
         try {
           src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerDeletion);
-          src_container_client.DeleteIfExists(options);
+          src_container_client.Delete(options);
           src_lease_guard.Forget();
         } catch (const Storage::StorageException& exception) {
-          return ExceptionToStatus(exception, "Failed to delete empty container '",
+          return ExceptionToStatus(exception, "Failed to delete empty container: '",
                                    src.container, "': ", src_container_client.GetUrl());
         }
       } catch (const Storage::StorageException& exception) {
@@ -2205,7 +2207,7 @@ class AzureFileSystem::Impl {
     return CrossContainerMoveNotImplemented(src, dest);
   }
 
-  Status MovePathsWithDataLakeAPI(
+  Status MovePathWithDataLakeAPI(
       const DataLake::DataLakeFileSystemClient& src_adlfs_client,
       const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
@@ -2319,7 +2321,7 @@ class AzureFileSystem::Impl {
     return Status::OK();
   }
 
-  Status MovePathsUsingBlobsAPI(const AzureLocation& src, const AzureLocation& dest) {
+  Status MovePathUsingBlobsAPI(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
     if (src.container != dest.container) {
@@ -2332,7 +2334,7 @@ class AzureFileSystem::Impl {
     return Status::NotImplemented("The Azure FileSystem is not fully implemented");
   }
 
-  Status MovePaths(const AzureLocation& src, const AzureLocation& dest) {
+  Status MovePath(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
     auto src_adlfs_client = GetFileSystemClient(src.container);
@@ -2342,10 +2344,10 @@ class AzureFileSystem::Impl {
       return PathNotFound(src);
     }
     if (hns_support == HNSSupport::kEnabled) {
-      return MovePathsWithDataLakeAPI(src_adlfs_client, src, dest);
+      return MovePathWithDataLakeAPI(src_adlfs_client, src, dest);
     }
     DCHECK_EQ(hns_support, HNSSupport::kDisabled);
-    return MovePathsUsingBlobsAPI(src, dest);
+    return MovePathUsingBlobsAPI(src, dest);
   }
 
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
@@ -2542,7 +2544,7 @@ Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
   if (dest_location.path.empty()) {
     return impl_->CreateContainerFromPath(src_location, dest_location);
   }
-  return impl_->MovePaths(src_location, dest_location);
+  return impl_->MovePath(src_location, dest_location);
 }
 
 Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest) {

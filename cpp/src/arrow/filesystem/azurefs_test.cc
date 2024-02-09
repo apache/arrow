@@ -1010,7 +1010,7 @@ class TestAzureFileSystem : public ::testing::Test {
       FileSelector select;
       select.base_dir = dest_path;
       select.recursive = false;
-      // TODO(felipecrv): investigate why this can't be false
+      // TODO(ARROW-40014): investigate why this can't be false here
       select.allow_not_found = true;
       ARROW_ASSIGN_OR_RAISE(auto dest_contents, the_fs->GetFileInfo(select));
       if (dest_contents.empty()) {
@@ -1163,8 +1163,8 @@ class TestAzureFileSystem : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented,
         HasCrossContainerNotImplementedMessage(data.container_name,
-                                               "a-container/new-subdir"),
-        fs()->Move(data.container_name, "a-container/new-subdir"));
+                                               "missing-container/new-subdir"),
+        fs()->Move(data.container_name, "missing-container/new-subdir"));
   }
 
   void TestCreateContainerFromPath() {
@@ -1185,11 +1185,11 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->Move(src_dir_path, "new-container"));
   }
 
-  void TestMovePaths() {
+  void TestMovePath() {
     Status st;
     auto data = SetUpPreexistingData();
     // When source doesn't exist.
-    ASSERT_MOVE("missing-container/src-path", "a-container/dest-path", ENOENT);
+    ASSERT_MOVE("missing-container/src-path", data.ContainerPath("dest-path"), ENOENT);
     auto missing_path1 = data.RandomDirectoryPath(rng_);
     ASSERT_MOVE(missing_path1, "missing-container/path", ENOENT);
 
@@ -1202,8 +1202,7 @@ class TestAzureFileSystem : public ::testing::Test {
           HasCrossContainerNotImplementedMessage(data.ObjectPath(),
                                                  "missing-container/path"),
           fs()->Move(data.ObjectPath(), "missing-container/path"));
-      GTEST_SKIP()
-          << "The rest of TestMovePaths is not implemented for non-HNS scenarios";
+      GTEST_SKIP() << "The rest of TestMovePath is not implemented for non-HNS scenarios";
     }
     auto adlfs_client =
         datalake_service_client_->GetFileSystemClient(data.container_name);
@@ -1250,7 +1249,6 @@ class TestAzureFileSystem : public ::testing::Test {
     // "subdir0/file-at-subdir" exists
 
     // src is a directory and dest does not exists
-    CreateDirectory(adlfs_client, "subdir0");
     ASSERT_MOVE_OK(data.Path("subdir0"), data.Path("subdir1"));
     ASSERT_MOVE_OK(data.Path("subdir1/"), data.Path("subdir2"));
     ASSERT_MOVE_OK(data.Path("subdir2"), data.Path("subdir3/"));
@@ -1542,7 +1540,7 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateContainerFromPath) {
   this->TestCreateContainerFromPath();
 }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePaths) { this->TestMovePaths(); }
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, MovePath) { this->TestMovePath(); }
 
 // Tests using Azurite (the local Azure emulator)
 
