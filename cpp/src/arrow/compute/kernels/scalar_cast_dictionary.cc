@@ -49,7 +49,7 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   // processing. This approach allows the subsequent code to uniformly handle STRING
   // inputs as if they were originally provided in dictionary format. Encoding as a
   // dictionary helps in reusing the same logic for dictionary operations.
-  if (batch[0].type()->id() == Type::STRING) {
+  if (is_base_binary_like(in_array->type->id())) {
     in_array = DictionaryEncode(in_array)->array();
   }
   const auto& in_type = checked_cast<const DictionaryType&>(*in_array->type);
@@ -98,6 +98,9 @@ std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
   AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dict.get());
   AddDictionaryCast<DictionaryType>(cast_dict.get());
   AddDictionaryCast<StringType>(cast_dict.get());
+  AddDictionaryCast<LargeStringType>(cast_dict.get());
+  AddDictionaryCast<BinaryType>(cast_dict.get());
+  AddDictionaryCast<LargeBinaryType>(cast_dict.get());
 
   return {cast_dict};
 }
