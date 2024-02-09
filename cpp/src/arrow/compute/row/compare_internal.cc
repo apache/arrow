@@ -115,7 +115,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      uint32_t offset_right = offsets_right[irow_right] + offset_within_row;
+      int32_t offset_right = offsets_right[irow_right] + offset_within_row;
       match_bytevector[i] = compare_fn(rows_left, rows_right, irow_left, offset_right);
     }
   }
@@ -247,10 +247,10 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
   for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];
-    uint32_t begin_left = offsets_left[irow_left];
-    uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
-    uint32_t begin_right = offsets_right[irow_right];
-    uint32_t length_right;
+    int32_t begin_left = offsets_left[irow_left];
+    int32_t length_left = offsets_left[irow_left + 1] - begin_left;
+    int32_t begin_right = offsets_right[irow_right];
+    int32_t length_right;
     uint32_t offset_within_row;
     if (!is_first_varbinary_col) {
       rows.metadata().nth_varbinary_offset_and_length(
@@ -260,7 +260,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
           rows_right + begin_right, &offset_within_row, &length_right);
     }
     begin_right += offset_within_row;
-    uint32_t length = std::min(length_left, length_right);
+    int32_t length = std::min(length_left, length_right);
     const uint64_t* key_left_ptr =
         reinterpret_cast<const uint64_t*>(rows_left + begin_left);
     util::CheckAlignment<uint64_t>(rows_right + begin_right);

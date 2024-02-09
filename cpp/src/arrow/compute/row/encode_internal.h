@@ -256,7 +256,7 @@ class EncoderVarBinary {
 
  private:
   template <bool first_varbinary_col, class COPY_FN>
-  static inline void DecodeHelper(uint32_t start_row, uint32_t num_rows,
+  static inline void DecodeHelper(uint32_t start_row, int32_t num_rows,
                                   uint32_t varbinary_col_id,
                                   const RowTableImpl* rows_const,
                                   RowTableImpl* rows_mutable_maybe_null,
@@ -270,16 +270,16 @@ class EncoderVarBinary {
     const int32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
     const int32_t* col_offsets = col_const->offsets();
 
-    uint32_t col_offset_next = col_offsets[0];
-    for (uint32_t i = 0; i < num_rows; ++i) {
-      uint32_t col_offset = col_offset_next;
+    int32_t col_offset_next = col_offsets[0];
+    for (int32_t i = 0; i < num_rows; ++i) {
+      int32_t col_offset = col_offset_next;
       col_offset_next = col_offsets[i + 1];
 
-      uint32_t row_offset = row_offsets_for_batch[i];
+      int32_t row_offset = row_offsets_for_batch[i];
       const uint8_t* row = rows_const->data(2) + row_offset;
 
       uint32_t offset_within_row;
-      uint32_t length;
+      int32_t length;
       if (first_varbinary_col) {
         rows_const->metadata().first_varbinary_offset_and_length(row, &offset_within_row,
                                                                  &length);

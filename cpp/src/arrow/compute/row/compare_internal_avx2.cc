@@ -234,8 +234,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
-      __m256i offset_right =
-          _mm256_i32gather_epi32((const int*)offsets_right, irow_right, 4);
+      __m256i offset_right = _mm256_i32gather_epi32(offsets_right, irow_right, 4);
       offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
 
       reinterpret_cast<uint64_t*>(match_bytevector)[i] =
@@ -511,10 +510,10 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
   for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];
-    uint32_t begin_left = offsets_left[irow_left];
-    uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
-    uint32_t begin_right = offsets_right[irow_right];
-    uint32_t length_right;
+    int32_t begin_left = offsets_left[irow_left];
+    int32_t length_left = offsets_left[irow_left + 1] - begin_left;
+    int32_t begin_right = offsets_right[irow_right];
+    int32_t length_right;
     uint32_t offset_within_row;
     if (!is_first_varbinary_col) {
       rows.metadata().nth_varbinary_offset_and_length(
@@ -526,7 +525,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
     begin_right += offset_within_row;
 
     __m256i result_or = _mm256_setzero_si256();
-    uint32_t length = std::min(length_left, length_right);
+    int32_t length = std::min(length_left, length_right);
     if (length > 0) {
       const __m256i* key_left_ptr =
           reinterpret_cast<const __m256i*>(rows_left + begin_left);
@@ -534,7 +533,7 @@ void KeyCompare::CompareVarBinaryColumnToRowImp_avx2(
           reinterpret_cast<const __m256i*>(rows_right + begin_right);
       int32_t j;
       // length is greater than zero
-      for (j = 0; j < (static_cast<int32_t>(length) + 31) / 32 - 1; ++j) {
+      for (j = 0; j < (length + 31) / 32 - 1; ++j) {
         __m256i key_left = _mm256_loadu_si256(key_left_ptr + j);
         __m256i key_right = _mm256_loadu_si256(key_right_ptr + j);
         result_or = _mm256_or_si256(result_or, _mm256_xor_si256(key_left, key_right));

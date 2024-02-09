@@ -849,7 +849,7 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
     for (uint32_t i = 0; i < num_selected; ++i) {
       uint8_t* row = row_base + row_offsets[i];
       uint32_t row_offset;
-      uint32_t length;
+      int32_t length;
       rows->metadata().first_varbinary_offset_and_length(row, &row_offset, &length);
       uint32_t irow = selection[i];
       memcpy(row + row_offset, col_base + col_offsets[irow], length);
@@ -858,7 +858,7 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
     for (uint32_t i = 0; i < num_selected; ++i) {
       uint8_t* row = row_base + row_offsets[i];
       uint32_t row_offset;
-      uint32_t length;
+      int32_t length;
       rows->metadata().nth_varbinary_offset_and_length(row, ivarbinary, &row_offset,
                                                        &length);
       uint32_t irow = selection[i];

@@ -79,7 +79,8 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
 
       // Find the length of the requested varying length field in that row
       //
-      uint32_t field_offset_within_row, field_length;
+      uint32_t field_offset_within_row;
+      int32_t field_length;
       if (varbinary_column_id == 0) {
         rows.metadata().first_varbinary_offset_and_length(
             row_ptr, &field_offset_within_row, &field_length);
@@ -123,7 +124,8 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
     const int32_t* row_offsets = rows.offsets();
-    uint32_t field_offset_within_row, field_length;
+    uint32_t field_offset_within_row;
+    int32_t field_length;
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
@@ -493,11 +495,11 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     num_rows = 0;
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
-      target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+      target->rows_.mutable_offsets()[num_rows] = static_cast<int32_t>(num_bytes);
       num_rows += sources[i]->rows_.length();
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
-    target->rows_.mutable_offsets()[num_rows] = static_cast<uint32_t>(num_bytes);
+    target->rows_.mutable_offsets()[num_rows] = static_cast<int32_t>(num_bytes);
   }
 
   return Status::OK();
@@ -573,7 +575,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
   if (!source_rows_permutation) {
     int64_t target_row_offset = first_target_row_offset;
     for (int64_t i = 0; i < num_source_rows; ++i) {
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = static_cast<int32_t>(target_row_offset);
       target_row_offset += source_offsets[i + 1] - source_offsets[i];
     }
     // We purposefully skip outputting of N+1 offset, to allow concurrent
@@ -604,7 +606,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
         *target_row_ptr++ = *source_row_ptr++;
       }
 
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = static_cast<int32_t>(target_row_offset);
       target_row_offset += length;
     }
   }

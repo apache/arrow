@@ -189,7 +189,7 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
         auto offsets, AllocateResizableBuffer(size_offsets(kInitialRowsCapacity), pool_));
     offsets_ = std::move(offsets);
     memset(offsets_->mutable_data(), 0, size_offsets(kInitialRowsCapacity));
-    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<int32_t*>(offsets_->mutable_data())[0] = 0;
 
     ARROW_ASSIGN_OR_RAISE(
         auto rows,
@@ -224,7 +224,7 @@ void RowTableImpl::Clean() {
   has_any_nulls_ = false;
 
   if (!metadata_.is_fixed_length) {
-    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<int32_t*>(offsets_->mutable_data())[0] = 0;
   }
 }
 
@@ -314,7 +314,7 @@ Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) 
 }
 
 Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
-                                         uint32_t num_rows_to_append,
+                                         int32_t num_rows_to_append,
                                          const uint16_t* source_row_ids) {
   DCHECK(metadata_.is_compatible(from.metadata()));
 
@@ -322,13 +322,13 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 
   if (!metadata_.is_fixed_length) {
     // Varying-length rows
-    auto from_offsets = reinterpret_cast<const uint32_t*>(from.offsets_->data());
-    auto to_offsets = reinterpret_cast<uint32_t*>(offsets_->mutable_data());
-    uint32_t total_length = to_offsets[num_rows_];
-    uint32_t total_length_to_append = 0;
-    for (uint32_t i = 0; i < num_rows_to_append; ++i) {
+    auto from_offsets = reinterpret_cast<const int32_t*>(from.offsets_->data());
+    auto to_offsets = reinterpret_cast<int32_t*>(offsets_->mutable_data());
+    int32_t total_length = to_offsets[num_rows_];
+    int32_t total_length_to_append = 0;
+    for (int32_t i = 0; i < num_rows_to_append; ++i) {
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
-      uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
+      int32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       total_length_to_append += length;
       to_offsets[num_rows_ + i + 1] = total_length + total_length_to_append;
     }
@@ -337,9 +337,9 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 
     const uint8_t* src = from.rows_->data();
     uint8_t* dst = rows_->mutable_data() + total_length;
-    for (uint32_t i = 0; i < num_rows_to_append; ++i) {
+    for (int32_t i = 0; i < num_rows_to_append; ++i) {
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
-      uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
+      int32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       auto src64 = reinterpret_cast<const uint64_t*>(src + from_offsets[row_id]);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
       for (uint32_t j = 0; j < bit_util::CeilDiv(length, 8); ++j) {
@@ -351,7 +351,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
     // Fixed-length rows
     const uint8_t* src = from.rows_->data();
     uint8_t* dst = rows_->mutable_data() + num_rows_ * metadata_.fixed_length;
-    for (uint32_t i = 0; i < num_rows_to_append; ++i) {
+    for (int32_t i = 0; i < num_rows_to_append; ++i) {
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
       uint32_t length = metadata_.fixed_length;
       auto src64 = reinterpret_cast<const uint64_t*>(src + length * row_id);
@@ -368,7 +368,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
   uint64_t dst_byte_offset = num_rows_ * byte_length;
   const uint8_t* src_base = from.null_masks_->data();
   uint8_t* dst_base = null_masks_->mutable_data();
-  for (uint32_t i = 0; i < num_rows_to_append; ++i) {
+  for (int32_t i = 0; i < num_rows_to_append; ++i) {
     uint32_t row_id = source_row_ids ? source_row_ids[i] : i;
     int64_t src_byte_offset = row_id * byte_length;
     const uint8_t* src = src_base + src_byte_offset;
@@ -384,8 +384,8 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
   return Status::OK();
 }
 
-Status RowTableImpl::AppendEmpty(uint32_t num_rows_to_append,
-                                 uint32_t num_extra_bytes_to_append) {
+Status RowTableImpl::AppendEmpty(int32_t num_rows_to_append,
+                                 int32_t num_extra_bytes_to_append) {
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
   RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
   num_rows_ += num_rows_to_append;
