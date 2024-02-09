@@ -95,10 +95,14 @@ Ubuntu 22.04 from an AWS instance:
       build-essential \
       clang \
       cmake \
+      libgirepository1.0-dev \
       libsqlite3-dev \
       libssh-dev \
       libyaml-dev \
       llvm-dev \
+      maven \
+      ninja-build \
+      openjdk-11-jdk \
       python3-dev \
       python3.10-venv
 
