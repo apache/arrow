@@ -112,7 +112,7 @@ struct ARROW_EXPORT RowTableMetadata {
 
   /// Returns the offset within the row and length of the first varbinary field.
   inline void first_varbinary_offset_and_length(const uint8_t* row, uint32_t* offset,
-                                                uint32_t* length) const {
+                                                int32_t* length) const {
     ARROW_DCHECK(!is_fixed_length);
     *offset = fixed_length;
     *length = varbinary_end_array(row)[0] - fixed_length;
@@ -122,7 +122,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// fields.
   inline void nth_varbinary_offset_and_length(const uint8_t* row, int varbinary_id,
                                               uint32_t* out_offset,
-                                              uint32_t* out_length) const {
+                                              int32_t* out_length) const {
     ARROW_DCHECK(!is_fixed_length);
     ARROW_DCHECK(varbinary_id > 0);
     const int32_t* varbinary_end = varbinary_end_array(row);
@@ -175,12 +175,12 @@ class ARROW_EXPORT RowTableImpl {
   /// \param num_extra_bytes_to_append For tables storing variable-length data this
   ///     should be a guess of how many data bytes will be needed to populate the
   ///     data.  This is ignored if there are no variable-length columns
-  Status AppendEmpty(uint32_t num_rows_to_append, uint32_t num_extra_bytes_to_append);
+  Status AppendEmpty(int32_t num_rows_to_append, int32_t num_extra_bytes_to_append);
   /// \brief Append rows from a source table
   /// \param from The table to append from
   /// \param num_rows_to_append The number of rows to append
   /// \param source_row_ids Indices (into `from`) of the desired rows
-  Status AppendSelectionFrom(const RowTableImpl& from, uint32_t num_rows_to_append,
+  Status AppendSelectionFrom(const RowTableImpl& from, int32_t num_rows_to_append,
                              const uint16_t* source_row_ids);
   /// \brief Metadata describing the data stored in this table
   const RowTableMetadata& metadata() const { return metadata_; }
