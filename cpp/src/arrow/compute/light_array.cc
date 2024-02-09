@@ -478,9 +478,8 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
     for (int i = 0; i < num_rows; ++i) {
       uint16_t row_id = row_ids[i];
       const uint8_t* field_ptr =
-          column->buffers[1]->data() +
-          (column->offset + row_id) * static_cast<int64_t>(metadata.fixed_length);
-      process_value_fn(i, field_ptr, static_cast<int32_t>(metadata.fixed_length));
+          column->buffers[1]->data() + (column->offset + row_id) * metadata.fixed_length;
+      process_value_fn(i, field_ptr, metadata.fixed_length);
     }
   }
 }
