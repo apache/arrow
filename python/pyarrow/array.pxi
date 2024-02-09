@@ -4258,7 +4258,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         and the rest of the dimensions will match the permuted shape of the fixed
         shape tensor.
 
-        The conversion is zero-copy if data is primitive numeric and without nulls.
+        The conversion is zero-copy.
 
         Returns
         -------
