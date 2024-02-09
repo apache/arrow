@@ -111,7 +111,7 @@ struct ARROW_EXPORT RowTableMetadata {
   }
 
   /// Returns the offset within the row and length of the first varbinary field.
-  inline void first_varbinary_offset_and_length(const uint8_t* row, uint32_t* offset,
+  inline void first_varbinary_offset_and_length(const uint8_t* row, int32_t* offset,
                                                 int32_t* length) const {
     ARROW_DCHECK(!is_fixed_length);
     *offset = fixed_length;
@@ -121,7 +121,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// Returns the offset within the row and length of the second and further varbinary
   /// fields.
   inline void nth_varbinary_offset_and_length(const uint8_t* row, int varbinary_id,
-                                              uint32_t* out_offset,
+                                              int32_t* out_offset,
                                               int32_t* out_length) const {
     ARROW_DCHECK(!is_fixed_length);
     ARROW_DCHECK(varbinary_id > 0);
@@ -136,11 +136,11 @@ struct ARROW_EXPORT RowTableMetadata {
 
   uint32_t pos_after_encoding(uint32_t icol) const { return inverse_column_order[icol]; }
 
-  uint32_t encoded_field_offset(uint32_t icol) const { return column_offsets[icol]; }
+  int32_t encoded_field_offset(uint32_t icol) const { return column_offsets[icol]; }
 
-  uint32_t num_cols() const { return static_cast<uint32_t>(column_metadatas.size()); }
+  int32_t num_cols() const { return static_cast<int32_t>(column_metadatas.size()); }
 
-  uint32_t num_varbinary_cols() const;
+  int32_t num_varbinary_cols() const;
 
   /// \brief Populate this instance to describe `cols` with the given alignment
   void FromColumnMetadataVector(const std::vector<KeyColumnMetadata>& cols,

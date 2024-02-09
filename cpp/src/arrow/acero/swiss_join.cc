@@ -44,7 +44,7 @@ namespace acero {
 
 int RowArrayAccessor::VarbinaryColumnId(const RowTableMetadata& row_metadata,
                                         int column_id) {
-  ARROW_DCHECK(row_metadata.num_cols() > static_cast<uint32_t>(column_id));
+  ARROW_DCHECK(row_metadata.num_cols() > column_id);
   ARROW_DCHECK(!row_metadata.is_fixed_length);
   ARROW_DCHECK(!row_metadata.column_metadatas[column_id].is_fixed_length);
 
@@ -79,8 +79,7 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
 
       // Find the length of the requested varying length field in that row
       //
-      uint32_t field_offset_within_row;
-      int32_t field_length;
+      int32_t field_offset_within_row, field_length;
       if (varbinary_column_id == 0) {
         rows.metadata().first_varbinary_offset_and_length(
             row_ptr, &field_offset_within_row, &field_length);
@@ -95,10 +94,9 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
   } else {
     // Fixed length column
     //
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
-    uint32_t num_bytes_skipped = 0;
-    while (num_rows_left > 0 &&
-           num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
+    int32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+    int32_t num_bytes_skipped = 0;
+    while (num_rows_left > 0 && num_bytes_skipped < num_tail_bytes_to_skip) {
       num_bytes_skipped += field_length;
       --num_rows_left;
     }
@@ -124,8 +122,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
     const int32_t* row_offsets = rows.offsets();
-    uint32_t field_offset_within_row;
-    int32_t field_length;
+    int32_t field_offset_within_row, field_length;
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
@@ -151,15 +148,15 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
   }
 
   if (is_fixed_length_column) {
-    uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
+    int32_t field_offset_within_row = rows.metadata().encoded_field_offset(
         rows.metadata().pos_after_encoding(column_id));
-    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
+    int32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
     // Bit column is encoded as a single byte
     //
     if (field_length == 0) {
       field_length = 1;
     }
-    uint32_t row_length = rows.metadata().fixed_length;
+    int32_t row_length = rows.metadata().fixed_length;
 
     bool is_fixed_length_row = rows.metadata().is_fixed_length;
     if (is_fixed_length_row) {
@@ -271,7 +268,7 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata column_metadata, output->column_metadata());
 
   if (column_metadata.is_fixed_length) {
-    uint32_t fixed_length = column_metadata.fixed_length;
+    int32_t fixed_length = column_metadata.fixed_length;
     switch (fixed_length) {
       case 0:
         RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
@@ -377,7 +374,7 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
   }
 
   for (int64_t row_id = 0; row_id < rows_.length(); ++row_id) {
-    for (uint32_t column_id = 0; column_id < rows_.metadata().num_cols(); ++column_id) {
+    for (int column_id = 0; column_id < rows_.metadata().num_cols(); ++column_id) {
       bool is_null;
       uint32_t row_id_cast = static_cast<uint32_t>(row_id);
       RowArrayAccessor::VisitNulls(rows_, column_id, 1, &row_id_cast,

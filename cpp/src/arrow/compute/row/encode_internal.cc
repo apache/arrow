@@ -24,8 +24,8 @@ namespace compute {
 void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
                            int string_alignment) {
   row_metadata_.FromColumnMetadataVector(cols, row_alignment, string_alignment);
-  uint32_t num_cols = row_metadata_.num_cols();
-  uint32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
+  int32_t num_cols = row_metadata_.num_cols();
+  int32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
   batch_all_cols_.resize(num_cols);
   batch_varbinary_cols_.resize(num_varbinary_cols);
   batch_varbinary_cols_base_offsets_.resize(num_varbinary_cols);
@@ -848,8 +848,7 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
   if (ivarbinary == 0) {
     for (uint32_t i = 0; i < num_selected; ++i) {
       uint8_t* row = row_base + row_offsets[i];
-      uint32_t row_offset;
-      int32_t length;
+      int32_t row_offset, length;
       rows->metadata().first_varbinary_offset_and_length(row, &row_offset, &length);
       uint32_t irow = selection[i];
       memcpy(row + row_offset, col_base + col_offsets[irow], length);
@@ -857,8 +856,7 @@ void EncoderVarBinary::EncodeSelected(uint32_t ivarbinary, RowTableImpl* rows,
   } else {
     for (uint32_t i = 0; i < num_selected; ++i) {
       uint8_t* row = row_base + row_offsets[i];
-      uint32_t row_offset;
-      int32_t length;
+      int32_t row_offset, length;
       rows->metadata().nth_varbinary_offset_and_length(row, ivarbinary, &row_offset,
                                                        &length);
       uint32_t irow = selection[i];
