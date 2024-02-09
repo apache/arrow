@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:38
+FROM ${arch}/fedora:39
 ARG arch
 
 # install dependencies
