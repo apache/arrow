@@ -593,7 +593,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
       }
       sum = new_sum_maybe_overflow;
     }
-    offsets[num_rows_before + num_rows_to_append] = static_cast<int32_t>(sum);
+    offsets[num_rows_before + num_rows_to_append] = sum;
 
     // Step 2: resize output buffers
     //
