@@ -278,8 +278,7 @@ class EncoderVarBinary {
       int32_t row_offset = row_offsets_for_batch[i];
       const uint8_t* row = rows_const->data(2) + row_offset;
 
-      uint32_t offset_within_row;
-      int32_t length;
+      int32_t offset_within_row, length;
       if (first_varbinary_col) {
         rows_const->metadata().first_varbinary_offset_and_length(row, &offset_within_row,
                                                                  &length);

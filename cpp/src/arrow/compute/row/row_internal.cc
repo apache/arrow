@@ -22,8 +22,8 @@
 namespace arrow {
 namespace compute {
 
-uint32_t RowTableMetadata::num_varbinary_cols() const {
-  uint32_t result = 0;
+int32_t RowTableMetadata::num_varbinary_cols() const {
+  int32_t result = 0;
   for (auto column_metadata : column_metadatas) {
     if (!column_metadata.is_fixed_length) {
       ++result;
@@ -120,7 +120,7 @@ void RowTableMetadata::FromColumnMetadataVector(
   varbinary_end_array_offset = 0;
 
   column_offsets.resize(num_cols);
-  uint32_t num_varbinary_cols = 0;
+  int32_t num_varbinary_cols = 0;
   uint32_t offset_within_row = 0;
   for (uint32_t i = 0; i < num_cols; ++i) {
     const KeyColumnMetadata& col = cols[column_order[i]];
