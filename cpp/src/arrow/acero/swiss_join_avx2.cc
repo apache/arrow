@@ -56,8 +56,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
+        __m256i row_offset = _mm256_i32gather_epi32(row_offsets, row_id, sizeof(int32_t));
         __m256i field_length = _mm256_sub_epi32(
             _mm256_i32gather_epi32(
                 reinterpret_cast<const int*>(row_ptr_base),
@@ -78,8 +77,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
+        __m256i row_offset = _mm256_i32gather_epi32(row_offsets, row_id, sizeof(int32_t));
         __m256i end_array_offset =
             _mm256_add_epi32(row_offset, varbinary_end_array_offset);
 
@@ -144,8 +142,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
+        __m256i row_offset = _mm256_i32gather_epi32(row_offsets, row_id, sizeof(int32_t));
         __m256i field_offset = _mm256_add_epi32(row_offset, field_offset_within_row);
         process_8_values_fn(i * unroll, row_ptr_base, field_offset, field_length);
       }
