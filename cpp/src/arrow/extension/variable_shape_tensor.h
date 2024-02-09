@@ -45,7 +45,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
         uniform_shape_(std::move(uniform_shape)) {}
 
   std::string extension_name() const override { return "arrow.variable_shape_tensor"; }
-  std::string ToString() const override;
+  std::string ToString() const;
 
   /// Number of dimensions of tensor elements
   int32_t ndim() const { return ndim_; }
