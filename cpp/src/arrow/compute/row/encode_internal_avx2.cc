@@ -23,7 +23,7 @@ namespace arrow {
 namespace compute {
 
 void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
-                                      uint32_t num_rows, uint32_t offset_within_row,
+                                      uint32_t num_rows, int32_t offset_within_row,
                                       const RowTableImpl& rows, KeyColumnArray* col) {
   if (is_row_fixed_length) {
     DecodeImp_avx2<true>(start_row, num_rows, offset_within_row, rows, col);
@@ -34,7 +34,7 @@ void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_r
 
 template <bool is_row_fixed_length>
 void EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                   uint32_t offset_within_row, const RowTableImpl& rows,
+                                   int32_t offset_within_row, const RowTableImpl& rows,
                                    KeyColumnArray* col) {
   DecodeHelper<is_row_fixed_length>(
       start_row, num_rows, offset_within_row, &rows, nullptr, col, col,
@@ -49,10 +49,10 @@ void EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
 
 uint32_t EncoderBinaryPair::DecodeHelper_avx2(
     bool is_row_fixed_length, uint32_t col_width, uint32_t start_row, uint32_t num_rows,
-    uint32_t offset_within_row, const RowTableImpl& rows, KeyColumnArray* col1,
+    int32_t offset_within_row, const RowTableImpl& rows, KeyColumnArray* col1,
     KeyColumnArray* col2) {
   using DecodeImp_avx2_t =
-      uint32_t (*)(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+      uint32_t (*)(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                    const RowTableImpl& rows, KeyColumnArray* col1, KeyColumnArray* col2);
   static const DecodeImp_avx2_t DecodeImp_avx2_fn[] = {
       DecodeImp_avx2<false, 1>, DecodeImp_avx2<false, 2>, DecodeImp_avx2<false, 4>,
@@ -66,7 +66,7 @@ uint32_t EncoderBinaryPair::DecodeHelper_avx2(
 
 template <bool is_row_fixed_length, uint32_t col_width>
 uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                           uint32_t offset_within_row,
+                                           int32_t offset_within_row,
                                            const RowTableImpl& rows, KeyColumnArray* col1,
                                            KeyColumnArray* col2) {
   ARROW_DCHECK(col_width == 1 || col_width == 2 || col_width == 4 || col_width == 8);
