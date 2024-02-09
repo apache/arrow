@@ -54,6 +54,7 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
 fi
 
 if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
+  ARROW_AZURE=OFF
   ARROW_FLIGHT=OFF
   ARROW_FLIGHT_SQL=OFF
   ARROW_GCS=OFF
