@@ -532,7 +532,7 @@ void EncoderBinaryPair::Decode(uint32_t start_row, uint32_t num_rows,
   }
 #endif
   if (num_processed < num_rows) {
-    using DecodeImp_t = void (*)(uint32_t, uint32_t, uint32_t, uint32_t,
+    using DecodeImp_t = void (*)(uint32_t, uint32_t, uint32_t, int32_t,
                                  const RowTableImpl&, KeyColumnArray*, KeyColumnArray*);
     static const DecodeImp_t DecodeImp_fn[] = {
         DecodeImp<false, uint8_t, uint8_t>,   DecodeImp<false, uint16_t, uint8_t>,
