@@ -21,10 +21,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.AvroToArrow;
-import org.apache.arrow.AvroToArrowConfig;
-import org.apache.arrow.AvroToArrowConfigBuilder;
-import org.apache.arrow.AvroToArrowVectorIterator;
+import org.apache.arrow.adapter.avro.AvroToArrow;
+import org.apache.arrow.adapter.avro.AvroToArrowConfig;
+import org.apache.arrow.adapter.avro.AvroToArrowConfigBuilder;
+import org.apache.arrow.adapter.avro.AvroToArrowVectorIterator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;

@@ -292,8 +292,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        ValueError("Expected Partitioning or PartitioningFactory, got {}"
-                   .format(type(scheme)))
+        raise ValueError("Expected Partitioning or PartitioningFactory, got {}"
+                         .format(type(scheme)))
     return scheme
 
 

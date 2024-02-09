@@ -71,7 +71,7 @@ public class Location {
       case LocationSchemes.GRPC_DOMAIN_SOCKET: {
         try {
           // This dependency is not available on non-Unix platforms.
-          return (SocketAddress) Class.forName("io.netty.channel.unix.DomainSocketAddress")
+          return Class.forName("io.netty.channel.unix.DomainSocketAddress").asSubclass(SocketAddress.class)
               .getConstructor(String.class)
               .newInstance(uri.getPath());
         } catch (InstantiationException | ClassNotFoundException | InvocationTargetException |
@@ -144,7 +144,7 @@ public class Location {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof Location)) {
       return false;
     }
     Location location = (Location) o;

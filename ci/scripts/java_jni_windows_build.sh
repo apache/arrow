@@ -22,7 +22,7 @@ set -ex
 arrow_dir=${1}
 build_dir=${2}
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/x86_64
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -72,7 +72,6 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${install_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -GNinja \

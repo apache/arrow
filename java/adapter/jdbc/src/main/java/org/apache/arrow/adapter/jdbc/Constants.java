@@ -21,7 +21,8 @@ package org.apache.arrow.adapter.jdbc;
  * String constants used for metadata returned on Vectors.
  */
 public class Constants {
-  private Constants() {}
+  private Constants() {
+  }
 
   public static final String SQL_CATALOG_NAME_KEY = "SQL_CATALOG_NAME";
   public static final String SQL_SCHEMA_NAME_KEY = "SQL_SCHEMA_NAME";

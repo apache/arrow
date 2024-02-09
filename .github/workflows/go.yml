@@ -43,31 +43,62 @@ permissions:
 
 jobs:
 
+  docker-targets:
+    name: Docker targets
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    outputs:
+      targets: ${{ steps.detect-targets.outputs.targets }}
+    steps:
+      - name: Detect targets
+        id: detect-targets
+        run: |
+          echo "targets<<JSON" >> "$GITHUB_OUTPUT"
+          echo "[" >> "$GITHUB_OUTPUT"
+          cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch-label": "AMD64",
+            "arch": "amd64",
+            "go": "1.19",
+            "runs-on": "ubuntu-latest"
+          },
+          {
+            "arch-label": "AMD64",
+            "arch": "amd64",
+            "go": "1.20",
+            "runs-on": "ubuntu-latest"
+          }
+          JSON
+          if [ "$GITHUB_REPOSITORY_OWNER" = "apache" ]; then
+            echo "," >> "$GITHUB_OUTPUT"
+            cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch-label": "ARM64",
+            "arch": "arm64v8",
+            "go": "1.19",
+            "runs-on": ["self-hosted", "arm", "linux"]
+          },
+          {
+            "arch-label": "ARM64",
+            "arch": "arm64v8",
+            "go": "1.20",
+            "runs-on": ["self-hosted", "arm", "linux"]
+          }
+          JSON
+          fi
+          echo "]" >> "$GITHUB_OUTPUT"
+          echo "JSON" >> "$GITHUB_OUTPUT"
+
   docker:
     name: ${{ matrix.arch-label }} Debian 11 Go ${{ matrix.go }}
+    needs: docker-targets
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch-label: AMD64
-            arch: amd64
-            go: 1.19
-            runs-on: ubuntu-latest
-          - arch-label: AMD64
-            arch: amd64
-            go: '1.20'
-            runs-on: ubuntu-latest
-          - arch-label: ARM64
-            arch: arm64v8
-            go: 1.19
-            runs-on: ["self-hosted", "arm", "linux"]
-          - arch-label: ARM64
-            arch: arm64v8
-            go: '1.20'
-            runs-on: ["self-hosted", "arm", "linux"]
+        include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
       GO: ${{ matrix.go }}

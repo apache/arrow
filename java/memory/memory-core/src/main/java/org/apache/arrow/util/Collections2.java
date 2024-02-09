@@ -34,7 +34,8 @@ import java.util.stream.StreamSupport;
  * Utility methods for manipulating {@link java.util.Collections} and their subclasses/implementations.
  */
 public final class Collections2 {
-  private Collections2() {}
+  private Collections2() {
+  }
 
   /**
    * Creates a {@link List} from the elements remaining in iterator.

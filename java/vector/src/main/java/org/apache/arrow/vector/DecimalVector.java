@@ -150,6 +150,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public BigDecimal getObject(int index) {
     if (isSet(index) == 0) {
       return null;

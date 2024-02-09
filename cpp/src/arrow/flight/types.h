@@ -693,11 +693,22 @@ class ARROW_FLIGHT_EXPORT PollInfo {
         progress(progress),
         expiration_time(expiration_time) {}
 
-  explicit PollInfo(const PollInfo& other)
+  // Must not be explicit; to declare one we must declare all ("rule of five")
+  PollInfo(const PollInfo& other)  // NOLINT(runtime/explicit)
       : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
         descriptor(other.descriptor),
         progress(other.progress),
         expiration_time(other.expiration_time) {}
+  PollInfo(PollInfo&& other) noexcept = default;  // NOLINT(runtime/explicit)
+  ~PollInfo() = default;
+  PollInfo& operator=(const PollInfo& other) {
+    info = other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR;
+    descriptor = other.descriptor;
+    progress = other.progress;
+    expiration_time = other.expiration_time;
+    return *this;
+  }
+  PollInfo& operator=(PollInfo&& other) = default;
 
   /// \brief Get the wire-format representation of this type.
   ///

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
@@ -114,11 +115,11 @@ public class TestBasicOperation {
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
     final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
-            .setAppMetadata("foo".getBytes()).build();
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8)).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
         Collections.singletonList(
                 FlightEndpoint.builder(new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))
-                        .setAppMetadata("bar".getBytes()).build()
+                        .setAppMetadata("bar".getBytes(StandardCharsets.UTF_8)).build()
         ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(
@@ -160,7 +161,7 @@ public class TestBasicOperation {
   public void getDescriptors() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(Criteria.ALL)) {
+      for (FlightInfo unused : c.listFlights(Criteria.ALL)) {
         count += 1;
       }
       Assertions.assertEquals(1, count);
@@ -171,7 +172,8 @@ public class TestBasicOperation {
   public void getDescriptorsWithCriteria() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+      for (FlightInfo unused : c.listFlights(new Criteria(new byte[]{1}))) {
+
         count += 1;
       }
       Assertions.assertEquals(0, count);

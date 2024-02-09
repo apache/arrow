@@ -194,7 +194,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
 
     int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
@@ -222,7 +222,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    *                              for in this vector across all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
-    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
     vector.setInitialCapacity(totalNumberOfElements);
   }
 
@@ -332,6 +332,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    *
    * @return false if memory allocation fails, true otherwise.
    */
+  @Override
   public boolean allocateNewSafe() {
     boolean success = false;
     try {
@@ -347,7 +348,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       } catch (Exception e) {
         e.printStackTrace();
         clear();
-        return false;
+        success = false;
       } finally {
         if (!dataAlloc) {
           clear();
@@ -357,10 +358,9 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     } finally {
       if (!success) {
         clear();
-        return false;
       }
     }
-    return true;
+    return success;
   }
 
   private void allocateValidityBuffer(final long size) {
@@ -408,7 +408,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     }
 
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
-    newAllocationSize = Math.min(newAllocationSize, (long) (OFFSET_WIDTH) * Integer.MAX_VALUE);
+    newAllocationSize = Math.min(newAllocationSize, (long) OFFSET_WIDTH * Integer.MAX_VALUE);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= offsetBuffer.capacity()) {
@@ -425,12 +425,12 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   private void reallocValidityBuffer() {
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
-    long newAllocationSize = currentBufferCapacity * 2;
+    long newAllocationSize = currentBufferCapacity * 2L;
     if (newAllocationSize == 0) {
       if (validityAllocationSizeInBytes > 0) {
         newAllocationSize = validityAllocationSizeInBytes;
       } else {
-        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2;
+        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2L;
       }
     }
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
@@ -440,7 +440,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
     validityBuffer.getReferenceManager().release(1);
@@ -526,7 +526,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public long getValidityBufferAddress() {
-    return (validityBuffer.memoryAddress());
+    return validityBuffer.memoryAddress();
   }
 
   @Override
@@ -536,7 +536,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public long getOffsetBufferAddress() {
-    return (offsetBuffer.memoryAddress());
+    return offsetBuffer.memoryAddress();
   }
 
   @Override
@@ -754,6 +754,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * Initialize the data vector (and execute callback) if it hasn't already been done,
    * returns the data vector.
    */
+  @Override
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
     if (vector instanceof NullVector) {
@@ -988,6 +989,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * Sets list at index to be null.
    * @param index position in vector
    */
+  @Override
   public void setNull(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();

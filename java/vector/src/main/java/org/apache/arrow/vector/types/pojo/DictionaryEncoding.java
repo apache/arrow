@@ -74,7 +74,7 @@ public class DictionaryEncoding {
   public boolean equals(Object o) {
     if (this == o) {
       return true;
-    } else if (o == null || getClass() != o.getClass()) {
+    } else if (!(o instanceof DictionaryEncoding)) {
       return false;
     }
     DictionaryEncoding that = (DictionaryEncoding) o;

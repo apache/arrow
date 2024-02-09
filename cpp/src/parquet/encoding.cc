@@ -160,7 +160,8 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -571,7 +572,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           PutByteArray(view.data(), static_cast<uint32_t>(view.size()));
           return Status::OK();
@@ -585,7 +587,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     for (int64_t i = 0; i < array.length(); i++) {
       auto v = array.GetView(i);
       if (ARROW_PREDICT_FALSE(v.size() > kMaxByteArraySize)) {
-        throw ParquetException("Parquet cannot store strings with size 2GB or more");
+        throw ParquetException(
+            "Parquet cannot store strings with size 2GB or more, got: ", v.size());
       }
       dict_encoded_size_ += static_cast<int>(v.size() + sizeof(uint32_t));
       int32_t unused_memo_index;
@@ -850,8 +853,8 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const uint8_t* raw_values = sink_.data();
-  ::arrow::util::internal::ByteStreamSplitEncode<T>(raw_values, num_values_in_buffer_,
-                                                    output_buffer_raw);
+  ::arrow::util::internal::ByteStreamSplitEncode<sizeof(T)>(
+      raw_values, num_values_in_buffer_, output_buffer_raw);
   sink_.Reset();
   num_values_in_buffer_ = 0;
   return std::move(output_buffer);
@@ -2411,7 +2414,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     InitHeader();
   }
 
@@ -2667,7 +2674,8 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
           PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
@@ -2769,7 +2777,11 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     DecoderImpl::SetData(num_values, data, len);
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_ == nullptr) {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    } else {
+      decoder_->Reset(data, len);
+    }
     DecodeLengths();
   }
 
@@ -3192,7 +3204,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         *array.data(),
         [&](::std::string_view view) {
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
-            return Status::Invalid("Parquet cannot store strings with size 2GB or more");
+            return Status::Invalid(
+                "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
           const ByteArray src{view};
 
@@ -3238,7 +3251,8 @@ struct ByteArrayVisitor {
 
   std::string_view operator[](int i) const {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
-      throw ParquetException("Parquet cannot store strings with size 2GB or more");
+      throw ParquetException("Parquet cannot store strings with size 2GB or more, got: ",
+                             src[i].len);
     }
     return std::string_view{src[i]};
   }
@@ -3577,7 +3591,7 @@ class ByteStreamSplitDecoder : public DecoderImpl, virtual public TypedDecoder<D
   int num_values_in_buffer_{0};
   std::shared_ptr<Buffer> decode_buffer_;
 
-  static constexpr size_t kNumStreams = sizeof(T);
+  static constexpr int kNumStreams = sizeof(T);
 };
 
 template <typename DType>
@@ -3607,8 +3621,8 @@ int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const int num_decoded_previously = num_values_in_buffer_ - num_values_;
   const uint8_t* data = data_ + num_decoded_previously;
 
-  ::arrow::util::internal::ByteStreamSplitDecode<T>(data, values_to_decode,
-                                                    num_values_in_buffer_, buffer);
+  ::arrow::util::internal::ByteStreamSplitDecode<kNumStreams>(
+      data, values_to_decode, num_values_in_buffer_, reinterpret_cast<uint8_t*>(buffer));
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
   return values_to_decode;
@@ -3618,7 +3632,7 @@ template <typename DType>
 int ByteStreamSplitDecoder<DType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<DType>::Accumulator* builder) {
-  constexpr int value_size = static_cast<int>(kNumStreams);
+  constexpr int value_size = kNumStreams;
   int values_decoded = num_values - null_count;
   if (ARROW_PREDICT_FALSE(len_ < value_size * values_decoded)) {
     ParquetException::EofException();
@@ -3634,8 +3648,9 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   // Use fast decoding into intermediate buffer.  This will also decode
   // some null values, but it's fast enough that we don't care.
   T* decode_out = EnsureDecodeBuffer(values_decoded);
-  ::arrow::util::internal::ByteStreamSplitDecode<T>(data, values_decoded,
-                                                    num_values_in_buffer_, decode_out);
+  ::arrow::util::internal::ByteStreamSplitDecode<kNumStreams>(
+      data, values_decoded, num_values_in_buffer_,
+      reinterpret_cast<uint8_t*>(decode_out));
 
   // XXX If null_count is 0, we could even append in bulk or decode directly into
   // builder
@@ -3648,12 +3663,13 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
       [&]() { builder->UnsafeAppendNull(); });
 
 #else
+  // XXX should operate over runs of 0s / 1s
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
       [&]() {
         uint8_t gathered_byte_data[kNumStreams];
-        for (size_t b = 0; b < kNumStreams; ++b) {
-          const size_t byte_index = b * num_values_in_buffer_ + offset;
+        for (int b = 0; b < kNumStreams; ++b) {
+          const int64_t byte_index = b * num_values_in_buffer_ + offset;
           gathered_byte_data[b] = data[byte_index];
         }
         builder->UnsafeAppend(SafeLoadAs<T>(&gathered_byte_data[0]));

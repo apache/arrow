@@ -131,6 +131,7 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Float getObject(int index) {
     if (isSet(index) == 0) {
       return null;

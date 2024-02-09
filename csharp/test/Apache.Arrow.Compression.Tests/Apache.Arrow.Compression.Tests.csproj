@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
     <ProjectReference Include="..\..\src\Apache.Arrow.Compression\Apache.Arrow.Compression.csproj" />
+    <ProjectReference Include="..\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

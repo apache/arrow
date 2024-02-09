@@ -348,7 +348,8 @@ public class ResultSetUtility {
       private int displaySize;
 
 
-      private MockColumnMetaData() {}
+      private MockColumnMetaData() {
+      }
 
       private String getLabel() {
         return label;

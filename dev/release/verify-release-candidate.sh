@@ -173,7 +173,7 @@ test_binary() {
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -196,7 +196,9 @@ test_apt() {
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
                 "ubuntu:mantic" \
-                "arm64v8/ubuntu:mantic"; do \
+                "arm64v8/ubuntu:mantic" \
+                "ubuntu:noble" \
+                "arm64v8/ubuntu:noble"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -1136,7 +1138,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment

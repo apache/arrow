@@ -54,7 +54,7 @@ Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offse
 
   int64_t out_of_line_total = 0, i = 0;
   VisitNullBitmapInline(
-      array.buffers[0].data, array.offset, array.length, array.null_count,
+      array.buffers[0].data, array.offset + offset, length, array.null_count,
       [&] {
         if (!values[i].is_inline()) {
           out_of_line_total += static_cast<int64_t>(values[i].size());

@@ -1,13 +1,14 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index 5a14562..924b1b7 100644
+index bdc544e9e..53f6bbc3b 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -87,8 +87,11 @@ vcpkg_cmake_configure(
+@@ -74,9 +74,12 @@ vcpkg_cmake_configure(
          -DENABLE_MANUAL=OFF
          -DCURL_CA_FALLBACK=ON
          -DCURL_USE_LIBPSL=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
      OPTIONS_DEBUG
          -DENABLE_DEBUG=ON
 +        ${EXTRA_ARGS_DEBUG}
@@ -15,29 +16,29 @@ index 5a14562..924b1b7 100644
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 8f3f3f9..745b0fb 100644
+index 0c7098082..c603c3653 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
-@@ -9,6 +9,7 @@ vcpkg_from_github(
-     HEAD_REF master
+@@ -10,6 +10,7 @@ vcpkg_from_github(
      PATCHES
          fix_clang-cl_build.patch
+         no-werror.patch
 +        "snappy-disable-bmi.patch"
  )
  
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000..a57ce0c
+index 000000000..e839c93a4
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
 +diff --git a/snappy.cc b/snappy.cc
-+index 79dc0e8..f3153ea 100644
++index d414718..7b49d2a 100644
 +--- a/snappy.cc
 ++++ b/snappy.cc
-+@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
-+ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
++@@ -1014,14 +1014,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(const uint32_t& v, int n) {
 +   assert(n >= 0);
 +   assert(n <= 4);
 +-#if SNAPPY_HAVE_BMI2
@@ -52,13 +53,13 @@ index 0000000..a57ce0c
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
 diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
-index 4d7e26a..1f054a2 100644
+index bf9397b66..c3112b673 100644
 --- a/ports/llvm/portfile.cmake
 +++ b/ports/llvm/portfile.cmake
-@@ -274,6 +274,8 @@ vcpkg_cmake_configure(
+@@ -293,6 +293,8 @@ vcpkg_cmake_configure(
+         ${FEATURE_OPTIONS}
+     MAYBE_UNUSED_VARIABLES 
          COMPILER_RT_ENABLE_IOS
-         OPENMP_TOOLS_INSTALL_DIR
-         MLIR_TOOLS_INSTALL_DIR
 +        BOLT_TOOLS_INSTALL_DIR
 +        LIBOMP_INSTALL_ALIASES
  )

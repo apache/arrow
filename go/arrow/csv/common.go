@@ -21,9 +21,10 @@ package csv
 import (
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 )
 
 var (
@@ -219,6 +220,19 @@ func WithIncludeColumns(cols []string) Option {
 			cfg.columnFilter = cols
 		default:
 			panic(fmt.Errorf("%w: WithIncludeColumns only allowed on csv Reader", arrow.ErrInvalid))
+		}
+	}
+}
+
+// WithStringsReplacer receives a replacer to be applied in the string fields
+// of the CSV. This is useful to remove unwanted characters from the string.
+func WithStringsReplacer(replacer *strings.Replacer) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Writer:
+			cfg.stringReplacer = replacer.Replace
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
 	}
 }

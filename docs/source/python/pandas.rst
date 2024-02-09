@@ -197,7 +197,7 @@ use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
 
 .. ipython:: python
 
-   df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=3)})
+   df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=3)})
    df.dtypes
    df
 

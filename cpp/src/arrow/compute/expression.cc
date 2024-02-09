@@ -761,6 +761,15 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     }
   }
 
+  int64_t input_length;
+  if (!arguments.empty() && all_scalar) {
+    // all inputs are scalar, so use a 1-long batch to avoid
+    // computing input.length equivalent outputs
+    input_length = 1;
+  } else {
+    input_length = input.length;
+  }
+
   auto executor = compute::detail::KernelExecutor::MakeScalar();
 
   compute::KernelContext kernel_context(exec_context, call->kernel);
@@ -772,8 +781,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(
-      ExecBatch(std::move(arguments), all_scalar ? 1 : input.length), &listener));
+  RETURN_NOT_OK(
+      executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));

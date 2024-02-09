@@ -35,7 +35,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
  * Utility methods for working with Dictionaries used in Dictionary encodings.
  */
 public class DictionaryUtility {
-  private DictionaryUtility() {}
+  private DictionaryUtility() {
+  }
 
   /**
    * Convert field and child fields that have a dictionary encoding to message format, so fields

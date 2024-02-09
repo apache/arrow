@@ -302,6 +302,17 @@ ARROW_EXPORT
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out);
 
+/// \brief Export C++ ChunkedArray using the C data interface format.
+///
+/// The resulting ArrowArrayStream struct keeps the chunked array data and buffers alive
+/// until its release callback is called by the consumer.
+///
+/// \param[in] chunked_array ChunkedArray object to export
+/// \param[out] out C struct where to export the stream
+ARROW_EXPORT
+Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
+                          struct ArrowArrayStream* out);
+
 /// \brief Import C++ RecordBatchReader from the C stream interface.
 ///
 /// The ArrowArrayStream struct has its contents moved to a private object
@@ -312,6 +323,17 @@ Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream);
+
+/// \brief Import C++ ChunkedArray from the C stream interface
+///
+/// The ArrowArrayStream struct has its contents moved to a private object,
+/// is consumed in its entirity, and released before returning all chunks
+/// as a ChunkedArray.
+///
+/// \param[in,out] stream C stream interface struct
+/// \return Imported ChunkedArray object
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream* stream);
 
 /// @}
 

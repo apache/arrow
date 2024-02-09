@@ -21,6 +21,9 @@ import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -57,16 +60,16 @@ public class TestHashTableBasedDictionaryBuilder {
       dictionary.allocateNew();
 
       // fill data
-      vec.set(0, "hello".getBytes());
-      vec.set(1, "abc".getBytes());
+      vec.set(0, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(1, "abc".getBytes(StandardCharsets.UTF_8));
       vec.setNull(2);
-      vec.set(3, "world".getBytes());
-      vec.set(4, "12".getBytes());
-      vec.set(5, "dictionary".getBytes());
+      vec.set(3, "world".getBytes(StandardCharsets.UTF_8));
+      vec.set(4, "12".getBytes(StandardCharsets.UTF_8));
+      vec.set(5, "dictionary".getBytes(StandardCharsets.UTF_8));
       vec.setNull(6);
-      vec.set(7, "hello".getBytes());
-      vec.set(8, "good".getBytes());
-      vec.set(9, "abc".getBytes());
+      vec.set(7, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
+      vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
               new HashTableBasedDictionaryBuilder<>(dictionary, true);
@@ -76,13 +79,13 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(7, result);
       assertEquals(7, dictionary.getValueCount());
 
-      assertEquals("hello", new String(dictionary.get(0)));
-      assertEquals("abc", new String(dictionary.get(1)));
+      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
       assertNull(dictionary.get(2));
-      assertEquals("world", new String(dictionary.get(3)));
-      assertEquals("12", new String(dictionary.get(4)));
-      assertEquals("dictionary", new String(dictionary.get(5)));
-      assertEquals("good", new String(dictionary.get(6)));
+      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
@@ -97,16 +100,16 @@ public class TestHashTableBasedDictionaryBuilder {
       dictionary.allocateNew();
 
       // fill data
-      vec.set(0, "hello".getBytes());
-      vec.set(1, "abc".getBytes());
+      vec.set(0, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(1, "abc".getBytes(StandardCharsets.UTF_8));
       vec.setNull(2);
-      vec.set(3, "world".getBytes());
-      vec.set(4, "12".getBytes());
-      vec.set(5, "dictionary".getBytes());
+      vec.set(3, "world".getBytes(StandardCharsets.UTF_8));
+      vec.set(4, "12".getBytes(StandardCharsets.UTF_8));
+      vec.set(5, "dictionary".getBytes(StandardCharsets.UTF_8));
       vec.setNull(6);
-      vec.set(7, "hello".getBytes());
-      vec.set(8, "good".getBytes());
-      vec.set(9, "abc".getBytes());
+      vec.set(7, "hello".getBytes(StandardCharsets.UTF_8));
+      vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
+      vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
               new HashTableBasedDictionaryBuilder<>(dictionary, false);
@@ -116,12 +119,12 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(6, result);
       assertEquals(6, dictionary.getValueCount());
 
-      assertEquals("hello", new String(dictionary.get(0)));
-      assertEquals("abc", new String(dictionary.get(1)));
-      assertEquals("world", new String(dictionary.get(2)));
-      assertEquals("12", new String(dictionary.get(3)));
-      assertEquals("dictionary", new String(dictionary.get(4)));
-      assertEquals("good", new String(dictionary.get(5)));
+      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
 
     }
   }

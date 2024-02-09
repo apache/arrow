@@ -110,14 +110,14 @@ public class TestPerf {
 
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
         throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;
-        System.out.println(String.format(
-            "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.",
+        System.out.printf(
+                "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.%n",
             r.rows,
             r.bytes,
             throughPuts[i],
             (r.rows * 1.0d) / seconds,
             (r.batches * 1.0d) / seconds
-        ));
+        );
       }
     }
     pool.shutdown();
@@ -126,11 +126,11 @@ public class TestPerf {
     double average = Arrays.stream(throughPuts).sum() / numRuns;
     double sqrSum = Arrays.stream(throughPuts).map(val -> val - average).map(val -> val * val).sum();
     double stddev = Math.sqrt(sqrSum / numRuns);
-    System.out.println(String.format("Average throughput: %f MiB/s, standard deviation: %f MiB/s",
-            average, stddev));
+    System.out.printf("Average throughput: %f MiB/s, standard deviation: %f MiB/s%n",
+            average, stddev);
   }
 
-  private final class Consumer implements Callable<Result> {
+  private static final class Consumer implements Callable<Result> {
 
     private final FlightClient client;
     private final Ticket ticket;
@@ -157,7 +157,7 @@ public class TestPerf {
                 aSum += a.get(i);
               }
             }
-            r.bytes += rows * 32;
+            r.bytes += rows * 32L;
             r.rows += rows;
             r.aSum = aSum;
             r.batches++;
@@ -173,7 +173,7 @@ public class TestPerf {
 
   }
 
-  private final class Result {
+  private static final class Result {
     private long rows;
     private long aSum;
     private long bytes;

@@ -190,7 +190,7 @@ uint32_t Hashing32::HashFixedLenImp_avx2(uint32_t num_rows, uint64_t length,
   // Do not process rows that could read past the end of the buffer using 16
   // byte loads. Round down number of rows to process to multiple of 2.
   //
-  uint64_t num_rows_to_skip = bit_util::CeilDiv(length, kStripeSize);
+  uint64_t num_rows_to_skip = bit_util::CeilDiv(kStripeSize, length);
   uint32_t num_rows_to_process =
       (num_rows_to_skip > num_rows)
           ? 0

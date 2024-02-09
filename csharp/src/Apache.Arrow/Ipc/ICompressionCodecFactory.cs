@@ -20,6 +20,27 @@ namespace Apache.Arrow.Ipc
     /// </summary>
     public interface ICompressionCodecFactory
     {
+        /// <summary>
+        /// Create a new compression codec
+        /// </summary>
+        /// <param name="compressionCodecType">The type of codec to create</param>
+        /// <returns>The created codec</returns>
         ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType);
+
+        /// <summary>
+        /// Create a new compression codec with a specified compression level
+        /// </summary>
+        /// <param name="compressionCodecType">The type of codec to create</param>
+        /// <param name="compressionLevel">The compression level to use when compressing data</param>
+        /// <returns>The created codec</returns>
+        ICompressionCodec CreateCodec(CompressionCodecType compressionCodecType, int? compressionLevel)
+#if NET6_0_OR_GREATER
+        {
+            // Default implementation ignores the compression level
+            return CreateCodec(compressionCodecType);
+        }
+#else
+        ;
+#endif
     }
 }

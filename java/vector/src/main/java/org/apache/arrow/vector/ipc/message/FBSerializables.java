@@ -31,7 +31,8 @@ import com.google.flatbuffers.FlatBufferBuilder;
  * Utility methods for {@linkplain org.apache.arrow.vector.ipc.message.FBSerializable}s.
  */
 public class FBSerializables {
-  private FBSerializables() {}
+  private FBSerializables() {
+  }
 
   /**
    * Writes every element of all to builder and calls {@link FlatBufferBuilder#endVector()} afterwards.

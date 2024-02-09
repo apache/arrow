@@ -144,7 +144,7 @@ public class BufferLayout {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof BufferLayout)) {
       return false;
     }
     BufferLayout other = (BufferLayout) obj;

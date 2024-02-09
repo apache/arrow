@@ -20,6 +20,8 @@ package org.apache.arrow.flight;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.flight.perf.impl.PerfOuterClass;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -53,7 +55,7 @@ public class TestErrorMetadata {
              .start();
          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       final CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.CANCELLED, () -> {
-        FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
+        FlightStream stream = client.getStream(new Ticket("abs".getBytes(StandardCharsets.UTF_8)));
         stream.next();
       });
       PerfOuterClass.Perf newPerf = null;

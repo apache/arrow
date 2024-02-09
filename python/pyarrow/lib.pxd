@@ -120,6 +120,16 @@ cdef class LargeListType(DataType):
         const CLargeListType* list_type
 
 
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
+
+
 cdef class MapType(DataType):
     cdef:
         const CMapType* map_type
@@ -425,6 +435,14 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class ListViewArray(Array):
+    pass
+
+
+cdef class LargeListViewArray(Array):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
@@ -442,6 +460,14 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
+    pass
+
+
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
     pass
 
 

@@ -19,6 +19,8 @@ import Foundation
 
 public typealias Time32 = Int32
 public typealias Time64 = Int64
+public typealias Date32 = Int32
+public typealias Date64 = Int64
 
 func FlatBuffersVersion_23_1_4() { // swiftlint:disable:this identifier_name
 }
@@ -163,6 +165,48 @@ public class ArrowType {
             return ArrowType.ArrowDouble
         } else {
             return ArrowType.ArrowUnknown
+        }
+    }
+
+    public func getStride( // swiftlint:disable:this cyclomatic_complexity
+    ) -> Int {
+        switch self.id {
+        case .int8:
+            return MemoryLayout<Int8>.stride
+        case .int16:
+            return MemoryLayout<Int16>.stride
+        case .int32:
+            return MemoryLayout<Int32>.stride
+        case .int64:
+            return MemoryLayout<Int64>.stride
+        case .uint8:
+            return MemoryLayout<UInt8>.stride
+        case .uint16:
+            return MemoryLayout<UInt16>.stride
+        case .uint32:
+            return MemoryLayout<UInt32>.stride
+        case .uint64:
+            return MemoryLayout<UInt64>.stride
+        case .float:
+            return MemoryLayout<Float>.stride
+        case .double:
+            return MemoryLayout<Double>.stride
+        case .boolean:
+            return MemoryLayout<Bool>.stride
+        case .date32:
+            return MemoryLayout<Date32>.stride
+        case .date64:
+            return MemoryLayout<Date64>.stride
+        case .time32:
+            return MemoryLayout<Time32>.stride
+        case .time64:
+            return MemoryLayout<Time64>.stride
+        case .binary:
+            return MemoryLayout<Int8>.stride
+        case .string:
+            return MemoryLayout<Int8>.stride
+        default:
+            fatalError("Stride requested for unknown type: \(self)")
         }
     }
 }

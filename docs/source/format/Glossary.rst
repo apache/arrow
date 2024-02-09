@@ -174,7 +174,7 @@ Glossary
        .. seealso:: :term:`data type`
 
    record batch
-       **In the :ref:`IPC format <format-ipc>`**: the primitive unit
+       **In the** :ref:`IPC format <format-ipc>`: the primitive unit
        of data.  A record batch consists of an ordered list of
        :term:`buffers <buffer>` corresponding to a :term:`schema`.
 

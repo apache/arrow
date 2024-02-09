@@ -20,6 +20,8 @@ package org.apache.arrow.algorithm.deduplicate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -107,7 +109,7 @@ public class TestDeduplicationUtils {
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         String str = String.valueOf(i * i);
         for (int j = 0; j < REPETITION_COUNT; j++) {
-          origVec.set(i * REPETITION_COUNT + j, str.getBytes());
+          origVec.set(i * REPETITION_COUNT + j, str.getBytes(StandardCharsets.UTF_8));
         }
       }
 
@@ -120,7 +122,7 @@ public class TestDeduplicationUtils {
       assertEquals(VECTOR_LENGTH, dedupVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(String.valueOf(i * i).getBytes(), dedupVec.get(i));
+        assertArrayEquals(String.valueOf(i * i).getBytes(StandardCharsets.UTF_8), dedupVec.get(i));
       }
 
       DeduplicationUtils.populateRunLengths(

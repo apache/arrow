@@ -49,7 +49,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
-import org.apache.calcite.avatica.proto.Common.ColumnMetaData.Builder;
 
 /**
  * Convert objects between Arrow and Avatica.
@@ -71,7 +70,7 @@ public final class ConvertUtils {
           final Field field = fields.get(index);
           final ArrowType fieldType = field.getType();
 
-          final Builder builder = Common.ColumnMetaData.newBuilder()
+          final Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder()
               .setOrdinal(index)
               .setColumnName(field.getName())
               .setLabel(field.getName());
@@ -90,10 +89,10 @@ public final class ConvertUtils {
   /**
    * Set on Column MetaData Builder.
    *
-   * @param builder     {@link Builder}
+   * @param builder     {@link Common.ColumnMetaData.Builder}
    * @param metadataMap {@link Map}
    */
-  public static void setOnColumnMetaDataBuilder(final Builder builder,
+  public static void setOnColumnMetaDataBuilder(final Common.ColumnMetaData.Builder builder,
                                                 final Map<String, String> metadataMap) {
     final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
     final String catalogName = columnMetadata.getCatalogName();

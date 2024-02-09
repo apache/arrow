@@ -437,8 +437,6 @@ public class TestVectorAppender {
       delta.accept(appender, null);
 
       assertEquals(length1 + length2, target.getValueCount());
-      IntVector child1 = (IntVector) target.getVectorById(0);
-      VarCharVector child2 = (VarCharVector) target.getVectorById(1);
 
       try (IntVector expected1 = new IntVector("expected1", allocator);
            VarCharVector expected2 = new VarCharVector("expected2", allocator)) {

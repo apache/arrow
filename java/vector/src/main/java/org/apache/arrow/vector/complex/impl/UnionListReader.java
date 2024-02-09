@@ -60,8 +60,8 @@ public class UnionListReader extends AbstractFieldReader {
       currentOffset = 0;
       maxOffset = 0;
     } else {
-      currentOffset = vector.getOffsetBuffer().getInt(index * OFFSET_WIDTH) - 1;
-      maxOffset = vector.getOffsetBuffer().getInt((index + 1) * OFFSET_WIDTH);
+      currentOffset = vector.getOffsetBuffer().getInt(index * (long) OFFSET_WIDTH) - 1;
+      maxOffset = vector.getOffsetBuffer().getInt((index + 1) * (long) OFFSET_WIDTH);
     }
   }
 
@@ -106,6 +106,7 @@ public class UnionListReader extends AbstractFieldReader {
     }
   }
 
+  @Override
   public void copyAsValue(ListWriter writer) {
     ComplexCopier.copy(this, (FieldWriter) writer);
   }

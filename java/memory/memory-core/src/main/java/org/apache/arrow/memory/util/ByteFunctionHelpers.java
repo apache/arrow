@@ -32,7 +32,8 @@ public class ByteFunctionHelpers {
 
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
-  private ByteFunctionHelpers() {}
+  private ByteFunctionHelpers() {
+  }
 
   /**
    * Helper function to check for equality of bytes in two ArrowBufs.

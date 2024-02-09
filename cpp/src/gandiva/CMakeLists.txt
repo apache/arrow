@@ -229,6 +229,15 @@ function(ADD_GANDIVA_TEST REL_TEST_NAME)
 
   set(TEST_NAME gandiva-${REL_TEST_NAME})
   string(REPLACE "_" "-" TEST_NAME ${TEST_NAME})
+
+  if(ARG_USE_STATIC_LINKING OR ARROW_TEST_LINKAGE STREQUAL "static")
+    # LLVM 17 or later requires that an executable exports
+    # "llvm_orc_registerEHFrameSectionWrapper()" and
+    # "llvm_orc_unregisterEHFrameSectionWrapper()". We need to do
+    # nothing when we use libLLVM.so. But we need to export symbols
+    # explicitly when we use libLLVM*.a.
+    set_target_properties(${TEST_NAME} PROPERTIES ENABLE_EXPORTS TRUE)
+  endif()
 endfunction()
 
 add_gandiva_test(internals-test

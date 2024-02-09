@@ -24,7 +24,8 @@ import java.util.Arrays;
  */
 public final class CommonUtil {
 
-  private CommonUtil() { }
+  private CommonUtil() {
+  }
 
   /**
    * Rounds up the provided value to the nearest power of two.

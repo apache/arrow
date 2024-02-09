@@ -373,7 +373,12 @@ arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
 
 std::string PollInfo::ToString() const {
   std::stringstream ss;
-  ss << "<PollInfo info=" << info->ToString();
+  ss << "<PollInfo info=";
+  if (info) {
+    ss << info->ToString();
+  } else {
+    ss << "null";
+  }
   ss << " descriptor=";
   if (descriptor) {
     ss << descriptor->ToString();

@@ -56,7 +56,7 @@ public class TestFileRoundtrip {
     writeInput(testInFile, allocator);
 
     String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
-    int result = new FileRoundtrip(System.out, System.err).run(args);
+    int result = new FileRoundtrip(System.err).run(args);
     assertEquals(0, result);
 
     validateOutput(testOutFile, allocator);

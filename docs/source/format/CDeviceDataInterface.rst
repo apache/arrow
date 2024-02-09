@@ -341,8 +341,8 @@ Notes:
 
 * \(1) Currently unknown if framework has an event type to support.
 * \(2) Extension Device has producer defined semantics and thus if
-       synchronization is needed for an extension device, the producer
-       should document the type.
+  synchronization is needed for an extension device, the producer
+  should document the type.
 
 
 Semantics

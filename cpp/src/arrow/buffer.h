@@ -359,7 +359,7 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 
-  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() { return NULLPTR; }
+  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() const { return NULLPTR; }
 
  protected:
   bool is_mutable_;

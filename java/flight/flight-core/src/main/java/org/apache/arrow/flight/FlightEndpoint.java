@@ -33,6 +33,7 @@ import org.apache.arrow.flight.impl.Flight;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 
 /**
  * POJO to convert to/from the underlying protobuf FlightEndpoint.
@@ -85,11 +86,11 @@ public class FlightEndpoint {
     }
     if (flt.hasExpirationTime()) {
       this.expirationTime = Instant.ofEpochSecond(
-          flt.getExpirationTime().getSeconds(), flt.getExpirationTime().getNanos());
+          flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
     } else {
       this.expirationTime = null;
     }
-    this.appMetadata = (flt.getAppMetadata().size() == 0 ? null : flt.getAppMetadata().toByteArray());
+    this.appMetadata = (flt.getAppMetadata().isEmpty() ? null : flt.getAppMetadata().toByteArray());
     this.ticket = new Ticket(flt.getTicket());
   }
 
@@ -163,7 +164,7 @@ public class FlightEndpoint {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof FlightEndpoint)) {
       return false;
     }
     FlightEndpoint that = (FlightEndpoint) o;

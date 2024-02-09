@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -94,7 +95,7 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       VectorValueComparator<V> comparator = DefaultVectorComparators.createDefaultComparator(vector);
 
       try (V sortedVec = (V) vector.getField().getFieldType().createNewSingleVector("", allocator, null)) {
-        int dataSize = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4);
+        int dataSize = vector.getOffsetBuffer().getInt(vector.getValueCount() * 4L);
         sortedVec.allocateNew(dataSize, vector.getValueCount());
         sortedVec.setValueCount(vector.getValueCount());
 
@@ -113,7 +114,7 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       for (double nullFrac : NULL_FRACTIONS) {
         params.add(new Object[]{
             length, nullFrac, "VarCharVector",
-            (Function<BufferAllocator, VarCharVector>) (allocator -> new VarCharVector("vector", allocator)),
+            (Function<BufferAllocator, VarCharVector>) allocator -> new VarCharVector("vector", allocator),
             TestSortingUtil.STRING_GENERATOR
         });
       }
@@ -130,7 +131,7 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
       if (expected[i] == null) {
         assertTrue(vector.isNull(i));
       } else {
-        assertArrayEquals(((Text) vector.getObject(i)).getBytes(), expected[i].getBytes());
+        assertArrayEquals(((Text) vector.getObject(i)).getBytes(), expected[i].getBytes(StandardCharsets.UTF_8));
       }
     }
   }
@@ -151,8 +152,8 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
         return str1 == null ? -1 : 1;
       }
 
-      byte[] bytes1 = str1.getBytes();
-      byte[] bytes2 = str2.getBytes();
+      byte[] bytes1 = str1.getBytes(StandardCharsets.UTF_8);
+      byte[] bytes2 = str2.getBytes(StandardCharsets.UTF_8);
 
       for (int i = 0; i < bytes1.length && i < bytes2.length; i++) {
         if (bytes1[i] != bytes2[i]) {

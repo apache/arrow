@@ -33,7 +33,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * Utility methods to convert between Arrow and Gandiva types.
  */
 public class ArrowTypeHelper {
-  private ArrowTypeHelper() {}
+  private ArrowTypeHelper() {
+  }
 
   static final int WIDTH_8 = 8;
   static final int WIDTH_16 = 16;

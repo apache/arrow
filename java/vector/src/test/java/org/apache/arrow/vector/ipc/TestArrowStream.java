@@ -79,8 +79,8 @@ public class TestArrowStream extends BaseFileTest {
       VectorSchemaRoot root = reader.getVectorSchemaRoot();
       IntVector vector = (IntVector) root.getFieldVectors().get(0);
       reader.loadNextBatch();
-      assertEquals(vector.getValueCount(), 0);
-      assertEquals(root.getRowCount(), 0);
+      assertEquals(0, vector.getValueCount());
+      assertEquals(0, root.getRowCount());
     }
   }
 

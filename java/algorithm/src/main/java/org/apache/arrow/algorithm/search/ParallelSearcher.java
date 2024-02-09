@@ -20,6 +20,7 @@ package org.apache.arrow.algorithm.search;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.vector.ValueVector;
@@ -95,7 +96,7 @@ public class ParallelSearcher<V extends ValueVector> {
     final int valueCount = vector.getValueCount();
     for (int i = 0; i < numThreads; i++) {
       final int tid = i;
-      threadPool.submit(() -> {
+      Future<?> unused = threadPool.submit(() -> {
         // convert to long to avoid overflow
         int start = (int) (((long) valueCount) * tid / numThreads);
         int end = (int) ((long) valueCount) * (tid + 1) / numThreads;
@@ -153,7 +154,7 @@ public class ParallelSearcher<V extends ValueVector> {
     final int valueCount = vector.getValueCount();
     for (int i = 0; i < numThreads; i++) {
       final int tid = i;
-      threadPool.submit(() -> {
+      Future<?> unused = threadPool.submit(() -> {
         // convert to long to avoid overflow
         int start = (int) (((long) valueCount) * tid / numThreads);
         int end = (int) ((long) valueCount) * (tid + 1) / numThreads;

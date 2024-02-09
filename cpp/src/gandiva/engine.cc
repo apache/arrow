@@ -62,7 +62,11 @@
 #endif
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/DynamicLibrary.h>
+#if LLVM_VERSION_MAJOR >= 18
+#include <llvm/TargetParser/Host.h>
+#else
 #include <llvm/Support/Host.h>
+#endif
 #include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #if LLVM_VERSION_MAJOR >= 14
@@ -86,7 +90,9 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
+#if LLVM_VERSION_MAJOR <= 17
 #include <llvm/Transforms/Vectorize.h>
+#endif
 
 // JITLink is available in LLVM 9+
 // but the `InProcessMemoryManager::Create` API was added since LLVM 14
@@ -132,8 +138,13 @@ Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);
   }
+#if LLVM_VERSION_MAJOR >= 18
+  using CodeGenOptLevel = llvm::CodeGenOptLevel;
+#else
+  using CodeGenOptLevel = llvm::CodeGenOpt::Level;
+#endif
   auto const opt_level =
-      conf.optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+      conf.optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
 }

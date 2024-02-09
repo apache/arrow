@@ -84,7 +84,7 @@ public class ClientAuthenticationUtilsTest {
 
       keyStoreMockedStatic
          .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit"))
-         .thenReturn(keyStoreMock);
+          .thenReturn(keyStoreMock);
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit");
       Assert.assertEquals(receiveKeyStore, keyStoreMock);
     }

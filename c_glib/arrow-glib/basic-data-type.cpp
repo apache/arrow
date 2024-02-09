@@ -125,9 +125,9 @@ G_BEGIN_DECLS
  * data types.
  */
 
-typedef struct GArrowDataTypePrivate_ {
+struct GArrowDataTypePrivate {
   std::shared_ptr<arrow::DataType> data_type;
-} GArrowDataTypePrivate;
+};
 
 enum {
   PROP_DATA_TYPE = 1
@@ -1113,9 +1113,71 @@ garrow_date64_data_type_new(void)
 }
 
 
-G_DEFINE_TYPE(GArrowTimestampDataType,
-              garrow_timestamp_data_type,
-              GARROW_TYPE_TEMPORAL_DATA_TYPE)
+struct GArrowTimestampDataTypePrivate {
+  GTimeZone *time_zone;
+};
+
+enum {
+  PROP_TIME_ZONE = 1
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowTimestampDataType,
+                           garrow_timestamp_data_type,
+                           GARROW_TYPE_TEMPORAL_DATA_TYPE)
+
+#define GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object)  \
+  static_cast<GArrowTimestampDataTypePrivate *>(        \
+    garrow_timestamp_data_type_get_instance_private(    \
+      GARROW_TIMESTAMP_DATA_TYPE(object)))
+
+static void
+garrow_timestamp_data_type_dispose(GObject *object)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  if (priv->time_zone) {
+    g_time_zone_unref(priv->time_zone);
+    priv->time_zone = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_timestamp_data_type_parent_class)->dispose(object);
+}
+
+static void
+garrow_timestamp_data_type_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIME_ZONE:
+    priv->time_zone = static_cast<GTimeZone *>(g_value_dup_boxed(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_timestamp_data_type_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_TIMESTAMP_DATA_TYPE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TIME_ZONE:
+    g_value_set_boxed(value, priv->time_zone);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
@@ -1125,11 +1187,33 @@ garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
 static void
 garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose      = garrow_timestamp_data_type_dispose;
+  gobject_class->set_property = garrow_timestamp_data_type_set_property;
+  gobject_class->get_property = garrow_timestamp_data_type_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowTimestampDataType:time-zone:
+   *
+   * The time zone of this data type.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boxed("time-zone",
+                            "Time zone",
+                            "The time zone of this data type",
+                            G_TYPE_TIME_ZONE,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                     G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_TIME_ZONE, spec);
 }
 
 /**
  * garrow_timestamp_data_type_new:
  * @unit: The unit of the timestamp data.
+ * @time_zone: (nullable): The time zone of the timestamp data. If based GLib
+ *   is less than 2.58, this is ignored.
  *
  * Returns: A newly created the number of
  *   seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
@@ -1138,30 +1222,38 @@ garrow_timestamp_data_type_class_init(GArrowTimestampDataTypeClass *klass)
  * Since: 0.7.0
  */
 GArrowTimestampDataType *
-garrow_timestamp_data_type_new(GArrowTimeUnit unit)
+garrow_timestamp_data_type_new(GArrowTimeUnit unit,
+                               GTimeZone *time_zone)
 {
   auto arrow_unit = garrow_time_unit_to_raw(unit);
-  auto arrow_data_type = arrow::timestamp(arrow_unit);
+  std::string arrow_timezone;
+#if GLIB_CHECK_VERSION(2, 58, 0)
+  if (time_zone) {
+    arrow_timezone = g_time_zone_get_identifier(time_zone);
+  }
+#endif
+  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_timezone);
   auto data_type =
     GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
                                             "data-type", &arrow_data_type,
+                                            "time-zone", time_zone,
                                             NULL));
   return data_type;
 }
 
 /**
  * garrow_timestamp_data_type_get_unit:
- * @timestamp_data_type: The #GArrowTimestampDataType.
+ * @data_type: The #GArrowTimestampDataType.
  *
  * Returns: The unit of the timestamp data type.
  *
  * Since: 0.8.0
  */
 GArrowTimeUnit
-garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type)
+garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *data_type)
 {
   const auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(timestamp_data_type));
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto arrow_timestamp_data_type =
     std::static_pointer_cast<arrow::TimestampType>(arrow_data_type);
   return garrow_time_unit_from_raw(arrow_timestamp_data_type->unit());

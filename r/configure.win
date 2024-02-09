@@ -17,32 +17,57 @@
 # specific language governing permissions and limitations
 # under the License.
 
+: ${PKG_CONFIG:="pkg-config"}
+# Library settings
+PKG_CONFIG_NAME="arrow"
+PKG_TEST_HEADER="<arrow/api.h>"
+
+VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
+
+# Development mode, also increases verbosity in the bundled build
+ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
+# If present, `pkg-config` will be used to find libarrow on the system,
+# unless this is set to false
+ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 # generate code
-if [ "$ARROW_R_DEV" == "TRUE" ]; then
+if [ "$ARROW_R_DEV" == "true" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
 fi
 
-OPENSSL_LIBS="-lcrypto -lcrypt32"
-MIMALLOC_LIBS="-lbcrypt -lpsapi"
-BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
-AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
-          -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
-          -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
-          -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
-# pkg-config --libs libcurl
-GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
-          -lz -lws2_32 -lnghttp2 -ldbghelp"
+# Test if pkg-config is available to use
+if ${PKG_CONFIG} --version >/dev/null 2>&1; then
+  PKG_CONFIG_AVAILABLE="true"
+  echo "*** pkg-config found."
+else
+  echo "*** pkg-config not found."
+  PKG_CONFIG_AVAILABLE="false"
+  ARROW_USE_PKG_CONFIG="false"
+fi
 
-function configure_release() {
-  VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+
+function configure_binaries() {
   # Try to find/download a C++ Arrow binary,
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/nixlibs.R" $VERSION 
   # If binary not found, script exits nonzero
   if [ $? -ne 0 ]; then
+    _LIBARROW_FOUND="false"
     echo "Arrow C++ library was not found"
+    # return 0 so set -e doesn't exit the script
+    return 0
   fi
+
+  OPENSSL_LIBS="-lcrypto -lcrypt32"
+  MIMALLOC_LIBS="-lbcrypt -lpsapi"
+  BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
+  AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
+            -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
+            -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
+            -luserenv -lversion -lws2_32 -lbcrypt -lwininet -lwinhttp"
+  # pkg-config --libs libcurl
+  GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
+            -lz -lws2_32 -lnghttp2 -ldbghelp"
 
   # Set the right flags to point to and enable arrow/parquet
   if [ -d "windows/arrow-$VERSION" ]; then
@@ -75,12 +100,160 @@ function configure_release() {
     # It seems that order matters
     PKG_LIBS="${PKG_LIBS} -lws2_32"
   fi
+
+}
+
+# Once libarrow is obtained, this function sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
+# either from pkg-config or by inferring things about the directory in $1
+set_pkg_vars () {
+  set_lib_dir_with_pc
+
+  # Check cmake options for enabled features. This uses LIB_DIR that
+  # is set by the above set_lib_dir_* call.
+  add_feature_flags
+  set_pkg_vars_with_pc
+
+  # Set any user-defined CXXFLAGS
+  if [ "$ARROW_R_CXXFLAGS" ]; then
+    PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
+  fi
+
+  # We use expr because the product version returns more than just 10.13 and we want to
+  # match the substring. However, expr always outputs the number of matched characters
+  # to stdout, to avoid noise in the log we redirect the output to /dev/null
+  if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13' >/dev/null 2>&1; then
+    # avoid C++17 availability warnings on macOS < 11
+    PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
+  fi
+}
+
+# If we have pkg-config, it will tell us what libarrow needs
+set_lib_dir_with_pc () {
+  LIB_DIR="`${PKG_CONFIG} --variable=libdir  ${PKG_CONFIG_NAME}`"
+}
+set_pkg_vars_with_pc () {
+  pkg_config_names="${PKG_CONFIG_NAME} ${PKG_CONFIG_NAMES_FEATURES}"
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags  ${pkg_config_names}` $PKG_CFLAGS"
+  PKG_CFLAGS="$PKG_CFLAGS $PKG_CFLAGS_FEATURES"
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other ${pkg_config_names}`
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L  ${pkg_config_names}`
+}
+
+add_feature_flags () {
+  PKG_CFLAGS_FEATURES=""
+  PKG_CONFIG_NAMES_FEATURES=""
+  PKG_LIBS_FEATURES=""
+  PKG_LIBS_FEATURES_WITHOUT_PC=""
+
+  # Now we need to check what features it was built with and enable
+  # the corresponding feature flags in the R bindings (-DARROW_R_WITH_stuff).
+  # We do this by inspecting ArrowOptions.cmake, which the libarrow build
+  # generates.
+  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/Arrow/ArrowOptions.cmake"
+  if [ ! -f "${ARROW_OPTS_CMAKE}" ]; then
+    echo "*** $ARROW_OPTS_CMAKE not found; some features will not be enabled"
+  else
+    if arrow_built_with ARROW_PARQUET; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_PARQUET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES parquet"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-lparquet $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: parquet is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_DATASET; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_ACERO; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_ACERO"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-acero"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_acero $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_acero is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_SUBSTRAIT; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_SUBSTRAIT"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-substrait"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_substrait $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_substrait is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_JSON; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_JSON"
+    fi
+    if arrow_built_with ARROW_S3; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
+    fi
+    if arrow_built_with ARROW_GCS; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
+    fi
+    if arrow_built_with ARROW_GCS || arrow_built_with ARROW_S3; then
+      # If pkg-config is available it will handle this for us automatically
+      SSL_LIBS_WITHOUT_PC="-lcurl -lssl -lcrypto"
+    fi
+  fi
+}
+
+
+arrow_built_with() {
+  # Function to check cmake options for features
+  grep -i 'set('"$1"' "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+}
+
+function configure_rtools() {
+  # Use pkg-config to find arrow from rtools
+  _LIBARROW_PREFIX="`${PKG_CONFIG} --variable=prefix ${PKG_CONFIG_NAME}`"
+  _LIBARROW_FOUND="true"
+  echo "*** Trying Arrow C++ found by pkg-config: $_LIBARROW_PREFIX"
+
+  PC_LIB_VERSION=`${PKG_CONFIG} --modversion ${PKG_CONFIG_NAME}`
+  # This is in an R script for convenience and testability.
+  # Success means the found C++ library is ok to use.
+  # Error means the versions don't line up and we shouldn't use it.
+  # More specific messaging to the user is in the R script
+  if ! ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null; then
+    _LIBARROW_FOUND="false"
+  fi
+  
+  # We should have a valid libarrow build in $_LIBARROW_FOUND
+# Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
+if [ "$_LIBARROW_FOUND" == "true" ]; then
+  set_pkg_vars ${_LIBARROW_PREFIX}
+  # add mingw specific windows flags
+  PKG_LIBS="$PKG_LIBS -lws2_32 -lole32 -lwldap32 -lsecur32 -lncrypt -lcrypt32 -lshlwapi"
+  # override -fno-exceptions from aws-cpp-sdk pc file
+  PKG_CFLAGS="$PKG_CFLAGS -fexceptions"
+else
+  # To make it easier to debug which code path was taken add a specific 
+  # message to the log in addition to the 'NOTE'
+  echo "*** Failed to find Arrow C++ libraries in rtools"
+fi
+}
+
+function configure_release() {
+  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && $PKG_CONFIG --exists $PKG_CONFIG_NAME; then
+    configure_rtools
+  else
+    configure_binaries
+  fi 
+
+  if [ "$_LIBARROW_FOUND" == "false" ]; then
+    echo "------------------------- NOTE ---------------------------"
+    echo "There was an issue preparing the Arrow C++ libraries."
+    echo "See https://arrow.apache.org/docs/r/articles/install.html"
+    echo "----------------------------------------------------------"
+    exit 1
+  fi
 }
 
 # Returns 1 if CMAKE options is set "ON", otherwise 0
 function cmake_option() {
   ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/Arrow/ArrowOptions.cmake"
-  grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE
+  arrow_built_with $1
 }
 
 function configure_dev() {

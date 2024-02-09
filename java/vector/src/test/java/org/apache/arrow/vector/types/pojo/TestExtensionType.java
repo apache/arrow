@@ -221,7 +221,7 @@ public class TestExtensionType {
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
         Assert.assertTrue(deserialized instanceof LocationVector);
-        Assert.assertEquals(deserialized.getName(), "location");
+        Assert.assertEquals("location", deserialized.getName());
         StructVector deserStruct = (StructVector) deserialized.getUnderlyingVector();
         Assert.assertNotNull(deserStruct.getChild("Latitude"));
         Assert.assertNotNull(deserStruct.getChild("Longitude"));
@@ -273,7 +273,7 @@ public class TestExtensionType {
 
       // Test out vector appender
       VectorBatchAppender.batchAppend(a1, a2, bb);
-      assertEquals(a1.getValueCount(), 6);
+      assertEquals(6, a1.getValueCount());
       validateVisitor.visit(a1, null);
     }
   }

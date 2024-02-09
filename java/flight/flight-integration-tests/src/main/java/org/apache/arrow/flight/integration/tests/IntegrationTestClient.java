@@ -98,14 +98,14 @@ class IntegrationTestClient {
         Scenarios.getScenario(cmd.getOptionValue("scenario")).client(allocator, defaultLocation, client);
       } else {
         final String inputPath = cmd.getOptionValue("j");
-        testStream(allocator, defaultLocation, client, inputPath);
+        testStream(allocator, client, inputPath);
       }
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
   }
 
-  private static void testStream(BufferAllocator allocator, Location server, FlightClient client, String inputPath)
+  private static void testStream(BufferAllocator allocator, FlightClient client, String inputPath)
       throws IOException {
     // 1. Read data from JSON and upload to server.
     FlightDescriptor descriptor = FlightDescriptor.path(inputPath);

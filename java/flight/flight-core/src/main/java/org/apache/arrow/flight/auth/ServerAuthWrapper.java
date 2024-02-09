@@ -115,7 +115,9 @@ public class ServerAuthWrapper {
     @Override
     public void onError(Throwable t) {
       completed = true;
-      while (future == null) {/* busy wait */}
+      while (future == null) {
+        /* busy wait */
+      }
       future.cancel(true);
     }
 

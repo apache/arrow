@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Function;
@@ -171,7 +172,7 @@ public class StatusUtils {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
         metadata.insert(key, trailers.get(keyOfBinary(key)));
       } else {
-        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes());
+        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes(StandardCharsets.UTF_8));
       }
     }
     return metadata;

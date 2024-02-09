@@ -28,8 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -282,8 +284,8 @@ class BaseTableTest {
 
     VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
     dictionaryVector.allocateNew(2);
-    dictionaryVector.set(0, "one".getBytes());
-    dictionaryVector.set(1, "two".getBytes());
+    dictionaryVector.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.set(1, "two".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.setValueCount(2);
     Dictionary dictionary =
         new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
@@ -297,8 +299,8 @@ class BaseTableTest {
     try (Table t = new Table(vectorList, vectorList.get(0).getValueCount(), provider)) {
       VarCharVector v = (VarCharVector) t.decode(encoded.getName(), 1L);
       assertNotNull(v);
-      assertEquals("one", new String(v.get(0)));
-      assertEquals("two", new String(v.get(1)));
+      assertEquals("one", new String(Objects.requireNonNull(v.get(0)), StandardCharsets.UTF_8));
+      assertEquals("two", new String(Objects.requireNonNull(v.get(1)), StandardCharsets.UTF_8));
     }
   }
 
@@ -319,8 +321,8 @@ class BaseTableTest {
 
     VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
     dictionaryVector.allocateNew(2);
-    dictionaryVector.set(0, "one".getBytes());
-    dictionaryVector.set(1, "two".getBytes());
+    dictionaryVector.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    dictionaryVector.set(1, "two".getBytes(StandardCharsets.UTF_8));
     dictionaryVector.setValueCount(2);
 
     Dictionary dictionary = new Dictionary(dictionaryVector, encoding);

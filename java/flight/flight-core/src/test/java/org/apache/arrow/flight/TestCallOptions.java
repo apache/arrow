@@ -21,6 +21,7 @@ import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
@@ -87,8 +88,8 @@ public class TestCallOptions {
   @Test
   public void binaryProperties() {
     final FlightCallHeaders headers = new FlightCallHeaders();
-    headers.insert("key-bin", "value".getBytes());
-    headers.insert("key3-bin", "ëfßæ".getBytes());
+    headers.insert("key-bin", "value".getBytes(StandardCharsets.UTF_8));
+    headers.insert("key3-bin", "ëfßæ".getBytes(StandardCharsets.UTF_8));
     testHeaders(headers);
   }
 
@@ -96,7 +97,7 @@ public class TestCallOptions {
   public void mixedProperties() {
     final FlightCallHeaders headers = new FlightCallHeaders();
     headers.insert("key", "value");
-    headers.insert("key3-bin", "ëfßæ".getBytes());
+    headers.insert("key3-bin", "ëfßæ".getBytes(StandardCharsets.UTF_8));
     testHeaders(headers);
   }
 

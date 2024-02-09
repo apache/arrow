@@ -300,7 +300,8 @@ public class NullVector implements FieldVector {
    * @param index position of element
    */
   @Override
-  public void setNull(int index) {}
+  public void setNull(int index) {
+  }
 
   @Override
   public boolean isNull(int index) {

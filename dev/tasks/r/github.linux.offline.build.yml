@@ -79,7 +79,7 @@ jobs:
         shell: Rscript {0}
       - name: Install
         env:
-          TEST_OFFLINE_BUILD: true
+          ARROW_OFFLINE_BUILD: true
           LIBARROW_MINIMAL: false
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |

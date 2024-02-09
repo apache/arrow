@@ -357,6 +357,30 @@ Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
 
 }  // namespace
 
+Result<std::shared_ptr<RecordBatch>> RecordBatch::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->CopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->ViewOrCopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
 Status RecordBatch::Validate() const {
   return ValidateBatch(*this, /*full_validation=*/false);
 }

@@ -211,4 +211,38 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(microArray[1], 20000)
         XCTAssertEqual(microArray[2], 987654321)
     }
+
+    func checkHolderForType(_ checkType: ArrowType) throws {
+        let buffers = [ArrowBuffer(length: 0, capacity: 0,
+                                rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero)),
+                       ArrowBuffer(length: 0, capacity: 0,
+                               rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero))]
+        let field = ArrowField("", type: checkType, isNullable: true)
+        switch makeArrayHolder(field, buffers: buffers, nullCount: 0) {
+        case .success(let holder):
+            XCTAssertEqual(holder.type.id, checkType.id)
+        case .failure(let err):
+            throw err
+        }
+    }
+
+    func testArrayHolders() throws {
+        try checkHolderForType(ArrowType(ArrowType.ArrowInt8))
+        try checkHolderForType(ArrowType(ArrowType.ArrowUInt8))
+        try checkHolderForType(ArrowType(ArrowType.ArrowInt16))
+        try checkHolderForType(ArrowType(ArrowType.ArrowUInt16))
+        try checkHolderForType(ArrowType(ArrowType.ArrowInt32))
+        try checkHolderForType(ArrowType(ArrowType.ArrowUInt32))
+        try checkHolderForType(ArrowType(ArrowType.ArrowInt64))
+        try checkHolderForType(ArrowType(ArrowType.ArrowUInt64))
+        try checkHolderForType(ArrowTypeTime32(.seconds))
+        try checkHolderForType(ArrowTypeTime32(.milliseconds))
+        try checkHolderForType(ArrowTypeTime64(.microseconds))
+        try checkHolderForType(ArrowTypeTime64(.nanoseconds))
+        try checkHolderForType(ArrowType(ArrowType.ArrowBinary))
+        try checkHolderForType(ArrowType(ArrowType.ArrowFloat))
+        try checkHolderForType(ArrowType(ArrowType.ArrowDouble))
+        try checkHolderForType(ArrowType(ArrowType.ArrowBool))
+        try checkHolderForType(ArrowType(ArrowType.ArrowString))
+    }
 }

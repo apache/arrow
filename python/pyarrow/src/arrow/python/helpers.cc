@@ -63,6 +63,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(STRING, utf8);
       GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
       GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
+      GET_PRIMITIVE_TYPE(BINARY_VIEW, binary_view);
+      GET_PRIMITIVE_TYPE(STRING_VIEW, utf8_view);
       GET_PRIMITIVE_TYPE(INTERVAL_MONTH_DAY_NANO, month_day_nano_interval);
     default:
       return nullptr;

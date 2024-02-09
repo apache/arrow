@@ -111,7 +111,8 @@ import org.checkerframework.dataflow.qual.AssertMethod;
  * @since 2.0
  */
 public final class Preconditions {
-  private Preconditions() {}
+  private Preconditions() {
+  }
 
   /**
    * Ensures the truth of an expression involving one or more parameters to the calling method.

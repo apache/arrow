@@ -30,7 +30,7 @@ public class TestMessageMetadataResult {
     // This API is used by spark.
     MessageMetadataResult result = new MessageMetadataResult(1, ByteBuffer.allocate(0),
         new org.apache.arrow.flatbuf.Message());
-    assertEquals(result.getMessageLength(), 1);
+    assertEquals(1, result.getMessageLength());
   }
 
 }

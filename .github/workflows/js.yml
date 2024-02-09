@@ -91,7 +91,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
@@ -121,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}

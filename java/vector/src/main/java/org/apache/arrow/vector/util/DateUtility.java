@@ -26,7 +26,8 @@ import java.util.TimeZone;
 
 /** Utility class for Date, DateTime, TimeStamp, Interval data types. */
 public class DateUtility {
-  private DateUtility() {}
+  private DateUtility() {
+  }
 
   private static final String UTC = "UTC";
 

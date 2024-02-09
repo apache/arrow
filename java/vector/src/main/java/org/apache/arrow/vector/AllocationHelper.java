@@ -22,7 +22,8 @@ import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
 /** Helper utility methods for allocating storage for Vectors. */
 public class AllocationHelper {
-  private AllocationHelper() {}
+  private AllocationHelper() {
+  }
 
   /**
    * Allocates the vector.

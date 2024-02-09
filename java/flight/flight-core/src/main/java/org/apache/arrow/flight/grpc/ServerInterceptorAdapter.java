@@ -61,7 +61,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     private final FlightServerMiddleware.Key<T> key;
     private final FlightServerMiddleware.Factory<T> factory;
 
-    public KeyFactory(Key<T> key, Factory<T> factory) {
+    public KeyFactory(FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
       this.key = key;
       this.factory = factory;
     }

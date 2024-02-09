@@ -65,6 +65,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 /**
  * Test cases for {@link DefaultVectorComparators}.
@@ -258,7 +259,8 @@ public class TestDefaultVectorComparator {
       vec.allocateNew(10);
 
       ValueVectorDataPopulator.setVector(
-          vec, null, (char) -2, (char) -1, (char) 0, (char) 1, (char) 2, (char) -2, null,
+          vec, null, (char) (Character.MAX_VALUE - 1), Character.MAX_VALUE, (char) 0, (char) 1,
+          (char) 2, (char) (Character.MAX_VALUE - 1), null,
           '\u7FFF', // value for the max 16-byte signed integer
           '\u8000' // value for the min 16-byte signed integer
       );
@@ -272,8 +274,8 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(1, 3) > 0);
       assertTrue(comparator.compare(2, 5) > 0);
       assertTrue(comparator.compare(4, 5) < 0);
-      assertTrue(comparator.compare(1, 6) == 0);
-      assertTrue(comparator.compare(0, 7) == 0);
+      Assertions.assertEquals(0, comparator.compare(1, 6));
+      Assertions.assertEquals(0, comparator.compare(0, 7));
       assertTrue(comparator.compare(8, 9) < 0);
       assertTrue(comparator.compare(4, 8) < 0);
       assertTrue(comparator.compare(5, 9) < 0);

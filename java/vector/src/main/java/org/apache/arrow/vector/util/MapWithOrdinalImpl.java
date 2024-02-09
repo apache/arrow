@@ -27,8 +27,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An implementation of map that supports constant time look-up by a generic key or an ordinal.
@@ -48,7 +46,6 @@ import org.slf4j.LoggerFactory;
  * @param <V> value type
  */
 public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
-  private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinalImpl.class);
 
   private final Map<K, Map.Entry<Integer, V>> primary = new LinkedHashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
@@ -91,10 +88,6 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
       primary.put(key, new AbstractMap.SimpleImmutableEntry<>(ordinal, value));
       secondary.put(ordinal, value);
       return oldPair == null ? null : oldPair.getValue();
-    }
-
-    public boolean put(K key, V value, boolean override) {
-      return put(key, value) != null;
     }
 
     @Override
@@ -146,6 +139,7 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
    * @param id ordinal value for lookup
    * @return an instance of V
    */
+  @Override
   public V getByOrdinal(int id) {
     return secondary.get(id);
   }
@@ -156,6 +150,7 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
    * @param key key for ordinal lookup
    * @return ordinal value corresponding to key if it exists or -1
    */
+  @Override
   public int getOrdinal(K key) {
     Map.Entry<Integer, V> pair = primary.get(key);
     if (pair != null) {

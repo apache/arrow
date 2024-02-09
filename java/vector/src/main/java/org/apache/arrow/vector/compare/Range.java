@@ -41,7 +41,8 @@ public class Range {
   /**
    * Constructs a new instance.
    */
-  public Range() {}
+  public Range() {
+  }
 
   /**
    * Constructs a new instance.
