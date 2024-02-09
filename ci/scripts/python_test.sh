@@ -39,6 +39,7 @@ fi
 
 # By default, force-test all optional components
 : ${PYARROW_TEST_ACERO:=${ARROW_ACERO:-ON}}
+: ${PYARROW_TEST_AZURE:=${ARROW_AZURE:-ON}}
 : ${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}
 : ${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}
 : ${PYARROW_TEST_FLIGHT:=${ARROW_FLIGHT:-ON}}
