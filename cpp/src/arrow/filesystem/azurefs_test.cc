@@ -1944,7 +1944,7 @@ std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
     auto value = metadata->value(i);
     if (key == "Content-Hash") {
       std::vector<uint8_t> output;
-      output.reserve(value.size() / 2);
+      output.resize(value.size() / 2);
       if (ParseHexValues(value, output.data()).ok()) {
         // Valid value
         value = std::string(value.size(), 'F');
