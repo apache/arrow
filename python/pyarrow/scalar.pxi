@@ -1095,12 +1095,17 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
         Convert variable shape tensor extension scalar to a numpy array.
 
         The conversion is zero-copy if data is primitive numeric and without nulls.
+
+        Returns
+        -------
+        numpy.ndarray
         """
         return self.to_tensor().to_numpy()
 
     def to_tensor(self):
         """
         Convert variable shape tensor extension scalar to a pyarrow.Tensor.
+
         Returns
         -------
         tensor : pyarrow.Tensor
