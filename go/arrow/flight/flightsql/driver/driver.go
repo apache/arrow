@@ -81,7 +81,6 @@ func (r *Rows) releaseRecord() {
 
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-
 	go func() {
 		if r.recordChan != nil {
 			if _, ok := <-r.recordChan; ok {
@@ -123,7 +122,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 		// Get the next record from the channel
 		var ok bool
 
-		if r.currentRecord, ok = <-r.recordChan; !ok || r.currentRecord == nil {
+		if r.currentRecord, ok = <-r.recordChan; !ok || r.currentRecord == nil || r.currentRecord.NumRows() < 1 {
 			return io.EOF // Channel closed, no more records
 		}
 
@@ -503,6 +502,15 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 
 func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoints []*flight.FlightEndpoint) {
 	defer close(r.recordChan)
+
+	defer func() { // in case of error, init anyway
+		select {
+		case <-r.initializedChan:
+			r.initializedChan <- true
+		default:
+			r.initializedChan <- true
+		}
+	}()
 
 	// reads each endpoint
 	for _, endpoint := range endpoints {
