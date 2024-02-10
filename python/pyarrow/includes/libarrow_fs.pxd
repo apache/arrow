@@ -257,7 +257,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string dfs_storage_authority
         c_string blob_storage_scheme
         c_string dfs_storage_scheme
-        
+
         c_bool Equals(const CAzureOptions& other)
         CStatus ConfigureDefaultCredential()
         CStatus ConfigureAccountKeyCredential(c_string account_key)

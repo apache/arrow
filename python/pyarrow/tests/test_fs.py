@@ -302,19 +302,25 @@ def azurefs(request, azure_server):
 
     container = 'pyarrow-filesystem/'
 
-    fs = AzureFileSystem(account_name='devstoreaccount1', account_key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
-                         blob_storage_authority=azureite_authority, dfs_storage_authority=azureite_authority,
-                         blob_storage_scheme=azureite_scheme, dfs_storage_scheme=azureite_scheme)
- 
+    fs = AzureFileSystem(account_name='devstoreaccount1',
+                         account_key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuF'
+                         'q2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
+                         blob_storage_authority=azureite_authority,
+                         dfs_storage_authority=azureite_authority,
+                         blob_storage_scheme=azureite_scheme,
+                         dfs_storage_scheme=azureite_scheme)
+
     fs.create_dir(container)
 
     yield dict(
         fs=fs,
         pathfn=container.__add__,
-        allow_move_dir=False,  # AzureFileSystem will only support this in hierachical namespace accounts.
+        # AzureFileSystem will only support this in hierachical namespace accounts.
+        allow_move_dir=False,
         allow_append_to_file=True,
     )
     fs.delete_dir(container)
+
 
 @pytest.fixture
 def hdfs(request, hdfs_connection):
@@ -495,6 +501,7 @@ def check_mtime_or_absent(file_info):
 def skip_fsspec_s3fs(fs):
     if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
+
 
 def skip_azure(fs, reason):
     if fs.type_name == "abfs":
@@ -1071,7 +1078,9 @@ def test_open_output_stream_metadata(fs, pathfn):
 
     if fs.type_name in ['s3', 'gcs', 'abfs'] or 'mock' in fs.type_name:
         # TODO(GH-40026): Stop skipping this test
-        skip_azure(fs, "Azure filesystem currently only returns system metadata not user metadata. See GH-40026")
+        skip_azure(
+            fs, "Azure filesystem currently only returns system metadata not user "
+            "metadata. See GH-40026")
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
@@ -1429,7 +1438,8 @@ def test_azurefs_options(pickle_module):
     assert isinstance(fs1, AzureFileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs1)) == fs1
 
-    fs2 = AzureFileSystem(account_name='fake-account-name', account_key='fakeaccountkey')
+    fs2 = AzureFileSystem(account_name='fake-account-name',
+                          account_key='fakeaccountkey')
     assert isinstance(fs2, AzureFileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
     assert fs2 != fs1
@@ -1437,7 +1447,8 @@ def test_azurefs_options(pickle_module):
     fs3 = AzureFileSystem(account_name='fake-account', account_key='fakeaccount',
                           blob_storage_authority='fake-blob-authority',
                           dfs_storage_authority='fake-dfs-authority',
-                          blob_storage_scheme='fake-blob-scheme', dfs_storage_scheme='fake-dfs-scheme')
+                          blob_storage_scheme='fake-blob-scheme',
+                          dfs_storage_scheme='fake-dfs-scheme')
     assert isinstance(fs3, AzureFileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs3)) == fs3
     assert fs3 != fs2

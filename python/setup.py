@@ -105,7 +105,7 @@ class build_ext(_build_ext):
                       'build type (debug or release), default release'),
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
-                     ('with-azure', None, 
+                     ('with-azure', None,
                       'build the Azure Blob Storage extension'),
                      ('with-cuda', None, 'build the Cuda extension'),
                      ('with-flight', None, 'build the Flight extension'),

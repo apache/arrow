@@ -264,7 +264,7 @@ def azure_server(tmpdir_factory):
     # Port 0 means azurite will select any free port. We don't need to connect
     # to the queue or table services, we just need them to not conflict with
     # in use ports.
-    args = ['azurite', "--location", tmpdir, "--blobPort", str(port), 
+    args = ['azurite', "--location", tmpdir, "--blobPort", str(port),
             "--queuePort", "0", "--tablePort", "0"]
     proc = None
     try:

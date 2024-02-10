@@ -19,16 +19,10 @@
 
 from cython cimport binding
 
-from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
-                          pyarrow_unwrap_metadata)
-from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_fs cimport *
-from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
-from cython.operator cimport dereference as deref
 
-from datetime import datetime, timedelta, timezone
+from pyarrow.lib import frombytes, tobytes
+from pyarrow.includes.libarrow_fs cimport *
+from pyarrow._fs cimport FileSystem
 
 
 cdef class AzureFileSystem(FileSystem):
@@ -36,8 +30,8 @@ cdef class AzureFileSystem(FileSystem):
         CAzureFileSystem* azurefs
         c_string account_key
 
-    def __init__(self, *, account_name, account_key=None, blob_storage_authority=None, 
-                 dfs_storage_authority=None, blob_storage_scheme=None, 
+    def __init__(self, *, account_name, account_key=None, blob_storage_authority=None,
+                 dfs_storage_authority=None, blob_storage_scheme=None,
                  dfs_storage_scheme=None):
         cdef:
             CAzureOptions options
@@ -52,7 +46,7 @@ cdef class AzureFileSystem(FileSystem):
             options.blob_storage_scheme = tobytes(blob_storage_scheme)
         if dfs_storage_scheme:
             options.dfs_storage_scheme = tobytes(dfs_storage_scheme)
-        
+
         if account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
             self.account_key = tobytes(account_key)
