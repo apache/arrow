@@ -80,7 +80,6 @@ cdef class AzureFileSystem(FileSystem):
         return (
             AzureFileSystem._reconstruct, (dict(
                 account_name=frombytes(opts.account_name),
-                # TODO(tomnewton): Check if pickling still works if account_key is None
                 account_key=frombytes(self.account_key),
                 blob_storage_authority=frombytes(opts.blob_storage_authority),
                 dfs_storage_authority=frombytes(opts.dfs_storage_authority),

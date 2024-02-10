@@ -1421,9 +1421,30 @@ def test_s3fs_wrong_region():
     fs.get_file_info("voltrondata-labs-datasets")
 
 
-def test_azurefs_options():
-    # TODO(tomnewton)
-    pass
+@pytest.mark.azure
+def test_azurefs_options(pickle_module):
+    from pyarrow.fs import AzureFileSystem
+
+    fs1 = AzureFileSystem(account_name='fake-account-name')
+    assert isinstance(fs1, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs1)) == fs1
+
+    fs2 = AzureFileSystem(account_name='fake-account-name', account_key='fakeaccountkey')
+    assert isinstance(fs2, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
+    assert fs2 != fs1
+
+    fs3 = AzureFileSystem(account_name='fake-account', account_key='fakeaccount',
+                          blob_storage_authority='fake-blob-authority',
+                          dfs_storage_authority='fake-dfs-authority',
+                          blob_storage_scheme='fake-blob-scheme', dfs_storage_scheme='fake-dfs-scheme')
+    assert isinstance(fs3, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs3)) == fs3
+    assert fs3 != fs2
+
+    with pytest.raises(TypeError):
+        AzureFileSystem()
+
 
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection, pickle_module):
