@@ -44,7 +44,13 @@ ARROW_EXPORT
 Status PathNotFound(std::string_view path);
 
 ARROW_EXPORT
+Status IsADir(std::string_view path);
+
+ARROW_EXPORT
 Status NotADir(std::string_view path);
+
+ARROW_EXPORT
+Status NotEmpty(std::string_view path);
 
 ARROW_EXPORT
 Status NotAFile(std::string_view path);

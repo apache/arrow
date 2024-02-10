@@ -15,6 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
+#include <chrono>
+#include <memory>
+#include <optional>
+
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
@@ -283,16 +288,24 @@ struct AzureLocation {
 template <typename... PrefixArgs>
 Status ExceptionToStatus(const Storage::StorageException& exception,
                          PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)...,
-                         " Azure Error: ", exception.what());
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
 }
 
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
 }
 
+Status NotADir(const AzureLocation& location) {
+  return ::arrow::fs::internal::NotADir(location.all);
+}
+
 Status NotAFile(const AzureLocation& location) {
   return ::arrow::fs::internal::NotAFile(location.all);
+}
+
+Status NotEmpty(const AzureLocation& location) {
+  return ::arrow::fs::internal::NotEmpty(location.all);
 }
 
 Status ValidateFileLocation(const AzureLocation& location) {
@@ -303,6 +316,23 @@ Status ValidateFileLocation(const AzureLocation& location) {
     return NotAFile(location);
   }
   return internal::AssertNoTrailingSlash(location.path);
+}
+
+Status InvalidDirMoveToSubdir(const AzureLocation& src, const AzureLocation& dest) {
+  return Status::Invalid("Cannot Move to '", dest.all, "' and make '", src.all,
+                         "' a sub-directory of itself.");
+}
+
+Status DestinationParentPathNotFound(const AzureLocation& dest) {
+  return Status::IOError("The parent directory of the destination path '", dest.all,
+                         "' does not exist.");
+}
+
+Status CrossContainerMoveNotImplemented(const AzureLocation& src,
+                                        const AzureLocation& dest) {
+  return Status::NotImplemented(
+      "Move of '", src.all, "' to '", dest.all,
+      "' requires moving data between containers, which is not implemented.");
 }
 
 bool IsContainerNotFound(const Storage::StorageException& e) {
@@ -942,6 +972,185 @@ FileInfo FileInfoFromBlob(std::string_view container,
   return info;
 }
 
+/// \brief RAII-style guard for releasing a lease on a blob or container.
+///
+/// The guard should be constructed right after a successful BlobLeaseClient::Acquire()
+/// call. Use std::optional<LeaseGuard> to declare a guard in outer scope and construct it
+/// later with std::optional::emplace(...).
+///
+/// Leases expire automatically, but explicit release means concurrent clients or
+/// ourselves when trying new operations on the same blob or container don't have
+/// to wait for the lease to expire by itself.
+///
+/// Learn more about leases at
+/// https://learn.microsoft.com/en-us/rest/api/storageservices/lease-blob
+class LeaseGuard {
+ public:
+  using SteadyClock = std::chrono::steady_clock;
+
+ private:
+  /// \brief The time when the lease expires or is broken.
+  ///
+  /// The lease is not guaranteed to be valid until this time, but it is guaranteed to
+  /// be expired after this time. In other words, this is an overestimation of
+  /// the true time_point.
+  SteadyClock::time_point break_or_expires_at_;
+  const std::unique_ptr<Blobs::BlobLeaseClient> lease_client_;
+  bool release_attempt_pending_ = true;
+
+  /// \brief The latest known expiry time of a lease guarded by this class
+  /// that failed to be released or was forgotten by calling Forget().
+  static std::atomic<SteadyClock::time_point> latest_known_expiry_time_;
+
+  /// \brief The maximum lease duration supported by Azure Storage.
+  static constexpr std::chrono::seconds kMaxLeaseDuration{60};
+
+ public:
+  LeaseGuard(std::unique_ptr<Blobs::BlobLeaseClient> lease_client,
+             std::chrono::seconds lease_duration)
+      : break_or_expires_at_(SteadyClock::now() +
+                             std::min(kMaxLeaseDuration, lease_duration)),
+        lease_client_(std::move(lease_client)) {
+    DCHECK(lease_duration <= kMaxLeaseDuration);
+    DCHECK(this->lease_client_);
+  }
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(LeaseGuard);
+
+  ~LeaseGuard() {
+    // No point in trying any error handling here other than the debug checking. The lease
+    // will eventually expire on the backend without any intervention from us (just much
+    // later than if we released it).
+    [[maybe_unused]] auto status = Release();
+    ARROW_LOG(DEBUG) << status;
+  }
+
+  bool PendingRelease() const {
+    return release_attempt_pending_ && SteadyClock::now() <= break_or_expires_at_;
+  }
+
+ private:
+  Status DoRelease() {
+    DCHECK(release_attempt_pending_);
+    try {
+      lease_client_->Release();
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "Failed to release the ",
+                               lease_client_->GetLeaseId(), " lease");
+    }
+    return Status::OK();
+  }
+
+ public:
+  std::string LeaseId() const { return lease_client_->GetLeaseId(); }
+
+  bool StillValidFor(SteadyClock::duration expected_time_left) const {
+    return SteadyClock::now() + expected_time_left < break_or_expires_at_;
+  }
+
+  /// \brief Break the lease.
+  ///
+  /// The lease will stay in the "Breaking" state for break_period seconds or
+  /// less if the lease is expiring before that.
+  ///
+  /// https://learn.microsoft.com/en-us/rest/api/storageservices/lease-container#outcomes-of-use-attempts-on-containers-by-lease-state
+  /// https://learn.microsoft.com/en-us/rest/api/storageservices/lease-blob#outcomes-of-use-attempts-on-blobs-by-lease-state
+  Status Break(Azure::Nullable<std::chrono::seconds> break_period = {}) {
+    auto remaining_time_ms = [this]() {
+      const auto remaining_time = break_or_expires_at_ - SteadyClock::now();
+      return std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time);
+    };
+#ifndef NDEBUG
+    if (break_period.HasValue() && !StillValidFor(*break_period)) {
+      ARROW_LOG(WARNING)
+          << "Azure Storage: requested break_period ("
+          << break_period.ValueOr(std::chrono::seconds{0}).count()
+          << "s) is too long or lease duration is too short for all the operations "
+             "performed so far (lease expires in "
+          << remaining_time_ms().count() << "ms)";
+    }
+#endif
+    Blobs::BreakLeaseOptions options;
+    options.BreakPeriod = break_period;
+    try {
+      lease_client_->Break(options);
+      break_or_expires_at_ =
+          std::min(break_or_expires_at_,
+                   SteadyClock::now() + break_period.ValueOr(std::chrono::seconds{0}));
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "Failed to break the ",
+                               lease_client_->GetLeaseId(), " lease expiring in ",
+                               remaining_time_ms().count(), "ms");
+    }
+    return Status::OK();
+  }
+
+  /// \brief Break the lease before deleting or renaming the resource.
+  ///
+  /// Calling this is recommended when the resource for which the lease was acquired is
+  /// about to be deleted as there is no way of releasing the lease after that, we can
+  /// only forget about it. The break_period should be a conservative estimate of the time
+  /// it takes to delete/rename the resource.
+  ///
+  /// If break_period is too small, the delete/rename will fail with a lease conflict,
+  /// and if it's too large the only consequence is that a lease on a non-existent
+  /// resource will remain in the "Breaking" state for a while blocking others
+  /// from recreating the resource.
+  void BreakBeforeDeletion(std::chrono::seconds break_period) {
+    ARROW_CHECK_OK(Break(break_period));
+  }
+
+  // These functions are marked ARROW_NOINLINE because they are called from
+  // multiple locations, but are not performance-critical.
+
+  ARROW_NOINLINE Status Release() {
+    if (!PendingRelease()) {
+      return Status::OK();
+    }
+    auto status = DoRelease();
+    if (!status.ok()) {
+      Forget();
+      return status;
+    }
+    release_attempt_pending_ = false;
+    return Status::OK();
+  }
+
+  /// \brief Prevent any release attempts in the destructor.
+  ///
+  /// When it's known they would certainly fail.
+  /// \see LeaseGuard::BreakBeforeDeletion()
+  ARROW_NOINLINE void Forget() {
+    if (!PendingRelease()) {
+      release_attempt_pending_ = false;
+      return;
+    }
+    release_attempt_pending_ = false;
+    // Remember the latest known expiry time so we can gracefully handle lease
+    // acquisition failures by waiting until the latest forgotten lease.
+    auto latest = latest_known_expiry_time_.load(std::memory_order_relaxed);
+    while (
+        latest < break_or_expires_at_ &&
+        !latest_known_expiry_time_.compare_exchange_weak(latest, break_or_expires_at_)) {
+    }
+    DCHECK_GE(latest_known_expiry_time_.load(), break_or_expires_at_);
+  }
+
+  ARROW_NOINLINE static void WaitUntilLatestKnownExpiryTime() {
+    auto remaining_time = latest_known_expiry_time_.load() - SteadyClock::now();
+#ifndef NDEBUG
+    int64_t remaining_time_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(remaining_time).count();
+    ARROW_LOG(WARNING) << "LeaseGuard::WaitUntilLatestKnownExpiryTime for "
+                       << remaining_time_ms << "ms...";
+#endif
+    DCHECK(remaining_time <= kMaxLeaseDuration);
+    if (remaining_time > SteadyClock::duration::zero()) {
+      std::this_thread::sleep_for(remaining_time);
+    }
+  }
+};
+
 }  // namespace
 
 class AzureFileSystem::Impl {
@@ -973,6 +1182,11 @@ class AzureFileSystem::Impl {
 
   Blobs::BlobContainerClient GetBlobContainerClient(const std::string& container_name) {
     return blob_service_client_->GetBlobContainerClient(container_name);
+  }
+
+  Blobs::BlobClient GetBlobClient(const std::string& container_name,
+                                  const std::string& blob_name) {
+    return GetBlobContainerClient(container_name).GetBlobClient(blob_name);
   }
 
   /// \param container_name Also known as "filesystem" in the ADLS Gen2 API.
@@ -1030,11 +1244,14 @@ class AzureFileSystem::Impl {
 
   /// \pre location.path is not empty.
   Result<FileInfo> GetFileInfo(const DataLake::DataLakeFileSystemClient& adlfs_client,
-                               const AzureLocation& location) {
+                               const AzureLocation& location,
+                               Azure::Nullable<std::string> lease_id = {}) {
     auto file_client = adlfs_client.GetFileClient(location.path);
+    DataLake::GetPathPropertiesOptions options;
+    options.AccessConditions.LeaseId = std::move(lease_id);
     try {
       FileInfo info{location.all};
-      auto properties = file_client.GetProperties();
+      auto properties = file_client.GetProperties(options);
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else if (internal::HasTrailingSlash(location.path)) {
@@ -1113,6 +1330,22 @@ class AzureFileSystem::Impl {
           exception, "ListBlobsByHierarchy failed for prefix='", *options.Prefix,
           "'. GetFileInfo is unable to determine whether the path exists.");
     }
+  }
+
+  Result<FileInfo> GetFileInfoOfPathWithinContainer(const AzureLocation& location) {
+    DCHECK(!location.container.empty() && !location.path.empty());
+    // There is a path to search within the container. Check HNS support to proceed.
+    auto adlfs_client = GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return FileInfo{location.all, FileType::NotFound};
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfo(adlfs_client, location);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+    auto container_client = GetBlobContainerClient(location.container);
+    return GetFileInfo(container_client, location);
   }
 
  private:
@@ -1320,8 +1553,7 @@ class AzureFileSystem::Impl {
                                                          AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
     auto blob_client = std::make_shared<Blobs::BlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlobClient(location.path));
+        GetBlobClient(location.container, location.path));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
                                                  std::move(location));
@@ -1340,8 +1572,7 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(info.path()));
     RETURN_NOT_OK(ValidateFileLocation(location));
     auto blob_client = std::make_shared<Blobs::BlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlobClient(location.path));
+        GetBlobClient(location.container, location.path));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
                                                  std::move(location), info.size());
@@ -1625,13 +1856,16 @@ class AzureFileSystem::Impl {
   /// \pre location.path is not empty.
   Status DeleteDirOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
                                const AzureLocation& location, bool recursive,
-                               bool require_dir_to_exist) {
+                               bool require_dir_to_exist,
+                               Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+    DataLake::DeleteDirectoryOptions options;
+    options.AccessConditions.LeaseId = std::move(lease_id);
     try {
-      auto response =
-          recursive ? directory_client.DeleteRecursive() : directory_client.DeleteEmpty();
+      auto response = recursive ? directory_client.DeleteRecursive(options)
+                                : directory_client.DeleteEmpty(options);
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
@@ -1710,17 +1944,440 @@ class AzureFileSystem::Impl {
     return Status::OK();
   }
 
+ private:
+  /// \brief Create a BlobLeaseClient and acquire a lease on the container.
+  ///
+  /// \param allow_missing_container if true, a nullptr may be returned when the container
+  /// doesn't exist, otherwise a PathNotFound(location) error is produced right away
+  /// \return A BlobLeaseClient is wrapped as a unique_ptr so it's moveable and
+  /// optional (nullptr denotes container not found)
+  Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireContainerLease(
+      const AzureLocation& location, std::chrono::seconds lease_duration,
+      bool allow_missing_container = false, bool retry_allowed = true) {
+    DCHECK(!location.container.empty());
+    auto container_client = GetBlobContainerClient(location.container);
+    auto lease_id = Blobs::BlobLeaseClient::CreateUniqueLeaseId();
+    auto container_url = container_client.GetUrl();
+    auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(
+        std::move(container_client), std::move(lease_id));
+    try {
+      [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
+      DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception)) {
+        if (allow_missing_container) {
+          return nullptr;
+        }
+        return PathNotFound(location);
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "LeaseAlreadyPresent") {
+        if (retry_allowed) {
+          LeaseGuard::WaitUntilLatestKnownExpiryTime();
+          return AcquireContainerLease(location, lease_duration, allow_missing_container,
+                                       /*retry_allowed=*/false);
+        }
+      }
+      return ExceptionToStatus(exception, "Failed to acquire a lease on container '",
+                               location.container, "': ", container_url);
+    }
+    return lease_client;
+  }
+
+  /// \brief Create a BlobLeaseClient and acquire a lease on a blob/file (or
+  /// directory if Hierarchical Namespace is supported).
+  ///
+  /// \param allow_missing if true, a nullptr may be returned when the blob
+  /// doesn't exist, otherwise a PathNotFound(location) error is produced right away
+  /// \return A BlobLeaseClient is wrapped as a unique_ptr so it's moveable and
+  /// optional (nullptr denotes blob not found)
+  Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireBlobLease(
+      const AzureLocation& location, std::chrono::seconds lease_duration,
+      bool allow_missing = false, bool retry_allowed = true) {
+    DCHECK(!location.container.empty() && !location.path.empty());
+    auto path = std::string{internal::RemoveTrailingSlash(location.path)};
+    auto blob_client = GetBlobClient(location.container, std::move(path));
+    auto lease_id = Blobs::BlobLeaseClient::CreateUniqueLeaseId();
+    auto blob_url = blob_client.GetUrl();
+    auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(std::move(blob_client),
+                                                                 std::move(lease_id));
+    try {
+      [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
+      DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
+    } catch (const Storage::StorageException& exception) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        if (allow_missing) {
+          return nullptr;
+        }
+        return PathNotFound(location);
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "LeaseAlreadyPresent") {
+        if (retry_allowed) {
+          LeaseGuard::WaitUntilLatestKnownExpiryTime();
+          return AcquireBlobLease(location, lease_duration, allow_missing,
+                                  /*retry_allowed=*/false);
+        }
+      }
+      return ExceptionToStatus(exception, "Failed to acquire a lease on file '",
+                               location.all, "': ", blob_url);
+    }
+    return lease_client;
+  }
+
+  /// \brief The default lease duration used for acquiring a lease on a container or blob.
+  ///
+  /// Azure Storage leases can be acquired for a duration of 15 to 60 seconds.
+  ///
+  /// Operations consisting of an unpredictable number of sub-operations should
+  /// renew the lease periodically (heartbeat pattern) instead of acquiring an
+  /// infinite lease (very bad idea for a library like Arrow).
+  static constexpr auto kLeaseDuration = std::chrono::seconds{15};
+
+  // These are conservative estimates of how long it takes for the client
+  // request to reach the server counting from the moment the Azure SDK function
+  // issuing the request is called. See their usage for more context.
+  //
+  // If the client connection to the server is unpredictably slow, operations
+  // may fail, but due to the use of leases, the entire arrow::FileSystem
+  // operation can be retried without risk of data loss. Thus, unexpected network
+  // slow downs can be fixed with retries (either by some system using Arrow or
+  // an user interactively retrying a failed operation).
+  //
+  // If a network is permanently slow, the lease time and these numbers should be
+  // increased but not so much so that the client gives up an operation because the
+  // values say it takes more time to reach the server than the remaining lease
+  // time on the resources.
+  //
+  // NOTE: The initial constant values were chosen conservatively. If we learn,
+  // from experience, that they are causing issues, we can increase them. And if
+  // broadly applicable values aren't possible, we can make them configurable.
+  static constexpr auto kTimeNeededForContainerDeletion = std::chrono::seconds{3};
+  static constexpr auto kTimeNeededForContainerRename = std::chrono::seconds{3};
+  static constexpr auto kTimeNeededForFileOrDirectoryRename = std::chrono::seconds{3};
+
+ public:
+  /// The conditions for a successful container rename are derived from the
+  /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
+  /// The numbers here match the list in `Move`.
+  ///
+  /// 1. `src.container` must exist.
+  /// 2. If `src.container` and `dest.container` are the same, do nothing and
+  ///    return OK.
+  /// 3. N/A.
+  /// 4. N/A.
+  /// 5. `dest.container` doesn't exist or is empty.
+  ///    NOTE: one exception related to container Move is that when the
+  ///    destination is empty we also require the source container to be empty,
+  ///    because the only way to perform the "Move" is by deleting the source
+  ///    instead of deleting the destination and renaming the source.
+  Status RenameContainer(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && src.path.empty());
+    DCHECK(!dest.container.empty() && dest.path.empty());
+    auto src_container_client = GetBlobContainerClient(src.container);
+
+    // If src and dest are the same, we only have to check src exists.
+    if (src.container == dest.container) {
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            GetContainerPropsAsFileInfo(src, src_container_client));
+      if (info.type() == FileType::NotFound) {
+        return PathNotFound(src);
+      }
+      DCHECK(info.type() == FileType::Directory);
+      return Status::OK();
+    }
+
+    // Acquire a lease on the source container because (1) we need the lease
+    // before rename and (2) it works as a way of checking the container exists.
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client,
+                          AcquireContainerLease(src, kLeaseDuration));
+    LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
+    // Check dest.container doesn't exist or is empty.
+    auto dest_container_client = GetBlobContainerClient(dest.container);
+    std::optional<LeaseGuard> dest_lease_guard;
+    bool dest_exists = false;
+    bool dest_is_empty = false;
+    ARROW_ASSIGN_OR_RAISE(
+        auto dest_lease_client,
+        AcquireContainerLease(dest, kLeaseDuration, /*allow_missing_container*/ true));
+    if (dest_lease_client) {
+      dest_lease_guard.emplace(std::move(dest_lease_client), kLeaseDuration);
+      dest_exists = true;
+      // Emptiness check after successful acquisition of the lease.
+      Blobs::ListBlobsOptions list_blobs_options;
+      list_blobs_options.PageSizeHint = 1;
+      try {
+        auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        dest_is_empty = dest_list_response.Blobs.empty();
+        if (!dest_is_empty) {
+          return NotEmpty(dest);
+        }
+      } catch (const Storage::StorageException& exception) {
+        return ExceptionToStatus(exception, "Failed to check that '", dest.container,
+                                 "' is empty: ", dest_container_client.GetUrl());
+      }
+    }
+    DCHECK(!dest_exists || dest_is_empty);
+
+    if (!dest_exists) {
+      // Rename the source container.
+      Blobs::RenameBlobContainerOptions options;
+      options.SourceAccessConditions.LeaseId = src_lease_guard.LeaseId();
+      try {
+        src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerRename);
+        blob_service_client_->RenameBlobContainer(src.container, dest.container, options);
+        src_lease_guard.Forget();
+      } catch (const Storage::StorageException& exception) {
+        if (exception.StatusCode == Http::HttpStatusCode::BadRequest &&
+            exception.ErrorCode == "InvalidQueryParameterValue") {
+          auto param_name = exception.AdditionalInformation.find("QueryParameterName");
+          if (param_name != exception.AdditionalInformation.end() &&
+              param_name->second == "comp") {
+            return ExceptionToStatus(
+                exception, "The 'rename' operation is not supported on containers. ",
+                "Attempting a rename of '", src.container, "' to '", dest.container,
+                "': ", blob_service_client_->GetUrl());
+          }
+        }
+        return ExceptionToStatus(exception, "Failed to rename container '", src.container,
+                                 "' to '", dest.container,
+                                 "': ", blob_service_client_->GetUrl());
+      }
+    } else if (dest_is_empty) {
+      // Even if we deleted the empty dest.container, RenameBlobContainer() would still
+      // fail because containers are not immediately deleted by the service -- they are
+      // deleted asynchronously based on retention policies and non-deterministic behavior
+      // of the garbage collection process.
+      //
+      // One way to still match POSIX rename semantics is to delete the src.container if
+      // and only if it's empty because the final state would be equivalent to replacing
+      // the dest.container with the src.container and its contents (which happens
+      // to also be empty).
+      Blobs::ListBlobsOptions list_blobs_options;
+      list_blobs_options.PageSizeHint = 1;
+      try {
+        auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        if (!src_list_response.Blobs.empty()) {
+          // Reminder: dest is used here because we're semantically replacing dest
+          // with src. By deleting src if it's empty just like dest.
+          return Status::IOError("Unable to replace empty container: '", dest.all, "'");
+        }
+        // Delete the source container now that we know it's empty.
+        Blobs::DeleteBlobContainerOptions options;
+        options.AccessConditions.LeaseId = src_lease_guard.LeaseId();
+        DCHECK(dest_lease_guard.has_value());
+        // Make sure lease on dest is still valid before deleting src. This is to ensure
+        // the destination container is not deleted by another process/client before
+        // Move() returns.
+        if (!dest_lease_guard->StillValidFor(kTimeNeededForContainerDeletion)) {
+          return Status::IOError("Unable to replace empty container: '", dest.all, "'. ",
+                                 "Preparation for the operation took too long and a "
+                                 "container lease expired.");
+        }
+        try {
+          src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerDeletion);
+          src_container_client.Delete(options);
+          src_lease_guard.Forget();
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to delete empty container: '",
+                                   src.container, "': ", src_container_client.GetUrl());
+        }
+      } catch (const Storage::StorageException& exception) {
+        return ExceptionToStatus(exception, "Unable to replace empty container: '",
+                                 dest.all, "': ", dest_container_client.GetUrl());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status MoveContainerToPath(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    // Check Move pre-condition 1 -- `src` must exist.
+    auto container_client = GetBlobContainerClient(src.container);
+    ARROW_ASSIGN_OR_RAISE(auto src_info,
+                          GetContainerPropsAsFileInfo(src, container_client));
+    if (src_info.type() == FileType::NotFound) {
+      return PathNotFound(src);
+    }
+    // Check Move pre-condition 2.
+    if (src.container == dest.container) {
+      return InvalidDirMoveToSubdir(src, dest);
+    }
+    // Instead of checking more pre-conditions, we just abort with a
+    // NotImplemented status.
+    return CrossContainerMoveNotImplemented(src, dest);
+  }
+
+  Status CreateContainerFromPath(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.empty() && dest.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto src_file_info, GetFileInfoOfPathWithinContainer(src));
+    switch (src_file_info.type()) {
+      case FileType::Unknown:
+      case FileType::NotFound:
+        return PathNotFound(src);
+      case FileType::File:
+        return Status::Invalid(
+            "Creating files at '/' is not possible, only directories.");
+      case FileType::Directory:
+        break;
+    }
+    if (src.container == dest.container) {
+      return InvalidDirMoveToSubdir(src, dest);
+    }
+    return CrossContainerMoveNotImplemented(src, dest);
+  }
+
+  Status MovePathWithDataLakeAPI(
+      const DataLake::DataLakeFileSystemClient& src_adlfs_client,
+      const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    const auto src_path = std::string{internal::RemoveTrailingSlash(src.path)};
+    const auto dest_path = std::string{internal::RemoveTrailingSlash(dest.path)};
+
+    // Ensure that src exists and, if path has a trailing slash, that it's a directory.
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client, AcquireBlobLease(src, kLeaseDuration));
+    LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
+    // It might be necessary to check src is a directory 0-3 times in this function,
+    // so we use a lazy evaluation function to avoid redundant calls to GetFileInfo().
+    std::optional<bool> src_is_dir_opt{};
+    auto src_is_dir_lazy = [&]() -> Result<bool> {
+      if (src_is_dir_opt.has_value()) {
+        return *src_is_dir_opt;
+      }
+      ARROW_ASSIGN_OR_RAISE(
+          auto src_info, GetFileInfo(src_adlfs_client, src, src_lease_guard.LeaseId()));
+      src_is_dir_opt = src_info.type() == FileType::Directory;
+      return *src_is_dir_opt;
+    };
+    // src must be a directory if it has a trailing slash.
+    if (internal::HasTrailingSlash(src.path)) {
+      ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+      if (!src_is_dir) {
+        return NotADir(src);
+      }
+    }
+    // The Azure SDK and the backend don't perform many important checks, so we have to
+    // do them ourselves. Additionally, based on many tests on a default-configuration
+    // storage account, if the destination is an empty directory, the rename operation
+    // will most likely fail due to a timeout. Providing both leases -- to source and
+    // destination -- seems to have made things work.
+    ARROW_ASSIGN_OR_RAISE(auto dest_lease_client,
+                          AcquireBlobLease(dest, kLeaseDuration, /*allow_missing=*/true));
+    std::optional<LeaseGuard> dest_lease_guard;
+    if (dest_lease_client) {
+      dest_lease_guard.emplace(std::move(dest_lease_client), kLeaseDuration);
+      // Perform all the checks on dest (and src) before proceeding with the rename.
+      auto dest_adlfs_client = GetFileSystemClient(dest.container);
+      ARROW_ASSIGN_OR_RAISE(auto dest_info, GetFileInfo(dest_adlfs_client, dest,
+                                                        dest_lease_guard->LeaseId()));
+      if (dest_info.type() == FileType::Directory) {
+        ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+        if (!src_is_dir) {
+          // If src is a regular file, complain that dest is a directory
+          // like POSIX rename() does.
+          return internal::IsADir(dest.all);
+        }
+      } else {
+        if (internal::HasTrailingSlash(dest.path)) {
+          return NotADir(dest);
+        }
+      }
+    } else {
+      // If the destination has trailing slash, we would have to check that it's a
+      // directory, but since it doesn't exist we must return PathNotFound...
+      if (internal::HasTrailingSlash(dest.path)) {
+        // ...unless the src is a directory, in which case we can proceed with the rename.
+        ARROW_ASSIGN_OR_RAISE(auto src_is_dir, src_is_dir_lazy());
+        if (!src_is_dir) {
+          return PathNotFound(dest);
+        }
+      }
+    }
+
+    try {
+      // NOTE: The Azure SDK provides a RenameDirectory() function, but the
+      // implementation is the same as RenameFile() with the only difference being
+      // the type of the returned object (DataLakeDirectoryClient vs DataLakeFileClient).
+      //
+      // If we call RenameDirectory() and the source is a file, no error would
+      // be returned and the file would be renamed just fine (!).
+      //
+      // Since we don't use the returned object, we can just use RenameFile() for both
+      // files and directories. Ideally, the SDK would simply expose the PathClient
+      // that it uses internally for both files and directories.
+      DataLake::RenameFileOptions options;
+      options.DestinationFileSystem = dest.container;
+      options.SourceAccessConditions.LeaseId = src_lease_guard.LeaseId();
+      if (dest_lease_guard.has_value()) {
+        options.AccessConditions.LeaseId = dest_lease_guard->LeaseId();
+      }
+      src_lease_guard.BreakBeforeDeletion(kTimeNeededForFileOrDirectoryRename);
+      src_adlfs_client.RenameFile(src_path, dest_path, options);
+      src_lease_guard.Forget();
+    } catch (const Storage::StorageException& exception) {
+      // https://learn.microsoft.com/en-gb/rest/api/storageservices/datalakestoragegen2/path/create
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        if (exception.ErrorCode == "PathNotFound") {
+          return PathNotFound(src);
+        }
+        // "FilesystemNotFound" could be triggered by the source or destination filesystem
+        // not existing, but since we already checked the source filesystem exists (and
+        // hold a lease to it), we can assume the destination filesystem is the one the
+        // doesn't exist.
+        if (exception.ErrorCode == "FilesystemNotFound" ||
+            exception.ErrorCode == "RenameDestinationParentPathNotFound") {
+          return DestinationParentPathNotFound(dest);
+        }
+      } else if (exception.StatusCode == Http::HttpStatusCode::Conflict &&
+                 exception.ErrorCode == "PathAlreadyExists") {
+        // "PathAlreadyExists" is only produced when the destination exists and is a
+        // non-empty directory, so we produce the appropriate error.
+        return NotEmpty(dest);
+      }
+      return ExceptionToStatus(exception, "Failed to rename '", src.all, "' to '",
+                               dest.all, "': ", src_adlfs_client.GetUrl());
+    }
+    return Status::OK();
+  }
+
+  Status MovePathUsingBlobsAPI(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    if (src.container != dest.container) {
+      ARROW_ASSIGN_OR_RAISE(auto src_file_info, GetFileInfoOfPathWithinContainer(src));
+      if (src_file_info.type() == FileType::NotFound) {
+        return PathNotFound(src);
+      }
+      return CrossContainerMoveNotImplemented(src, dest);
+    }
+    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  }
+
+  Status MovePath(const AzureLocation& src, const AzureLocation& dest) {
+    DCHECK(!src.container.empty() && !src.path.empty());
+    DCHECK(!dest.container.empty() && !dest.path.empty());
+    auto src_adlfs_client = GetFileSystemClient(src.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                          HierarchicalNamespaceSupport(src_adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return PathNotFound(src);
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return MovePathWithDataLakeAPI(src_adlfs_client, src, dest);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+    return MovePathUsingBlobsAPI(src, dest);
+  }
+
   Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
     RETURN_NOT_OK(ValidateFileLocation(src));
     RETURN_NOT_OK(ValidateFileLocation(dest));
     if (src == dest) {
       return Status::OK();
     }
-    auto dest_blob_client = blob_service_client_->GetBlobContainerClient(dest.container)
-                                .GetBlobClient(dest.path);
-    auto src_url = blob_service_client_->GetBlobContainerClient(src.container)
-                       .GetBlobClient(src.path)
-                       .GetUrl();
+    auto dest_blob_client = GetBlobClient(dest.container, dest.path);
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {
@@ -1730,6 +2387,9 @@ class AzureFileSystem::Impl {
     return Status::OK();
   }
 };
+
+std::atomic<LeaseGuard::SteadyClock::time_point> LeaseGuard::latest_known_expiry_time_ =
+    SteadyClock::time_point{SteadyClock::duration::zero()};
 
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {
@@ -1772,19 +2432,7 @@ Result<FileInfo> AzureFileSystem::GetFileInfo(const std::string& path) {
     auto container_client = impl_->GetBlobContainerClient(location.container);
     return GetContainerPropsAsFileInfo(location, container_client);
   }
-  // There is a path to search within the container. Check HNS support to proceed.
-  auto adlfs_client = impl_->GetFileSystemClient(location.container);
-  ARROW_ASSIGN_OR_RAISE(auto hns_support,
-                        impl_->HierarchicalNamespaceSupport(adlfs_client));
-  if (hns_support == HNSSupport::kContainerNotFound) {
-    return FileInfo{location.all, FileType::NotFound};
-  }
-  if (hns_support == HNSSupport::kEnabled) {
-    return impl_->GetFileInfo(adlfs_client, location);
-  }
-  DCHECK_EQ(hns_support, HNSSupport::kDisabled);
-  auto container_client = impl_->GetBlobContainerClient(location.container);
-  return impl_->GetFileInfo(container_client, location);
+  return impl_->GetFileInfoOfPathWithinContainer(location);
 }
 
 Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) {
@@ -1900,7 +2548,24 @@ Status AzureFileSystem::DeleteFile(const std::string& path) {
 }
 
 Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto src_location, AzureLocation::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto dest_location, AzureLocation::FromString(dest));
+  if (src_location.container.empty()) {
+    return Status::Invalid("Move requires a non-empty source path.");
+  }
+  if (dest_location.container.empty()) {
+    return Status::Invalid("Move requires a non-empty destination path.");
+  }
+  if (src_location.path.empty()) {
+    if (dest_location.path.empty()) {
+      return impl_->RenameContainer(src_location, dest_location);
+    }
+    return impl_->MoveContainerToPath(src_location, dest_location);
+  }
+  if (dest_location.path.empty()) {
+    return impl_->CreateContainerFromPath(src_location, dest_location);
+  }
+  return impl_->MovePath(src_location, dest_location);
 }
 
 Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest) {
