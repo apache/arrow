@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:38
+FROM ${arch}/fedora:39
 ARG arch
 
 # install dependencies
@@ -76,6 +76,8 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
+# PYARROW_TEST_GANDIVA=OFF: GH-39695: We need to make LLVM symbols visible in
+# Python process explicitly if we use LLVM 17 or later.
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_BUILD_TESTS=ON \
@@ -103,4 +105,5 @@ ENV absl_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH
+    PATH=/usr/lib/ccache/:$PATH \
+    PYARROW_TEST_GANDIVA=OFF
