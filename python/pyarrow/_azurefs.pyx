@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython cimport binding
+
 from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
 from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
@@ -32,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 cdef class AzureFileSystem(FileSystem):
     cdef:
         CAzureFileSystem* azurefs
+        c_string account_key
 
     def __init__(self, *, account_name, account_key=None, blob_storage_authority=None, 
                  dfs_storage_authority=None, blob_storage_scheme=None, 
@@ -52,6 +55,7 @@ cdef class AzureFileSystem(FileSystem):
         
         if account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
+            self.account_key = tobytes(account_key)
         else:
             options.ConfigureDefaultCredential()
 
@@ -64,13 +68,22 @@ cdef class AzureFileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.azurefs = <CAzureFileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return AzureFileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CAzureOptions opts = self.azurefs.options()
         return (
             AzureFileSystem._reconstruct, (dict(
                 account_name=frombytes(opts.account_name),
+                # TODO(tomnewton): Check if pickling still works if account_key is None
+                account_key=frombytes(self.account_key),
+                blob_storage_authority=frombytes(opts.blob_storage_authority),
+                dfs_storage_authority=frombytes(opts.dfs_storage_authority),
+                blob_storage_scheme=frombytes(opts.blob_storage_scheme),
+                dfs_storage_scheme=frombytes(opts.dfs_storage_scheme)
             ),))
