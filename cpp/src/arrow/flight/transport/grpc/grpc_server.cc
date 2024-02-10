@@ -412,8 +412,9 @@ class GrpcServiceHandler final : public FlightService::Service {
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
-    SERVICE_RETURN_NOT_OK(flight_context,
-                          impl_->base()->GetFlightInfo(flight_context, descr, &info));
+    auto res = impl_->base()->GetFlightInfo(flight_context, descr, &info);
+    addMiddlewareHeaders(context, flight_context);
+    SERVICE_RETURN_NOT_OK(flight_context, res);
 
     if (!info) {
       // Treat null listing as no flights available
