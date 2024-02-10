@@ -283,9 +283,9 @@ class build_ext(_build_ext):
             append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
             append_cmake_bool(self.with_parquet_encryption,
                               'PYARROW_BUILD_PARQUET_ENCRYPTION')
+            append_cmake_bool(self.with_azure, 'PYARROW_BUILD_AZURE')
             append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
             append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
-            append_cmake_bool(self.with_azure, 'PYARROW_BUILD_AZURE')
             append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
@@ -350,11 +350,11 @@ class build_ext(_build_ext):
             return True
         if name == '_substrait' and not self.with_substrait:
             return True
+        if name == '_azurefs' and not self.with_azure:
+            return True
         if name == '_gcsfs' and not self.with_gcs:
             return True
         if name == '_s3fs' and not self.with_s3:
-            return True
-        if name == '_azurefs' and not self.with_azure:
             return True
         if name == '_hdfs' and not self.with_hdfs:
             return True
