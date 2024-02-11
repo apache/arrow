@@ -347,6 +347,22 @@ bool IsContainerNotFound(const Storage::StorageException& e) {
   return false;
 }
 
+const auto kHierarchicalNamespaceIsDirectoryMetadataKey = "hdi_isFolder";
+const auto kFlatNamespaceIsDirectoryMetadataKey = "is_directory";
+
+bool MetadataIndicatesIsDirectory(const Storage::Metadata& metadata) {
+  // Inspired by
+  // https://github.com/Azure/azure-sdk-for-cpp/blob/12407e8bfcb9bc1aa43b253c1d0ec93bf795ae3b/sdk/storage/azure-storage-files-datalake/src/datalake_utilities.cpp#L86-L91
+  auto hierarchical_directory_metadata =
+      metadata.find(kHierarchicalNamespaceIsDirectoryMetadataKey);
+  if (hierarchical_directory_metadata != metadata.end()) {
+    return hierarchical_directory_metadata->second == "true";
+  }
+  auto flat_directory_metadata = metadata.find(kFlatNamespaceIsDirectoryMetadataKey);
+  return flat_directory_metadata != metadata.end() &&
+         flat_directory_metadata->second == "true";
+}
+
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -1690,7 +1706,7 @@ class AzureFileSystem::Impl {
     // on directory marker blobs.
     // https://github.com/fsspec/adlfs/blob/32132c4094350fca2680155a5c236f2e9f991ba5/adlfs/spec.py#L855-L870
     Blobs::UploadBlockBlobFromOptions blob_options;
-    blob_options.Metadata.emplace("is_directory", "true");
+    blob_options.Metadata.emplace(kFlatNamespaceIsDirectoryMetadataKey, "true");
     block_blob_client.UploadFrom(nullptr, 0, blob_options);
   }
 
