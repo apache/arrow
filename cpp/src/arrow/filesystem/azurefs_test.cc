@@ -826,6 +826,14 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), subdir3, FileType::Directory);
   }
 
+  void TestDisallowReadingOrWritingDirectoryMarkers() {
+    auto data = SetUpPreexistingData();
+    auto directory_path = data.Path("directory");
+    ASSERT_OK(fs()->CreateDir(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
+  }
+
   void TestDeleteDirSuccessEmpty() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
@@ -1557,6 +1565,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios,
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnMissingContainer) {
   this->TestCreateDirOnMissingContainer();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryMarkers) {
+  this->TestDisallowReadingOrWritingDirectoryMarkers();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
