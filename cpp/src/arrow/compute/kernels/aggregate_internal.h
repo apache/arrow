@@ -108,6 +108,10 @@ enum class FirstOrLast : bool { First, Last };
 // kernel implementations together
 enum class MinOrMax : uint8_t { Min = 0, Max };
 
+// Helper to differentiate between first/last calculation so we can fold
+// kernel implementations together
+enum class FirstorLast : uint8_t { First = 0, Last };
+
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
                   SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
