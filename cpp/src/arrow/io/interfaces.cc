@@ -280,8 +280,7 @@ Result<std::shared_ptr<InputStream>> RandomAccessFile::GetStream(
 
 namespace internal {
 
-void CloseFromDestructor(FileInterface* file) {
-  Status st = file->Close();
+void HandleFileStatusFromDestructor(Status st, FileInterface* file) {
   if (!st.ok()) {
     auto file_type = typeid(*file).name();
 #ifdef NDEBUG
@@ -293,6 +292,16 @@ void CloseFromDestructor(FileInterface* file) {
     ARROW_LOG(FATAL) << st.WithMessage(ss.str());
 #endif
   }
+}
+
+void CloseFromDestructor(FileInterface* file) {
+  Status st = file->Close();
+  HandleFileStatusFromDestructor(st, file);
+}
+
+void AbortFromDestructor(FileInterface* file) {
+  Status st = file->Abort();
+  HandleFileStatusFromDestructor(st, file);
 }
 
 Result<int64_t> ValidateReadRange(int64_t offset, int64_t size, int64_t file_size) {

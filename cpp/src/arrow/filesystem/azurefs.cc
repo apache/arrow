@@ -730,9 +730,15 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   ~ObjectAppendStream() override {
-    // For compliance with the rest of the IO stack, Close rather than Abort,
-    // even though it may be more expensive.
-    io::internal::CloseFromDestructor(this);
+    if (at_least_one_successful_append_) {
+      // For compliance with the rest of the IO stack, Close rather than Abort,
+      // even though it may be more expensive.
+      io::internal::CloseFromDestructor(this);
+    } else {
+      // Avoid Flushing if we don't need to. If Flush throws an exception in this 
+      // destructor it can't be handled by the caller.
+      io::internal::AbortFromDestructor(this);
+    }
   }
 
   Status Init() {
@@ -856,6 +862,7 @@ class ObjectAppendStream final : public io::OutputStream {
     block_ids_.push_back(new_block_id);
     pos_ += nbytes;
     content_length_ += nbytes;
+    at_least_one_successful_append_ = true;
     return Status::OK();
   }
 
@@ -864,6 +871,7 @@ class ObjectAppendStream final : public io::OutputStream {
   const AzureLocation location_;
 
   bool closed_ = false;
+  bool at_least_one_successful_append_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
   std::vector<std::string> block_ids_;
