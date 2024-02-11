@@ -533,6 +533,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
     try {
       auto properties = blob_client_->GetProperties();
+      if (MetadataIndicatesIsDirectory(properties.Value.Metadata)) {
+        return NotAFile(location_);
+      }
       content_length_ = properties.Value.BlobSize;
       metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
@@ -739,6 +742,9 @@ class ObjectAppendStream final : public io::OutputStream {
     } else {
       try {
         auto properties = block_blob_client_->GetProperties();
+        if (MetadataIndicatesIsDirectory(properties.Value.Metadata)) {
+          return NotAFile(location_);
+        }
         content_length_ = properties.Value.BlobSize;
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
