@@ -834,6 +834,18 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
   }
 
+  void TestDisallowCreatingFileAndDirectoryWithTheSameName() {
+    auto data = SetUpPreexistingData();
+    auto path1 = data.Path("directory1");
+    ASSERT_OK(fs()->CreateDir(path1));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(path1));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(path1));
+
+    auto path2 = data.Path("directory2");
+    ASSERT_OK(fs()->OpenOutputStream(path2));
+    ASSERT_RAISES(IOError, fs()->CreateDir(path2));
+  }
+
   void TestDeleteDirSuccessEmpty() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
@@ -1569,6 +1581,10 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnMissingContainer) {
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryMarkers) {
   this->TestDisallowReadingOrWritingDirectoryMarkers();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowCreatingFileAndDirectoryWithTheSameName) {
+  this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
