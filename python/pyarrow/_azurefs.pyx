@@ -30,7 +30,7 @@ cdef class AzureFileSystem(FileSystem):
         CAzureFileSystem* azurefs
         c_string account_key
 
-    def __init__(self, *, account_name, account_key=None, blob_storage_authority=None,
+    def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
                  dfs_storage_authority=None, blob_storage_scheme=None,
                  dfs_storage_scheme=None):
         cdef:
