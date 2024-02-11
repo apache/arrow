@@ -26,7 +26,11 @@
 #include <vector>
 
 #include <llvm/Analysis/TargetTransformInfo.h>
+#if LLVM_VERSION_MAJOR >= 11
 #include <llvm/ExecutionEngine/Orc/Mangling.h>
+#else
+#include <llvm/ExecutionEngine/Orc/Core.h>
+#endif
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -58,12 +62,12 @@ class GANDIVA_EXPORT Engine {
   ///
   /// \param[in] config the engine configuration
   /// \param[in] cached flag to mark if the module is already compiled and cached
-  /// \param[in] object_cache an optional object_cache used for building the module
+  /// \param[in] object_cache an optional object_cache used for building the module, if
+  /// not provided, no caching is done
   /// \return arrow::Result containing the created engine
   static Result<std::unique_ptr<Engine>> Make(
       const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache =
-          std::nullopt);
+      llvm::ObjectCache* object_cache = NULLPTR);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -75,8 +79,8 @@ class GANDIVA_EXPORT Engine {
   /// Optimise and compile the module.
   Status FinalizeModule();
 
-  /// Set LLVM ObjectCache.
-  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  /// Set cached LLVM ObjectCode
+  Status SetCachedObjectCode(std::unique_ptr<llvm::MemoryBuffer> cached_buffer);
 
   /// Get the compiled function corresponding to the irfunction.
   Result<void*> CompiledFunction(const std::string& function);
@@ -160,6 +164,7 @@ class GANDIVA_EXPORT Engine {
   std::string module_ir_;
   std::unique_ptr<llvm::TargetMachine> target_machine_;
   llvm::TargetIRAnalysis target_ir_analysis_;
+  std::unique_ptr<llvm::ObjectCache> object_cache_;
   const std::shared_ptr<Configuration> conf_;
 };
 

@@ -214,7 +214,7 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
     std::unique_ptr<llvm::TargetMachine> target_machine,
-    std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
+    llvm::ObjectCache* object_cache) {
   llvm::orc::LLJITBuilder jit_builder;
 
 #ifdef JIT_LINK_SUPPORTED
@@ -222,24 +222,21 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  if (object_cache.has_value()) {
-    jit_builder.setCompileFunctionCreator(
-        [&object_cache, &target_machine](llvm::orc::JITTargetMachineBuilder JTMB)
-            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          // after compilation, the object code will be stored into the given object
-          // cache
-          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-              std::move(target_machine), &object_cache.value().get());
-        });
-  }
+  jit_builder.setCompileFunctionCreator(
+      [&object_cache, &target_machine](llvm::orc::JITTargetMachineBuilder JTMB)
+          -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+        // after compilation, the object code will be stored into the given object
+        // cache
+        return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+            std::move(target_machine), object_cache);
+      });
   auto maybe_jit = jit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
   return jit;
 }
 
-Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  auto cached_buffer = object_cache.getObject(nullptr);
+Status Engine::SetCachedObjectCode(std::unique_ptr<llvm::MemoryBuffer> cached_buffer) {
   if (cached_buffer) {
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
     if (error) {
@@ -322,10 +319,29 @@ Status Engine::LoadFunctionIRs() {
   return Status::OK();
 }
 
+class NoOpObjectCache : public llvm::ObjectCache {
+ public:
+  void notifyObjectCompiled(const llvm::Module* M,
+                            llvm::MemoryBufferRef ObjBuffer) override {}
+
+  std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) override {
+    return nullptr;
+  }
+};
+
+llvm::ObjectCache* DefaultObjectCache() {
+  static NoOpObjectCache no_op_object_cache;
+  return &no_op_object_cache;
+}
+
 /// factory method to construct the engine.
-Result<std::unique_ptr<Engine>> Engine::Make(
-    const std::shared_ptr<Configuration>& conf, bool cached,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+Result<std::unique_ptr<Engine>> Engine::Make(const std::shared_ptr<Configuration>& conf,
+                                             bool cached,
+                                             llvm::ObjectCache* object_cache) {
+  if (object_cache == nullptr) {
+    object_cache = DefaultObjectCache();
+  }
+
   std::call_once(llvm_init_once_flag, InitOnce);
 
   ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));

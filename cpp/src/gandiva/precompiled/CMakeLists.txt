@@ -43,8 +43,7 @@ set(PRECOMPILED_SRCS
     ../../arrow/util/basic_decimal.cc)
 generate_and_link_bitcode("${PRECOMPILED_SRCS}" ${GANDIVA_PRECOMPILED_BC_PATH})
 
-set(MANDATORY_SRCS
-    bitmap.cc)
+set(MANDATORY_SRCS bitmap.cc)
 generate_and_link_bitcode("${MANDATORY_SRCS}" ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH})
 
 # turn the bitcode file into a C++ static data variable.
@@ -58,9 +57,10 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
                            ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
-add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
-                                          ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
-                                          ${GANDIVA_PRECOMPILED_CC_PATH})
+add_custom_target(precompiled ALL
+                  DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
+                          ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
+                          ${GANDIVA_PRECOMPILED_CC_PATH})
 
 # testing
 if(ARROW_BUILD_TESTS)

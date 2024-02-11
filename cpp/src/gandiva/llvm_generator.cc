@@ -48,8 +48,10 @@ Result<std::unique_ptr<LLVMGenerator>> LLVMGenerator::Make(
   std::unique_ptr<LLVMGenerator> llvm_generator(
       new LLVMGenerator(cached, config->function_registry()));
 
-  ARROW_ASSIGN_OR_RAISE(llvm_generator->engine_,
-                        Engine::Make(config, cached, object_cache));
+  ARROW_ASSIGN_OR_RAISE(
+      llvm_generator->engine_,
+      Engine::Make(config, cached,
+                   object_cache.has_value() ? &object_cache.value().get() : nullptr));
   return llvm_generator;
 }
 
@@ -63,7 +65,8 @@ LLVMGenerator::GetCache() {
 }
 
 Status LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  return engine_->SetLLVMObjectCache(object_cache);
+  auto cached_buffer = object_cache.getObject(nullptr);
+  return engine_->SetCachedObjectCode(std::move(cached_buffer));
 }
 
 arrow::Result<ValueValidityPairPtr> LLVMGenerator::Decompose(const ExpressionPtr& expr) {
