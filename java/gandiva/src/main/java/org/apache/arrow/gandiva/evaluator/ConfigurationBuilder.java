@@ -43,7 +43,8 @@ public class ConfigurationBuilder {
       return new ConfigOptions();
     }
 
-    public ConfigOptions() {}
+    public ConfigOptions() {
+    }
 
     public ConfigOptions withOptimize(boolean optimize) {
       this.optimize = optimize;

@@ -324,7 +324,8 @@ def crossbow(obj, crossbow):
     obj['crossbow_repo'] = crossbow
 
 
-def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
+def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url,
+                              pr_number, pr_branch):
     """
     Clone the repositories and initialize crossbow objects.
 
@@ -338,22 +339,25 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
         Object containing information about the pull request the comment bot
         was triggered from.
     """
+    bare_arrow_path = dest / 'arrow_bare'
     arrow_path = dest / 'arrow'
     queue_path = dest / 'crossbow'
 
-    # clone arrow and checkout the pull request's branch
-    pull_request_ref = 'pull/{}/head:{}'.format(
-        pull_request.number, pull_request.head.ref
-    )
-    git.clone(pull_request.base.repo.clone_url, str(arrow_path))
-    git.fetch('origin', pull_request_ref, git_dir=arrow_path)
-    git.checkout(pull_request.head.ref, git_dir=arrow_path)
+    # 1. clone arrow and checkout the PR's branch
+    pr_ref = f'pull/{pr_number}/head:{pr_branch}'
+    # we do a bare clone of upstream arrow to avoid issues when the PR is
+    # submitted from a fork's main branch (GH-39996)
+    git.clone('--bare', arrow_repo_url, str(bare_arrow_path))
+    # fetch the PR's branch into the bare clone
+    git.fetch('origin', pr_ref, git_dir=bare_arrow_path)
+    # clone and checkout the PR's branch into a full local repo
+    git.clone(f'--branch={pr_branch}', bare_arrow_path, arrow_path)
 
-    # clone crossbow repository
+    # 2. clone crossbow repository
     crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
     git.clone(crossbow_url, str(queue_path))
 
-    # initialize crossbow objects
+    # 3. initialize crossbow objects
     github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
@@ -385,7 +389,9 @@ def submit(obj, tasks, groups, params, arrow_version, wait):
         arrow, queue = _clone_arrow_and_crossbow(
             dest=Path(tmpdir),
             crossbow_repo=crossbow_repo,
-            pull_request=pull_request,
+            arrow_repo_url=pull_request.base.repo.clone_url,
+            pr_number=pull_request.number,
+            pr_branch=pull_request.head.ref,
         )
         # load available tasks configuration and groups from yaml
         config = Config.load_yaml(arrow.path / "dev" / "tasks" / "tasks.yml")

@@ -195,7 +195,7 @@ bool IsDebugEnabled() {
       return false;
     }
     auto env_value = *std::move(maybe_env_value);
-    if (env_value.empty()) {
+    if (env_value.empty() || env_value == "none") {
       return false;
     }
     auto debug_state = DebugState::Instance();
@@ -212,7 +212,7 @@ bool IsDebugEnabled() {
       return true;
     }
     ARROW_LOG(WARNING) << "Invalid value for " << kDebugMemoryEnvVar << ": '" << env_value
-                       << "'. Valid values are 'abort', 'trap', 'warn'.";
+                       << "'. Valid values are 'abort', 'trap', 'warn', 'none'.";
     return false;
   }();
 

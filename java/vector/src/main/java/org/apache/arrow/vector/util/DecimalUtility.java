@@ -29,7 +29,8 @@ import org.apache.arrow.memory.util.MemoryUtil;
  * Utility methods for configurable precision Decimal values (e.g. {@link BigDecimal}).
  */
 public class DecimalUtility {
-  private DecimalUtility() {}
+  private DecimalUtility() {
+  }
 
   public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
