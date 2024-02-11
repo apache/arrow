@@ -16,14 +16,14 @@
 # under the License.
 
 function(generate_and_link_bitcode src_files bitcode_output_path)
-  set(local_precompiled_bc_files) 
+  set(local_precompiled_bc_files)
   foreach(SOURCE ${src_files})
-    gandiva_add_bitcode(${SOURCE}) 
+    gandiva_add_bitcode(${SOURCE})
     get_filename_component(SOURCE_BASE ${SOURCE} NAME_WE)
     list(APPEND local_precompiled_bc_files ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_BASE}.bc)
   endforeach()
 
-# link all of the bitcode files into a single bitcode file.
+  # link all of the bitcode files into a single bitcode file.
   add_custom_command(OUTPUT ${bitcode_output_path}
                      COMMAND ${LLVM_LINK_EXECUTABLE} -o ${bitcode_output_path}
                              ${local_precompiled_bc_files}
@@ -43,7 +43,8 @@ set(PRECOMPILED_SRCS
     ../../arrow/util/basic_decimal.cc)
 generate_and_link_bitcode("${PRECOMPILED_SRCS}" ${GANDIVA_PRECOMPILED_BC_PATH})
 
-set(MANDATORY_SRCS bitmap.cc)
+set(MANDATORY_SRCS
+    bitmap.cc)
 generate_and_link_bitcode("${MANDATORY_SRCS}" ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH})
 
 # turn the bitcode file into a C++ static data variable.
@@ -51,14 +52,14 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
                    COMMAND ${PYTHON_EXECUTABLE}
                            "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
                            ${GANDIVA_PRECOMPILED_CC_IN_PATH}
-                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
+                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH} ${GANDIVA_PRECOMPILED_CC_PATH}
                    DEPENDS ${GANDIVA_PRECOMPILED_CC_IN_PATH}
-                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
+                           ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH})
 
 add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
-                                          ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH} 
+                                          ${GANDIVA_PRECOMPILED_MANDATORY_BC_PATH}
                                           ${GANDIVA_PRECOMPILED_CC_PATH})
 
 # testing

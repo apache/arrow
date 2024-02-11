@@ -312,7 +312,8 @@ Status Engine::LoadFunctionIRs() {
     mandatory_functions_loaded_ = true;
   }
 
-  if (!functions_loaded_ && used_functions_.size() > used_c_functions_.size()) {
+  bool is_ir_function_used = used_functions_.size() > used_c_functions_.size();
+  if (!functions_loaded_ && is_ir_function_used) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
     ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
