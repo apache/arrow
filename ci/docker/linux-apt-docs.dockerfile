@@ -79,8 +79,14 @@ RUN apt-get purge -y npm && \
 COPY docs/requirements.txt /arrow/docs/
 RUN pip install -r arrow/docs/requirements.txt meson
 
+# TODO: Why is this failing?
+#
+#  > [10/16] RUN gem install --no-document bundler &&     bundle install --gemfile /arrow/c_glib/Gemfile:                                      
+# 24.94 ERROR:  Error installing bundler:                                                                                                      
+# 24.94   The last version of bundler (>= 0) to support your Ruby & RubyGems was 2.4.22. Try installing it with `gem install bundler -v 2.4.22`
+# 24.94   bundler requires Ruby version >= 3.0.0. The current ruby version is 2.7.0.0.
 COPY c_glib/Gemfile /arrow/c_glib/
-RUN gem install --no-document bundler && \
+RUN gem install --no-document bundler -v 2.4.22 && \
     bundle install --gemfile /arrow/c_glib/Gemfile
 
 # Ensure parallel R package installation, set CRAN repo mirror,
