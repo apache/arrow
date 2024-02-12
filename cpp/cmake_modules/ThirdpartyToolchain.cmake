@@ -4694,6 +4694,12 @@ macro(build_opentelemetry)
        -DWITH_OTLP_GRPC=OFF
        # Disabled because it seemed to cause linking errors. May be worth a closer look.
        -DWITH_FUNC_TESTS=OFF
+       # These options are slated for removal in v1.14 and their features are deemed stable
+       # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+       # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+       # client initialization. There may still be a solution, but we disable them for now.
+       -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
+       -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
@@ -4770,7 +4776,8 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::resources
                                                           opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::http_client_curl
-                        INTERFACE opentelemetry-cpp::ext CURL::libcurl)
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
+                                  CURL::libcurl)
   target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_link_libraries(opentelemetry-cpp::otlp_recordable
                         INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
