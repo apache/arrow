@@ -26,9 +26,16 @@
 #include "arrow/util/logging.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4522)
+#endif
+#include <google/protobuf/util/json_util.h>
+
 #include <opentelemetry/exporters/ostream/log_record_exporter.h>
 #include <opentelemetry/exporters/otlp/otlp_http_log_record_exporter.h>
 #include <opentelemetry/exporters/otlp/otlp_http_log_record_exporter_options.h>
+#include <opentelemetry/exporters/otlp/otlp_recordable_utils.h>
 #include <opentelemetry/logs/logger.h>
 #include <opentelemetry/logs/noop.h>
 #include <opentelemetry/logs/provider.h>
@@ -40,6 +47,13 @@
 #include <opentelemetry/sdk/resource/resource_detector.h>
 #include <opentelemetry/sdk/resource/semantic_conventions.h>
 #include <opentelemetry/trace/tracer.h>
+
+#include <opentelemetry/exporters/otlp/protobuf_include_prefix.h>
+#include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
+#include <opentelemetry/proto/collector/logs/v1/logs_service.pb.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #endif
 
 namespace arrow {
@@ -68,6 +82,49 @@ using otel_shared_ptr = otel::nostd::shared_ptr<T>;
 using otel_string_view = otel::nostd::string_view;
 
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
+
+class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExporter {
+ public:
+  explicit OtlpOStreamLogRecordExporter(std::ostream* sink) : sink_(sink) {
+    pb_json_options_.add_whitespace = false;
+  }
+
+  otel::sdk::common::ExportResult Export(
+      const otel::nostd::span<std::unique_ptr<otel::sdk::logs::Recordable>>&
+          records) noexcept override {
+    otel::proto::collector::logs::v1::ExportLogsServiceRequest request;
+    otel::exporter::otlp::OtlpRecordableUtils::PopulateRequest(records, &request);
+
+    for (const auto& logs : request.resource_logs()) {
+      std::string out;
+      auto status =
+          google::protobuf::util::MessageToJsonString(logs, &out, pb_json_options_);
+      if (ARROW_PREDICT_FALSE(!status.ok())) {
+        return otel::sdk::common::ExportResult::kFailure;
+      }
+      (*sink_) << out << std::endl;
+    }
+
+    return otel::sdk::common::ExportResult::kSuccess;
+  }
+
+  bool ForceFlush(std::chrono::microseconds timeout) noexcept override {
+    return exporter_.ForceFlush(timeout);
+  }
+
+  bool Shutdown(std::chrono::microseconds timeout) noexcept override {
+    return exporter_.Shutdown(timeout);
+  }
+
+  std::unique_ptr<otel::sdk::logs::Recordable> MakeRecordable() noexcept override {
+    return exporter_.MakeRecordable();
+  }
+
+ private:
+  std::ostream* sink_;
+  otel::exporter::otlp::OtlpHttpLogRecordExporter exporter_;
+  google::protobuf::util::JsonPrintOptions pb_json_options_;
+};
 
 otel::logs::Severity ToOtelSeverity(LogLevel level) {
   switch (level) {
@@ -106,7 +163,7 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
       return std::make_unique<otlp::OtlpHttpLogRecordExporter>(options);
     } break;
     case ExporterKind::OTLP_OSTREAM: {
-      // TODO: These require custom (subclassed) exporters
+      return std::make_unique<OtlpOStreamLogRecordExporter>(ostream);
     } break;
     default:
       break;
