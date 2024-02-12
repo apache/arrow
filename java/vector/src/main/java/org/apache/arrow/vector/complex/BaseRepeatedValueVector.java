@@ -68,8 +68,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
     super(allocator);
     this.name = name;
-    // According to Arrow spec, the offsets buffer contains length + 1 elements
-    allocateOffsetBuffer(OFFSET_WIDTH, true);
+    this.offsetBuffer = allocator.getEmpty();
     this.vector = Preconditions.checkNotNull(vector, "data vector cannot be null");
     this.repeatedCallBack = callBack;
     this.valueCount = 0;
@@ -84,7 +83,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public boolean allocateNewSafe() {
     boolean dataAlloc = false;
     try {
-      allocateOffsetBuffer(offsetAllocationSizeInBytes, false);
+      allocateOffsetBuffer(offsetAllocationSizeInBytes);
       dataAlloc = vector.allocateNewSafe();
     } catch (Exception e) {
       e.printStackTrace();
@@ -98,13 +97,11 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return dataAlloc;
   }
 
-  protected void allocateOffsetBuffer(final long size, boolean init) {
+  protected void allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
-    if (!init) {
-      offsetAllocationSizeInBytes = curSize;
-    }
+    offsetAllocationSizeInBytes = curSize;
     offsetBuffer.setZero(0, offsetBuffer.capacity());
   }
 
@@ -115,12 +112,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected void reallocOffsetBuffer() {
-    final long currentBufferCapacity;
-    if (offsetBuffer.capacity() <= OFFSET_WIDTH) {
-      currentBufferCapacity = 0;
-    } else {
-      currentBufferCapacity = offsetBuffer.capacity();
-    }
+    final long currentBufferCapacity = offsetBuffer.capacity();
     long newAllocationSize = currentBufferCapacity * 2;
     if (newAllocationSize == 0) {
       if (offsetAllocationSizeInBytes > 0) {

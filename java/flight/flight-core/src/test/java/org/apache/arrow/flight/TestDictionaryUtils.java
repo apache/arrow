@@ -87,8 +87,6 @@ public class TestDictionaryUtils {
 
       assertEquals(1, dictionaryUsed.size());
       assertEquals(0, dictionaryUsed.first());
-
-      dictVec.close();
     }
   }
 }

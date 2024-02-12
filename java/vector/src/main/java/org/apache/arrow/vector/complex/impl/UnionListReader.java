@@ -56,7 +56,7 @@ public class UnionListReader extends AbstractFieldReader {
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
-    if (vector.getOffsetBuffer().capacity() <= OFFSET_WIDTH) {
+    if (vector.getOffsetBuffer().capacity() == 0) {
       currentOffset = 0;
       maxOffset = 0;
     } else {

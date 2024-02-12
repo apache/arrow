@@ -74,8 +74,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     lastValueCapacity = INITIAL_VALUE_ALLOCATION - 1;
     valueCount = 0;
     lastSet = -1;
-    // According to Arrow spec, the offsets buffer contains length + 1 elements
-    allocateOffsetBuffer(OFFSET_WIDTH);
+    offsetBuffer = allocator.getEmpty();
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
   }
