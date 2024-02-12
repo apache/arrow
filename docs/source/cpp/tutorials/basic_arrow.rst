@@ -197,7 +197,7 @@ Making a ChunkedArray
 
 Let's say that we want an array made up of sub-arrays, because it
 can be useful for avoiding data copies when concatenating, for parallelizing work, for fitting each chunk
-cutely into cache, or for exceeding the 2,147,483,647 row limit in a
+into cache, or for exceeding the 2,147,483,647 row limit in a
 standard Arrow :class:`Array`. For this, Arrow offers :class:`ChunkedArray`, which can be
 made up of individual Arrow :class:`Arrays <Array>`. In this example, we can reuse the arrays
 we made earlier in part of our chunked array, allowing us to extend them without having to copy
