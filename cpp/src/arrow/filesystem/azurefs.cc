@@ -266,6 +266,20 @@ struct AzureLocation {
     return parent;
   }
 
+  /// \brief Create a copy of this location with the trailing slash removed from the
+  /// path.
+  ///
+  /// The original string that was parsed into this location -- all -- is preserved as is
+  /// to make error messages show what the user originally provided.
+  AzureLocation RemoveTrailingSlashFromPath() const {
+    AzureLocation result;
+    result.all = all;
+    result.container = container;
+    result.path = internal::RemoveTrailingSlash(path);
+    result.path_parts = path_parts;
+    return result;
+  }
+
   Result<AzureLocation> join(const std::string& stem) const {
     return FromString(internal::ConcatAbstractPath(all, stem));
   }
@@ -2348,8 +2362,8 @@ class AzureFileSystem::Impl {
       const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    const auto src_no_trailing_slash = src.RemoveTrailingSlash(/*preserve_root=*/true);
-    const auto dest_no_trailing_slash = dest.RemoveTrailingSlash(/*preserve_root=*/true);
+    const auto src_no_trailing_slash = src.RemoveTrailingSlashFromPath();
+    const auto dest_no_trailing_slash = dest.RemoveTrailingSlashFromPath();
 
     // Ensure that src exists and, if path has a trailing slash, that it's a directory.
     ARROW_ASSIGN_OR_RAISE(
