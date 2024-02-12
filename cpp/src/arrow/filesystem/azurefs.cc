@@ -1972,6 +1972,12 @@ class AzureFileSystem::Impl {
   /// \brief Create a BlobLeaseClient and acquire a lease on a blob/file (or
   /// directory if Hierarchical Namespace is supported).
   ///
+  /// NOTE: When working with HNS and DataLakeFileSystemClient, pass the location
+  /// should not contain a trailing slash. Use
+  /// AzureLocation::RemoveTrailingSlash() if necessary. This function will
+  /// not remove the trailing slash because it can be used to acquire locks on
+  /// empty directory marker blobs. That must have a trailing slash in the path.
+  ///
   /// \param allow_missing if true, a nullptr may be returned when the blob
   /// doesn't exist, otherwise a PathNotFound(location) error is produced right away
   /// \return A BlobLeaseClient is wrapped as a unique_ptr so it's moveable and
@@ -1980,8 +1986,7 @@ class AzureFileSystem::Impl {
       const AzureLocation& location, std::chrono::seconds lease_duration,
       bool allow_missing, bool retry_allowed = true) {
     DCHECK(!location.container.empty() && !location.path.empty());
-    auto path = std::string{internal::RemoveTrailingSlash(location.path)};
-    auto blob_client = GetBlobClient(location.container, std::move(path));
+    auto blob_client = GetBlobClient(location.container, location.path);
     auto lease_id = Blobs::BlobLeaseClient::CreateUniqueLeaseId();
     auto blob_url = blob_client.GetUrl();
     auto lease_client = std::make_unique<Blobs::BlobLeaseClient>(std::move(blob_client),
@@ -2343,12 +2348,13 @@ class AzureFileSystem::Impl {
       const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    const auto src_path = std::string{internal::RemoveTrailingSlash(src.path)};
-    const auto dest_path = std::string{internal::RemoveTrailingSlash(dest.path)};
+    const auto src_no_trailing_slash = src.RemoveTrailingSlash(/*preserve_root=*/true);
+    const auto dest_no_trailing_slash = dest.RemoveTrailingSlash(/*preserve_root=*/true);
 
     // Ensure that src exists and, if path has a trailing slash, that it's a directory.
-    ARROW_ASSIGN_OR_RAISE(auto src_lease_client,
-                          AcquireBlobLease(src, kLeaseDuration, /*allow_missing=*/false));
+    ARROW_ASSIGN_OR_RAISE(
+        auto src_lease_client,
+        AcquireBlobLease(src_no_trailing_slash, kLeaseDuration, /*allow_missing=*/false));
     LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
     // It might be necessary to check src is a directory 0-3 times in this function,
     // so we use a lazy evaluation function to avoid redundant calls to GetFileInfo().
@@ -2374,8 +2380,9 @@ class AzureFileSystem::Impl {
     // storage account, if the destination is an empty directory, the rename operation
     // will most likely fail due to a timeout. Providing both leases -- to source and
     // destination -- seems to have made things work.
-    ARROW_ASSIGN_OR_RAISE(auto dest_lease_client,
-                          AcquireBlobLease(dest, kLeaseDuration, /*allow_missing=*/true));
+    ARROW_ASSIGN_OR_RAISE(
+        auto dest_lease_client,
+        AcquireBlobLease(dest_no_trailing_slash, kLeaseDuration, /*allow_missing=*/true));
     std::optional<LeaseGuard> dest_lease_guard;
     if (dest_lease_client) {
       dest_lease_guard.emplace(std::move(dest_lease_client), kLeaseDuration);
@@ -2430,7 +2437,8 @@ class AzureFileSystem::Impl {
         options.AccessConditions.LeaseId = dest_lease_guard->LeaseId();
       }
       src_lease_guard.BreakBeforeDeletion(kTimeNeededForFileOrDirectoryRename);
-      src_adlfs_client.RenameFile(src_path, dest_path, options);
+      src_adlfs_client.RenameFile(src_no_trailing_slash.path, dest_no_trailing_slash.path,
+                                  options);
       src_lease_guard.Forget();
     } catch (const Storage::StorageException& exception) {
       // https://learn.microsoft.com/en-gb/rest/api/storageservices/datalakestoragegen2/path/create
