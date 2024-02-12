@@ -51,7 +51,7 @@ jobs:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
-          archery trigger-bot \
+          archery --debug trigger-bot \
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
 
