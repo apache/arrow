@@ -505,16 +505,24 @@ def test_metadata_hashing(tempdir):
     pq.write_metadata(schema1, path1)
     parquet_meta1 = pq.read_metadata(path1)
 
+    # Same as 1, just different path
     path2 = str(tempdir / "metadata2")
-    schema2 = pa.schema([("a", "int64"), ("b", "float32")])
+    schema2 = pa.schema([("a", "int64"), ("b", "float64")])
     pq.write_metadata(schema2, path2)
     parquet_meta2 = pq.read_metadata(path2)
 
-    # Deterministic
-    assert hash(parquet_meta1) == hash(parquet_meta1)
+    # different schema
+    path3 = str(tempdir / "metadata3")
+    schema3 = pa.schema([("a", "int64"), ("b", "float32")])
+    pq.write_metadata(schema3, path3)
+    parquet_meta3 = pq.read_metadata(path3)
 
-    # Not the same as other metadata
-    assert hash(parquet_meta1) != hash(parquet_meta2)
+    # Deterministic
+    assert hash(parquet_meta1) == hash(parquet_meta1)  # equal w/ same instance
+    assert hash(parquet_meta1) == hash(parquet_meta2)  # equal w/ different instance
+
+    # Not the same as other metadata with different schema
+    assert hash(parquet_meta1) != hash(parquet_meta3)
 
 
 @pytest.mark.filterwarnings("ignore:Parquet format:FutureWarning")
