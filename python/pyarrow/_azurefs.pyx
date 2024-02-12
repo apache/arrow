@@ -52,16 +52,16 @@ cdef class AzureFileSystem(FileSystem):
         Account key of the storage account. Pass None to use default credential. 
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
-        for connecting to a local emulator, like azurite.
+        for connecting to a local emulator, like Azurite.
     dfs_storage_authority : str, default None
         hostname[:port] of the Data Lake Gen 2 Service. Defaults to 
-        `.dfs.core.windows.net`. Useful for connecting to a local emulator, like azurite.
+        `.dfs.core.windows.net`. Useful for connecting to a local emulator, like Azurite.
     blob_storage_authority : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
-        emulator, like azurite.
+        emulator, like Azurite.
     dfs_storage_authority : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
-        emulator, like azurite.
+        emulator, like Azurite.
 
     Examples
     --------
