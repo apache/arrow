@@ -31,7 +31,8 @@ cdef class AzureFileSystem(FileSystem):
 
     This implementation supports flat namespace and hierarchical namespace (HNS) a.k.a.
     Data Lake Gen2 storage accounts. HNS will be automatically detected and HNS specific 
-    features will be used when they provide a performance advantage.
+    features will be used when they provide a performance advantage. Note: `/` is the 
+    only supported delimiter.
 
     The storage account is considered the root of the filesystem. When enabled containers 
     will be created or deleted during relevant directory operations. Obviously, this also 
