@@ -60,6 +60,17 @@ public interface FieldVector extends ValueVector {
    */
   List<ArrowBuf> getFieldBuffers();
 
+
+  /**
+   * Get the buffers for C Data Interface, (same size as getFieldVectors() since it is their content).
+   * By default, it returns the same as getFieldBuffers().
+   *
+   * @return the buffers containing the data for this vector (ready for exporting through C Data Interface)
+   */
+  default List<ArrowBuf> getCDataBuffers() {
+    return getFieldBuffers();
+  }
+
   /**
    * Get the inner vectors.
    *

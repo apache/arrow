@@ -243,6 +243,27 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   /**
+   * Get the buffers for exporting this vector through C Data Interface.
+   * @return the buffers ready for exporting.
+   */
+  @Override
+  public List<ArrowBuf> getCDataBuffers() {
+    List<ArrowBuf> result = new ArrayList<>(2);
+    setReaderAndWriterIndex();
+    result.add(validityBuffer);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      result.add(allocateOffsetBuffer(OFFSET_WIDTH));
+    } else {
+      result.add(offsetBuffer);
+    }
+
+    return result;
+  }
+
+  /**
    * Set the reader and writer indexes for the inner buffers.
    */
   private void setReaderAndWriterIndex() {
@@ -535,7 +556,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
-      to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
+      to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
       /* splitAndTransfer offset buffer */
       for (int i = 0; i < length + 1; i++) {
         final int relativeOffset = offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;

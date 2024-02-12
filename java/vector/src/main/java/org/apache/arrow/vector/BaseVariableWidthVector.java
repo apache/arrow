@@ -356,6 +356,37 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Get the buffers for exporting this vector through C Data Interface.
+   * @return the buffers ready for exporting.
+   */
+  @Override
+  public List<ArrowBuf> getCDataBuffers() {
+    // before flight/IPC, we must bring the vector to a consistent state.
+    // this is because, it is possible that the offset buffers of some trailing values
+    // are not updated. this may cause some data in the data buffer being lost.
+    // for details, please see TestValueVector#testUnloadVariableWidthVector.
+    fillHoles(valueCount);
+
+    List<ArrowBuf> result = new ArrayList<>(3);
+    setReaderAndWriterIndex();
+    result.add(validityBuffer);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      result.add(allocateOffsetBuffer(OFFSET_WIDTH));
+    } else {
+      result.add(offsetBuffer);
+    }
+
+    result.add(valueBuffer);
+
+    return result;
+  }
+
+
+
+  /**
    * Set the reader and writer indexes for the inner buffers.
    */
   private void setReaderAndWriterIndex() {
@@ -476,11 +507,12 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   /* allocate offset buffer */
-  private void allocateOffsetBuffer(final long size) {
+  private ArrowBuf allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
-    offsetBuffer = allocator.buffer(curSize);
+    ArrowBuf offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
     initOffsetBuffer();
+    return offsetBuffer;
   }
 
   /* allocate validity buffer */
@@ -805,7 +837,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
           (1 + length) * ((long) OFFSET_WIDTH));
       target.offsetBuffer = transferBuffer(slicedOffsetBuffer, target.allocator);
     } else {
-      target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
+      target.offsetBuffer = target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
       for (int i = 0; i < length + 1; i++) {
         final int relativeSourceOffset = getStartOffset(startIndex + i) - start;
         target.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeSourceOffset);

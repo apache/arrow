@@ -78,7 +78,7 @@ final class ArrayExporter {
 
   void export(ArrowArray array, FieldVector vector, DictionaryProvider dictionaryProvider) {
     List<FieldVector> children = vector.getChildrenFromFields();
-    List<ArrowBuf> buffers = vector.getFieldBuffers();
+    List<ArrowBuf> buffers = vector.getCDataBuffers();
     int valueCount = vector.getValueCount();
     int nullCount = vector.getNullCount();
     DictionaryEncoding dictionaryEncoding = vector.getField().getDictionary();
