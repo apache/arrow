@@ -71,7 +71,6 @@ Extension arrays
 .. doxygenclass:: arrow::ExtensionArray
    :members:
 
-
 Chunked Arrays
 ==============
 
@@ -79,6 +78,9 @@ Chunked Arrays
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::ChunkResolver
+   :project: arrow_cpp
+   :members:
 
 Utilities
 =========
