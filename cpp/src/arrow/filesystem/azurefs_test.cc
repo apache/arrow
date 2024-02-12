@@ -773,7 +773,7 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), dir1, FileType::NotFound);
     ASSERT_OK(fs()->CreateDir(dir1, /*recursive=*/false));
     AssertFileInfo(fs(), dir1, FileType::Directory);
-  };
+  }
 
   void TestCreateDirOnMissingContainer() {
     auto container1 = PreexistingData::RandomContainerName(rng_);
