@@ -24,7 +24,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::ChunkLocation;
 
 namespace compute {
 namespace internal {
@@ -754,10 +753,8 @@ class TableSorter {
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is either null or nan
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
+                 left_loc = left_resolver_.ResolveWithHint(left, left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, right_loc);
                  auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
                  auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
                  const auto left_is_null = chunk_left.IsNull();
@@ -793,10 +790,8 @@ class TableSorter {
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
+                 left_loc = left_resolver_.ResolveWithHint(left, left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, right_loc);
                  return comparator.Compare(left_loc, right_loc, 1);
                });
     // Copy back temp area into main buffer
@@ -821,10 +816,8 @@ class TableSorter {
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
+                 left_loc = left_resolver_.ResolveWithHint(left, left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, right_loc);
                  auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
                  auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
                  DCHECK(!chunk_left.IsNull());
@@ -862,7 +855,7 @@ class TableSorter {
   const RecordBatchVector batches_;
   const SortOptions& options_;
   const NullPlacement null_placement_;
-  const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
+  const ::arrow::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;

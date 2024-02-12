@@ -25,21 +25,22 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
-namespace arrow::internal {
+namespace arrow {
 
 struct ChunkLocation {
   /// \brief Index of the chunk in the array of chunks
   ///
   /// The value is always in the range `[0, chunks.size()]`. `chunks.size()` is used
   /// to represent out-of-bounds locations.
-  int64_t chunk_index;
+  int64_t chunk_index = 0;
 
   /// \brief Index of the value in the chunk
   ///
   /// The value is undefined if chunk_index >= chunks.size()
-  int64_t index_in_chunk;
+  int64_t index_in_chunk = 0;
 };
 
+/// \class ChunkResolver
 /// \brief An utility that incrementally resolves logical indices into
 /// physical indices in a chunked array.
 struct ARROW_EXPORT ChunkResolver {
@@ -75,8 +76,8 @@ struct ARROW_EXPORT ChunkResolver {
   /// The returned ChunkLocation contains the chunk index and the within-chunk index
   /// equivalent to the logical index.
   ///
-  /// \pre index >= 0
-  /// \post location.chunk_index in [0, chunks.size()]
+  /// \pre `index >= 0`
+  /// \post location.chunk_index in `[0, chunks.size()]`
   /// \param index The logical index to resolve
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
@@ -96,16 +97,15 @@ struct ARROW_EXPORT ChunkResolver {
   /// \pre index >= 0
   /// \post location.chunk_index in [0, chunks.size()]
   /// \param index The logical index to resolve
-  /// \param cached_chunk_index 0 or the chunk_index of the last ChunkLocation
+  /// \param hint The last ChunkLocation or a default-intitialized ChunkLocation
   /// returned by this ChunkResolver.
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
   ///         `>= chunked_array.length()`.
-  inline ChunkLocation ResolveWithChunkIndexHint(int64_t index,
-                                                 int64_t cached_chunk_index) const {
-    assert(cached_chunk_index < static_cast<int64_t>(offsets_.size()));
+  inline ChunkLocation ResolveWithHint(int64_t index, ChunkLocation hint) const {
+    assert(hint.chunk_index < static_cast<int64_t>(offsets_.size()));
     const auto chunk_index =
-        ResolveChunkIndex</*StoreCachedChunk=*/false>(index, cached_chunk_index);
+        ResolveChunkIndex</*StoreCachedChunk=*/false>(index, hint.chunk_index);
     return {chunk_index, index - offsets_[chunk_index]};
   }
 
@@ -165,4 +165,4 @@ struct ARROW_EXPORT ChunkResolver {
   }
 };
 
-}  // namespace arrow::internal
+}  // namespace arrow

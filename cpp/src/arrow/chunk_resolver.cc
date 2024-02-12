@@ -26,7 +26,6 @@
 #include "arrow/record_batch.h"
 
 namespace arrow {
-namespace internal {
 
 namespace {
 template <typename T>
@@ -65,5 +64,4 @@ ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
 ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
     : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {}
 
-}  // namespace internal
 }  // namespace arrow

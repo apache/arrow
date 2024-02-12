@@ -752,10 +752,10 @@ struct ResolvedTableSortKey {
         order(order),
         null_count(null_count) {}
 
-  using LocationType = ::arrow::internal::ChunkLocation;
+  using LocationType = ::arrow::ChunkLocation;
 
   template <typename ArrayType>
-  ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
+  ResolvedChunk<ArrayType> GetChunk(::arrow::ChunkLocation loc) const {
     return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]), loc.index_in_chunk};
   }
 
