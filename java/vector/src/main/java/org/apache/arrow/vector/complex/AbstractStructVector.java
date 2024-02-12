@@ -233,6 +233,11 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
 
   protected ValueVector add(String childName, FieldType fieldType) {
     FieldVector vector = fieldType.createNewSingleVector(childName, allocator, callBack);
+
+    if (conflictPolicy == ConflictPolicy.CONFLICT_REPLACE && vectors.containsKey(childName)) {
+      vectors.getAll(childName).forEach(c -> c.close());
+    }
+
     putChild(childName, vector);
     if (callBack != null) {
       callBack.doWork();

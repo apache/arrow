@@ -1153,6 +1153,8 @@ public class TestListVector {
       final ListVector toVector = (ListVector) transferPair.getTo();
       // Field inside a new vector created by reusing a field should be the same in memory as the original field.
       assertSame(toVector.getField(), fromVector.getField());
+
+      toVector.close();
     }
   }
 

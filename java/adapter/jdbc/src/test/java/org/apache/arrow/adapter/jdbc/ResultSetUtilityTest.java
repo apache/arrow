@@ -50,6 +50,7 @@ public class ResultSetUtilityTest {
         assertNotNull("VectorSchemaRoot from first next() result should never be null", root);
         assertEquals("VectorSchemaRoot from empty ResultSet should have zero rows", 0, root.getRowCount());
         assertFalse("hasNext() should return false on empty ResultSets after initial next() call", iter.hasNext());
+        root.close();
       }
     }
   }

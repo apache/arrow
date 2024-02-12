@@ -360,6 +360,8 @@ public class TestDenseUnionVector {
     VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
     assertEquals(1, varcharChild.ordinal);
     assertEquals(varcharChild.vector.getField(), children.get(1));
+
+    vector.close();
   }
 
   @Test

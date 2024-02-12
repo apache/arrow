@@ -1139,7 +1139,8 @@ public class TestValueVector {
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // `allocatedMem` contains initial 4 bytes for the offset buffer
+        assertEquals(allocatedMem - 4, allocator.getAllocatedMemory());
         // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
         // offset buffer is increased as well for the same reason. This amounts to a total of 2.
@@ -1173,7 +1174,8 @@ public class TestValueVector {
 
         // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // `allocatedMem` contains initial 4 bytes for the offset buffer
+        assertEquals(allocatedMem - 4, allocator.getAllocatedMemory());
         // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
         // offset buffer is increased as well for the same reason. This amounts to a total of 2.
@@ -1215,7 +1217,8 @@ public class TestValueVector {
       final long validitySize =
           DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
               BaseValueVector.getValidityBufferSizeFromCount(2));
-      assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
+      // `allocatedMem` contains initial 4 bytes for the offset buffer
+      assertEquals(allocatedMem + validitySize - 4, allocator.getAllocatedMemory());
       // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
       // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be reallocated and
       // therefore its refcnt is increased by 1.
@@ -3216,7 +3219,7 @@ public class TestValueVector {
       assertEquals(1, vector.getOffsetBuffer().refCnt());
       assertEquals(0, vector.getDataBuffer().capacity());
       assertEquals(0, vector.getValidityBuffer().capacity());
-      assertEquals(0, vector.getOffsetBuffer().capacity());
+      assertEquals(4, vector.getOffsetBuffer().capacity());
 
       vector.allocateNew(valueCount);
       assertEquals(1, vector.getDataBuffer().refCnt());
@@ -3239,7 +3242,7 @@ public class TestValueVector {
       assertEquals(1, vector.getValidityBuffer().refCnt());
       assertEquals(1, vector.getOffsetBuffer().refCnt());
       assertEquals(0, vector.getValidityBuffer().capacity());
-      assertEquals(0, vector.getOffsetBuffer().capacity());
+      assertEquals(4, vector.getOffsetBuffer().capacity());
 
       vector.setValueCount(valueCount);
       vector.allocateNewSafe();
