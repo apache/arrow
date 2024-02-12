@@ -79,51 +79,35 @@ System Configuration Instructions
 
 You will need some tools installed like curl, git, etcetera.
 
-Ubuntu 22.04
-------------
+Ubuntu
+------
 
 You might have to install some packages on your system. The following
-packages were required to perform a source verification on a clean
-Ubuntu 22.04 from an AWS instance:
+utility script can be used to set your Ubuntu system. This wil install
+the required packages to perform a source verification on a clean
+Ubuntu:
 
 .. code-block::
 
-   sudo apt update
-
-   # Install miscellanious required packages
-   sudo apt install \
-      build-essential \
-      clang \
-      cmake \
-      libgirepository1.0-dev \
-      libsqlite3-dev \
-      libssh-dev \
-      libyaml-dev \
-      llvm-dev \
-      maven \
-      ninja-build \
-      openjdk-11-jdk \
-      python3-dev \
-      python3.10-venv
-
-   # Install ruby
-   RUBY_VERSION=3.3.0
-   wget https://cache.ruby-lang.org/pub/ruby/$(echo $RUBY_VERSION | sed -e 's/\.[0-9]*$//')/ruby-$RUBY_VERSION.tar.gz
-   tar xvf ruby-$RUBY_VERSION.tar.gz
-   pushd ruby-$RUBY_VERSION
-   CC=gcc ./configure --prefix=$HOME/ruby
-   CC=gcc make -j8
-   make install
-   popd
-   rm -rf ruby-$RUBY_VERSION
-   rm -rf ruby-$RUBY_VERSION.tar.gz
-
-   sudo gem install --no-document bundler
+   # From the arrow clone
+   popd dev/release
+   sudo ./setup-ubuntu.sh
+   pushd
 
 macOS ARM
 ---------
 
-To be defined
+.. code-block::
+
+   # From the arrow clone
+   brew install gpg
+   brew bundle --file=cpp/Brewfile
+   brew bundle --file=c_glib/Brewfile
+   brew uninstall node
+   # You might need to add node and ruby to the PATH, follow instructions
+   # from brew after installing.
+   brew install node@20
+   brew install ruby
 
 Windows 11
 ----------
