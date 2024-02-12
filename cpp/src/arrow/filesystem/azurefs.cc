@@ -1992,7 +1992,7 @@ class AzureFileSystem::Impl {
   /// optional (nullptr denotes blob not found)
   Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireBlobLease(
       const AzureLocation& location, std::chrono::seconds lease_duration,
-      bool allow_missing = false, bool retry_allowed = true) {
+      bool allow_missing, bool retry_allowed = true) {
     DCHECK(!location.container.empty() && !location.path.empty());
     auto path = std::string{internal::RemoveTrailingSlash(location.path)};
     auto blob_client = GetBlobClient(location.container, std::move(path));
@@ -2236,7 +2236,8 @@ class AzureFileSystem::Impl {
     const auto dest_path = std::string{internal::RemoveTrailingSlash(dest.path)};
 
     // Ensure that src exists and, if path has a trailing slash, that it's a directory.
-    ARROW_ASSIGN_OR_RAISE(auto src_lease_client, AcquireBlobLease(src, kLeaseDuration));
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client,
+                          AcquireBlobLease(src, kLeaseDuration, /*allow_missing=*/false));
     LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
     // It might be necessary to check src is a directory 0-3 times in this function,
     // so we use a lazy evaluation function to avoid redundant calls to GetFileInfo().
