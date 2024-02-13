@@ -3573,3 +3573,74 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+
+@pytest.mark.parametrize(('list_array_type'),
+                         [pa.ListViewArray, pa.LargeListViewArray])
+def test_list_view_from_arrays(list_array_type):
+    # test in order offsets, similar to ListArray representation
+    values = [1, 2, 3, 4, 5, 6, None, 7]
+    offsets = [0, 2, 4, 6]
+    sizes = [2, 2, 2, 2]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.to_pylist() == [[1, 2], [3, 4], [5, 6], [None, 7]]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == sizes
+
+    # test out of order offsets with overlapping values
+    values = [1, 2, 3, 4]
+    offsets = [2, 1, 0]
+    sizes = [2, 2, 2]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.to_pylist() == [[3, 4], [2, 3], [1, 2]]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == sizes
+
+    # test null offsets and empty list values
+    values = []
+    offsets = [0, None]
+    sizes = [0, 0]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.to_pylist() == [[], None]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == [0, 0]
+    assert array.sizes.to_pylist() == sizes
+
+    # test null sizes and empty list values
+    values = []
+    offsets = [0, 0]
+    sizes = [None, 0]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.to_pylist() == [None, []]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == [0, 0]
+
+    # test null bitmask
+    values = [1, 2]
+    offsets = [0, 0, 1]
+    sizes = [1, 0, 1]
+    mask = pa.array([False, True, False])
+    array = list_array_type.from_arrays(offsets, sizes, values, mask=mask)
+
+    assert array.to_pylist() == [[1], None, [2]]
+    assert array.values.to_pylist() == values
+    assert array.offsets.to_pylist() == offsets
+    assert array.sizes.to_pylist() == sizes
+
+
+@pytest.mark.parametrize(('list_array_type'),
+                         [pa.ListViewArray, pa.LargeListViewArray])
+def test_list_view_flatten(list_array_type):
+    values = [1, 2, 3, 4]
+    offsets = [3, 2, 1, 0]
+    sizes = [1, 1, 1, 1]
+    array = list_array_type.from_arrays(offsets, sizes, values)
+
+    assert array.flatten().to_pylist() == [4, 3, 2, 1]
