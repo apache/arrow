@@ -302,6 +302,8 @@ def azurefs(request, azure_server):
 
     container = 'pyarrow-filesystem/'
 
+    # Use the standard azurite account_name and account_key.
+    # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
     fs = AzureFileSystem(account_name='devstoreaccount1',
                          account_key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuF'
                          'q2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
