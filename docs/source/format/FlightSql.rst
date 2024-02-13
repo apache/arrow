@@ -141,6 +141,9 @@ the ``type`` should be ``ClosePreparedStatement``).
     Execute a previously created prepared statement and get the results.
 
     When used with DoPut: binds parameter values to the prepared statement.
+    The server may optionally respond with an updated handle. The client
+    should use this updated handle for all subsequent requests for this
+    prepared statement.
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
