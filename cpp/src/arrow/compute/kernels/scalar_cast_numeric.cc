@@ -833,9 +833,14 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   auto cast_half_float =
       std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
   AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
+  DCHECK_OK(cast_half_float.get()->AddKernel(Type::FLOAT,
+      {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
   functions.push_back(cast_half_float);
 
-  functions.push_back(GetCastToFloating<FloatType>("cast_float"));
+  auto cast_float = GetCastToFloating<FloatType>("cast_float");
+  DCHECK_OK(cast_float.get()->AddKernel(Type::HALF_FLOAT,
+      {InputType(Type::HALF_FLOAT)}, float32(), CastFloatingToFloating));
+  functions.push_back(cast_float);
   functions.push_back(GetCastToFloating<DoubleType>("cast_double"));
 
   functions.push_back(GetCastToDecimal128());

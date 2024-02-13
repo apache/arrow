@@ -20,11 +20,13 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::PrimitiveScalarBase;
+using arrow::util::Float16;
 
 namespace compute {
 namespace internal {
@@ -46,6 +48,36 @@ struct CastPrimitive {
     }
   }
 };
+
+template<> struct CastPrimitive<HalfFloatType, FloatType, enable_if_t<true>> {
+    static void Exec(const ArraySpan& arr, ArraySpan* out) {
+        const float* in_values = arr.GetValues<float>(1);
+        uint16_t* out_values = out->GetValues<uint16_t>(1);
+        for (int64_t i = 0; i < arr.length; ++i) {
+            float val = *in_values;
+            uint16_t converted = Float16(val).bits();
+            std::memcpy(out_values, static_cast<void*>(&converted), sizeof(uint16_t));
+            out_values++;
+            in_values++;
+        }
+    }
+};
+
+template<> struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
+    static void Exec(const ArraySpan& arr, ArraySpan* out) {
+        const uint16_t* in_values = arr.GetValues<uint16_t>(1);
+        float* out_values = out->GetValues<float>(1);
+        for (int64_t i = 0; i < arr.length; ++i) {
+            Float16 val = Float16::FromBits(*in_values);
+            float converted = val.ToFloat();
+            std::memcpy(out_values, static_cast<void*>(&converted), sizeof(float));
+            out_values++;
+            in_values++;
+        }
+    }
+};
+
+
 
 template <typename OutType, typename InType>
 struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
@@ -79,6 +111,8 @@ void CastNumberImpl(Type::type out_type, const ArraySpan& input, ArraySpan* out)
       return CastPrimitive<FloatType, InType>::Exec(input, out);
     case Type::DOUBLE:
       return CastPrimitive<DoubleType, InType>::Exec(input, out);
+    case Type::HALF_FLOAT:
+      return CastPrimitive<HalfFloatType, InType>::Exec(input, out);
     default:
       break;
   }
@@ -109,6 +143,8 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
       return CastNumberImpl<FloatType>(out_type, input, out);
     case Type::DOUBLE:
       return CastNumberImpl<DoubleType>(out_type, input, out);
+    case Type::HALF_FLOAT:
+      return CastNumberImpl<HalfFloatType>(out_type, input, out);
     default:
       DCHECK(false);
       break;
