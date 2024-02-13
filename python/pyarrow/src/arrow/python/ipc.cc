@@ -16,9 +16,6 @@
 // under the License.
 
 #include "ipc.h"
-#include <arrow/array/util.h>
-#include <arrow/compute/cast.h>
-#include <arrow/result.h>
 
 #include <memory>
 

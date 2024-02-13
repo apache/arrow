@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <arrow/status.h>
 #include <memory>
 
 #include "arrow/python/common.h"
