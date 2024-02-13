@@ -60,15 +60,45 @@ public interface FieldVector extends ValueVector {
    */
   List<ArrowBuf> getFieldBuffers();
 
+  /**
+   * Export a given buffer and its memory address into a list of buffers and a pointer to the list of buffers.
+   *
+   * @param buffer the buffer to export
+   * @param buffers the list of buffers
+   * @param buffersPtr the pointer to the list of buffers
+   * @param nullValue the null value to use for null buffer
+   * @param retain whether to retain the buffer when exporting
+   */
+  default void exportBuffer(
+          ArrowBuf buffer,
+          List<ArrowBuf> buffers,
+          ArrowBuf buffersPtr,
+          long nullValue,
+          boolean retain) {
+    if (buffer != null) {
+      if (retain) {
+        buffer.getReferenceManager().retain();
+      }
+      buffersPtr.writeLong(buffer.memoryAddress());
+    } else {
+      buffersPtr.writeLong(nullValue);
+    }
+    buffers.add(buffer);
+  }
 
   /**
-   * Get the buffers for C Data Interface, (same size as getFieldVectors() since it is their content).
-   * By default, it returns the same as getFieldBuffers().
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
    *
-   * @return the buffers containing the data for this vector (ready for exporting through C Data Interface)
+   * By default, when exporting a buffer, it will increase ref count for exported buffer that counts
+   * the usage at imported side.
    */
-  default List<ArrowBuf> getCDataBuffers() {
-    return getFieldBuffers();
+  default void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    List<ArrowBuf> fieldBuffers = getFieldBuffers();
+
+    for (ArrowBuf arrowBuf : fieldBuffers) {
+      exportBuffer(arrowBuf, buffers, buffersPtr, nullValue, true);
+    }
   }
 
   /**

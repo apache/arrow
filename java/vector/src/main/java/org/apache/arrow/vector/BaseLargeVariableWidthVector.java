@@ -337,32 +337,28 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Get the buffers for exporting this vector through C Data Interface.
-   * @return the buffers ready for exporting.
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
    */
   @Override
-  public List<ArrowBuf> getCDataBuffers() {
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
     // before flight/IPC, we must bring the vector to a consistent state.
     // this is because, it is possible that the offset buffers of some trailing values
     // are not updated. this may cause some data in the data buffer being lost.
     // for details, please see TestValueVector#testUnloadVariableWidthVector.
     fillHoles(valueCount);
 
-    List<ArrowBuf> result = new ArrayList<>(3);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
 
     if (offsetBuffer.capacity() == 0) {
       // Empty offset buffer is allowed for historical reason.
       // To export it through C Data interface, we need to allocate a buffer with one offset.
-      result.add(allocateOffsetBuffer(OFFSET_WIDTH));
+      exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
     } else {
-      result.add(offsetBuffer);
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
     }
 
-    result.add(valueBuffer);
-
-    return result;
+    exportBuffer(valueBuffer, buffers, buffersPtr, nullValue, true);
   }
 
   /**

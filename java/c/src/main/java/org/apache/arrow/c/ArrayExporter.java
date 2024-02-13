@@ -78,7 +78,7 @@ final class ArrayExporter {
 
   void export(ArrowArray array, FieldVector vector, DictionaryProvider dictionaryProvider) {
     List<FieldVector> children = vector.getChildrenFromFields();
-    List<ArrowBuf> buffers = vector.getCDataBuffers();
+    List<ArrowBuf> buffers = vector.getFieldBuffers();
     int valueCount = vector.getValueCount();
     int nullCount = vector.getNullCount();
     DictionaryEncoding dictionaryEncoding = vector.getField().getDictionary();
@@ -98,15 +98,7 @@ final class ArrayExporter {
       if (buffers != null) {
         data.buffers = new ArrayList<>(buffers.size());
         data.buffers_ptrs = allocator.buffer((long) buffers.size() * Long.BYTES);
-        for (ArrowBuf arrowBuf : buffers) {
-          if (arrowBuf != null) {
-            arrowBuf.getReferenceManager().retain();
-            data.buffers_ptrs.writeLong(arrowBuf.memoryAddress());
-          } else {
-            data.buffers_ptrs.writeLong(NULL);
-          }
-          data.buffers.add(arrowBuf);
-        }
+        vector.exportCDataBuffers(data.buffers, data.buffers_ptrs, NULL);
       }
 
       if (dictionaryEncoding != null) {

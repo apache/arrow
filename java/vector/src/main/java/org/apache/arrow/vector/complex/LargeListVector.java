@@ -288,24 +288,20 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
-   * Get the buffers for exporting this vector through C Data Interface.
-   * @return the buffers ready for exporting.
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
    */
   @Override
-  public List<ArrowBuf> getCDataBuffers() {
-    List<ArrowBuf> result = new ArrayList<>(2);
-    setReaderAndWriterIndex();
-    result.add(validityBuffer);
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
 
     if (offsetBuffer.capacity() == 0) {
       // Empty offset buffer is allowed for historical reason.
       // To export it through C Data interface, we need to allocate a buffer with one offset.
-      result.add(allocateOffsetBuffer(OFFSET_WIDTH));
+      exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
     } else {
-      result.add(offsetBuffer);
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
     }
-
-    return result;
   }
 
   /**
