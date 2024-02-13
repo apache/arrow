@@ -636,7 +636,7 @@ def test_table_c_stream_interface():
     assert result == expected
 
     # Passing a different schema will cast
-    good_schema  = pa.schema([pa.field('a', pa.int32())])
+    good_schema = pa.schema([pa.field('a', pa.int32())])
     result = pa.table(wrapper, schema=good_schema)
     assert result == expected.cast(good_schema)
 
