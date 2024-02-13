@@ -861,7 +861,7 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), blob_path, FileType::NotFound);
   }
 
-  void TestDeleteDirSuccessHaveBlobWithTrailingSlash() {
+  void TestNonEmptyDirWithTrailingSlash() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
@@ -1567,8 +1567,8 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessHaveBlob) {
   this->TestDeleteDirSuccessHaveBlob();
 }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessHaveBlobWithTrailingSlash) {
-  this->TestDeleteDirSuccessHaveBlobWithTrailingSlash();
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, NonEmptyDirWithTrailingSlash) {
+  this->TestNonEmptyDirWithTrailingSlash();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessHaveDirectory) {
