@@ -45,10 +45,11 @@ Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
     return Status::OK();
   }
 
-  // If the input type is STRING, it is first encoded as a dictionary to facilitate
-  // processing. This approach allows the subsequent code to uniformly handle STRING
-  // inputs as if they were originally provided in dictionary format. Encoding as a
-  // dictionary helps in reusing the same logic for dictionary operations.
+  // If the input type is string or binary-like, it is first encoded as a dictionary to
+  // facilitate processing. This approach allows the subsequent code to uniformly handle
+  // string or binary-like inputs as if they were originally provided in dictionary
+  // format. Encoding as a dictionary helps in reusing the same logic for dictionary
+  // operations.
   if (is_base_binary_like(in_array->type->id())) {
     in_array = DictionaryEncode(in_array)->array();
   }
