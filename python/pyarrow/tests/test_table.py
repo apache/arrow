@@ -961,13 +961,11 @@ def check_tensors(tensor, expected_tensor, type, size):
     assert tensor.strides == expected_tensor.strides
 
 
-@pytest.mark.parametrize('typ',
-                         [
-                             np.uint8, np.uint16, np.uint32, np.uint64,
-                             np.int8, np.int16, np.int32, np.int64,
-                             np.float32, np.float64,
-                         ]
-                         )
+@pytest.mark.parametrize('typ', [
+    np.uint8, np.uint16, np.uint32, np.uint64,
+    np.int8, np.int16, np.int32, np.int64,
+    np.float32, np.float64,
+])
 def test_recordbatch_to_tensor(typ):
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
