@@ -1200,7 +1200,17 @@ services:
     # Only a single rule is enabled for now to check undocumented arguments.
     # We should extend the list of enabled rules after adding this build to
     # the CI pipeline.
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-docs.dockerfile
+      cache_from:
+            - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
+      args:
+            repo: ${REPO}
+            arch: ${ARCH}
+            python: ${PYTHON}
+            pandas: ${PANDAS}
     environment:
       <<: [*common, *ccache]
       ARROW_SUBSTRAIT: "ON"
