@@ -34,13 +34,13 @@ cdef class AzureFileSystem(FileSystem):
     features will be used when they provide a performance advantage. Note: `/` is the 
     only supported delimiter.
 
-    The storage account is considered the root of the filesystem. When enabled containers 
+    The storage account is considered the root of the filesystem. When enabled, containers 
     will be created or deleted during relevant directory operations. Obviously, this also 
     requires authentication with the additional permissions. 
 
-    By default [DefaultAzureCredential](https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential) 
+    By default `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__ 
     is used for authentication. This means it will try several types of authentication
-    and go with the first one that works. If any auth paramters are provided when 
+    and go with the first one that works. If any authentication parameters are provided when 
     initialising the FileSysem, they will be used instead of the default credential.
 
     Parameters
