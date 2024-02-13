@@ -58,10 +58,9 @@ class ARROW_PYTHON_EXPORT CastingRecordBatchReader : public RecordBatchReader {
       std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema);
 
  protected:
- CastingRecordBatchReader();
+  CastingRecordBatchReader();
 
-  Status Init(std::shared_ptr<RecordBatchReader> parent,
-                           std::shared_ptr<Schema> schema);
+  Status Init(std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema);
 
   std::shared_ptr<RecordBatchReader> parent_;
   std::shared_ptr<Schema> schema_;
