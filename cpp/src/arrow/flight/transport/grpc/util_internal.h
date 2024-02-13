@@ -40,6 +40,7 @@ namespace flight {
     if (ARROW_PREDICT_FALSE(!_s.ok())) {         \
       (call);                                    \
       return _s;                                 \
+    }                                            \
   } while (0)
 
 #define GRPC_CALL_THEN_RETURN_NOT_GRPC_OK(call, expr) \
