@@ -34,6 +34,23 @@ class Status;
 
 namespace flight {
 
+#define GRPC_CALL_THEN_RETURN_NOT_OK(call, expr)       \
+  do {                                                 \
+    ::arrow::Status _s = (expr);                       \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {               \
+      (call);                                          \
+      return _s;                                       \
+  } while (0)
+
+#define GRPC_CALL_THEN_RETURN_NOT_GRPC_OK(call, expr)  \
+  do {                                                 \
+    ::grpc::Status _s = (expr);                        \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {               \
+      (call);                                          \
+      return _s;                                       \
+    }                                                  \
+  } while (0)
+
 #define GRPC_RETURN_NOT_OK(expr)                                 \
   do {                                                           \
     ::arrow::Status _s = (expr);                                 \
