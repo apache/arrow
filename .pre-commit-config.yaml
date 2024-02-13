@@ -35,11 +35,6 @@ repos:
       - id: hadolint-docker
         name: Docker Format
         exclude: ^dev/.*$
-      - id: sphinx-lint
-        name: Sphinx Lint
-        entry: archery lint --docs
-        language: system
-        files: ^docs/
 
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
@@ -138,3 +133,9 @@ repos:
           ?^cpp/cmake_modules/UseCython\.cmake$|
           ?^cpp/src/arrow/util/config\.h\.cmake$|
           )
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v0.9.1
+    hooks:
+      - id: sphinx-lint
+        files: ^docs/
+        args: ['--disable', 'all', '--enable', 'trailing-whitespace,missing-final-newline', 'docs']
