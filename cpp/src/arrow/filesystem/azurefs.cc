@@ -1635,7 +1635,8 @@ class AzureFileSystem::Impl {
     return CreateDirTemplate(
         adlfs_client,
         [](const auto& adlfs_client, const auto& location) {
-          auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+          auto directory_client = adlfs_client.GetDirectoryClient(
+              std::string(internal::RemoveTrailingSlash(location.path)));
           directory_client.CreateIfNotExists();
         },
         location, recursive);
@@ -1860,7 +1861,8 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+    auto directory_client = adlfs_client.GetDirectoryClient(
+        std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
     options.AccessConditions.LeaseId = std::move(lease_id);
     try {
