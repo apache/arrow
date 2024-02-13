@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "arrow/compute/api.h"
 #include "arrow/python/pyarrow.h"
 
 namespace arrow {
@@ -60,6 +61,50 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
     std::shared_ptr<Schema> schema, PyObject* iterable) {
   auto reader = std::shared_ptr<PyRecordBatchReader>(new PyRecordBatchReader());
   RETURN_NOT_OK(reader->Init(std::move(schema), iterable));
+  return reader;
+}
+
+CastingRecordBatchReader::CastingRecordBatchReader() {}
+
+Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
+                                      std::shared_ptr<Schema> schema) {
+  std::shared_ptr<Schema> src = parent->schema();
+  if (src->num_fields() != schema->num_fields()) {
+    return Status::Invalid("Source has ", src->num_fields(), " but requested schema has ",
+                           schema->num_fields());
+  }
+
+  parent_ = std::move(parent);
+  schema_ = std::move(schema);
+
+  return Status::OK();
+}
+
+std::shared_ptr<Schema> CastingRecordBatchReader::schema() const { return schema_; }
+
+Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
+  std::shared_ptr<RecordBatch> out;
+  ARROW_RETURN_NOT_OK(parent_->ReadNext(&out));
+  if (!out) {
+    return Status::OK();
+  }
+
+  auto num_columns = out->num_columns();
+  ArrayVector columns(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    ARROW_ASSIGN_OR_RAISE(columns[i],
+                          compute::Cast(*out->column(i), schema_->field(i)->type()));
+  }
+
+  *batch = RecordBatch::Make(schema_, out->num_rows(), std::move(columns));
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatchReader>> CastingRecordBatchReader::Make(
+    std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema) {
+  auto reader =
+      std::shared_ptr<CastingRecordBatchReader>(new CastingRecordBatchReader());
+  ARROW_RETURN_NOT_OK(reader->Init(parent, schema));
   return reader;
 }
 

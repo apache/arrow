@@ -772,6 +772,28 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def cast(self, schema):
+        """
+        Wraps this reader with one that casts each batch lazily as it is pulled.
+
+        Parameters
+        ----------
+        schema : Schema
+            The desired output schema
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader out
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        c_reader = GetResultValue(CCastingRecordBatchReader.Make(
+            self.reader, c_schema))
+
+        out = RecordBatchReader.__new__(RecordBatchReader)
+        out.reader = c_reader
+        return out
+
     def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
@@ -840,11 +862,8 @@ cdef class RecordBatchReader(_Weakrefable):
 
         if requested_schema is not None:
             out_schema = Schema._import_from_c_capsule(requested_schema)
-            # TODO: figure out a way to check if one schema is castable to
-            # another. Once we have that, we can perform validation here and
-            # if successful creating a wrapping reader that casts each batch.
             if self.schema != out_schema:
-                raise NotImplementedError("Casting to requested_schema")
+                return self.cast(out_schema).__arrow_c_stream__()
 
         stream_capsule = alloc_c_stream(&c_stream)
 
