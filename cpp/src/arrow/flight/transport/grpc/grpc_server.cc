@@ -420,10 +420,12 @@ class GrpcServiceHandler final : public FlightService::Service {
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(
-        MakeCallContext(FlightMethod::Handshake, context, flight_context));
+    GRPC_CALL_THEN_RETURN_NOT_GRPC_OK(
+        addMiddlewareHeaders(context, flight_context),
+        MakeCallContext(FlightMethod::Handshake, context, flight_context, true));
 
     if (!auth_handler_) {
+      addMiddlewareHeaders(context, flight_context);
       RETURN_WITH_MIDDLEWARE(
           flight_context,
           ::grpc::Status(
@@ -432,8 +434,9 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
     GrpcServerAuthSender outgoing{stream};
     GrpcServerAuthReader incoming{stream};
-    RETURN_WITH_MIDDLEWARE(flight_context, auth_handler_->Authenticate(
-                                               flight_context, &outgoing, &incoming));
+    auto res = auth_handler_->Authenticate(flight_context, &outgoing, &incoming);
+    addMiddlewareHeaders(context, flight_context);
+    RETURN_WITH_MIDDLEWARE(flight_context, res);
   }
 
   ::grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
