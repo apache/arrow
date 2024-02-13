@@ -596,6 +596,7 @@ TEST_F(TestRecordBatch, ConcatenateRecordBatches) {
 TEST_F(TestRecordBatch, ToTensorUnsupported) {
   const int length = 9;
 
+  // Mixed data type
   auto f0 = field("f0", int32());
   auto f1 = field("f1", int64());
 
@@ -657,10 +658,11 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   ASSERT_OK_AND_ASSIGN(auto tensor, empty->ToTensor());
   ASSERT_OK(tensor->Validate());
 
-  // zero-size tensor
-  ASSERT_OK_AND_ASSIGN(auto empty_buffer, AllocateBuffer(0));
-  Tensor empty_tensor(int32(), std::move(empty_buffer), {0});
-  EXPECT_TRUE(empty_tensor.Equals(*tensor));
+  const std::vector<int64_t> strides = {0, 0};
+  const std::vector<int64_t> shape = {0, 2};
+
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_EQ(shape, tensor->shape());
 
   auto batch_no_columns =
       RecordBatch::Make(::arrow::schema({}), 10, std::vector<std::shared_ptr<Array>>{});
