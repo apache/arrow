@@ -16,6 +16,9 @@
 // under the License.
 
 #include "ipc.h"
+#include <arrow/array/util.h>
+#include <arrow/compute/cast.h>
+#include <arrow/result.h>
 
 #include <memory>
 
@@ -69,9 +72,20 @@ CastingRecordBatchReader::CastingRecordBatchReader() {}
 Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
                                       std::shared_ptr<Schema> schema) {
   std::shared_ptr<Schema> src = parent->schema();
-  if (src->num_fields() != schema->num_fields()) {
+
+  // Check for conformable number of columns
+  int num_fields = schema->num_fields();
+  if (src->num_fields() != num_fields) {
     return Status::Invalid("Source has ", src->num_fields(), " but requested schema has ",
-                           schema->num_fields());
+                           num_fields);
+  }
+
+  // Try to cast an empty version of all the columns before succceeding
+  compute::CastOptions options;
+  for (int i = 0; i < num_fields; i++) {
+    ARROW_ASSIGN_OR_RAISE(auto empty_array, MakeEmptyArray(src->field(i)->type()));
+    options.to_type = schema->field(i)->type();
+    ARROW_ASSIGN_OR_RAISE(auto emtpy_array_dst, compute::Cast(empty_array, options));
   }
 
   parent_ = std::move(parent);
@@ -102,8 +116,7 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
 
 Result<std::shared_ptr<RecordBatchReader>> CastingRecordBatchReader::Make(
     std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema) {
-  auto reader =
-      std::shared_ptr<CastingRecordBatchReader>(new CastingRecordBatchReader());
+  auto reader = std::shared_ptr<CastingRecordBatchReader>(new CastingRecordBatchReader());
   ARROW_RETURN_NOT_OK(reader->Init(parent, schema));
   return reader;
 }
