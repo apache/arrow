@@ -145,11 +145,16 @@ except ImportError:
     pass
 
 try:
+    from pyarrow.fs import AzureFileSystem  # noqa
+    defaults['azure'] = True
+except ImportError:
+    pass
+
+try:
     from pyarrow.fs import GcsFileSystem  # noqa
     defaults['gcs'] = True
 except ImportError:
     pass
-
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa
