@@ -562,14 +562,20 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                        ServerWriter<pb::FlightData>* writer) {
     GrpcServerCallContext flight_context(context);
-    GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoGet, context, flight_context));
+    GRPC_CALL_THEN_RETURN_NOT_GRPC_OK(
+        addMiddlewareHeaders(context, flight_context),
+        CheckAuth(FlightMethod::DoGet, context, flight_context, true));
 
-    CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
+    CHECK_ARG_NOT_NULL_WITH_CALL(flight_context, request, "ticket cannot be null",
+                                 addMiddlewareHeaders(context, flight_context));
 
     Ticket ticket;
-    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &ticket));
+    SERVICE_CALL_THEN_RETURN_NOT_OK(flight_context,
+                                    addMiddlewareHeaders(context, flight_context),
+                                    internal::FromProto(*request, &ticket));
 
-    GetDataStream stream(writer);
+    GetDataStream stream(writer,
+                         [&]() { addMiddlewareHeaders(context, flight_context); });
     RETURN_WITH_MIDDLEWARE(flight_context,
                            impl_->DoGet(flight_context, std::move(ticket), &stream));
   }
