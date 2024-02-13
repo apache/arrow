@@ -635,9 +635,16 @@ def test_table_c_stream_interface():
     result = pa.table(wrapper, schema=data[0].schema)
     assert result == expected
 
+    # Passing a different schema will cast
+    good_schema  = pa.schema([pa.field('a', pa.int32())])
+    result = pa.table(wrapper, schema=good_schema)
+    assert result == expected.cast(good_schema)
+
     # If schema doesn't match, raises NotImplementedError
-    with pytest.raises(NotImplementedError):
-        pa.table(wrapper, schema=pa.schema([pa.field('a', pa.int32())]))
+    with pytest.raises(pa.lib.ArrowNotImplementedError, match="Unsupported cast"):
+        pa.table(
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
+        )
 
 
 def test_recordbatch_itercolumns():
