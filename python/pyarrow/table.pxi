@@ -4994,13 +4994,7 @@ cdef class Table(_Tabular):
         -------
         PyCapsule
         """
-        cdef Table table = self
-        if requested_schema is not None:
-            out_schema = Schema._import_from_c_capsule(requested_schema)
-            if self.schema != out_schema:
-                table = self.cast(out_schema)
-
-        return table.to_reader().__arrow_c_stream__()
+        return self.to_reader().__arrow_c_stream__(requested_schema)
 
 
 def _reconstruct_table(arrays, schema):
