@@ -1345,17 +1345,16 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         cdef:
             ArrowArrayStream* c_stream = NULL
-            ChunkedArray chunked = self
 
         if requested_schema is not None:
             out_type = DataType._import_from_c_capsule(requested_schema)
             if self.type != out_type:
-                chunked = self.cast(out_type)
+                raise NotImplementedError("Casting to requested_schema")
 
         stream_capsule = alloc_c_stream(&c_stream)
 
         with nogil:
-            check_status(ExportChunkedArray(chunked.sp_chunked_array, c_stream))
+            check_status(ExportChunkedArray(self.sp_chunked_array, c_stream))
 
         return stream_capsule
 
