@@ -774,8 +774,7 @@ if(ARROW_ORC)
   list(APPEND ARROW_SHARED_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
   list(APPEND ARROW_STATIC_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc
-         ${ARROW_PROTOBUF_LIBPROTOBUF})
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   endif()
 endif()
 
@@ -824,9 +823,6 @@ if(ARROW_WITH_OPENTELEMETRY)
          opentelemetry-cpp::ostream_span_exporter
          opentelemetry-cpp::otlp_http_exporter)
   endif()
-  if(Protobuf_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
 endif()
 
@@ -859,6 +855,14 @@ endif()
 if(ARROW_USE_XSIMD)
   list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_XSIMD})
   list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_XSIMD})
+endif()
+
+# This should be done after if(ARROW_ORC) and if(ARROW_WITH_OPENTELEMETRY)
+# because they depend on Protobuf.
+if(ARROW_WITH_PROTOBUF)
+  if(Protobuf_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
 endif()
 
 add_custom_target(arrow_dependencies)

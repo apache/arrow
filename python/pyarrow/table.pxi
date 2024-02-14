@@ -1327,6 +1327,67 @@ cdef class ChunkedArray(_PandasConvertible):
             result += self.chunk(i).to_pylist()
         return result
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream = NULL
+
+        if requested_schema is not None:
+            out_type = DataType._import_from_c_capsule(requested_schema)
+            if self.type != out_type:
+                raise NotImplementedError("Casting to requested_schema")
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportChunkedArray(self.sp_chunked_array, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import ChunkedArray from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CChunkedArray] c_chunked_array
+            ChunkedArray self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_chunked_array = GetResultValue(ImportChunkedArray(c_stream))
+
+        self = ChunkedArray.__new__(ChunkedArray)
+        self.init(c_chunked_array)
+        return self
+
 
 def chunked_array(arrays, type=None):
     """

@@ -195,8 +195,6 @@ test_apt() {
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
-                "ubuntu:mantic" \
-                "arm64v8/ubuntu:mantic" \
                 "ubuntu:noble" \
                 "arm64v8/ubuntu:noble"; do \
     case "${target}" in

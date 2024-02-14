@@ -449,6 +449,13 @@ std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
+std::optional<int> ErrnoFromStatusDetail(const StatusDetail& detail) {
+  if (detail.type_id() == kErrnoDetailTypeId) {
+    return checked_cast<const ErrnoDetail&>(detail).errnum();
+  }
+  return std::nullopt;
+}
+
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
   if (!errnum) {

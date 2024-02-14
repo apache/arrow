@@ -665,6 +665,36 @@ func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
 	s.Equal(&mockedRenewedEndpoint, renewedEndpoint)
 }
 
+func (s *FlightSqlClientSuite) TestPreparedStatementLoadFromResult() {
+	const query = "query"
+
+	result := &pb.ActionCreatePreparedStatementResult{
+		PreparedStatementHandle: []byte(query),
+	}
+	
+	parameterSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "p_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.ParameterSchema = flight.SerializeSchema(parameterSchemaResult, memory.DefaultAllocator)
+	datasetSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "ds_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.DatasetSchema = flight.SerializeSchema(datasetSchemaResult, memory.DefaultAllocator)
+
+	prepared, err := s.sqlClient.LoadPreparedStatementFromResult(result)
+	s.NoError(err)
+
+	s.Equal(string(prepared.Handle()), "query")
+
+	paramSchema := prepared.ParameterSchema()
+	paramRec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"p_id": 1}]`))
+	s.NoError(err)
+	defer paramRec.Release()
+
+	datasetSchema := prepared.DatasetSchema()
+	datasetRec, _, err := array.RecordFromJSON(memory.DefaultAllocator, datasetSchema, strings.NewReader(`[{"ds_id": 1}]`))
+	s.NoError(err)
+	defer datasetRec.Release()
+
+	s.Equal(string(prepared.Handle()), "query")
+}
+
 func TestFlightSqlClient(t *testing.T) {
 	suite.Run(t, new(FlightSqlClientSuite))
 }
