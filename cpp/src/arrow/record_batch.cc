@@ -273,7 +273,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor() const {
         "Conversion to Tensor for RecordBatches without columns/schema is not "
         "supported.");
   } else {
-    const auto type = column(0)->type();
+    const auto& type = column(0)->type();
     // Check for supported data types
     if (!is_integer(type->id()) && !is_floating(type->id())) {
       return Status::TypeError("DataType is not supported: ", type->ToString());
@@ -300,7 +300,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor() const {
     }
 
     // Allocate memory
-    ARROW_ASSIGN_OR_RAISE(const std::shared_ptr<Buffer> result,
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
                           AllocateBuffer(type->bit_width() * num_columns() * num_rows()));
     // Copy data
     switch (type->id()) {
