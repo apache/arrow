@@ -276,7 +276,11 @@ def azure_server(tmpdir_factory):
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
-            'connection': ('127.0.0.1', port),
+            # Use the standard azurite account_name and account_key.
+            # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
+            'connection': ('127.0.0.1', port, 'devstoreaccount1',
+                           'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2'
+                           'UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='),
             'process': proc,
             'tempdir': tmpdir,
         }

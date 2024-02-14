@@ -296,17 +296,14 @@ def azurefs(request, azure_server):
     request.config.pyarrow.requires('azure')
     from pyarrow.fs import AzureFileSystem
 
-    host, port = azure_server['connection']
+    host, port, account_name, account_key = azure_server['connection']
     azureite_authority = f"{host}:{port}"
     azureite_scheme = "http"
 
     container = 'pyarrow-filesystem/'
 
-    # Use the standard azurite account_name and account_key.
-    # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
-    fs = AzureFileSystem(account_name='devstoreaccount1',
-                         account_key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuF'
-                         'q2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==',
+    fs = AzureFileSystem(account_name=account_name,
+                         account_key=account_key,
                          blob_storage_authority=azureite_authority,
                          dfs_storage_authority=azureite_authority,
                          blob_storage_scheme=azureite_scheme,
