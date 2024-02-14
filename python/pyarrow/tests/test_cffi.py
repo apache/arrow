@@ -637,3 +637,29 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
     requested_capsule = requested_type.__arrow_c_schema__()
     with pytest.raises(NotImplementedError):
         chunked.__arrow_c_stream__(requested_capsule)
+
+
+def test_roundtrip_chunked_array_capsule():
+    chunked = pa.chunked_array([pa.array(["a", "b", "c"])])
+
+    capsule = chunked.__arrow_c_stream__()
+    assert PyCapsule_IsValid(capsule, b"arrow_array_stream") == 1
+    imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
+    assert imported_chunked.type == chunked.type
+    assert imported_chunked == chunked
+
+
+def test_roundtrip_chunked_array_capsule_requested_schema():
+    chunked = pa.chunked_array([pa.array(["a", "b", "c"])])
+
+    # Requesting the same type should work
+    requested_capsule = chunked.type.__arrow_c_schema__()
+    capsule = chunked.__arrow_c_stream__(requested_capsule)
+    imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
+    assert imported_chunked == chunked
+
+    # Casting to something else should error
+    requested_type = pa.binary()
+    requested_capsule = requested_type.__arrow_c_schema__()
+    with pytest.raises(NotImplementedError):
+        chunked.__arrow_c_stream__(requested_capsule)
