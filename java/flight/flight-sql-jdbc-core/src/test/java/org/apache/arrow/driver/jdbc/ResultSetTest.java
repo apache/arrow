@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.utils.FallbackFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.PartitionedFlightSqlProducer;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightProducer;
@@ -59,6 +60,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -540,6 +542,68 @@ public class ResultSetTest {
           assertEquals(firstPartition.getRowCount(), resultData.size());
           assertTrue(resultData.contains(((IntVector) firstPartition.getVector(0)).get(0)));
         }
+      }
+    }
+  }
+
+  @Test
+  public void testFallbackFlightServer() throws Exception {
+    final Schema schema = new Schema(
+            Collections.singletonList(Field.nullable("int_column", Types.MinorType.INT.getType())));
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
+      resultData.setRowCount(1);
+      ((IntVector) resultData.getVector(0)).set(0, 1);
+
+      try (final FallbackFlightSqlProducer rootProducer = new FallbackFlightSqlProducer(resultData);
+           FlightServer rootServer = FlightServer.builder(
+                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                   .build()
+                   .start();
+           Connection newConnection = DriverManager.getConnection(String.format(
+                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+           Statement newStatement = newConnection.createStatement();
+           ResultSet result = newStatement.executeQuery("fallback")) {
+        List<Integer> actualData = new ArrayList<>();
+        while (result.next()) {
+          actualData.add(result.getInt(1));
+        }
+
+        // Assert
+        assertEquals(resultData.getRowCount(), actualData.size());
+        assertTrue(actualData.contains(((IntVector) resultData.getVector(0)).get(0)));
+      }
+    }
+  }
+
+  @Test
+  public void testFallbackSecondFlightServer() throws Exception {
+    final Schema schema = new Schema(
+            Collections.singletonList(Field.nullable("int_column", Types.MinorType.INT.getType())));
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
+      resultData.setRowCount(1);
+      ((IntVector) resultData.getVector(0)).set(0, 1);
+
+      try (final FallbackFlightSqlProducer rootProducer = new FallbackFlightSqlProducer(resultData);
+           FlightServer rootServer = FlightServer.builder(
+                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                   .build()
+                   .start();
+           Connection newConnection = DriverManager.getConnection(String.format(
+                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+           Statement newStatement = newConnection.createStatement();
+           ResultSet result = newStatement.executeQuery("fallback with error")) {
+        List<Integer> actualData = new ArrayList<>();
+        while (result.next()) {
+          actualData.add(result.getInt(1));
+        }
+
+        // Assert
+        assertEquals(resultData.getRowCount(), actualData.size());
+        assertTrue(actualData.contains(((IntVector) resultData.getVector(0)).get(0)));
       }
     }
   }

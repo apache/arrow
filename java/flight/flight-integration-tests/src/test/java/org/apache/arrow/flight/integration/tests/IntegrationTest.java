@@ -54,6 +54,11 @@ class IntegrationTest {
   }
 
   @Test
+  void locationReuseConnection() throws Exception {
+    testScenario("location:reuse_connection");
+  }
+
+  @Test
   void middleware() throws Exception {
     testScenario("middleware");
   }

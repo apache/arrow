@@ -70,6 +70,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeCancelFlightInfoScenarioTester{}
 	case "expiration_time:renew_flight_endpoint":
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
+	case "location:reuse_connection":
+		return &locationReuseConnectionScenarioTester{}
 	case "poll_flight_info":
 		return &pollFlightInfoScenarioTester{}
 	case "app_metadata_flight_info_endpoint":
@@ -1134,6 +1136,56 @@ func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr st
 				"Original: %s\nRenewed: %s",
 				ep, renewedEndpoint)
 		}
+	}
+
+	return nil
+}
+
+type locationReuseConnectionScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (m *locationReuseConnectionScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(arrow.NewSchema([]arrow.Field{}, nil), memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{{
+			Ticket:   &flight.Ticket{Ticket: []byte("reuse")},
+			Location: []*flight.Location{{Uri: flight.LocationReuseConnection}},
+		}},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+	}, nil
+}
+
+func (tester *locationReuseConnectionScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *locationReuseConnectionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("reuse")})
+	if err != nil {
+		return err
+	}
+
+	if len(info.Endpoint) != 1 {
+		return fmt.Errorf("expected 1 endpoint, got %d", len(info.Endpoint))
+	}
+	endpoint := info.Endpoint[0]
+	if len(endpoint.Location) != 1 {
+		return fmt.Errorf("expected 1 location, got %d", len(endpoint.Location))
+	} else if endpoint.Location[0].Uri != flight.LocationReuseConnection {
+		return fmt.Errorf("expected %s, got %s", flight.LocationReuseConnection, endpoint.Location[0].Uri)
 	}
 
 	return nil
