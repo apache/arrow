@@ -22,6 +22,16 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
+# Azurite requires npm
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update -y -q && \
+    apt-get install -y -q npm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
+
 # Unless overridden use Python 3.10
 # Google GCS fails building with Python 3.11 at the moment.
 ARG python=3.10
@@ -50,6 +60,7 @@ COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
