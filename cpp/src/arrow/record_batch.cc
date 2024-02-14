@@ -272,85 +272,83 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor() const {
     return Status::TypeError(
         "Conversion to Tensor for RecordBatches without columns/schema is not "
         "supported.");
-  } else {
-    const auto& type = column(0)->type();
-    // Check for supported data types
-    if (!is_integer(type->id()) && !is_floating(type->id())) {
-      return Status::TypeError("DataType is not supported: ", type->ToString());
-    }
-    // Check for uniform data type
-    // Check for no validity bitmap of each field
-    for (int i = 0; i < num_columns(); ++i) {
-      if (column(i)->null_count() > 0) {
-        return Status::TypeError("Can only convert a RecordBatch with no nulls.");
-      }
-      if (column(i)->type() != type) {
-        return Status::TypeError(
-            "Can only convert a RecordBatch with uniform data type.");
-      }
-    }
-
-    // Empty tensors
-    if (num_rows() == 0) {
-      // Construct empty Tensor object
-      ARROW_ASSIGN_OR_RAISE(auto empty_buffer, AllocateBuffer(0));
-      ARROW_ASSIGN_OR_RAISE(auto empty_tensor, Tensor::Make(type, std::move(empty_buffer),
-                                                            {0, num_columns()}, {0, 0}));
-      return empty_tensor;
-    }
-
-    // Allocate memory
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                          AllocateBuffer(type->bit_width() * num_columns() * num_rows()));
-    // Copy data
-    switch (type->id()) {
-      case Type::UINT8:
-        ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
-        break;
-      case Type::UINT16:
-      case Type::HALF_FLOAT:
-        ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
-        break;
-      case Type::UINT32:
-        ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data());
-        break;
-      case Type::UINT64:
-        ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data());
-        break;
-      case Type::INT8:
-        ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data());
-        break;
-      case Type::INT16:
-        ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data());
-        break;
-      case Type::INT32:
-        ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data());
-        break;
-      case Type::INT64:
-        ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
-        break;
-      case Type::FLOAT:
-        ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
-        break;
-      case Type::DOUBLE:
-        ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data());
-        break;
-      default:
-        return Status::TypeError("DataType is not supported: ", type->ToString());
-    }
-
-    // Construct Tensor object
-    const auto& fixed_width_type =
-        internal::checked_cast<const FixedWidthType&>(*column(0)->type());
-    std::vector<int64_t> shape = {num_rows(), num_columns()};
-    std::vector<int64_t> strides;
-    ARROW_RETURN_NOT_OK(
-        internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
-    ARROW_ASSIGN_OR_RAISE(auto tensor,
-                          Tensor::Make(type, std::move(result), shape, strides));
-
-    return tensor;
   }
+  const auto& type = column(0)->type();
+  // Check for supported data types
+  if (!is_integer(type->id()) && !is_floating(type->id())) {
+    return Status::TypeError("DataType is not supported: ", type->ToString());
+  }
+  // Check for uniform data type
+  // Check for no validity bitmap of each field
+  for (int i = 0; i < num_columns(); ++i) {
+    if (column(i)->null_count() > 0) {
+      return Status::TypeError("Can only convert a RecordBatch with no nulls.");
+    }
+    if (column(i)->type() != type) {
+      return Status::TypeError("Can only convert a RecordBatch with uniform data type.");
+    }
+  }
+
+  // Empty tensors
+  if (num_rows() == 0) {
+    // Construct empty Tensor object
+    ARROW_ASSIGN_OR_RAISE(auto empty_buffer, AllocateBuffer(0));
+    ARROW_ASSIGN_OR_RAISE(auto empty_tensor, Tensor::Make(type, std::move(empty_buffer),
+                                                          {0, num_columns()}, {0, 0}));
+    return empty_tensor;
+  }
+
+  // Allocate memory
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
+                        AllocateBuffer(type->bit_width() * num_columns() * num_rows()));
+  // Copy data
+  switch (type->id()) {
+    case Type::UINT8:
+      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT16:
+    case Type::HALF_FLOAT:
+      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT32:
+      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT64:
+      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data());
+      break;
+    case Type::INT8:
+      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data());
+      break;
+    case Type::INT16:
+      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data());
+      break;
+    case Type::INT32:
+      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data());
+      break;
+    case Type::INT64:
+      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
+      break;
+    case Type::FLOAT:
+      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
+      break;
+    case Type::DOUBLE:
+      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data());
+      break;
+    default:
+      return Status::TypeError("DataType is not supported: ", type->ToString());
+  }
+
+  // Construct Tensor object
+  const auto& fixed_width_type =
+      internal::checked_cast<const FixedWidthType&>(*column(0)->type());
+  std::vector<int64_t> shape = {num_rows(), num_columns()};
+  std::vector<int64_t> strides;
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
+  ARROW_ASSIGN_OR_RAISE(auto tensor,
+                        Tensor::Make(type, std::move(result), shape, strides));
+
+  return tensor;
 }
 
 const std::string& RecordBatch::column_name(int i) const {
