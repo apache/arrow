@@ -108,6 +108,8 @@ macOS ARM
    # from brew after installing.
    brew install node@20
    brew install ruby
+   # libffi required for gobject-introspection gem
+   brew install libffi
 
 Windows 11
 ----------
