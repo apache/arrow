@@ -2957,7 +2957,6 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
         ArrowDeviceArray*, ArrowSchema*)
 
 
-
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     CResult[int64_t] ReferencedBufferSize(const CArray& array_data)
     CResult[int64_t] ReferencedBufferSize(const CRecordBatch& record_batch)
