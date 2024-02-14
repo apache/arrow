@@ -267,7 +267,7 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
   }  // End loop through columns
 }
 
-Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor() const {
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
   if (num_columns() == 0) {
     return Status::TypeError(
         "Conversion to Tensor for RecordBatches without columns/schema is not "
@@ -299,8 +299,9 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor() const {
   }
 
   // Allocate memory
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> result,
-                        AllocateBuffer(type->bit_width() * num_columns() * num_rows()));
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> result,
+      AllocateBuffer(type->bit_width() * num_columns() * num_rows(), pool));
   // Copy data
   switch (type->id()) {
     case Type::UINT8:
