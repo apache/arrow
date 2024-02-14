@@ -56,10 +56,10 @@ cdef class AzureFileSystem(FileSystem):
     dfs_storage_authority : str, default None
         hostname[:port] of the Data Lake Gen 2 Service. Defaults to 
         `.dfs.core.windows.net`. Useful for connecting to a local emulator, like Azurite.
-    blob_storage_authority : str, default None
+    blob_storage_scheme : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
-    dfs_storage_authority : str, default None
+    dfs_storage_scheme : str, default None
         Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
         emulator, like Azurite.
 
