@@ -17,33 +17,26 @@
 
 #include "gandiva/cache.h"
 
-#include "arrow/result.h"
-#include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include <gtest/gtest.h>
 
 namespace gandiva {
+class TestCacheKey {
+ public:
+  explicit TestCacheKey(int value) : value_(value) {}
+  std::size_t Hash() const { return value_; }
+  bool operator==(const TestCacheKey& other) const { return value_ == other.value_; }
 
-static const size_t DEFAULT_CACHE_SIZE = 5000;
+ private:
+  int value_;
+};
 
-int GetCapacity() {
-  size_t capacity = DEFAULT_CACHE_SIZE;
-  auto maybe_env_cache_size = ::arrow::internal::GetEnvVar("GANDIVA_CACHE_SIZE");
-  if (maybe_env_cache_size.ok()) {
-    const auto env_cache_size = *std::move(maybe_env_cache_size);
-    if (!env_cache_size.empty()) {
-      capacity = std::atol(env_cache_size.c_str());
-      if (capacity <= 0) {
-        ARROW_LOG(WARNING) << "Invalid cache size provided in GANDIVA_CACHE_SIZE. "
-                           << "Using default cache size: " << DEFAULT_CACHE_SIZE;
-        capacity = DEFAULT_CACHE_SIZE;
-      }
-    }
-  }
-  return static_cast<int>(capacity);
+TEST(TestCache, TestGetPut) {
+  Cache<TestCacheKey, std::string> cache(2);
+  cache.PutObjectCode(TestCacheKey(1), "hello");
+  cache.PutObjectCode(TestCacheKey(2), "world");
+  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(1)), "hello");
+  ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), "world");
 }
 
-void LogCacheSize(size_t capacity) {
-  ARROW_LOG(INFO) << "Creating gandiva cache with capacity of " << capacity;
-}
-
+TEST(TestCache, TestGetCacheCapacity) { ASSERT_EQ(GetCapacity(), 5000); }
 }  // namespace gandiva
