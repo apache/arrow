@@ -1958,6 +1958,14 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
   return ImportRecordBatch(array, *maybe_schema);
 }
 
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id) {
+  if (device_type != ARROW_DEVICE_CPU) {
+    return Status::NotImplemented("Only importing data on CPU is supported");
+  }
+  return default_cpu_memory_manager();
+}
+
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  std::shared_ptr<DataType> type,
                                                  const DeviceMemoryMapper& mapper) {
@@ -1975,24 +1983,6 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
     return maybe_type.status();
   }
   return ImportDeviceArray(array, *maybe_type, mapper);
-}
-
-Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
-                                                           int64_t device_id) {
-  if (device_type != ARROW_DEVICE_CPU) {
-    return Status::NotImplemented("Only importing data on CPU is supported");
-  }
-  return default_cpu_memory_manager();
-}
-
-Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
-                                                 std::shared_ptr<DataType> type) {
-  return ImportDeviceArray(array, type, DefaultDeviceMapper);
-}
-
-Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
-                                                 struct ArrowSchema* type) {
-  return ImportDeviceArray(array, type, DefaultDeviceMapper);
 }
 
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
@@ -2013,16 +2003,6 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     return maybe_schema.status();
   }
   return ImportDeviceRecordBatch(array, *maybe_schema, mapper);
-}
-
-Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
-    struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema) {
-  return ImportDeviceRecordBatch(array, schema, DefaultDeviceMapper);
-}
-
-Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
-    struct ArrowDeviceArray* array, struct ArrowSchema* schema) {
-  return ImportDeviceRecordBatch(array, schema, DefaultDeviceMapper);
 }
 
 //////////////////////////////////////////////////////////////////////////
