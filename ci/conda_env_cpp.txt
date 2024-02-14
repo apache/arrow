@@ -39,6 +39,7 @@ libutf8proc
 lz4-c
 make
 ninja
+nodejs
 orc
 pkg-config
 python
