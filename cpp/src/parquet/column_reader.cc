@@ -71,7 +71,7 @@ namespace {
 // better vectorized performance when doing many smaller record reads
 constexpr int64_t kMinLevelBatchSize = 1024;
 // The max buffer size of validility bitmap for skipping buffered levels.
-constexpr int64_t kMaxSkipLevelBufferSize = 128;
+constexpr int64_t kMaxSkipLevelBufferSize = 64;
 
 // Batch size for reading and throwing away values during skip.
 // Both RecordReader and the ColumnReader use this for skipping.
@@ -1472,38 +1472,35 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     if (!this->has_values_to_process() || num_records == 0) return 0;
 
     int64_t remaining_records = levels_written_ - levels_position_;
-    int64_t skipped_records = std::min(num_records, remaining_records);
+    int64_t records_to_skip = std::min(num_records, remaining_records);
     int64_t start_levels_position = levels_position_;
     // Since there is no repetition, number of levels equals number of records.
-    levels_position_ += skipped_records;
+    levels_position_ += records_to_skip;
 
     // We skipped the levels by incrementing 'levels_position_'. For values
     // we do not have a buffer, so we need to read them and throw them away.
     // First we need to figure out how many present/not-null values there are.
-    int64_t buffer_size = bit_util::BytesForBits(skipped_records);
+    //
+    // We use a fixed-size buffer to calculate the number of values. The buffer is small
+    // enough such that it won't consume too much memory even for thousands of ¸columns.
+    // The buffer remains alive such that we don't have to recreate a buffer per skip.
     if (valid_bits_for_skip_ == nullptr) {
-      valid_bits_for_skip_ = AllocateBuffer(this->pool_);
+      valid_bits_for_skip_ = AllocateBuffer(this->pool_, kMaxSkipLevelBufferSize);
     }
-    if (buffer_size > valid_bits_for_skip_->size()) {
-      // Increase the bitmap size.
-      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(
-          std::max<int64_t>(buffer_size, kMaxSkipLevelBufferSize),
-          /*shrink_to_fit=*/false));
-    }
-    ValidityBitmapInputOutput validity_io;
-    validity_io.values_read_upper_bound = skipped_records;
-    validity_io.valid_bits = valid_bits_for_skip_->mutable_data();
-    validity_io.valid_bits_offset = 0;
-    DefLevelsToBitmap(def_levels() + start_levels_position, skipped_records,
-                      this->leaf_info_, &validity_io);
-    // If the bitmap is too large, free it to avoid consuming too much memory when there
-    // are numerous columns. Otherwise, keep the small bitmap to reduce allocations for
-    // future skips.
-    if (valid_bits_for_skip_->size() > kMaxSkipLevelBufferSize) {
-      PARQUET_THROW_NOT_OK(valid_bits_for_skip_->Resize(0, /*shrink_to_fit=*/true));
-    }
-  
-    int64_t values_to_read = validity_io.values_read - validity_io.null_count;
+    int64_t skipped_records = 0;
+    int64_t values_to_read = 0;
+    do {
+      int64_t batch_size =
+          std::min(records_to_skip - skipped_records, kMaxSkipLevelBufferSize * 8);
+      ValidityBitmapInputOutput validity_io;
+      validity_io.values_read_upper_bound = batch_size;
+      validity_io.valid_bits = valid_bits_for_skip_->mutable_data();
+      validity_io.valid_bits_offset = 0;
+      DefLevelsToBitmap(def_levels() + start_levels_position + skipped_records,
+                        batch_size, this->leaf_info_, &validity_io);
+      skipped_records += batch_size;
+      values_to_read += validity_io.values_read - validity_io.null_count;
+    } while (skipped_records < records_to_skip);
 
     // Now that we have figured out number of values to read, we do not need
     // these levels anymore. We will remove these values from the buffer.
