@@ -889,6 +889,117 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_RAISES(IOError, fs()->DeleteDirContents(directory_path, false));
   }
 
+  void TestDeleteFileAtRoot() {
+    ASSERT_RAISES(Invalid, fs()->DeleteFile("file0"));
+    ASSERT_RAISES(Invalid, fs()->DeleteFile("file1/"));
+    const auto container_name = PreexistingData::RandomContainerName(rng_);
+    if (WithHierarchicalNamespace()) {
+      ARROW_UNUSED(CreateFilesystem(container_name));
+    } else {
+      ARROW_UNUSED(CreateContainer(container_name));
+    }
+    arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
+    ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
+    ASSERT_RAISES(IOError, fs()->DeleteFile(container_name + "/"));
+  }
+
+  void TestDeleteFileAtContainerRoot() {
+    auto data = SetUpPreexistingData();
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Path does not exist '" + data.Path("nonexistent-file") +
+                             "'"),
+        fs()->DeleteFile(data.Path("nonexistent-file")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Not a regular file: '" + data.Path("nonexistent-file/") +
+                             "'"),
+        fs()->DeleteFile(data.Path("nonexistent-file/")));
+
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+    ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::NotFound);
+
+    if (WithHierarchicalNamespace()) {
+      auto adlfs_client =
+          datalake_service_client_->GetFileSystemClient(data.container_name);
+      CreateFile(adlfs_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    } else {
+      auto container_client = CreateContainer(data.container_name);
+      CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    }
+
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + data.ObjectPath() + "/'"),
+        fs()->DeleteFile(data.ObjectPath() + "/"));
+    ASSERT_RAISES(IOError, fs()->DeleteFile(data.ObjectPath() + "/"));
+  }
+
+  void TestDeleteFileAtSubdirectory(bool create_empty_dir_marker_first) {
+    auto data = SetUpPreexistingData();
+
+    auto setup_dir_file0 = [this, create_empty_dir_marker_first, &data]() {
+      if (WithHierarchicalNamespace()) {
+        ASSERT_FALSE(create_empty_dir_marker_first);
+        auto adlfs_client =
+            datalake_service_client_->GetFileSystemClient(data.container_name);
+        CreateFile(adlfs_client, "dir/file0", PreexistingData::kLoremIpsum);
+      } else {
+        auto container_client = CreateContainer(data.container_name);
+        if (create_empty_dir_marker_first) {
+          CreateBlob(container_client, "dir/", "");
+        }
+        CreateBlob(container_client, "dir/file0", PreexistingData::kLoremIpsum);
+      }
+    };
+    setup_dir_file0();
+
+    // Trying to delete a non-existing file in an existing directory should fail
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Path does not exist '" + data.Path("dir/nonexistent-file") +
+                             "'"),
+        fs()->DeleteFile(data.Path("dir/nonexistent-file")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Not a regular file: '" +
+                             data.Path("dir/nonexistent-file/") + "'"),
+        fs()->DeleteFile(data.Path("dir/nonexistent-file/")));
+
+    // Trying to delete the directory with DeleteFile should fail
+    if (WithHierarchicalNamespace()) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir") + "'"),
+          fs()->DeleteFile(data.Path("dir")));
+    } else {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          IOError, ::testing::HasSubstr("Path does not exist '" + data.Path("dir") + "'"),
+          fs()->DeleteFile(data.Path("dir")));
+    }
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/") + "'"),
+        fs()->DeleteFile(data.Path("dir/")));
+
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
+    ASSERT_OK(fs()->DeleteFile(data.Path("dir/file0")));
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::NotFound);
+
+    // Recreating the file on the same path gurantees leases were properly released/broken
+    setup_dir_file0();
+
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/file0/") + "'"),
+        fs()->DeleteFile(data.Path("dir/file0/")));
+  }
+
  private:
   using StringMatcher =
       ::testing::PolymorphicMatcher<::testing::internal::HasSubstrMatcher<std::string>>;
@@ -1528,6 +1639,21 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexisten
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtRoot) {
+  void TestDeleteFileAtRoot();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtContainerRoot) {
+  this->TestDeleteFileAtContainerRoot();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtSubdirectory) {
+  this->TestDeleteFileAtSubdirectory(/*create_empty_dir_marker_first=*/false);
+  if (!this->WithHierarchicalNamespace()) {
+    this->TestDeleteFileAtSubdirectory(/*create_empty_dir_marker_first=*/true);
+  }
+}
+
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, RenameContainer) {
   this->TestRenameContainer();
 }
@@ -1814,57 +1940,6 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessNonexistent) {
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  const auto file_name = ConcatAbstractPath(container_name, "filename");
-  if (WithHierarchicalNamespace()) {
-    auto adlfs_client = CreateFilesystem(container_name);
-    CreateFile(adlfs_client, "filename", "data");
-  } else {
-    auto container = CreateContainer(container_name);
-    CreateBlob(container, "filename", "data");
-  }
-  arrow::fs::AssertFileInfo(fs(), file_name, FileType::File);
-  ASSERT_OK(fs()->DeleteFile(file_name));
-  arrow::fs::AssertFileInfo(fs(), file_name, FileType::NotFound);
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  const auto nonexistent_file_name = ConcatAbstractPath(container_name, "nonexistent");
-  if (WithHierarchicalNamespace()) {
-    ARROW_UNUSED(CreateFilesystem(container_name));
-  } else {
-    ARROW_UNUSED(CreateContainer(container_name));
-  }
-  ASSERT_RAISES(IOError, fs()->DeleteFile(nonexistent_file_name));
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  if (WithHierarchicalNamespace()) {
-    ARROW_UNUSED(CreateFilesystem(container_name));
-  } else {
-    ARROW_UNUSED(CreateContainer(container_name));
-  }
-  arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
-  ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureDirectory) {
-  auto container_name = PreexistingData::RandomContainerName(rng_);
-  if (WithHierarchicalNamespace()) {
-    auto adlfs_client = CreateFilesystem(container_name);
-    CreateDirectory(adlfs_client, "directory");
-  } else {
-    auto container = CreateContainer(container_name);
-    CreateBlob(container, "directory/");
-  }
-  auto directory_path = ConcatAbstractPath(container_name, "directory");
-  arrow::fs::AssertFileInfo(fs(), directory_path, FileType::Directory);
-  ASSERT_RAISES(IOError, fs()->DeleteFile(directory_path));
 }
 
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
