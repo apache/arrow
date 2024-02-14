@@ -24,7 +24,6 @@ import time
 import urllib.request
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
 from ..conftest import groups, defaults
 
@@ -259,13 +258,13 @@ def gcs_server():
 
 @pytest.fixture(
     params=[
-        lazy_fixture('builtin_pickle'),
-        lazy_fixture('cloudpickle')
+        'builtin_pickle',
+        'cloudpickle'
     ],
     scope='session'
 )
 def pickle_module(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(scope='session')

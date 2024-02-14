@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=ubuntu:mantic
+ARG FROM=ubuntu:noble
 FROM ${FROM}
 
 RUN \
@@ -76,7 +76,7 @@ RUN \
     tzdata \
     valac \
     zlib1g-dev && \
-  if apt list | grep -q '^libcuda1'; then \
+  if apt list | grep -q '^libcuda'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   else \
     :; \

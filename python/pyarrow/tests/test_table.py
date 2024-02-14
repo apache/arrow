@@ -1089,6 +1089,9 @@ def test_table_to_batches():
     table_from_iter = pa.Table.from_batches(iter([batch1, batch2, batch1]))
     assert table.equals(table_from_iter)
 
+    with pytest.raises(ValueError):
+        table.to_batches(max_chunksize=0)
+
 
 def test_table_basics():
     data = [

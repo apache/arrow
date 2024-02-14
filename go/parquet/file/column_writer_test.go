@@ -24,6 +24,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
 	"github.com/apache/arrow/go/v16/arrow/bitutil"
 	"github.com/apache/arrow/go/v16/arrow/memory"
 	arrutils "github.com/apache/arrow/go/v16/internal/utils"
@@ -36,6 +38,7 @@ import (
 	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
 	"github.com/apache/arrow/go/v16/parquet/internal/utils"
 	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/pqarrow"
 	"github.com/apache/arrow/go/v16/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -426,6 +429,26 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackEncoding(version parque
 	}
 }
 
+func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(version parquet.Version) {
+	p.GenerateData(SmallSize)
+	props := parquet.DefaultColumnProperties()
+	props.DictionaryEnabled = true
+
+	if version == parquet.V1_0 {
+		props.Encoding = parquet.Encodings.PlainDict
+	} else {
+		props.Encoding = parquet.Encodings.RLEDict
+	}
+
+	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version))
+	p.WriteBatchValues(writer, nil, nil)
+	writer.FallbackToPlain()
+	p.NotEqual(0, writer.TotalCompressedBytes())
+	writer.Close()
+	p.NotEqual(0, writer.TotalCompressedBytes())
+	p.NotEqual(0, writer.TotalBytesWritten())
+}
+
 func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {
 	p.testRequiredWithEncoding(parquet.Encodings.Plain)
 }
@@ -575,6 +598,14 @@ func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackEncodingV2() {
 	p.testDictionaryFallbackEncoding(parquet.V2_LATEST)
 }
 
+func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackStatsV1() {
+	p.testDictionaryFallbackAndCompressedSize(parquet.V1_0)
+}
+
+func (p *PrimitiveWriterTestSuite) TestDictionaryFallbackStatsV2() {
+	p.testDictionaryFallbackAndCompressedSize(parquet.V2_LATEST)
+}
+
 func (p *PrimitiveWriterTestSuite) TestOptionalNullValueChunk() {
 	// test case for NULL values
 	p.SetupSchema(parquet.Repetitions.Optional, 1)
@@ -706,5 +737,40 @@ func (b *BooleanValueWriterSuite) TestAlternateBooleanValues() {
 	b.readColumn(compress.Codecs.Uncompressed)
 	for i := 0; i < SmallSize; i++ {
 		b.Equal(i%2 == 0, b.ValuesOut.([]bool)[i])
+	}
+}
+
+func TestDictionaryReslice(t *testing.T) {
+	pts := []arrow.DataType{
+		arrow.PrimitiveTypes.Int8,
+		arrow.PrimitiveTypes.Int16,
+		arrow.PrimitiveTypes.Int32,
+		arrow.PrimitiveTypes.Int64,
+		arrow.PrimitiveTypes.Uint8,
+		arrow.PrimitiveTypes.Uint16,
+		arrow.PrimitiveTypes.Uint32,
+		arrow.PrimitiveTypes.Uint64,
+	}
+	for _, pt := range pts {
+		t.Run(pt.String(), func(t *testing.T) {
+			mem := memory.NewGoAllocator()
+			dt := &arrow.DictionaryType{
+				IndexType: pt,
+				ValueType: &arrow.StringType{},
+			}
+			field := arrow.Field{Name: "test_field", Type: dt, Nullable: true}
+			schema := arrow.NewSchema([]arrow.Field{field}, nil)
+			b := array.NewRecordBuilder(mem, schema)
+			for i := 0; i < 2000; i++ {
+				b.Field(0).(*array.BinaryDictionaryBuilder).AppendString("test_value")
+			}
+			rec := b.NewRecord()
+			out := &bytes.Buffer{}
+			pqw, err := pqarrow.NewFileWriter(rec.Schema(), out, nil, pqarrow.NewArrowWriterProperties())
+			assert.NoError(t, err)
+			err = pqw.WriteBuffered(rec)
+			assert.NoError(t, err)
+
+		})
 	}
 }

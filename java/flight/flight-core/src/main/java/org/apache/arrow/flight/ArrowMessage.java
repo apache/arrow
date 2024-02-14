@@ -429,11 +429,26 @@ class ArrowMessage implements AutoCloseable {
       ByteBuf initialBuf = Unpooled.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb;
-      final int maxNumComponents = Math.max(2, bufs.size() + 1);
       final ImmutableList<ByteBuf> byteBufs = ImmutableList.<ByteBuf>builder()
           .add(initialBuf)
           .addAll(allBufs)
           .build();
+      // See: https://github.com/apache/arrow/issues/40039
+      // CompositeByteBuf requires us to pass maxNumComponents to constructor.
+      // This number will be used to decide when to stop adding new components as separate buffers
+      // and instead merge existing components into a new buffer by performing a memory copy.
+      // We want to avoind memory copies as much as possible so we want to set the limit that won't be reached.
+      // At a first glance it seems reasonable to set limit to byteBufs.size() + 1,
+      // because it will be enough to avoid merges of byteBufs that we pass to constructor.
+      // But later this buffer will be written to socket by Netty
+      // and DefaultHttp2ConnectionEncoder uses CoalescingBufferQueue to combine small buffers into one.
+      // Method CoalescingBufferQueue.compose will check if current buffer is already a CompositeByteBuf
+      // and if it's the case it will just add a new component to this buffer.
+      // But in out case if we set maxNumComponents=byteBufs.size() + 1 it will happen on the first attempt
+      // to write data to socket because header message is small and Netty will always try to compine it with the
+      // large CompositeByteBuf we're creating here.
+      // We never want additional memory copies so setting the limit to Integer.MAX_VALUE
+      final int maxNumComponents = Integer.MAX_VALUE;
       if (tryZeroCopyWrite) {
         bb = new ArrowBufRetainingCompositeByteBuf(maxNumComponents, byteBufs, bufs);
       } else {

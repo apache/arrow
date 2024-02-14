@@ -450,6 +450,31 @@ func (c *Client) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts 
 	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
+func (c *Client) LoadPreparedStatementFromResult(result *CreatePreparedStatementResult) (*PreparedStatement, error) {
+	var (
+		err                   error
+		dsSchema, paramSchema *arrow.Schema
+	)
+	if result.DatasetSchema != nil {
+		dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, c.Alloc)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if result.ParameterSchema != nil {
+		paramSchema, err = flight.DeserializeSchema(result.ParameterSchema, c.Alloc)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &PreparedStatement{
+		client:        c,
+		handle:        result.PreparedStatementHandle,
+		datasetSchema: dsSchema,
+		paramSchema:   paramSchema,
+	}, nil
+}
+
 func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.FlightService_DoActionClient) (*PreparedStatement, error) {
 	if err := results.CloseSend(); err != nil {
 		return nil, err
@@ -1025,6 +1050,46 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 	}
 
 	return p.client.getFlightInfo(ctx, desc, opts...)
+}
+
+// ExecutePut calls DoPut for the prepared statement on the server. If SetParameters
+// has been called then the parameter bindings will be sent before execution.
+//
+// Will error if already closed.
+func (p *PreparedStatement) ExecutePut(ctx context.Context, opts ...grpc.CallOption) error {
+	if p.closed {
+		return errors.New("arrow/flightsql: prepared statement already closed")
+	}
+
+	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	if p.hasBindParameters() {
+		pstream, err := p.client.Client.DoPut(ctx, opts...)
+		if err != nil {
+			return err
+		}
+
+		wr, err := p.writeBindParameters(pstream, desc)
+		if err != nil {
+			return err
+		}
+		if err = wr.Close(); err != nil {
+			return err
+		}
+		pstream.CloseSend()
+
+		// wait for the server to ack the result
+		if _, err = pstream.Recv(); err != nil && err != io.EOF {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExecutePoll executes the prepared statement on the server and returns a PollInfo

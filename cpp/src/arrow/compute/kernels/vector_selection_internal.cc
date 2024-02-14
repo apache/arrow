@@ -77,7 +77,8 @@ Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit
   if (bit_width == 1) {
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
   } else {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(length * bit_width / 8));
+    ARROW_ASSIGN_OR_RAISE(out->buffers[1],
+                          ctx->Allocate(bit_util::BytesForBits(length * bit_width)));
   }
   return Status::OK();
 }
@@ -899,10 +900,6 @@ Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
 }  // namespace
 
-Status FSBFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return FilterExec<FSBSelectionImpl>(ctx, batch, out);
-}
-
 Status ListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return FilterExec<ListSelectionImpl<ListType>>(ctx, batch, out);
 }
@@ -946,7 +943,20 @@ Status LargeVarBinaryTakeExec(KernelContext* ctx, const ExecSpan& batch,
 }
 
 Status FSBTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<FSBSelectionImpl>(ctx, batch, out);
+  const ArraySpan& values = batch[0].array;
+  const auto byte_width = values.type->byte_width();
+  // Use primitive Take implementation (presumably faster) for some byte widths
+  switch (byte_width) {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+    case 32:
+      return PrimitiveTakeExec(ctx, batch, out);
+    default:
+      return TakeExec<FSBSelectionImpl>(ctx, batch, out);
+  }
 }
 
 Status ListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {

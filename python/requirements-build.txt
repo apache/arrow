@@ -1,4 +1,5 @@
 cython>=0.29.31
-oldest-supported-numpy>=0.14
+oldest-supported-numpy>=0.14; python_version<'3.9'
+numpy>=1.25; python_version>='3.9'
 setuptools_scm<8.0.0
 setuptools>=38.6.0
