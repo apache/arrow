@@ -104,10 +104,12 @@ macOS ARM
    brew bundle --file=cpp/Brewfile
    brew bundle --file=c_glib/Brewfile
    brew uninstall node
-   # You might need to add node and ruby to the PATH, follow instructions
-   # from brew after installing.
+   # You might need to add node, ruby java and maven to the PATH, follow
+   # instructions from brew after installing.
    brew install node@20
    brew install ruby
+   brew install openjdk
+   brew install maven
    # libffi required for gobject-introspection gem
    brew install libffi
 
