@@ -748,7 +748,7 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
 
 /// \brief The server used for testing Session Options.
 ///
-/// setSessionOptions has a blacklisted option name and string option value,
+/// SetSessionOptions has a blacklisted option name and string option value,
 /// both "lol_invalid", which will result in errors attempting to set either.
 class SessionOptionsServer : public sql::FlightSqlServerBase {
   static inline const std::string invalid_option_name = "lol_invalid";
@@ -768,8 +768,8 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
       const SetSessionOptionsRequest& request) override {
     SetSessionOptionsResult res;
 
-    sql::ServerSessionMiddleware* middleware =
-        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session,
                           middleware->GetSession());
 
@@ -813,8 +813,8 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
   arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context, const CloseSessionRequest& request) override {
     // Broken (does not expire cookie) until C++ middleware SendingHeaders handling fixed.
-    sql::ServerSessionMiddleware* middleware =
-        (sql::ServerSessionMiddleware*)context.GetMiddleware(session_middleware_key);
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
     ARROW_RETURN_NOT_OK(middleware->CloseSession());
     return CloseSessionResult{CloseSessionStatus::kClosed};
   }
