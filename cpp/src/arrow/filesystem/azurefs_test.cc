@@ -908,14 +908,14 @@ class TestAzureFileSystem : public ::testing::Test {
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
-        ::testing::HasSubstr("Path does not exist '" + data.Path("nonexistent-file") +
+        ::testing::HasSubstr("Path does not exist '" + data.Path("nonexistent-path") +
                              "'"),
-        fs()->DeleteFile(data.Path("nonexistent-file")));
+        fs()->DeleteFile(data.Path("nonexistent-path")));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
-        ::testing::HasSubstr("Not a regular file: '" + data.Path("nonexistent-file/") +
+        ::testing::HasSubstr("Not a regular file: '" + data.Path("nonexistent-path/") +
                              "'"),
-        fs()->DeleteFile(data.Path("nonexistent-file/")));
+        fs()->DeleteFile(data.Path("nonexistent-path/")));
 
     arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
     ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
@@ -959,14 +959,14 @@ class TestAzureFileSystem : public ::testing::Test {
     // Trying to delete a non-existing file in an existing directory should fail
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
-        ::testing::HasSubstr("Path does not exist '" + data.Path("dir/nonexistent-file") +
+        ::testing::HasSubstr("Path does not exist '" + data.Path("dir/nonexistent-path") +
                              "'"),
-        fs()->DeleteFile(data.Path("dir/nonexistent-file")));
+        fs()->DeleteFile(data.Path("dir/nonexistent-path")));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
         ::testing::HasSubstr("Not a regular file: '" +
-                             data.Path("dir/nonexistent-file/") + "'"),
-        fs()->DeleteFile(data.Path("dir/nonexistent-file/")));
+                             data.Path("dir/nonexistent-path/") + "'"),
+        fs()->DeleteFile(data.Path("dir/nonexistent-path/")));
 
     // Trying to delete the directory with DeleteFile should fail
     if (WithHierarchicalNamespace()) {
@@ -993,11 +993,11 @@ class TestAzureFileSystem : public ::testing::Test {
     // Recreating the file on the same path gurantees leases were properly released/broken
     setup_dir_file0();
 
-    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
         ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/file0/") + "'"),
         fs()->DeleteFile(data.Path("dir/file0/")));
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
   }
 
  private:
