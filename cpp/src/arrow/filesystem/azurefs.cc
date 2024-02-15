@@ -2297,6 +2297,11 @@ class AzureFileSystem::Impl {
       }
     }
 
+    // Now that src and dest are validated, make sure they are on the same filesystem.
+    if (src.container != dest.container) {
+      return CrossContainerMoveNotImplemented(src, dest);
+    }
+
     try {
       // NOTE: The Azure SDK provides a RenameDirectory() function, but the
       // implementation is the same as RenameFile() with the only difference being
