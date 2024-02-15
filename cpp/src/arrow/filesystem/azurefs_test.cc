@@ -1234,29 +1234,31 @@ class TestAzureFileSystem : public ::testing::Test {
   void TestMovePath() {
     Status st;
     auto data = SetUpPreexistingData();
+    auto another_container = PreexistingData::RandomContainerName(rng_);
+    CreateContainer(another_container);
     // When source doesn't exist.
     ASSERT_MOVE("missing-container/src-path", data.ContainerPath("dest-path"), ENOENT);
     auto missing_path1 = data.RandomDirectoryPath(rng_);
     ASSERT_MOVE(missing_path1, "missing-container/path", ENOENT);
 
     // But when source exists...
+    // ...and containers are different, we get an error message telling cross-container
+    // moves are not implemented.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(data.ObjectPath(),
+                                               "missing-container/path"),
+        fs()->Move(data.ObjectPath(), "missing-container/path"));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(
+            data.ObjectPath(), ConcatAbstractPath(another_container, "path")),
+        fs()->Move(data.ObjectPath(), ConcatAbstractPath(another_container, "path")));
+    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
     if (!WithHierarchicalNamespace()) {
-      // ...and containers are different, we get an error message telling cross-container
-      // moves are not implemented.
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          NotImplemented,
-          HasCrossContainerNotImplementedMessage(data.ObjectPath(),
-                                                 "missing-container/path"),
-          fs()->Move(data.ObjectPath(), "missing-container/path"));
       GTEST_SKIP() << "The rest of TestMovePath is not implemented for non-HNS scenarios";
     }
-    auto adlfs_client =
-        datalake_service_client_->GetFileSystemClient(data.container_name);
-    // ...and dest.container doesn't exist.
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, HasMissingParentDirMessage("missing-container/path"),
-        fs()->Move(data.ObjectPath(), "missing-container/path"));
-    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError, HasMissingParentDirMessage(data.Path("missing-subdir/file")),
@@ -1271,6 +1273,8 @@ class TestAzureFileSystem : public ::testing::Test {
     // "file0" exists
 
     // src is a file and dest exists (as a file)
+    auto adlfs_client =
+        datalake_service_client_->GetFileSystemClient(data.container_name);
     CreateFile(adlfs_client, PreexistingData::kObjectName, PreexistingData::kLoremIpsum);
     CreateFile(adlfs_client, "file1", PreexistingData::kLoremIpsum);
     ASSERT_MOVE_OK(data.ObjectPath(), data.Path("file0"));
