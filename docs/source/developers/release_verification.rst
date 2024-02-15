@@ -90,9 +90,7 @@ Ubuntu:
 .. code-block::
 
    # From the arrow clone
-   popd dev/release
-   sudo ./setup-ubuntu.sh
-   pushd
+   sudo dev/release/setup-ubuntu.sh
 
 macOS ARM
 ---------
