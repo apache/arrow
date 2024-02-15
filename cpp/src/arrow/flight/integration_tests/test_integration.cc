@@ -812,7 +812,7 @@ class SessionOptionsServer : public sql::FlightSqlServerBase {
 
   arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context, const CloseSessionRequest& request) override {
-    // Broken (does not expire cookie) until C++ middleware SendingHeaders handling fixed.
+    // Broken (does not expire cookie) until C++ middleware handling (GH-39791) fixed:
     auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
         context.GetMiddleware(session_middleware_key));
     ARROW_RETURN_NOT_OK(middleware->CloseSession());
