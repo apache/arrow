@@ -505,7 +505,7 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
 
 // Slow processing of input keys in the most generic case.
 // Handles inserting new keys.
-// Pre-existing keys will be handled correctly, although the intended use is for this
+// Preexisting keys will be handled correctly, although the intended use is for this
 // call to follow a call to find() method, which would only pass on new keys that were
 // not present in the hash table.
 //
@@ -617,7 +617,7 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
   ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << log_minibatch_));
   ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << log_minibatch_));
 
-  // Allocate temporary buffers for slot ids and intialize them
+  // Allocate temporary buffers for slot ids and initialize them
   auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack, max_id + 1);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
   init_slot_ids_for_new_keys(num_ids, ids, hashes, slot_ids);

@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -40,7 +40,15 @@ type DeltaByteArrayEncoder struct {
 }
 
 func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
-	return enc.prefixEncoder.EstimatedDataEncodedSize() + enc.suffixEncoder.EstimatedDataEncodedSize()
+	prefixEstimatedSize := int64(0)
+	if enc.prefixEncoder != nil {
+		prefixEstimatedSize = enc.prefixEncoder.EstimatedDataEncodedSize()
+	}
+	suffixEstimatedSize := int64(0)
+	if enc.suffixEncoder != nil {
+		suffixEstimatedSize = enc.suffixEncoder.EstimatedDataEncodedSize()
+	}
+	return prefixEstimatedSize + suffixEstimatedSize
 }
 
 func (enc *DeltaByteArrayEncoder) initEncoders() {
@@ -172,7 +180,7 @@ func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 
 // Decode decodes byte arrays into the slice provided and returns the number of values actually decoded
 func (d *DeltaByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := utils.Min(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}

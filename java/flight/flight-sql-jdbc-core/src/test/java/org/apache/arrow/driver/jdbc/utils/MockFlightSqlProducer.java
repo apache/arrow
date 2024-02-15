@@ -159,7 +159,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
    * @param updatedRows the number of rows affected.
    */
   public void addUpdateQuery(final String sqlCommand, final long updatedRows) {
-    addUpdateQuery(sqlCommand, ((flightStream, putResultStreamListener) -> {
+    addUpdateQuery(sqlCommand, (flightStream, putResultStreamListener) -> {
       final DoPutUpdateResult result =
           DoPutUpdateResult.newBuilder().setRecordCount(updatedRows).build();
       try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -171,7 +171,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       } finally {
         putResultStreamListener.onCompleted();
       }
-    }));
+    });
   }
 
   /**

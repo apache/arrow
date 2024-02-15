@@ -38,7 +38,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 import { DataProps } from './data.js';
 import { clampRange } from './util/vector.js';
@@ -73,6 +72,8 @@ export class Table<T extends TypeMap = any> {
     constructor(...batches: readonly RecordBatch<T>[]);
     constructor(...columns: { [P in keyof T]: Vector<T[P]> }[]);
     constructor(...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
+    constructor(schema: Schema<T>, ...columns: { [P in keyof T]: Vector<T[P]> }[]);
+    constructor(schema: Schema<T>, ...columns: { [P in keyof T]: Data<T[P]> | DataProps<T[P]> }[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[]);
     constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[], offsets?: Uint32Array);
     constructor(...args: any[]) {
@@ -112,8 +113,8 @@ export class Table<T extends TypeMap = any> {
                 } else if (typeof x === 'object') {
                     const keys = Object.keys(x) as (keyof T)[];
                     const vecs = keys.map((k) => new Vector([x[k]]));
-                    const schema = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
-                    const [, batches] = distributeVectorsIntoRecordBatches(schema, vecs);
+                    const batchSchema = schema ?? new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type, vecs[i].nullable)));
+                    const [, batches] = distributeVectorsIntoRecordBatches(batchSchema, vecs);
                     return batches.length === 0 ? [new RecordBatch(x)] : batches;
                 }
             }
@@ -212,13 +213,6 @@ export class Table<T extends TypeMap = any> {
      */
     // @ts-ignore
     public indexOf(element: Struct<T>['TValue'], offset?: number): number { return -1; }
-
-    /**
-     * Get the size in bytes of an element by index.
-     * @param index The index at which to get the byteLength.
-     */
-    // @ts-ignore
-    public getByteLength(index: number): number { return 0; }
 
     /**
      * Iterator for rows in this Table.
@@ -388,7 +382,6 @@ export class Table<T extends TypeMap = any> {
         (proto as any)['get'] = wrapChunkedCall1(getVisitor.getVisitFn(Type.Struct));
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
-        (proto as any)['getByteLength'] = wrapChunkedCall1(byteLengthVisitor.getVisitFn(Type.Struct));
         return 'Table';
     })(Table.prototype);
 }

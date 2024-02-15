@@ -468,6 +468,7 @@ Timezone Handling
    :toctree: ../generated/
 
    assume_timezone
+   local_timestamp
 
 Associative Transforms
 ----------------------
@@ -589,4 +590,4 @@ User-Defined Functions
    :toctree: ../generated/
 
    register_scalar_function
-   ScalarUdfContext
+   UdfContext

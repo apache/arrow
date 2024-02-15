@@ -16,7 +16,7 @@
 // under the License.
 
 #include <arrow/api.h>
-#include <arrow/compute/api_aggregate.h>
+#include <arrow/compute/api.h>
 #include <arrow/csv/api.h>
 #include <arrow/csv/writer.h>
 #include <arrow/io/api.h>

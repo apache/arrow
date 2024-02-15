@@ -36,52 +36,8 @@
 namespace arrow {
 namespace compute {
 
-/// \defgroup compute-functions Abstract compute function API
-///
+/// \addtogroup compute-functions
 /// @{
-
-/// \brief Extension point for defining options outside libarrow (but
-/// still within this project).
-class ARROW_EXPORT FunctionOptionsType {
- public:
-  virtual ~FunctionOptionsType() = default;
-
-  virtual const char* type_name() const = 0;
-  virtual std::string Stringify(const FunctionOptions&) const = 0;
-  virtual bool Compare(const FunctionOptions&, const FunctionOptions&) const = 0;
-  virtual Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const;
-  virtual Result<std::unique_ptr<FunctionOptions>> Deserialize(
-      const Buffer& buffer) const;
-  virtual std::unique_ptr<FunctionOptions> Copy(const FunctionOptions&) const = 0;
-};
-
-/// \brief Base class for specifying options configuring a function's behavior,
-/// such as error handling.
-class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOptions> {
- public:
-  virtual ~FunctionOptions() = default;
-
-  const FunctionOptionsType* options_type() const { return options_type_; }
-  const char* type_name() const { return options_type()->type_name(); }
-
-  bool Equals(const FunctionOptions& other) const;
-  std::string ToString() const;
-  std::unique_ptr<FunctionOptions> Copy() const;
-  /// \brief Serialize an options struct to a buffer.
-  Result<std::shared_ptr<Buffer>> Serialize() const;
-  /// \brief Deserialize an options struct from a buffer.
-  /// Note: this will only look for `type_name` in the default FunctionRegistry;
-  /// to use a custom FunctionRegistry, look up the FunctionOptionsType, then
-  /// call FunctionOptionsType::Deserialize().
-  static Result<std::unique_ptr<FunctionOptions>> Deserialize(
-      const std::string& type_name, const Buffer& buffer);
-
- protected:
-  explicit FunctionOptions(const FunctionOptionsType* type) : options_type_(type) {}
-  const FunctionOptionsType* options_type_;
-};
-
-ARROW_EXPORT void PrintTo(const FunctionOptions&, std::ostream*);
 
 /// \brief Contains the number of required arguments for the function.
 ///

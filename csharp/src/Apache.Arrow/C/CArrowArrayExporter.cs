@@ -15,10 +15,12 @@
 
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
 {
@@ -121,7 +123,16 @@ namespace Apache.Arrow.C
             cArray->buffers = null;
             if (cArray->n_buffers > 0)
             {
-                cArray->buffers = (byte**)sharedOwner.Allocate(array.Buffers.Length * IntPtr.Size);
+                long* lengths = null;
+                int bufferCount = array.Buffers.Length;
+                if (array.DataType.TypeId == ArrowTypeId.BinaryView || array.DataType.TypeId == ArrowTypeId.StringView)
+                {
+                    lengths = (long*)sharedOwner.Allocate(8 * bufferCount); // overallocation to avoid edge case
+                    bufferCount++;
+                    cArray->n_buffers++;
+                }
+
+                cArray->buffers = (byte**)sharedOwner.Allocate(bufferCount * IntPtr.Size);
                 for (int i = 0; i < array.Buffers.Length; i++)
                 {
                     ArrowBuffer buffer = array.Buffers[i];
@@ -131,6 +142,15 @@ namespace Apache.Arrow.C
                         throw new NotSupportedException($"An ArrowArray of type {array.DataType.TypeId} could not be exported: failed on buffer #{i}");
                     }
                     cArray->buffers[i] = (byte*)ptr;
+                    if (lengths != null && i >= 2)
+                    {
+                        lengths[i - 2] = array.Buffers[i].Length;
+                    }
+                }
+
+                if (lengths != null)
+                {
+                    cArray->buffers[array.Buffers.Length] = (byte*)lengths;
                 }
             }
 

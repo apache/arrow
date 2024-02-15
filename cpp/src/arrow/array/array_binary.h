@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Array accessor classes for Binary, LargeBinart, String, LargeString,
+// Array accessor classes for Binary, LargeBinary, String, LargeString,
 // FixedSizeBinary
 
 #pragma once

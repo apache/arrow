@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
@@ -57,6 +58,8 @@ namespace dataset {
 using parquet::arrow::SchemaField;
 using parquet::arrow::SchemaManifest;
 using parquet::arrow::StatisticsAsScalars;
+
+using compute::Cast;
 
 namespace {
 
@@ -158,7 +161,8 @@ bool IsNan(const Scalar& value) {
 }
 
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
-    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+    const FieldRef& field_ref, const SchemaField& schema_field,
+    const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
   // avoid an optimization which breaks the computation. Second, allow the
@@ -177,7 +181,8 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     return std::nullopt;
   }
 
-  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, field_ref,
+                                                             *statistics);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -357,8 +362,9 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }  // namespace
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
-    const Field& field, const parquet::Statistics& statistics) {
-  auto field_expr = compute::field_ref(field.name());
+    const Field& field, const FieldRef& field_ref,
+    const parquet::Statistics& statistics) {
+  auto field_expr = compute::field_ref(field_ref);
 
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0 && statistics.null_count() > 0) {
@@ -370,12 +376,12 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return std::nullopt;
   }
 
-  auto maybe_min = min->CastTo(field.type());
-  auto maybe_max = max->CastTo(field.type());
+  auto maybe_min = Cast(min, field.type());
+  auto maybe_max = Cast(max, field.type());
 
   if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
+    min = maybe_min.MoveValueUnsafe().scalar();
+    max = maybe_max.MoveValueUnsafe().scalar();
 
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
@@ -413,6 +419,13 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return in_range;
   }
   return std::nullopt;
+}
+
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
+    const Field& field, const parquet::Statistics& statistics) {
+  const auto field_name = field.name();
+  return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
+                                        statistics);
 }
 
 ParquetFileFormat::ParquetFileFormat()
@@ -800,14 +813,20 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::shared_ptr<parquet::FileMetaData> original_metadata) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  original_metadata_ = original_metadata ? std::move(original_metadata) : metadata_;
+  // The SchemaDescriptor needs to be owned by a FileMetaData instance,
+  // because SchemaManifest only stores a raw pointer (GH-39562).
+  DCHECK_EQ(manifest_->descr, original_metadata_->schema())
+      << "SchemaDescriptor should be owned by the original FileMetaData";
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
-  statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
+  statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
 
   for (int row_group : *row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
@@ -833,7 +852,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_,
+                                        /*original_metadata=*/original_metadata_));
     fragments[i++] = std::move(fragment);
   }
 
@@ -897,16 +917,25 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*physical_schema_));
 
     if (match.empty()) continue;
-    if (statistics_expressions_complete_[match[0]]) continue;
-    statistics_expressions_complete_[match[0]] = true;
+    const SchemaField* schema_field = &manifest_->schema_fields[match[0]];
 
-    const SchemaField& schema_field = manifest_->schema_fields[match[0]];
+    for (size_t i = 1; i < match.indices().size(); ++i) {
+      if (schema_field->field->type()->id() != Type::STRUCT) {
+        return Status::Invalid("nested paths only supported for structs");
+      }
+      schema_field = &schema_field->children[match[i]];
+    }
+
+    if (!schema_field->is_leaf()) continue;
+    if (statistics_expressions_complete_[schema_field->column_index]) continue;
+    statistics_expressions_complete_[schema_field->column_index] = true;
+
     int i = 0;
     for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
 
-      if (auto minmax =
-              ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
+      if (auto minmax = ColumnChunkStatisticsAsExpression(ref, *schema_field,
+                                                          *row_group_metadata)) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
         ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
                               statistics_expressions_[i].Bind(*physical_schema_));
@@ -1084,7 +1113,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
                               physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_,
+                                        /*original_metadata=*/metadata_));
     fragments[i++] = std::move(fragment);
   }
 

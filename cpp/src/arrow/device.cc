@@ -20,8 +20,10 @@
 #include <cstring>
 #include <utility>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 
@@ -193,6 +195,13 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
   if (!from->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address(), buf->size(), shared_from_this(), buf);
+  }
   return buf;
 }
 
@@ -218,6 +227,13 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
   if (!to->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address(), buf->size(), to, buf);
+  }
   return buf;
 }
 
@@ -241,7 +257,11 @@ bool CPUDevice::Equals(const Device& other) const {
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
-  return CPUMemoryManager::Make(Instance(), pool);
+  if (pool == default_memory_pool()) {
+    return default_cpu_memory_manager();
+  } else {
+    return CPUMemoryManager::Make(Instance(), pool);
+  }
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {

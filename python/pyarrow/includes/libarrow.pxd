@@ -126,10 +126,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
         _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_BINARY_VIEW" arrow::Type::BINARY_VIEW"
+        _Type_STRING_VIEW" arrow::Type::STRING_VIEW"
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_FIXED_SIZE_LIST" arrow::Type::FIXED_SIZE_LIST"
+        _Type_LIST_VIEW" arrow::Type::LIST_VIEW"
+        _Type_LARGE_LIST_VIEW" arrow::Type::LARGE_LIST_VIEW"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_SPARSE_UNION" arrow::Type::SPARSE_UNION"
         _Type_DENSE_UNION" arrow::Type::DENSE_UNION"
@@ -364,6 +368,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
 
+    cdef cppclass CListViewType" arrow::ListViewType"(CDataType):
+        CListViewType(const shared_ptr[CDataType]& value_type)
+        CListViewType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
+    cdef cppclass CLargeListViewType" arrow::LargeListViewType"(CDataType):
+        CLargeListViewType(const shared_ptr[CDataType]& value_type)
+        CLargeListViewType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
     cdef cppclass CMapType" arrow::MapType"(CDataType):
         CMapType(const shared_ptr[CField]& key_field,
                  const shared_ptr[CField]& item_field, c_bool keys_sorted)
@@ -482,6 +498,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef shared_ptr[CDataType] CMakeRunEndEncodedType" arrow::run_end_encoded"(
         shared_ptr[CDataType] run_end_type,
         shared_ptr[CDataType] value_type)
+
+    cdef shared_ptr[CDataType] CMakeListViewType" arrow::list_view"(
+        shared_ptr[CField] value_type)
+
+    cdef shared_ptr[CDataType] CMakeLargeListViewType" arrow::large_list_view"(
+        shared_ptr[CField] value_type)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -673,20 +695,96 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
+            const shared_ptr[CArray]& values,
+            int32_t list_size,
+            shared_ptr[CBuffer] null_bitmap)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            const shared_ptr[CArray]& values, shared_ptr[CDataType])
+            const shared_ptr[CArray]& values,
+            shared_ptr[CDataType],
+            shared_ptr[CBuffer] null_bitmap)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
         shared_ptr[CDataType] value_type()
 
+    cdef cppclass CListViewArray" arrow::ListViewArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
+        )
+
+        const int32_t* raw_value_offsets()
+        const int32_t* raw_value_sizes()
+        int32_t value_offset(int i)
+        int32_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
+        shared_ptr[CArray] sizes()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CLargeListViewArray" arrow::LargeListViewArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
+        )
+
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
+        shared_ptr[CArray] sizes()
+        shared_ptr[CDataType] value_type()
+
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
@@ -1136,6 +1234,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CListScalar" arrow::ListScalar"(CBaseListScalar):
         pass
 
+    cdef cppclass CListViewScalar" arrow::ListViewScalar"(CBaseListScalar):
+        pass
+
+    cdef cppclass CLargeListViewScalar" arrow::LargeListViewScalar"(CBaseListScalar):
+        pass
+
     cdef cppclass CMapScalar" arrow::MapScalar"(CListScalar):
         pass
 
@@ -1197,6 +1301,25 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const CTable& table, CMemoryPool* pool)
 
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
+
+
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef enum DLDeviceType:
+        kDLCPU = 1
+
+    ctypedef struct DLDevice:
+        DLDeviceType device_type
+        int32_t device_id
+
+    ctypedef struct DLManagedTensor:
+        void (*deleter)(DLManagedTensor*)
+
+
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+        const shared_ptr[CArray]& arr)
+
+    CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -1264,7 +1387,14 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
         CStringBuilder(CMemoryPool* pool)
+        CStatus Append(const c_string& value)
 
+    cdef cppclass CBinaryViewBuilder" arrow::BinaryViewBuilder"(CArrayBuilder):
+        CBinaryViewBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringViewBuilder" arrow::StringViewBuilder"(CBinaryViewBuilder):
+        CStringViewBuilder(CMemoryPool* pool)
         CStatus Append(const c_string& value)
 
     cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):
@@ -2664,9 +2794,11 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
+
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
@@ -2674,16 +2806,14 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names)
 
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
-
         const shared_ptr[CDataType] value_type()
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+    cdef cppclass CFixedShapeTensorArray \
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
+        const CResult[shared_ptr[CTensor]] ToTensor() const
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
@@ -2799,6 +2929,9 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+    CStatus ExportChunkedArray(shared_ptr[CChunkedArray], ArrowArrayStream*)
+    CResult[shared_ptr[CChunkedArray]] ImportChunkedArray(ArrowArrayStream*)
 
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:

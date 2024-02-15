@@ -21,10 +21,10 @@ package exec_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/compute/exec"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +53,7 @@ func TestRechunkConsistentArraysTrivial(t *testing.T) {
 	}
 }
 
-func assertEqual[T exec.NumericTypes](t *testing.T, mem memory.Allocator, arr arrow.Array, data []T) {
+func assertEqual[T arrow.NumericType](t *testing.T, mem memory.Allocator, arr arrow.Array, data []T) {
 	exp := exec.ArrayFromSlice(mem, data)
 	defer exp.Release()
 	assert.Truef(t, array.Equal(exp, arr), "expected: %s\ngot: %s", exp, arr)

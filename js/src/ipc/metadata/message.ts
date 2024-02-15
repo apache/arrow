@@ -56,7 +56,7 @@ import ByteBuffer = flatbuffers.ByteBuffer;
 
 import {
     DataType, Dictionary, TimeBitWidth,
-    Utf8, Binary, Decimal, FixedSizeBinary,
+    Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys, Duration,
 } from '../../type.js';
@@ -432,7 +432,9 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         case Type['NONE']: return new Null();
         case Type['Null']: return new Null();
         case Type['Binary']: return new Binary();
+        case Type['LargeBinary']: return new LargeBinary();
         case Type['Utf8']: return new Utf8();
+        case Type['LargeUtf8']: return new LargeUtf8();
         case Type['Bool']: return new Bool();
         case Type['List']: return new List((children || [])[0]);
         case Type['Struct_']: return new Struct(children || []);

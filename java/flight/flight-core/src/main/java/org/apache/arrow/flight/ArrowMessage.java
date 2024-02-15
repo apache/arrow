@@ -35,8 +35,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
-import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
@@ -144,7 +142,6 @@ class ArrowMessage implements AutoCloseable {
   private final MessageMetadataResult message;
   private final ArrowBuf appMetadata;
   private final List<ArrowBuf> bufs;
-  private final ArrowBodyCompression bodyCompression;
   private final boolean tryZeroCopyWrite;
 
   public ArrowMessage(FlightDescriptor descriptor, Schema schema, IpcOption option) {
@@ -155,7 +152,6 @@ class ArrowMessage implements AutoCloseable {
     bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
-    this.bodyCompression = NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
     this.tryZeroCopyWrite = false;
   }
 
@@ -172,7 +168,6 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.copyOf(batch.getBuffers());
     this.descriptor = null;
     this.appMetadata = appMetadata;
-    this.bodyCompression = batch.getBodyCompression();
     this.tryZeroCopyWrite = tryZeroCopy;
   }
 
@@ -186,7 +181,6 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.copyOf(batch.getDictionary().getBuffers());
     this.descriptor = null;
     this.appMetadata = null;
-    this.bodyCompression = batch.getDictionary().getBodyCompression();
     this.tryZeroCopyWrite = false;
   }
 
@@ -201,7 +195,6 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = null;
     this.appMetadata = appMetadata;
-    this.bodyCompression = NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
     this.tryZeroCopyWrite = false;
   }
 
@@ -212,7 +205,6 @@ class ArrowMessage implements AutoCloseable {
     this.bufs = ImmutableList.of();
     this.descriptor = descriptor;
     this.appMetadata = null;
-    this.bodyCompression = NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
     this.tryZeroCopyWrite = false;
   }
 
@@ -227,7 +219,6 @@ class ArrowMessage implements AutoCloseable {
     this.descriptor = descriptor;
     this.appMetadata = appMetadata;
     this.bufs = buf == null ? ImmutableList.of() : ImmutableList.of(buf);
-    this.bodyCompression = NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
     this.tryZeroCopyWrite = false;
   }
 
@@ -370,7 +361,7 @@ class ArrowMessage implements AutoCloseable {
    *
    * @return InputStream
    */
-  private InputStream asInputStream(BufferAllocator allocator) {
+  private InputStream asInputStream() {
     if (message == null) {
       // If we have no IPC message, it's a pure-metadata message
       final FlightData.Builder builder = FlightData.newBuilder();
@@ -422,7 +413,7 @@ class ArrowMessage implements AutoCloseable {
         // Arrow buffer. This is susceptible to use-after-free, so we subclass CompositeByteBuf
         // below to tie the Arrow buffer refcnt to the Netty buffer refcnt
         allBufs.add(Unpooled.wrappedBuffer(b.nioBuffer()).retain());
-        size += b.readableBytes();
+        size += (int) b.readableBytes();
         // [ARROW-4213] These buffers must be aligned to an 8-byte boundary in order to be readable from C++.
         if (b.readableBytes() % 8 != 0) {
           int paddingBytes = (int) (8 - (b.readableBytes() % 8));
@@ -438,11 +429,26 @@ class ArrowMessage implements AutoCloseable {
       ByteBuf initialBuf = Unpooled.buffer(baos.size());
       initialBuf.writeBytes(baos.toByteArray());
       final CompositeByteBuf bb;
-      final int maxNumComponents = Math.max(2, bufs.size() + 1);
       final ImmutableList<ByteBuf> byteBufs = ImmutableList.<ByteBuf>builder()
           .add(initialBuf)
           .addAll(allBufs)
           .build();
+      // See: https://github.com/apache/arrow/issues/40039
+      // CompositeByteBuf requires us to pass maxNumComponents to constructor.
+      // This number will be used to decide when to stop adding new components as separate buffers
+      // and instead merge existing components into a new buffer by performing a memory copy.
+      // We want to avoind memory copies as much as possible so we want to set the limit that won't be reached.
+      // At a first glance it seems reasonable to set limit to byteBufs.size() + 1,
+      // because it will be enough to avoid merges of byteBufs that we pass to constructor.
+      // But later this buffer will be written to socket by Netty
+      // and DefaultHttp2ConnectionEncoder uses CoalescingBufferQueue to combine small buffers into one.
+      // Method CoalescingBufferQueue.compose will check if current buffer is already a CompositeByteBuf
+      // and if it's the case it will just add a new component to this buffer.
+      // But in out case if we set maxNumComponents=byteBufs.size() + 1 it will happen on the first attempt
+      // to write data to socket because header message is small and Netty will always try to compine it with the
+      // large CompositeByteBuf we're creating here.
+      // We never want additional memory copies so setting the limit to Integer.MAX_VALUE
+      final int maxNumComponents = Integer.MAX_VALUE;
       if (tryZeroCopyWrite) {
         bb = new ArrowBufRetainingCompositeByteBuf(maxNumComponents, byteBufs, bufs);
       } else {
@@ -543,7 +549,7 @@ class ArrowMessage implements AutoCloseable {
 
     @Override
     public InputStream stream(ArrowMessage value) {
-      return value.asInputStream(allocator);
+      return value.asInputStream();
     }
 
     @Override

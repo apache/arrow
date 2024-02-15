@@ -38,22 +38,63 @@ class BlobServiceClient;
 }
 
 namespace Azure::Storage::Files::DataLake {
+class DataLakeFileSystemClient;
 class DataLakeServiceClient;
-}
+}  // namespace Azure::Storage::Files::DataLake
 
 namespace arrow::fs {
 
-enum class AzureBackend {
-  /// \brief Official Azure Remote Backend
-  kAzure,
-  /// \brief Local Simulated Storage
-  kAzurite
-};
+class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
+///
+/// By default, authentication is handled by the Azure SDK's credential chain
+/// which may read from multiple environment variables, such as:
+/// - `AZURE_TENANT_ID`
+/// - `AZURE_CLIENT_ID`
+/// - `AZURE_CLIENT_SECRET`
+/// - `AZURE_AUTHORITY_HOST`
+/// - `AZURE_CLIENT_CERTIFICATE_PATH`
+/// - `AZURE_FEDERATED_TOKEN_FILE`
+///
+/// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief The backend to connect to: Azure or Azurite (for testing).
-  AzureBackend backend = AzureBackend::kAzure;
+  /// \brief The name of the Azure Storage Account being accessed.
+  ///
+  /// All service URLs will be constructed using this storage account name.
+  /// `ConfigureAccountKeyCredential` assumes the user wants to authenticate
+  /// this account.
+  std::string account_name;
+
+  /// \brief hostname[:port] of the Azure Blob Storage Service.
+  ///
+  /// If the hostname is a relative domain name (one that starts with a '.'), then storage
+  /// account URLs will be constructed by prepending the account name to the hostname.
+  /// If the hostname is a fully qualified domain name, then the hostname will be used
+  /// as-is and the account name will follow the hostname in the URL path.
+  ///
+  /// Default: ".blob.core.windows.net"
+  std::string blob_storage_authority = ".blob.core.windows.net";
+
+  /// \brief hostname[:port] of the Azure Data Lake Storage Gen 2 Service.
+  ///
+  /// If the hostname is a relative domain name (one that starts with a '.'), then storage
+  /// account URLs will be constructed by prepending the account name to the hostname.
+  /// If the hostname is a fully qualified domain name, then the hostname will be used
+  /// as-is and the account name will follow the hostname in the URL path.
+  ///
+  /// Default: ".dfs.core.windows.net"
+  std::string dfs_storage_authority = ".dfs.core.windows.net";
+
+  /// \brief Azure Blob Storage connection transport.
+  ///
+  /// Default: "https"
+  std::string blob_storage_scheme = "https";
+
+  /// \brief Azure Data Lake Storage Gen 2 connection transport.
+  ///
+  /// Default: "https"
+  std::string dfs_storage_scheme = "https";
 
   // TODO(GH-38598): Add support for more auth methods.
   // std::string connection_string;
@@ -65,28 +106,36 @@ struct ARROW_EXPORT AzureOptions {
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
  private:
-  std::string account_blob_url_;
-  std::string account_dfs_url_;
-
   enum class CredentialKind {
+    kDefault,
     kAnonymous,
-    kStorageSharedKeyCredential,
-  } credential_kind_ = CredentialKind::kAnonymous;
+    kStorageSharedKey,
+    kClientSecret,
+    kManagedIdentity,
+    kWorkloadIdentity,
+  } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
-  Status ConfigureAccountKeyCredential(const std::string& account_name,
-                                       const std::string& account_key);
+  Status ConfigureDefaultCredential();
+  Status ConfigureAnonymousCredential();
+  Status ConfigureAccountKeyCredential(const std::string& account_key);
+  Status ConfigureClientSecretCredential(const std::string& tenant_id,
+                                         const std::string& client_id,
+                                         const std::string& client_secret);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureWorkloadIdentityCredential();
 
   bool Equals(const AzureOptions& other) const;
 
-  const std::string& AccountBlobUrl() const { return account_blob_url_; }
-  const std::string& AccountDfsUrl() const { return account_dfs_url_; }
+  std::string AccountBlobUrl(const std::string& account_name) const;
+  std::string AccountDfsUrl(const std::string& account_name) const;
 
   Result<std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient>>
   MakeBlobServiceClient() const;
@@ -131,6 +180,9 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
 
+  friend class TestAzureFileSystem;
+  void ForceCachedHierarchicalNamespaceSupport(int hns_support);
+
  public:
   ~AzureFileSystem() override = default;
 
@@ -158,6 +210,25 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Status DeleteFile(const std::string& path) override;
 
+  /// \brief Move / rename a file or directory.
+  ///
+  /// There are no files immediately at the root directory, so paths like
+  /// "/segment" always refer to a container of the storage account and are
+  /// treated as directories.
+  ///
+  /// If `dest` exists but the operation fails for some reason, `Move`
+  /// guarantees `dest` is not lost.
+  ///
+  /// Conditions for a successful move:
+  /// 1. `src` must exist.
+  /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
+  ///    a directory can't be made a subdirectory of itself.
+  /// 3. If `dest` already exists and it's a file, `src` must also be a file.
+  ///    `dest` is then replaced by `src`.
+  /// 4. All components of `dest` must exist, except for the last.
+  /// 5. If `dest` already exists and it's a directory, `src` must also be a
+  ///    directory and `dest` must be empty. `dest` is then replaced by `src`
+  ///    and its contents.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;

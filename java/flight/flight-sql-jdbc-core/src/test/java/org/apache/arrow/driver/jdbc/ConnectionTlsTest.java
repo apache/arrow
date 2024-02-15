@@ -36,7 +36,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -96,15 +95,13 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticatedWithDisableCertVerification() throws Exception {
-    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        userTest, passTest);
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                 .withUsername(credentials.getUserName())
-                 .withPassword(credentials.getPassword())
+                 .withUsername(userTest)
+                 .withPassword(passTest)
                  .withDisableCertificateVerification(true)
                  .withBufferAllocator(allocator)
                  .withEncryption(true)
@@ -120,16 +117,14 @@ public class ConnectionTlsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
-    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        userTest, passTest);
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
                  .withSystemTrustStore(false)
-                 .withUsername(credentials.getUserName())
-                 .withPassword(credentials.getPassword())
+                 .withUsername(userTest)
+                 .withPassword(passTest)
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(trustStorePass)
                  .withBufferAllocator(allocator)

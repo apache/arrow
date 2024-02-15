@@ -386,8 +386,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.datetime64 but got: ",
                                       numpy_type->ToString());
@@ -466,8 +465,7 @@ class PyValue {
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
-      std::shared_ptr<DataType> numpy_type;
-      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &numpy_type));
+      ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
         return Status::NotImplemented("Expected np.timedelta64 but got: ",
                                       numpy_type->ToString());
@@ -488,6 +486,10 @@ class PyValue {
     return view.ParseString(obj);
   }
 
+  static Status Convert(const BinaryViewType*, const O&, I obj, PyBytesView& view) {
+    return view.ParseString(obj);
+  }
+
   static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
                         PyBytesView& view) {
     ARROW_RETURN_NOT_OK(view.ParseString(obj));
@@ -501,8 +503,8 @@ class PyValue {
   }
 
   template <typename T>
-  static enable_if_string<T, Status> Convert(const T*, const O& options, I obj,
-                                             PyBytesView& view) {
+  static enable_if_t<is_string_type<T>::value || is_string_view_type<T>::value, Status>
+  Convert(const T*, const O& options, I obj, PyBytesView& view) {
     if (options.strict) {
       // Strict conversion, force output to be unicode / utf8 and validate that
       // any binary values are utf8
@@ -572,16 +574,10 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T,
-    enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                 !is_extension_type<T>::value && !is_binary_view_like_type<T>::value) ||
-                std::is_same<T, MonthDayNanoIntervalType>::value>> {
+    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                    !is_extension_type<T>::value) ||
+                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
-};
-
-template <typename T>
-struct PyConverterTrait<T, enable_if_binary_view_like<T>> {
-  // not implemented
 };
 
 template <typename T>
@@ -701,11 +697,22 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
   PyBytesView view_;
 };
 
+template <typename T, typename Enable = void>
+struct OffsetTypeTrait {
+  using type = typename T::offset_type;
+};
+
 template <typename T>
-class PyPrimitiveConverter<T, enable_if_base_binary<T>>
+struct OffsetTypeTrait<T, enable_if_binary_view_like<T>> {
+  using type = int64_t;
+};
+
+template <typename T>
+class PyPrimitiveConverter<
+    T, enable_if_t<is_base_binary_type<T>::value || is_binary_view_like_type<T>::value>>
     : public PrimitiveConverter<T, PyConverter> {
  public:
-  using OffsetType = typename T::offset_type;
+  using OffsetType = typename OffsetTypeTrait<T>::type;
 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {

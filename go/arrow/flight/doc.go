@@ -74,5 +74,4 @@
 // the main thread reset the timer every time a write operation completes successfully
 // (that means one needs to use to_batches() + write_batch and not write_table).
 
-
 package flight
