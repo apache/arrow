@@ -1760,6 +1760,20 @@ class TestConvertStringLikeTypes:
         _check_pandas_roundtrip(
             df, schema=pa.schema([('a', pa.large_string())]))
 
+    def test_binary_view(self):
+        s = pd.Series([b'123', b'', b'a', None])
+        _check_series_roundtrip(s, type_=pa.binary_view())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.binary_view())]))
+
+    def test_string_view(self):
+        s = pd.Series(['123', '', 'a', None])
+        _check_series_roundtrip(s, type_=pa.string_view())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.string_view())]))
+
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
         df = pd.DataFrame({'strings': values})
