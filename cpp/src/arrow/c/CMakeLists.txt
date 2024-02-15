@@ -15,7 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(bridge_test PREFIX "arrow-c")
+if(ARROW_CUDA)
+  if(ARROW_BUILD_SHARED)
+    set(ARROW_CUDA_LIBRARY arrow_cuda_shared)
+  else()
+    set(ARROW_CUDA_LIBRARY arrow_cuda_static)
+  endif()
+  set(ARROW_CUDA_TEST_LINK_LIBS ${ARROW_CUDA_LIBRARY} ${ARROW_TEST_LINK_LIBS})
+  add_arrow_test(bridge_test PREFIX "arrow-c" STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS})
+else()
+  add_arrow_test(bridge_test PREFIX "arrow-c")
+endif()
+
 add_arrow_test(dlpack_test)
 
 add_arrow_benchmark(bridge_benchmark)
