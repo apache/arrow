@@ -1252,8 +1252,8 @@ class TestAzureFileSystem : public ::testing::Test {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented,
         HasCrossContainerNotImplementedMessage(data.ObjectPath(),
-                                               another_container + "/path"),
-        fs()->Move(data.ObjectPath(), another_container + "/path"));
+                                               ConcatAbstractPath(another_container , "path")),
+        fs()->Move(data.ObjectPath(), ConcatAbstractPath(another_container , "path")));
     AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
 
     if (!WithHierarchicalNamespace()) {
