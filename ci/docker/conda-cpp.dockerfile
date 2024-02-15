@@ -42,7 +42,8 @@ RUN mamba install -q -y \
         valgrind && \
     mamba clean --all
 
-# Ensure nvm and node are on path. npm is required to install azurite.  
+# Ensure nvm, node and azurite are on path. npm and node are required to install azurite, which will then need to 
+# be on the path for the tests to run.  
 ENV PATH=/opt/conda/envs/arrow/bin:$PATH
 
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
