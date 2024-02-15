@@ -287,15 +287,6 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
     }
   }
 
-  // Empty tensors
-  if (num_rows() == 0) {
-    // Construct empty Tensor object
-    ARROW_ASSIGN_OR_RAISE(auto empty_buffer, AllocateBuffer(0));
-    ARROW_ASSIGN_OR_RAISE(auto empty_tensor, Tensor::Make(type, std::move(empty_buffer),
-                                                          {0, num_columns()}, {0, 0}));
-    return empty_tensor;
-  }
-
   // Allocate memory
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<Buffer> result,

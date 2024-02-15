@@ -658,7 +658,7 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   ASSERT_OK_AND_ASSIGN(auto tensor, empty->ToTensor());
   ASSERT_OK(tensor->Validate());
 
-  const std::vector<int64_t> strides = {0, 0};
+  const std::vector<int64_t> strides = {4, 4};
   const std::vector<int64_t> shape = {0, 2};
 
   EXPECT_EQ(strides, tensor->strides());

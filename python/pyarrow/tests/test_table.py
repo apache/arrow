@@ -24,7 +24,6 @@ import numpy as np
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -1049,9 +1048,6 @@ def test_recordbatch_to_tensor_null():
 
 
 def test_recordbatch_to_tensor_empty():
-    if Version(np.__version__) < Version("1.18.0"):
-        pytest.skip(
-            "numpy.shape differs for empty ndarrays with versions older than 1.18.0.")
     batch = pa.RecordBatch.from_arrays(
         [
             pa.array([], type=pa.float32()),
@@ -1063,8 +1059,10 @@ def test_recordbatch_to_tensor_empty():
     x = np.array([[], []], np.float32).transpose()
     expected = pa.Tensor.from_numpy(x)
 
-    np.testing.assert_equal(result.to_numpy(), x)
-    check_tensors(result, expected, pa.float32(), 0)
+    assert result.size == expected.size
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == (4, 4)
 
 
 def test_recordbatch_to_tensor_unsupported():
