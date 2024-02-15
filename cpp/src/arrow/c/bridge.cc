@@ -564,8 +564,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   ArrowArrayMarkReleased(array);
 }
 
-template <bool device_interface = false>
 struct ArrayExporter {
+  ArrayExporter(bool device_interface = false) : device_interface_(device_interface){};
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
@@ -587,9 +587,9 @@ struct ArrayExporter {
 
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
-                   [](const std::shared_ptr<Buffer>& buffer) -> const void* {
+                   [this](const std::shared_ptr<Buffer>& buffer) -> const void* {
                      return buffer
-                                ? (device_interface
+                                ? (device_interface_
                                        ? reinterpret_cast<const void*>(buffer->address())
                                        : buffer->data())
                                 : nullptr;
@@ -607,7 +607,7 @@ struct ArrayExporter {
 
     // Export dictionary
     if (data->dictionary != nullptr) {
-      dict_exporter_ = std::make_unique<ArrayExporter<device_interface>>();
+      dict_exporter_ = std::make_unique<ArrayExporter>(device_interface_);
       RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
@@ -615,7 +615,8 @@ struct ArrayExporter {
     export_.children_.resize(data->child_data.size());
     child_exporters_.resize(data->child_data.size());
     for (size_t i = 0; i < data->child_data.size(); ++i) {
-      RETURN_NOT_OK(child_exporters_[i].Export(data->child_data[i]));
+      child_exporters_[i] = std::make_unique<ArrayExporter>(device_interface_);
+      RETURN_NOT_OK(child_exporters_[i]->Export(data->child_data[i]));
     }
 
     // Store owning pointer to ArrayData
@@ -645,7 +646,7 @@ struct ArrayExporter {
     for (size_t i = 0; i < data.child_data.size(); ++i) {
       auto ptr = &pdata->children_[i];
       pdata->child_pointers_[i] = ptr;
-      child_exporters_[i].Finish(ptr);
+      child_exporters_[i]->Finish(ptr);
     }
 
     // Third, fill C struct.
@@ -665,8 +666,8 @@ struct ArrayExporter {
   }
 
   ExportedArrayPrivateData export_;
-  std::unique_ptr<ArrayExporter<device_interface>> dict_exporter_;
-  std::vector<ArrayExporter<device_interface>> child_exporters_;
+  std::unique_ptr<ArrayExporter> dict_exporter_;
+  std::vector<std::unique_ptr<ArrayExporter>> child_exporters_;
   bool device_interface_ = false;
 };
 
@@ -762,7 +763,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> 
   }
   out->device_id = device_info.second;
 
-  ArrayExporter</*device_interface*/ true> exporter;
+  ArrayExporter exporter(/*device_interface*/ true);
   RETURN_NOT_OK(exporter.Export(array.data()));
   exporter.Finish(&out->array);
 
@@ -800,7 +801,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
   }
   out->device_id = device_info.second;
 
-  ArrayExporter</*device_interface*/ true> exporter;
+  ArrayExporter exporter(/*device_interface*/ true);
   RETURN_NOT_OK(exporter.Export(array->data()));
   exporter.Finish(&out->array);
 
