@@ -133,8 +133,13 @@ endif()
 
 # Check the Build mode on Windows
 if(WIN32)
-  string(TOUPPER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_UPPER)
-  if(CMAKE_BUILD_TYPE_UPPER STREQUAL DEBUG)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    set(is_debug "$<CONFIG:Debug>")
+  else()
+    set(is_debug "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  endif()
+  
+  if (is_debug)
     message(FATAL_ERROR "Building the MATLAB interface in Debug mode is not supported.")
   endif()
 endif()
