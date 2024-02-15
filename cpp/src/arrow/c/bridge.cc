@@ -564,6 +564,7 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   ArrowArrayMarkReleased(array);
 }
 
+template <bool device_interface = false>
 struct ArrayExporter {
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
@@ -587,7 +588,7 @@ struct ArrayExporter {
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
                    [](const std::shared_ptr<Buffer>& buffer) -> const void* {
-                     return buffer ? reinterpret_cast<const void*>(buffer->address())
+                     return buffer ? (device_interface ? reinterpret_cast<const void*>(buffer->address()) : buffer->data())
                                    : nullptr;
                    });
 
@@ -603,7 +604,7 @@ struct ArrayExporter {
 
     // Export dictionary
     if (data->dictionary != nullptr) {
-      dict_exporter_ = std::make_unique<ArrayExporter>();
+      dict_exporter_ = std::make_unique<ArrayExporter<device_interface>>();
       RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
@@ -661,8 +662,9 @@ struct ArrayExporter {
   }
 
   ExportedArrayPrivateData export_;
-  std::unique_ptr<ArrayExporter> dict_exporter_;
-  std::vector<ArrayExporter> child_exporters_;
+  std::unique_ptr<ArrayExporter<device_interface>> dict_exporter_;
+  std::vector<ArrayExporter<device_interface>> child_exporters_;
+  bool device_interface_ = false;
 };
 
 }  // namespace
@@ -757,7 +759,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> 
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter;
+  ArrayExporter</*device_interface*/ true> exporter;
   RETURN_NOT_OK(exporter.Export(array.data()));
   exporter.Finish(&out->array);
 
@@ -795,7 +797,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter;
+  ArrayExporter</*device_interface*/ true> exporter;
   RETURN_NOT_OK(exporter.Export(array->data()));
   exporter.Finish(&out->array);
 
