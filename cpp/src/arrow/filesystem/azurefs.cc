@@ -2098,28 +2098,27 @@ class AzureFileSystem::Impl {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     constexpr auto kFileBlobLeaseTime = std::chrono::seconds{15};
-    auto no_trailing_slash_location = location.RemoveTrailingSlashFromPath();
 
-    std::optional<FileType> location_type_opt;
-    auto location_type_lazy = [&]() -> Result<FileType> {
-      if (location_type_opt.has_value()) {
-        return location_type_opt.value();
-      }
-      ARROW_ASSIGN_OR_RAISE(auto info,
+    // When it's known that the blob doesn't exist as a file, check if it exists as a
+    // directory to generate the appropriate error message.
+    auto check_if_location_exists_as_dir = [&]() -> Status {
+      auto no_trailing_slash_location = location.RemoveTrailingSlashFromPath();
+      ARROW_ASSIGN_OR_RAISE(auto file_info,
                             GetFileInfo(container_client, no_trailing_slash_location));
-      location_type_opt = info.type();
-      return info.type();
+      if (file_info.type() == FileType::NotFound) {
+        return require_file_to_exist ? PathNotFound(location) : Status::OK();
+      }
+      if (file_info.type() == FileType::Directory) {
+        return internal::NotAFile(location.all);
+      }
+      return internal::HasTrailingSlash(location.path) ? internal::NotADir(location.all)
+                                                       : internal::NotAFile(location.all);
     };
 
     // Paths ending with trailing slashes are never leading to a deletion,
     // but the correct error message requires a check of the path.
     if (internal::HasTrailingSlash(location.path)) {
-      ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
-      if (file_type == FileType::NotFound) {
-        return require_file_to_exist ? PathNotFound(location) : Status::OK();
-      }
-      return file_type == FileType::Directory ? internal::NotAFile(location.all)
-                                              : internal::NotADir(location.all);
+      return check_if_location_exists_as_dir();
     }
 
     // If the parent directory of a file is not the container itself, there is a
@@ -2141,10 +2140,6 @@ class AzureFileSystem::Impl {
       if (file_blob_lease_client) {
         file_blob_lease_guard.emplace(std::move(file_blob_lease_client),
                                       kFileBlobLeaseTime);
-        // If the path without a trailing slash exists, we can be sure it's a file.
-        // Cache it in location_type_opt so we don't have to check it again later
-        // in case location_type_lazy is called.
-        location_type_opt = FileType::File;
         // Ensure the empty directory marker blob of the parent exists before the file is
         // deleted.
         //
@@ -2157,13 +2152,7 @@ class AzureFileSystem::Impl {
         // client deletes the directory marker.
         RETURN_NOT_OK(EnsureEmptyDirExists(container_client, parent, operation));
       } else {
-        // The blob representing a file doesn't exist, but the path may exist as
-        // a directory so we must check here.
-        ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
-        if (file_type == FileType::Directory) {
-          return internal::NotAFile(location.all);
-        }
-        return require_file_to_exist ? PathNotFound(location) : Status::OK();
+        return check_if_location_exists_as_dir();
       }
     }
 
@@ -2180,13 +2169,7 @@ class AzureFileSystem::Impl {
       DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-        // The blob representing a file doesn't exist, but the path may exist as
-        // a directory so we must check here.
-        ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
-        if (file_type == FileType::Directory) {
-          return internal::NotAFile(location.all);
-        }
-        return require_file_to_exist ? PathNotFound(location) : Status::OK();
+        return check_if_location_exists_as_dir();
       }
       return ExceptionToStatus(exception, "Failed to delete a file: ", location.all, ": ",
                                blob_client.GetUrl());
