@@ -37,19 +37,28 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const recordChanBufferSizeDefault = 1
+
 type Rows struct {
-	schema           *arrow.Schema
-	recordChan       chan arrow.Record
-	currentRecord    arrow.Record
-	currentRecordMux sync.Mutex
-	currentRow       uint64
-	initializedChan  chan bool
-	streamError      error
+	// schema stores the row schema, like column names.
+	schema *arrow.Schema
+	// recordChan enables async reading from server, while client interates.
+	recordChan chan arrow.Record
+	// currentRecord stores a record with n>=0 rows.
+	currentRecord arrow.Record
+	// currentRow tracks the position (row) within currentRecord.
+	currentRow uint64
+	// initializedChan prevents the row being used before properly initialized.
+	initializedChan chan bool
+	// streamError stores the error that interrupted streaming.
+	streamError error
+	// ctxCancelFunc when called, triggers the streaming cancelation.
+	ctxCancelFunc context.CancelFunc
 }
 
 func newRows() *Rows {
 	return &Rows{
-		recordChan:      make(chan arrow.Record, 1),
+		recordChan:      make(chan arrow.Record, recordChanBufferSizeDefault),
 		initializedChan: make(chan bool),
 	}
 }
@@ -60,7 +69,7 @@ func (r *Rows) Columns() []string {
 		return nil
 	}
 
-	// All records have the same columns
+	// All records have the same columns.
 	cols := make([]string, len(r.schema.Fields()))
 	for i, c := range r.schema.Fields() {
 		cols[i] = c.Name
@@ -70,9 +79,6 @@ func (r *Rows) Columns() []string {
 }
 
 func (r *Rows) releaseRecord() {
-	r.currentRecordMux.Lock()
-	defer r.currentRecordMux.Unlock()
-
 	if r.currentRecord != nil {
 		r.currentRecord.Release()
 		r.currentRecord = nil
@@ -81,6 +87,10 @@ func (r *Rows) releaseRecord() {
 
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
+	r.ctxCancelFunc() // interrupting data streaming.
+
+	r.currentRow = 0
+
 	r.releaseRecord()
 
 	return nil
@@ -255,7 +265,7 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 	rows := newRows()
 	go rows.streamRecordset(ctx, s.client, info.Endpoint)
 
-	<-rows.initializedChan
+	<-rows.initializedChan // waits the rows proper initialization.
 
 	return rows, nil
 }
@@ -481,9 +491,11 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 	}
 
 	rows := newRows()
+	ctx, rows.ctxCancelFunc = context.WithCancel(ctx)
+
 	go rows.streamRecordset(ctx, c.client, info.Endpoint)
 
-	<-rows.initializedChan
+	<-rows.initializedChan // waits the rows proper initialization.
 
 	return rows, nil
 }
@@ -491,15 +503,16 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoints []*flight.FlightEndpoint) {
 	defer close(r.recordChan)
 
+	// initializeOnceOnly ensures the {r.initializedChan} is valued once only, preventing a deadlock.
 	initializeOnceOnly := &sync.Once{}
 
-	defer func() { // in case of error, init anyway
+	defer func() { // in case of error, init anyway.
 		initializeOnceOnly.Do(func() { r.initializedChan <- true })
 	}()
 
-	// reads each endpoint
+	// reads each endpoint.
 	for _, endpoint := range endpoints {
-		func() { // with a func() is possible to {defer reader.Release()}
+		func() { // with a func() is possible to {defer reader.Release()}.
 			reader, err := c.DoGet(ctx, endpoint.GetTicket())
 			if err != nil {
 				r.streamError = fmt.Errorf("getting ticket failed: %w", err)
@@ -512,6 +525,12 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 
 			// reads each record into a blocking channel
 			for reader.Next() {
+				if ctx.Err() != nil {
+					r.releaseRecord()
+					r.streamError = fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err())
+					return
+				}
+
 				record := reader.Record()
 				record.Retain()
 
@@ -520,15 +539,9 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 					continue
 				}
 
-				select {
-				case r.recordChan <- record:
-					go initializeOnceOnly.Do(func() { r.initializedChan <- true })
+				r.recordChan <- record
 
-				case <-ctx.Done():
-					r.releaseRecord()
-					r.streamError = fmt.Errorf("stream recordset context timed out")
-					return
-				}
+				go initializeOnceOnly.Do(func() { r.initializedChan <- true })
 			}
 
 			if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
