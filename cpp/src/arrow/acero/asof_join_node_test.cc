@@ -16,7 +16,6 @@
 // under the License.
 
 #include <gmock/gmock-matchers.h>
-#include <iostream>  // nocommit
 
 #include <chrono>
 #include <memory>
@@ -1585,6 +1584,10 @@ TEST(AsofJoinTest, BatchSequencing) {
 
 template <typename BatchesMaker>
 void TestSchemaResolution(BatchesMaker maker, int num_batches, int batch_size) {
+  //  GH-39803: The key hasher needs to resolve the types of key columns. All other
+  //  tests use int32 for all columns, but this test converts the key columns to
+  //  strngs via a projection node to test that the column is correctly resolved
+  //  to string.
   auto l_schema =
       schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
   auto r_schema =
