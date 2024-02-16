@@ -835,13 +835,19 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
   DCHECK_OK(cast_half_float.get()->AddKernel(Type::FLOAT,
       {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
+  DCHECK_OK(cast_half_float.get()->AddKernel(Type::DOUBLE,
+      {InputType(Type::DOUBLE)}, float16(), CastFloatingToFloating));
   functions.push_back(cast_half_float);
 
   auto cast_float = GetCastToFloating<FloatType>("cast_float");
   DCHECK_OK(cast_float.get()->AddKernel(Type::HALF_FLOAT,
       {InputType(Type::HALF_FLOAT)}, float32(), CastFloatingToFloating));
   functions.push_back(cast_float);
-  functions.push_back(GetCastToFloating<DoubleType>("cast_double"));
+
+  auto cast_double = GetCastToFloating<DoubleType>("cast_double");
+  DCHECK_OK(cast_double.get()->AddKernel(Type::HALF_FLOAT,
+      {InputType(Type::HALF_FLOAT)}, float64(), CastFloatingToFloating));
+  functions.push_back(cast_double);
 
   functions.push_back(GetCastToDecimal128());
   functions.push_back(GetCastToDecimal256());
