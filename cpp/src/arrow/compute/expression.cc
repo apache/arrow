@@ -24,6 +24,7 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/util.h"
@@ -36,7 +37,6 @@
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
-#include "exec_internal.h"
 
 namespace arrow {
 
