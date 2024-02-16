@@ -34,6 +34,8 @@ class TestInMemoryFragment : public DatasetFixtureMixin {};
 
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 
+Expression mean(Expression e) { return call("mean", {std::move(e)}); }
+
 TEST_F(TestInMemoryFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
@@ -488,8 +490,10 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // The following filter tests both predicate pushdown and post filtering
   // without partition information because `year` is a partition and `sales` is
   // not.
+
+  // Note: the mean sales of 2019 is 75.34375
   auto filter = and_(equal(field_ref("year"), literal(2019)),
-                     greater(field_ref("sales"), literal(100.0)));
+                     greater(field_ref("sales"), mean(field_ref("sales"))));
   ASSERT_OK(scanner_builder->Filter(filter));
 
   ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());

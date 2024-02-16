@@ -77,7 +77,7 @@ Expression true_unless_null(Expression argument) {
   return call("true_unless_null", {std::move(argument)});
 }
 
-Expression last(Expression l) { return call("last", {std::move(l)}); }
+Expression last(Expression e) { return call("last", {std::move(e)}); }
 
 Expression add(Expression l, Expression r) {
   return call("add", {std::move(l), std::move(r)});
