@@ -1296,26 +1296,37 @@ class AzureFileSystem::Impl {
     }
   }
 
+  /// \brief Extra information about the way a path is represented in
+  /// flat-namespace blob storage.
+  struct FileReprInfo {
+    bool is_empty_directory = false;
+  };
+
   /// On flat namespace accounts there are no real directories. Directories are
   /// implied by empty directory marker blobs with names ending in "/" or there
   /// being blobs with names starting with the directory path.
   ///
   /// \pre location.path is not empty.
+  /// \param[out] out_file_repr_info If non-null, extra information about the way a path
+  ///             is represented in flat-namespace blob storage is written here.
   Result<FileInfo> GetFileInfo(const Blobs::BlobContainerClient& container_client,
-                               const AzureLocation& location) {
+                               const AzureLocation& location,
+                               FileReprInfo* out_file_repr_info = nullptr) {
     DCHECK(!location.path.empty());
+    if (out_file_repr_info) {
+      out_file_repr_info->is_empty_directory = false;
+    }
     Blobs::ListBlobsOptions options;
     options.Prefix = internal::RemoveTrailingSlash(location.path);
-    options.PageSizeHint = 1;
+    options.PageSizeHint = 2;
 
     try {
       FileInfo info{location.all};
       auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
-      // Since PageSizeHint=1, we expect at most one entry in either Blobs or
-      // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
-      // distinguish between a directory and a file by checking if we received a
-      // prefix or a blob.
+      // A BlobPrefix always ends with kDelimiter ("/"), so we can distinguish between a
+      // directory and a file by checking what we received in Blobs and BlobPrefixes.
       if (!list_response.BlobPrefixes.empty()) {
+        const std::string dir_prefix = internal::EnsureTrailingSlash(location.path);
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
         // the container contains "dir/abracadabra/" but not "dir/abra/", we will get back
@@ -1323,8 +1334,17 @@ class AzureFileSystem::Impl {
         // it would be returned instead because it comes before "dir/abracadabra/" in the
         // lexicographic order guaranteed by ListBlobsByHierarchy.
         const auto& blob_prefix = list_response.BlobPrefixes[0];
-        if (blob_prefix == internal::EnsureTrailingSlash(location.path)) {
+        if (blob_prefix == dir_prefix) {
           info.set_type(FileType::Directory);
+          if (out_file_repr_info) {
+            // Perform another listing to check if the directory is empty or not.
+            options.Prefix = dir_prefix;
+            list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+            // Since the prefix now has a trailing slash, anything returned in the listing
+            // must be a child of the directory.
+            out_file_repr_info->is_empty_directory =
+                list_response.Blobs.empty() && list_response.BlobPrefixes.empty();
+          }
           return info;
         }
       }
@@ -1785,12 +1805,7 @@ class AzureFileSystem::Impl {
     if (!location.path.empty()) {
       options.Prefix = internal::EnsureTrailingSlash(location.path);
     }
-    // https://learn.microsoft.com/en-us/rest/api/storageservices/blob-batch#remarks
-    //
-    // Only supports up to 256 subrequests in a single batch. The
-    // size of the body for a batch request can't exceed 4 MB.
-    const int32_t kNumMaxRequestsInBatch = 256;
-    options.PageSizeHint = kNumMaxRequestsInBatch;
+    options.PageSizeHint = kListBlobsPageSize;
     // trusted only if preserve_dir_marker_blob is true.
     bool found_dir_marker_blob = false;
     try {
@@ -2058,6 +2073,12 @@ class AzureFileSystem::Impl {
   static constexpr auto kTimeNeededForContainerDeletion = std::chrono::seconds{3};
   static constexpr auto kTimeNeededForContainerRename = std::chrono::seconds{3};
   static constexpr auto kTimeNeededForFileOrDirectoryRename = std::chrono::seconds{3};
+
+  // https://learn.microsoft.com/en-us/rest/api/storageservices/blob-batch#remarks
+  //
+  // Only supports up to 256 subrequests in a single batch. The
+  // size of the body for a batch request can't exceed 4 MB.
+  static constexpr int32_t kListBlobsPageSize = 256;
 
  public:
   /// \pre location.container is not empty.
