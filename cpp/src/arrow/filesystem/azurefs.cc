@@ -2055,25 +2055,24 @@ class AzureFileSystem::Impl {
  public:
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  /// \pre location.path does not end with a trailing slash.
   Status DeleteFileOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
-                                const AzureLocation& location, bool require_file_to_exist,
-                                Azure::Nullable<std::string> lease_id = {}) {
+                                const AzureLocation& location,
+                                bool require_file_to_exist) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    DCHECK(!internal::HasTrailingSlash(location.path));
-    auto file_client = adlfs_client.GetFileClient(location.path);
-    DataLake::GetPathPropertiesOptions get_options;
-    get_options.AccessConditions.LeaseId = lease_id;
-    DataLake::DeleteFileOptions delete_options;
-    delete_options.AccessConditions.LeaseId = std::move(lease_id);
+    auto path_no_trailing_slash =
+        std::string{internal::RemoveTrailingSlash(location.path)};
+    auto file_client = adlfs_client.GetFileClient(path_no_trailing_slash);
     try {
       // This is necessary to avoid deletion of directories via DeleteFile.
-      auto properties = file_client.GetProperties(get_options);
+      auto properties = file_client.GetProperties();
       if (properties.Value.IsDirectory) {
         return internal::NotAFile(location.all);
       }
-      auto response = file_client.Delete(delete_options);
+      if (internal::HasTrailingSlash(location.path)) {
+        return internal::NotADir(location.all);
+      }
+      auto response = file_client.Delete();
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
@@ -2093,14 +2092,36 @@ class AzureFileSystem::Impl {
 
   /// \pre location.container is not empty.
   /// \pre location.path is not empty.
-  /// \pre location.path does not end with a trailing slash.
   Status DeleteFileOnContainer(const Blobs::BlobContainerClient& container_client,
                                const AzureLocation& location, bool require_file_to_exist,
                                const char* operation) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    DCHECK(!internal::HasTrailingSlash(location.path));
     constexpr auto kFileBlobLeaseTime = std::chrono::seconds{15};
+    auto no_trailing_slash_location = location.RemoveTrailingSlash(
+        /*preserve_original=*/true);
+
+    std::optional<FileType> location_type_opt;
+    auto location_type_lazy = [&]() -> Result<FileType> {
+      if (location_type_opt.has_value()) {
+        return location_type_opt.value();
+      }
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            GetFileInfo(container_client, no_trailing_slash_location));
+      location_type_opt = info.type();
+      return info.type();
+    };
+
+    // Paths ending with trailing slashes are never leading to a deletion,
+    // but the correct error message requires a check of the path.
+    if (internal::HasTrailingSlash(location.path)) {
+      ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
+      if (file_type == FileType::NotFound) {
+        return require_file_to_exist ? PathNotFound(location) : Status::OK();
+      }
+      return file_type == FileType::Directory ? internal::NotAFile(location.all)
+                                              : internal::NotADir(location.all);
+    }
 
     // If the parent directory of a file is not the container itself, there is a
     // risk that deleting the file also deletes the *implied directory* -- the
@@ -2117,11 +2138,16 @@ class AzureFileSystem::Impl {
       // file first.
       ARROW_ASSIGN_OR_RAISE(auto file_blob_lease_client,
                             AcquireBlobLease(location, kFileBlobLeaseTime,
-                                             /*allow_missing=*/!require_file_to_exist));
+                                             /*allow_missing=*/true));
       if (file_blob_lease_client) {
         file_blob_lease_guard.emplace(std::move(file_blob_lease_client),
                                       kFileBlobLeaseTime);
-        // Ensure the empty directory marker blob exists before the file is deleted.
+        // If the path without a trailing slash exists, we can be sure it's a file.
+        // Cache it in location_type_opt so we don't have to check it again later
+        // in case location_type_lazy is called.
+        location_type_opt = FileType::File;
+        // Ensure the empty directory marker blob of the parent exists before the file is
+        // deleted.
         //
         // There is not need to hold a lease on the directory marker because if
         // a concurrent client deletes the directory marker right after we
@@ -2132,14 +2158,17 @@ class AzureFileSystem::Impl {
         // client deletes the directory marker.
         RETURN_NOT_OK(EnsureEmptyDirExists(container_client, parent, operation));
       } else {
-        // File blob doesn't exist and require_file_to_exists is false, so just return OK.
-        // Trying to delete a file that doesn't exist, costs only one request to the
-        // server.
-        DCHECK(!require_file_to_exist);
-        return Status::OK();
+        // The blob representing a file doesn't exist, but the path may exist as
+        // a directory so we must check here.
+        ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
+        if (file_type == FileType::Directory) {
+          return internal::NotAFile(location.all);
+        }
+        return require_file_to_exist ? PathNotFound(location) : Status::OK();
       }
     }
 
+    DCHECK(!internal::HasTrailingSlash(location.path));
     auto blob_client = container_client.GetBlobClient(location.path);
     Blobs::DeleteBlobOptions options;
     if (file_blob_lease_guard) {
@@ -2152,10 +2181,13 @@ class AzureFileSystem::Impl {
       DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-        if (require_file_to_exist) {
-          return PathNotFound(location);
+        // The blob representing a file doesn't exist, but the path may exist as
+        // a directory so we must check here.
+        ARROW_ASSIGN_OR_RAISE(auto file_type, location_type_lazy());
+        if (file_type == FileType::Directory) {
+          return internal::NotAFile(location.all);
         }
-        return Status::OK();
+        return require_file_to_exist ? PathNotFound(location) : Status::OK();
       }
       return ExceptionToStatus(exception, "Failed to delete a file: ", location.all, ": ",
                                blob_client.GetUrl());
@@ -2656,10 +2688,12 @@ Status AzureFileSystem::DeleteFile(const std::string& path) {
   if (location.container.empty()) {
     return Status::Invalid("DeleteFile requires a non-empty path.");
   }
-  if (internal::HasTrailingSlash(location.path) || location.path.empty()) {
-    // Container paths (locations w/o path) or paths ending with a slash are not file
-    // paths.
-    return NotAFile(location);
+  auto container_client = impl_->GetBlobContainerClient(location.container);
+  if (location.path.empty()) {
+    // Container paths (locations w/o path) are either not found or represent directories.
+    ARROW_ASSIGN_OR_RAISE(auto container_info,
+                          GetContainerPropsAsFileInfo(location, container_client));
+    return container_info.IsDirectory() ? NotAFile(location) : PathNotFound(location);
   }
   auto adlfs_client = impl_->GetFileSystemClient(location.container);
   ARROW_ASSIGN_OR_RAISE(auto hns_support,
@@ -2671,7 +2705,6 @@ Status AzureFileSystem::DeleteFile(const std::string& path) {
     return impl_->DeleteFileOnFileSystem(adlfs_client, location,
                                          /*require_file_to_exist=*/true);
   }
-  auto container_client = impl_->GetBlobContainerClient(location.container);
   return impl_->DeleteFileOnContainer(container_client, location,
                                       /*require_file_to_exist=*/true,
                                       /*operation=*/"DeleteFile");

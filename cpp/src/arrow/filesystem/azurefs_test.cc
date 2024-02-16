@@ -641,6 +641,18 @@ class TestAzureFileSystem : public ::testing::Test {
 #endif
   }
 
+  static bool WithErrno(const Status& status, int expected_errno) {
+    auto* detail = status.detail().get();
+    return detail &&
+           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
+  }
+
+#define ASSERT_RAISES_ERRNO(expr, expected_errno)                                     \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));              \
+       !WithErrno(_st, (expected_errno));)                                            \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' did not fail with errno=" << #expected_errno \
+         << ": " << _st.ToString()
+
   // Tests that are called from more than one implementation of TestAzureFileSystem
 
   void TestDetectHierarchicalNamespace(bool trip_up_azurite);
@@ -890,8 +902,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteFileAtRoot() {
-    ASSERT_RAISES(Invalid, fs()->DeleteFile("file0"));
-    ASSERT_RAISES(Invalid, fs()->DeleteFile("file1/"));
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile("file0"), ENOENT);
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile("file1/"), ENOENT);
     const auto container_name = PreexistingData::RandomContainerName(rng_);
     if (WithHierarchicalNamespace()) {
       ARROW_UNUSED(CreateFilesystem(container_name));
@@ -899,23 +911,19 @@ class TestAzureFileSystem : public ::testing::Test {
       ARROW_UNUSED(CreateContainer(container_name));
     }
     arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
-    ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
-    ASSERT_RAISES(IOError, fs()->DeleteFile(container_name + "/"));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + container_name + "'"),
+        fs()->DeleteFile(container_name));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + container_name + "/'"),
+        fs()->DeleteFile(container_name + "/"));
   }
 
   void TestDeleteFileAtContainerRoot() {
     auto data = SetUpPreexistingData();
 
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError,
-        ::testing::HasSubstr("Path does not exist '" + data.Path("nonexistent-path") +
-                             "'"),
-        fs()->DeleteFile(data.Path("nonexistent-path")));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError,
-        ::testing::HasSubstr("Not a regular file: '" + data.Path("nonexistent-path/") +
-                             "'"),
-        fs()->DeleteFile(data.Path("nonexistent-path/")));
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.Path("nonexistent-path")), ENOENT);
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.Path("nonexistent-path/")), ENOENT);
 
     arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
     ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
@@ -929,12 +937,11 @@ class TestAzureFileSystem : public ::testing::Test {
       auto container_client = CreateContainer(data.container_name);
       CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
     }
-
     arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, ::testing::HasSubstr("Not a regular file: '" + data.ObjectPath() + "/'"),
-        fs()->DeleteFile(data.ObjectPath() + "/"));
-    ASSERT_RAISES(IOError, fs()->DeleteFile(data.ObjectPath() + "/"));
+
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.ObjectPath() + "/"), ENOTDIR);
+    ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::NotFound);
   }
 
   void TestDeleteFileAtSubdirectory(bool create_empty_dir_marker_first) {
@@ -964,20 +971,14 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->DeleteFile(data.Path("dir/nonexistent-path")));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
-        ::testing::HasSubstr("Not a regular file: '" +
+        ::testing::HasSubstr("Path does not exist '" +
                              data.Path("dir/nonexistent-path/") + "'"),
         fs()->DeleteFile(data.Path("dir/nonexistent-path/")));
 
     // Trying to delete the directory with DeleteFile should fail
-    if (WithHierarchicalNamespace()) {
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir") + "'"),
-          fs()->DeleteFile(data.Path("dir")));
-    } else {
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          IOError, ::testing::HasSubstr("Path does not exist '" + data.Path("dir") + "'"),
-          fs()->DeleteFile(data.Path("dir")));
-    }
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir") + "'"),
+        fs()->DeleteFile(data.Path("dir")));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/") + "'"),
         fs()->DeleteFile(data.Path("dir/")));
@@ -995,7 +996,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError,
-        ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/file0/") + "'"),
+        ::testing::HasSubstr("Not a directory: '" + data.Path("dir/file0/") + "'"),
         fs()->DeleteFile(data.Path("dir/file0/")));
     arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
   }
@@ -1155,12 +1156,6 @@ class TestAzureFileSystem : public ::testing::Test {
       AssertFileInfo(fs(), src, FileType::NotFound);
     }
     AssertFileInfo(fs(), dest, type);
-  }
-
-  static bool WithErrno(const Status& status, int expected_errno) {
-    auto* detail = status.detail().get();
-    return detail &&
-           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
   }
 
   std::optional<StringMatcher> MoveErrorMessageMatcher(const FileInfo& src_info,
@@ -1640,7 +1635,7 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexisten
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtRoot) {
-  void TestDeleteFileAtRoot();
+  this->TestDeleteFileAtRoot();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtContainerRoot) {
