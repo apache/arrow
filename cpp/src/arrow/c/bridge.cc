@@ -565,7 +565,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 }
 
 struct ArrayExporter {
-  ArrayExporter(bool device_interface = false) : device_interface_(device_interface){};
+  explicit ArrayExporter(bool device_interface = false)
+      : device_interface_(device_interface) {}
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are

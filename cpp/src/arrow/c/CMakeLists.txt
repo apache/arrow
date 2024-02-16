@@ -21,12 +21,17 @@ if(ARROW_CUDA)
   else()
     set(ARROW_CUDA_LIBRARY arrow_cuda_static)
   endif()
-  set(ARROW_CUDA_TEST_LINK_LIBS ${ARROW_CUDA_LIBRARY} ${ARROW_TEST_LINK_LIBS})
-  add_arrow_test(bridge_test PREFIX "arrow-c" STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS})
+
+  set(ARROW_C_TEST_LINK_LIBS ${ARROW_CUDA_LIBRARY} ${ARROW_TEST_LINK_LIBS})
 else()
-  add_arrow_test(bridge_test PREFIX "arrow-c")
+  set(ARROW_C_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS})
 endif()
 
+add_arrow_test(bridge_test
+               PREFIX
+               "arrow-c"
+               STATIC_LINK_LIBS
+               ${ARROW_C_TEST_LINK_LIBS})
 add_arrow_test(dlpack_test)
 
 add_arrow_benchmark(bridge_benchmark)
