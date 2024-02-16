@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/compute/expression.h"
+#include <arrow/compute/api_aggregate.h> // TODO
+
 
 #include <chrono>
 #include <cstdint>
@@ -75,6 +77,10 @@ Expression cast(Expression argument, std::shared_ptr<DataType> to_type) {
 
 Expression true_unless_null(Expression argument) {
   return call("true_unless_null", {std::move(argument)});
+}
+
+Expression last(Expression l) {
+  return call("last", {std::move(l)});
 }
 
 Expression add(Expression l, Expression r) {
@@ -810,7 +816,6 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   }
 
   ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, *schm, in));
-
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveExecuteScalarExpression(expr, in));
 
   AssertDatumsEqual(actual, expected, /*verbose=*/true);
@@ -821,6 +826,14 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
 }
 
 TEST(Expression, ExecuteCall) {
+  ExpectExecute(greater(field_ref("a"), last(field_ref("a"))),
+                ArrayFromJSON(struct_({field("a", float64())}), R"([
+    {"a": 5},
+    {"a": 4},
+    {"a": 3},
+    {"a": 4}
+  ])"));
+
   ExpectExecute(add(field_ref("a"), literal(3.5)),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},

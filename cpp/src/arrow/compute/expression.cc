@@ -37,6 +37,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
+#include "exec_internal.h"
 
 namespace arrow {
 
@@ -298,7 +299,8 @@ bool Expression::IsScalarExpression() const {
   }
 
   if (call->function) {
-    return call->function->kind() == compute::Function::SCALAR;
+    return call->function->kind() == compute::Function::SCALAR ||
+           call->function->kind() == compute::Function::SCALAR_AGGREGATE;
   }
 
   // this expression is not bound; make a best guess based on
@@ -306,7 +308,8 @@ bool Expression::IsScalarExpression() const {
   if (auto function = compute::GetFunctionRegistry()
                           ->GetFunction(call->function_name)
                           .ValueOr(nullptr)) {
-    return function->kind() == compute::Function::SCALAR;
+    return function->kind() == compute::Function::SCALAR ||
+           function->kind() == compute::Function::SCALAR_AGGREGATE;
   }
 
   // unknown function or other error; conservatively return false
@@ -770,14 +773,20 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     input_length = input.length;
   }
 
-  auto executor = compute::detail::KernelExecutor::MakeScalar();
+  DCHECK(call->function->kind() == compute::Function::SCALAR ||
+         call->function->kind() == compute::Function::SCALAR_AGGREGATE);
+  auto executor = call->function->kind() == compute::Function::SCALAR
+                      ? compute::detail::KernelExecutor::MakeScalar()
+                      : compute::detail::KernelExecutor::MakeScalarAggregate();
 
   compute::KernelContext kernel_context(exec_context, call->kernel);
   kernel_context.SetState(call->kernel_state.get());
 
   const Kernel* kernel = call->kernel;
   std::vector<TypeHolder> types = GetTypes(arguments);
-  auto options = call->options.get();
+  auto options = call->options.get() == NULLPTR ? call->function->default_options()
+                                                : call->options.get();
+
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
