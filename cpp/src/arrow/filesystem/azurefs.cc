@@ -269,15 +269,11 @@ struct AzureLocation {
   /// \brief Create a copy of this location with the trailing slash removed from the
   /// path.
   ///
-  /// \param[in] preserve_original If true, the original string that was parsed
-  /// into this location is preserved as is.
-  AzureLocation RemoveTrailingSlash(bool preserve_original) const {
+  /// The original string that was parsed into this location -- all -- is preserved as is
+  /// to make error messages show what the user originally provided.
+  AzureLocation RemoveTrailingSlashFromPath() const {
     AzureLocation result;
-    if (preserve_original) {
-      result.all = all;
-    } else {
-      result.all = internal::RemoveTrailingSlash(all);
-    }
+    result.all = all;
     result.container = container;
     result.path = internal::RemoveTrailingSlash(path);
     result.path_parts = path_parts;
@@ -2102,8 +2098,7 @@ class AzureFileSystem::Impl {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     constexpr auto kFileBlobLeaseTime = std::chrono::seconds{15};
-    auto no_trailing_slash_location = location.RemoveTrailingSlash(
-        /*preserve_original=*/true);
+    auto no_trailing_slash_location = location.RemoveTrailingSlashFromPath();
 
     std::optional<FileType> location_type_opt;
     auto location_type_lazy = [&]() -> Result<FileType> {
