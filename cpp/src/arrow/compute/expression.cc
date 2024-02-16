@@ -24,7 +24,6 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/util.h"
