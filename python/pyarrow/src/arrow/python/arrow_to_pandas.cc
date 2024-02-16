@@ -1168,7 +1168,8 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<is_base_binary_type<Type>::value || is_binary_view_like_type<Type>::value || is_fixed_size_binary_type<Type>::value,
+  enable_if_t<is_base_binary_type<Type>::value || is_binary_view_like_type<Type>::value ||
+                  is_fixed_size_binary_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const std::string_view& view, PyObject** out) {
