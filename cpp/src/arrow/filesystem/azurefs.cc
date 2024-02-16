@@ -1103,7 +1103,11 @@ class LeaseGuard {
     return Status::OK();
   }
 
-  /// \brief Break the lease before deleting or renaming the resource.
+  /// \brief Break the lease before deleting or renaming the resource via the
+  /// DataLakeFileSystemClient API.
+  ///
+  /// NOTE: When using the Blobs API, this is not necessary -- you can release a
+  /// lease on a path after it's deleted with a lease on it.
   ///
   /// Calling this is recommended when the resource for which the lease was acquired is
   /// about to be deleted as there is no way of releasing the lease after that, we can
