@@ -774,7 +774,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
     def cast(self, schema):
         """
-        Wraps this reader with one that casts each batch lazily as it is pulled.
+        Wrap this reader with one that casts each batch lazily as it is pulled.
 
         Parameters
         ----------
