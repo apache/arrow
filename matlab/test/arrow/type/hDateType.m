@@ -86,7 +86,6 @@ classdef hDateType < hFixedWidthType
 
     methods (Access = protected, Abstract)
         DefaultDateUnit;
-        end
     end
 
 end
