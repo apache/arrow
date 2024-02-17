@@ -18,6 +18,7 @@
 require "arrow"
 
 require "fiddle"
+require "json"
 require "pathname"
 require "tempfile"
 require "timeout"

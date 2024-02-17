@@ -24,10 +24,10 @@ import time
 import urllib.request
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
 from ..conftest import groups, defaults
 
+from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
 
@@ -46,6 +46,12 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 # Set this at the beginning before the AWS SDK was loaded to avoid reading in
 # user configuration values.
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
+
+
+if sys.platform == 'win32':
+    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
+    if tzdata_set_path:
+        set_timezone_db_path(tzdata_set_path)
 
 
 def pytest_addoption(parser):
@@ -252,13 +258,13 @@ def gcs_server():
 
 @pytest.fixture(
     params=[
-        lazy_fixture('builtin_pickle'),
-        lazy_fixture('cloudpickle')
+        'builtin_pickle',
+        'cloudpickle'
     ],
     scope='session'
 )
 def pickle_module(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(scope='session')

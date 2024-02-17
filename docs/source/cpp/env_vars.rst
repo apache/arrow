@@ -58,8 +58,10 @@ that changing their value later will have an effect.
    - ``abort`` exits the processus with a non-zero return value;
    - ``trap`` issues a platform-specific debugger breakpoint / trap instruction;
    - ``warn`` prints a warning on stderr and continues execution;
+   - ``none`` disables memory checks;
 
-   If this variable is not set, or has empty an value, memory checks are disabled.
+   If this variable is not set, or has an empty value, it has the same effect
+   as the value ``none`` - memory checks are disabled.
 
    .. note::
       While this functionality can be useful and has little overhead, it
@@ -84,6 +86,28 @@ that changing their value later will have an effect.
    The directory containing the C HDFS library (``hdfs.dll`` on Windows,
    ``libhdfs.dylib`` on macOS, ``libhdfs.so`` on other platforms).
    Alternatively, one can set :envvar:`HADOOP_HOME`.
+
+.. envvar:: ARROW_S3_LOG_LEVEL
+
+   Controls the verbosity of logging produced by S3 calls. Defaults to ``FATAL``
+   which only produces output in the case of fatal errors. ``DEBUG`` is recommended
+   when you're trying to troubleshoot issues.
+
+   Possible values include:
+
+   - ``FATAL`` (the default)
+   - ``ERROR``
+   - ``WARN``
+   - ``INFO``
+   - ``DEBUG``
+   - ``TRACE``
+   - ``OFF``
+
+   .. seealso::
+
+      `Logging - AWS SDK For C++
+      <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/logging.html>`__
+
 
 .. envvar:: ARROW_TRACING_BACKEND
 
@@ -141,6 +165,13 @@ that changing their value later will have an effect.
 .. envvar:: AWS_ENDPOINT_URL
 
    Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   Alternatively, one can set :envvar:`AWS_ENDPOINT_URL_S3`.
+
+.. envvar:: AWS_ENDPOINT_URL_S3
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   This takes precedence over :envvar:`AWS_ENDPOINT_URL` if both variables
+   are set.
 
 .. envvar:: GANDIVA_CACHE_SIZE
 

@@ -24,4 +24,7 @@ namespace arrow::matlab::type {
 
     arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
 
+    template <typename TimeType>
+    arrow::Status validateTimeUnit(arrow::TimeUnit::type unit);
+
 }

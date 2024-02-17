@@ -19,12 +19,15 @@ package org.apache.arrow.memory.util;
 
 import java.util.Arrays;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+
 /**
  * Convenient way of obtaining and manipulating stack traces for debugging.
  */
 public class StackTrace {
 
-  private final StackTraceElement[] stackTraceElements;
+  private final @Nullable StackTraceElement [] stackTraceElements;
 
   /**
    * Constructor. Captures the current stack trace.
@@ -48,16 +51,18 @@ public class StackTrace {
 
     // write the stack trace in standard Java format
     for (StackTraceElement ste : stackTraceElements) {
-      sb.append(indentation)
-          .append("at ")
-          .append(ste.getClassName())
-          .append('.')
-          .append(ste.getMethodName())
-          .append('(')
-          .append(ste.getFileName())
-          .append(':')
-          .append(Integer.toString(ste.getLineNumber()))
-          .append(")\n");
+      if (ste != null) {
+        sb.append(indentation)
+            .append("at ")
+            .append(ste.getClassName())
+            .append('.')
+            .append(ste.getMethodName())
+            .append('(')
+            .append(ste.getFileName())
+            .append(':')
+            .append(Integer.toString(ste.getLineNumber()))
+            .append(")\n");
+      }
     }
   }
 

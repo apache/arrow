@@ -103,7 +103,7 @@ A client that wishes to download the data would:
    different endpoints may be interleaved to allow parallel fetches.
 
    Note that since some clients may ignore ``FlightInfo.ordered``, if
-   ordering is important and client support can not be ensured,
+   ordering is important and client support cannot be ensured,
    servers should return a single endpoint.
 
    The response also contains other metadata, like the schema, and

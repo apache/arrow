@@ -123,12 +123,16 @@ Status GetConverter(const std::shared_ptr<DataType>&, std::shared_ptr<Converter>
 template <class Derived>
 class ConcreteConverter : public Converter {
  public:
-  Status AppendValues(const rj::Value& json_array) override {
-    auto self = static_cast<Derived*>(this);
-    if (!json_array.IsArray()) {
-      return JSONTypeError("array", json_array.GetType());
+  Result<int64_t> SizeOfJSONArray(const rj::Value& json_obj) {
+    if (!json_obj.IsArray()) {
+      return JSONTypeError("array", json_obj.GetType());
     }
-    auto size = json_array.Size();
+    return json_obj.Size();
+  }
+
+  Status AppendValues(const rj::Value& json_array) final {
+    auto self = static_cast<Derived*>(this);
+    ARROW_ASSIGN_OR_RAISE(auto size, SizeOfJSONArray(json_array));
     for (uint32_t i = 0; i < size; ++i) {
       RETURN_NOT_OK(self->AppendValue(json_array[i]));
     }
@@ -536,15 +540,19 @@ class FixedSizeBinaryConverter final
 // Converter for list arrays
 
 template <typename TYPE>
-class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
+class VarLengthListLikeConverter final
+    : public ConcreteConverter<VarLengthListLikeConverter<TYPE>> {
  public:
   using BuilderType = typename TypeTraits<TYPE>::BuilderType;
 
-  explicit ListConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
+  explicit VarLengthListLikeConverter(const std::shared_ptr<DataType>& type) {
+    this->type_ = type;
+  }
 
   Status Init() override {
-    const auto& list_type = checked_cast<const TYPE&>(*this->type_);
-    RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
+    const auto& var_length_list_like_type = checked_cast<const TYPE&>(*this->type_);
+    RETURN_NOT_OK(
+        GetConverter(var_length_list_like_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
     builder_ =
         std::make_shared<BuilderType>(default_memory_pool(), child_builder, this->type_);
@@ -555,8 +563,9 @@ class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
     if (json_obj.IsNull()) {
       return this->AppendNull();
     }
-    RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
+    ARROW_ASSIGN_OR_RAISE(auto size, this->SizeOfJSONArray(json_obj));
+    RETURN_NOT_OK(builder_->Append(true, size));
     return child_converter_->AppendValues(json_obj);
   }
 
@@ -847,6 +856,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::BINARY, StringConverter, BinaryType)
     PARAM_CONVERTER_CASE(Type::LARGE_STRING, StringConverter, LargeStringType)
     PARAM_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter, LargeBinaryType)
+    PARAM_CONVERTER_CASE(Type::STRING_VIEW, StringConverter, StringViewType)
+    PARAM_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter, BinaryViewType)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
                           FixedSizeBinaryType)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter, Decimal128Type)
@@ -896,8 +907,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, IntegerConverter<HalfFloatType>)
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
-    SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter<ListType>)
-    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST, ListConverter<LargeListType>)
+    SIMPLE_CONVERTER_CASE(Type::LIST, VarLengthListLikeConverter<ListType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST, VarLengthListLikeConverter<LargeListType>)
+    SIMPLE_CONVERTER_CASE(Type::LIST_VIEW, VarLengthListLikeConverter<ListViewType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST_VIEW,
+                          VarLengthListLikeConverter<LargeListViewType>)
     SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
@@ -905,6 +919,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter<BinaryType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
+    SIMPLE_CONVERTER_CASE(Type::STRING_VIEW, StringConverter<StringViewType>)
+    SIMPLE_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter<BinaryViewType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter<>)

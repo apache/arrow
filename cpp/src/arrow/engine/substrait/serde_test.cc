@@ -1334,7 +1334,7 @@ TEST(Substrait, GetRecordBatchReader) {
     ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
-    // in case of a test failure, re-evalaute the content in the file
+    // in case of a test failure, re-evaluate the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
 }
@@ -4223,7 +4223,7 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-  // To avoid unnecessar metadata columns being included in the final result
+  // To avoid unnecessary metadata columns being included in the final result
   std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(std::move(expected_table), buf, std::move(include_columns),
@@ -6108,7 +6108,7 @@ TEST(Substrait, ExtendedExpressionSerialization) {
 
 TEST(Substrait, ExtendedExpressionInvalidPlans) {
   // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
-  constexpr std::string_view kBadOuptutNames = R"(
+  constexpr std::string_view kBadOutputNames = R"(
     {
       "referredExpr":[
         {
@@ -6159,7 +6159,7 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
   )";
 
   ASSERT_OK_AND_ASSIGN(
-      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOutputNames));
 
   ASSERT_THAT(DeserializeExpressions(*buf),
               Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));

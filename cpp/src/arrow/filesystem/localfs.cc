@@ -304,7 +304,7 @@ namespace {
 /// Workhorse for streaming async implementation of `GetFileInfo`
 /// (`GetFileInfoGenerator`).
 ///
-/// There are two variants of async discovery functions suported:
+/// There are two variants of async discovery functions supported:
 /// 1. `DiscoverDirectoryFiles`, which parallelizes traversal of individual directories
 ///    so that each directory results are yielded as a separate `FileInfoGenerator` via
 ///    an underlying `DiscoveryImplIterator`, which delivers items in chunks (default size
@@ -595,7 +595,7 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
                                "' to '", dfn.ToString(), "'");
   }
 #else
-  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) == -1) {
+  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) != 0) {
     return IOErrorFromErrno(errno, "Failed renaming '", sfn.ToString(), "' to '",
                             dfn.ToString(), "'");
   }

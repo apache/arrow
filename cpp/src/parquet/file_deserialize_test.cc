@@ -91,7 +91,7 @@ static std::vector<Compression::type> GetSupportedCodecTypes() {
   codec_types.push_back(Compression::BROTLI);
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
   codec_types.push_back(Compression::GZIP);
 #endif
 
@@ -877,6 +877,48 @@ TEST_F(TestPageSerde, DataPageV2CrcCheckNonExistent) {
   this->TestPageSerdeCrc(/* write_checksum */ false, /* write_page_corrupt */ false,
                          /* verification_checksum */ true, /* has_dictionary */ false,
                          /* write_data_page_v2 */ true);
+}
+
+TEST_F(TestPageSerde, BadCompressedPageSize) {
+  // GH-38326: an exception should be raised if a compressed data page
+  // decompresses to a smaller size than declared in the data page header.
+  auto codec_types = GetSupportedCodecTypes();
+  const int data_page_bytes = 8192;
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
+  std::vector<uint8_t> faux_data;
+  // A well-compressible piece of data
+  faux_data.resize(data_page_bytes, 1);
+  for (auto codec_type : codec_types) {
+    auto codec = GetCodec(codec_type);
+    std::vector<uint8_t> buffer;
+    const uint8_t* data = faux_data.data();
+    int data_size = static_cast<int>(faux_data.size());
+
+    int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
+    buffer.resize(max_compressed_size);
+
+    int64_t actual_size;
+    ASSERT_OK_AND_ASSIGN(
+        actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+    // Write a data page header declaring a larger decompressed size than actual
+    ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(data_page_bytes, data_size + 1,
+                                                static_cast<int32_t>(actual_size)));
+    ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
+    InitSerializedPageReader(num_rows, codec_type);
+
+    EXPECT_THROW_THAT(
+        [&]() { page_reader_->NextPage(); }, ParquetException,
+        ::testing::AnyOf(
+            ::testing::Property(
+                &ParquetException::what,
+                ::testing::HasSubstr("Page didn't decompress to expected size")),
+            // Some decompressor, like zstd, might be able to detect the error
+            // before checking the page size.
+            ::testing::Property(&ParquetException::what,
+                                ::testing::HasSubstr("IOError"))));
+    ResetStream();
+  }
 }
 
 // ----------------------------------------------------------------------

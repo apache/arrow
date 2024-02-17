@@ -36,7 +36,7 @@ using arrow::int32;
 using arrow::int64;
 using arrow::timestamp;
 
-class TestProjector : public ::testing::Test {
+class DateTimeTestProjector : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
@@ -111,7 +111,7 @@ int32_t DaysSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t 
   return static_cast<int32_t>(((ts - base_line) * 1000 + millis) / MILLIS_IN_DAY);
 }
 
-TEST_F(TestProjector, TestIsNull) {
+TEST_F(DateTimeTestProjector, TestIsNull) {
   auto d0 = field("d0", date64());
   auto t0 = field("t0", time32(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({d0, t0});
@@ -155,7 +155,7 @@ TEST_F(TestProjector, TestIsNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnotnull, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestDate32IsNull) {
+TEST_F(DateTimeTestProjector, TestDate32IsNull) {
   auto d0 = field("d0", date32());
   auto schema = arrow::schema({d0});
 
@@ -191,7 +191,7 @@ TEST_F(TestProjector, TestDate32IsNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnull, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestDateTime) {
+TEST_F(DateTimeTestProjector, TestDateTime) {
   auto field0 = field("f0", date64());
   auto field1 = field("f1", date32());
   auto field2 = field("f2", timestamp(arrow::TimeUnit::MILLI));
@@ -292,7 +292,7 @@ TEST_F(TestProjector, TestDateTime) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_dd_from_ts, outputs.at(5));
 }
 
-TEST_F(TestProjector, TestTime) {
+TEST_F(DateTimeTestProjector, TestTime) {
   auto field0 = field("f0", time32(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({field0});
 
@@ -339,7 +339,7 @@ TEST_F(TestProjector, TestTime) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_hour, outputs.at(1));
 }
 
-TEST_F(TestProjector, TestTimestampDiff) {
+TEST_F(DateTimeTestProjector, TestTimestampDiff) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({f0, f1});
@@ -439,7 +439,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   }
 }
 
-TEST_F(TestProjector, TestTimestampDiffMonth) {
+TEST_F(DateTimeTestProjector, TestTimestampDiffMonth) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
   auto schema = arrow::schema({f0, f1});
@@ -497,7 +497,7 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
   }
 }
 
-TEST_F(TestProjector, TestMonthsBetween) {
+TEST_F(DateTimeTestProjector, TestMonthsBetween) {
   auto f0 = field("f0", arrow::date64());
   auto f1 = field("f1", arrow::date64());
   auto schema = arrow::schema({f0, f1});
@@ -550,7 +550,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestCastTimestampFromInt64) {
+TEST_F(DateTimeTestProjector, TestCastTimestampFromInt64) {
   auto f0 = field("f0", arrow::int64());
   auto schema = arrow::schema({f0});
 
@@ -600,7 +600,7 @@ TEST_F(TestProjector, TestCastTimestampFromInt64) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestLastDay) {
+TEST_F(DateTimeTestProjector, TestLastDay) {
   auto f0 = field("f0", arrow::date64());
   auto schema = arrow::schema({f0});
 
@@ -650,7 +650,7 @@ TEST_F(TestProjector, TestLastDay) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestToTimestampFromInt) {
+TEST_F(DateTimeTestProjector, TestToTimestampFromInt) {
   auto f0 = field("f0", arrow::int32());
   auto f1 = field("f1", arrow::int64());
   auto f2 = field("f2", arrow::float32());
@@ -721,7 +721,7 @@ TEST_F(TestProjector, TestToTimestampFromInt) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output1, outputs.at(3));
 }
 
-TEST_F(TestProjector, TestToUtcTimestamp) {
+TEST_F(DateTimeTestProjector, TestToUtcTimestamp) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", arrow::utf8());
 
@@ -775,7 +775,7 @@ TEST_F(TestProjector, TestToUtcTimestamp) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
-TEST_F(TestProjector, TestFromUtcTimestamp) {
+TEST_F(DateTimeTestProjector, TestFromUtcTimestamp) {
   auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
   auto f1 = field("f1", arrow::utf8());
 

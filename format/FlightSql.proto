@@ -551,7 +551,7 @@ enum SqlInfo {
   // Retrieves a int64 value representing the maximum number of characters allowed for a column name.
   SQL_MAX_COLUMN_NAME_LENGTH = 543;
 
-  // Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+  // Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
   SQL_MAX_COLUMNS_IN_GROUP_BY = 544;
 
   // Retrieves a int64 value representing the maximum number of columns allowed in an index.
@@ -943,7 +943,7 @@ enum SqlSupportsConvert {
 
 /**
  * The JDBC/ODBC-defined type of any object.
- * All the values here are the sames as in the JDBC and ODBC specs.
+ * All the values here are the same as in the JDBC and ODBC specs.
  */
 enum XdbcDataType {
   XDBC_UNKNOWN_TYPE = 0;
@@ -1023,14 +1023,14 @@ enum Nullable {
   NULLABILITY_NULLABLE = 1;
 
   /**
-   * Indicates that nullability of the fields can not be determined.
+   * Indicates that nullability of the fields cannot be determined.
    */
   NULLABILITY_UNKNOWN = 2;
 }
 
 enum Searchable {
   /**
-   * Indicates that column can not be used in a WHERE clause.
+   * Indicates that column cannot be used in a WHERE clause.
    */
   SEARCHABLE_NONE = 0;
 
@@ -1196,7 +1196,7 @@ message CommandGetDbSchemas {
  *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
- *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
@@ -1537,11 +1537,14 @@ message ActionCreatePreparedStatementResult {
   bytes prepared_statement_handle = 1;
 
   // If a result set generating query was provided, dataset_schema contains the
-  // schema of the dataset as described in Schema.fbs::Schema, it is serialized as an IPC message.
+  // schema of the result set.  It should be an IPC-encapsulated Schema, as described in Schema.fbs.
+  // For some queries, the schema of the results may depend on the schema of the parameters.  The server
+  // should provide its best guess as to the schema at this point.  Clients must not assume that this
+  // schema, if provided, will be accurate.
   bytes dataset_schema = 2;
 
   // If the query provided contained parameters, parameter_schema contains the
-  // schema of the expected parameters as described in Schema.fbs::Schema, it is serialized as an IPC message.
+  // schema of the expected parameters.  It should be an IPC-encapsulated Schema, as described in Schema.fbs.
   bytes parameter_schema = 3;
 }
 
@@ -1676,7 +1679,7 @@ message ActionEndSavepointRequest {
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
- *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - GetFlightInfo: execute the query.
@@ -1702,7 +1705,7 @@ message CommandStatementQuery {
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
- *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
  *  - GetFlightInfo: execute the query.
@@ -1740,9 +1743,12 @@ message TicketStatementQuery {
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
  *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
- *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+ *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+ *
+ *    If the schema is retrieved after parameter values have been bound with DoPut, then the server should account
+ *    for the parameters when determining the schema.
  *  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
  *  - GetFlightInfo: execute the prepared statement instance.
  */
@@ -1755,7 +1761,7 @@ message CommandPreparedStatementQuery {
 
 /*
  * Represents a SQL update query. Used in the command member of FlightDescriptor
- * for the the RPC call DoPut to cause the server to execute the included SQL update.
+ * for the RPC call DoPut to cause the server to execute the included SQL update.
  */
 message CommandStatementUpdate {
   option (experimental) = true;
@@ -1768,7 +1774,7 @@ message CommandStatementUpdate {
 
 /*
  * Represents a SQL update query. Used in the command member of FlightDescriptor
- * for the the RPC call DoPut to cause the server to execute the included
+ * for the RPC call DoPut to cause the server to execute the included
  * prepared statement handle as an update.
  */
 message CommandPreparedStatementUpdate {

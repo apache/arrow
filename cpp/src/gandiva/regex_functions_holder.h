@@ -35,15 +35,15 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  public:
   ~LikeHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder);
+  static Result<std::shared_ptr<LikeHolder>> Make(const FunctionNode& node);
 
-  static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder);
+  static Result<std::shared_ptr<LikeHolder>> Make(const std::string& sql_pattern);
 
-  static Status Make(const std::string& sql_pattern, const std::string& escape_char,
-                     std::shared_ptr<LikeHolder>* holder);
+  static Result<std::shared_ptr<LikeHolder>> Make(const std::string& sql_pattern,
+                                                  const std::string& escape_char);
 
-  static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder,
-                     RE2::Options regex_op);
+  static Result<std::shared_ptr<LikeHolder>> Make(const std::string& sql_pattern,
+                                                  RE2::Options regex_op);
 
   // Try and optimise a function node with a "like" pattern.
   static const FunctionNode TryOptimize(const FunctionNode& node);
@@ -66,10 +66,9 @@ class GANDIVA_EXPORT ReplaceHolder : public FunctionHolder {
  public:
   ~ReplaceHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<ReplaceHolder>* holder);
+  static Result<std::shared_ptr<ReplaceHolder>> Make(const FunctionNode& node);
 
-  static Status Make(const std::string& sql_pattern,
-                     std::shared_ptr<ReplaceHolder>* holder);
+  static Result<std::shared_ptr<ReplaceHolder>> Make(const std::string& sql_pattern);
 
   /// Return a new string with the pattern that matched the regex replaced for
   /// the replace_input parameter.
@@ -130,10 +129,9 @@ class GANDIVA_EXPORT ExtractHolder : public FunctionHolder {
  public:
   ~ExtractHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<ExtractHolder>* holder);
+  static Result<std::shared_ptr<ExtractHolder>> Make(const FunctionNode& node);
 
-  static Status Make(const std::string& sql_pattern,
-                     std::shared_ptr<ExtractHolder>* holder);
+  static Result<std::shared_ptr<ExtractHolder>> Make(const std::string& sql_pattern);
 
   /// Extracts the matching text from a string using a regex
   const char* operator()(ExecutionContext* ctx, const char* user_input,

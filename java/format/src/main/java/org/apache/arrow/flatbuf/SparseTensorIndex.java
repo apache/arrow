@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class SparseTensorIndex {
   private SparseTensorIndex() { }
   public static final byte NONE = 0;

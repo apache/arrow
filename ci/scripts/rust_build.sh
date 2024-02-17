@@ -21,6 +21,7 @@ set -e
 
 arrow_dir=${1}
 source_dir=${1}/rust
+build_dir=${2}/rust
 
 # This file is used to build the rust binaries needed for the archery
 # integration tests. Testing of the rust implementation in normal CI is handled
@@ -54,6 +55,11 @@ rustup show
 pushd ${source_dir}
 
 # build only the integration testing binaries
-cargo build -p arrow-integration-testing
+cargo build -p arrow-integration-testing --target-dir ${build_dir}
+
+# Save disk space by removing large temporary build products
+rm -rf target/debug/deps
+rm -rf target/debug/build
+rm -rf target/debug/incremental
 
 popd

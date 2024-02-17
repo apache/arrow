@@ -177,6 +177,7 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
     RETURN_NOT_OK(FromProto(pb_endpoint.expiration_time(), &expiration_time));
     endpoint->expiration_time = std::move(expiration_time);
   }
+  endpoint->app_metadata = pb_endpoint.app_metadata();
   return Status::OK();
 }
 
@@ -190,6 +191,7 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
     RETURN_NOT_OK(ToProto(endpoint.expiration_time.value(),
                           pb_endpoint->mutable_expiration_time()));
   }
+  pb_endpoint->set_app_metadata(endpoint.app_metadata);
   return Status::OK();
 }
 
@@ -255,6 +257,7 @@ arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
   info.total_records = pb_info.total_records();
   info.total_bytes = pb_info.total_bytes();
   info.ordered = pb_info.ordered();
+  info.app_metadata = pb_info.app_metadata();
   return FlightInfo(std::move(info));
 }
 
@@ -296,14 +299,17 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
   pb_info->set_ordered(info.ordered());
+  pb_info->set_app_metadata(info.app_metadata());
   return Status::OK();
 }
 
 // PollInfo
 
 Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
-  ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
-  info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+  if (pb_info.has_info()) {
+    ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
+    info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+  }
   if (pb_info.has_flight_descriptor()) {
     FlightDescriptor descriptor;
     RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &descriptor));
@@ -327,7 +333,9 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
 }
 
 Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
-  RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
+  if (info.info) {
+    RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
+  }
   if (info.descriptor) {
     RETURN_NOT_OK(ToProto(*info.descriptor, pb_info->mutable_flight_descriptor()));
   }

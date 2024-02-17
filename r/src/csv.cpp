@@ -181,6 +181,8 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     res->timestamp_parsers = timestamp_parsers;
   }
 
+  res->decimal_point = cpp11::as_cpp<char>(options["decimal_point"]);
+
   return res;
 }
 

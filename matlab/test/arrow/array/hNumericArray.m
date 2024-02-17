@@ -105,7 +105,7 @@ classdef hNumericArray < matlab.unittest.TestCase
         function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             A = tc.ArrowArrayConstructorFcn(data);
-            tc.verifyEqual(A.Length, int64(0));
+            tc.verifyEqual(A.NumElements, int64(0));
             tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn(reshape([], [0 1])));
         end
 
@@ -148,6 +148,57 @@ classdef hNumericArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn([1 2 3 4]);
             arrowArray = tc.ArrowArrayConstructorFcn(data);
             tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
+        end
+
+        function TestIsEqualTrue(tc)
+            % Verifies arrays are considered equal if:
+            %
+            %  1. Their Type properties are equal
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
+            %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
+            %  4. All corresponding valid elements have the same values
+
+            data1 = tc.MatlabArrayFcn([1 2 3 4]);
+            data2 = tc.MatlabArrayFcn([1 2 5 4]);
+            array1 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array3 = tc.ArrowArrayConstructorFcn(data2, Valid=[1 2 4]);
+            
+            tc.verifyTrue(isequal(array1, array2));
+            tc.verifyTrue(isequal(array1, array3));
+
+            % Test supplying more than two arrays to isequal
+            tc.verifyTrue(isequal(array1, array2, array3)); 
+        end
+
+        function TestIsEqualFalse(tc)
+            % Verify isequal returns false when expected. 
+            data1 = tc.MatlabArrayFcn([1 2 3 4]);
+            data2 = tc.MatlabArrayFcn([5 2 3 4]);
+            data3 = tc.MatlabArrayFcn([1 2 3 4 5]);
+            array1 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 4]);
+            array3 = tc.ArrowArrayConstructorFcn(data2, Valid=[1 2 4]);
+            array4 = arrow.array([true false true false]);
+            array5 = tc.ArrowArrayConstructorFcn(data3, Valid=[1 2 4]);
+
+            % Their validity bitmaps are not equal
+            tc.verifyFalse(isequal(array1, array2));
+
+            % Not all corresponding valid elements are equal
+            tc.verifyFalse(isequal(array1, array3));
+
+            % Their Type properties are not equal
+            tc.verifyFalse(isequal(array1, array4));
+
+            % Their NumElements properties are not equal
+            tc.verifyFalse(isequal(array1, array5));
+
+            % Comparing an arrow.array.Array to a MATLAB double
+            tc.verifyFalse(isequal(array1, 1));
+
+            % Test supplying more than two arrays to isequal
+            tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
     end
 end

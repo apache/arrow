@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/util/bpacking_avx512.h"
-#include "arrow/util/bpacking_simd512_generated.h"
+#include "arrow/util/bpacking_simd512_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow {

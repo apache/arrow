@@ -174,8 +174,9 @@ struct ReadRangeCache::Impl {
 
   // Add the given ranges to the cache, coalescing them where possible
   virtual Status Cache(std::vector<ReadRange> ranges) {
-    ranges = internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
-                                          options.range_size_limit);
+    ARROW_ASSIGN_OR_RAISE(
+        ranges, internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
+                                             options.range_size_limit));
     std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
     // Add new entries, themselves ordered by offset
     if (entries.size() > 0) {

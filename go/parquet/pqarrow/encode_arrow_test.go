@@ -25,21 +25,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/types"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/compress"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v14/parquet/pqarrow"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/compress"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v16/parquet/pqarrow"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,6 +125,87 @@ func makeDateTimeTypesTable(mem memory.Allocator, expected bool, addFieldMeta bo
 	return array.NewTable(arrsc, cols, int64(len(isValid)))
 }
 
+func makeDateTypeTable(mem memory.Allocator, expected bool, partialDays bool) arrow.Table {
+	const (
+		millisPerHour int64 = 1000 * 60 * 60
+		millisPerDay  int64 = millisPerHour * 24
+	)
+	isValid := []bool{true, true, true, false, true, true}
+
+	var field arrow.Field
+	if expected {
+		field = arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date32, Nullable: true}
+	} else {
+		field = arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date64, Nullable: true}
+	}
+
+	field.Metadata = arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"1"})
+
+	arrsc := arrow.NewSchema([]arrow.Field{field}, nil)
+
+	d32Values := []arrow.Date32{1489269000, 1489270000, 1489271000, 1489272000, 1489272000, 1489273000}
+
+	d64Values := make([]arrow.Date64, len(d32Values))
+	for i := range d64Values {
+		// Calculate number of milliseconds at date boundary
+		d64Values[i] = arrow.Date64(int64(d32Values[i]) * millisPerDay)
+		if partialDays {
+			// Offset 1 or more hours past the date boundary
+			hoursIntoDay := int64(i) * millisPerHour
+			d64Values[i] += arrow.Date64(hoursIntoDay)
+		}
+	}
+
+	bldr := array.NewRecordBuilder(mem, arrsc)
+	defer bldr.Release()
+
+	if expected {
+		bldr.Field(0).(*array.Date32Builder).AppendValues(d32Values, isValid)
+	} else {
+		bldr.Field(0).(*array.Date64Builder).AppendValues(d64Values, isValid)
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	return array.NewTableFromRecords(arrsc, []arrow.Record{rec})
+}
+
+func makeTimestampTypeTable(mem memory.Allocator, expected bool) arrow.Table {
+	isValid := []bool{true, true, true, false, true, true}
+
+	// Timestamp with relative (i.e. local) semantics. Make sure it roundtrips without being incorrectly converted to an absolute point in time.
+	f0 := arrow.Field{Name: "f0", Type: &arrow.TimestampType{Unit: arrow.Millisecond}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"1"})}
+
+	// Timestamp with absolute (i.e. instant) semantics. The physical representation is always from Unix epoch in UTC timezone.
+	// TimeZone is used for display purposes and can be stripped on roundtrip without changing the actual instant referred to.
+	// WithStoreSchema will preserve the original timezone, but the instant in will be equivalent even if it's not used.
+	f1 := arrow.Field{Name: "f1", Type: &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "EST"}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"2"})}
+	f1X := arrow.Field{Name: "f1", Type: &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"}, Nullable: true, Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"2"})}
+
+	fieldList := []arrow.Field{f0}
+	if expected {
+		fieldList = append(fieldList, f1X)
+	} else {
+		fieldList = append(fieldList, f1)
+	}
+
+	arrsc := arrow.NewSchema(fieldList, nil)
+
+	ts64msValues := []arrow.Timestamp{1489269, 1489270, 1489271, 1489272, 1489272, 1489273}
+
+	bldr := array.NewRecordBuilder(mem, arrsc)
+	defer bldr.Release()
+
+	bldr.Field(0).(*array.TimestampBuilder).AppendValues(ts64msValues, isValid)
+	bldr.Field(1).(*array.TimestampBuilder).AppendValues(ts64msValues, isValid)
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	return array.NewTableFromRecords(arrsc, []arrow.Record{rec})
+}
+
 func TestWriteArrowCols(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -131,26 +213,24 @@ func TestWriteArrowCols(t *testing.T) {
 	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
-	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
-	require.NoError(t, err)
-
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
-	require.NoError(t, err)
-
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_4))))
 
-	srgw := writer.AppendRowGroup()
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), nil)
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_4)),
+		pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)),
+	)
+	require.NoError(t, err)
 
+	fileWriter.NewRowGroup()
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, int(i))
+		colChunk := tbl.Column(int(i)).Data()
+		err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 		require.NoError(t, err)
-		require.NoError(t, acw.Write(ctx))
 	}
-	require.NoError(t, srgw.Close())
-	require.NoError(t, writer.Close())
+	require.NoError(t, fileWriter.Close())
 
 	expected := makeDateTimeTypesTable(mem, true, false)
 	defer expected.Release()
@@ -232,29 +312,24 @@ func TestWriteArrowInt96(t *testing.T) {
 	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
-	props := pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true), pqarrow.WithAllocator(mem))
-
-	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, props)
-	require.NoError(t, err)
-
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
-	require.NoError(t, err)
-
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
 
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(parquet.NewWriterProperties(parquet.WithAllocator(mem))))
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithAllocator(mem)),
+		pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true), pqarrow.WithAllocator(mem)),
+	)
+	require.NoError(t, err)
 
-	srgw := writer.AppendRowGroup()
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
-
+	fileWriter.NewRowGroup()
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, int(i))
+		colChunk := tbl.Column(int(i)).Data()
+		err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 		require.NoError(t, err)
-		require.NoError(t, acw.Write(ctx))
 	}
-	require.NoError(t, srgw.Close())
-	require.NoError(t, writer.Close())
+	require.NoError(t, fileWriter.Close())
 
 	expected := makeDateTimeTypesTable(mem, false, false)
 	defer expected.Release()
@@ -291,31 +366,28 @@ func TestWriteArrowInt96(t *testing.T) {
 func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, rowGroupSize int64, props pqarrow.ArrowWriterProperties) *memory.Buffer {
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
-	wrprops := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0))
-	psc, err := pqarrow.ToParquet(tbl.Schema(), wrprops, props)
-	require.NoError(t, err)
 
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0)),
+		props,
+	)
 	require.NoError(t, err)
-
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(wrprops))
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
 
 	offset := int64(0)
 	for offset < tbl.NumRows() {
 		sz := utils.Min(rowGroupSize, tbl.NumRows()-offset)
-		srgw := writer.AppendRowGroup()
+		fileWriter.NewRowGroup()
 		for i := 0; i < int(tbl.NumCols()); i++ {
-			col := tbl.Column(i)
-			acw, err := pqarrow.NewArrowColumnWriter(col.Data(), offset, sz, manifest, srgw, i)
+			colChunk := tbl.Column(i).Data()
+			err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 			require.NoError(t, err)
-			require.NoError(t, acw.Write(ctx))
 		}
-		srgw.Close()
 		offset += sz
 	}
-	writer.Close()
 
+	require.NoError(t, fileWriter.Close())
 	return sink.Finish()
 }
 
@@ -359,6 +431,51 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 	}
 }
 
+func TestWriteKeyValueMetadata(t *testing.T) {
+	kv := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		require.NoError(t, fw.AppendKeyValueMetadata(key, value))
+	}
+
+	err = fw.Close()
+	require.NoError(t, err)
+
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		got := reader.MetaData().KeyValueMetadata().FindValue(key)
+		require.NotNil(t, got)
+		assert.Equal(t, value, *got)
+	}
+}
+
 func TestWriteEmptyLists(t *testing.T) {
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
@@ -380,6 +497,64 @@ func TestWriteEmptyLists(t *testing.T) {
 
 	props := parquet.NewWriterProperties(
 		parquet.WithVersion(parquet.V1_0),
+	)
+	arrprops := pqarrow.DefaultWriterProps()
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, arrprops)
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+	err = fw.Close()
+	require.NoError(t, err)
+}
+
+func TestWriteAllNullsWithDeltaEncoding(t *testing.T) {
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "f2", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
+		{Name: "f3", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "f4", Type: arrow.ListOf(arrow.BinaryTypes.String)},
+		{Name: "f5", Type: arrow.BinaryTypes.LargeString, Nullable: true},
+		{Name: "f6", Type: arrow.ListOf(arrow.BinaryTypes.LargeString)},
+		{Name: "f7", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "f8", Type: arrow.ListOf(arrow.FixedWidthTypes.Date64)},
+		{Name: "f9", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "f10", Type: arrow.ListOf(arrow.BinaryTypes.LargeString)},
+		{Name: "f11", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		{Name: "f12", Type: arrow.ListOf(arrow.FixedWidthTypes.Boolean)},
+		{Name: "f13", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "f14", Type: arrow.ListOf(arrow.PrimitiveTypes.Float32)},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+		parquet.WithDictionaryDefault(false),
+		parquet.WithDictionaryFor("f9", true),
+		parquet.WithDictionaryFor("f10", true),
+		parquet.WithDictionaryFor("f13", true),
+		parquet.WithDictionaryFor("f14", true),
+		parquet.WithEncodingFor("f1", parquet.Encodings.DeltaBinaryPacked),
+		parquet.WithEncodingFor("f2", parquet.Encodings.DeltaBinaryPacked),
+		parquet.WithEncodingFor("f3", parquet.Encodings.DeltaByteArray),
+		parquet.WithEncodingFor("f4", parquet.Encodings.DeltaByteArray),
+		parquet.WithEncodingFor("f5", parquet.Encodings.DeltaLengthByteArray),
+		parquet.WithEncodingFor("f6", parquet.Encodings.DeltaLengthByteArray),
+		parquet.WithEncodingFor("f7", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f8", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f9", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f10", parquet.Encodings.Plain),
+		parquet.WithEncodingFor("f11", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f12", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f13", parquet.Encodings.RLE),
+		parquet.WithEncodingFor("f14", parquet.Encodings.RLE),
 	)
 	arrprops := pqarrow.DefaultWriterProps()
 	var buf bytes.Buffer
@@ -449,6 +624,8 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		return schema.DateLogicalType{}
 	case arrow.DATE64:
 		return schema.DateLogicalType{}
+	case arrow.FLOAT16:
+		return schema.Float16LogicalType{}
 	case arrow.TIMESTAMP:
 		ts := typ.(*arrow.TimestampType)
 		adjustedUTC := len(ts.TimeZone) == 0
@@ -474,9 +651,9 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		default:
 			panic("only micro and nano seconds are supported for arrow TIME64")
 		}
-	case arrow.DECIMAL:
-		dec := typ.(*arrow.Decimal128Type)
-		return schema.NewDecimalLogicalType(dec.Precision, dec.Scale)
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dec := typ.(arrow.DecimalType)
+		return schema.NewDecimalLogicalType(dec.GetPrecision(), dec.GetScale())
 	}
 	return schema.NoLogicalType{}
 }
@@ -495,6 +672,8 @@ func getPhysicalType(typ arrow.DataType) parquet.Type {
 		return parquet.Types.Float
 	case arrow.FLOAT64:
 		return parquet.Types.Double
+	case arrow.FLOAT16:
+		return parquet.Types.FixedLenByteArray
 	case arrow.BINARY, arrow.LARGE_BINARY, arrow.STRING, arrow.LARGE_STRING:
 		return parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY, arrow.DECIMAL:
@@ -552,15 +731,19 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 	switch typ := typ.(type) {
 	case *arrow.FixedSizeBinaryType:
 		byteWidth = int32(typ.ByteWidth)
-	case *arrow.Decimal128Type:
-		byteWidth = pqarrow.DecimalSize(typ.Precision)
+	case arrow.DecimalType:
+		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
+	case *arrow.Float16Type:
+		byteWidth = int32(typ.Bytes())
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
 		case *arrow.FixedSizeBinaryType:
 			byteWidth = int32(dt.ByteWidth)
-		case *arrow.Decimal128Type:
-			byteWidth = pqarrow.DecimalSize(dt.Precision)
+		case arrow.DecimalType:
+			byteWidth = pqarrow.DecimalSize(dt.GetPrecision())
+		case *arrow.Float16Type:
+			byteWidth = int32(typ.Bytes())
 		}
 	}
 
@@ -787,6 +970,79 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
 	}
 }
 
+func (ps *ParquetIOTestSuite) TestDate64ReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	date64InputTable := makeDateTypeTable(mem, false, false)
+	defer date64InputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTable, date64InputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, false)
+	defer date32ExpectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
+}
+
+func (ps *ParquetIOTestSuite) TestTimestampTZReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	inputTable := makeTimestampTypeTable(mem, false)
+	defer inputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, inputTable, inputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	expectedOutputTable := makeTimestampTypeTable(mem, true)
+	defer expectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(expectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", expectedOutputTable, roundTripOutputTable)
+}
+
+func (ps *ParquetIOTestSuite) TestDate64ReadWriteTableWithPartialDays() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	date64InputTableNotAlignedToDateBoundary := makeDateTypeTable(mem, false, true)
+	defer date64InputTableNotAlignedToDateBoundary.Release()
+	buf := writeTableToBuffer(ps.T(), mem, date64InputTableNotAlignedToDateBoundary, date64InputTableNotAlignedToDateBoundary.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	date32ExpectedOutputTable := makeDateTypeTable(mem, true, true)
+	defer date32ExpectedOutputTable.Release()
+
+	ps.Truef(array.TableEqual(date32ExpectedOutputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", date32ExpectedOutputTable, roundTripOutputTable)
+}
+
+func (ps *ParquetIOTestSuite) TestTimestampTZStoreSchemaReadWriteTable() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	inputTable := makeTimestampTypeTable(mem, false)
+	defer inputTable.Release()
+	buf := writeTableToBuffer(ps.T(), mem, inputTable, inputTable.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem), pqarrow.WithStoreSchema()))
+	defer buf.Release()
+
+	reader := ps.createReader(mem, buf.Bytes())
+	roundTripOutputTable := ps.readTable(reader)
+	defer roundTripOutputTable.Release()
+
+	ps.Truef(array.TableEqual(inputTable, roundTripOutputTable), "expected table: %s\ngot table: %s", inputTable, roundTripOutputTable)
+}
+
 func (ps *ParquetIOTestSuite) TestLargeBinaryReadWriteTable() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
@@ -932,6 +1188,56 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 	ps.True(array.Equal(expected, chunked.Chunk(0)))
 }
 
+func (ps *ParquetIOTestSuite) TestReadDecimal256() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bigEndian := []parquet.ByteArray{
+		// 123456
+		[]byte{1, 226, 64},
+		// 987654
+		[]byte{15, 18, 6},
+		// -123456
+		[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+	}
+
+	bldr := array.NewDecimal256Builder(mem, &arrow.Decimal256Type{Precision: 40, Scale: 3})
+	defer bldr.Release()
+
+	bldr.Append(decimal256.FromU64(123456))
+	bldr.Append(decimal256.FromU64(987654))
+	bldr.Append(decimal256.FromI64(-123456))
+
+	expected := bldr.NewDecimal256Array()
+	defer expected.Release()
+
+	sc := schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(40, 3), parquet.Types.ByteArray, -1, -1)),
+	}, -1))
+
+	sink := encoding.NewBufferWriter(0, mem)
+	defer sink.Release()
+	writer := file.NewParquetWriter(sink, sc)
+
+	rgw := writer.AppendRowGroup()
+	cw, _ := rgw.NextColumn()
+	cw.(*file.ByteArrayColumnChunkWriter).WriteBatch(bigEndian, nil, nil)
+	cw.Close()
+	rgw.Close()
+	writer.Close()
+
+	rdr := ps.createReader(mem, sink.Bytes())
+	cr, err := rdr.GetColumn(context.TODO(), 0)
+	ps.NoError(err)
+
+	chunked, err := cr.NextBatch(smallSize)
+	ps.NoError(err)
+	defer chunked.Release()
+
+	ps.Len(chunked.Chunks(), 1)
+	ps.Truef(array.Equal(expected, chunked.Chunk(0)), "expected: %s\ngot: %s", expected, chunked.Chunk(0))
+}
+
 func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
@@ -1017,6 +1323,7 @@ var fullTypeList = []arrow.DataType{
 	arrow.FixedWidthTypes.Date32,
 	arrow.PrimitiveTypes.Float32,
 	arrow.PrimitiveTypes.Float64,
+	arrow.FixedWidthTypes.Float16,
 	arrow.BinaryTypes.String,
 	arrow.BinaryTypes.Binary,
 	&arrow.FixedSizeBinaryType{ByteWidth: 10},
@@ -1887,4 +2194,41 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	wr.Close()
 
 	require.Zero(t, mem.CurrentAlloc())
+}
+
+func TestEmptyListDeltaBinaryPacked(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "ts", Type: arrow.ListOf(arrow.PrimitiveTypes.Uint64),
+			Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})}}, nil)
+	builder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer builder.Release()
+
+	listBuilder := builder.Field(0).(*array.ListBuilder)
+	listBuilder.Append(true)
+	arrowRec := builder.NewRecord()
+	defer arrowRec.Release()
+
+	var buf bytes.Buffer
+	wr, err := pqarrow.NewFileWriter(schema, &buf,
+		parquet.NewWriterProperties(
+			parquet.WithDictionaryFor("ts.list.element", false),
+			parquet.WithEncodingFor("ts.list.element", parquet.Encodings.DeltaBinaryPacked)),
+		pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	require.NoError(t, wr.WriteBuffered(arrowRec))
+	require.NoError(t, wr.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	reader, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+	require.NoError(t, err)
+	defer rdr.Close()
+
+	tbl, err := reader.ReadTable(context.Background())
+	require.NoError(t, err)
+	defer tbl.Release()
+
+	assert.True(t, schema.Equal(tbl.Schema()))
+	assert.EqualValues(t, 1, tbl.NumRows())
 }

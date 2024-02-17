@@ -167,6 +167,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool background_writes
         c_bool allow_bucket_creation
         c_bool allow_bucket_deletion
+        c_bool force_virtual_addressing
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_string role_arn
         c_string session_name
@@ -211,6 +212,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CS3GlobalOptions& options)
     cdef CStatus CEnsureS3Initialized "arrow::fs::EnsureS3Initialized"()
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
+    cdef CStatus CEnsureS3Finalized "arrow::fs::EnsureS3Finalized"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
 

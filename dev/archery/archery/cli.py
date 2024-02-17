@@ -42,7 +42,7 @@ logging.basicConfig(level=logging.INFO)
 BOOL = ArrowBool()
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
@@ -167,7 +167,7 @@ def _apply_options(cmd, options):
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,
-              help="Build the HiveServer2 client and arrow adapater.")
+              help="Build the HiveServer2 client and arrow adapter.")
 @click.option("--with-ipc", default=None, type=BOOL,
               help="Build the Arrow IPC extensions.")
 @click.option("--with-json", default=None, type=BOOL,
@@ -177,7 +177,7 @@ def _apply_options(cmd, options):
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
 @click.option("--with-python", default=None, type=BOOL,
-              help="Build the Arrow CPython extesions.")
+              help="Build the Arrow CPython extensions.")
 @click.option("--with-r", default=None, type=BOOL,
               help="Build the Arrow R extensions. This is not a CMake option, "
               "it will toggle required options")
@@ -377,7 +377,10 @@ def benchmark_common_options(cmd):
                      "Can be stacked. For language=java"),
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
-                     "Can be stacked. For language=cpp")
+                     "Can be stacked. For language=cpp"),
+        click.option("--cpp-benchmark-extras", type=str, multiple=True,
+                     help="Extra flags/options to pass to C++ benchmark executables. "
+                     "Can be stacked. For language=cpp"),
     ]
 
     cmd = java_toolchain_options(cmd)
@@ -404,7 +407,7 @@ def benchmark_filter_options(cmd):
 @click.pass_context
 def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    java_home, java_options, build_extras, benchmark_extras,
-                   language, **kwargs):
+                   cpp_benchmark_extras, language, **kwargs):
     """ List benchmark suite.
     """
     with tmpdir(preserve=preserve) as root:
@@ -415,7 +418,8 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 cmake_extras=cmake_extras, **kwargs)
 
             runner_base = CppBenchmarkRunner.from_rev_or_path(
-                src, root, rev_or_path, conf)
+                src, root, rev_or_path, conf,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -440,12 +444,16 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
 @click.option("--repetitions", type=int, default=-1,
               help=("Number of repetitions of each benchmark. Increasing "
                     "may improve result precision. "
-                    "[default: 1 for cpp, 5 for java"))
+                    "[default: 1 for cpp, 5 for java]"))
+@click.option("--repetition-min-time", type=float, default=None,
+              help=("Minimum duration of each repetition in seconds. "
+                    "Currently only supported for language=cpp. "
+                    "[default: use runner-specific defaults]"))
 @click.pass_context
 def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                   java_home, java_options, build_extras, benchmark_extras,
                   language, suite_filter, benchmark_filter, repetitions,
-                  **kwargs):
+                  repetition_min_time, cpp_benchmark_extras, **kwargs):
     """ Run benchmark suite.
 
     This command will run the benchmark suite for a single build. This is
@@ -469,12 +477,17 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     archery benchmark run
 
     \b
+    # Run the benchmarks on an existing build directory
+    \b
+    archery benchmark run /build/cpp
+
+    \b
     # Run the benchmarks on current previous commit
     \b
     archery benchmark run HEAD~1
 
     \b
-    # Run the benchmarks on current previous commit
+    # Run the benchmarks on current git workspace and output results as a JSON file.
     \b
     archery benchmark run --output=run.json
     """
@@ -488,8 +501,9 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
             repetitions = repetitions if repetitions != -1 else 1
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, rev_or_path, conf,
-                repetitions=repetitions,
-                suite_filter=suite_filter, benchmark_filter=benchmark_filter)
+                repetitions=repetitions, repetition_min_time=repetition_min_time,
+                suite_filter=suite_filter, benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -533,7 +547,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                    suite_filter, benchmark_filter, repetitions, no_counters,
                    java_home, java_options, build_extras, benchmark_extras,
-                   threshold, contender, baseline, **kwargs):
+                   cpp_benchmark_extras, threshold, contender, baseline,
+                   **kwargs):
     """Compare (diff) benchmark runs.
 
     This command acts like git-diff but for benchmark results.
@@ -620,12 +635,14 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 src, root, contender, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, baseline, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter,
-                benchmark_filter=benchmark_filter)
+                benchmark_filter=benchmark_filter,
+                benchmark_extras=cpp_benchmark_extras)
 
         elif language == "java":
             for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
@@ -723,8 +740,12 @@ def _set_default(opt, default):
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
+@click.option('--run-ipc', is_flag=True, default=False,
+              help='Run IPC integration tests')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
+@click.option('--run-c-data', is_flag=True, default=False,
+              help='Run C Data Interface integration tests')
 @click.option('--debug', is_flag=True, default=False,
               help='Run executables in debug mode as relevant')
 @click.option('--serial', is_flag=True, default=False,
@@ -753,22 +774,33 @@ def integration(with_all=False, random_seed=12345, **args):
     gen_path = args['write_generated_json']
 
     languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
+    formats = ['ipc', 'flight', 'c_data']
 
     enabled_languages = 0
     for lang in languages:
-        param = 'with_{}'.format(lang)
+        param = f'with_{lang}'
         if with_all:
             args[param] = with_all
+        enabled_languages += args[param]
 
-        if args[param]:
-            enabled_languages += 1
+    enabled_formats = 0
+    for fmt in formats:
+        param = f'run_{fmt}'
+        enabled_formats += args[param]
 
     if gen_path:
+        # XXX See GH-37575: this option is only used by the JS test suite
+        # and might not be useful anymore.
         os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
+        if enabled_formats == 0:
+            raise click.UsageError(
+                "Need to enable at least one format to test "
+                "(IPC, Flight, C Data Interface); try --help")
         if enabled_languages == 0:
-            raise Exception("Must enable at least 1 language to test")
+            raise click.UsageError(
+                "Need to enable at least one language to test; try --help")
         run_all_tests(**args)
 
 

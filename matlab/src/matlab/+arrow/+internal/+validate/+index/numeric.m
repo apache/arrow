@@ -19,11 +19,22 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function index = numeric(index, intType)
+function index = numeric(index, intType, opts)
+    arguments
+        index
+        intType(1, 1) string
+        opts.AllowNonScalar(1, 1) = true
+    end
 
     if ~isnumeric(index)
         errid = "arrow:badsubscript:NonNumeric";
         msg = "Expected numeric index values.";
+        error(errid, msg);
+    end
+
+    if ~opts.AllowNonScalar && ~isscalar(index)
+        errid = "arrow:badsubscript:NonScalar";
+        msg = "Expected a scalar index value.";
         error(errid, msg);
     end
 

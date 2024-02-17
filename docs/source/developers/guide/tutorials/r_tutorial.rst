@@ -86,7 +86,7 @@ link of the main repository to our upstream.
 Building R package
 ------------------
 
-The steps to follow for for building the R package differs depending on the operating
+The steps to follow for building the R package differs depending on the operating
 system you are using. For this reason we will only refer to
 the instructions for the building process in this tutorial.
 

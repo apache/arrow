@@ -747,7 +747,7 @@ struct Round {
       } else {
         round_val = RoundImpl<CType, RndMode>::Round(round_val);
       }
-      // Equality check is ommitted so that the common case of 10^0 (integer rounding)
+      // Equality check is omitted so that the common case of 10^0 (integer rounding)
       // uses multiply-only
       round_val = ndigits > 0 ? (round_val / pow10) : (round_val * pow10);
       if (!std::isfinite(round_val)) {
@@ -1259,7 +1259,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
   RoundKernelGenerator<Op, RoundKernel, OptionsType> kernel_generator;
   for (const auto& tys : {NumericTypes(), {decimal128(1, 0), decimal256(1, 0)}}) {
     for (const auto& ty : tys) {
-      ArrayKernelExec exec;
+      ArrayKernelExec exec = nullptr;
       KernelInit init;
       DCHECK_OK(VisitTypeInline(*ty, &kernel_generator, &exec, &init));
       DCHECK_OK(func->AddKernel(
@@ -1280,7 +1280,7 @@ std::shared_ptr<ScalarFunction> MakeBinaryRoundFunction(const std::string& name,
   RoundKernelGenerator<Op, RoundBinaryKernel, OptionsType> kernel_generator;
   for (const auto& tys : {NumericTypes(), {decimal128(1, 0), decimal256(1, 0)}}) {
     for (const auto& ty : tys) {
-      ArrayKernelExec exec;
+      ArrayKernelExec exec = nullptr;
       KernelInit init;
       DCHECK_OK(VisitTypeInline(*ty, &kernel_generator, &exec, &init));
       DCHECK_OK(func->AddKernel(

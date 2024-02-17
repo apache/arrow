@@ -368,6 +368,50 @@ TEST_P(CodecTest, CodecRoundtrip) {
   }
 }
 
+TEST(CodecTest, CodecRoundtripGzipMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  std::unique_ptr<Codec> gzip_codec;
+  ASSERT_OK_AND_ASSIGN(gzip_codec, Codec::Create(Compression::GZIP));
+
+  for (int data_size : {0, 10000, 100000}) {
+    int64_t compressed_size_p1, compressed_size_p2;
+    uint32_t p1_size = data_size / 4;
+    uint32_t p2_size = data_size - p1_size;
+    std::vector<uint8_t> data_full = MakeRandomData(data_size);
+    std::vector<uint8_t> data_p1(data_full.begin(), data_full.begin() + p1_size);
+    std::vector<uint8_t> data_p2(data_full.begin() + p1_size, data_full.end());
+
+    int max_compressed_len_p1 =
+        static_cast<int>(gzip_codec->MaxCompressedLen(p1_size, data_p1.data()));
+    int max_compressed_len_p2 =
+        static_cast<int>(gzip_codec->MaxCompressedLen(p2_size, data_p2.data()));
+    std::vector<uint8_t> compressed(max_compressed_len_p1 + max_compressed_len_p2);
+
+    // Compress in 2 parts separately
+    ASSERT_OK_AND_ASSIGN(compressed_size_p1,
+                         gzip_codec->Compress(p1_size, data_p1.data(),
+                                              max_compressed_len_p1, compressed.data()));
+    ASSERT_OK_AND_ASSIGN(
+        compressed_size_p2,
+        gzip_codec->Compress(p2_size, data_p2.data(), max_compressed_len_p2,
+                             compressed.data() + compressed_size_p1));
+    compressed.resize(compressed_size_p1 + compressed_size_p2);
+
+    // Decompress the concatenated compressed gzip members
+    std::vector<uint8_t> decompressed(data_size);
+    int64_t actual_decompressed_size;
+    ASSERT_OK_AND_ASSIGN(
+        actual_decompressed_size,
+        gzip_codec->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                               decompressed.data()));
+
+    ASSERT_EQ(data_size, actual_decompressed_size);
+    ASSERT_EQ(data_full, decompressed);
+  }
+}
+
 TEST(TestCodecMisc, SpecifyCompressionLevel) {
   struct CombinationOption {
     Compression::type codec;

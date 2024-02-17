@@ -34,6 +34,7 @@ import pytest
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
 import pyarrow.tests.strategies as past
+import pyarrow.tests.util as test_util
 from pyarrow.vendored.version import Version
 
 import pyarrow as pa
@@ -48,6 +49,14 @@ try:
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
+
+
+try:
+    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+except AttributeError:
+    from numpy.exceptions import (
+        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+    )
 
 
 # Marks all of the tests in this module
@@ -104,6 +113,10 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
+        for col in expected.columns:
+            if expected[col].dtype == 'object':
+                expected[col] = expected[col].replace({np.nan: None})
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", "elementwise comparison failed", DeprecationWarning)
@@ -142,6 +155,9 @@ def _check_array_roundtrip(values, expected=None, mask=None,
         else:
             expected = pd.Series(values).copy()
             expected[mask.copy()] = None
+
+        if expected.dtype == 'object':
+            expected = expected.replace({np.nan: None})
 
     tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
@@ -253,6 +269,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_multiindex_columns(self):
@@ -303,6 +325,12 @@ class TestConvertMetadata:
 
         with warnings.catch_warnings():
             warnings.simplefilter(action="error")
+            # make_block deprecation in pandas, still under discussion
+            # https://github.com/pandas-dev/pandas/pull/56422
+            # https://github.com/pandas-dev/pandas/issues/40226
+            warnings.filterwarnings(
+                "ignore", "make_block is deprecated", DeprecationWarning
+            )
             _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_integer_index_column(self):
@@ -457,7 +485,7 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+        if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
             # TODO: regression in pandas, hopefully fixed in next version
             # https://issues.apache.org/jira/browse/ARROW-18394
             # https://github.com/pandas-dev/pandas/issues/50127
@@ -706,7 +734,7 @@ class TestConvertPrimitiveTypes:
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.nan]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -1335,7 +1363,7 @@ class TestConvertDateTimeLikeTypes:
         ex_values[1] = pd.NaT.value
 
         # date32 and date64 convert to [ms] in pandas v2, but
-        # in pandas v1 they are siliently coerced to [ns]
+        # in pandas v1 they are silently coerced to [ns]
         ex_datetime64ms = ex_values.astype('datetime64[ms]')
         expected_pandas = pd.DataFrame({'date32': ex_datetime64ms,
                                         'date64': ex_datetime64ms},
@@ -1683,6 +1711,7 @@ class TestConvertStringLikeTypes:
             'strings': [[v1]] * 20 + [[v2]] + [[b'x']]
         })
         arr = pa.array(df['strings'], from_pandas=True)
+        arr.validate(full=True)
         assert isinstance(arr, pa.ChunkedArray)
         assert arr.num_chunks == 2
         assert len(arr.chunk(0)) == 21
@@ -2329,7 +2358,7 @@ class TestConvertListTypes:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",
                                     "Creating an ndarray from ragged nested",
-                                    np.VisibleDeprecationWarning)
+                                    _np_VisibleDeprecationWarning)
             warnings.filterwarnings("ignore", "elementwise comparison failed",
                                     DeprecationWarning)
             tm.assert_series_equal(
@@ -2373,6 +2402,7 @@ class TestConvertListTypes:
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
+        table.validate(full=True)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
@@ -2441,26 +2471,26 @@ class TestConvertListTypes:
         np_arr = chunked_arr.to_numpy()
 
         expected = np.array([[1., 2.], [3., 4., 5.], None,
-                            [6., np.NaN]], dtype="object")
+                            [6., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr[0].base, expected_base)
 
         np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
 
-        expected = np.array([[3, 4, 5], None, [6, np.NaN]], dtype="object")
+        expected = np.array([[3, 4, 5], None, [6, np.nan]], dtype="object")
         for left, right in zip(np_arr_sliced, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
 
     def test_list_values_behind_null(self):
@@ -2471,7 +2501,7 @@ class TestConvertListTypes:
         )
         np_arr = arr.to_numpy(zero_copy_only=False)
 
-        expected = np.array([[1., 2.], None, [3., np.NaN]], dtype="object")
+        expected = np.array([[1., 2.], None, [3., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
@@ -2615,6 +2645,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.float64()),
                         pa.field('y', pa.binary())])
         arr = pa.array(data, type=ty, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         def iter_chunked_array(arr):
@@ -2647,6 +2678,7 @@ class TestConvertStructTypes:
         # Now with explicit mask
         mask = np.random.random_sample(n) < 0.2
         arr = pa.array(data, type=ty, mask=mask, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         check(arr, data, mask)
@@ -3083,7 +3115,7 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+    if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
         # TODO: regression in pandas, hopefully fixed in next version
         # https://issues.apache.org/jira/browse/ARROW-18394
         # https://github.com/pandas-dev/pandas/issues/50127
@@ -3466,7 +3498,7 @@ def test_table_from_pandas_schema_field_order_metadata():
     # ensure that a different field order in specified schema doesn't
     # mangle metadata
     df = pd.DataFrame({
-        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="H", periods=2),
+        "datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=2),
         "float": np.random.randn(2)
     })
 
@@ -3618,7 +3650,8 @@ def test_singleton_blocks_zero_copy():
 
     prior_allocation = pa.total_allocated_bytes()
     result = t.to_pandas()
-    assert result['f0'].values.flags.writeable
+    # access private `_values` because the public `values` is made read-only by pandas
+    assert result['f0']._values.flags.writeable
     assert pa.total_allocated_bytes() > prior_allocation
 
 
@@ -4084,13 +4117,20 @@ def test_array_protocol():
     assert result.equals(expected2)
 
 
-class DummyExtensionType(pa.PyExtensionType):
+class DummyExtensionType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.DummyExtensionType')
 
-    def __reduce__(self):
-        return DummyExtensionType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == pa.int64()
+        return cls()
 
 
 def PandasArray__arrow_array__(self, type=None):
@@ -4149,8 +4189,6 @@ def _Int64Dtype__from_arrow__(self, array):
 
 
 def test_convert_to_extension_array(monkeypatch):
-    import pandas.core.internals as _int
-
     # table converted from dataframe with extension types (so pandas_metadata
     # has this information)
     df = pd.DataFrame(
@@ -4161,16 +4199,15 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
-    assert isinstance(_get_mgr(result).blocks[1], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[1].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df)
 
     # test with missing values
     df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
     table2 = pa.table(df2)
     result = table2.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
@@ -4183,16 +4220,17 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
     assert len(_get_mgr(result).blocks) == 1
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
 
 
-class MyCustomIntegerType(pa.PyExtensionType):
+class MyCustomIntegerType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.MyCustomIntegerType')
 
-    def __reduce__(self):
-        return MyCustomIntegerType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
 
     def to_pandas_dtype(self):
         return pd.Int64Dtype()
@@ -4200,8 +4238,6 @@ class MyCustomIntegerType(pa.PyExtensionType):
 
 def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
-    import pandas.core.internals as _int
-
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
@@ -4209,12 +4245,12 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
     result = arr.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.Series([1, 2, 3, 4], dtype='Int64')
     tm.assert_series_equal(result, expected)
 
     result = table.to_pandas()
-    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == pd.Int64Dtype()
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
 
@@ -4228,7 +4264,7 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
-    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
 
@@ -4279,10 +4315,14 @@ def test_array_to_pandas():
 def test_roundtrip_empty_table_with_extension_dtype_index():
     df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
     table = pa.table(df)
-    table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
-                                         {'left': 1, 'right': 2},
-                                         {'left': 2, 'right': 3}],
-                                        dtype='object')
+    if Version(pd.__version__) > Version("1.0"):
+        tm.assert_index_equal(table.to_pandas().index, df.index)
+    else:
+        tm.assert_index_equal(table.to_pandas().index,
+                              pd.Index([{'left': 0, 'right': 1},
+                                        {'left': 1, 'right': 2},
+                                        {'left': 2, 'right': 3}],
+                                       dtype='object'))
 
 
 @pytest.mark.parametrize("index", ["a", ["a", "b"]])
@@ -4818,6 +4858,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
 
     def assert_roundtrip(series: pd.Series, data) -> None:
         array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
+        array_roundtrip.validate(full=True)
         assert data.equals(array_roundtrip)
 
     assert_roundtrip(series_default, chunked_array)
@@ -4936,3 +4977,47 @@ def test_array_conversion_for_datetime():
 
     result = arr.to_pandas()
     tm.assert_series_equal(result, series)
+
+
+@pytest.mark.large_memory
+def test_nested_chunking_valid():
+    # GH-32439: Chunking can cause arrays to be in invalid state
+    # when nested types are involved.
+    # Here we simply ensure we validate correctly.
+
+    def roundtrip(df, schema=None):
+        tab = pa.Table.from_pandas(df, schema=schema)
+        tab.validate(full=True)
+        # we expect to trigger chunking internally
+        # an assertion failure here may just mean this threshold has changed
+        num_chunks = tab.column(0).num_chunks
+        assert num_chunks > 1
+        tm.assert_frame_equal(tab.to_pandas(self_destruct=True,
+                                            maps_as_pydicts="strict"), df)
+
+    x = b"0" * 720000000
+    roundtrip(pd.DataFrame({"strings": [x, x, x]}))
+
+    struct = {"struct_field": x}
+    roundtrip(pd.DataFrame({"structs": [struct, struct, struct]}))
+
+    lists = [x]
+    roundtrip(pd.DataFrame({"lists": [lists, lists, lists]}))
+
+    los = [struct]
+    roundtrip(pd.DataFrame({"los": [los, los, los]}))
+
+    sol = {"struct_field": lists}
+    roundtrip(pd.DataFrame({"sol": [sol, sol, sol]}))
+
+    map_of_los = {"a": los}
+    map_type = pa.map_(pa.string(),
+                       pa.list_(pa.struct([("struct_field", pa.binary())])))
+    schema = pa.schema([("maps", map_type)])
+    roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
+              schema=schema)
+
+
+def test_is_data_frame_race_condition():
+    # See https://github.com/apache/arrow/issues/39313
+    test_util.invoke_script('arrow_39313.py')

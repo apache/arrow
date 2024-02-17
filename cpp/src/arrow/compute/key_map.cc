@@ -28,6 +28,7 @@
 namespace arrow {
 
 using bit_util::CountLeadingZeros;
+using internal::CpuInfo;
 
 namespace compute {
 
@@ -133,9 +134,10 @@ void SwissTable::extract_group_ids(const int num_keys, const uint16_t* optional_
 
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
   int num_group_id_bytes = num_group_id_bits / 8;
-  if ((hardware_flags_ & arrow::internal::CpuInfo::AVX2) && !optional_selection) {
+  if ((hardware_flags_ & CpuInfo::AVX2) && CpuInfo::GetInstance()->HasEfficientBmi2() &&
+      !optional_selection) {
     num_processed = extract_group_ids_avx2(num_keys, hashes, local_slots, out_group_ids,
                                            sizeof(uint64_t), 8 + 8 * num_group_id_bytes,
                                            num_group_id_bytes);
@@ -301,8 +303,8 @@ void SwissTable::early_filter(const int num_keys, const uint32_t* hashes,
   // Optimistically use simplified lookup involving only a start block to find
   // a single group id candidate for every input.
   int num_processed = 0;
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-  if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+#if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
+  if ((hardware_flags_ & CpuInfo::AVX2) && CpuInfo::GetInstance()->HasEfficientBmi2()) {
     if (log_blocks_ <= 4) {
       num_processed = early_filter_imp_avx2_x32(num_keys, hashes, out_match_bitvector,
                                                 out_local_slots);
@@ -503,7 +505,7 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
 
 // Slow processing of input keys in the most generic case.
 // Handles inserting new keys.
-// Pre-existing keys will be handled correctly, although the intended use is for this
+// Preexisting keys will be handled correctly, although the intended use is for this
 // call to follow a call to find() method, which would only pass on new keys that were
 // not present in the hash table.
 //
@@ -615,7 +617,7 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
   ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << log_minibatch_));
   ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << log_minibatch_));
 
-  // Allocate temporary buffers for slot ids and intialize them
+  // Allocate temporary buffers for slot ids and initialize them
   auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack, max_id + 1);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
   init_slot_ids_for_new_keys(num_ids, ids, hashes, slot_ids);

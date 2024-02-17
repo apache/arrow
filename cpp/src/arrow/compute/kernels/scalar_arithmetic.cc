@@ -1286,12 +1286,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto absolute_value =
       MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
+
+  // abs(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    DCHECK_OK(
+        absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
       "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
+  // abs_checked(duraton)
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
+                                                OutputType(duration(unit)), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
@@ -1513,7 +1528,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add divide(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<DoubleType, DoubleType, DoubleType, Divide>::Exec;
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingDivide>::Exec;
     DCHECK_OK(
         divide->AddKernel({duration(unit), duration(unit)}, float64(), std::move(exec)));
   }
@@ -1533,8 +1549,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add divide_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ScalarBinaryNotNull<DoubleType, DoubleType, DoubleType, DivideChecked>::Exec;
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingDivideChecked>::Exec;
     DCHECK_OK(divide_checked->AddKernel({duration(unit), duration(unit)}, float64(),
                                         std::move(exec)));
   }
@@ -1544,12 +1560,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+
+  // Add neg(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
+
+  // Add neg_checked(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    DCHECK_OK(
+        negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
@@ -1580,6 +1611,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto sign =
       MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
+  // sign(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------

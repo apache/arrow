@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
@@ -27,6 +28,7 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +51,10 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -110,10 +114,13 @@ public class TestBasicOperation {
         Field.nullable("a", new ArrowType.Int(32, true)),
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
-    final FlightInfo info1 = new FlightInfo(schema, FlightDescriptor.path(), Collections.emptyList(), -1, -1);
+    final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8)).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
-        Collections.singletonList(new FlightEndpoint(
-            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))), 200, 500);
+        Collections.singletonList(
+                FlightEndpoint.builder(new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))
+                        .setAppMetadata("bar".getBytes(StandardCharsets.UTF_8)).build()
+        ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
@@ -154,7 +161,7 @@ public class TestBasicOperation {
   public void getDescriptors() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(Criteria.ALL)) {
+      for (FlightInfo unused : c.listFlights(Criteria.ALL)) {
         count += 1;
       }
       Assertions.assertEquals(1, count);
@@ -165,7 +172,8 @@ public class TestBasicOperation {
   public void getDescriptorsWithCriteria() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+      for (FlightInfo unused : c.listFlights(new Criteria(new byte[]{1}))) {
+
         count += 1;
       }
       Assertions.assertEquals(0, count);
@@ -556,6 +564,7 @@ public class TestBasicOperation {
         FlightDescriptor descriptor) {
       try {
         Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
+            .setSchema(schemaToByteString(new Schema(Collections.emptyList())))
             .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
                 .setType(DescriptorType.CMD)
                 .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
@@ -564,6 +573,16 @@ public class TestBasicOperation {
             .build();
         return new FlightInfo(getInfo);
       } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static ByteString schemaToByteString(Schema schema)
+    {
+      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, IpcOption.DEFAULT);
+        return ByteString.copyFrom(baos.toByteArray());
+      } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }

@@ -22,6 +22,7 @@
 #'
 #' @inheritParams read_feather
 #' @param props [ParquetArrowReaderProperties]
+#' @param mmap Use TRUE to use memory mapping where possible
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
 #' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
@@ -43,14 +44,15 @@ read_parquet <- function(file,
                          # Assembling `props` yourself is something you do with
                          # ParquetFileReader but not here.
                          props = ParquetArrowReaderProperties$create(),
+                         mmap = TRUE,
                          ...) {
   if (!inherits(file, "RandomAccessFile")) {
     # Compression is handled inside the parquet file format, so we don't need
     # to detect from the file extension and wrap in a CompressedInputStream
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, mmap = mmap)
     on.exit(file$close())
   }
-  reader <- ParquetFileReader$create(file, props = props, ...)
+  reader <- ParquetFileReader$create(file, props = props, mmap = mmap, ...)
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
@@ -126,7 +128,7 @@ read_parquet <- function(file,
 #'  - A named vector, to specify the value for the named columns, the default
 #'    value for the setting is used when not supplied
 #'
-#' The `compression` argument can be any of the following (case insensitive):
+#' The `compression` argument can be any of the following (case-insensitive):
 #' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 #' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
 #' are almost always included. See [codec_is_available()].

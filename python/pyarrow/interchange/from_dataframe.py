@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import (
     Any,
+    Tuple,
 )
 
 from pyarrow.interchange.column import (
@@ -53,7 +54,8 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
     DtypeKind.FLOAT: {16: pa.float16(),
                       32: pa.float32(),
                       64: pa.float64()},
-    DtypeKind.BOOL: {8: pa.uint8()},
+    DtypeKind.BOOL: {1: pa.bool_(),
+                     8: pa.uint8()},
     DtypeKind.STRING: {8: pa.string()},
 }
 
@@ -84,20 +86,20 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({
-    ...         "n_atendees": [100, 10, 1],
+    ...         "n_attendees": [100, 10, 1],
     ...         "country": ["Italy", "Spain", "Slovenia"],
     ...     })
     >>> df
-       n_atendees   country
-    0         100     Italy
-    1          10     Spain
-    2           1  Slovenia
+       n_attendees   country
+    0          100     Italy
+    1           10     Spain
+    2            1  Slovenia
     >>> from_dataframe(df)
     pyarrow.Table
-    n_atendees: int64
+    n_attendees: int64
     country: large_string
     ----
-    n_atendees: [[100,10,1]]
+    n_attendees: [[100,10,1]]
     country: [["Italy","Spain","Slovenia"]]
     """
     if isinstance(df, pa.Table):
@@ -132,6 +134,10 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
     batches = []
     for chunk in df.get_chunks():
         batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
+        batches.append(batch)
+
+    if not batches:
+        batch = protocol_df_chunk_to_pyarrow(df)
         batches.append(batch)
 
     return pa.Table.from_batches(batches)
@@ -204,7 +210,9 @@ def column_to_array(
     pa.Array
     """
     buffers = col.get_buffers()
-    data = buffers_to_array(buffers, col.size(),
+    data_type = col.dtype
+    data = buffers_to_array(buffers, data_type,
+                            col.size(),
                             col.describe_null,
                             col.offset,
                             allow_copy)
@@ -229,17 +237,23 @@ def bool_column_to_array(
     -------
     pa.Array
     """
-    if not allow_copy:
+    buffers = col.get_buffers()
+    size = buffers["data"][1][1]
+
+    # If booleans are byte-packed a copy to bit-packed will be made
+    if size == 8 and not allow_copy:
         raise RuntimeError(
             "Boolean column will be casted from uint8 and a copy "
             "is required which is forbidden by allow_copy=False"
         )
 
-    buffers = col.get_buffers()
-    data = buffers_to_array(buffers, col.size(),
+    data_type = col.dtype
+    data = buffers_to_array(buffers, data_type,
+                            col.size(),
                             col.describe_null,
                             col.offset)
-    data = pc.cast(data, pa.bool_())
+    if size == 8:
+        data = pc.cast(data, pa.bool_())
 
     return data
 
@@ -274,11 +288,15 @@ def categorical_column_to_dictionary(
         raise NotImplementedError(
             "Non-dictionary categoricals not supported yet")
 
+    # We need to first convert the dictionary column
     cat_column = categorical["categories"]
     dictionary = column_to_array(cat_column)
-
+    # Then we need to convert the indices
+    # Here we need to use the buffer data type!
     buffers = col.get_buffers()
-    indices = buffers_to_array(buffers, col.size(),
+    _, data_type = buffers["data"]
+    indices = buffers_to_array(buffers, data_type,
+                               col.size(),
                                col.describe_null,
                                col.offset)
 
@@ -326,6 +344,7 @@ def map_date_type(data_type):
 
 def buffers_to_array(
     buffers: ColumnBuffers,
+    data_type: Tuple[DtypeKind, int, str, str],
     length: int,
     describe_null: ColumnNullType,
     offset: int = 0,
@@ -339,6 +358,9 @@ def buffers_to_array(
     buffer : ColumnBuffers
         Dictionary containing tuples of underlying buffers and
         their associated dtype.
+    data_type : Tuple[DtypeKind, int, str, str],
+        Dtype description of the column as a tuple ``(kind, bit-width, format string,
+        endianness)``.
     length : int
         The number of values in the array.
     describe_null: ColumnNullType
@@ -360,7 +382,7 @@ def buffers_to_array(
     is responsible for keeping the memory owner object alive as long as
     the returned PyArrow array is being used.
     """
-    data_buff, data_type = buffers["data"]
+    data_buff, _ = buffers["data"]
     try:
         validity_buff, validity_dtype = buffers["validity"]
     except TypeError:

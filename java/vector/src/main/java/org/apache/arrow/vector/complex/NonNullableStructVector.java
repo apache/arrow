@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector.complex;
 
-import static org.apache.arrow.util.Preconditions.checkNotNull;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -62,7 +60,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
-  protected final FieldType fieldType;
+  protected Field field;
   public int valueCount;
 
   /**
@@ -76,13 +74,20 @@ public class NonNullableStructVector extends AbstractStructVector {
                                  BufferAllocator allocator,
                                  FieldType fieldType,
                                  CallBack callBack) {
-    super(name,
-        allocator,
-        callBack,
-        null,
-        true);
-    this.fieldType = checkNotNull(fieldType);
-    this.valueCount = 0;
+    this(new Field(name, fieldType, null), allocator, callBack);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public NonNullableStructVector(Field field,
+                                 BufferAllocator allocator,
+                                 CallBack callBack) {
+    this(field, allocator, callBack, null, true);
   }
 
   /**
@@ -100,8 +105,24 @@ public class NonNullableStructVector extends AbstractStructVector {
                                  CallBack callBack,
                                  ConflictPolicy conflictPolicy,
                                  boolean allowConflictPolicyChanges) {
-    super(name, allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
-    this.fieldType = checkNotNull(fieldType);
+    this(new Field(name, fieldType, null), allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   * @param conflictPolicy How to handle duplicate field names in the struct.
+   */
+  public NonNullableStructVector(Field field,
+                                 BufferAllocator allocator,
+                                 CallBack callBack,
+                                 ConflictPolicy conflictPolicy,
+                                 boolean allowConflictPolicyChanges) {
+    super(field.getName(), allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
+    this.field = field;
     this.valueCount = 0;
   }
 
@@ -208,7 +229,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new StructTransferPair(this, new NonNullableStructVector(name,
         allocator,
-        fieldType,
+        field.getFieldType(),
         callBack,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -223,7 +244,25 @@ public class NonNullableStructVector extends AbstractStructVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new StructTransferPair(this, new NonNullableStructVector(ref,
         allocator,
-        fieldType,
+        field.getFieldType(),
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new StructTransferPair(this, new NonNullableStructVector(field,
+        allocator,
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new StructTransferPair(this, new NonNullableStructVector(field,
+        allocator,
         callBack,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -374,6 +413,18 @@ public class NonNullableStructVector extends AbstractStructVector {
     return getChildByOrdinal(id);
   }
 
+  /**
+   * Gets a child vector by ordinal position and casts to the specified class.
+   */
+  public <V extends ValueVector> V getVectorById(int id, Class<V> clazz) {
+    ValueVector untyped = getVectorById(id);
+    if (clazz.isInstance(untyped)) {
+      return clazz.cast(untyped);
+    }
+    throw new ClassCastException("Id " + id + " had the wrong type. Expected " + clazz.getCanonicalName() +
+        " but was " + untyped.getClass().getCanonicalName());
+  }
+
   @Override
   public void setValueCount(int valueCount) {
     for (final ValueVector v : getChildren()) {
@@ -404,7 +455,11 @@ public class NonNullableStructVector extends AbstractStructVector {
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    return new Field(name, fieldType, children);
+    if (children.isEmpty() || field.getChildren().equals(children)) {
+      return field;
+    }
+    field = new Field(field.getName(), field.getFieldType(), children);
+    return field;
   }
 
   @Override

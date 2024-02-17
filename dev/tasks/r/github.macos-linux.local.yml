@@ -20,7 +20,7 @@
 {{ macros.github_header() }}
 
 jobs:
-  autobrew:
+  local:
     name: "install from local source"
     runs-on: {{ "${{ matrix.os }}" }}
   {% if env is defined %}
@@ -37,14 +37,16 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      - name: Configure non-autobrew dependencies (macos)
+      - name: Configure dependencies (macos)
         if: contains(matrix.os, 'macOS')
         run: |
           brew install openssl
-          # disable sccache on macos as it timesout for unknown reasons
+          # disable sccache on macos as it times out for unknown reasons
           # see GH-33721
           # brew install sccache
-      - name: Configure non-autobrew dependencies (linux)
+          # remove cmake so that we can test our cmake downloading abilities
+          brew uninstall cmake
+      - name: Configure dependencies (linux)
         if: contains(matrix.os, 'ubuntu')
         run: |
           sudo env \
@@ -71,6 +73,7 @@ jobs:
           FORCE_BUNDLED_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
+          LIBARROW_BINARY: false
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           sccache --start-server || echo 'sccache not found'

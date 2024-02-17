@@ -128,6 +128,13 @@ struct TakeBenchmark {
     Bench(values);
   }
 
+  void FixedSizeBinary() {
+    const int32_t byte_width = static_cast<int32_t>(state.range(2));
+    auto values = rand.FixedSizeBinary(args.size, byte_width, args.null_proportion);
+    Bench(values);
+    state.counters["byte_width"] = byte_width;
+  }
+
   void String() {
     int32_t string_min_length = 0, string_max_length = 32;
     auto values = std::static_pointer_cast<StringArray>(rand.String(
@@ -149,6 +156,7 @@ struct TakeBenchmark {
     for (auto _ : state) {
       ABORT_NOT_OK(Take(values, indices).status());
     }
+    state.SetItemsProcessed(state.iterations() * values->length());
   }
 };
 
@@ -166,8 +174,7 @@ struct FilterBenchmark {
 
   void Int64() {
     const int64_t array_size = args.size / sizeof(int64_t);
-    auto values = std::static_pointer_cast<NumericArray<Int64Type>>(
-        rand.Int64(array_size, -100, 100, args.values_null_proportion));
+    auto values = rand.Int64(array_size, -100, 100, args.values_null_proportion);
     Bench(values);
   }
 
@@ -179,6 +186,15 @@ struct FilterBenchmark {
         fixed_size_list(int64(), 1), array_size, int_array, int_array->null_bitmap(),
         int_array->null_count());
     Bench(values);
+  }
+
+  void FixedSizeBinary() {
+    const int32_t byte_width = static_cast<int32_t>(state.range(2));
+    const int64_t array_size = args.size / byte_width;
+    auto values =
+        rand.FixedSizeBinary(array_size, byte_width, args.values_null_proportion);
+    Bench(values);
+    state.counters["byte_width"] = byte_width;
   }
 
   void String() {
@@ -202,6 +218,7 @@ struct FilterBenchmark {
     for (auto _ : state) {
       ABORT_NOT_OK(Filter(values, filter).status());
     }
+    state.SetItemsProcessed(state.iterations() * values->length());
   }
 
   void BenchRecordBatch() {
@@ -236,6 +253,7 @@ struct FilterBenchmark {
     for (auto _ : state) {
       ABORT_NOT_OK(Filter(batch, filter).status());
     }
+    state.SetItemsProcessed(state.iterations() * num_rows);
   }
 };
 
@@ -253,6 +271,14 @@ static void FilterFSLInt64FilterNoNulls(benchmark::State& state) {
 
 static void FilterFSLInt64FilterWithNulls(benchmark::State& state) {
   FilterBenchmark(state, true).FSLInt64();
+}
+
+static void FilterFixedSizeBinaryFilterNoNulls(benchmark::State& state) {
+  FilterBenchmark(state, false).FixedSizeBinary();
+}
+
+static void FilterFixedSizeBinaryFilterWithNulls(benchmark::State& state) {
+  FilterBenchmark(state, true).FixedSizeBinary();
 }
 
 static void FilterStringFilterNoNulls(benchmark::State& state) {
@@ -281,6 +307,19 @@ static void TakeInt64RandomIndicesWithNulls(benchmark::State& state) {
 
 static void TakeInt64MonotonicIndices(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).Int64();
+}
+
+static void TakeFixedSizeBinaryRandomIndicesNoNulls(benchmark::State& state) {
+  TakeBenchmark(state, false).FixedSizeBinary();
+}
+
+static void TakeFixedSizeBinaryRandomIndicesWithNulls(benchmark::State& state) {
+  TakeBenchmark(state, true).FixedSizeBinary();
+}
+
+static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
+      .FixedSizeBinary();
 }
 
 static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
@@ -315,8 +354,22 @@ void FilterSetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
+void FilterFSBSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int64_t size : g_data_sizes) {
+    for (int i = 0; i < static_cast<int>(g_filter_params.size()); ++i) {
+      // FixedSizeBinary of primitive sizes (powers of two up to 32)
+      // have a faster path.
+      for (int32_t byte_width : {8, 9}) {
+        bench->Args({static_cast<ArgsType>(size), i, byte_width});
+      }
+    }
+  }
+}
+
 BENCHMARK(FilterInt64FilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterInt64FilterWithNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterFixedSizeBinaryFilterNoNulls)->Apply(FilterFSBSetArgs);
+BENCHMARK(FilterFixedSizeBinaryFilterWithNulls)->Apply(FilterFSBSetArgs);
 BENCHMARK(FilterFSLInt64FilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterFSLInt64FilterWithNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterStringFilterNoNulls)->Apply(FilterSetArgs);
@@ -340,9 +393,24 @@ void TakeSetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
+void TakeFSBSetArgs(benchmark::internal::Benchmark* bench) {
+  for (int64_t size : g_data_sizes) {
+    for (auto nulls : std::vector<ArgsType>({1000, 10, 2, 1, 0})) {
+      // FixedSizeBinary of primitive sizes (powers of two up to 32)
+      // have a faster path.
+      for (int32_t byte_width : {8, 9}) {
+        bench->Args({static_cast<ArgsType>(size), nulls, byte_width});
+      }
+    }
+  }
+}
+
 BENCHMARK(TakeInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeFixedSizeBinaryRandomIndicesNoNulls)->Apply(TakeFSBSetArgs);
+BENCHMARK(TakeFixedSizeBinaryRandomIndicesWithNulls)->Apply(TakeFSBSetArgs);
+BENCHMARK(TakeFixedSizeBinaryMonotonicIndices)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFSLInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeFSLInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);

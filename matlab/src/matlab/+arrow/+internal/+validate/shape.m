@@ -1,5 +1,5 @@
 %SHAPE Verifies data is either a vector or empty. Otherwise throws an error
-% with the identifier "arrrow:array:InvalidShape".
+% with the identifier "arrow:array:InvalidShape".
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with

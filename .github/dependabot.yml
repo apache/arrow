@@ -23,6 +23,12 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
+  - package-ecosystem: "maven"
+    directory: "/java/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "MINOR: [Java] "
   - package-ecosystem: "npm"
     directory: "/js/"
     schedule:

@@ -14,12 +14,13 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArray<T> : Array
+    public abstract class PrimitiveArray<T> : Array, IReadOnlyList<T?>
         where T : struct
     {
         protected PrimitiveArray(ArrayData data)
@@ -65,6 +66,25 @@ namespace Apache.Arrow
             }
 
             return list;
+        }
+
+        int IReadOnlyCollection<T?>.Count => Length;
+        T? IReadOnlyList<T?>.this[int index] => GetValue(index);
+
+        IEnumerator<T?> IEnumerable<T?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return IsValid(index) ? Values[index] : null;
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return IsValid(index) ? Values[index] : null;
+            }
         }
     }
 }

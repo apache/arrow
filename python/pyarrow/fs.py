@@ -54,13 +54,16 @@ try:
     from pyarrow._s3fs import (  # noqa
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
-        finalize_s3, initialize_s3, resolve_s3_region)
+        finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
-    ensure_s3_initialized()
+    # GH-38364: we don't initialize S3 eagerly as that could lead
+    # to crashes at shutdown even when S3 isn't used.
+    # Instead, S3 is initialized lazily using `ensure_s3_initialized`
+    # in assorted places.
     import atexit
-    atexit.register(finalize_s3)
+    atexit.register(ensure_s3_finalized)
 
 
 def __getattr__(name):
@@ -356,7 +359,12 @@ class FSSpecHandler(FileSystemHandler):
             selector.base_dir, maxdepth=maxdepth, withdirs=True, detail=True
         )
         for path, info in selected_files.items():
-            infos.append(self._create_file_info(path, info))
+            _path = path.strip("/")
+            base_dir = selector.base_dir.strip("/")
+            # Need to exclude base directory from selected files if present
+            # (fsspec filesystems, see GH-37555)
+            if _path != base_dir:
+                infos.append(self._create_file_info(path, info))
 
         return infos
 

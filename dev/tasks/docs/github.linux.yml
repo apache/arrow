@@ -40,7 +40,7 @@ jobs:
             {{ image }} \
             {{ command|default("") }}
       - name: Checkout Crossbow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: {{ default_branch|default("main") }}
           path: crossbow

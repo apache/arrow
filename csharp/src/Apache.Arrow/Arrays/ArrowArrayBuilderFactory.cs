@@ -54,8 +54,12 @@ namespace Apache.Arrow
                     return new DoubleArray.Builder();
                 case ArrowTypeId.String:
                     return new StringArray.Builder();
+                case ArrowTypeId.StringView:
+                    return new StringViewArray.Builder();
                 case ArrowTypeId.Binary:
                     return new BinaryArray.Builder();
+                case ArrowTypeId.BinaryView:
+                    return new BinaryViewArray.Builder();
                 case ArrowTypeId.Timestamp:
                     return new TimestampArray.Builder();
                 case ArrowTypeId.Date64:
@@ -66,8 +70,12 @@ namespace Apache.Arrow
                     return new Time32Array.Builder(dataType as Time32Type);
                 case ArrowTypeId.Time64:
                     return new Time64Array.Builder(dataType as Time64Type);
+                case ArrowTypeId.Duration:
+                    return new DurationArray.Builder(dataType as DurationType);
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
+                case ArrowTypeId.ListView:
+                    return new ListViewArray.Builder(dataType as ListViewType);
                 case ArrowTypeId.FixedSizeList:
                     return new FixedSizeListArray.Builder(dataType as FixedSizeListType);
                 case ArrowTypeId.Decimal128:

@@ -35,4 +35,5 @@ else
 fi
 
 # additional dependencies needed for dask's s3 tests
-pip install moto[server] flask requests
+# Moto 5 results in timeouts in s3 tests: https://github.com/dask/dask/issues/10869
+pip install "moto[server]<5" flask requests

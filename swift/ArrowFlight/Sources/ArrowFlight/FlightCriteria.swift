@@ -19,18 +19,18 @@ import Foundation
 
 public class FlightCriteria {
     let criteria: Arrow_Flight_Protocol_Criteria
-    
+
     public var expression: Data { criteria.expression }
     public init(_ expression: Data = Data()) {
         criteria = Arrow_Flight_Protocol_Criteria.with {
             $0.expression = expression
         }
     }
-    
+
     init(_ criteria: Arrow_Flight_Protocol_Criteria) {
         self.criteria = criteria
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_Criteria {
         return criteria
     }

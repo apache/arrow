@@ -85,18 +85,21 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(BaseFixedWidthVector vector, Void value) {
+    vector.validateScalars();
     return null;
   }
 
   @Override
   public Void visit(BaseVariableWidthVector vector, Void value) {
     validateOffsetBuffer(vector, vector.getValueCount());
+    vector.validateScalars();
     return null;
   }
 
   @Override
   public Void visit(BaseLargeVariableWidthVector vector, Void value) {
     validateLargeOffsetBuffer(vector, vector.getValueCount());
+    vector.validateScalars();
     return null;
   }
 
@@ -169,6 +172,8 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(NullVector vector, Void value) {
+    ValidateUtil.validateOrThrow(vector.getNullCount() == vector.getValueCount(),
+        "NullVector should have only null entries.");
     return null;
   }
 

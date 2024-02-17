@@ -22,11 +22,11 @@ public class FlightResult {
     init(_ result: Arrow_Flight_Protocol_Result) {
         self.body = result.body
     }
-    
+
     public init(_ body: Data) {
         self.body = body
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_Result {
         var result = Arrow_Flight_Protocol_Result()
         result.body = self.body

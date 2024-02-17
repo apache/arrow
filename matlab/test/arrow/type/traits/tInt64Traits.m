@@ -20,6 +20,7 @@ classdef tInt64Traits < hTypeTraits
         ArrayConstructor = @arrow.array.Int64Array
         ArrayClassName = "arrow.array.Int64Array"
         ArrayProxyClassName = "arrow.array.proxy.Int64Array"
+        ArrayStaticConstructor = @arrow.array.Int64Array.fromMATLAB
         TypeConstructor = @arrow.type.Int64Type
         TypeClassName = "arrow.type.Int64Type"
         TypeProxyClassName = "arrow.type.proxy.Int64Type"

@@ -110,6 +110,11 @@ class BinaryArray;
 class BinaryBuilder;
 struct BinaryScalar;
 
+class BinaryViewType;
+class BinaryViewArray;
+class BinaryViewBuilder;
+struct BinaryViewScalar;
+
 class LargeBinaryType;
 class LargeBinaryArray;
 class LargeBinaryBuilder;
@@ -125,6 +130,11 @@ class StringArray;
 class StringBuilder;
 struct StringScalar;
 
+class StringViewType;
+class StringViewArray;
+class StringViewBuilder;
+struct StringViewScalar;
+
 class LargeStringType;
 class LargeStringArray;
 class LargeStringBuilder;
@@ -139,6 +149,16 @@ class LargeListType;
 class LargeListArray;
 class LargeListBuilder;
 struct LargeListScalar;
+
+class ListViewType;
+class ListViewArray;
+class ListViewBuilder;
+struct ListViewScalar;
+
+class LargeListViewType;
+class LargeListViewArray;
+class LargeListViewBuilder;
+struct LargeListViewScalar;
 
 class MapType;
 class MapArray;
@@ -415,6 +435,19 @@ struct Type {
     /// Run-end encoded data.
     RUN_END_ENCODED = 38,
 
+    /// String (UTF8) view type with 4-byte prefix and inline small string
+    /// optimization
+    STRING_VIEW = 39,
+
+    /// Bytes view type with 4-byte prefix and inline small string optimization
+    BINARY_VIEW = 40,
+
+    /// A list of some logical data type represented by offset and size.
+    LIST_VIEW = 41,
+
+    /// Like LIST_VIEW, but with 64-bit offsets and sizes
+    LARGE_LIST_VIEW = 42,
+
     // Leave this at the end
     MAX_ID
   };
@@ -456,10 +489,14 @@ ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
+/// \brief Return a StringViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8_view();
 /// \brief Return a LargeStringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& binary();
+/// \brief Return a BinaryViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& binary_view();
 /// \brief Return a LargeBinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance
@@ -501,6 +538,19 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a LargeListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a ListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type);
+
+/// \brief Create a ListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<Field> value_type);
+
+/// \brief Create a LargetListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(
+    std::shared_ptr<DataType> value_type);
+
+/// \brief Create a LargetListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(std::shared_ptr<Field> value_type);
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT

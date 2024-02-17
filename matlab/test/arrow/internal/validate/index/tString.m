@@ -20,9 +20,9 @@ classdef tString < matlab.unittest.TestCase
     methods(Test)
         
         function MissingStringError(testCase)
-            % Verify string() throws an error whose idenitifier is 
+            % Verify string() throws an error whose identifier is 
             % "arrow:badsubscript:MissingString" if the index array 
-            % provided has mising string values.
+            % provided has missing string values.
 
             import arrow.internal.validate.*
 
@@ -74,7 +74,7 @@ classdef tString < matlab.unittest.TestCase
         end
 
         function ErrorIfNonString(testCase)
-            % Verify string() throws an error whose idenitifer is 
+            % Verify string() throws an error whose identifier is 
             % "arrow:badsubscript:NonString" if neither a string array,
             % char array, nor cellstr array was provided as the index. 
 
@@ -111,6 +111,49 @@ classdef tString < matlab.unittest.TestCase
             original = reshape(string(char(65:72)'), 2, 2, 2);
             expected = string(char(65:72)');
             actual = index.string(original);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarTrue(testCase)
+            % Verify string() behaves as expected provided
+            % AllowNonScalar=true.
+
+            import arrow.internal.validate.*
+            
+            % Provide a nonscalar string array
+            original = ["A", "B", "C"];
+            expected = ["A", "B", "C"]';
+            actual = index.string(original, AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a scalar string array
+            original = "A";
+            expected = "A";
+            actual = index.string(original, AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarFalse(testCase)
+            % Verify string() behaves as expected when provided
+            % AllowNonScalar=false.
+
+            import arrow.internal.validate.*
+            
+            % Should throw an error if provided a nonscalar string array
+            original = ["A", "B", "C"];
+            fcn = @() index.string(original, AllowNonScalar=false);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Should not throw an error if provided a scalar string array
+            original = "A";
+            expected = "A";
+            actual = index.string(original, AllowNonScalar=false);
+            testCase.verifyEqual(actual, expected);
+
+            % Should not throw an error if provided a character row vector
+            original = 'ABC';
+            expected = "ABC";
+            actual = index.string(original, AllowNonScalar=false);
             testCase.verifyEqual(actual, expected);
         end
     end

@@ -18,22 +18,22 @@
 import Foundation
 
 public class FlightDescriptor {
-    public enum type {
+    public enum DescriptorType {
         case unknown
         case path
         case cmd
     }
-    
-    public let type: FlightDescriptor.type
+
+    public let type: FlightDescriptor.DescriptorType
     public let cmd: Data
     public let paths: [String]
-    
+
     init(_ descriptor: Arrow_Flight_Protocol_FlightDescriptor) {
         self.type = descriptor.type == .cmd ? .cmd : .path
         self.cmd = descriptor.cmd
         self.paths = descriptor.path
     }
-    
+
     public init(cmd: Data) {
         self.type = .cmd
         self.cmd = cmd
@@ -45,7 +45,7 @@ public class FlightDescriptor {
         self.cmd = Data()
         self.paths = paths
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_FlightDescriptor {
         var descriptor = Arrow_Flight_Protocol_FlightDescriptor()
         descriptor.type = self.type == .cmd ? .cmd : .path

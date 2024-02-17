@@ -201,7 +201,8 @@ Status WriteRecordBatchMessage(
     const int64_t length, const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
@@ -225,7 +226,8 @@ Status WriteDictionaryMessage(
     const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb,  // NOLINT non-const reference

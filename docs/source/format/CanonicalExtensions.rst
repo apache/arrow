@@ -130,7 +130,7 @@ Fixed shape tensor
 
     ``{ "shape": [100, 200, 500], "permutation": [2, 0, 1]}``
 
-    This is the physical layout shape and the the shape of the logical
+    This is the physical layout shape and the shape of the logical
     layout would in this case be ``[500, 100, 200]``.
 
 .. note::
@@ -147,6 +147,109 @@ Fixed shape tensor
   This structure has no relationship with the Fixed shape tensor extension type defined
   by this specification. Instead, this extension type lets one use fixed shape tensors
   as elements in a field of a RecordBatch or a Table.
+
+.. _variable_shape_tensor_extension:
+
+Variable shape tensor
+=====================
+
+* Extension name: `arrow.variable_shape_tensor`.
+
+* The storage type of the extension is: ``StructArray`` where struct
+  is composed of **data** and **shape** fields describing a single
+  tensor per row:
+
+  * **data** is a ``List`` holding tensor elements (each list element is
+    a single tensor). The List's value type is the value type of the tensor,
+    such as an integer or floating-point type.
+  * **shape** is a ``FixedSizeList<int32>[ndim]`` of the tensor shape where
+    the size of the list ``ndim`` is equal to the number of dimensions of the
+    tensor.
+
+* Extension type parameters:
+
+  * **value_type** = the Arrow data type of individual tensor elements.
+
+  Optional parameters describing the logical layout:
+
+  * **dim_names** = explicit names to tensor dimensions
+    as an array. The length of it should be equal to the shape
+    length and equal to the number of dimensions.
+
+    ``dim_names`` can be used if the dimensions have well-known
+    names and they map to the physical layout (row-major).
+
+  * **permutation**  = indices of the desired ordering of the
+    original dimensions, defined as an array.
+
+    The indices contain a permutation of the values [0, 1, .., N-1] where
+    N is the number of dimensions. The permutation indicates which
+    dimension of the logical layout corresponds to which dimension of the
+    physical tensor (the i-th dimension of the logical view corresponds
+    to the dimension with number ``permutations[i]`` of the physical tensor).
+
+    Permutation can be useful in case the logical order of
+    the tensor is a permutation of the physical order (row-major).
+
+    When logical and physical layout are equal, the permutation will always
+    be ([0, 1, .., N-1]) and can therefore be left out.
+
+  * **uniform_shape** = sizes of individual tensor's dimensions which are
+    guaranteed to stay constant in uniform dimensions and can vary in
+    non-uniform dimensions. This holds over all tensors in the array.
+    Sizes in uniform dimensions are represented with int32 values, while
+    sizes of the non-uniform dimensions are not known in advance and are
+    represented with null. If ``uniform_shape`` is not provided it is assumed
+    that all dimensions are non-uniform.
+    An array containing a tensor with shape (2, 3, 4) and whose first and
+    last dimensions are uniform would have ``uniform_shape`` (2, null, 4).
+    This allows for interpreting the tensor correctly without accounting for
+    uniform dimensions while still permitting optional optimizations that
+    take advantage of the uniformity.
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object that optionally includes
+  dimension names with keys **"dim_names"** and  ordering of dimensions
+  with key **"permutation"**.
+  Shapes of tensors can be defined in a subset of dimensions by providing
+  key **"uniform_shape"**.
+  Minimal metadata is an empty string.
+
+  - Example with ``dim_names`` metadata for NCHW ordered data (note that the first
+    logical dimension, ``N``, is mapped to the **data** List array: each element in the List
+    is a CHW tensor and the List of tensors implicitly constitutes a single NCHW tensor):
+
+    ``{ "dim_names": ["C", "H", "W"] }``
+
+  - Example with ``uniform_shape`` metadata for a set of color images
+    with fixed height, variable width and three color channels:
+
+    ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, null, 3] }``
+
+  - Example of permuted 3-dimensional tensor:
+
+    ``{ "permutation": [2, 0, 1] }``
+
+    For example, if the physical **shape** of an individual tensor
+    is ``[100, 200, 500]``, this permutation would denote a logical shape
+    of ``[500, 100, 200]``.
+
+.. note::
+
+  With the exception of ``permutation``, the parameters and storage
+  of VariableShapeTensor relate to the *physical* storage of the tensor.
+
+  For example, consider a tensor with::
+    shape = [10, 20, 30]
+    dim_names = [x, y, z]
+    permutations = [2, 0, 1]
+
+  This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
+
+.. note::
+   Values inside each **data** tensor element are stored in row-major/C-contiguous
+   order according to the corresponding **shape**.
 
 =========================
 Community Extension Types

@@ -102,13 +102,20 @@ classdef tFloat32Array < hNumericArray
             testCase.verifyEqual(toMATLAB(arrowArray), single([NaN; 2; 3]));
         end
 
-        function NumericlValidNVPair(testCase)
+        function NumericValidNVPair(testCase)
             matlabArray = single([1 2 3]); 
 
             % Supply a numeric vector for Valid 
             arrowArray = testCase.ArrowArrayConstructorFcn(matlabArray, Valid=[1 3]);
             testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
             testCase.verifyEqual(toMATLAB(arrowArray), single([1; NaN; 3]));
+        end
+
+        function TestNanIsEqualFalse(testCase)
+            % Verify corresponding NaN values are not considered equal.
+            matlabArray = single([1 2 NaN 4]);
+            arrowArray = testCase.ArrowArrayConstructorFcn(matlabArray, InferNulls=false);
+            testCase.verifyFalse(isequal(arrowArray, arrowArray));
         end
     end
 end

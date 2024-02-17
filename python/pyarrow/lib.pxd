@@ -120,6 +120,16 @@ cdef class LargeListType(DataType):
         const CLargeListType* list_type
 
 
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
+
+
 cdef class MapType(DataType):
     cdef:
         const CMapType* map_type
@@ -425,6 +435,14 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class ListViewArray(Array):
+    pass
+
+
+cdef class LargeListViewArray(Array):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
@@ -442,6 +460,14 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
+    pass
+
+
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
     pass
 
 
@@ -519,6 +545,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
@@ -552,12 +579,24 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
+
+
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 
 cdef class Codec(_Weakrefable):

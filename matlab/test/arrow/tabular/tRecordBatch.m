@@ -62,6 +62,19 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(arrowRecordBatch.ColumnNames, columnNames);
         end
 
+        function NumRows(testCase)
+            % Verify that the NumRows property of arrow.tabular.RecordBatch
+            % returns the expected number of rows.
+            numRows = int64([1, 5, 100]);
+
+            for expectedNumRows = numRows
+                matlabTable = array2table(ones(expectedNumRows, 1));
+                arrowRecordBatch = arrow.recordBatch(matlabTable);
+                testCase.verifyEqual(arrowRecordBatch.NumRows, expectedNumRows);
+            end
+
+        end
+
         function NumColumns(tc)
             numColumns = int32([1, 5, 100]);
 
@@ -84,11 +97,27 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(TOriginal, TConverted);
         end
 
-        function EmptyTable(tc)
-            TOriginal = table();
-            arrowRecordBatch = arrow.recordBatch(TOriginal);
-            TConverted = arrowRecordBatch.toMATLAB();
-            tc.verifyEqual(TOriginal, TConverted);
+        function EmptyRecordBatch(testCase)
+            % Verify that an arrow.tabular.RecordBatch can be created from
+            % an empty MATLAB table.
+            matlabTable = table.empty(0, 0);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+            testCase.verifyEqual(toMATLAB(arrowRecordBatch), matlabTable);
+
+            matlabTable = table.empty(1, 0);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+
+            matlabTable = table.empty(0, 1);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(1));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, "Var1");
         end
 
         function EmptyRecordBatchColumnIndexError(tc)
@@ -109,14 +138,14 @@ classdef tRecordBatch < matlab.unittest.TestCase
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
-            tc.verifyError(fcn, "arrow:badsubscript:NonNumeric");
+            tc.verifyError(fcn, "arrow:badsubscript:UnsupportedIndexType");
         end
 
         function ErrorIfIndexIsNonScalar(tc)
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column([1 2]);
-            tc.verifyError(fcn, "MATLAB:expectedScalar");
+            tc.verifyError(fcn, "arrow:badsubscript:NonScalar");
         end
 
         function ErrorIfIndexIsNonPositive(tc)
@@ -196,8 +225,17 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:validators:mustBeNonmissing");
         end
 
+        function FromArraysNoInputs(testCase)
+            % Verify that an empty RecordBatch is returned when calling
+            % fromArrays with no input arguments.
+            arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays();
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+        end
+
         function Schema(tc)
-        % Verify that the public Schema property returns an approprate
+        % Verify that the public Schema property returns an appropriate
         % instance of arrow.tabular.Schema.
             t = table(["A"; "B"; "C"], ...
                       [1; 2; 3], ...
@@ -222,6 +260,241 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
                 "MATLAB:class:SetProhibited");
         end
+
+        function GetColumnByName(testCase)
+            % Verify that columns can be accessed by name.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column("A");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("B");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column("C");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function GetColumnByNameWithEmptyString(testCase)
+            % Verify that a column whose name is the empty string ("")
+            % can be accessed using the column() method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "", "C"] ...
+            );
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("");
+            testCase.verifyEqual(actual, expected)
+        end
+
+        function GetColumnByNameWithWhitespace(testCase)
+            % Verify that a column whose name contains only whitespace
+            % characters can be accessed using the column() method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=[" ", "  ", "   "] ...
+            );
+
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(" ");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("  ");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column("   ");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ErrorIfColumnNameDoesNotExist(testCase)
+            % Verify that an error is thrown when trying to access a column
+            % with a name that is not part of the Schema of the RecordBatch.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            % Matching should be case-sensitive.
+            name = "a";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "aA";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "D";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = " ";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+        end
+
+        function ErrorIfAmbiguousColumnName(testCase)
+            % Verify that an error is thrown when trying to access a column
+            % with a name that is ambiguous / occurs more than once in the
+            % Schema of the RecordBatch.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                arrow.array([days(1), days(2), days(3)]), ...
+                ColumnNames=["A", "A", "B", "B"] ...
+            );
+
+            name = "A";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "B";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+        end
+
+        function GetColumnByNameWithChar(testCase)
+            % Verify that the column method works when supplied a char
+            % vector as input.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["", "B", "123"] ...
+            );
+
+            % Should match the first column whose name is the
+            % empty string ("").
+            name = char.empty(0, 0);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            name = char.empty(0, 1);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            name = char.empty(1, 0);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            % Should match the second column whose name is "B".
+            name = 'B';
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            % Should match the third column whose name is "123".
+            name = '123';
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ErrorIfColumnNameIsNonScalar(testCase)
+            % Verify that an error is thrown if a nonscalar string array is
+            % specified as a column name to the column method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            name = ["A", "B", "C"];
+            testCase.verifyError(@() recordBatch.column(name), "arrow:badsubscript:NonScalar");
+
+            name = ["A";  "B"; "C"];
+            testCase.verifyError(@() recordBatch.column(name), "arrow:badsubscript:NonScalar");
+        end
+
+        function TestIsEqualTrue(testCase)
+            % Verify two record batches are considered equal if:
+            %   1. They have the same schema
+            %   2. Their corresponding columns are equal
+            import arrow.tabular.RecordBatch
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+
+            rb1 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb2 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            testCase.verifyTrue(isequal(rb1, rb2));
+
+            % Compare zero-column record batches
+            rb3 = RecordBatch.fromArrays();
+            rb4 = RecordBatch.fromArrays();
+            testCase.verifyTrue(isequal(rb3, rb4));
+
+            % Compare zero-row record batches
+            a4 = arrow.array([]);
+            a5 = arrow.array(strings(0, 0));
+            rb5 = RecordBatch.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            rb6 = RecordBatch.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            testCase.verifyTrue(isequal(rb5, rb6));
+
+            % Call isequal with more than two arguments
+            testCase.verifyTrue(isequal(rb3, rb4, rb3, rb4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+            import arrow.tabular.RecordBatch
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+            a4 = arrow.array(["A" missing "C"]); 
+            a5 = arrow.array([1 2]);
+            a6 = arrow.array(["A" "B"]);
+            a7 = arrow.array([true true]);
+
+            rb1 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb2 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["D", "E", "F"]);
+            rb3 = RecordBatch.fromArrays(a1, a4, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb4 = RecordBatch.fromArrays(a5, a6, a7, ...
+                ColumnNames=["A", "B", "C"]);
+            rb5 = RecordBatch.fromArrays(a1, a2, a3, a1, ...
+                ColumnNames=["A", "B", "C", "D"]);
+
+            % The column names are not equal
+            testCase.verifyFalse(isequal(rb1, rb2));
+
+            % The columns are not equal
+            testCase.verifyFalse(isequal(rb1, rb3));
+
+            % The number of rows are not equal
+            testCase.verifyFalse(isequal(rb1, rb4));
+
+            % The number of columns are not equal
+            testCase.verifyFalse(isequal(rb1, rb5));
+
+            % Call isequal with more than two arguments
+            testCase.verifyFalse(isequal(rb1, rb2, rb3, rb4));
+        end
+
 
     end
 

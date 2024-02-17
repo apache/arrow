@@ -265,7 +265,7 @@ def test_order_by():
     expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
     assert result.equals(expected)
 
-    # emtpy ordering
+    # empty ordering
     ord_opts = OrderByNodeOptions([])
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     with pytest.raises(

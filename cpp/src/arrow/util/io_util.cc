@@ -449,6 +449,13 @@ std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
   return std::make_shared<ErrnoDetail>(errnum);
 }
 
+std::optional<int> ErrnoFromStatusDetail(const StatusDetail& detail) {
+  if (detail.type_id() == kErrnoDetailTypeId) {
+    return checked_cast<const ErrnoDetail&>(detail).errnum();
+  }
+  return std::nullopt;
+}
+
 #if _WIN32
 std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
   if (!errnum) {
@@ -1466,7 +1473,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("ftruncate failed");
   }
   // we set READ / WRITE flags on the new map, since we could only have
-  // unlarged a RW map in the first place
+  // enlarged a RW map in the first place
   *new_addr = mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
   if (*new_addr == MAP_FAILED) {
     return StatusFromMmapErrno("mmap failed");

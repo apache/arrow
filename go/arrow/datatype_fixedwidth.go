@@ -19,9 +19,10 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v16/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -69,11 +70,6 @@ type (
 
 // Date32FromTime returns a Date32 value from a time object
 func Date32FromTime(t time.Time) Date32 {
-	if _, offset := t.Zone(); offset != 0 {
-		// properly account for timezone adjustments before we calculate
-		// the number of days by adjusting the time and converting to UTC
-		t = t.Add(time.Duration(offset) * time.Second).UTC()
-	}
 	return Date32(t.Truncate(24*time.Hour).Unix() / int64((time.Hour * 24).Seconds()))
 }
 
@@ -87,11 +83,6 @@ func (d Date32) FormattedString() string {
 
 // Date64FromTime returns a Date64 value from a time object
 func Date64FromTime(t time.Time) Date64 {
-	if _, offset := t.Zone(); offset != 0 {
-		// properly account for timezone adjustments before we calculate
-		// the actual value by adjusting the time and converting to UTC
-		t = t.Add(time.Duration(offset) * time.Second).UTC()
-	}
 	// truncate to the start of the day to get the correct value
 	t = t.Truncate(24 * time.Hour)
 	return Date64(t.Unix()*1e3 + int64(t.Nanosecond())/1e6)
@@ -347,13 +338,17 @@ type TemporalWithUnit interface {
 }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
-// The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
-// considered UTC without having "UTC" as a time zone.
+// The zero-value is a second and time zone neutral. In Arrow semantics, time zone neutral does not
+// represent a physical point in time, but rather a "wall clock" time that only has meaning within
+// the context that produced it. In Go, time.Time can only represent instants; there is no notion
+// of "wall clock" time. Therefore, time zone neutral timestamps are represented as UTC per Go
+// conventions even though the Arrow type itself has no time zone.
 type TimestampType struct {
 	Unit     TimeUnit
 	TimeZone string
 
 	loc *time.Location
+	mx  sync.RWMutex
 }
 
 func (*TimestampType) ID() Type     { return TIMESTAMP }
@@ -374,9 +369,9 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
-func (TimestampType) Bytes() int { return Int64SizeBytes }
+func (*TimestampType) Bytes() int { return Int64SizeBytes }
 
-func (TimestampType) Layout() DataTypeLayout {
+func (*TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
 
@@ -386,6 +381,8 @@ func (t *TimestampType) TimeUnit() TimeUnit { return t.Unit }
 // This should be called if you change the value of the TimeZone after having
 // potentially called GetZone.
 func (t *TimestampType) ClearCachedLocation() {
+	t.mx.Lock()
+	defer t.mx.Unlock()
 	t.loc = nil
 }
 
@@ -398,10 +395,20 @@ func (t *TimestampType) ClearCachedLocation() {
 // so if you change the value of TimeZone after calling this, make sure to call
 // ClearCachedLocation.
 func (t *TimestampType) GetZone() (*time.Location, error) {
+	t.mx.RLock()
 	if t.loc != nil {
+		defer t.mx.RUnlock()
 		return t.loc, nil
 	}
 
+	t.mx.RUnlock()
+	t.mx.Lock()
+	defer t.mx.Unlock()
+	// in case GetZone() was called in between releasing the read lock and
+	// getting the write lock
+	if t.loc != nil {
+		return t.loc, nil
+	}
 	// the TimeZone string is allowed to be either a valid tzdata string
 	// such as "America/New_York" or an absolute offset of the form -XX:XX
 	// or +XX:XX
@@ -415,7 +422,7 @@ func (t *TimestampType) GetZone() (*time.Location, error) {
 
 	if loc, err := time.LoadLocation(t.TimeZone); err == nil {
 		t.loc = loc
-		return t.loc, err
+		return loc, err
 	}
 
 	// at this point we know that the timezone isn't empty, and didn't match
@@ -440,23 +447,7 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 		return nil, err
 	}
 
-	switch t.Unit {
-	case Second:
-		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
-	case Millisecond:
-		factor := int64(time.Second / time.Millisecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
-		}, nil
-	case Microsecond:
-		factor := int64(time.Second / time.Microsecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
-		}, nil
-	case Nanosecond:
-		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
-	}
-	return nil, fmt.Errorf("invalid timestamp unit: %s", t.Unit)
+	return func(v Timestamp) time.Time { return v.ToTime(t.Unit).In(tz) }, nil
 }
 
 // Time32Type is encoded as a 32-bit signed integer, representing either seconds or milliseconds since midnight.

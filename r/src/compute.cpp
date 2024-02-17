@@ -176,7 +176,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       func_name == "hash_approximate_median" || func_name == "mean" ||
       func_name == "hash_mean" || func_name == "min_max" || func_name == "hash_min_max" ||
       func_name == "min" || func_name == "hash_min" || func_name == "max" ||
-      func_name == "hash_max" || func_name == "sum" || func_name == "hash_sum") {
+      func_name == "hash_max" || func_name == "sum" || func_name == "hash_sum" ||
+      func_name == "product" || func_name == "hash_product") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     if (!Rf_isNull(options["min_count"])) {
@@ -240,10 +241,10 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
               interpolation);
     }
     if (!Rf_isNull(options["min_count"])) {
-      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
+      out->min_count = cpp11::as_cpp<uint32_t>(options["min_count"]);
     }
     if (!Rf_isNull(options["skip_nulls"])) {
-      out->skip_nulls = cpp11::as_cpp<int64_t>(options["skip_nulls"]);
+      out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
     }
     return out;
   }
@@ -478,9 +479,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       func_name == "hash_stddev") {
     using Options = arrow::compute::VarianceOptions;
     auto out = std::make_shared<Options>();
-    out->ddof = cpp11::as_cpp<int64_t>(options["ddof"]);
+    out->ddof = cpp11::as_cpp<int>(options["ddof"]);
     if (!Rf_isNull(options["min_count"])) {
-      out->min_count = cpp11::as_cpp<int64_t>(options["min_count"]);
+      out->min_count = cpp11::as_cpp<uint32_t>(options["min_count"]);
     }
     if (!Rf_isNull(options["skip_nulls"])) {
       out->skip_nulls = cpp11::as_cpp<bool>(options["skip_nulls"]);
@@ -682,7 +683,7 @@ arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
           }
         }
 
-        cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
+        cpp11::sexp batch_length_sexp = cpp11::as_sexp(static_cast<double>(span.length));
 
         std::shared_ptr<arrow::DataType> output_type = result->type()->GetSharedPtr();
         cpp11::sexp output_type_sexp = cpp11::to_r6<arrow::DataType>(output_type);
@@ -737,8 +738,7 @@ void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
 
   // Compute the Arity from the list of input kernels. We don't currently handle
   // variable numbers of arguments in a user-defined function.
-  int64_t n_args =
-      cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
+  int n_args = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
   for (R_xlen_t i = 1; i < n_kernels; i++) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
     if (in_types->num_fields() != n_args) {
@@ -766,7 +766,7 @@ void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
     cpp11::sexp out_type_func = out_type_r[i];
 
     std::vector<arrow::compute::InputType> compute_in_types(in_types->num_fields());
-    for (int64_t j = 0; j < in_types->num_fields(); j++) {
+    for (int j = 0; j < in_types->num_fields(); j++) {
       compute_in_types[j] = arrow::compute::InputType(in_types->field(j)->type());
     }
 

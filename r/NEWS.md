@@ -17,7 +17,122 @@
   under the License.
 -->
 
-# arrow 13.0.0.9000
+# arrow 15.0.0.9000
+
+# arrow 15.0.0
+
+##  New features
+
+* Bindings for `base::prod` have been added so you can now use it in your dplyr
+  pipelines (i.e., `tbl |> summarize(prod(col))`) without having to pull the
+  data into R (@m-muecke, #38601).
+* Calling `dimnames` or `colnames` on `Dataset` objects now returns a useful
+  result rather than just `NULL` (#38377).
+* The `code()` method on Schema objects now takes an optional `namespace` 
+  argument which, when `TRUE`, prefixes names with `arrow::` which makes
+  the output more portable (@orgadish, #38144).
+
+##  Minor improvements and fixes
+
+* Don't download cmake when ARROW_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
+* Fallback to source build gracefully if binary download fails (#39587).
+* An error is now thrown instead of warning and pulling the data into R when any
+  of `sub`, `gsub`, `stringr::str_replace`, `stringr::str_replace_all` are
+  passed a length > 1 vector of values in `pattern` (@abfleishman, #39219).
+* Missing documentation was added to `?open_dataset` documenting how to use the
+  ND-JSON support added in arrow 13.0.0 (@Divyansh200102, #38258).
+* To make debugging problems easier when using arrow with AWS S3
+  (e.g., `s3_bucket`, `S3FileSystem`), the debug log level for S3 can be set
+  with the `AWS_S3_LOG_LEVEL` environment variable. 
+  See `?S3FileSystem` for more information. (#38267)
+* Using arrow with duckdb (i.e., `to_duckdb()`) no longer results in warnings
+  when quitting your R session. (#38495)
+* A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
+* The developer documentation has been updated to match changes made in recent releases (#38220)
+
+# arrow 14.0.2
+
+##  Minor improvements and fixes
+
+* Fixed C++ compiler warnings caused by implicit conversions (#39138, #39186).
+* Fixed confusing dplyr warnings during tests (#39076).
+* Added missing "-framework Security" pkg-config flag to prevent
+  issues when compiling with strict linker settings (#38861).
+
+# arrow 14.0.0.2
+
+## Minor improvements and fixes
+
+* Fixed the printf syntax to align with format checking (#38894)
+* Removed bashism in configure script (#38716).
+* Fixed a broken link in the README (#38657)
+* Properly escape the license header in the lintr config (#38639).
+* Removed spurious warnings from installation-script test suite (#38571).
+* Polished installation-script after refactor (#38534)
+
+## Installation
+
+* If pkg-config fails to detect the required libraries an additional search
+  without pkg-config is run (#38970).
+* Fetch the latest nightly Arrow C++ binary when installing a development 
+  Version (#38236).  
+
+# arrow 14.0.0.1
+
+## Minor improvements and fixes
+
+* Add more debug output for build failures (#38819)
+* Increase timeout during static library download (#38767)
+* Fix bug where rosetta detection was causing installation failure (#38754)
+
+# arrow 14.0.0
+
+## New features
+
+* When reading partitioned CSV datasets and supplying a schema to
+  `open_dataset()`, the partition variables are now included in the resulting
+  dataset (#37658).
+* New function `write_csv_dataset()` now wraps `write_dataset()` and mirrors
+  the syntax of `write_csv_arrow()` (@dgreiss, #36436).
+* `open_delim_dataset()` now accepts `quoted_na` argument to empty strings
+  to be parsed as NA values (#37828).
+* `schema()` can now be called on `data.frame` objects to retrieve their
+  inferred Arrow schema  (#37843).
+* CSVs with a comma or other character as decimal mark can now be read in
+  by the dataset reading functions and new function `read_csv2_arrow()` 
+  (#38002).
+
+## Minor improvements and fixes
+
+* Documentation for `CsvParseOptions` object creation now contains more
+  information about default values (@angela-li, #37909).
+* Fixed a code path which may have resulted in R code being called from a
+  non-R thread after a failed allocation (#37565).
+* Fixed a bug where large Parquet files could not be read from R connections
+  (#37274).
+* Bindings to stringr helpers (e.g., `fixed()`, `regex()` etc.) now allow
+  variables to be reliably used in their arguments (#36784).
+* Thrift string and container size limits can now be configured via newly
+  exposed `ParquetReaderProperties`, allowing users to work with Parquet files
+  with unusually large metadata (#36992).
+* Error messages resulting from use of `add_filename()` are improved
+  (@amoeba, #37372).
+
+## Installation
+
+* macOS builds now use the same installation pathway as on Linux (@assignUser,
+  #37684).
+* A warning message is now issued on package load when running under emulation
+  on macOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+* R scripts that run during configuration and installation are now run
+  using the correct R interpreter (@meztez, #37225).
+* Failed libarrow builds now return more detailed output (@amoeba, #37727).
+* `create_package_with_all_dependencies()` now properly escapes paths on
+  Windows (#37226).
+
+# arrow 13.0.0.1
+
+* Remove reference to legacy timezones to prevent CRAN check failures (#37671)
 
 # arrow 13.0.0
 
@@ -243,7 +358,7 @@ Arrow query engine. See `?acero`.
 A few new features and bugfixes were implemented for joins:
 
 * Extension arrays are now supported in joins, allowing, for example, joining
-  datasets that contain [geoarrow](https://paleolimbot.github.io/geoarrow/) data.
+  datasets that contain [geoarrow](https://github.com/geoarrow/geoarrow) data.
 * The `keep` argument is now supported, allowing separate columns for the left
   and right hand side join keys in join output. Full joins now coalesce the
   join keys (when `keep = FALSE`), avoiding the issue where the join keys would
@@ -341,7 +456,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
   libarrow binaries is now <https://nightlies.apache.org/arrow/r/>.
-* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (#13484)
+* Brotli and BZ2 are shipped with macOS binaries. BZ2 is shipped with Windows binaries. (#13484)
 
 # arrow 8.0.0
 
@@ -474,7 +589,7 @@ Arrow arrays and tables can be easily concatenated:
 ## Other improvements and fixes
 
 * Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
-* Code to generate schemas (and individual data type specficiations) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Code to generate schemas (and individual data type specifications) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
 * Arrow `Duration` type has been mapped to R's `difftime` class.
 * The `decimal256()` type is supported. The `decimal()` function has been revised to call either `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * `write_parquet()` uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large Parquet files.
@@ -749,7 +864,7 @@ to send and receive data. See `vignette("flight", package = "arrow")` for an ove
 
 * `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
 * The Linux build script now succeeds on older versions of R
-* MacOS binary packages now ship with zstandard compression enabled
+* macOS binary packages now ship with zstandard compression enabled
 
 ## Bug fixes and other enhancements
 

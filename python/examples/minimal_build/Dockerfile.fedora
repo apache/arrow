@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM fedora:35
+FROM fedora:39
 
 RUN dnf update -y && \
     dnf install -y \

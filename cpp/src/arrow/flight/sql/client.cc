@@ -519,13 +519,17 @@ arrow::Result<std::shared_ptr<PreparedStatement>> PreparedStatement::ParseRespon
 
   std::shared_ptr<Schema> dataset_schema;
   if (!serialized_dataset_schema.empty()) {
-    io::BufferReader dataset_schema_reader(serialized_dataset_schema);
+    // Create a non-owned Buffer to avoid copying
+    io::BufferReader dataset_schema_reader(
+        std::make_shared<Buffer>(serialized_dataset_schema));
     ipc::DictionaryMemo in_memo;
     ARROW_ASSIGN_OR_RAISE(dataset_schema, ReadSchema(&dataset_schema_reader, &in_memo));
   }
   std::shared_ptr<Schema> parameter_schema;
   if (!serialized_parameter_schema.empty()) {
-    io::BufferReader parameter_schema_reader(serialized_parameter_schema);
+    // Create a non-owned Buffer to avoid copying
+    io::BufferReader parameter_schema_reader(
+        std::make_shared<Buffer>(serialized_parameter_schema));
     ipc::DictionaryMemo in_memo;
     ARROW_ASSIGN_OR_RAISE(parameter_schema,
                           ReadSchema(&parameter_schema_reader, &in_memo));

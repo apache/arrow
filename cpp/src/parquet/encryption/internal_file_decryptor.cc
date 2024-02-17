@@ -16,8 +16,10 @@
 // under the License.
 
 #include "parquet/encryption/internal_file_decryptor.h"
+#include "arrow/util/logging.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
+#include "parquet/metadata.h"
 
 namespace parquet {
 
@@ -213,6 +215,59 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
 
   if (metadata) return column_metadata_map_[column_path];
   return column_data_map_[column_path];
+}
+
+namespace {
+
+std::shared_ptr<Decryptor> GetColumnDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor,
+    const std::function<std::shared_ptr<Decryptor>(
+        InternalFileDecryptor* file_decryptor, const std::string& column_path,
+        const std::string& column_key_metadata, const std::string& aad)>& func,
+    bool metadata) {
+  if (crypto_metadata == nullptr) {
+    return nullptr;
+  }
+
+  if (file_decryptor == nullptr) {
+    throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
+  }
+
+  if (crypto_metadata->encrypted_with_footer_key()) {
+    return metadata ? file_decryptor->GetFooterDecryptorForColumnMeta()
+                    : file_decryptor->GetFooterDecryptorForColumnData();
+  }
+
+  // The column is encrypted with its own key
+  const std::string& column_key_metadata = crypto_metadata->key_metadata();
+  const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
+  return func(file_decryptor, column_path, column_key_metadata, /*aad=*/"");
+}
+
+}  // namespace
+
+std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
+  return GetColumnDecryptor(crypto_metadata, file_decryptor,
+                            &InternalFileDecryptor::GetColumnMetaDecryptor,
+                            /*metadata=*/true);
+}
+
+std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
+  return GetColumnDecryptor(crypto_metadata, file_decryptor,
+                            &InternalFileDecryptor::GetColumnDataDecryptor,
+                            /*metadata=*/false);
+}
+
+void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
+                     int16_t row_group_ordinal, int16_t column_ordinal,
+                     int8_t module_type) {
+  ARROW_DCHECK(!decryptor->file_aad().empty());
+  const std::string aad =
+      encryption::CreateModuleAad(decryptor->file_aad(), module_type, row_group_ordinal,
+                                  column_ordinal, kNonPageOrdinal);
+  decryptor->UpdateAad(aad);
 }
 
 }  // namespace parquet

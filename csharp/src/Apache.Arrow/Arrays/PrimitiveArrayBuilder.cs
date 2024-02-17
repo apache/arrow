@@ -137,6 +137,9 @@ namespace Apache.Arrow
             return Instance;
         }
 
+        public TBuilder Append(T? value) =>
+            (value == null) ? AppendNull() : Append(value.Value);
+
         public TBuilder Append(ReadOnlySpan<T> span)
         {
             int len = ValueBuffer.Length;

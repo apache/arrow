@@ -114,6 +114,11 @@ class ARROW_EXPORT RecordBatch {
   /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
+  /// \brief Replace the schema with another schema with the same types, but potentially
+  /// different field names and/or metadata.
+  Result<std::shared_ptr<RecordBatch>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const;
+
   /// \brief Retrieve all columns at once
   virtual const std::vector<std::shared_ptr<Array>>& columns() const = 0;
 
@@ -180,6 +185,25 @@ class ARROW_EXPORT RecordBatch {
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
+
+  /// \brief Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::CopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been copied to the destination MemoryManager. This uses
+  /// MemoryManager::CopyBuffer under the hood.
+  Result<std::shared_ptr<RecordBatch>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief View or Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::ViewOrCopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been zero-copy viewed on the destination MemoryManager, falling back
+  /// to performing a copy if it can't be viewed as a zero-copy buffer. This uses
+  /// Buffer::ViewOrCopy under the hood.
+  Result<std::shared_ptr<RecordBatch>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice, through end of batch
@@ -344,5 +368,19 @@ class ARROW_EXPORT RecordBatchReader {
   static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
+
+/// \brief Concatenate record batches
+///
+/// The columns of the new batch are formed by concatenate the same columns of each input
+/// batch. Concatenate multiple batches into a new batch requires that the schema must be
+/// consistent. It supports merging batches without columns (only length, scenarios such
+/// as count(*)).
+///
+/// \param[in] batches a vector of record batches to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return the concatenated record batch
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow

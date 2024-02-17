@@ -37,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -62,7 +62,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -87,7 +87,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -165,7 +165,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (format == "+l")
+                if (format == "+l" || format == "+vl")
                 {
                     if (_cSchema->n_children != 1)
                     {
@@ -180,25 +180,11 @@ namespace Apache.Arrow.C
 
                     Field childField = childSchema.GetAsField();
 
-                    return new ListType(childField);
+                    return format[1] == 'v' ? new ListViewType(childField) : new ListType(childField);
                 }
                 else if (format == "+s")
                 {
-                    var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
-
-                    for (int i = 0; i < _cSchema->n_children; i++)
-                    {
-                        if (_cSchema->GetChild(i) == null)
-                        {
-                            throw new InvalidDataException("Expected struct type child to be non-null.");
-                        }
-                        child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
-                    }
-
-
-                    List<Field> childFields = child_schemas.Select(schema => schema.GetAsField()).ToList();
-
-                    return new StructType(childFields);
+                    return new StructType(ParseChildren("struct"));
                 }
                 else if (format.StartsWith("+w:"))
                 {
@@ -220,8 +206,14 @@ namespace Apache.Arrow.C
 
                     return new FixedSizeListType(childField, width);
                 }
+                else if (format == "+m")
+                {
+                    return new MapType(
+                        ParseChildren("map").Single(),
+                        (_cSchema->flags & CArrowSchema.ArrowFlagMapKeysSorted) != 0);
+                }
 
-                // TODO: Map type and large list type
+                // TODO: Large list type
 
                 // Decimals
                 if (format.StartsWith("d:"))
@@ -255,6 +247,10 @@ namespace Apache.Arrow.C
                     };
 
                     string timezone = format.Substring(format.IndexOf(':') + 1);
+                    if (timezone.Length == 0)
+                    {
+                        timezone = null;
+                    }
                     return new TimestampType(timeUnit, timezone);
                 }
 
@@ -263,6 +259,30 @@ namespace Apache.Arrow.C
                 {
                     int width = Int32.Parse(format.Substring(2));
                     return new FixedSizeBinaryType(width);
+                }
+
+                // Unions
+                if (format.StartsWith("+ud:") || format.StartsWith("+us:"))
+                {
+                    UnionMode unionMode = format[2] == 'd' ? UnionMode.Dense : UnionMode.Sparse;
+                    List<int> typeIds = new List<int>();
+                    int pos = 4;
+                    do
+                    {
+                        int next = format.IndexOf(',', pos);
+                        if (next < 0) { next = format.Length; }
+
+                        int code;
+                        if (!int.TryParse(format.Substring(pos, next - pos), out code))
+                        {
+                            throw new InvalidDataException($"Invalid type code for union import: {format.Substring(pos, next - pos)}");
+                        }
+                        typeIds.Add(code);
+
+                        pos = next + 1;
+                    } while (pos < format.Length);
+
+                    return new UnionType(ParseChildren("union"), typeIds, unionMode);
                 }
 
                 return format switch
@@ -283,8 +303,10 @@ namespace Apache.Arrow.C
                     "g" => DoubleType.Default,
                     // Binary data
                     "z" => BinaryType.Default,
+                    "vz" => BinaryViewType.Default,
                     //"Z" => new LargeBinaryType() // Not yet implemented
                     "u" => StringType.Default,
+                    "vu" => StringViewType.Default,
                     //"U" => new LargeStringType(), // Not yet implemented
                     // Date and time
                     "tdD" => Date32Type.Default,
@@ -293,10 +315,13 @@ namespace Apache.Arrow.C
                     "ttm" => TimeType.Millisecond,
                     "ttu" => TimeType.Microsecond,
                     "ttn" => TimeType.Nanosecond,
-                    // TODO: duration not yet implemented
+                    "tDs" => DurationType.Second,
+                    "tDm" => DurationType.Millisecond,
+                    "tDu" => DurationType.Microsecond,
+                    "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
-                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }
@@ -322,6 +347,22 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentException("Imported type is not a struct type, so it cannot be converted to a schema.");
                 }
+            }
+
+            private List<Field> ParseChildren(string typeName)
+            {
+                var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
+
+                for (int i = 0; i < _cSchema->n_children; i++)
+                {
+                    if (_cSchema->GetChild(i) == null)
+                    {
+                        throw new InvalidDataException($"Expected {typeName} type child to be non-null.");
+                    }
+                    child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
+                }
+
+                return child_schemas.Select(schema => schema.GetAsField()).ToList();
             }
 
             private unsafe static IReadOnlyDictionary<string, string> GetMetadata(byte* metadata)

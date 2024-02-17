@@ -24,7 +24,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/util/byte_stream_split.h"
+#include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/visit_data_inline.h"
 
 #include "parquet/encoding.h"
@@ -369,7 +369,8 @@ static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decod
 
   for (auto _ : state) {
     decode_func(values_raw, static_cast<int64_t>(values.size()),
-                static_cast<int64_t>(values.size()), output.data());
+                static_cast<int64_t>(values.size()),
+                reinterpret_cast<uint8_t*>(output.data()));
     benchmark::ClobberMemory();
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
@@ -390,22 +391,22 @@ static void BM_ByteStreamSplitEncode(benchmark::State& state, EncodeFunc&& encod
 
 static void BM_ByteStreamSplitDecode_Float_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeScalar<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Scalar(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeScalar<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Scalar)->Range(MIN_RANGE, MAX_RANGE);
@@ -416,22 +417,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
@@ -443,22 +444,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Sse2)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_AVX2)
 static void BM_ByteStreamSplitDecode_Float_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx2<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Avx2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx2<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
@@ -470,22 +471,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_AVX512)
 static void BM_ByteStreamSplitDecode_Float_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<float>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<double>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<float>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Avx512(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<double>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
@@ -736,6 +737,114 @@ static void BM_DeltaLengthDecodingSpacedByteArray(benchmark::State& state) {
 
 BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 BENCHMARK(BM_DeltaLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
+
+struct DeltaByteArrayState {
+  int32_t min_size = 0;
+  int32_t max_size;
+  int32_t array_length;
+  int32_t total_data_size = 0;
+  double prefixed_probability;
+  std::vector<uint8_t> buf;
+
+  explicit DeltaByteArrayState(const benchmark::State& state)
+      : max_size(static_cast<int32_t>(state.range(0))),
+        array_length(static_cast<int32_t>(state.range(1))),
+        prefixed_probability(state.range(2) / 100.0) {}
+
+  std::vector<ByteArray> MakeRandomByteArray(uint32_t seed) {
+    std::default_random_engine gen(seed);
+    std::uniform_int_distribution<int> dist_size(min_size, max_size);
+    std::uniform_int_distribution<int> dist_byte(0, 255);
+    std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+    std::uniform_real_distribution<double> dist_prefix_length(0, 1);
+
+    std::vector<ByteArray> out(array_length);
+    buf.resize(max_size * array_length);
+    auto buf_ptr = buf.data();
+    total_data_size = 0;
+
+    for (int32_t i = 0; i < array_length; ++i) {
+      int len = dist_size(gen);
+      out[i].len = len;
+      out[i].ptr = buf_ptr;
+
+      bool do_prefix = i > 0 && dist_has_prefix(gen);
+      int prefix_len = 0;
+      if (do_prefix) {
+        int max_prefix_len = std::min(len, static_cast<int>(out[i - 1].len));
+        prefix_len =
+            static_cast<int>(std::ceil(max_prefix_len * dist_prefix_length(gen)));
+      }
+      for (int j = 0; j < prefix_len; ++j) {
+        buf_ptr[j] = out[i - 1].ptr[j];
+      }
+      for (int j = prefix_len; j < len; ++j) {
+        buf_ptr[j] = static_cast<uint8_t>(dist_byte(gen));
+      }
+      buf_ptr += len;
+      total_data_size += len;
+    }
+    return out;
+  }
+};
+
+static void BM_DeltaEncodingByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  const int64_t plain_encoded_size =
+      delta_state.total_data_size + 4 * delta_state.array_length;
+  int64_t encoded_size = 0;
+
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoded_size = encoder->FlushValues()->size();
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(plain_encoded_size) / encoded_size;
+}
+
+static void BM_DeltaDecodingByteArray(benchmark::State& state) {
+  DeltaByteArrayState delta_state(state);
+  std::vector<ByteArray> values = delta_state.MakeRandomByteArray(/*seed=*/42);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  const int64_t plain_encoded_size =
+      delta_state.total_data_size + 4 * delta_state.array_length;
+  const int64_t encoded_size = buf->size();
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  for (auto _ : state) {
+    decoder->SetData(delta_state.array_length, buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
+  }
+  state.SetItemsProcessed(state.iterations() * delta_state.array_length);
+  state.SetBytesProcessed(state.iterations() * delta_state.total_data_size);
+  state.counters["compression_ratio"] =
+      static_cast<double>(plain_encoded_size) / encoded_size;
+}
+
+static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
+  for (int max_string_length : {8, 64, 1024}) {
+    for (int batch_size : {512, 2048}) {
+      for (int prefixed_percent : {10, 90, 99}) {
+        b->Args({max_string_length, batch_size, prefixed_percent});
+      }
+    }
+  }
+  b->ArgNames({"max-string-length", "batch-size", "prefixed-percent"});
+}
+
+BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
+BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 
 static void BM_RleEncodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);

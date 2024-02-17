@@ -23,6 +23,7 @@
 #include <iosfwd>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -113,8 +114,14 @@ struct ARROW_EXPORT DataTypeLayout {
   std::vector<BufferSpec> buffers;
   /// Whether this type expects an associated dictionary array.
   bool has_dictionary = false;
+  /// If this is provided, the number of buffers expected is only lower-bounded by
+  /// buffers.size(). Buffers beyond this lower bound are expected to conform to
+  /// variadic_spec.
+  std::optional<BufferSpec> variadic_spec;
 
-  explicit DataTypeLayout(std::vector<BufferSpec> v) : buffers(std::move(v)) {}
+  explicit DataTypeLayout(std::vector<BufferSpec> buffers,
+                          std::optional<BufferSpec> variadic_spec = {})
+      : buffers(std::move(buffers)), variadic_spec(variadic_spec) {}
 };
 
 /// \brief Base class for all data types
@@ -397,14 +404,76 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
   /// \brief Options that control the behavior of `MergeWith`.
   /// Options are to be added to allow type conversions, including integer
   /// widening, promotion from integer to float, or conversion to or from boolean.
-  struct MergeOptions {
+  struct ARROW_EXPORT MergeOptions : public util::ToStringOstreamable<MergeOptions> {
     /// If true, a Field of NullType can be unified with a Field of another type.
     /// The unified field will be of the other type and become nullable.
     /// Nullability will be promoted to the looser option (nullable if one is not
     /// nullable).
     bool promote_nullability = true;
 
+    /// Allow a decimal to be unified with another decimal of the same
+    /// width, adjusting scale and precision as appropriate. May fail
+    /// if the adjustment is not possible.
+    bool promote_decimal = false;
+
+    /// Allow a decimal to be promoted to a float. The float type will
+    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
+    bool promote_decimal_to_float = false;
+
+    /// Allow an integer to be promoted to a decimal.
+    ///
+    /// May fail if the decimal has insufficient precision to
+    /// accommodate the integer (see promote_numeric_width).
+    bool promote_integer_to_decimal = false;
+
+    /// Allow an integer of a given bit width to be promoted to a
+    /// float; the result will be a float of an equal or greater bit
+    /// width to both of the inputs. Examples:
+    ///  - int8 + float32 = float32
+    ///  - int32 + float32 = float64
+    ///  - int32 + float64 = float64
+    /// Because an int32 cannot always be represented exactly in the
+    /// 24 bits of a float32 mantissa.
+    bool promote_integer_to_float = false;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer that fits into the signed type:
+    /// uint + int16 = int16
+    /// When widening is needed, set promote_numeric_width to true:
+    /// uint16 + int16 = int32
+    bool promote_integer_sign = false;
+
+    /// Allow an integer, float, or decimal of a given bit width to be
+    /// promoted to an equivalent type of a greater bit width.
+    bool promote_numeric_width = false;
+
+    /// Allow strings to be promoted to binary types. Promotion of fixed size
+    /// binary types to variable sized formats, and binary to large binary,
+    /// and string to large string.
+    bool promote_binary = false;
+
+    /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
+    bool promote_temporal_unit = false;
+
+    /// Allow promotion from a list to a large-list and from a fixed-size list to a
+    /// variable sized list
+    bool promote_list = false;
+
+    /// Unify dictionary index types and dictionary value types.
+    bool promote_dictionary = false;
+
+    /// Allow merging ordered and non-ordered dictionaries.
+    /// The result will be ordered if and only if both inputs
+    /// are ordered.
+    bool promote_dictionary_ordered = false;
+
+    /// Get default options. Only NullType will be merged with other types.
     static MergeOptions Defaults() { return MergeOptions(); }
+    /// Get permissive options. All options are enabled, except
+    /// promote_dictionary_ordered.
+    static MergeOptions Permissive();
+    /// Get a human-readable representation of the options.
+    std::string ToString() const;
   };
 
   /// \brief Merge the current field with a field of the same name.
@@ -710,6 +779,103 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
 
+/// \brief Concrete type class for variable-size binary view data
+class ARROW_EXPORT BinaryViewType : public DataType {
+ public:
+  static constexpr Type::type type_id = Type::BINARY_VIEW;
+  static constexpr bool is_utf8 = false;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr int kSize = 16;
+  static constexpr int kInlineSize = 12;
+  static constexpr int kPrefixSize = 4;
+
+  /// Variable length string or binary with inline optimization for small values (12 bytes
+  /// or fewer). This is similar to std::string_view except limited in size to INT32_MAX
+  /// and at least the first four bytes of the string are copied inline (accessible
+  /// without pointer dereference). This inline prefix allows failing comparisons early.
+  /// Furthermore when dealing with short strings the CPU cache working set is reduced
+  /// since many can be inline.
+  ///
+  /// This union supports two states:
+  ///
+  /// - Entirely inlined string data
+  ///                |----|--------------|
+  ///                 ^    ^
+  ///                 |    |
+  ///              size    in-line string data, zero padded
+  ///
+  /// - Reference into a buffer
+  ///                |----|----|----|----|
+  ///                 ^    ^    ^    ^
+  ///                 |    |    |    |
+  ///              size    |    |    `------.
+  ///                  prefix   |           |
+  ///                        buffer index   |
+  ///                                  offset in buffer
+  ///
+  /// Adapted from TU Munich's UmbraDB [1], Velox, DuckDB.
+  ///
+  /// [1]: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
+  ///
+  /// Alignment to 64 bits enables an aligned load of the size and prefix into
+  /// a single 64 bit integer, which is useful to the comparison fast path.
+  union alignas(int64_t) c_type {
+    struct {
+      int32_t size;
+      std::array<uint8_t, kInlineSize> data;
+    } inlined;
+
+    struct {
+      int32_t size;
+      std::array<uint8_t, kPrefixSize> prefix;
+      int32_t buffer_index;
+      int32_t offset;
+    } ref;
+
+    /// The number of bytes viewed.
+    int32_t size() const {
+      // Size is in the common initial subsequence of each member of the union,
+      // so accessing `inlined.size` is legal even if another member is active.
+      return inlined.size;
+    }
+
+    /// True if the view's data is entirely stored inline.
+    bool is_inline() const { return size() <= kInlineSize; }
+
+    /// Return a pointer to the inline data of a view.
+    ///
+    /// For inline views, this points to the entire data of the view.
+    /// For other views, this points to the 4 byte prefix.
+    const uint8_t* inline_data() const& {
+      // Since `ref.prefix` has the same address as `inlined.data`,
+      // the branch will be trivially optimized out.
+      return is_inline() ? inlined.data.data() : ref.prefix.data();
+    }
+    const uint8_t* inline_data() && = delete;
+  };
+  static_assert(sizeof(c_type) == kSize);
+  static_assert(std::is_trivial_v<c_type>);
+
+  static constexpr const char* type_name() { return "binary_view"; }
+
+  BinaryViewType() : BinaryViewType(Type::BINARY_VIEW) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(kSize)},
+                          DataTypeLayout::VariableWidth());
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "binary_view"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  // Allow subclasses like StringType to change the logical type.
+  explicit BinaryViewType(Type::type logical_type) : DataType(logical_type) {}
+};
+
 /// \brief Concrete type class for large variable-size binary data
 class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
  public:
@@ -751,6 +917,24 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for variable-size string data, utf8-encoded
+class ARROW_EXPORT StringViewType : public BinaryViewType {
+ public:
+  static constexpr Type::type type_id = Type::STRING_VIEW;
+  static constexpr bool is_utf8 = true;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr const char* type_name() { return "utf8_view"; }
+
+  StringViewType() : BinaryViewType(Type::STRING_VIEW) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "utf8_view"; }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -985,6 +1169,71 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   std::string ToString() const override;
 
   std::string name() const override { return "large_list"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Type class for array of list views
+class ARROW_EXPORT ListViewType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::LIST_VIEW;
+  using offset_type = int32_t;
+
+  static constexpr const char* type_name() { return "list_view"; }
+
+  // ListView can contain any other logical value type
+  explicit ListViewType(const std::shared_ptr<DataType>& value_type)
+      : ListViewType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit ListViewType(const std::shared_ptr<Field>& value_field)
+      : BaseListType(type_id) {
+    children_ = {value_field};
+  }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type))});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "list_view"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for large list-view data
+///
+/// LargeListViewType is like ListViewType but with 64-bit rather than 32-bit offsets and
+/// sizes.
+class ARROW_EXPORT LargeListViewType : public BaseListType {
+ public:
+  static constexpr Type::type type_id = Type::LARGE_LIST_VIEW;
+  using offset_type = int64_t;
+
+  static constexpr const char* type_name() { return "large_list_view"; }
+
+  // LargeListView can contain any other logical value type
+  explicit LargeListViewType(const std::shared_ptr<DataType>& value_type)
+      : LargeListViewType(std::make_shared<Field>("item", value_type)) {}
+
+  explicit LargeListViewType(const std::shared_ptr<Field>& value_field)
+      : BaseListType(type_id) {
+    children_ = {value_field};
+  }
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type)),
+                           DataTypeLayout::FixedWidth(sizeof(offset_type))});
+  }
+
+  std::string ToString() const override;
+
+  std::string name() const override { return "large_list_view"; }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -2047,6 +2296,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
 
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
+
+  /// Indicate if field named `name` can be found unambiguously in the schema.
+  Status CanReferenceFieldByName(const std::string& name) const;
 
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;

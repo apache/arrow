@@ -29,6 +29,7 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/integration/json_integration.h"
 #include "arrow/io/file.h"
 #include "arrow/io/test_common.h"
 #include "arrow/ipc/dictionary.h"
@@ -37,7 +38,6 @@
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -49,18 +49,19 @@ DEFINE_int32(port, 31337, "Server port to connect to");
 DEFINE_string(path, "", "Resource path to request");
 DEFINE_string(scenario, "", "Integration test scenario to run");
 
+using arrow::internal::integration::IntegrationJsonReader;
+
 namespace arrow {
 namespace flight {
 namespace integration_tests {
 
 /// \brief Helper to read all batches from a JsonReader
-Status ReadBatches(std::unique_ptr<testing::IntegrationJsonReader>& reader,
+Status ReadBatches(std::unique_ptr<IntegrationJsonReader>& reader,
                    std::vector<std::shared_ptr<RecordBatch>>* chunks) {
-  std::shared_ptr<RecordBatch> chunk;
   for (int i = 0; i < reader->num_record_batches(); i++) {
-    RETURN_NOT_OK(reader->ReadRecordBatch(i, &chunk));
+    ARROW_ASSIGN_OR_RAISE(auto chunk, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(chunk->ValidateFull());
-    chunks->push_back(chunk);
+    chunks->push_back(std::move(chunk));
   }
   return Status::OK();
 }
@@ -150,11 +151,10 @@ class IntegrationTestScenario : public Scenario {
     FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};
 
     // 1. Put the data to the server.
-    std::unique_ptr<testing::IntegrationJsonReader> reader;
     std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
     auto in_file = *io::ReadableFile::Open(FLAGS_path);
-    ABORT_NOT_OK(
-        testing::IntegrationJsonReader::Open(default_memory_pool(), in_file, &reader));
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          IntegrationJsonReader::Open(default_memory_pool(), in_file));
 
     std::shared_ptr<Schema> original_schema = reader->schema();
     std::vector<std::shared_ptr<RecordBatch>> original_data;

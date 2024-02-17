@@ -6,7 +6,7 @@ function [variables, metadata] = table2mlarrow(t)
 %   Takes a MATLAB table T and returns struct array equivalents
 %   which are suitable for passing to the mlarrow C++ MEX layer.
 %
-%   VARIABLES is an 1xN struct array representing the the table variables.
+%   VARIABLES is an 1xN struct array representing the table variables.
 %
 %   VARIABLES contains the following fields:
 %

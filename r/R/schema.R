@@ -39,6 +39,7 @@
 #' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
 #'    `metadata` set. Note that all list elements in `metadata` will be coerced
 #'    to `character`.
+#' - `$code(namespace)`: returns the R code needed to generate this schema. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' @section Active bindings:
 #'
@@ -107,14 +108,13 @@ Schema <- R6Class("Schema",
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
-    code = function() {
+    code = function(namespace = FALSE) {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        field$type$code()
+        field$type$code(namespace)
       })
       codes <- set_names(codes, names)
-
-      call2("schema", !!!codes)
+      call2("schema", !!!codes, .ns = if (namespace) "arrow")
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {
@@ -284,6 +284,9 @@ infer_schema.Dataset <- function(x) x$schema
 
 #' @export
 infer_schema.arrow_dplyr_query <- function(x) implicit_schema(x)
+
+#' @export
+infer_schema.data.frame <- function(x) schema(!!!lapply(x, infer_type))
 
 #' @export
 names.Schema <- function(x) x$names

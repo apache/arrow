@@ -21,4 +21,19 @@ classdef DateUnit < uint8
         Millisecond  (1)
     end
 
+    methods (Hidden)
+
+        function ticks = ticksPerSecond(obj)
+            import arrow.type.DateUnit
+            switch obj
+                case DateUnit.Millisecond
+                    ticks = 1e3;
+                otherwise
+                    error("arrow:dateunit:UnsupportedTicksPerSecond", ...
+                        "The ticksPerSecond method can only be called on a DateUnit of type Millisecond.");
+            end
+        end
+
+    end
+
 end

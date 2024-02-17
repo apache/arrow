@@ -16,7 +16,7 @@
 classdef UInt32Array < arrow.array.NumericArray
 % arrow.array.UInt32Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint32(0)
     end
 

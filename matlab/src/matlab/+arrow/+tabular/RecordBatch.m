@@ -1,3 +1,7 @@
+%RECORDBATCH A tabular data structure representing a set of 
+%arrow.array.Array objects with a fixed schema.
+
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -15,10 +19,9 @@
 
 classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                        matlab.mixin.Scalar
-%arrow.tabular.RecordBatch A tabular data structure representing
-% a set of arrow.array.Array objects with a fixed schema.
 
     properties (Dependent, SetAccess=private, GetAccess=public)
+        NumRows
         NumColumns
         ColumnNames
         Schema
@@ -37,12 +40,16 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             obj.Proxy = proxy;
         end
 
+        function numRows = get.NumRows(obj)
+            numRows = obj.Proxy.getNumRows();
+        end
+
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
         end
 
         function schema = get.Schema(obj)
@@ -54,13 +61,15 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function arrowArray = column(obj, idx)
             import arrow.internal.validate.*
 
-            idx = index.numeric(idx, "int32");
-            % TODO: Consider vectorizing column() in the future to support
-            % extracting multiple columns at once.
-            validateattributes(idx, "int32", "scalar");
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
 
-            args = struct(Index=idx);
-            [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);                
+            if isnumeric(idx)
+                args = struct(Index=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+            else
+                args = struct(Name=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+            end
             
             traits = arrow.type.traits.traits(arrow.type.ID(typeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
@@ -89,6 +98,10 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function T = toMATLAB(obj)
             T = obj.table();
         end
+
+        function tf = isequal(obj, varargin)
+            tf = arrow.tabular.internal.isequal(obj, varargin{:});
+        end
     end
 
     methods (Access = private)
@@ -99,7 +112,9 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
     methods (Access=protected)
         function displayScalarObject(obj)
-            disp(obj.toString());
+            className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            tabularDisplay = arrow.tabular.internal.display.getTabularDisplay(obj, className);
+            disp(tabularDisplay + newline);
         end
     end
 
@@ -114,7 +129,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.tabular.internal.getArrayProxyIDs
+            import arrow.array.internal.getArrayProxyIDs
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);

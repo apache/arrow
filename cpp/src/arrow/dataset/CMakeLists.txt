@@ -113,8 +113,7 @@ if(ARROW_TESTING)
   add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_dataset_testing ${ARROW_DATASET_TEST_LINK_LIBS})
-  target_link_libraries(arrow_dataset_testing ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_dataset_testing PRIVATE ${ARROW_DATASET_TEST_LINK_LIBS})
   list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
 
@@ -175,6 +174,13 @@ endif()
 
 if(ARROW_PARQUET)
   add_arrow_dataset_test(file_parquet_test)
+  if(PARQUET_REQUIRE_ENCRYPTION AND ARROW_DATASET)
+    add_arrow_dataset_test(file_parquet_encryption_test
+                           SOURCES
+                           file_parquet_encryption_test.cc
+                           ${PROJECT_SOURCE_DIR}/src/parquet/encryption/test_in_memory_kms.cc
+    )
+  endif()
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

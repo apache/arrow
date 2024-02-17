@@ -505,7 +505,7 @@ cdef class FileSystem(_Weakrefable):
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def equals(self, FileSystem other):
+    def equals(self, FileSystem other not None):
         """
         Parameters
         ----------

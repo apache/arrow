@@ -16,7 +16,7 @@
 classdef TimestampArray < arrow.array.Array
 % arrow.array.TimestampArray
     
-    properties(Access=private)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = NaT;
     end
 
@@ -30,36 +30,21 @@ classdef TimestampArray < arrow.array.Array
         end
 
         function dates = toMATLAB(obj)
-            time = obj.Proxy.toMATLAB();
+            epochTime = obj.Proxy.toMATLAB();
 
-            epoch = datetime(1970, 1, 1, TimeZone="UTC");
+            timeZone = obj.Type.TimeZone;
+            ticksPerSecond = obj.Type.TimeUnit.ticksPerSecond();
 
-            tz = obj.Type.TimeZone;
-            ticsPerSecond = ticksPerSecond(obj.Type.TimeUnit);
-            
-            dates = datetime(time, ConvertFrom="epochtime", Epoch=epoch, ...
-                TimeZone=tz, TicksPerSecond=ticsPerSecond);
+            % UNIX Epoch (January 1st, 1970).
+            unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
+            dates = datetime(epochTime, ConvertFrom="epochtime", Epoch=unixEpoch, ...
+                TimeZone=timeZone, TicksPerSecond=ticksPerSecond);
 
             dates(~obj.Valid) = obj.NullSubstitutionValue;
         end
 
         function dates = datetime(obj)
             dates = toMATLAB(obj);
-        end
-    end
-
-    methods (Static, Access = private)
-        function time = convertToEpochTime(dates, units)
-
-            time = zeros(size(dates), "int64");
-            indices = ~isnat(dates);
-
-            % convertTo uses Jan-1-1970 as the default epoch. If the input
-            % datetime array has a TimeZone, the epoch is Jan-1-1970 UTC.
-            %
-            % TODO: convertTo may error if the datetime is 2^63-1 before or
-            % after the epoch. We should throw a custom error in this case.
-            time(indices) = convertTo(dates(indices), "epochtime", TicksPerSecond=ticksPerSecond(units));
         end
     end
 
@@ -74,9 +59,8 @@ classdef TimestampArray < arrow.array.Array
             
             arrow.internal.validate.type(data, "datetime");
             arrow.internal.validate.shape(data);
-
             validElements = arrow.internal.validate.parseValidElements(data, opts);
-            epochTime = arrow.array.TimestampArray.convertToEpochTime(data, opts.TimeUnit);
+            epochTime = arrow.array.internal.temporal.convertDatetimeToEpochTime(data, opts.TimeUnit);
             timezone = string(data.TimeZone);
 
             args = struct(MatlabArray=epochTime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));

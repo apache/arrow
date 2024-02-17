@@ -44,6 +44,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/Region.h>
+#include <aws/core/VersionConfig.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/auth/STSCredentialsProvider.h>
@@ -53,11 +54,6 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
-#ifdef ARROW_S3_HAS_CRT
-#include <aws/crt/io/Bootstrap.h>
-#include <aws/crt/io/EventLoopGroup.h>
-#include <aws/crt/io/HostResolver.h>
-#endif
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/S3Errors.h>
@@ -79,6 +75,35 @@
 #include <aws/s3/model/ObjectCannedACL.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
+
+// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7.
+#if defined(AWS_SDK_VERSION_MAJOR) && defined(AWS_SDK_VERSION_MINOR) && \
+    defined(AWS_SDK_VERSION_PATCH)
+// Redundant "(...)" are for suppressing "Weird number of spaces at
+// line-start. Are you using a 2-space indent? [whitespace/indent]
+// [3]" errors...
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
+  ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
+    (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
+    ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
+      AWS_SDK_VERSION_PATCH >= (patch)))))
+#else
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
+#endif
+
+// This feature is available since 1.9.0 but
+// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7. So
+// we can't use this feature for [1.9.0,1.9.6]. If it's a problem,
+// please report it to our issue tracker.
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 0)
+#define ARROW_S3_HAS_CRT
+#endif
+
+#ifdef ARROW_S3_HAS_CRT
+#include <aws/crt/io/Bootstrap.h>
+#include <aws/crt/io/EventLoopGroup.h>
+#include <aws/crt/io/HostResolver.h>
+#endif
 
 #include "arrow/util/windows_fixup.h"
 
@@ -131,6 +156,7 @@ using internal::ToURLEncodedAwsString;
 
 static const char kSep = '/';
 constexpr char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+constexpr char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -341,9 +367,15 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
   } else {
     options.ConfigureDefaultCredentials();
   }
-  auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
-  if (endpoint_env.ok()) {
-    options.endpoint_override = *endpoint_env;
+  // Prefer AWS service-specific endpoint url
+  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
+  if (s3_endpoint_env.ok()) {
+    options.endpoint_override = *s3_endpoint_env;
+  } else {
+    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
+    if (endpoint_env.ok()) {
+      options.endpoint_override = *endpoint_env;
+    }
   }
 
   bool region_set = false;
@@ -926,7 +958,8 @@ class ClientBuilder {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
 
-    const bool use_virtual_addressing = options_.endpoint_override.empty();
+    const bool use_virtual_addressing =
+        options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
@@ -1017,7 +1050,7 @@ class RegionResolver {
     lock.unlock();
     ARROW_ASSIGN_OR_RAISE(auto region, ResolveRegionUncached(bucket));
     lock.lock();
-    // Note we don't cache a non-existent bucket, as the bucket could be created later
+    // Note we don't cache a nonexistent bucket, as the bucket could be created later
     cache_[bucket] = region;
     return region;
   }
@@ -1429,14 +1462,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // OutputStream interface
 
-  Status Close() override {
-    auto fut = CloseAsync();
-    return fut.status();
-  }
-
-  Future<> CloseAsync() override {
-    if (closed_) return Status::OK();
-
+  Status EnsureReadyToFlushFromClose() {
     if (current_part_) {
       // Upload last part
       RETURN_NOT_OK(CommitCurrentPart());
@@ -1447,36 +1473,56 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(UploadPart("", 0));
     }
 
+    return Status::OK();
+  }
+
+  Status FinishPartUploadAfterFlush() {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+    // At this point, all part uploads have finished successfully
+    DCHECK_GT(part_number_, 1);
+    DCHECK_EQ(upload_state_->completed_parts.size(),
+              static_cast<size_t>(part_number_ - 1));
+
+    S3Model::CompletedMultipartUpload completed_upload;
+    completed_upload.SetParts(upload_state_->completed_parts);
+    S3Model::CompleteMultipartUploadRequest req;
+    req.SetBucket(ToAwsString(path_.bucket));
+    req.SetKey(ToAwsString(path_.key));
+    req.SetUploadId(upload_id_);
+    req.SetMultipartUpload(std::move(completed_upload));
+
+    auto outcome =
+        client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
+    if (!outcome.IsSuccess()) {
+      return ErrorToStatus(
+          std::forward_as_tuple("When completing multiple part upload for key '",
+                                path_.key, "' in bucket '", path_.bucket, "': "),
+          "CompleteMultipartUpload", outcome.GetError());
+    }
+
+    holder_ = nullptr;
+    closed_ = true;
+    return Status::OK();
+  }
+
+  Status Close() override {
+    if (closed_) return Status::OK();
+
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+
+    RETURN_NOT_OK(Flush());
+    return FinishPartUploadAfterFlush();
+  }
+
+  Future<> CloseAsync() override {
+    if (closed_) return Status::OK();
+
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+
+    auto self = std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)
-    return FlushAsync().Then([this]() {
-      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
-
-      // At this point, all part uploads have finished successfully
-      DCHECK_GT(part_number_, 1);
-      DCHECK_EQ(upload_state_->completed_parts.size(),
-                static_cast<size_t>(part_number_ - 1));
-
-      S3Model::CompletedMultipartUpload completed_upload;
-      completed_upload.SetParts(upload_state_->completed_parts);
-      S3Model::CompleteMultipartUploadRequest req;
-      req.SetBucket(ToAwsString(path_.bucket));
-      req.SetKey(ToAwsString(path_.key));
-      req.SetUploadId(upload_id_);
-      req.SetMultipartUpload(std::move(completed_upload));
-
-      auto outcome =
-          client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
-      if (!outcome.IsSuccess()) {
-        return ErrorToStatus(
-            std::forward_as_tuple("When completing multiple part upload for key '",
-                                  path_.key, "' in bucket '", path_.bucket, "': "),
-            "CompleteMultipartUpload", outcome.GetError());
-      }
-
-      holder_ = nullptr;
-      closed_ = true;
-      return Status::OK();
-    });
+    return FlushAsync().Then([self]() { return self->FinishPartUploadAfterFlush(); });
   }
 
   bool closed() const override { return closed_; }
@@ -1508,7 +1554,7 @@ class ObjectOutputStream final : public io::OutputStream {
       nbytes -= offset;
     };
 
-    // Handle case where we have some bytes bufferred from prior calls.
+    // Handle case where we have some bytes buffered from prior calls.
     if (current_part_size_ > 0) {
       // Try to fill current buffer
       const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
@@ -2370,7 +2416,16 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
                   std::vector<std::string> file_paths;
                   for (const auto& file_info : file_infos) {
                     DCHECK_GT(file_info.path().size(), bucket.size());
-                    file_paths.push_back(file_info.path().substr(bucket.size() + 1));
+                    auto file_path = file_info.path().substr(bucket.size() + 1);
+                    if (file_info.IsDirectory()) {
+                      // The selector returns FileInfo objects for directories with a
+                      // a path that never ends in a trailing slash, but for AWS the file
+                      // needs to have a trailing slash to recognize it as directory
+                      // (https://github.com/apache/arrow/issues/38618)
+                      DCHECK_OK(internal::AssertNoTrailingSlash(file_path));
+                      file_path = file_path + kSep;
+                    }
+                    file_paths.push_back(std::move(file_path));
                   }
                   scheduler->AddSimpleTask(
                       [=, file_paths = std::move(file_paths)] {
@@ -2913,9 +2968,7 @@ struct AwsInstance {
       return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
           aws_options_.loggingOptions.logLevel);
     };
-#if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
-     (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
-      (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 272)
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
     // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
@@ -2951,7 +3004,7 @@ Status InitializeS3(const S3GlobalOptions& options) {
 }
 
 Status EnsureS3Initialized() {
-  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
+  return EnsureAwsInstanceInitialized(S3GlobalOptions::Defaults()).status();
 }
 
 Status FinalizeS3() {
@@ -2964,6 +3017,36 @@ Status EnsureS3Finalized() { return FinalizeS3(); }
 bool IsS3Initialized() { return GetAwsInstance()->IsInitialized(); }
 
 bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
+
+S3GlobalOptions S3GlobalOptions::Defaults() {
+  auto log_level = S3LogLevel::Fatal;
+
+  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
+
+  if (result.ok()) {
+    // Extract, trim, and downcase the value of the environment variable
+    auto value =
+        arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
+
+    if (value == "fatal") {
+      log_level = S3LogLevel::Fatal;
+    } else if (value == "error") {
+      log_level = S3LogLevel::Error;
+    } else if (value == "warn") {
+      log_level = S3LogLevel::Warn;
+    } else if (value == "info") {
+      log_level = S3LogLevel::Info;
+    } else if (value == "debug") {
+      log_level = S3LogLevel::Debug;
+    } else if (value == "trace") {
+      log_level = S3LogLevel::Trace;
+    } else if (value == "off") {
+      log_level = S3LogLevel::Off;
+    }
+  }
+
+  return S3GlobalOptions{log_level};
+}
 
 // -----------------------------------------------------------------------
 // Top-level utility functions

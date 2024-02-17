@@ -708,7 +708,7 @@ into memory:
 
 After the above example runs our data will be in dataset_root/1 and dataset_root/2
 directories.  In this simple example we are not changing the structure of the data
-(only the directory naming schema) but you could also use this mechnaism to change
+(only the directory naming schema) but you could also use this mechanism to change
 which columns are used to partition the dataset.  This is useful when you expect to
 query your data in specific ways and you can utilize partitioning to reduce the
 amount of data you need to read.

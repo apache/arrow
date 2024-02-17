@@ -22,4 +22,40 @@ classdef tInt32Type < hFixedWidthType
         BitWidth = int32(32)
         ClassName = "arrow.type.Int32Type"
     end
+
+    methods(Test)
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.Int32Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Int32Type
+            % 2. All inputs have the same size
+
+            % Scalar Int32Type arrays
+            int32Type1 = arrow.int32();
+            int32Type2 = arrow.int32();
+            testCase.verifyTrue(isequal(int32Type1, int32Type2));
+
+            % Non-scalar Int32Type arrays
+            typeArray1 = [int32Type1 int32Type1];
+            typeArray2 = [int32Type2 int32Type2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.Int32Type returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            int32Type = arrow.int32();
+            int64Type = arrow.int64();
+            testCase.verifyFalse(isequal(int32Type, int64Type));
+            testCase.verifyFalse(isequal([int32Type int32Type], [int64Type int64Type]));
+
+            % Int32Type arrays have different sizes
+            typeArray1 = [int32Type int32Type];
+            typeArray2 = [int32Type int32Type]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+    end
 end

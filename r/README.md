@@ -43,6 +43,7 @@ There are some special cases to note:
 The Arrow C++ library is comprised of different parts, each of which serves a specific purpose. The arrow package provides binding to the C++ functionality for a wide range of data analysis
 tasks.
 
+
 It allows users to read and write data in a variety formats:
 
 - Read and write Parquet files, an efficient and widely used columnar format
@@ -88,7 +89,7 @@ issue you want to create. Add a meaningful title prefixed with **`[R]`**
 followed by a space, the issue summary and select component **R** from the
 dropdown list. For more information, see the **Report bugs and propose
 features** section of the [Contributing to Apache
-Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
+Arrow](https://arrow.apache.org/docs/developers/#contributing) page
 in the Arrow developer documentation.
 
 ## Code of Conduct

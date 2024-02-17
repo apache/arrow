@@ -17,6 +17,11 @@
 
 module Helper
   module Omittable
+    def require_ruby(major, minor, micro=0)
+      return if (RUBY_VERSION <=> "#{major}.#{minor}.#{micro}") >= 0
+      omit("Require Ruby #{major}.#{minor}.#{micro} or later: #{RUBY_VERSION}")
+    end
+
     def require_gi_bindings(major, minor, micro)
       return if GLib.check_binding_version?(major, minor, micro)
       message =

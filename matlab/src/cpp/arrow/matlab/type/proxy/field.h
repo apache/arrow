@@ -34,9 +34,8 @@ class Field : public libmexclass::proxy::Proxy {
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
     protected:
-        void name(libmexclass::proxy::method::Context& context);
-        void type(libmexclass::proxy::method::Context& context);
-        void toString(libmexclass::proxy::method::Context& context);
+        void getName(libmexclass::proxy::method::Context& context);
+        void getType(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::Field> field;
 };

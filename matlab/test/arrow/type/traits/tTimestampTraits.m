@@ -20,6 +20,7 @@ classdef tTimestampTraits < hTypeTraits
         ArrayConstructor = @arrow.array.TimestampArray
         ArrayClassName = "arrow.array.TimestampArray"
         ArrayProxyClassName = "arrow.array.proxy.TimestampArray"
+        ArrayStaticConstructor = @arrow.array.TimestampArray.fromMATLAB
         TypeConstructor = @arrow.type.TimestampType
         TypeClassName = "arrow.type.TimestampType"
         TypeProxyClassName = "arrow.type.proxy.TimestampType"

@@ -53,7 +53,7 @@ Cumulative Functions
 --------------------
 
 Cumulative functions are vector functions that perform a running accumulation on 
-their input using a given binary associative operation with an identidy element 
+their input using a given binary associative operation with an identity element 
 (a monoid) and output an array containing the corresponding intermediate running 
 values. The input is expected to be of numeric type. By default these functions 
 do not detect overflow. They are also
@@ -468,6 +468,7 @@ Timezone Handling
    :toctree: ../generated/
 
    assume_timezone
+   local_timestamp
 
 Associative Transforms
 ----------------------
@@ -589,4 +590,4 @@ User-Defined Functions
    :toctree: ../generated/
 
    register_scalar_function
-   ScalarUdfContext
+   UdfContext

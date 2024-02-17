@@ -1088,7 +1088,7 @@ class BinaryTask
       ["debian", "trixie", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
-      ["ubuntu", "lunar", "main"],
+      ["ubuntu", "noble", "main"],
     ]
   end
 
@@ -1895,7 +1895,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-default-docs/**/*")
+                              "test-ubuntu-22.04-docs/**/*")
   end
 
   def define_nuget_tasks
@@ -2121,8 +2121,8 @@ class LocalBinaryTask < BinaryTask
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-lunar",
-      # "ubuntu-lunar-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 

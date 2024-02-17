@@ -276,6 +276,43 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
   </#if>
 
+  <#if minor.class?ends_with("VarBinary")>
+  @Override
+  public void write${minor.class}(byte[] value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(byte[] value, int offset, int length) {
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+  <#elseif minor.class?ends_with("VarChar")>
+  @Override
+  public void write${minor.class}(Text value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void write${minor.class}(String value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+  </#if>
+
     </#list>
   </#list>
 }
