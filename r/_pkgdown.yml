@@ -57,10 +57,10 @@ home:
   sidebar:
     structure:
       - project
-      - implementations
       - links
       - license
       - community
+      - implementations
       - citation
       - authors
       - dev
@@ -85,6 +85,10 @@ home:
           [R](index.html) <br>
           [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
           [Rust](https://docs.rs/crate/arrow/latest)
+      community:
+        title: Community
+        text: >
+          [Code of conduct](https://www.apache.org/foundation/policies/conduct.html)
 
 navbar:
   bg: black
