@@ -1904,3 +1904,22 @@ def test_s3_finalize_region_resolver():
             resolve_s3_region('voltrondata-labs-datasets')
         """
     subprocess.check_call([sys.executable, "-c", code])
+
+@pytest.mark.s3
+def test_concurrent_fs_init():
+    code = """if 1:
+        import threading
+        import pytest
+        from pyarrow.fs import (FileSystem, S3FileSystem
+                                ensure_s3_initialized, finalize_s3) 
+        threads = []
+        for i in range(4):
+            thread = threading.Thread(target = lambda: FileSystem.from_uri('s3://mf-nwp-models/README.txt'))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        finalize_s3()
+    """
