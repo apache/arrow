@@ -528,10 +528,15 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   Status Init() {
     if (content_length_ != kNoSize) {
+      // When the user provides the file size we don't validate that its a file. We assume
+      // the user knows what they are doing. This is only a read so its not a big deal if 
+      // they make a mistake.
       DCHECK_GE(content_length_, 0);
       return Status::OK();
     }
     try {
+      // To open an ObjectInputFile the Blob must exist and it must not represent
+      // a directory. Additionally we need to know the file size.
       auto properties = blob_client_->GetProperties();
       if (MetadataIndicatesIsDirectory(properties.Value.Metadata)) {
         return NotAFile(location_);
