@@ -47,7 +47,6 @@ def cast_scalar(scalar, to_type):
         CDatum c_datum
         CTypeHolder c_type_holder
         CResult[CDatum] c_cast_result
-        CDatum c_result
 
     c_scalar = pyarrow_unwrap_scalar(scalar)
     if c_scalar.get() == NULL:
