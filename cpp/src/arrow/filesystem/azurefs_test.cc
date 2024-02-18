@@ -2202,6 +2202,18 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
   EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+
+  // Metadata can be written without writing any data.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_with_defaults->OpenOutputStream(
+                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "baz"}})));
+  ASSERT_OK(output->Close());
+  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
+                      .GetBlockBlobClient(blob_path)
+                      .GetProperties()
+                      .Value.Metadata;
+  // Defaults are overwritten and not merged.
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "baz")}, blob_metadata);
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
