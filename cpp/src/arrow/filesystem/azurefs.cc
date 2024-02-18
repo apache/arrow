@@ -738,15 +738,9 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   ~ObjectAppendStream() override {
-    if (at_least_one_successful_append_) {
-      // For compliance with the rest of the IO stack, Close rather than Abort,
-      // even though it may be more expensive.
-      io::internal::CloseFromDestructor(this);
-    } else {
-      // Avoid Flushing if we don't need to. If Flush throws an exception in this
-      // destructor it can't be handled by the caller.
-      io::internal::AbortFromDestructor(this);
-    }
+    // For compliance with the rest of the IO stack, Close rather than Abort,
+    // even though it may be more expensive.
+    io::internal::CloseFromDestructor(this);
   }
 
   Status Init() {
@@ -789,6 +783,7 @@ class ObjectAppendStream final : public io::OutputStream {
         block_ids_.push_back(block.Name);
       }
     }
+    initialised_ = true;
     return Status::OK();
   }
 
@@ -835,6 +830,11 @@ class ObjectAppendStream final : public io::OutputStream {
 
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
+    if (!initialised_) {
+      // If the stream has not been successfully initialized then there is nothing to 
+      // flush. This also avoids some unhandled errors when flushing in the destructor.
+      return Status::OK();
+    }
     return CommitBlockList(block_blob_client_, block_ids_, metadata_);
   }
 
@@ -880,7 +880,6 @@ class ObjectAppendStream final : public io::OutputStream {
     block_ids_.push_back(new_block_id);
     pos_ += nbytes;
     content_length_ += nbytes;
-    at_least_one_successful_append_ = true;
     return Status::OK();
   }
 
@@ -892,7 +891,7 @@ class ObjectAppendStream final : public io::OutputStream {
   int64_t content_length_ = kNoSize;
 
   bool closed_ = false;
-  bool at_least_one_successful_append_ = false;
+  bool initialised_ = false;
   int64_t pos_ = 0;
   std::vector<std::string> block_ids_;
   Storage::Metadata metadata_;

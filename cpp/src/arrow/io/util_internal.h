@@ -31,7 +31,6 @@ namespace io {
 namespace internal {
 
 ARROW_EXPORT void CloseFromDestructor(FileInterface* file);
-ARROW_EXPORT void AbortFromDestructor(FileInterface* file);
 
 // Validate a (offset, size) region (as given to ReadAt) against
 // the file size.  Return the actual read size.
