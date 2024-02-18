@@ -528,9 +528,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   Status Init() {
     if (content_length_ != kNoSize) {
-      // When the user provides the file size we don't validate that its a file. We assume
-      // the user knows what they are doing. This is only a read so its not a big deal if 
-      // they make a mistake.
+      // When the user provides the file size we don't validate that its a file. This is 
+      // only a read so its not a big deal if the user make a mistake.
       DCHECK_GE(content_length_, 0);
       return Status::OK();
     }
@@ -722,14 +721,15 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client,
                      const io::IOContext& io_context, const AzureLocation& location,
                      const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     const AzureOptions& options,
+                     const AzureOptions& options, const bool truncate,
                      std::function<Status()> ensure_not_flat_namespace_directory,
                      int64_t size = kNoSize)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
         location_(location),
-        ensure_not_flat_namespace_directory_(std::move(ensure_not_flat_namespace_directory)),
-        content_length_(size) {
+        truncate_(truncate),
+        ensure_not_flat_namespace_directory_(
+            std::move(ensure_not_flat_namespace_directory)) {
     if (metadata && metadata->size() != 0) {
       metadata_ = ArrowMetadataToAzureMetadata(metadata);
     } else if (options.default_metadata && options.default_metadata->size() != 0) {
@@ -743,16 +743,22 @@ class ObjectAppendStream final : public io::OutputStream {
       // even though it may be more expensive.
       io::internal::CloseFromDestructor(this);
     } else {
-      // Avoid Flushing if we don't need to. If Flush throws an exception in this 
+      // Avoid Flushing if we don't need to. If Flush throws an exception in this
       // destructor it can't be handled by the caller.
       io::internal::AbortFromDestructor(this);
     }
   }
 
   Status Init() {
-    if (content_length_ != kNoSize) {
-      DCHECK_GE(content_length_, 0);
-      pos_ = content_length_;
+    if (truncate_) {
+      content_length_ = 0;
+      pos_ = 0;
+      // Create an empty file overwriting any existing file, but fail if there is an 
+      // existing directory.
+      RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
+      // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing 
+      // directory so we don't need to check like we do on flat namespace. 
+      RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
     } else {
       try {
         auto properties = block_blob_client_->GetProperties();
@@ -763,6 +769,9 @@ class ObjectAppendStream final : public io::OutputStream {
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+          // No file exists but on flat namespace its possible there is a directory 
+          // marker or an implied directory. Ensure there is no directory before starting
+          // a new empty file.
           RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
           RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
@@ -878,6 +887,7 @@ class ObjectAppendStream final : public io::OutputStream {
   std::shared_ptr<Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
+  const bool truncate_;
   std::function<Status()> ensure_not_flat_namespace_directory_;
   int64_t content_length_ = kNoSize;
 
@@ -1721,17 +1731,9 @@ class AzureFileSystem::Impl {
     };
 
     std::shared_ptr<ObjectAppendStream> stream;
-    if (truncate) {
-      RETURN_NOT_OK(ensure_not_flat_namespace_directory());
-      RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client));
-      stream = std::make_shared<ObjectAppendStream>(
-          block_blob_client, fs->io_context(), location, metadata, options_,
-          ensure_not_flat_namespace_directory, 0);
-    } else {
-      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                    location, metadata, options_,
-                                                    ensure_not_flat_namespace_directory);
-    }
+    stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
+                                                  location, metadata, options_, truncate,
+                                                  ensure_not_flat_namespace_directory);
     RETURN_NOT_OK(stream->Init());
     return stream;
   }

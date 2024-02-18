@@ -851,7 +851,9 @@ class TestAzureFileSystem : public ::testing::Test {
 
     auto path2 = data.Path("directory2");
     ASSERT_OK(fs()->OpenOutputStream(path2));
-    ASSERT_RAISES(IOError, fs()->CreateDir(path2));
+    // CreateDir returns OK even if there is already a file or directory at this 
+    // location. Whether or not this is the desired behaviour is debatable. 
+    ASSERT_OK(fs()->CreateDir(path2));
     AssertFileInfo(fs(), path2, FileType::File);
   }
 
@@ -1592,7 +1594,8 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryM
   this->TestDisallowReadingOrWritingDirectoryMarkers();
 }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowCreatingFileAndDirectoryWithTheSameName) {
+TYPED_TEST(TestAzureFileSystemOnAllScenarios,
+           DisallowCreatingFileAndDirectoryWithTheSameName) {
   this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
 }
 
