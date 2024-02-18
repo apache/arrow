@@ -829,9 +829,14 @@ class TestAzureFileSystem : public ::testing::Test {
   void TestDisallowReadingOrWritingDirectoryMarkers() {
     auto data = SetUpPreexistingData();
     auto directory_path = data.Path("directory");
+
+    auto directory_path_with_slash = directory_path + "/";
     ASSERT_OK(fs()->CreateDir(directory_path));
-    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
     ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
+
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path_with_slash));
   }
 
   void TestDisallowCreatingFileAndDirectoryWithTheSameName() {
