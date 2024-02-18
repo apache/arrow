@@ -830,12 +830,14 @@ class TestAzureFileSystem : public ::testing::Test {
     auto data = SetUpPreexistingData();
     auto directory_path = data.Path("directory");
 
-    auto directory_path_with_slash = directory_path + "/";
     ASSERT_OK(fs()->CreateDir(directory_path));
     ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path));
     ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
 
+    auto directory_path_with_slash = directory_path + "/";
     ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path_with_slash));
     ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path_with_slash));
   }
 
@@ -845,10 +847,12 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_OK(fs()->CreateDir(path1));
     ASSERT_RAISES(IOError, fs()->OpenOutputStream(path1));
     ASSERT_RAISES(IOError, fs()->OpenAppendStream(path1));
+    AssertFileInfo(fs(), path1, FileType::Directory);
 
     auto path2 = data.Path("directory2");
     ASSERT_OK(fs()->OpenOutputStream(path2));
     ASSERT_RAISES(IOError, fs()->CreateDir(path2));
+    AssertFileInfo(fs(), path2, FileType::File);
   }
 
   void TestDeleteDirSuccessEmpty() {
