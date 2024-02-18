@@ -77,7 +77,7 @@ def check_cython_example_module(mod):
     cast_scal = mod.cast_scalar(scal, pa.utf8())
     assert cast_scal == pa.scalar("123")
     with pytest.raises(NotImplementedError,
-                       match="casting scalars of type int64 to type list"):
+                       match="Unsupported cast from int64 to list using function cast_list"):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
