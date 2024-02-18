@@ -851,8 +851,8 @@ class TestAzureFileSystem : public ::testing::Test {
 
     auto path2 = data.Path("directory2");
     ASSERT_OK(fs()->OpenOutputStream(path2));
-    // CreateDir returns OK even if there is already a file or directory at this 
-    // location. Whether or not this is the desired behaviour is debatable. 
+    // CreateDir returns OK even if there is already a file or directory at this
+    // location. Whether or not this is the desired behaviour is debatable.
     ASSERT_OK(fs()->CreateDir(path2));
     AssertFileInfo(fs(), path2, FileType::File);
   }
@@ -2214,7 +2214,6 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
   EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "baz")}, blob_metadata);
-  
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {

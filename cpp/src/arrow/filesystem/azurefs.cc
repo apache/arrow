@@ -528,7 +528,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   Status Init() {
     if (content_length_ != kNoSize) {
-      // When the user provides the file size we don't validate that its a file. This is 
+      // When the user provides the file size we don't validate that its a file. This is
       // only a read so its not a big deal if the user make a mistake.
       DCHECK_GE(content_length_, 0);
       return Status::OK();
@@ -747,11 +747,11 @@ class ObjectAppendStream final : public io::OutputStream {
     if (truncate_) {
       content_length_ = 0;
       pos_ = 0;
-      // Create an empty file overwriting any existing file, but fail if there is an 
+      // Create an empty file overwriting any existing file, but fail if there is an
       // existing directory.
       RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
-      // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing 
-      // directory so we don't need to check like we do on flat namespace. 
+      // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing
+      // directory so we don't need to check like we do on flat namespace.
       RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
     } else {
       try {
@@ -763,7 +763,7 @@ class ObjectAppendStream final : public io::OutputStream {
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-          // No file exists but on flat namespace its possible there is a directory 
+          // No file exists but on flat namespace its possible there is a directory
           // marker or an implied directory. Ensure there is no directory before starting
           // a new empty file.
           RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
@@ -831,7 +831,7 @@ class ObjectAppendStream final : public io::OutputStream {
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
     if (!initialised_) {
-      // If the stream has not been successfully initialized then there is nothing to 
+      // If the stream has not been successfully initialized then there is nothing to
       // flush. This also avoids some unhandled errors when flushing in the destructor.
       return Status::OK();
     }
