@@ -722,10 +722,13 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client,
                      const io::IOContext& io_context, const AzureLocation& location,
                      const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     const AzureOptions& options, int64_t size = kNoSize)
+                     const AzureOptions& options,
+                     std::function<Status()> ensure_not_flat_namespace_directory,
+                     int64_t size = kNoSize)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
         location_(location),
+        ensure_not_flat_namespace_directory_(std::move(ensure_not_flat_namespace_directory)),
         content_length_(size) {
     if (metadata && metadata->size() != 0) {
       metadata_ = ArrowMetadataToAzureMetadata(metadata);
@@ -760,6 +763,7 @@ class ObjectAppendStream final : public io::OutputStream {
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+          RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
           RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
           return ExceptionToStatus(
@@ -874,11 +878,12 @@ class ObjectAppendStream final : public io::OutputStream {
   std::shared_ptr<Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
+  std::function<Status()> ensure_not_flat_namespace_directory_;
+  int64_t content_length_ = kNoSize;
 
   bool closed_ = false;
   bool at_least_one_successful_append_ = false;
   int64_t pos_ = 0;
-  int64_t content_length_ = kNoSize;
   std::vector<std::string> block_ids_;
   Storage::Metadata metadata_;
 };
@@ -1697,18 +1702,35 @@ class AzureFileSystem::Impl {
       AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
 
+    const auto blob_container_client = GetBlobContainerClient(location.container);
     auto block_blob_client = std::make_shared<Blobs::BlockBlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlockBlobClient(location.path));
+        blob_container_client.GetBlockBlobClient(location.path));
+
+    auto ensure_not_flat_namespace_directory = [this, location,
+                                                blob_container_client]() -> Status {
+      bool hierarchical_namespace_enabled =
+          HierarchicalNamespaceSupport(GetFileSystemClient(location.container)) ==
+          HNSSupport::kEnabled;
+      if (!hierarchical_namespace_enabled) {
+        ARROW_ASSIGN_OR_RAISE(auto status, GetFileInfo(blob_container_client, location))
+        if (status.type() == FileType::Directory) {
+          return NotAFile(location);
+        }
+      }
+      return Status::OK();
+    };
 
     std::shared_ptr<ObjectAppendStream> stream;
     if (truncate) {
+      RETURN_NOT_OK(ensure_not_flat_namespace_directory());
       RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client));
-      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                    location, metadata, options_, 0);
+      stream = std::make_shared<ObjectAppendStream>(
+          block_blob_client, fs->io_context(), location, metadata, options_,
+          ensure_not_flat_namespace_directory, 0);
     } else {
       stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                    location, metadata, options_);
+                                                    location, metadata, options_,
+                                                    ensure_not_flat_namespace_directory);
     }
     RETURN_NOT_OK(stream->Init());
     return stream;
