@@ -92,6 +92,10 @@ type Codec interface {
 
 var codecs = map[Compression]Codec{}
 
+func RegisterCodec(compression Compression, codec Codec) {
+	codecs[compression] = codec
+}
+
 type nocodec struct{}
 
 func (nocodec) NewReader(r io.Reader) io.ReadCloser {
