@@ -2726,6 +2726,25 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
 
 @pytest.mark.parquet
+@pytest.mark.s3
+def test_dataset_from_fileinfos(s3_example_simple, dataset_reader, s3_server):
+    table, path, filesystem, uri, _, _, _, _ = s3_example_simple
+
+    selector = fs.FileSelector("mybucket")
+    finfos = filesystem.get_file_info(selector)
+    dataset = ds.dataset(finfos, format="parquet", filesystem=filesystem)
+    assert dataset_reader.to_table(dataset).equals(table)
+    import urllib
+
+    resp = urllib.request.urlopen(
+        f"http://{s3_server['address']}/minio/v2/metrics/cluster"
+    )
+    assert resp.status == 200
+    # minio_s3_requests_total{api="headobject",...} 2
+    assert "headobject" not in resp.read().decode("utf-8")
+
+
+@pytest.mark.parquet
 @pytest.mark.s3  # still needed to create the data
 def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     table, path, _, _, host, port, access_key, secret_key = s3_example_simple
