@@ -269,11 +269,15 @@ struct AzureLocation {
   /// \brief Create a copy of this location with the trailing slash removed from the
   /// path.
   ///
-  /// The original string that was parsed into this location -- all -- is preserved as is
-  /// to make error messages show what the user originally provided.
-  AzureLocation RemoveTrailingSlashFromPath() const {
+  /// \param[in] preserve_original If true, the original string that was parsed
+  /// into this location is preserved as is.
+  AzureLocation RemoveTrailingSlash(bool preserve_original) const {
     AzureLocation result;
-    result.all = all;
+    if (preserve_original) {
+      result.all = all;
+    } else {
+      result.all = internal::RemoveTrailingSlash(all);
+    }
     result.container = container;
     result.path = internal::RemoveTrailingSlash(path);
     result.path_parts = path_parts;
