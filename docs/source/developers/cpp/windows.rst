@@ -45,7 +45,7 @@ For Visual Studio 2019, the script is:
 
   "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
-One can configure a console emulator like `cmder <https://cmder.net/>`_ to
+One can configure a console emulator like `cmder <https://cmder.app/>`_ to
 automatically launch this when starting a new development console.
 
 Using conda-forge for build dependencies
