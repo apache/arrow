@@ -155,8 +155,9 @@ using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
 static const char kSep = '/';
-constexpr char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
-constexpr char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
+constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
+constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -1214,6 +1215,24 @@ Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata
   return Status::OK();
 }
 
+bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) {
+  // If it has a non-zero length, it's a regular file
+  if (result.GetContentLength() > 0) {
+    return false;
+  }
+  // Otherwise, if it has a trailing slash, it's a directory
+  if (key[key.size() - 1] == kSep) {
+    return true;
+  }
+  // Otherwise, if its content type starts with "application/x-directory",
+  // it's a directory
+  if (::arrow::internal::StartsWith(result.GetContentType(), kAwsDirectoryContentType)) {
+    return true;
+  }
+  // Otherwise, it's a regular file.
+  return false;
+}
+
 // A RandomAccessFile that reads from a S3 object
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
@@ -1854,22 +1873,19 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return Status::OK();
   }
 
-  // Create an object with empty contents.  Successful if object already exists.
-  Status CreateEmptyObject(const std::string& bucket, const std::string& key) {
+  // Create a directory-like object with empty contents.  Successful if already exists.
+  Status CreateEmptyDir(const std::string& bucket, std::string_view key_view) {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
+    auto key = internal::EnsureTrailingSlash(key_view);
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
+    req.SetContentType(kAwsDirectoryContentType);
     req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
         "PutObject", client_lock.Move()->PutObject(req));
-  }
-
-  Status CreateEmptyDir(const std::string& bucket, const std::string& key) {
-    DCHECK(!key.empty());
-    return CreateEmptyObject(bucket, key + kSep);
   }
 
   Status DeleteObject(const std::string& bucket, const std::string& key) {
@@ -2360,10 +2376,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());
           auto outcome = client_lock.Move()->HeadObject(req);
           if (outcome.IsSuccess()) {
-            const auto& result = outcome.GetResult();
-            // A directory should be empty and have a trailing slash.  Anything else
-            // we can consider a file
-            return result.GetContentLength() <= 0 && key[key.size() - 1] == '/';
+            return IsDirectory(key, outcome.GetResult());
           }
           if (IsNotFound(outcome.GetError())) {
             // If we can't find it then it isn't a file.
@@ -2703,7 +2716,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     for (const auto& part : path.key_parts) {
       parent_key += part;
       parent_key += kSep;
-      RETURN_NOT_OK(impl_->CreateEmptyObject(path.bucket, parent_key));
+      RETURN_NOT_OK(impl_->CreateEmptyDir(path.bucket, parent_key));
     }
     return Status::OK();
   } else {
