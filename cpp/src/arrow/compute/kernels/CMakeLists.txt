@@ -93,6 +93,7 @@ add_arrow_compute_test(vector_test
                        vector_hash_test.cc
                        vector_nested_test.cc
                        vector_replace_test.cc
+                       vector_rolling_test.cc
                        vector_run_end_encode_test.cc
                        select_k_test.cc
                        EXTRA_LINK_LIBS

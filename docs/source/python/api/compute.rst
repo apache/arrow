@@ -530,6 +530,20 @@ Pairwise Functions
 
    pairwise_diff
 
+Rolling Functions
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   rolling_sum
+   rolling_sum_checked
+   rolling_prod
+   rolling_prod_checked
+   rolling_min
+   rolling_max
+   rolling_mean
+
 Compute Options
 ---------------
 
@@ -561,6 +575,7 @@ Compute Options
    QuantileOptions
    ReplaceSliceOptions
    ReplaceSubstringOptions
+   RollingOptions
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions

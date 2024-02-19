@@ -24,8 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 struct Empty {
   static Result<Empty> ToResult(Status s) {
@@ -100,6 +99,9 @@ struct call_traits {
   using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
 
   template <typename F>
+  using no_argument = std::bool_constant<argument_count<F>::value == 0>;
+
+  template <typename F>
   using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
 
   template <typename F, typename T, typename RT = T>
@@ -156,5 +158,28 @@ class FnOnce<R(A...)> {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace internal
-}  // namespace arrow
+// Helper function to call func with its required number of arguments
+template <typename Func, size_t... Indices, typename... Args>
+decltype(auto) InvokeWithRequiredArgsHelper(Func&& func, std::index_sequence<Indices...>,
+                                            Args&&... args) {
+  return std::forward<Func>(func)(
+      std::get<Indices>(std::forward_as_tuple(std::forward<Args>(args)...))...);
+}
+
+// Invoke func with the number of arguments it requires, which must be less than or equal
+// to the number of arguments provided.
+template <typename Func, typename... Args>
+decltype(auto) InvokeWithRequiredArgs(Func&& func, Args&&... args) {
+  if constexpr (call_traits::no_argument<Func>::value) {
+    return std::forward<Func>(func)();
+  } else {
+    constexpr size_t num_args = call_traits::argument_count<Func>::value;
+    static_assert(num_args <= sizeof...(Args),
+                  "Insufficient arguments for calling the function");
+    return InvokeWithRequiredArgsHelper(std::forward<Func>(func),
+                                        std::make_index_sequence<num_args>(),
+                                        std::forward<Args>(args)...);
+  }
+}
+
+}  // namespace arrow::internal

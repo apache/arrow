@@ -2567,6 +2567,13 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         optional[shared_ptr[CScalar]] start
         c_bool skip_nulls
 
+    cdef cppclass CRollingOptions \
+            "arrow::compute::RollingOptions"(CFunctionOptions):
+        CRollingOptions(int64_t window_length, int64_t min_periods, c_bool ignore_nulls)
+        int64_t window_length
+        int64_t min_periods
+        c_bool ignore_nulls
+
     cdef cppclass CPairwiseOptions \
             "arrow::compute::PairwiseOptions"(CFunctionOptions):
         CPairwiseOptions(int64_t period)

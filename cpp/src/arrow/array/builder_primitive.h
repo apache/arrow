@@ -312,6 +312,11 @@ class NumericBuilder
     data_builder_.UnsafeAppend(value_type{});  // zero
   }
 
+  void UnsafeAppendNulls(int64_t length) {
+    ArrayBuilder::UnsafeAppendToBitmap(length, false);
+    data_builder_.UnsafeAppend(length, value_type{});  // zero
+  }
+
   std::shared_ptr<DataType> type() const override { return type_; }
 
  protected:

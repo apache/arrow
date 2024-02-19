@@ -57,6 +57,7 @@ from pyarrow._compute import (  # noqa
     RankOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
+    RollingOptions,
     RoundBinaryOptions,
     RoundOptions,
     RoundTemporalOptions,

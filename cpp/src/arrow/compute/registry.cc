@@ -303,15 +303,16 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
 
   // Vector functions
   RegisterVectorArraySort(registry.get());
-  RegisterVectorCumulativeSum(registry.get());
+  RegisterVectorCumulative(registry.get());
   RegisterVectorNested(registry.get());
+  RegisterVectorPairwise(registry.get());
   RegisterVectorRank(registry.get());
   RegisterVectorReplace(registry.get());
-  RegisterVectorSelectK(registry.get());
-  RegisterVectorSort(registry.get());
+  RegisterVectorRolling(registry.get());
   RegisterVectorRunEndEncode(registry.get());
   RegisterVectorRunEndDecode(registry.get());
-  RegisterVectorPairwise(registry.get());
+  RegisterVectorSelectK(registry.get());
+  RegisterVectorSort(registry.get());
 
   // Aggregate functions
   RegisterHashAggregateBasic(registry.get());

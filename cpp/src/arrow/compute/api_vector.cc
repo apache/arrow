@@ -48,6 +48,7 @@ using compute::DictionaryEncodeOptions;
 using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
+using compute::RollingOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -153,6 +154,10 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
+static auto kRollingOptionsType = GetFunctionOptionsType<RollingOptions>(
+    DataMember("window_length", &RollingOptions::window_length),
+    DataMember("min_periods", &RollingOptions::min_periods),
+    DataMember("ignore_nulls", &RollingOptions::ignore_nulls));
 }  // namespace
 }  // namespace internal
 
@@ -224,6 +229,14 @@ PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
 constexpr char PairwiseOptions::kTypeName[];
 
+RollingOptions::RollingOptions(int64_t window_length, int64_t min_periods,
+                               bool ignore_nulls)
+    : FunctionOptions(internal::kRollingOptionsType),
+      window_length(window_length),
+      min_periods(min_periods),
+      ignore_nulls(ignore_nulls) {}
+constexpr char RollingOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -237,6 +250,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRollingOptionsType));
 }
 }  // namespace internal
 
