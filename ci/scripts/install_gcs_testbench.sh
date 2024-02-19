@@ -41,5 +41,5 @@ if [[ "${version}" -eq "default" ]]; then
   ${PYTHON:-python3} -m pip install --upgrade setuptools
 fi
 
-${PYTHON:-python3} -m pip install \
+${PYTHON:-python3} -m pip install --only-binary grpcio \
   "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
