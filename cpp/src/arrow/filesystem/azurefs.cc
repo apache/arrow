@@ -2102,7 +2102,11 @@ class AzureFileSystem::Impl {
     // When it's known that the blob doesn't exist as a file, check if it exists as a
     // directory to generate the appropriate error message.
     auto check_if_location_exists_as_dir = [&]() -> Status {
-      ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(container_client, location));
+      auto no_trailing_slash = location;
+      no_trailing_slash.path = internal::RemoveTrailingSlash(location.path);
+      no_trailing_slash.all = internal::RemoveTrailingSlash(location.all);
+      ARROW_ASSIGN_OR_RAISE(auto file_info,
+                            GetFileInfo(container_client, no_trailing_slash));
       if (file_info.type() == FileType::NotFound) {
         return require_file_to_exist ? PathNotFound(location) : Status::OK();
       }
