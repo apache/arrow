@@ -35,6 +35,10 @@ There are some special cases to note:
 
 - On Linux the installation process can sometimes be more involved because CRAN does not host binaries for Linux. For more information please see the [installation guide](articles/install.html).
 
+- If you are compiling arrow from source, please note that as of version 10.0.0, arrow requires C++17 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.0 or later. On CentOS 7, it means you need to install a newer compiler than the default system compiler gcc. See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
+
+- Development versions of arrow are released nightly. For information on how to installl nighhtly builds please see the [installing nightly builds](articles/install_nightly.html) article.
+
 ## What can the arrow package do?
 
 The Arrow C++ library is comprised of different parts, each of which serves a specific purpose. The arrow package provides binding to the C++ functionality for a wide range of data analysis
