@@ -1292,7 +1292,8 @@ class AzureFileSystem::Impl {
       }
       return ExceptionToStatus(
           exception, "GetProperties for '", file_client.GetUrl(),
-          "' failed. GetFileInfo is unable to determine whether the path exists.");
+          "' failed. GetFileInfo is unable to determine whether the path exists: ",
+          location.all);
     }
   }
 
@@ -1346,7 +1347,9 @@ class AzureFileSystem::Impl {
       }
       return ExceptionToStatus(
           exception, "ListBlobsByHierarchy failed for prefix='", *options.Prefix,
-          "'. GetFileInfo is unable to determine whether the path exists.");
+          "' on '", container_client.GetUrl(),
+          "'. GetFileInfo is unable to determine whether the path exists: '",
+          location.all, "'");
     }
   }
 
