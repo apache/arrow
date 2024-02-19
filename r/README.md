@@ -12,7 +12,7 @@
 
 arrow provides access to many of the features of the [Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes.
 
-To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See `vignette("read_write")` to learn about reading and writing data files, `vignette("data_wrangling")` to learn how to use dplyr syntax with arrow objects, and the [function documentation](reference/acero.html) for a full list of supported functions within dplyr queries.
+To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See the [read/write article](articles/read_write.html) to learn about reading and writing data files, [data wrangling](article/data_wrangling.html) to learn how to use dplyr syntax with arrow objects, and the [function documentation](reference/acero.html) for a full list of supported functions within dplyr queries.
 
 ## Installation
 
