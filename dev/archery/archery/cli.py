@@ -63,7 +63,7 @@ def archery(ctx, debug, pdb, quiet):
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    ctx.debug = debug
+    ctx.obj['debug'] = debug
 
     if pdb:
         import pdb
