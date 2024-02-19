@@ -261,11 +261,8 @@ def azure_server(tmpdir_factory):
     port = find_free_port()
     env = os.environ.copy()
     tmpdir = tmpdir_factory.getbasetemp()
-    # Port 0 means azurite will select any free port. We don't need to connect
-    # to the queue or table services, we just need them to not conflict with
-    # in use ports.
-    args = ['azurite', "--location", tmpdir, "--blobPort", str(port),
-            "--queuePort", "0", "--tablePort", "0"]
+    # We only need blob service emulator, not queue or table.
+    args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)
