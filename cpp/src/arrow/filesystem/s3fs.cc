@@ -1762,8 +1762,13 @@ class ObjectOutputStream final : public io::OutputStream {
 };
 
 // This function assumes info->path() is already set
-void FileObjectToInfo(const S3Model::HeadObjectResult& obj, FileInfo* info) {
-  info->set_type(FileType::File);
+void FileObjectToInfo(std::string_view key, const S3Model::HeadObjectResult& obj,
+                      FileInfo* info) {
+  if (IsDirectory(key, obj)) {
+    info->set_type(FileType::Directory);
+  } else {
+    info->set_type(FileType::File);
+  }
   info->set_size(static_cast<int64_t>(obj.GetContentLength()));
   info->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
@@ -2161,7 +2166,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           child_path_ss << bucket << kSep << child_key;
           child_key = child_path_ss.str();
           if (obj.GetSize() > 0 || !had_trailing_slash) {
-            // We found a real file
+            // We found a real file.
+            // XXX Ideally, for 0-sized files we would also check the Content-Type
+            // against kAwsDirectoryContentType, but ListObjectsV2 does not give
+            // that information.
             FileInfo info;
             info.set_path(child_key);
             FileObjectToInfo(obj, &info);
@@ -2654,7 +2662,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     auto outcome = client_lock.Move()->HeadObject(req);
     if (outcome.IsSuccess()) {
       // "File" object found
-      FileObjectToInfo(outcome.GetResult(), &info);
+      FileObjectToInfo(path.key, outcome.GetResult(), &info);
       return info;
     }
     if (!IsNotFound(outcome.GetError())) {
