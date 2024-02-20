@@ -715,6 +715,10 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToFloating));
   }
 
+  // From half-float to float/double
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT,
+      {InputType(Type::HALF_FLOAT)}, out_ty, CastFloatingToFloating));
+
   // From other numbers to floating point
   AddCommonNumberCasts<OutType>(out_ty, func.get());
 
@@ -723,6 +727,7 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
                             CastFunctor<OutType, Decimal128Type>::Exec));
   DCHECK_OK(func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, out_ty,
                             CastFunctor<OutType, Decimal256Type>::Exec));
+
   return func;
 }
 
@@ -840,13 +845,9 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   functions.push_back(cast_half_float);
 
   auto cast_float = GetCastToFloating<FloatType>("cast_float");
-  DCHECK_OK(cast_float.get()->AddKernel(Type::HALF_FLOAT,
-      {InputType(Type::HALF_FLOAT)}, float32(), CastFloatingToFloating));
   functions.push_back(cast_float);
 
   auto cast_double = GetCastToFloating<DoubleType>("cast_double");
-  DCHECK_OK(cast_double.get()->AddKernel(Type::HALF_FLOAT,
-      {InputType(Type::HALF_FLOAT)}, float64(), CastFloatingToFloating));
   functions.push_back(cast_double);
 
   functions.push_back(GetCastToDecimal128());
