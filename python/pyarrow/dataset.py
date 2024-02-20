@@ -462,7 +462,7 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        if isinstance(source[0], FileInfo):
+        if source and isinstance(source[0], FileInfo):
             if filesystem is None:
                 # fall back to local file system as the default
                 fs = LocalFileSystem()

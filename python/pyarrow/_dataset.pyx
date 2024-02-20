@@ -3192,7 +3192,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         elif isinstance(paths_or_selector, (list, tuple)):
-            if isinstance(paths_or_selector[0], FileInfo):
+            if len(paths_or_selector) > 0 and isinstance(paths_or_selector[0], FileInfo):
                 finfos = unwrap_finfos(paths_or_selector)
                 with nogil:
                     result = CFileSystemDatasetFactory.MakeFromFileInfos(
