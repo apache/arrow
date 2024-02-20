@@ -68,7 +68,7 @@ Result<std::shared_ptr<FileSystem>> MakeRootFileSystem() {
   options.endpoint_override = FLAGS_endpoint;
   options.scheme = FLAGS_scheme;
   options.region = FLAGS_region;
-  options.allow_bucket_creation = true;
+  options.allow_bucket_creation = FLAGS_create;
   return S3FileSystem::Make(options);
 }
 
