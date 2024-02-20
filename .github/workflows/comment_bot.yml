@@ -43,9 +43,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: 3.8
+          python-version: 3.11
       - name: Install Archery and Crossbow dependencies
-        run: pip install -e arrow/dev/archery[bot]
+        run: |
+          pip install -U pip
+          pip list
+          pip install -e arrow/dev/archery[bot]
       - name: Handle GitHub comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
