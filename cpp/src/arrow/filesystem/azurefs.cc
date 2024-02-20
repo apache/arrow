@@ -721,15 +721,10 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client,
                      const io::IOContext& io_context, const AzureLocation& location,
                      const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     const AzureOptions& options, const bool truncate,
-                     std::function<Status()> ensure_not_flat_namespace_directory,
-                     int64_t size = kNoSize)
+                     const AzureOptions& options)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
-        location_(location),
-        truncate_(truncate),
-        ensure_not_flat_namespace_directory_(
-            std::move(ensure_not_flat_namespace_directory)) {
+        location_(location) {
     if (metadata && metadata->size() != 0) {
       metadata_ = ArrowMetadataToAzureMetadata(metadata);
     } else if (options.default_metadata && options.default_metadata->size() != 0) {
@@ -743,13 +738,14 @@ class ObjectAppendStream final : public io::OutputStream {
     io::internal::CloseFromDestructor(this);
   }
 
-  Status Init() {
-    if (truncate_) {
+  Status Init(const bool truncate,
+              std::function<Status()> ensure_not_flat_namespace_directory) {
+    if (truncate) {
       content_length_ = 0;
       pos_ = 0;
       // Create an empty file overwriting any existing file, but fail if there is an
       // existing directory.
-      RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
+      RETURN_NOT_OK(ensure_not_flat_namespace_directory());
       // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing
       // directory so we don't need to check like we do on flat namespace.
       RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
@@ -766,7 +762,7 @@ class ObjectAppendStream final : public io::OutputStream {
           // No file exists but on flat namespace its possible there is a directory
           // marker or an implied directory. Ensure there is no directory before starting
           // a new empty file.
-          RETURN_NOT_OK(ensure_not_flat_namespace_directory_());
+          RETURN_NOT_OK(ensure_not_flat_namespace_directory());
           RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
           return ExceptionToStatus(
@@ -886,8 +882,6 @@ class ObjectAppendStream final : public io::OutputStream {
   std::shared_ptr<Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
-  const bool truncate_;
-  std::function<Status()> ensure_not_flat_namespace_directory_;
   int64_t content_length_ = kNoSize;
 
   bool closed_ = false;
@@ -1731,9 +1725,8 @@ class AzureFileSystem::Impl {
 
     std::shared_ptr<ObjectAppendStream> stream;
     stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                  location, metadata, options_, truncate,
-                                                  ensure_not_flat_namespace_directory);
-    RETURN_NOT_OK(stream->Init());
+                                                  location, metadata, options_);
+    RETURN_NOT_OK(stream->Init(truncate, ensure_not_flat_namespace_directory));
     return stream;
   }
 
