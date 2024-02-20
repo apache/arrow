@@ -63,8 +63,8 @@ struct CastPrimitive<HalfFloatType, InType, enable_if_floating_point<typename In
   }
 };
 
-template<>
-struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
+// Converting from half float to other floating types.
+template<> struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
     static void Exec(const ArraySpan& arr, ArraySpan* out) {
         const uint16_t* in_values = arr.GetValues<uint16_t>(1);
         float* out_values = out->GetValues<float>(1);
