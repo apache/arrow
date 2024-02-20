@@ -204,8 +204,7 @@ def s3_server(s3_connection, tmpdir_factory):
     env = os.environ.copy()
     env.update({
         'MINIO_ACCESS_KEY': access_key,
-        'MINIO_SECRET_KEY': secret_key,
-        'MINIO_PROMETHEUS_AUTH_TYPE': 'public',
+        'MINIO_SECRET_KEY': secret_key
     })
 
     args = ['minio', '--compat', 'server', '--quiet', '--address',
@@ -223,7 +222,6 @@ def s3_server(s3_connection, tmpdir_factory):
             'connection': s3_connection,
             'process': proc,
             'tempdir': tmpdir,
-            'address': address,
         }
     finally:
         if proc is not None:
