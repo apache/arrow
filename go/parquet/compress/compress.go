@@ -92,22 +92,22 @@ type Codec interface {
 
 var codecs = map[Compression]Codec{}
 
-// RegisterCodec add new or override existing codec implementation for a given compression algorithm.
+// RegisterCodec adds or overrides a codec implementation for a given compression algorithm.
 // The intended use case is within the init() section of a package. For example,
 //
-//	    // inside a custom codec package, say czstd
+//	// inside a custom codec package, say czstd
 //
-//		func init() {
-//		    RegisterCodec(compress.Codecs.Zstd, czstdCodec{})
-//		}
+//	func init() {
+//	    RegisterCodec(compress.Codecs.Zstd, czstdCodec{})
+//	}
 //
-//		type czstdCodec struct{} // implementing Codec interface using CGO based ZSTD wrapper
+//	type czstdCodec struct{} // implementing Codec interface using CGO based ZSTD wrapper
 //
 // And user of the custom codec can import the above package like below,
 //
-//	    package main
+//	package main
 //
-//		import _ "package/path/to/czstd"
+//	import _ "package/path/to/czstd"
 func RegisterCodec(compression Compression, codec Codec) {
 	codecs[compression] = codec
 }
