@@ -581,7 +581,8 @@ struct PyConverterTrait<
 };
 
 template <typename T>
-struct PyConverterTrait<T, enable_if_list_like<T>> {
+struct PyConverterTrait<
+    T, enable_if_t<is_list_like_type<T>::value> || is_list_view_type<T>::value>> {
   using type = PyListConverter<T>;
 };
 
@@ -803,7 +804,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       return this->list_builder_->AppendNull();
     }
 
-    RETURN_NOT_OK(this->list_builder_->Append());
     if (PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
@@ -824,6 +824,18 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
+  Status AppendTo(const MapType*, int64_t size) {
+    return this->list_builder_->Append();
+  }
+
+  Status AppendTo(const FixedSizeListType*, int64_t size) {
+    return this->list_builder_->Append();
+  }
+
+  Status AppendTo(const BaseListType*, int64_t size) {
+    return this->list_builder_->Append(true, size);
+  }
+
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
       return Status::Invalid("Invalid Map: key field cannot contain null values");
@@ -836,11 +848,14 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return this->value_converter_->Extend(value, size);
   }
 
   Status AppendIterable(PyObject* value) {
+    auto size = static_cast<int64_t>(PyObject_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     PyObject* iterator = PyObject_GetIter(value);
     OwnedRef iter_ref(iterator);
     while (PyObject* item = PyIter_Next(iterator)) {
@@ -857,6 +872,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
     const int64_t size = PyArray_SIZE(ndarray);
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
 
     const auto value_type = this->value_converter_->builder()->type();

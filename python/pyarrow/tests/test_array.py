@@ -627,7 +627,7 @@ def test_string_binary_from_buffers():
     assert copied.null_count == 0
 
 
-@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_list_from_buffers(list_type_factory):
     ty = list_type_factory(pa.int16())
     array = pa.array([[0, 1, 2], None, [], [3, 4, 5]], type=ty)
@@ -900,7 +900,9 @@ def test_dictionary_indices():
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListArray, pa.list_),
-                          (pa.LargeListArray, pa.large_list)])
+                          (pa.LargeListArray, pa.large_list),
+                          (pa.ListViewArray, pa.list_view),
+                          (pa.LargeListViewArray, pa.large_list_view)])
 def test_list_from_arrays(list_array_type, list_type_factory):
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
@@ -957,7 +959,9 @@ def test_list_from_arrays(list_array_type, list_type_factory):
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
     (pa.ListArray, pa.list_),
-    (pa.LargeListArray, pa.large_list)
+    (pa.LargeListArray, pa.large_list),
+    (pa.ListViewArray, pa.list_view),
+    (pa.LargeListViewArray, pa.large_list_view)
 ))
 @pytest.mark.parametrize("arr", (
     [None, [0]],
@@ -975,7 +979,9 @@ def test_list_array_types_from_arrays(
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
     (pa.ListArray, pa.list_),
-    (pa.LargeListArray, pa.large_list)
+    (pa.LargeListArray, pa.large_list),
+    (pa.ListViewArray, pa.list_view),
+    (pa.LargeListViewArray, pa.large_list_view)
 ))
 def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     # Fail when manual offsets include nulls and mask passed
@@ -1671,6 +1677,8 @@ def test_cast_from_null():
         pa.list_(pa.int16()),
         pa.list_(pa.int32(), 4),
         pa.large_list(pa.uint8()),
+        pa.list_view(pa.int16()),
+        pa.large_list_view(pa.int16()),
         pa.decimal128(19, 4),
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
@@ -2022,6 +2030,9 @@ pickle_test_parametrize = pytest.mark.parametrize(
         ([[1, 2], [3]], pa.list_(pa.int64())),
         ([[4, 5], [6]], pa.large_list(pa.int16())),
         ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
+        ([[1, 2], [3]], pa.list_view(pa.int64())),
+        ([[4, 5], [6]], pa.large_list_view(pa.int16())),
+        ([['a'], None, ['b', 'c']], pa.list_view(pa.string())),
         ([(1, 'a'), (2, 'c'), None],
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
@@ -2697,7 +2708,8 @@ def test_invalid_tensor_construction():
 
 
 @pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
+                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list),
+                          (pa.int32(), pa.list_view), (pa.int64(), pa.large_list_view)])
 def test_list_array_flatten(offset_type, list_type_factory):
     typ2 = list_type_factory(
         list_type_factory(
@@ -2755,7 +2767,9 @@ def test_list_array_flatten(offset_type, list_type_factory):
 @pytest.mark.parametrize('list_type', [
     pa.list_(pa.int32()),
     pa.list_(pa.int32(), list_size=2),
-    pa.large_list(pa.int32())])
+    pa.large_list(pa.int32()),
+    pa.list_view(pa.int32()),
+    pa.large_list_view(pa.int32())])
 def test_list_value_parent_indices(list_type):
     arr = pa.array(
         [
@@ -2771,7 +2785,9 @@ def test_list_value_parent_indices(list_type):
 @pytest.mark.parametrize(('offset_type', 'list_type'),
                          [(pa.int32(), pa.list_(pa.int32())),
                           (pa.int32(), pa.list_(pa.int32(), list_size=2)),
-                          (pa.int64(), pa.large_list(pa.int32()))])
+                          (pa.int64(), pa.large_list(pa.int32())),
+                          (pa.int32(), pa.list_view(pa.int32())),
+                          (pa.int64(), pa.large_list_view(pa.int32()))])
 def test_list_value_lengths(offset_type, list_type):
 
     # FixedSizeListArray needs fixed list sizes
@@ -2798,7 +2814,7 @@ def test_list_value_lengths(offset_type, list_type):
     assert arr.value_lengths().equals(expected)
 
 
-@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_list_array_flatten_non_canonical(list_type_factory):
     # Non-canonical list array (null elements backed by non-empty sublists)
     typ = list_type_factory(pa.int64())
@@ -2818,7 +2834,7 @@ def test_list_array_flatten_non_canonical(list_type_factory):
     assert arr.values.to_pylist() == [1, 2, 3, 4, 5, 6]
 
 
-@pytest.mark.parametrize('klass', [pa.ListArray, pa.LargeListArray])
+@pytest.mark.parametrize('klass', [pa.ListArray, pa.LargeListArray, pa.ListViewArray, pa.LargeListViewArray])
 def test_list_array_values_offsets_sliced(klass):
     # ARROW-7301
     arr = klass.from_arrays(offsets=[0, 3, 4, 6], values=[1, 2, 3, 4, 5, 6])
