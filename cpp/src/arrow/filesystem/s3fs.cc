@@ -1221,7 +1221,7 @@ bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) 
     return false;
   }
   // Otherwise, if it has a trailing slash, it's a directory
-  if (key[key.size() - 1] == kSep) {
+  if (internal::HasTrailingSlash(key)) {
     return true;
   }
   // Otherwise, if its content type starts with "application/x-directory",
