@@ -578,7 +578,7 @@ def test_roundtrip_reader_capsule(constructor):
     obj = constructor(schema, batches)
 
     bad_schema = pa.schema({'ints': pa.int32()})
-    with pytest.raises(pa.lib.ArrowNotImplementedError, match="Unsupported cast"):
+    with pytest.raises(pa.lib.ArrowNotImplementedError, match="Field 0 cannot be cast"):
         obj.__arrow_c_stream__(bad_schema.__arrow_c_schema__())
 
     # Can work with matching schema

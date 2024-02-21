@@ -77,12 +77,14 @@ Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
                            num_fields);
   }
 
-  // Try to cast an empty version of all the columns before succceeding
+  // Ensure all columns can be cast before succeeding
   compute::CastOptions options;
   for (int i = 0; i < num_fields; i++) {
-    ARROW_ASSIGN_OR_RAISE(auto empty_array, MakeEmptyArray(src->field(i)->type()));
-    options.to_type = schema->field(i)->type();
-    ARROW_ASSIGN_OR_RAISE(auto emtpy_array_dst, compute::Cast(empty_array, options));
+    if (!compute::CanCast(*src->field(i)->type(), *schema->field(i)->type())) {
+      return Status::NotImplemented("Field ", i, " cannot be cast from ",
+                                    src->field(i)->type()->ToString(), " to ",
+                                    schema->field(i)->type()->ToString());
+    }
   }
 
   parent_ = std::move(parent);
