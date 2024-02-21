@@ -83,6 +83,11 @@ class IntegrationTest {
     testScenario("app_metadata_flight_info_endpoint");
   }
 
+  @Test
+  void sessionOptions() throws Exception {
+    testScenario("session_options");
+  }
+
   void testScenario(String scenarioName) throws Exception {
     try (final BufferAllocator allocator = new RootAllocator()) {
       final FlightServer.Builder builder = FlightServer.builder()

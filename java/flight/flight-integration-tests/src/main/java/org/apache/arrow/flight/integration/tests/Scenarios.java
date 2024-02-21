@@ -50,6 +50,7 @@ final class Scenarios {
     scenarios.put("flight_sql", FlightSqlScenario::new);
     scenarios.put("flight_sql:extension", FlightSqlExtensionScenario::new);
     scenarios.put("app_metadata_flight_info_endpoint", AppMetadataFlightInfoEndpointScenario::new);
+    scenarios.put("session_options", SessionOptionsScenario::new);
   }
 
   private static Scenarios getInstance() {
