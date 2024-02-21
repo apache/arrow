@@ -1205,7 +1205,7 @@ services:
       context: .
       dockerfile: ci/docker/conda-python-docs.dockerfile
       cache_from:
-            - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
       args:
             repo: ${REPO}
             arch: ${ARCH}
