@@ -16,8 +16,7 @@
 # under the License.
 
 aws-sdk-cpp=1.11.68
-# There is a problem with the 1.11.0 conda release of azure-core-cpp https://github.com/conda-forge/admin-requests/pull/911
-azure-core-cpp>=1.10.3,<1.11.0
+azure-core-cpp>=1.10.3
 azure-identity-cpp>=1.6.0
 azure-storage-blobs-cpp>=12.10.0
 azure-storage-common-cpp>=12.5.0
