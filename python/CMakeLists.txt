@@ -720,6 +720,8 @@ if(PYARROW_GENERATE_COVERAGE)
   set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xlinetrace=True")
 endif()
 
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xoptimize.unpack_method_calls=False")
+
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
