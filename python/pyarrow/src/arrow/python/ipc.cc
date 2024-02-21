@@ -19,7 +19,7 @@
 
 #include <memory>
 
-#include "arrow/compute/api.h"
+#include "arrow/compute/cast.h"
 #include "arrow/python/pyarrow.h"
 
 namespace arrow {
