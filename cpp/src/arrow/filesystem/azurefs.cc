@@ -743,7 +743,7 @@ class ObjectAppendStream final : public io::OutputStream {
     if (truncate) {
       content_length_ = 0;
       pos_ = 0;
-      // We need to create an empty file overwriting any existing file, but 
+      // We need to create an empty file overwriting any existing file, but
       // fail if there is an existing directory.
       RETURN_NOT_OK(ensure_not_flat_namespace_directory());
       // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing
