@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <optional>
 
@@ -1711,15 +1712,19 @@ class AzureFileSystem::Impl {
 
     auto ensure_not_flat_namespace_directory = [this, location,
                                                 blob_container_client]() -> Status {
-      bool hierarchical_namespace_enabled =
-          HierarchicalNamespaceSupport(GetFileSystemClient(location.container)) ==
-          HNSSupport::kEnabled;
-      if (!hierarchical_namespace_enabled) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto hns_support,
+          HierarchicalNamespaceSupport(GetFileSystemClient(location.container)));
+      if (hns_support == HNSSupport::kDisabled) {
+        // Flat namespace so we need to GetFileInfo in-case its a directory.
         ARROW_ASSIGN_OR_RAISE(auto status, GetFileInfo(blob_container_client, location))
         if (status.type() == FileType::Directory) {
           return NotAFile(location);
         }
       }
+      // kContainerNotFound - it doesn't exist, so no need to check if its a directory.
+      // kEnabled - hierarchical namespace so Azure APIs will fail if its a directory. We
+      // don't need to explicitly check.
       return Status::OK();
     };
 
