@@ -263,6 +263,8 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 	}
 
 	rows := newRows()
+	ctx, rows.ctxCancelFunc = context.WithCancel(ctx)
+
 	go rows.streamRecordset(ctx, s.client, info.Endpoint)
 
 	<-rows.initializedChan // waits the rows proper initialization.
