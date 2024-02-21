@@ -97,6 +97,7 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
   std::shared_ptr<RecordBatch> out;
   ARROW_RETURN_NOT_OK(parent_->ReadNext(&out));
   if (!out) {
+    batch->reset();
     return Status::OK();
   }
 
