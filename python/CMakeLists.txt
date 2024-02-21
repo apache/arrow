@@ -145,6 +145,8 @@ endif()
 
 include(BuildUtils)
 
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
+
 # Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
 set(BUILD_WARNING_LEVEL "PRODUCTION")
 
@@ -188,6 +190,12 @@ if(MSVC)
   # "unused function" warning but the code emits another "function
   # call missing argument list" warning.
   string(APPEND CMAKE_CXX_FLAGS " /wd4551")
+
+  string(APPEND CMAKE_CXX_FLAGS " /DCYTHON_INLINE=")
+
+  string(REPLACE "/O2 /Ob2" "/O1 " CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
+  string(REPLACE "/O2 /Ob2" "/O1 " CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+
 else()
   # Enable perf and other tools to work properly
   string(APPEND CMAKE_CXX_FLAGS " -fno-omit-frame-pointer")

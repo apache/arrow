@@ -291,20 +291,20 @@ class build_ext(_build_ext):
 
             cmake_options.append(
                 f'-DCMAKE_BUILD_TYPE={self.build_type.lower()}')
+            if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
+                cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
-            build_tool_args = []
             if sys.platform == 'win32':
                 if not is_64_bit:
                     raise RuntimeError('Not supported on 32-bit Windows')
-            else:
-                build_tool_args.append('--')
-                if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
-                    cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
-                parallel = os.environ.get('PYARROW_PARALLEL')
-                if parallel:
-                    build_tool_args.append(f'-j{parallel}')
+
+            build_tool_args = []
+            build_tool_args.append('--')
+            parallel = os.environ.get('PYARROW_PARALLEL')
+            if parallel:
+                build_tool_args.append(f'-j{parallel}')
 
             # Generate the build files
             print("-- Running cmake for PyArrow")
