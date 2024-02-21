@@ -857,6 +857,10 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), path2, FileType::File);
   }
 
+  void TestOpenOutputStreamWithMissingContainer() {
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream("not-a-container/file", {}));
+  }
+
   void TestDeleteDirSuccessEmpty() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
@@ -1597,6 +1601,11 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryM
 TYPED_TEST(TestAzureFileSystemOnAllScenarios,
            DisallowCreatingFileAndDirectoryWithTheSameName) {
   this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios,
+           OpenOutputStreamWithMissingContainer) {
+  this->TestOpenOutputStreamWithMissingContainer();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
