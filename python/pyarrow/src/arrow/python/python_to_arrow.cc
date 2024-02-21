@@ -582,7 +582,7 @@ struct PyConverterTrait<
 
 template <typename T>
 struct PyConverterTrait<
-    T, enable_if_t<is_list_like_type<T>::value> || is_list_view_type<T>::value>> {
+    T, enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value>> {
   using type = PyListConverter<T>;
 };
 
