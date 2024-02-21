@@ -395,8 +395,8 @@ tasks:
 
 {% for arch, musllinux_version, platform_tag in [("amd64", "1-2", "musllinux_1_2_x86_64"),
                                                  ("arm64", "1-2", "musllinux_1_2_aarch64")] %}
-wheel-musllinux-{{ musllinux_version }}-{{ python_tag }}-{{ arch }}:
-  ci: github
+  wheel-musllinux-{{ musllinux_version }}-{{ python_tag }}-{{ arch }}:
+    ci: github
     template: python-wheels/github.musllinux.yml
     params:
       arch: "{{ arch }}"
