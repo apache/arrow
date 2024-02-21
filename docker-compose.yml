@@ -1207,10 +1207,10 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
       args:
-            repo: ${REPO}
-            arch: ${ARCH}
-            python: ${PYTHON}
-            pandas: ${PANDAS}
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+        pandas: ${PANDAS}
     environment:
       <<: [*common, *ccache]
       ARROW_SUBSTRAIT: "ON"
