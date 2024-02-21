@@ -1603,8 +1603,7 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios,
   this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
 }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios,
-           OpenOutputStreamWithMissingContainer) {
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, OpenOutputStreamWithMissingContainer) {
   this->TestOpenOutputStreamWithMissingContainer();
 }
 
