@@ -909,7 +909,8 @@ public class FlightClient implements AutoCloseable {
 
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
-          .maxInboundMessageSize(maxInboundMessageSize);
+          .maxInboundMessageSize(maxInboundMessageSize)
+          .maxInboundMetadataSize(maxInboundMessageSize);
       return new FlightClient(allocator, builder.build(), middleware);
     }
   }
