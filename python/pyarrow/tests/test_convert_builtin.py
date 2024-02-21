@@ -255,7 +255,8 @@ def test_nested_lists(seq):
 
 
 @parametrize_with_sequence_types
-@pytest.mark.parametrize("factory", [pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_nested_lists_with_explicit_type(seq, factory):
     data = [[], [1, 2], None]
     arr = pa.array(seq(data), type=factory(pa.int16()))
@@ -279,10 +280,12 @@ def test_list_with_non_list(seq):
 
 
 @parametrize_with_sequence_types
-@pytest.mark.parametrize("factory", [pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_nested_arrays(seq, factory):
     arr = pa.array(seq([np.array([], dtype=np.int64),
-                        np.array([1, 2], dtype=np.int64), None]), type=factory(pa.int64()))
+                        np.array([1, 2], dtype=np.int64), None]),
+                   type=factory(pa.int64()))
     assert len(arr) == 3
     assert arr.null_count == 1
     assert arr.type == factory(pa.int64())
@@ -1465,7 +1468,8 @@ def test_sequence_duration_nested_lists():
     assert arr.to_pylist() == data
 
 
-@pytest.mark.parametrize("factory", [pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
 def test_sequence_duration_nested_lists_with_explicit_type(factory):
     td1 = datetime.timedelta(1, 1, 1000)
     td2 = datetime.timedelta(1, 100)
@@ -2438,8 +2442,10 @@ def test_array_from_pylist_offset_overflow():
     ),
     ([[1, 2, 3]], [pa.scalar([1, 2, 3])], pa.list_(pa.int64())),
     ([["a", "b"]], [pa.scalar(["a", "b"])], pa.list_(pa.string())),
-    ([[1, 2, 3]], [pa.scalar([1, 2, 3])], pa.list_view(pa.int64())),
-    ([["a", "b"]], [pa.scalar(["a", "b"])], pa.list_view(pa.string())),
+    ([[1, 2, 3]], [pa.scalar([1, 2, 3], type=pa.list_view(pa.int64()))],
+     pa.list_view(pa.int64())),
+    ([["a", "b"]], [pa.scalar(["a", "b"], type=pa.list_view(pa.string()))],
+     pa.list_view(pa.string())),
     (
         [1, 2, None],
         [pa.scalar(1, type=pa.int8()), pa.scalar(2, type=pa.int8()), None],
