@@ -2144,7 +2144,6 @@ class AzureFileSystem::Impl {
       }
     }
 
-    DCHECK(!internal::HasTrailingSlash(location.path));
     auto blob_client = container_client.GetBlobClient(location.path);
     Blobs::DeleteBlobOptions options;
     if (file_blob_lease_guard) {
