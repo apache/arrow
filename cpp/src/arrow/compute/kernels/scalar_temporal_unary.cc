@@ -1782,7 +1782,10 @@ const FunctionDoc strptime_doc(
     ("For each string in `strings`, parse it as a timestamp.\n"
      "The timestamp unit and the expected string pattern must be given\n"
      "in StrptimeOptions. Null inputs emit null. If a non-null string\n"
-     "fails parsing, an error is returned by default."),
+     "fails parsing, an error is returned by default.\n"
+     "\n"
+     "**Note:** The strptime kernel currently ignores the %Z specifier for any string."
+     ),
     {"strings"}, "StrptimeOptions", /*options_required=*/true);
 const FunctionDoc assume_timezone_doc{
     "Convert naive timestamp to timezone-aware timestamp",
