@@ -838,6 +838,41 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), subdir3, FileType::Directory);
   }
 
+  void TestDisallowReadingOrWritingDirectoryMarkers() {
+    auto data = SetUpPreexistingData();
+    auto directory_path = data.Path("directory");
+
+    ASSERT_OK(fs()->CreateDir(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
+
+    auto directory_path_with_slash = directory_path + "/";
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path_with_slash));
+  }
+
+  void TestDisallowCreatingFileAndDirectoryWithTheSameName() {
+    auto data = SetUpPreexistingData();
+    auto path1 = data.Path("directory1");
+    ASSERT_OK(fs()->CreateDir(path1));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(path1));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(path1));
+    AssertFileInfo(fs(), path1, FileType::Directory);
+
+    auto path2 = data.Path("directory2");
+    ASSERT_OK(fs()->OpenOutputStream(path2));
+    // CreateDir returns OK even if there is already a file or directory at this
+    // location. Whether or not this is the desired behaviour is debatable.
+    ASSERT_OK(fs()->CreateDir(path2));
+    AssertFileInfo(fs(), path2, FileType::File);
+  }
+
+  void TestOpenOutputStreamWithMissingContainer() {
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream("not-a-container/file", {}));
+  }
+
   void TestDeleteDirSuccessEmpty() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
@@ -1665,6 +1700,19 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnMissingContainer) {
   this->TestCreateDirOnMissingContainer();
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryMarkers) {
+  this->TestDisallowReadingOrWritingDirectoryMarkers();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios,
+           DisallowCreatingFileAndDirectoryWithTheSameName) {
+  this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, OpenOutputStreamWithMissingContainer) {
+  this->TestOpenOutputStreamWithMissingContainer();
+}
+
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
   this->TestDeleteDirSuccessEmpty();
 }
@@ -2232,6 +2280,18 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
   EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+
+  // Metadata can be written without writing any data.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_with_defaults->OpenAppendStream(
+                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "baz"}})));
+  ASSERT_OK(output->Close());
+  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
+                      .GetBlockBlobClient(blob_path)
+                      .GetProperties()
+                      .Value.Metadata;
+  // Defaults are overwritten and not merged.
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "baz")}, blob_metadata);
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
