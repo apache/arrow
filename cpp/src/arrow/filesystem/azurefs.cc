@@ -17,7 +17,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <optional>
 
@@ -530,7 +529,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   Status Init() {
     if (content_length_ != kNoSize) {
       // When the user provides the file size we don't validate that its a file. This is
-      // only a read so its not a big deal if the user make a mistake.
+      // only a read so its not a big deal if the user makes a mistake.
       DCHECK_GE(content_length_, 0);
       return Status::OK();
     }
@@ -744,8 +743,8 @@ class ObjectAppendStream final : public io::OutputStream {
     if (truncate) {
       content_length_ = 0;
       pos_ = 0;
-      // Create an empty file overwriting any existing file, but fail if there is an
-      // existing directory.
+      // We need to create an empty file overwriting any existing file, but 
+      // fail if there is an existing directory.
       RETURN_NOT_OK(ensure_not_flat_namespace_directory());
       // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing
       // directory so we don't need to check like we do on flat namespace.
