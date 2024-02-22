@@ -19,15 +19,6 @@
 
 # arrow 15.0.0.9000
 
-##  Minor improvements and fixes
-
-* Check for internet access when building from source and fallback to a 
-  minimally scoped Arrow C++ build (#39699).
-* Built from source by default on macOS (#39861).
-* Support build against older versions of Arrow C++. This is currently opt-in and 
-  requires atleast Arrow C++ 13.0.0 (#39739).
-* Make it possible to use Arrow C++ from rtools on windows (in future rtools versions). (#39986). 
-
 # arrow 15.0.0
 
 ##  New features
@@ -58,6 +49,17 @@
   when quitting your R session. (#38495)
 * A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
 * The developer documentation has been updated to match changes made in recent releases (#38220)
+
+# arrow 14.0.2.1
+
+##  Minor improvements and fixes
+
+* Check for internet access when building from source and fallback to a 
+  minimally scoped Arrow C++ build (#39699).
+* Built from source by default on macOS (#39861).
+* Support build against older versions of Arrow C++. This is currently opt-in and 
+  requires atleast Arrow C++ 13.0.0 (#39739).
+* Make it possible to use Arrow C++ from rtools on windows (in future rtools versions). (#39986). 
 
 # arrow 14.0.2
 
