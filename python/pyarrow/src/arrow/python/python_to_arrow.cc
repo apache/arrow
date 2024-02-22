@@ -825,7 +825,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
  protected:
   // MapType does not support args in the Append() method
-  Status AppendTo(const MapType*, int64_t size) {return this->list_builder_->Append();}
+  Status AppendTo(const MapType*, int64_t size) { return this->list_builder_->Append(); }
 
   // FixedSizeListType does not support args in the Append() method
   Status AppendTo(const FixedSizeListType*, int64_t size) {
