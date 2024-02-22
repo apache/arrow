@@ -2504,12 +2504,102 @@ class AzureFileSystem::Impl {
   Status MovePathUsingBlobsAPI(const AzureLocation& src, const AzureLocation& dest) {
     DCHECK(!src.container.empty() && !src.path.empty());
     DCHECK(!dest.container.empty() && !dest.path.empty());
-    if (src.container != dest.container) {
-      ARROW_ASSIGN_OR_RAISE(auto src_file_info, GetFileInfoOfPathWithinContainer(src));
-      if (src_file_info.type() == FileType::NotFound) {
+    auto src_container_client = GetBlobContainerClient(src.container);
+    auto dest_container_client = GetBlobContainerClient(dest.container);
+
+    FileReprInfo src_repr_info;
+    ARROW_ASSIGN_OR_RAISE(auto src_info,
+                          GetFileInfo(src_container_client, src, &src_repr_info));
+    switch (src_info.type()) {
+      case FileType::NotFound:
+      case FileType::Unknown:
         return PathNotFound(src);
+      case FileType::File:
+        if (internal::HasTrailingSlash(src.path)) {
+          // src must be a directory if it has a trailing slash.
+          return NotADir(src);
+        }
+        break;
+      case FileType::Directory:
+        break;
+    }
+    FileReprInfo dest_repr_info;
+    ARROW_ASSIGN_OR_RAISE(auto dest_info,
+                          GetFileInfo(dest_container_client, dest, &dest_repr_info));
+    switch (dest_info.type()) {
+      case FileType::Directory:
+        if (src_info.IsFile()) {
+          // If src is a regular file, complain that dest is a directory
+          // like POSIX rename() does.
+          return internal::IsADir(dest.all);
+        }
+        if (!dest_repr_info.is_empty_directory) {
+          return NotEmpty(dest);
+        }
+        break;
+      case FileType::File:
+        if (internal::HasTrailingSlash(dest.path)) {
+          return NotADir(dest);
+        }
+        break;
+      case FileType::NotFound:
+      case FileType::Unknown: {
+        // If the destination has trailing slash, we would have to check that it's a
+        // directory, but since it doesn't exist we must return PathNotFound
+        // unless the src is a directory, in which case we can proceed with the rename.
+        if (internal::HasTrailingSlash(dest.path) && src_info.IsFile()) {
+          return PathNotFound(dest);
+        }
+        // We must also check that the parent of the destination exists because
+        // differently from the DataLake API implementation, the raw blob rename
+        // operation won't (and shouldn't) care about the parent directory.
+        auto dest_parent = dest.parent();
+        if (!dest_parent.path.empty()) {
+          ARROW_ASSIGN_OR_RAISE(auto dest_parent_info,
+                                GetFileInfo(dest_container_client, dest_parent));
+          switch (dest_parent_info.type()) {
+            case FileType::NotFound:
+            case FileType::Unknown:
+              return DestinationParentPathNotFound(dest);
+            case FileType::File:
+              return internal::NotADir(dest.parent().all);
+            case FileType::Directory:
+              break;
+          }
+        }
+        break;
       }
+    }
+
+    // Now that src and dest are validated, make sure they are on the same container.
+    if (src.container != dest.container) {
       return CrossContainerMoveNotImplemented(src, dest);
+    }
+
+    const auto src_dir_marker_path = internal::EnsureTrailingSlash(src.path);
+    const auto dest_dir_marker_path = internal::EnsureTrailingSlash(dest.path);
+    Blobs::ListBlobsOptions options;
+    options.Prefix = src_dir_marker_path;
+    options.PageSizeHint = kListBlobsPageSize;
+    std::string old_path = src_dir_marker_path;
+    std::string new_path = dest_dir_marker_path;
+    try {
+      auto list_response = src_container_client.ListBlobs(options);
+      for (; list_response.HasPage(); list_response.MoveToNextPage()) {
+        for (auto& blob : list_response.Blobs) {
+          old_path.resize(src_dir_marker_path.size());
+          old_path.append(blob.Name);
+          new_path.resize(dest_dir_marker_path.size());
+          new_path.append(blob.Name);
+          printf("MoveBlob: %s -> %s\n", old_path.c_str(), new_path.c_str());
+          // TODO(felipecrv): rename the blobs. Azure Blob Service API does not directly
+          // support ability to rename or move blobs.
+        }
+      }
+      return Status::OK();
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "Failed to list blobs in '", src.all,
+                               "': ", src_container_client.GetUrl());
     }
     return Status::NotImplemented("The Azure FileSystem is not fully implemented");
   }

@@ -1362,14 +1362,15 @@ class TestAzureFileSystem : public ::testing::Test {
         fs()->Move(data.ObjectPath(), ConcatAbstractPath(another_container, "path")));
     AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
 
-    if (!WithHierarchicalNamespace()) {
-      GTEST_SKIP() << "The rest of TestMovePath is not implemented for non-HNS scenarios";
-    }
-
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError, HasMissingParentDirMessage(data.Path("missing-subdir/file")),
         fs()->Move(data.ObjectPath(), data.Path("missing-subdir/file")));
     AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
+    if (!WithHierarchicalNamespace()) {
+      GTEST_SKIP()
+          << "The rest of TestMovePath is not implemented for non-HNS scenarios ";
+    }
 
     // src is a file and dest does not exists
     ASSERT_MOVE_OK(data.ObjectPath(), data.Path("file0"));
