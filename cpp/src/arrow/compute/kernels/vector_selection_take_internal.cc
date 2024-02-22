@@ -681,18 +681,18 @@ Status ExtensionTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
 // R -> RecordBatch
 // T -> Table
 
-Result<std::shared_ptr<ArrayData>> TakeAA(const std::shared_ptr<ArrayData>& values,
-                                          const std::shared_ptr<ArrayData>& indices,
-                                          const TakeOptions& options, ExecContext* ctx) {
+Result<std::shared_ptr<ArrayData>> TakeAAA(const std::shared_ptr<ArrayData>& values,
+                                           const std::shared_ptr<ArrayData>& indices,
+                                           const TakeOptions& options, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("array_take", {values, indices}, &options, ctx));
   return result.array();
 }
 
-Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
-                                             const Array& indices,
-                                             const TakeOptions& options,
-                                             ExecContext* ctx) {
+Result<std::shared_ptr<ChunkedArray>> TakeCAC(const ChunkedArray& values,
+                                              const Array& indices,
+                                              const TakeOptions& options,
+                                              ExecContext* ctx) {
   auto num_chunks = values.num_chunks();
   std::shared_ptr<Array> current_chunk;
 
@@ -716,15 +716,15 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                        TakeAA(current_chunk->data(), indices.data(), options, ctx));
+                        TakeAAA(current_chunk->data(), indices.data(), options, ctx));
   std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
   return std::make_shared<ChunkedArray>(std::move(chunks));
 }
 
-Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
-                                             const ChunkedArray& indices,
-                                             const TakeOptions& options,
-                                             ExecContext* ctx) {
+Result<std::shared_ptr<ChunkedArray>> TakeCCC(const ChunkedArray& values,
+                                              const ChunkedArray& indices,
+                                              const TakeOptions& options,
+                                              ExecContext* ctx) {
   auto num_chunks = indices.num_chunks();
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
   for (int i = 0; i < num_chunks; i++) {
@@ -732,7 +732,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
     // Note that as currently implemented, this is inefficient because `values`
     // will get concatenated on every iteration of this loop
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> current_chunk,
-                          TakeCA(values, *indices.chunk(i), options, ctx));
+                          TakeCAC(values, *indices.chunk(i), options, ctx));
     // Concatenate the result to make a single array for this chunk
     ARROW_ASSIGN_OR_RAISE(new_chunks[i],
                           Concatenate(current_chunk->chunks(), ctx->memory_pool()));
@@ -740,53 +740,53 @@ Result<std::shared_ptr<ChunkedArray>> TakeCC(const ChunkedArray& values,
   return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
 
-Result<std::shared_ptr<ChunkedArray>> TakeAC(const Array& values,
-                                             const ChunkedArray& indices,
-                                             const TakeOptions& options,
-                                             ExecContext* ctx) {
+Result<std::shared_ptr<ChunkedArray>> TakeACC(const Array& values,
+                                              const ChunkedArray& indices,
+                                              const TakeOptions& options,
+                                              ExecContext* ctx) {
   auto num_chunks = indices.num_chunks();
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> chunk,
-                          TakeAA(values.data(), indices.chunk(i)->data(), options, ctx));
+                          TakeAAA(values.data(), indices.chunk(i)->data(), options, ctx));
     new_chunks[i] = MakeArray(chunk);
   }
   return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
 
-Result<std::shared_ptr<RecordBatch>> TakeRA(const RecordBatch& batch,
-                                            const Array& indices,
-                                            const TakeOptions& options,
-                                            ExecContext* ctx) {
+Result<std::shared_ptr<RecordBatch>> TakeRAR(const RecordBatch& batch,
+                                             const Array& indices,
+                                             const TakeOptions& options,
+                                             ExecContext* ctx) {
   auto ncols = batch.num_columns();
   auto nrows = indices.length();
   std::vector<std::shared_ptr<Array>> columns(ncols);
   for (int j = 0; j < ncols; j++) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> col_data,
-                          TakeAA(batch.column(j)->data(), indices.data(), options, ctx));
+                          TakeAAA(batch.column(j)->data(), indices.data(), options, ctx));
     columns[j] = MakeArray(col_data);
   }
   return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
 }
 
-Result<std::shared_ptr<Table>> TakeTA(const Table& table, const Array& indices,
-                                      const TakeOptions& options, ExecContext* ctx) {
+Result<std::shared_ptr<Table>> TakeTAT(const Table& table, const Array& indices,
+                                       const TakeOptions& options, ExecContext* ctx) {
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCA(*table.column(j), indices, options, ctx));
+    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCAC(*table.column(j), indices, options, ctx));
   }
   return Table::Make(table.schema(), std::move(columns));
 }
 
-Result<std::shared_ptr<Table>> TakeTC(const Table& table, const ChunkedArray& indices,
-                                      const TakeOptions& options, ExecContext* ctx) {
+Result<std::shared_ptr<Table>> TakeTCT(const Table& table, const ChunkedArray& indices,
+                                       const TakeOptions& options, ExecContext* ctx) {
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
   for (int j = 0; j < ncols; j++) {
-    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCC(*table.column(j), indices, options, ctx));
+    ARROW_ASSIGN_OR_RAISE(columns[j], TakeCCC(*table.column(j), indices, options, ctx));
   }
   return Table::Make(table.schema(), std::move(columns));
 }
@@ -815,29 +815,29 @@ class TakeMetaFunction : public MetaFunction {
     switch (args[0].kind()) {
       case Datum::ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeAA(args[0].array(), args[1].array(), take_opts, ctx);
+          return TakeAAA(args[0].array(), args[1].array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
-          return TakeAC(*args[0].make_array(), *args[1].chunked_array(), take_opts, ctx);
+          return TakeACC(*args[0].make_array(), *args[1].chunked_array(), take_opts, ctx);
         }
         break;
       case Datum::CHUNKED_ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeCA(*args[0].chunked_array(), *args[1].make_array(), take_opts, ctx);
+          return TakeCAC(*args[0].chunked_array(), *args[1].make_array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
-          return TakeCC(*args[0].chunked_array(), *args[1].chunked_array(), take_opts,
-                        ctx);
+          return TakeCCC(*args[0].chunked_array(), *args[1].chunked_array(), take_opts,
+                         ctx);
         }
         break;
       case Datum::RECORD_BATCH:
         if (index_kind == Datum::ARRAY) {
-          return TakeRA(*args[0].record_batch(), *args[1].make_array(), take_opts, ctx);
+          return TakeRAR(*args[0].record_batch(), *args[1].make_array(), take_opts, ctx);
         }
         break;
       case Datum::TABLE:
         if (index_kind == Datum::ARRAY) {
-          return TakeTA(*args[0].table(), *args[1].make_array(), take_opts, ctx);
+          return TakeTAT(*args[0].table(), *args[1].make_array(), take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
-          return TakeTC(*args[0].table(), *args[1].chunked_array(), take_opts, ctx);
+          return TakeTCT(*args[0].table(), *args[1].chunked_array(), take_opts, ctx);
         }
         break;
       default:
