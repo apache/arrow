@@ -625,7 +625,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         # Write a Parquet file with a custom compression level
         >>> options = pq.ParquetFileWriteOptions(compression_level=5)
         >>> pq.write_table(table, "example_compression.parquet", write_options=options)
-
+        """
    
     def update(self, **kwargs):
         """
