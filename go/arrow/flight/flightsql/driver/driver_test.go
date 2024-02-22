@@ -863,7 +863,7 @@ func (s *SqlTestSuite) TestRowsManualPrematureCloseStmt() {
 	defer db.Close()
 
 	// Create the table
-	const tableName = `TestRowsManualPrematureClose`
+	const tableName = `TestRowsManualPrematureCloseStmt`
 	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
 
 	_, err = db.Exec(ddlCreateTable)
@@ -954,7 +954,7 @@ func (s *SqlTestSuite) TestRowsNormalExhaustionStmt() {
 	defer db.Close()
 
 	// Create the table
-	const tableName = `TestRowsNormalExhaustion`
+	const tableName = `TestRowsNormalExhaustionStmt`
 	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
 
 	_, err = db.Exec(ddlCreateTable)
@@ -1049,7 +1049,7 @@ func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoopStmt() {
 	defer db.Close()
 
 	// Create the table.
-	const tableName = `TestRowsPrematureCloseDuringNextLoop`
+	const tableName = `TestRowsPrematureCloseDuringNextLoopStmt`
 	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
 
 	_, err = db.Exec(ddlCreateTable)
@@ -1149,7 +1149,7 @@ func (s *SqlTestSuite) TestRowsInterruptionByContextManualCancellationStmt() {
 	defer db.Close()
 
 	// Create the table
-	const tableName = `TestRowsInterruptionByContextManualCancellation`
+	const tableName = `TestRowsInterruptionByContextManualCancellationStmt`
 	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
 
 	_, err = db.Exec(ddlCreateTable)
@@ -1240,7 +1240,7 @@ func (s *SqlTestSuite) TestRowsInterruptionByContextTimeoutStmt() {
 	defer db.Close()
 
 	// Create the table
-	const tableName = `TestRowsInterruptionByContextTimeout`
+	const tableName = `TestRowsInterruptionByContextTimeoutStmt`
 	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
 
 	_, err = db.Exec(ddlCreateTable)
