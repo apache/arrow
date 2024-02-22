@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
@@ -696,6 +697,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
                                              const Array& indices,
                                              const TakeOptions& options,
                                              ExecContext* ctx) {
+  std::cerr << "TakeCA " << indices.ToString() << " from " << values.ToString() << std::endl;
   auto num_chunks = values.num_chunks();
   auto num_indices = indices.length();
 
@@ -746,6 +748,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
         break;
     }
 
+    ChunkLocation resolved_index = {0, 0};
     ChunkResolver index_resolver(values.chunks());
     for (int64_t requested_index = 0; requested_index < num_indices; ++requested_index) {
       uint64_t index;
@@ -771,7 +774,7 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
           break;
       }
 
-      ChunkLocation resolved_index = index_resolver.Resolve(index);
+      resolved_index = index_resolver.ResolveWithChunkIndexHint(index, resolved_index.chunk_index);
       int64_t chunk_index = resolved_index.chunk_index;
       if (chunk_index >= num_chunks) {
         // ChunkResolver doesn't throw errors when the index is out of bounds
@@ -816,20 +819,23 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
     int64_t current_length = 0;
     for (int64_t requested_index = 0; requested_index < num_indices; ++requested_index) {
       int64_t chunk_index = indices_chunks[requested_index];
-      // TODO: TAke the whole chunk and append it to a ChunkedArray when current_length == chunk_length 
       if (chunk_index != current_chunk) {
         if (current_length == looked_up_values[current_chunk].length) {
-          // We have taken a whole chunk, so we can append it to the result.
+          // We have taken a whole consecutive chunk, so we can append it to the result.
+          std::cerr << "Full Chunk " << current_chunk << "," << current_length << " :" << looked_up_values[current_chunk].ToArray()->ToString() << std::endl;
           if (result_builder->length() > 0) {
+            // First close the current chunk being built and add it to the chunked array,
+            // then we can add the full chunk to the array after it.
             ARROW_ASSIGN_OR_RAISE(auto previous_chunk_array, result_builder->Finish());
-            result_chunks.emplace_back(std::move(previous_chunk_array));
+            result_chunks.push_back(previous_chunk_array);
             result_builder->Reset();
             ARROW_RETURN_NOT_OK(result_builder->Reserve(num_indices - requested_index));
           }
           // Append the whole chunk itself
-          result_chunks.emplace_back(std::move(looked_up_values[current_chunk].ToArray()));
+          result_chunks.push_back(looked_up_values[current_chunk].ToArray());
         }
         else {
+          std::cerr << "Append Slice" << std::endl;
           // Values in previous chunk
           ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
               looked_up_values[current_chunk],
@@ -846,11 +852,15 @@ Result<std::shared_ptr<ChunkedArray>> TakeCA(const ChunkedArray& values,
       ARROW_RETURN_NOT_OK(result_builder->AppendArraySlice(
           looked_up_values[current_chunk], consumed_chunk_offset[current_chunk],
           current_length));
+      std::cerr << "Appended Last Slice" << looked_up_values[current_chunk].ToArray()->ToString() << " @ " << consumed_chunk_offset[current_chunk] << "," << current_length << std::endl;
     }
+    ARROW_ASSIGN_OR_RAISE(auto last_chunk_array, result_builder->Finish());
+    std::cerr << "Last Chunk " << last_chunk_array->ToString() << std::endl;
+    result_chunks.push_back(last_chunk_array);
 
-    ARROW_ASSIGN_OR_RAISE(auto result_array, result_builder->Finish());
-    result_chunks.emplace_back(std::move(result_array));
-    return std::make_shared<ChunkedArray>(result_chunks);
+    auto result = std::make_shared<ChunkedArray>(result_chunks);
+    std::cerr << "Result " << result->ToString() << std::endl;
+    return result;
   }
 }
 
