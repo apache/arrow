@@ -314,8 +314,7 @@ def azurefs(request, azure_server):
     yield dict(
         fs=fs,
         pathfn=container.__add__,
-        # AzureFileSystem will only support this in hierachical namespace accounts.
-        allow_move_dir=False,
+        allow_move_dir=True,
         allow_append_to_file=True,
     )
     fs.delete_dir(container)
