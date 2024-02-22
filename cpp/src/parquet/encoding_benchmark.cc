@@ -468,33 +468,6 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
-#if defined(ARROW_HAVE_AVX512)
-static void BM_ByteStreamSplitDecode_Float_Avx512(benchmark::State& state) {
-  BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(float)>);
-}
-
-static void BM_ByteStreamSplitDecode_Double_Avx512(benchmark::State& state) {
-  BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeAvx512<sizeof(double)>);
-}
-
-static void BM_ByteStreamSplitEncode_Float_Avx512(benchmark::State& state) {
-  BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(float)>);
-}
-
-static void BM_ByteStreamSplitEncode_Double_Avx512(benchmark::State& state) {
-  BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeAvx512<sizeof(double)>);
-}
-
-BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
-#endif
-
 template <typename DType>
 static auto MakeDeltaBitPackingInputFixed(size_t length) {
   using T = typename DType::c_type;

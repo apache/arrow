@@ -39,6 +39,7 @@ import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -49,7 +50,10 @@ import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.PartitionedFlightSqlProducer;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStatusCode;
+import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -63,6 +67,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 import org.junit.rules.ErrorCollector;
 
 import com.google.common.collect.ImmutableSet;
@@ -351,7 +356,7 @@ public class ResultSetTest {
               .toString(),
           anyOf(is(format("Error while executing SQL \"%s\": Query canceled", query)),
               allOf(containsString(format("Error while executing SQL \"%s\"", query)),
-                  containsString("CANCELLED"))));
+                  anyOf(containsString("CANCELLED"), containsString("Cancelling")))));
     }
   }
 
@@ -450,6 +455,90 @@ public class ResultSetTest {
           assertEquals(firstPartition.getRowCount() + secondPartition.getRowCount(), resultData.size());
           assertTrue(resultData.contains(((IntVector) firstPartition.getVector(0)).get(0)));
           assertTrue(resultData.contains(((IntVector) secondPartition.getVector(0)).get(0)));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testPartitionedFlightServerIgnoreFailure() throws Exception {
+    final Schema schema = new Schema(
+            Collections.singletonList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      final FlightEndpoint firstEndpoint =
+              new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)),
+                      Location.forGrpcInsecure("127.0.0.2", 1234),
+                      Location.forGrpcInsecure("127.0.0.3", 1234));
+
+      try (final PartitionedFlightSqlProducer rootProducer = new PartitionedFlightSqlProducer(
+              schema, firstEndpoint);
+           FlightServer rootServer = FlightServer.builder(
+                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                   .build()
+                   .start();
+           Connection newConnection = DriverManager.getConnection(String.format(
+                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+           Statement newStatement = newConnection.createStatement()) {
+        final SQLException e = Assertions.assertThrows(SQLException.class, () -> {
+          ResultSet result = newStatement.executeQuery("Select partitioned_data");
+          while (result.next()) {
+          }
+        });
+        final Throwable cause = e.getCause();
+        Assertions.assertTrue(cause instanceof FlightRuntimeException);
+        final FlightRuntimeException fre = (FlightRuntimeException) cause;
+        Assertions.assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
+      }
+    }
+  }
+
+  @Test
+  public void testPartitionedFlightServerAllFailure() throws Exception {
+    // Arrange
+    final Schema schema = new Schema(
+            Collections.singletonList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+         VectorSchemaRoot firstPartition = VectorSchemaRoot.create(schema, allocator)) {
+      firstPartition.setRowCount(1);
+      ((IntVector) firstPartition.getVector(0)).set(0, 1);
+
+      // Construct the data-only nodes first.
+      FlightProducer firstProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+              new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
+
+      final FlightServer.Builder firstBuilder = FlightServer.builder(
+              allocator, forGrpcInsecure("localhost", 0), firstProducer);
+
+      // Run the data-only nodes so that we can get the Locations they are running at.
+      try (FlightServer firstServer = firstBuilder.build()) {
+        firstServer.start();
+        final Location badLocation = Location.forGrpcInsecure("127.0.0.2", 1234);
+        final FlightEndpoint firstEndpoint =
+                new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)),
+                        badLocation, firstServer.getLocation());
+
+        // Finally start the root node.
+        try (final PartitionedFlightSqlProducer rootProducer = new PartitionedFlightSqlProducer(
+                schema, firstEndpoint);
+             FlightServer rootServer = FlightServer.builder(
+                             allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                     .build()
+                     .start();
+             Connection newConnection = DriverManager.getConnection(String.format(
+                     "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                     rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+             Statement newStatement = newConnection.createStatement();
+             // Act
+             ResultSet result = newStatement.executeQuery("Select partitioned_data")) {
+          List<Integer> resultData = new ArrayList<>();
+          while (result.next()) {
+            resultData.add(result.getInt(1));
+          }
+
+          // Assert
+          assertEquals(firstPartition.getRowCount(), resultData.size());
+          assertTrue(resultData.contains(((IntVector) firstPartition.getVector(0)).get(0)));
         }
       }
     }

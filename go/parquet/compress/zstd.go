@@ -108,5 +108,5 @@ func (zstdCodec) CompressBound(len int64) int64 {
 }
 
 func init() {
-	codecs[Codecs.Zstd] = zstdCodec{}
+	RegisterCodec(Codecs.Zstd, zstdCodec{})
 }

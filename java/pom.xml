@@ -30,7 +30,7 @@
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.10.1</dep.junit.jupiter.version>
+    <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.11</dep.slf4j.version>
     <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.106.Final</dep.netty-bom.version>
@@ -96,7 +96,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.0</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
 
@@ -464,7 +464,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.2.3</version>
+              <version>3.2.5</version>
             </dependency>
           </dependencies>
           <configuration>

@@ -1987,7 +1987,7 @@ def foreign_buffer(address, size, base=None):
         Object that owns the referenced memory.
     """
     cdef:
-        intptr_t c_addr = address
+        uintptr_t c_addr = address
         int64_t c_size = size
         shared_ptr[CBuffer] buf
 

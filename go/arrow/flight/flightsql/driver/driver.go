@@ -364,10 +364,11 @@ func (c *Connector) Configure(config *DriverConfig) error {
 
 	// Set authentication credentials
 	rpcCreds := grpcCredentials{
-		username: config.Username,
-		password: config.Password,
-		token:    config.Token,
-		params:   config.Params,
+		username:   config.Username,
+		password:   config.Password,
+		token:      config.Token,
+		params:     config.Params,
+		tlsEnabled: config.TLSEnabled,
 	}
 	c.options = append(c.options, grpc.WithPerRPCCredentials(rpcCreds))
 
