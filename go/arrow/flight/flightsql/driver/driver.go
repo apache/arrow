@@ -514,6 +514,12 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 
 	// reads each endpoint.
 	for _, endpoint := range endpoints {
+		if ctx.Err() != nil {
+			r.releaseRecord()
+			r.streamError = fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err())
+			return
+		}
+
 		func() { // with a func() is possible to {defer reader.Release()}.
 			reader, err := c.DoGet(ctx, endpoint.GetTicket())
 			if err != nil {
