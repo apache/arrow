@@ -56,7 +56,7 @@
 
 * Check for internet access when building from source and fallback to a
   minimally scoped Arrow C++ build (#39699).
-* Built from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
+* Build from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
 * Support build against older versions of Arrow C++. This is currently opt-in
   (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires atleast Arrow C++ 13.0.0 (#39739).
 * Make it possible to use Arrow C++ from rtools on windows (in future rtools versions). (#39986).
