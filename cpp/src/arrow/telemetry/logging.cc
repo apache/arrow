@@ -22,6 +22,7 @@
 
 #include "arrow/result.h"
 #include "arrow/telemetry/logging.h"
+#include "arrow/telemetry/util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -49,8 +50,10 @@
 #include <opentelemetry/trace/tracer.h>
 
 #include <opentelemetry/exporters/otlp/protobuf_include_prefix.h>
-#include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
+
 #include <opentelemetry/proto/collector/logs/v1/logs_service.pb.h>
+
+#include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -63,7 +66,7 @@ namespace {
 
 class NoopLogger : public Logger {
  public:
-  void Log(LogLevel, std::string_view) override {}
+  void Log(LogLevel, std::string_view, const AttributeHolder&) override {}
 };
 
 }  // namespace
@@ -79,9 +82,61 @@ namespace {
 
 template <typename T>
 using otel_shared_ptr = otel::nostd::shared_ptr<T>;
+template <typename T>
+using otel_span = otel::nostd::span<T>;
 using otel_string_view = otel::nostd::string_view;
 
+using util::span;
+
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
+
+struct AttributeConverter {
+  using OtelValue = otel::common::AttributeValue;
+
+  OtelValue operator()(bool v) { return OtelValue(v); }
+  OtelValue operator()(int32_t v) { return OtelValue(v); }
+  OtelValue operator()(uint32_t v) { return OtelValue(v); }
+  OtelValue operator()(int64_t v) { return OtelValue(v); }
+  OtelValue operator()(double v) { return OtelValue(v); }
+  OtelValue operator()(const char* v) { return OtelValue(otel_string_view(v)); }
+  OtelValue operator()(std::string_view v) {
+    return OtelValue(otel_string_view(v.data(), v.length()));
+  }
+  OtelValue operator()(span<const uint8_t> v) { return ToOtelSpan<uint8_t>(v); }
+  OtelValue operator()(span<const int32_t> v) { return ToOtelSpan<int32_t>(v); }
+  OtelValue operator()(span<const uint32_t> v) { return ToOtelSpan<uint32_t>(v); }
+  OtelValue operator()(span<const int64_t> v) { return ToOtelSpan<int64_t>(v); }
+  OtelValue operator()(span<const uint64_t> v) { return ToOtelSpan<uint64_t>(v); }
+  OtelValue operator()(span<const double> v) { return ToOtelSpan<double>(v); }
+  OtelValue operator()(span<const char* const> v) {
+    return ToOtelStringSpan<const char*>(v);
+  }
+  OtelValue operator()(span<const std::string> v) {
+    return ToOtelStringSpan<std::string>(v);
+  }
+  OtelValue operator()(span<const std::string_view> v) {
+    return ToOtelStringSpan<std::string_view>(v);
+  }
+
+ private:
+  template <typename T, typename U = T>
+  OtelValue ToOtelSpan(span<const U> vals) const {
+    return otel_span<const T>(vals.begin(), vals.end());
+  }
+
+  template <typename T>
+  OtelValue ToOtelStringSpan(span<const T> vals) {
+    const size_t length = vals.size();
+    output_views_.resize(length);
+    for (size_t i = 0; i < length; ++i) {
+      const std::string_view s{vals[i]};
+      output_views_[i] = otel_string_view(s.data(), s.length());
+    }
+    return otel_span<const otel_string_view>(output_views_.data(), length);
+  }
+
+  std::vector<otel_string_view> output_views_;
+};
 
 class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExporter {
  public:
@@ -90,8 +145,8 @@ class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExpo
   }
 
   otel::sdk::common::ExportResult Export(
-      const otel::nostd::span<std::unique_ptr<otel::sdk::logs::Recordable>>&
-          records) noexcept override {
+      const otel_span<std::unique_ptr<otel::sdk::logs::Recordable>>& records) noexcept
+      override {
     otel::proto::collector::logs::v1::ExportLogsServiceRequest request;
     otel::exporter::otlp::OtlpRecordableUtils::PopulateRequest(records, &request);
 
@@ -179,7 +234,17 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporterFromEnv(
     auto* default_ostream =
         options.default_export_stream ? options.default_export_stream : &std::cerr;
     if (env_var == "ostream") {
+      // TODO: Currently disabled as the log records returned by otel's ostream exporter
+      // don't maintain copies of their attributes, leading to lifetime issues. If/when
+      // this is addressed, we can enable it. See:
+      // https://github.com/open-telemetry/opentelemetry-cpp/issues/2402
+#if 0
       return MakeExporter(ExporterKind::OSTREAM, default_ostream);
+#else
+      ARROW_LOG(WARNING) << "Requested unimplemented backend " << kLoggingBackendEnvVar
+                         << "=" << env_var << ". Falling back to arrow_otlp_ostream";
+      return MakeExporter(ExporterKind::OTLP_OSTREAM, default_ostream);
+#endif
     } else if (env_var == "otlp_http") {
       return MakeExporter(ExporterKind::OTLP_HTTP);
     } else if (env_var == "arrow_otlp_stdout") {
@@ -243,7 +308,8 @@ class OtelLogger : public Logger {
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
       : logger_(ot_logger), options_(std::move(options)) {}
 
-  void Log(LogLevel severity, std::string_view body) override {
+  void Log(LogLevel severity, std::string_view body,
+           const AttributeHolder& holder) override {
     if (severity < options_.severity_threshold) {
       return;
     }
@@ -261,6 +327,16 @@ class OtelLogger : public Logger {
     log->SetSpanId(span_ctx.span_id());
     log->SetTraceId(span_ctx.trace_id());
     log->SetTraceFlags(span_ctx.trace_flags());
+
+    if (holder.num_attributes() > 0) {
+      auto callback = [&log](std::string_view k, const AttributeValue& v) -> bool {
+        AttributeConverter converter{};
+        log->SetAttribute(otel_string_view(k.data(), k.length()),
+                          std::visit(converter, v));
+        return true;
+      };
+      holder.ForEach(std::move(callback));
+    }
 
     logger_->EmitLogRecord(std::move(log));
   }

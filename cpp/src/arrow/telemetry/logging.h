@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 
+#include "arrow/telemetry/util.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -69,9 +70,21 @@ class ARROW_EXPORT Logger {
  public:
   virtual ~Logger() = default;
 
-  virtual void Log(LogLevel severity, std::string_view body) = 0;
+  virtual void Log(LogLevel severity, std::string_view body, const AttributeHolder&) = 0;
+
+  void Log(LogLevel severity, const AttributeHolder& attributes) {
+    this->Log(severity, "", attributes);
+  }
+
+  void Log(LogLevel severity, std::string_view body) {
+    this->Log(severity, body, AttributeList{});
+  }
 
   void Log(std::string_view message) { this->Log(LogLevel::ARROW_INFO, message); }
+
+  void Log(std::string_view body, const AttributeHolder& attributes) {
+    this->Log(LogLevel::ARROW_INFO, body, attributes);
+  }
 };
 
 ARROW_EXPORT std::unique_ptr<Logger> MakeNoopLogger();
