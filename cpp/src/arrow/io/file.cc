@@ -572,7 +572,7 @@ class MemoryMappedFile::MemoryMap
     if (static_cast<int64_t>(static_cast<size_t>(mmap_length)) != mmap_length) {
       return Status::CapacityError("Requested memory map length ", mmap_length,
                                    " does not fit in a C size_t "
-                                   "(are you using a 32-bit build of Arrow?");
+                                   "(are you using a 32-bit build of Arrow?)");
     }
 
     void* result = mmap(nullptr, static_cast<size_t>(mmap_length), prot_flags_, map_mode_,
