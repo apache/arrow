@@ -3081,8 +3081,7 @@ cdef class RecordBatch(_Tabular):
                     inner_batch = pyarrow_unwrap_batch(casted_batch)
                 except ArrowInvalid as e:
                     raise ValueError(
-                        f"Could not cast {self.schema} to requested schema {
-                            target_schema}: {e}"
+                        f"Could not cast {self.schema} to requested schema {target_schema}: {e}"
                     )
             else:
                 inner_batch = self.sp_batch

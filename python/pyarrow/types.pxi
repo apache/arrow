@@ -133,8 +133,7 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
         else:
             capsule_name_str = capsule_name.decode()
             raise ValueError(
-                f"Can't convert PyCapsule with name '{
-                    capsule_name_str}' to pointer address"
+                f"Can't convert PyCapsule with name '{capsule_name_str}' to pointer address"
             )
     else:
         raise TypeError(f"Expected a pointer value, got {type(v)!r}")
