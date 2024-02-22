@@ -189,8 +189,7 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
-  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files,
-                         bool check_num_record_batches = true) {
+  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files) {
     counter_ = 0;
     for (const auto& expected_file : expected_files) {
       std::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
