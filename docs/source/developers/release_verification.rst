@@ -108,8 +108,6 @@ macOS ARM
    brew install ruby
    brew install openjdk
    brew install maven
-   # libffi required for gobject-introspection gem
-   brew install libffi
 
 Windows 11
 ----------
