@@ -1748,7 +1748,8 @@ cdef class Array(_PandasConvertible):
                     inner_array = pyarrow_unwrap_array(casted_array)
                 except ArrowInvalid as e:
                     raise ValueError(
-                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                        f"Could not cast {self.type} to requested type {
+                            target_type}: {e}"
                     )
             else:
                 inner_array = self.sp_array
