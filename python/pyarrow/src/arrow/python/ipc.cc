@@ -106,6 +106,9 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
   auto num_columns = out->num_columns();
   ArrayVector columns(num_columns);
   for (int i = 0; i < num_columns; i++) {
+    if (!schema_->field(i)->nullable()) {
+      return Status::Invalid("Cast to non-nullable not supported");
+    }
     ARROW_ASSIGN_OR_RAISE(columns[i],
                           compute::Cast(*out->column(i), schema_->field(i)->type()));
   }

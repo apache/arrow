@@ -51,16 +51,16 @@ class IpcFixture:
 
     def write_batches(self, num_batches=5, as_table=False):
         nrows = 5
-        schema = pa.schema([('one', pa.float64()), ('two', pa.utf8())])
+        schema = pa.schema([("one", pa.float64()), ("two", pa.utf8())])
 
         writer = self._get_writer(self.sink, schema)
 
         batches = []
         for i in range(num_batches):
             batch = pa.record_batch(
-                [np.random.randn(nrows),
-                 ['foo', None, 'bar', 'bazbaz', 'qux']],
-                schema=schema)
+                [np.random.randn(nrows), ["foo", None, "bar", "bazbaz", "qux"]],
+                schema=schema,
+            )
             batches.append(batch)
 
         if as_table:
@@ -140,22 +140,18 @@ def stream_fixture():
     return StreamFormatFixture()
 
 
-@pytest.fixture(params=[
-    pytest.param(
-        'file_fixture',
-        id='File Format'
-    ),
-    pytest.param(
-        'stream_fixture',
-        id='Stream Format'
-    )
-])
+@pytest.fixture(
+    params=[
+        pytest.param("file_fixture", id="File Format"),
+        pytest.param("stream_fixture", id="Stream Format"),
+    ]
+)
 def format_fixture(request):
     return request.getfixturevalue(request.param)
 
 
 def test_empty_file():
-    buf = b''
+    buf = b""
     with pytest.raises(pa.ArrowInvalid):
         pa.ipc.open_file(pa.BufferReader(buf))
 
@@ -168,10 +164,9 @@ def test_file_write_table(file_fixture):
     file_fixture._check_roundtrip(as_table=True)
 
 
-@pytest.mark.parametrize("sink_factory", [
-    lambda: io.BytesIO(),
-    lambda: pa.BufferOutputStream()
-])
+@pytest.mark.parametrize(
+    "sink_factory", [lambda: io.BytesIO(), lambda: pa.BufferOutputStream()]
+)
 def test_file_read_all(sink_factory):
     fixture = FileFormatFixture(sink_factory)
 
@@ -224,8 +219,8 @@ def test_file_pathlib(file_fixture, tmpdir):
     file_fixture.write_batches()
     source = file_fixture.get_source()
 
-    path = tmpdir.join('file.arrow').strpath
-    with open(path, 'wb') as f:
+    path = tmpdir.join("file.arrow").strpath
+    with open(path, "wb") as f:
         f.write(source)
 
     t1 = pa.ipc.open_file(pathlib.Path(path)).read_all()
@@ -235,7 +230,7 @@ def test_file_pathlib(file_fixture, tmpdir):
 
 
 def test_empty_stream():
-    buf = io.BytesIO(b'')
+    buf = io.BytesIO(b"")
     with pytest.raises(pa.ArrowInvalid):
         pa.ipc.open_stream(buf)
 
@@ -248,31 +243,34 @@ def test_read_year_month_nano_interval(tmpdir):
     that they are when no other library functions are invoked.
     """
     mdn_interval_type = pa.month_day_nano_interval()
-    schema = pa.schema([pa.field('nums', mdn_interval_type)])
+    schema = pa.schema([pa.field("nums", mdn_interval_type)])
 
-    path = tmpdir.join('file.arrow').strpath
-    with pa.OSFile(path, 'wb') as sink:
+    path = tmpdir.join("file.arrow").strpath
+    with pa.OSFile(path, "wb") as sink:
         with pa.ipc.new_file(sink, schema) as writer:
             interval_array = pa.array([(1, 2, 3)], type=mdn_interval_type)
             batch = pa.record_batch([interval_array], schema)
             writer.write(batch)
-    invoke_script('read_record_batch.py', path)
+    invoke_script("read_record_batch.py", path)
 
 
 @pytest.mark.pandas
 def test_stream_categorical_roundtrip(stream_fixture):
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            "one": np.random.randn(5),
+            "two": pd.Categorical(
+                ["foo", np.nan, "bar", "foo", "foo"],
+                categories=["foo", "bar"],
+                ordered=True,
+            ),
+        }
+    )
     batch = pa.RecordBatch.from_pandas(df)
     with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
         wr.write_batch(batch)
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
+    table = pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source())).read_all()
     assert_frame_equal(table.to_pandas(), df)
 
 
@@ -301,10 +299,13 @@ def test_open_stream_from_buffer(stream_fixture):
     assert tuple(st1) == tuple(stream_fixture.write_stats)
 
 
-@pytest.mark.parametrize('options', [
-    pa.ipc.IpcReadOptions(),
-    pa.ipc.IpcReadOptions(use_threads=False),
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        pa.ipc.IpcReadOptions(),
+        pa.ipc.IpcReadOptions(use_threads=False),
+    ],
+)
 def test_open_stream_options(stream_fixture, options):
     stream_fixture.write_batches()
     source = stream_fixture.get_source()
@@ -327,10 +328,13 @@ def test_open_stream_with_wrong_options(stream_fixture):
         pa.ipc.open_stream(source, options=True)
 
 
-@pytest.mark.parametrize('options', [
-    pa.ipc.IpcReadOptions(),
-    pa.ipc.IpcReadOptions(use_threads=False),
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        pa.ipc.IpcReadOptions(),
+        pa.ipc.IpcReadOptions(use_threads=False),
+    ],
+)
 def test_open_file_options(file_fixture, options):
     file_fixture.write_batches()
     source = file_fixture.get_source()
@@ -355,30 +359,34 @@ def test_open_file_with_wrong_options(file_fixture):
 @pytest.mark.pandas
 def test_stream_write_dispatch(stream_fixture):
     # ARROW-1616
-    df = pd.DataFrame({
-        'one': np.random.randn(5),
-        'two': pd.Categorical(['foo', np.nan, 'bar', 'foo', 'foo'],
-                              categories=['foo', 'bar'],
-                              ordered=True)
-    })
+    df = pd.DataFrame(
+        {
+            "one": np.random.randn(5),
+            "two": pd.Categorical(
+                ["foo", np.nan, "bar", "foo", "foo"],
+                categories=["foo", "bar"],
+                ordered=True,
+            ),
+        }
+    )
     table = pa.Table.from_pandas(df, preserve_index=False)
     batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
     with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
         wr.write(table)
         wr.write(batch)
 
-    table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
-             .read_all())
-    assert_frame_equal(table.to_pandas(),
-                       pd.concat([df, df], ignore_index=True))
+    table = pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source())).read_all()
+    assert_frame_equal(table.to_pandas(), pd.concat([df, df], ignore_index=True))
 
 
 @pytest.mark.pandas
 def test_stream_write_table_batches(stream_fixture):
     # ARROW-504
-    df = pd.DataFrame({
-        'one': np.random.randn(20),
-    })
+    df = pd.DataFrame(
+        {
+            "one": np.random.randn(20),
+        }
+    )
 
     b1 = pa.RecordBatch.from_pandas(df[:10], preserve_index=False)
     b2 = pa.RecordBatch.from_pandas(df, preserve_index=False)
@@ -392,12 +400,12 @@ def test_stream_write_table_batches(stream_fixture):
 
     assert list(map(len, batches)) == [10, 15, 5, 10]
     result_table = pa.Table.from_batches(batches)
-    assert_frame_equal(result_table.to_pandas(),
-                       pd.concat([df[:10], df, df[:10]],
-                                 ignore_index=True))
+    assert_frame_equal(
+        result_table.to_pandas(), pd.concat([df[:10], df, df[:10]], ignore_index=True)
+    )
 
 
-@pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
+@pytest.mark.parametrize("use_legacy_ipc_format", [False, True])
 def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
     stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
     batches = stream_fixture.write_batches()
@@ -423,17 +431,15 @@ def test_compression_roundtrip():
     values = np.random.randint(0, 3, 10000)
     table = pa.Table.from_arrays([values], names=["values"])
 
-    options = pa.ipc.IpcWriteOptions(compression='zstd')
-    with pa.ipc.RecordBatchFileWriter(
-            sink, table.schema, options=options) as writer:
+    options = pa.ipc.IpcWriteOptions(compression="zstd")
+    with pa.ipc.RecordBatchFileWriter(sink, table.schema, options=options) as writer:
         writer.write_table(table)
     len1 = len(sink.getvalue())
 
     sink2 = io.BytesIO()
-    codec = pa.Codec('zstd', compression_level=5)
+    codec = pa.Codec("zstd", compression_level=5)
     options = pa.ipc.IpcWriteOptions(compression=codec)
-    with pa.ipc.RecordBatchFileWriter(
-            sink2, table.schema, options=options) as writer:
+    with pa.ipc.RecordBatchFileWriter(sink2, table.schema, options=options) as writer:
         writer.write_table(table)
     len2 = len(sink2.getvalue())
 
@@ -462,12 +468,12 @@ def test_write_options():
 
     options.metadata_version = pa.ipc.MetadataVersion.V4
     assert options.metadata_version == pa.ipc.MetadataVersion.V4
-    for value in ('V5', 42):
+    for value in ("V5", 42):
         with pytest.raises((TypeError, ValueError)):
             options.metadata_version = value
 
     assert options.compression is None
-    for value in ['lz4', 'zstd']:
+    for value in ["lz4", "zstd"]:
         if pa.Codec.is_available(value):
             options.compression = value
             assert options.compression == value
@@ -483,37 +489,42 @@ def test_write_options():
     options.use_threads = False
     assert options.use_threads is False
 
-    if pa.Codec.is_available('lz4'):
+    if pa.Codec.is_available("lz4"):
         options = pa.ipc.IpcWriteOptions(
             metadata_version=pa.ipc.MetadataVersion.V4,
             allow_64bit=True,
             use_legacy_format=True,
-            compression='lz4',
-            use_threads=False)
+            compression="lz4",
+            use_threads=False,
+        )
         assert options.metadata_version == pa.ipc.MetadataVersion.V4
         assert options.allow_64bit is True
         assert options.use_legacy_format is True
-        assert options.compression == 'lz4'
+        assert options.compression == "lz4"
         assert options.use_threads is False
 
 
 def test_write_options_legacy_exclusive(stream_fixture):
     with pytest.raises(
-            ValueError,
-            match="provide at most one of options and use_legacy_format"):
+        ValueError, match="provide at most one of options and use_legacy_format"
+    ):
         stream_fixture.use_legacy_ipc_format = True
         stream_fixture.options = pa.ipc.IpcWriteOptions()
         stream_fixture.write_batches()
 
 
-@pytest.mark.parametrize('options', [
-    pa.ipc.IpcWriteOptions(),
-    pa.ipc.IpcWriteOptions(allow_64bit=True),
-    pa.ipc.IpcWriteOptions(use_legacy_format=True),
-    pa.ipc.IpcWriteOptions(metadata_version=pa.ipc.MetadataVersion.V4),
-    pa.ipc.IpcWriteOptions(use_legacy_format=True,
-                           metadata_version=pa.ipc.MetadataVersion.V4),
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        pa.ipc.IpcWriteOptions(),
+        pa.ipc.IpcWriteOptions(allow_64bit=True),
+        pa.ipc.IpcWriteOptions(use_legacy_format=True),
+        pa.ipc.IpcWriteOptions(metadata_version=pa.ipc.MetadataVersion.V4),
+        pa.ipc.IpcWriteOptions(
+            use_legacy_format=True, metadata_version=pa.ipc.MetadataVersion.V4
+        ),
+    ],
+)
 def test_stream_options_roundtrip(stream_fixture, options):
     stream_fixture.use_legacy_ipc_format = None
     stream_fixture.options = options
@@ -557,8 +568,7 @@ def test_read_options():
         options.included_fields = None
 
     options = pa.ipc.IpcReadOptions(
-        use_threads=False, ensure_native_endian=False,
-        included_fields=[1]
+        use_threads=False, ensure_native_endian=False, included_fields=[1]
     )
     assert options.use_threads is False
     assert options.ensure_native_endian is False
@@ -568,16 +578,18 @@ def test_read_options():
 def test_read_options_included_fields(stream_fixture):
     options1 = pa.ipc.IpcReadOptions()
     options2 = pa.ipc.IpcReadOptions(included_fields=[1])
-    table = pa.Table.from_arrays([pa.array(['foo', 'bar', 'baz', 'qux']),
-                                 pa.array([1, 2, 3, 4])],
-                                 names=['a', 'b'])
+    table = pa.Table.from_arrays(
+        [pa.array(["foo", "bar", "baz", "qux"]), pa.array([1, 2, 3, 4])],
+        names=["a", "b"],
+    )
     with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
         wr.write_table(table)
     source = stream_fixture.get_source()
 
     reader1 = pa.ipc.open_stream(source, options=options1)
     reader2 = pa.ipc.open_stream(
-        source, options=options2, memory_pool=pa.system_memory_pool())
+        source, options=options2, memory_pool=pa.system_memory_pool()
+    )
 
     result1 = reader1.read_all()
     result2 = reader2.read_all()
@@ -592,21 +604,22 @@ def test_read_options_included_fields(stream_fixture):
 
 def test_dictionary_delta(format_fixture):
     ty = pa.dictionary(pa.int8(), pa.utf8())
-    data = [["foo", "foo", None],
-            ["foo", "bar", "foo"],  # potential delta
-            ["foo", "bar"],  # nothing new
-            ["foo", None, "bar", "quux"],  # potential delta
-            ["bar", "quux"],  # replacement
-            ]
+    data = [
+        ["foo", "foo", None],
+        ["foo", "bar", "foo"],  # potential delta
+        ["foo", "bar"],  # nothing new
+        ["foo", None, "bar", "quux"],  # potential delta
+        ["bar", "quux"],  # replacement
+    ]
     batches = [
-        pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=['dicts'])
-        for v in data]
+        pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=["dicts"])
+        for v in data
+    ]
     batches_delta_only = batches[:4]
     schema = batches[0].schema
 
     def write_batches(batches, as_table=False):
-        with format_fixture._get_writer(pa.MockOutputStream(),
-                                        schema) as writer:
+        with format_fixture._get_writer(pa.MockOutputStream(), schema) as writer:
             if as_table:
                 table = pa.Table.from_batches(batches)
                 writer.write_table(table)
@@ -631,8 +644,7 @@ def test_dictionary_delta(format_fixture):
         assert st.num_dictionary_deltas == 0
 
     format_fixture.use_legacy_ipc_format = None
-    format_fixture.options = pa.ipc.IpcWriteOptions(
-        emit_dictionary_deltas=True)
+    format_fixture.options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
     if format_fixture.is_file:
         # File format cannot handle replacement
         with pytest.raises(pa.ArrowInvalid):
@@ -650,9 +662,7 @@ def test_dictionary_delta(format_fixture):
     assert st.num_replaced_dictionaries == 0
     assert st.num_dictionary_deltas == 2
 
-    format_fixture.options = pa.ipc.IpcWriteOptions(
-        unify_dictionaries=True
-    )
+    format_fixture.options = pa.ipc.IpcWriteOptions(unify_dictionaries=True)
     st = write_batches(batches, as_table=True)
     assert st.num_record_batches == 5
     if format_fixture.is_file:
@@ -666,7 +676,7 @@ def test_dictionary_delta(format_fixture):
 
 
 def test_envvar_set_legacy_ipc_format():
-    schema = pa.schema([pa.field('foo', pa.int32())])
+    schema = pa.schema([pa.field("foo", pa.int32())])
 
     writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
     assert not writer._use_legacy_format
@@ -675,7 +685,7 @@ def test_envvar_set_legacy_ipc_format():
     assert not writer._use_legacy_format
     assert writer._metadata_version == pa.ipc.MetadataVersion.V5
 
-    with changed_environ('ARROW_PRE_0_15_IPC_FORMAT', '1'):
+    with changed_environ("ARROW_PRE_0_15_IPC_FORMAT", "1"):
         writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
         assert writer._use_legacy_format
         assert writer._metadata_version == pa.ipc.MetadataVersion.V5
@@ -683,7 +693,7 @@ def test_envvar_set_legacy_ipc_format():
         assert writer._use_legacy_format
         assert writer._metadata_version == pa.ipc.MetadataVersion.V5
 
-    with changed_environ('ARROW_PRE_1_0_METADATA_VERSION', '1'):
+    with changed_environ("ARROW_PRE_1_0_METADATA_VERSION", "1"):
         writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
         assert not writer._use_legacy_format
         assert writer._metadata_version == pa.ipc.MetadataVersion.V4
@@ -691,8 +701,8 @@ def test_envvar_set_legacy_ipc_format():
         assert not writer._use_legacy_format
         assert writer._metadata_version == pa.ipc.MetadataVersion.V4
 
-    with changed_environ('ARROW_PRE_1_0_METADATA_VERSION', '1'):
-        with changed_environ('ARROW_PRE_0_15_IPC_FORMAT', '1'):
+    with changed_environ("ARROW_PRE_1_0_METADATA_VERSION", "1"):
+        with changed_environ("ARROW_PRE_0_15_IPC_FORMAT", "1"):
             writer = pa.ipc.new_stream(pa.BufferOutputStream(), schema)
             assert writer._use_legacy_format
             assert writer._metadata_version == pa.ipc.MetadataVersion.V4
@@ -743,13 +753,13 @@ def test_message_reader(example_messages):
     _, messages = example_messages
 
     assert len(messages) == 6
-    assert messages[0].type == 'schema'
+    assert messages[0].type == "schema"
     assert isinstance(messages[0].metadata, pa.Buffer)
     assert isinstance(messages[0].body, pa.Buffer)
     assert messages[0].metadata_version == pa.MetadataVersion.V5
 
     for msg in messages[1:]:
-        assert msg.type == 'record batch'
+        assert msg.type == "record batch"
         assert isinstance(msg.metadata, pa.Buffer)
         assert isinstance(msg.body, pa.Buffer)
         assert msg.metadata_version == pa.MetadataVersion.V5
@@ -773,7 +783,7 @@ def test_message_serialize_read_message(example_messages):
     assert msg.equals(restored4)
 
     with pytest.raises(pa.ArrowInvalid, match="Corrupted message"):
-        pa.ipc.read_message(pa.BufferReader(b'ab'))
+        pa.ipc.read_message(pa.BufferReader(b"ab"))
 
     with pytest.raises(EOFError):
         pa.ipc.read_message(reader)
@@ -785,13 +795,14 @@ def test_message_read_from_compressed(example_messages):
     _, messages = example_messages
     for message in messages:
         raw_out = pa.BufferOutputStream()
-        with pa.output_stream(raw_out, compression='gzip') as compressed_out:
+        with pa.output_stream(raw_out, compression="gzip") as compressed_out:
             message.serialize_to(compressed_out)
 
         compressed_buf = raw_out.getvalue()
 
-        result = pa.ipc.read_message(pa.input_stream(compressed_buf,
-                                                     compression='gzip'))
+        result = pa.ipc.read_message(
+            pa.input_stream(compressed_buf, compression="gzip")
+        )
         assert result.equals(message)
 
 
@@ -811,14 +822,12 @@ def test_message_read_record_batch(example_messages):
 
 def test_read_record_batch_on_stream_error_message():
     # ARROW-5374
-    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())],
-                            names=['strs'])
+    batch = pa.record_batch([pa.array([b"foo"], type=pa.utf8())], names=["strs"])
     stream = pa.BufferOutputStream()
     with pa.ipc.new_stream(stream, batch.schema) as writer:
         writer.write_batch(batch)
     buf = stream.getvalue()
-    with pytest.raises(IOError,
-                       match="type record batch but got schema"):
+    with pytest.raises(IOError, match="type record batch but got schema"):
         pa.ipc.read_record_batch(buf, batch.schema)
 
 
@@ -830,7 +839,7 @@ class StreamReaderServer(threading.Thread):
 
     def init(self, do_read_all):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.bind(('127.0.0.1', 0))
+        self._sock.bind(("127.0.0.1", 0))
         self._sock.listen(1)
         host, port = self._sock.getsockname()
         self._do_read_all = do_read_all
@@ -842,7 +851,7 @@ class StreamReaderServer(threading.Thread):
     def run(self):
         connection, client_address = self._sock.accept()
         try:
-            source = connection.makefile(mode='rb')
+            source = connection.makefile(mode="rb")
             reader = pa.ipc.open_stream(source)
             self._schema = reader.schema
             if self._do_read_all:
@@ -855,8 +864,7 @@ class StreamReaderServer(threading.Thread):
             self._sock.close()
 
     def get_result(self):
-        return (self._schema, self._table if self._do_read_all
-                else self._batches)
+        return (self._schema, self._table if self._do_read_all else self._batches)
 
 
 class SocketStreamFixture(IpcFixture):
@@ -871,19 +879,20 @@ class SocketStreamFixture(IpcFixture):
         port = self._server.init(do_read_all)
         self._server.start()
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.connect(('127.0.0.1', port))
+        self._sock.connect(("127.0.0.1", port))
         self.sink = self.get_sink()
 
     def stop_and_get_result(self):
         import struct
-        self.sink.write(struct.pack('Q', 0))
+
+        self.sink.write(struct.pack("Q", 0))
         self.sink.flush()
         self._sock.close()
         self._server.join()
         return self._server.get_result()
 
     def get_sink(self):
-        return self._sock.makefile(mode='wb')
+        return self._sock.makefile(mode="wb")
 
     def _get_writer(self, sink, schema):
         return pa.RecordBatchStreamWriter(sink, schema)
@@ -917,10 +926,11 @@ def test_socket_read_all(socket_fixture):
 # ----------------------------------------------------------------------
 # Miscellaneous IPC tests
 
+
 @pytest.mark.pandas
 def test_ipc_file_stream_has_eos():
     # ARROW-5395
-    df = pd.DataFrame({'foo': [1.5]})
+    df = pd.DataFrame({"foo": [1.5]})
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
     write_file(batch, sink)
@@ -937,7 +947,7 @@ def test_ipc_file_stream_has_eos():
 
 @pytest.mark.pandas
 def test_ipc_zero_copy_numpy():
-    df = pd.DataFrame({'foo': [1.5]})
+    df = pd.DataFrame({"foo": [1.5]})
 
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
@@ -955,14 +965,13 @@ def test_ipc_zero_copy_numpy():
 @pytest.mark.pandas
 @pytest.mark.parametrize("ipc_type", ["stream", "file"])
 def test_batches_with_custom_metadata_roundtrip(ipc_type):
-    df = pd.DataFrame({'foo': [1.5]})
+    df = pd.DataFrame({"foo": [1.5]})
 
     batch = pa.RecordBatch.from_pandas(df)
     sink = pa.BufferOutputStream()
 
     batch_count = 2
-    file_factory = {"stream": pa.ipc.new_stream,
-                    "file": pa.ipc.new_file}[ipc_type]
+    file_factory = {"stream": pa.ipc.new_stream, "file": pa.ipc.new_file}[ipc_type]
 
     with file_factory(sink, batch.schema) as writer:
         for i in range(batch_count):
@@ -977,13 +986,14 @@ def test_batches_with_custom_metadata_roundtrip(ipc_type):
             batch_with_metas = list(reader.iter_batches_with_custom_metadata())
     else:
         with pa.ipc.open_file(buffer) as reader:
-            batch_with_metas = [reader.get_batch_with_custom_metadata(i)
-                                for i in range(reader.num_record_batches)]
+            batch_with_metas = [
+                reader.get_batch_with_custom_metadata(i)
+                for i in range(reader.num_record_batches)
+            ]
 
     for i in range(batch_count):
         assert batch_with_metas[i].batch.num_rows == 1
-        assert isinstance(
-            batch_with_metas[i].custom_metadata, pa.KeyValueMetadata)
+        assert isinstance(batch_with_metas[i].custom_metadata, pa.KeyValueMetadata)
         assert batch_with_metas[i].custom_metadata == {"batch_id": str(i)}
 
     # the last batch has no custom metadata
@@ -993,9 +1003,10 @@ def test_batches_with_custom_metadata_roundtrip(ipc_type):
 
 def test_ipc_stream_no_batches():
     # ARROW-2307
-    table = pa.Table.from_arrays([pa.array([1, 2, 3, 4]),
-                                  pa.array(['foo', 'bar', 'baz', 'qux'])],
-                                 names=['a', 'b'])
+    table = pa.Table.from_arrays(
+        [pa.array([1, 2, 3, 4]), pa.array(["foo", "bar", "baz", "qux"])],
+        names=["a", "b"],
+    )
 
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, table.schema):
@@ -1013,7 +1024,7 @@ def test_ipc_stream_no_batches():
 def test_get_record_batch_size():
     N = 10
     itemsize = 8
-    df = pd.DataFrame({'foo': np.random.randn(N)})
+    df = pd.DataFrame({"foo": np.random.randn(N)})
 
     batch = pa.RecordBatch.from_pandas(df)
     assert pa.ipc.get_record_batch_size(batch) > (N * itemsize)
@@ -1028,35 +1039,33 @@ def _check_serialize_pandas_round_trip(df, use_threads=False):
 
 @pytest.mark.pandas
 def test_pandas_serialize_round_trip():
-    index = pd.Index([1, 2, 3], name='my_index')
-    columns = ['foo', 'bar']
+    index = pd.Index([1, 2, 3], name="my_index")
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")}, index=index, columns=columns
     )
     _check_serialize_pandas_round_trip(df)
 
 
 @pytest.mark.pandas
 def test_pandas_serialize_round_trip_nthreads():
-    index = pd.Index([1, 2, 3], name='my_index')
-    columns = ['foo', 'bar']
+    index = pd.Index([1, 2, 3], name="my_index")
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
-        index=index, columns=columns
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")}, index=index, columns=columns
     )
     _check_serialize_pandas_round_trip(df, use_threads=True)
 
 
 @pytest.mark.pandas
 def test_pandas_serialize_round_trip_multi_index():
-    index1 = pd.Index([1, 2, 3], name='level_1')
-    index2 = pd.Index(list('def'), name=None)
+    index1 = pd.Index([1, 2, 3], name="level_1")
+    index2 = pd.Index(list("def"), name=None)
     index = pd.MultiIndex.from_arrays([index1, index2])
 
-    columns = ['foo', 'bar']
+    columns = ["foo", "bar"]
     df = pd.DataFrame(
-        {'foo': [1.5, 1.6, 1.7], 'bar': list('abc')},
+        {"foo": [1.5, 1.6, 1.7], "bar": list("abc")},
         index=index,
         columns=columns,
     )
@@ -1071,7 +1080,7 @@ def test_serialize_pandas_empty_dataframe():
 
 @pytest.mark.pandas
 def test_pandas_serialize_round_trip_not_string_columns():
-    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], 'abc')))
+    df = pd.DataFrame(list(zip([1.5, 1.6, 1.7], "abc")))
     buf = pa.serialize_pandas(df)
     result = pa.deserialize_pandas(buf)
     assert_frame_equal(result, df)
@@ -1079,8 +1088,8 @@ def test_pandas_serialize_round_trip_not_string_columns():
 
 @pytest.mark.pandas
 def test_serialize_pandas_no_preserve_index():
-    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
-    expected = pd.DataFrame({'a': [1, 2, 3]})
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=[1, 2, 3])
+    expected = pd.DataFrame({"a": [1, 2, 3]})
 
     buf = pa.serialize_pandas(df, preserve_index=False)
     result = pa.deserialize_pandas(buf)
@@ -1094,9 +1103,9 @@ def test_serialize_pandas_no_preserve_index():
 @pytest.mark.pandas
 def test_schema_batch_serialize_methods():
     nrows = 5
-    df = pd.DataFrame({
-        'one': np.random.randn(nrows),
-        'two': ['foo', np.nan, 'bar', 'bazbaz', 'qux']})
+    df = pd.DataFrame(
+        {"one": np.random.randn(nrows), "two": ["foo", np.nan, "bar", "bazbaz", "qux"]}
+    )
     batch = pa.RecordBatch.from_pandas(df)
 
     s_schema = batch.schema.serialize()
@@ -1108,11 +1117,11 @@ def test_schema_batch_serialize_methods():
 
 
 def test_schema_serialization_with_metadata():
-    field_metadata = {b'foo': b'bar', b'kind': b'field'}
-    schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
+    field_metadata = {b"foo": b"bar", b"kind": b"field"}
+    schema_metadata = {b"foo": b"bar", b"kind": b"schema"}
 
-    f0 = pa.field('a', pa.int8())
-    f1 = pa.field('b', pa.string(), metadata=field_metadata)
+    f0 = pa.field("a", pa.int8())
+    f1 = pa.field("b", pa.string(), metadata=field_metadata)
 
     schema = pa.schema([f0, f1], metadata=schema_metadata)
 
@@ -1138,7 +1147,7 @@ def read_file(source):
 def test_write_empty_ipc_file():
     # ARROW-3894: IPC file was not being properly initialized when no record
     # batches are being written
-    schema = pa.schema([('field', pa.int64())])
+    schema = pa.schema([("field", pa.int64())])
 
     sink = pa.BufferOutputStream()
     with pa.ipc.new_file(sink, schema):
@@ -1153,7 +1162,7 @@ def test_write_empty_ipc_file():
 
 def test_py_record_batch_reader():
     def make_schema():
-        return pa.schema([('field', pa.int64())])
+        return pa.schema([("field", pa.int64())])
 
     def make_batches():
         schema = make_schema()
@@ -1165,8 +1174,7 @@ def test_py_record_batch_reader():
     batches = UserList(make_batches())  # weakrefable
     wr = weakref.ref(batches)
 
-    with pa.RecordBatchReader.from_batches(make_schema(),
-                                           batches) as reader:
+    with pa.RecordBatchReader.from_batches(make_schema(), batches) as reader:
         batches = None
         assert wr() is not None
         assert list(reader) == make_batches()
@@ -1176,8 +1184,7 @@ def test_py_record_batch_reader():
     batches = iter(UserList(make_batches()))  # weakrefable
     wr = weakref.ref(batches)
 
-    with pa.RecordBatchReader.from_batches(make_schema(),
-                                           batches) as reader:
+    with pa.RecordBatchReader.from_batches(make_schema(), batches) as reader:
         batches = None
         assert wr() is not None
         assert list(reader) == make_batches()
@@ -1187,8 +1194,7 @@ def test_py_record_batch_reader():
     # (https://issues.apache.org/jira/browse/ARROW-18229)
     batches = make_batches()
     with pytest.raises(TypeError):
-        reader = pa.RecordBatchReader.from_batches(
-            [('field', pa.int64())], batches)
+        reader = pa.RecordBatchReader.from_batches([("field", pa.int64())], batches)
         pass
 
     with pytest.raises(TypeError):
@@ -1204,12 +1210,13 @@ def test_record_batch_reader_from_arrow_stream():
 
         def __arrow_c_stream__(self, requested_schema=None):
             reader = pa.RecordBatchReader.from_batches(
-                self.batches[0].schema, self.batches)
+                self.batches[0].schema, self.batches
+            )
             return reader.__arrow_c_stream__(requested_schema)
 
     data = [
-        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
-        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a'])
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=["a"]),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=["a"]),
     ]
     wrapper = StreamWrapper(data)
 
@@ -1227,19 +1234,76 @@ def test_record_batch_reader_from_arrow_stream():
     assert reader.read_all() == expected
 
     # Passing a different but castable schema works
-    good_schema = pa.schema([pa.field('a', pa.int32())])
+    good_schema = pa.schema([pa.field("a", pa.int32())])
     reader = pa.RecordBatchReader.from_stream(wrapper, schema=good_schema)
     assert reader.read_all() == expected.cast(good_schema)
 
     # If schema doesn't match, raises NotImplementedError
     with pytest.raises(pa.lib.ArrowNotImplementedError, match="Field 0 cannot be cast"):
         pa.RecordBatchReader.from_stream(
-            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
+            wrapper, schema=pa.schema([pa.field("a", pa.list_(pa.int32()))])
         )
 
     # Proper type errors for wrong input
     with pytest.raises(TypeError):
-        pa.RecordBatchReader.from_stream(data[0]['a'])
+        pa.RecordBatchReader.from_stream(data[0]["a"])
 
     with pytest.raises(TypeError):
         pa.RecordBatchReader.from_stream(expected, schema=data[0])
+
+
+def test_record_batch_reader_cast():
+    schema_src = pa.schema([pa.field("a", pa.int64())])
+    data = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=["a"]),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=["a"]),
+    ]
+    table_src = pa.Table.from_batches(data)
+
+    # Cast to same type should always work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_src).read_all() == table_src
+
+    # Check non-trivial cast
+    schema_dst = pa.schema([pa.field("a", pa.int32())])
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_dst).read_all() == table_src.cast(schema_dst)
+
+    # Check error for non-equal number of fields
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(pa.lib.ArrowInvalid, match="requested schema has 0"):
+        reader.cast(pa.schema([]))
+
+    # Check error for impossible cast in call to .cast()
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(pa.lib.ArrowNotImplementedError, match="Field 0 cannot be cast"):
+        reader.cast(pa.schema([pa.field("a", pa.list_(pa.int32()))]))
+
+
+def test_record_batch_reader_cast_nulls():
+    schema_src = pa.schema([pa.field("a", pa.int64())])
+    data_with_nulls = [
+        pa.record_batch([pa.array([1, 2, None], type=pa.int64())], names=["a"]),
+    ]
+    data_without_nulls = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=["a"]),
+    ]
+    table_with_nulls = pa.Table.from_batches(data_with_nulls)
+    table_without_nulls = pa.Table.from_batches(data_without_nulls)
+
+    # Cast to nullable destination should work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
+    schema_dst = pa.schema([pa.field("a", pa.int32())])
+    assert reader.cast(schema_dst).read_all() == table_with_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should work if there are no nulls
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_without_nulls)
+    schema_dst = pa.schema([pa.field("a", pa.int32(), nullable=False)])
+    assert reader.cast(schema_dst).read_all() == table_without_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should error if there are nulls
+    # when the batch is pulled
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_without_nulls)
+    casted_reader = reader.cast(schema_dst)
+    with pytest.raises(pa.lib.ArrowInvalid, match="fish"):
+        casted_reader.read_all()
