@@ -1303,7 +1303,7 @@ def test_record_batch_reader_cast_nulls():
 
     # Cast to non-nullable destination should error if there are nulls
     # when the batch is pulled
-    reader = pa.RecordBatchReader.from_batches(schema_src, data_without_nulls)
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
     casted_reader = reader.cast(schema_dst)
-    with pytest.raises(pa.lib.ArrowInvalid, match="fish"):
+    with pytest.raises(pa.lib.ArrowInvalid, match="Can't cast array"):
         casted_reader.read_all()

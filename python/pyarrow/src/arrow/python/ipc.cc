@@ -106,11 +106,13 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
   auto num_columns = out->num_columns();
   ArrayVector columns(num_columns);
   for (int i = 0; i < num_columns; i++) {
-    if (!schema_->field(i)->nullable()) {
-      return Status::Invalid("Cast to non-nullable not supported");
+    const Array& src = *out->column(i);
+    if (!schema_->field(i)->nullable() && src.null_count() > 0) {
+      return Status::Invalid(
+          "Can't cast array that contains nulls to non-nullable field at index ", i);
     }
-    ARROW_ASSIGN_OR_RAISE(columns[i],
-                          compute::Cast(*out->column(i), schema_->field(i)->type()));
+
+    ARROW_ASSIGN_OR_RAISE(columns[i], compute::Cast(src, schema_->field(i)->type()));
   }
 
   *batch = RecordBatch::Make(schema_, out->num_rows(), std::move(columns));
