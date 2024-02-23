@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29926.136
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow", "src\Apache.Arrow\Apache.Arrow.csproj", "{BA6B2B0D-EAAE-4183-8A39-1B9CF571F71F}"
 EndProject
@@ -23,9 +23,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Compression", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Compression.Tests", "test\Apache.Arrow.Compression.Tests\Apache.Arrow.Compression.Tests.csproj", "{5D7FF380-B7DF-4752-B415-7C08C70C9F06}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Flight.Sql.Tests", "test\Apache.Arrow.Flight.Sql.Tests\Apache.Arrow.Flight.Sql.Tests.csproj", "{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Flight.Sql.Tests", "test\Apache.Arrow.Flight.Sql.Tests\Apache.Arrow.Flight.Sql.Tests.csproj", "{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Flight.Sql", "src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj", "{2ADE087A-B424-4895-8CC5-10170D10BA62}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Flight.Sql", "src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj", "{2ADE087A-B424-4895-8CC5-10170D10BA62}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Acero", "src\Apache.Arrow.Acero\Apache.Arrow.Acero.csproj", "{E4D30783-5506-4E62-8491-4191A249B335}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Acero.Tests", "test\Apache.Arrow.Acero.Tests\Apache.Arrow.Acero.Tests.csproj", "{A5D6A064-9AC2-4C60-9BF5-E6C834A90232}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -81,6 +85,14 @@ Global
 		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4D30783-5506-4E62-8491-4191A249B335}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4D30783-5506-4E62-8491-4191A249B335}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4D30783-5506-4E62-8491-4191A249B335}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4D30783-5506-4E62-8491-4191A249B335}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5D6A064-9AC2-4C60-9BF5-E6C834A90232}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5D6A064-9AC2-4C60-9BF5-E6C834A90232}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5D6A064-9AC2-4C60-9BF5-E6C834A90232}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5D6A064-9AC2-4C60-9BF5-E6C834A90232}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

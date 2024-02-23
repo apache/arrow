@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net7.0</TargetFrameworks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GLibSharp" Version="3.24.24.95" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Apache.Arrow\Apache.Arrow.csproj" />
+  </ItemGroup>
+
+</Project>
