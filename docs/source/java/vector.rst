@@ -303,7 +303,7 @@ This result will be a new vector (for example, an ``IntVector``) that can act in
     Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
 
     // 4. create a dictionary encoder
-    DictionaryEncoder encoder = new DictionaryEncoder.encode(dictionary, allocator);
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, allocator);
 
     // 5. encode the data
     IntVector encoded = (IntVector) encoder.encode(unencoded);
