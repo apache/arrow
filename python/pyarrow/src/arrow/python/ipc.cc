@@ -70,15 +70,14 @@ Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
                                       std::shared_ptr<Schema> schema) {
   std::shared_ptr<Schema> src = parent->schema();
 
-  // Check for conformable number of columns
+  // The check for names has already been done in Python where it's easier to
+  // generate a nice error message.
   int num_fields = schema->num_fields();
   if (src->num_fields() != num_fields) {
-    return Status::Invalid("Source has ", src->num_fields(), " but requested schema has ",
-                           num_fields);
+    return Status::Invalid("Number of fields not equal");
   }
 
   // Ensure all columns can be cast before succeeding
-  compute::CastOptions options;
   for (int i = 0; i < num_fields; i++) {
     if (!compute::CanCast(*src->field(i)->type(), *schema->field(i)->type())) {
       return Status::NotImplemented("Field ", i, " cannot be cast from ",
@@ -104,6 +103,7 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
   }
 
   auto num_columns = out->num_columns();
+  auto options = compute::CastOptions::Safe();
   ArrayVector columns(num_columns);
   for (int i = 0; i < num_columns; i++) {
     const Array& src = *out->column(i);
@@ -112,7 +112,8 @@ Status CastingRecordBatchReader::ReadNext(std::shared_ptr<RecordBatch>* batch) {
           "Can't cast array that contains nulls to non-nullable field at index ", i);
     }
 
-    ARROW_ASSIGN_OR_RAISE(columns[i], compute::Cast(src, schema_->field(i)->type()));
+    ARROW_ASSIGN_OR_RAISE(columns[i],
+                          compute::Cast(src, schema_->field(i)->type(), options));
   }
 
   *batch = RecordBatch::Make(schema_, out->num_rows(), std::move(columns));
@@ -125,6 +126,8 @@ Result<std::shared_ptr<RecordBatchReader>> CastingRecordBatchReader::Make(
   ARROW_RETURN_NOT_OK(reader->Init(parent, schema));
   return reader;
 }
+
+Status CastingRecordBatchReader::Close() { return parent_->Close(); }
 
 }  // namespace py
 }  // namespace arrow

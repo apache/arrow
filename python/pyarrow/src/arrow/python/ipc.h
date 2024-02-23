@@ -57,6 +57,8 @@ class ARROW_PYTHON_EXPORT CastingRecordBatchReader : public RecordBatchReader {
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema);
 
+  Status Close() override;
+
  protected:
   CastingRecordBatchReader();
 

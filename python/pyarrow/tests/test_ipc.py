@@ -1269,9 +1269,9 @@ def test_record_batch_reader_cast():
     reader = pa.RecordBatchReader.from_batches(schema_src, data)
     assert reader.cast(schema_dst).read_all() == table_src.cast(schema_dst)
 
-    # Check error for non-equal number of fields
+    # Check error for field name/length mismatch
     reader = pa.RecordBatchReader.from_batches(schema_src, data)
-    with pytest.raises(pa.lib.ArrowInvalid, match="requested schema has 0"):
+    with pytest.raises(ValueError, match="Target schema's field names"):
         reader.cast(pa.schema([]))
 
     # Check error for impossible cast in call to .cast()

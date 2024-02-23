@@ -772,14 +772,15 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def cast(self, schema):
+    def cast(self, target_schema):
         """
         Wrap this reader with one that casts each batch lazily as it is pulled.
+        Currently only a safe cast to target_schema is implemented.
 
         Parameters
         ----------
-        schema : Schema
-            The desired output schema
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
 
         Returns
         -------
@@ -790,7 +791,12 @@ cdef class RecordBatchReader(_Weakrefable):
             shared_ptr[CRecordBatchReader] c_reader
             RecordBatchReader out
 
-        c_schema = pyarrow_unwrap_schema(schema)
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             "the table's field names: {!r}, {!r}"
+                             .format(self.schema.names, target_schema.names))
+
+        c_schema = pyarrow_unwrap_schema(target_schema)
         c_reader = GetResultValue(CCastingRecordBatchReader.Make(
             self.reader, c_schema))
 
