@@ -594,10 +594,7 @@ def test_roundtrip_batch_reader_capsule_requested_schema():
     batch = make_batch()
     requested_schema = pa.schema([('ints', pa.list_(pa.int64()))])
     requested_capsule = requested_schema.__arrow_c_schema__()
-    # RecordBatch has no cast() method
-    batch_as_requested = list(
-        pa.Table.from_batches([batch]).cast(requested_schema).to_batches()
-    )[0]
+    batch_as_requested = batch.cast(requested_schema)
 
     capsule = batch.__arrow_c_stream__(requested_capsule)
     assert PyCapsule_IsValid(capsule, b"arrow_array_stream") == 1
