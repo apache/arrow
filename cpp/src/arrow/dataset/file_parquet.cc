@@ -779,7 +779,7 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
-const std::shared_ptr<parquet::FileMetaData>& ParquetFileFragment::metadata() {
+std::shared_ptr<parquet::FileMetaData> ParquetFileFragment::metadata() {
   auto lock = physical_schema_mutex_.Lock();
   return metadata_;
 }
