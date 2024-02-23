@@ -54,7 +54,7 @@ Version History
 
 At the 1.0.0 release, the Arrow columnar format was declared stable, with
 forward and backward compatibility guarantees. See
-:doc:`./format/Versioning` for more details.
+:doc:`./Versioning` for more details.
 
 .. note::
 
