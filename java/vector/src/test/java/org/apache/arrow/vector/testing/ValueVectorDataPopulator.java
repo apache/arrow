@@ -34,6 +34,7 @@ import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -75,7 +76,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
  */
 public class ValueVectorDataPopulator {
 
-  private ValueVectorDataPopulator(){}
+  private ValueVectorDataPopulator() {
+  }
 
   /**
    * Populate values for BigIntVector.
@@ -201,6 +203,20 @@ public class ValueVectorDataPopulator {
     for (int i = 0; i < length; i++) {
       if (values[i] != null) {
         vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for Float2Vector.
+   */
+  public static void setVector(Float2Vector vector, Float... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.setWithPossibleTruncate(i, values[i]);
       }
     }
     vector.setValueCount(length);

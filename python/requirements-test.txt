@@ -2,5 +2,4 @@ cffi
 hypothesis
 pandas
 pytest<8
-pytest-lazy-fixture
 pytz

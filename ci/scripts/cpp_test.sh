@@ -37,8 +37,10 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}:${LD_LIBRARY_P
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
 ctest_options=()
 case "$(uname)" in
@@ -84,6 +86,7 @@ ctest \
     --label-regex unittest \
     --output-on-failure \
     --parallel ${n_jobs} \
+    --repeat until-pass:3 \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
     "$@"

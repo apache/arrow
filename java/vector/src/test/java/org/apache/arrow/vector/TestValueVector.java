@@ -332,6 +332,204 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testFixedFloat2() {
+    try (final Float2Vector floatVector = new Float2Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT - 1);
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT);
+
+      try {
+        floatVector.setInitialCapacity(MAX_VALUE_COUNT * 4);
+      } catch (OversizedAllocationException oe) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      floatVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, floatVector.getValueCapacity());
+
+      /* allocate 32 bytes (16 * 2) */
+      floatVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity);
+      initialCapacity = floatVector.getValueCapacity();
+
+      floatVector.zeroVector();
+
+      /* populate the floatVector */
+      floatVector.set(0, (short) 0x101c); // Float16.toFloat16(+0.00050163269043f)
+      floatVector.set(2, (short) 0x901c); // Float16.toFloat16(-0.00050163269043f)
+      floatVector.set(4, (short) 0x101d); // Float16.toFloat16(+0.000502109527588f)
+      floatVector.set(6, (short) 0x901d); // Float16.toFloat16(-0.000502109527588f)
+      floatVector.set(8, (short) 0x121c); // Float16.toFloat16(+0.00074577331543f)
+      floatVector.set(10, (short) 0x921c); // Float16.toFloat16(-0.00074577331543f)
+      floatVector.set(12, (short) 0x501c); // Float16.toFloat16(+32.875f)
+      floatVector.set(14, (short) 0xd01c); // Float16.toFloat16(-32.875f)
+
+      try {
+        floatVector.set(initialCapacity, (short) 0x141c);
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals((short) 0x901d, floatVector.get(6));
+      assertEquals((short) 0x121c, floatVector.get(8));
+      assertEquals((short) 0x921c, floatVector.get(10));
+      assertEquals((short) 0x501c, floatVector.get(12));
+      assertEquals((short) 0xd01c, floatVector.get(14));
+
+      try {
+        floatVector.get(initialCapacity);
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+      }
+
+      /* this should trigger a realloc() */
+      floatVector.setSafe(initialCapacity, (short) 0x141c); // Float16.toFloat16(+0.00100326538086f)
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
+
+      /* vector data should still be intact after realloc */
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals((short) 0x901d, floatVector.get(6));
+      assertEquals((short) 0x121c, floatVector.get(8));
+      assertEquals((short) 0x921c, floatVector.get(10));
+      assertEquals((short) 0x501c, floatVector.get(12));
+      assertEquals((short) 0xd01c, floatVector.get(14));
+      assertEquals((short) 0x141c, floatVector.get(initialCapacity));
+
+      /* reset the vector */
+      int capacityBeforeReset = floatVector.getValueCapacity();
+      floatVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(capacityBeforeReset, floatVector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for (int i = 0; i < capacityBeforeReset; i++) {
+        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
+      }
+    }
+  }
+
+  @Test
+  public void testFixedFloat2WithPossibleTruncate() {
+    try (final Float2Vector floatVector = new Float2Vector(EMPTY_SCHEMA_PATH, allocator)) {
+      boolean error = false;
+      int initialCapacity = 16;
+
+      /* we should not throw exception for these values of capacity */
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT - 1);
+      floatVector.setInitialCapacity(MAX_VALUE_COUNT);
+
+      try {
+        floatVector.setInitialCapacity(MAX_VALUE_COUNT * 4);
+      } catch (OversizedAllocationException oe) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      floatVector.setInitialCapacity(initialCapacity);
+      /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
+      assertEquals(0, floatVector.getValueCapacity());
+
+      /* allocate 32 bytes (16 * 2) */
+      floatVector.allocateNew();
+      /* underlying buffer should be able to store 16 values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity);
+      initialCapacity = floatVector.getValueCapacity();
+
+      floatVector.zeroVector();
+
+      /* populate the floatVector */
+      floatVector.set(0, (short) 0x101c); // Float16.toFloat16(+0.00050163269043f)
+      floatVector.set(2, (short) 0x901c); // Float16.toFloat16(-0.00050163269043f)
+      floatVector.set(4, (short) 0x101d); // Float16.toFloat16(+0.000502109527588f)
+      floatVector.setWithPossibleTruncate(6, 2049.0f); // in f32=2049.000000, out f16=2048
+      floatVector.setWithPossibleTruncate(8, 4098.0f); // in f32=4098.000000, out f16=4096
+      floatVector.setWithPossibleTruncate(10, 8196.0f); // in f32=8196.000000, out f16=8192
+      floatVector.setWithPossibleTruncate(12, 16392.0f); // in f32=16392.000000, out f16=16384
+      floatVector.setWithPossibleTruncate(14, 32784.0f); // in f32=32784.000000, out f16=32768
+
+      try {
+        floatVector.setWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+        error = false;
+      }
+
+      /* check vector contents */
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals(2048.0f, floatVector.getValueAsFloat(6), 0);
+      assertEquals(4096.0f, floatVector.getValueAsFloat(8), 0);
+      assertEquals(8192.0f, floatVector.getValueAsFloat(10), 0);
+      assertEquals(16384.0f, floatVector.getValueAsDouble(12), 0);
+      assertEquals(32768.0f, floatVector.getValueAsDouble(14), 0);
+
+      try {
+        floatVector.get(initialCapacity);
+      } catch (IndexOutOfBoundsException ie) {
+        error = true;
+      } finally {
+        assertTrue(error);
+      }
+
+      /* this should trigger a realloc() */
+      floatVector.setSafeWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
+
+      /* underlying buffer should now be able to store double the number of values */
+      assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
+
+      /* vector data should still be intact after realloc */
+      assertEquals((short) 0x101c, floatVector.get(0));
+      assertEquals((short) 0x901c, floatVector.get(2));
+      assertEquals((short) 0x101d, floatVector.get(4));
+      assertEquals(2048.0f, floatVector.getValueAsFloat(6), 0);
+      assertEquals(4096.0f, floatVector.getValueAsFloat(8), 0);
+      assertEquals(8192.0f, floatVector.getValueAsFloat(10), 0);
+      assertEquals(16384.0f, floatVector.getValueAsDouble(12), 0);
+      assertEquals(32768.0f, floatVector.getValueAsDouble(14), 0);
+      assertEquals(1.6181641f, floatVector.getValueAsDouble(initialCapacity), 0);
+
+      /* reset the vector */
+      int capacityBeforeReset = floatVector.getValueCapacity();
+      floatVector.reset();
+
+      /* capacity shouldn't change after reset */
+      assertEquals(capacityBeforeReset, floatVector.getValueCapacity());
+
+      /* vector data should be zeroed out */
+      for (int i = 0; i < capacityBeforeReset; i++) {
+        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
+      }
+    }
+  }
+
   @Test /* Float4Vector */
   public void testFixedType3() {
     try (final Float4Vector floatVector = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {

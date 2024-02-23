@@ -198,7 +198,12 @@ func (w *columnWriter) TotalCompressedBytes() int64 {
 }
 
 func (w *columnWriter) TotalBytesWritten() int64 {
-	return w.totalBytesWritten
+	bufferedPagesBytes := int64(0)
+	for _, p := range w.pages {
+		bufferedPagesBytes += int64(len(p.Data()))
+	}
+
+	return w.totalBytesWritten + bufferedPagesBytes
 }
 
 func (w *columnWriter) RowsWritten() int {
@@ -397,7 +402,6 @@ func (w *columnWriter) FlushBufferedDataPages() (err error) {
 		}
 	}
 	w.pages = w.pages[:0]
-	w.totalCompressedBytes = 0
 	return
 }
 
@@ -542,7 +546,9 @@ func (w *columnWriter) Close() (err error) {
 	if !w.closed {
 		w.closed = true
 		if w.hasDict && !w.fallbackToNonDict {
-			w.WriteDictionaryPage()
+			if err = w.WriteDictionaryPage(); err != nil {
+				return err
+			}
 		}
 
 		if err = w.FlushBufferedDataPages(); err != nil {
@@ -659,7 +665,10 @@ func (w *columnWriter) maybeReplaceValidity(values arrow.Array, newNullCount int
 
 	if values.Data().Offset() > 0 {
 		data := values.Data()
-		buffers[1] = memory.NewBufferBytes(data.Buffers()[1].Bytes()[data.Offset()*arrow.Int32SizeBytes : data.Len()*arrow.Int32SizeBytes])
+		elemSize := data.DataType().(arrow.FixedWidthDataType).Bytes()
+		start := data.Offset() * elemSize
+		end := start + data.Len()*elemSize
+		buffers[1] = memory.NewBufferBytes(data.Buffers()[1].Bytes()[start:end])
 	}
 
 	data := array.NewData(values.DataType(), values.Len(), buffers, nil, int(newNullCount), 0)

@@ -442,6 +442,21 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   return PackActionResult(pb_result);
 }
 
+arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result{Buffer::FromString(std::move(serialized))};
+}
+
+arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result{Buffer::FromString(std::move(serialized))};
+}
+
+arrow::Result<Result> PackActionResult(CloseSessionResult result) {
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result{Buffer::FromString(std::move(serialized))};
+}
+
 }  // namespace
 
 arrow::Result<StatementQueryTicket> StatementQueryTicket::Deserialize(
@@ -759,18 +774,19 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
 
 Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
-  *actions = {
-      ActionType::kCancelFlightInfo,
-      ActionType::kRenewFlightEndpoint,
-      FlightSqlServerBase::kBeginSavepointActionType,
-      FlightSqlServerBase::kBeginTransactionActionType,
-      FlightSqlServerBase::kCancelQueryActionType,
-      FlightSqlServerBase::kCreatePreparedStatementActionType,
-      FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
-      FlightSqlServerBase::kClosePreparedStatementActionType,
-      FlightSqlServerBase::kEndSavepointActionType,
-      FlightSqlServerBase::kEndTransactionActionType,
-  };
+  *actions = {ActionType::kCancelFlightInfo,
+              ActionType::kRenewFlightEndpoint,
+              FlightSqlServerBase::kBeginSavepointActionType,
+              FlightSqlServerBase::kBeginTransactionActionType,
+              FlightSqlServerBase::kCancelQueryActionType,
+              FlightSqlServerBase::kCreatePreparedStatementActionType,
+              FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
+              FlightSqlServerBase::kClosePreparedStatementActionType,
+              FlightSqlServerBase::kEndSavepointActionType,
+              FlightSqlServerBase::kEndTransactionActionType,
+              ActionType::kSetSessionOptions,
+              ActionType::kGetSessionOptions,
+              ActionType::kCloseSession};
   return Status::OK();
 }
 
@@ -790,6 +806,27 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, RenewFlightEndpoint(context, request));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_endpoint));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == ActionType::kSetSessionOptions.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, SetSessionOptionsRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, SetSessionOptions(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == ActionType::kGetSessionOptions.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, GetSessionOptions(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == ActionType::kCloseSession.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, CloseSessionRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, CloseSession(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else {
@@ -1098,6 +1135,11 @@ arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
   return Status::NotImplemented("RenewFlightEndpoint not implemented");
 }
 
+arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
+    const ServerCallContext& context, const CloseSessionRequest& request) {
+  return Status::NotImplemented("CloseSession not implemented");
+}
+
 arrow::Result<ActionCreatePreparedStatementResult>
 FlightSqlServerBase::CreatePreparedStatement(
     const ServerCallContext& context,
@@ -1126,6 +1168,16 @@ Status FlightSqlServerBase::EndSavepoint(const ServerCallContext& context,
 Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
                                            const ActionEndTransactionRequest& request) {
   return Status::NotImplemented("EndTransaction not implemented");
+}
+
+arrow::Result<SetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions(
+    const ServerCallContext& context, const SetSessionOptionsRequest& request) {
+  return Status::NotImplemented("SetSessionOptions not implemented");
+}
+
+arrow::Result<GetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions(
+    const ServerCallContext& context, const GetSessionOptionsRequest& request) {
+  return Status::NotImplemented("GetSessionOptions not implemented");
 }
 
 Status FlightSqlServerBase::DoPutPreparedStatementQuery(
