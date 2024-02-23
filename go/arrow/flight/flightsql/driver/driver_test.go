@@ -558,6 +558,100 @@ func (s *SqlTestSuite) TestRowsNormalExhaustion() {
 	wg.Wait()
 }
 
+// TestRowsPrematureCloseDuringNextLoop ensures that:
+// - closing during Next() loop doesn't trigger concurrency errors.
+// - the interation is properly/promptly interrupted.
+func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
+	t := s.T()
+
+	// Create and start the server.
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table.
+	const tableName = `TestRowsPrematureCloseDuringNextLoop`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	rows, err := db.QueryContext(context.TODO(), sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	const closeAfterNRows = 10
+	var (
+		i,
+		xid,
+		xvalue int
+		xname string
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&xid, &xname, &xvalue)
+		require.NoError(t, err)
+
+		i++
+		if i >= closeAfterNRows {
+			require.NoError(t, rows.Close())
+		}
+	}
+
+	require.Equal(t, closeAfterNRows, i)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
 // TestRowsInterruptionByContextManualCancellation cancels the context before it starts retrieving rows.Next().
 // it gives time for cancellation propagation, and ensures that no further data was retrieved.
 func (s *SqlTestSuite) TestRowsInterruptionByContextManualCancellation() {
@@ -732,6 +826,98 @@ func (s *SqlTestSuite) TestRowsInterruptionByContextTimeout() {
 			time.Sleep(time.Second)
 		}
 	}
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsManualPrematureCloseStmt tests concurrent rows implementation for closing right after loading.
+// Is expected that rows' internal engine update its status, preventing errors and inconsistent further operations.
+func (s *SqlTestSuite) TestRowsManualPrematureCloseStmt() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsManualPrematureCloseStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount int = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	// Close Rows normally
+	require.NoError(t, rows.Close())
+
+	require.False(t, rows.Next())
+
+	// Safe double-closing
+	require.NoError(t, rows.Close())
+
+	// Columns() should return an error after rows.Close() (sql: Rows are closed)
+	columns, err := rows.Columns()
+	require.Error(t, err)
+	require.Empty(t, columns)
 
 	// Tear-down server
 	s.stopServer(server)

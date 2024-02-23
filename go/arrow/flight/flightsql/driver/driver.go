@@ -51,7 +51,8 @@ type Rows struct {
 	// initializedChan prevents the row being used before properly initialized.
 	initializedChan chan bool
 	// streamError stores the error that interrupted streaming.
-	streamError error
+	streamError    error
+	streamErrorMux sync.RWMutex
 	// ctxCancelFunc when called, triggers the streaming cancelation.
 	ctxCancelFunc context.CancelFunc
 }
@@ -61,6 +62,20 @@ func newRows() *Rows {
 		recordChan:      make(chan arrow.Record, recordChanBufferSizeDefault),
 		initializedChan: make(chan bool),
 	}
+}
+
+func (r *Rows) setStreamError(err error) {
+	r.streamErrorMux.Lock()
+	defer r.streamErrorMux.Unlock()
+
+	r.streamError = err
+}
+
+func (r *Rows) getStreamError() error {
+	r.streamErrorMux.RLock()
+	defer r.streamErrorMux.RUnlock()
+
+	return r.streamError
 }
 
 // Columns returns the names of the columns.
@@ -107,8 +122,8 @@ func (r *Rows) Close() error {
 // a buffer held in dest.
 func (r *Rows) Next(dest []driver.Value) error {
 	if r.currentRecord == nil || int64(r.currentRow) >= r.currentRecord.NumRows() {
-		if r.streamError != nil {
-			return r.streamError
+		if err := r.getStreamError(); err != nil {
+			return err
 		}
 
 		r.releaseRecord()
@@ -515,14 +530,14 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 	// reads each endpoint.
 	for _, endpoint := range endpoints {
 		if ctx.Err() != nil {
-			r.streamError = fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err())
+			r.setStreamError(fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err()))
 			return
 		}
 
 		func() { // with a func() is possible to {defer reader.Release()}.
 			reader, err := c.DoGet(ctx, endpoint.GetTicket())
 			if err != nil {
-				r.streamError = fmt.Errorf("getting ticket failed: %w", err)
+				r.setStreamError(fmt.Errorf("getting ticket failed: %w", err))
 				return
 			}
 
@@ -533,8 +548,7 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 			// reads each record into a blocking channel
 			for reader.Next() {
 				if ctx.Err() != nil {
-					r.releaseRecord()
-					r.streamError = fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err())
+					r.setStreamError(fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err()))
 					return
 				}
 
@@ -552,7 +566,7 @@ func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoin
 			}
 
 			if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
-				r.streamError = err
+				r.setStreamError(err)
 				return
 			}
 		}()
