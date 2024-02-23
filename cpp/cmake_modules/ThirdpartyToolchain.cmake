@@ -18,7 +18,6 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
@@ -2328,9 +2327,9 @@ macro(build_rapidjson)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
 
-  add_dependencies(toolchain rapidjson_ep)
-  add_dependencies(toolchain-tests rapidjson_ep)
-  add_dependencies(rapidjson rapidjson_ep)
+  add_library(RapidJSON INTERFACE IMPORTED)
+  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
+  add_dependencies(RapidJSON rapidjson_ep)
 
   set(RAPIDJSON_VENDORED TRUE)
 endmacro()
@@ -2344,19 +2343,6 @@ if(ARROW_WITH_RAPIDJSON)
                      ${ARROW_RAPIDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
-
-  if(RapidJSON_INCLUDE_DIR)
-    set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
-  endif()
-  if(WIN32 AND "${RAPIDJSON_INCLUDE_DIR}" MATCHES "^/")
-    # MSYS2
-    execute_process(COMMAND "cygpath" "--windows" "${RAPIDJSON_INCLUDE_DIR}"
-                    OUTPUT_VARIABLE RAPIDJSON_INCLUDE_DIR
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
-
-  add_library(rapidjson::rapidjson INTERFACE IMPORTED)
-  target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
 endif()
 
 macro(build_xsimd)
