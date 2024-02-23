@@ -2995,7 +2995,7 @@ cdef class RecordBatch(_Tabular):
         ----------
         requested_schema : PyCapsule | None
             A PyCapsule containing a C ArrowSchema representation of a requested
-            schema. PyArrow will attempt to cast the batch to this schema.
+            schema. PyArrow will attempt to cast each batch to this schema.
             If None, the schema will be returned as-is, with a schema matching the
             one returned by :meth:`__arrow_c_schema__()`.
 

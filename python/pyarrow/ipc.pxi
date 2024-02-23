@@ -780,6 +780,10 @@ cdef class RecordBatchReader(_Weakrefable):
         ----------
         schema : Schema
             The desired output schema
+
+        Returns
+        -------
+        RecordBatchReader
         """
         cdef:
             shared_ptr[CSchema] c_schema
@@ -849,8 +853,6 @@ cdef class RecordBatchReader(_Weakrefable):
             The schema to which the stream should be casted, passed as a
             PyCapsule containing a C ArrowSchema representation of the
             requested schema.
-            Currently, this is not supported and will raise a
-            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------
