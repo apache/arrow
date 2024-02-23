@@ -693,30 +693,29 @@ Result<std::shared_ptr<ChunkedArray>> TakeCAC(const ChunkedArray& values,
                                               const Array& indices,
                                               const TakeOptions& options,
                                               ExecContext* ctx) {
-  auto num_chunks = values.num_chunks();
-  std::shared_ptr<Array> current_chunk;
-
-  // Case 1: `values` has a single chunk, so just use it
-  if (num_chunks == 1) {
-    current_chunk = values.chunk(0);
+  std::shared_ptr<Array> values_array;
+  if (values.num_chunks() == 1) {
+    // Case 1: `values` has a single chunk, so just use it
+    values_array = values.chunk(0);
   } else {
     // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
     // See
     // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
+    // (these are relevant to TakeCCC as well)
 
     // Case 4: Else, concatenate chunks and call Array Take
     if (values.chunks().empty()) {
-      ARROW_ASSIGN_OR_RAISE(current_chunk, MakeArrayOfNull(values.type(), /*length=*/0,
-                                                           ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
     } else {
-      ARROW_ASSIGN_OR_RAISE(current_chunk,
+      ARROW_ASSIGN_OR_RAISE(values_array,
                             Concatenate(values.chunks(), ctx->memory_pool()));
     }
   }
   // Call Array Take on our single chunk
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                        TakeAAA(current_chunk->data(), indices.data(), options, ctx));
+                        TakeAAA(values_array->data(), indices.data(), options, ctx));
   std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
   return std::make_shared<ChunkedArray>(std::move(chunks));
 }
@@ -725,17 +724,28 @@ Result<std::shared_ptr<ChunkedArray>> TakeCCC(const ChunkedArray& values,
                                               const ChunkedArray& indices,
                                               const TakeOptions& options,
                                               ExecContext* ctx) {
-  auto num_chunks = indices.num_chunks();
-  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
-  for (int i = 0; i < num_chunks; i++) {
-    // Take with that indices chunk
-    // Note that as currently implemented, this is inefficient because `values`
-    // will get concatenated on every iteration of this loop
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> current_chunk,
-                          TakeCAC(values, *indices.chunk(i), options, ctx));
-    // Concatenate the result to make a single array for this chunk
-    ARROW_ASSIGN_OR_RAISE(new_chunks[i],
-                          Concatenate(current_chunk->chunks(), ctx->memory_pool()));
+  // XXX: for every chunk in indices, values are gathered from all chunks in values to
+  // form a new chunk in the result. Performing this concatenation is not ideal, but
+  // greatly simplifies the implementation before something more efficient is
+  // implemented.
+  std::shared_ptr<Array> values_array;
+  if (values.num_chunks() == 1) {
+    values_array = values.chunk(0);
+  } else {
+    if (values.chunks().empty()) {
+      ARROW_ASSIGN_OR_RAISE(
+          values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(values_array,
+                            Concatenate(values.chunks(), ctx->memory_pool()));
+    }
+  }
+  std::vector<std::shared_ptr<Array>> new_chunks;
+  new_chunks.resize(indices.num_chunks());
+  for (int i = 0; i < indices.num_chunks(); i++) {
+    ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(values_array->data(),
+                                              indices.chunk(i)->data(), options, ctx));
+    new_chunks[i] = MakeArray(chunk);
   }
   return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
 }
