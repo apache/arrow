@@ -353,15 +353,15 @@ static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
       .FixedSizeBinary();
 }
 
-static void TakeChunkedInt64RandomIndicesNoNulls(benchmark::State& state) {
+static void TakeChunkedChunkedInt64RandomIndicesNoNulls(benchmark::State& state) {
   TakeBenchmark(state, false).ChunkedInt64();
 }
 
-static void TakeChunkedInt64RandomIndicesWithNulls(benchmark::State& state) {
+static void TakeChunkedChunkedInt64RandomIndicesWithNulls(benchmark::State& state) {
   TakeBenchmark(state, true).ChunkedInt64();
 }
 
-static void TakeChunkedInt64MonotonicIndices(benchmark::State& state) {
+static void TakeChunkedChunkedInt64MonotonicIndices(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).ChunkedInt64();
 }
 
@@ -451,9 +451,9 @@ void TakeFSBSetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK(TakeInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedInt64MonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedChunkedInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedChunkedInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedChunkedInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesNoNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesWithNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryMonotonicIndices)->Apply(TakeFSBSetArgs);
