@@ -120,14 +120,16 @@ struct TakeBenchmark {
     Bench(values);
   }
 
-  void ChunkedInt64() {
-    const int64_t n_chunks = 10;
-    const int64_t array_size = args.size / n_chunks / sizeof(int64_t);
+  void ChunkedInt64(int64_t num_chunks, bool chunk_indices_too) {
+    const int64_t chunk_length =
+        std::llround(args.size / static_cast<double>(num_chunks));
     ArrayVector chunks;
-    for (int64_t i = 0; i < n_chunks; ++i) {
-      chunks.push_back(rand.Int64(array_size, -100, 100, args.null_proportion));
+    for (int64_t i = 0; i < num_chunks; ++i) {
+      const int64_t fitting_chunk_length =
+          std::min(chunk_length, args.size - i * chunk_length);
+      chunks.push_back(rand.Int64(fitting_chunk_length, -100, 100, args.null_proportion));
     }
-    BenchChunked(std::make_shared<ChunkedArray>(chunks));
+    BenchChunked(std::make_shared<ChunkedArray>(chunks), chunk_indices_too);
   }
 
   void FSLInt64() {
@@ -169,24 +171,36 @@ struct TakeBenchmark {
     state.SetItemsProcessed(state.iterations() * values->length());
   }
 
-  void BenchChunked(const std::shared_ptr<ChunkedArray>& values) {
-    const int64_t n_chunks = 10;
-    ArrayVector chunks;
+  void BenchChunked(const std::shared_ptr<ChunkedArray>& values, bool chunk_indices_too) {
     double indices_null_proportion = indices_have_nulls ? args.null_proportion : 0;
-    for (int64_t i = 0; i < n_chunks; ++i) {
-      chunks.push_back(rand.Int32(values->length(), 0,
-                                  static_cast<int32_t>(values->length() - 1),
-                                  indices_null_proportion));
-    }
-    auto indices = std::make_shared<ChunkedArray>(chunks);
+    auto indices =
+        rand.Int32(values->length(), 0, static_cast<int32_t>(values->length() - 1),
+                   indices_null_proportion);
 
     if (monotonic_indices) {
-      std::shared_ptr<Array> arg_sorter = *SortIndices(*indices);
-      indices = (*Take(Datum(indices), Datum(arg_sorter))).chunked_array();
+      auto arg_sorter = *SortIndices(*indices);
+      indices = *Take(*indices, *arg_sorter);
+    }
+    std::shared_ptr<ChunkedArray> chunked_indices;
+    if (chunk_indices_too) {
+      std::vector<std::shared_ptr<Array>> indices_chunks;
+      int64_t offset = 0;
+      for (int i = 0; i < values->num_chunks(); ++i) {
+        auto chunk = indices->Slice(offset, values->chunk(i)->length());
+        indices_chunks.push_back(std::move(chunk));
+        offset += values->chunk(i)->length();
+      }
+      chunked_indices = std::make_shared<ChunkedArray>(std::move(indices_chunks));
     }
 
-    for (auto _ : state) {
-      ABORT_NOT_OK(Take(values, indices).status());
+    if (chunk_indices_too) {
+      for (auto _ : state) {
+        ABORT_NOT_OK(Take(values, chunked_indices).status());
+      }
+    } else {
+      for (auto _ : state) {
+        ABORT_NOT_OK(Take(values, indices).status());
+      }
     }
   }
 };
@@ -354,15 +368,33 @@ static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
 }
 
 static void TakeChunkedChunkedInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false).ChunkedInt64();
+  TakeBenchmark(state, false)
+      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
 }
 
 static void TakeChunkedChunkedInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).ChunkedInt64();
+  TakeBenchmark(state, true).ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
 }
 
 static void TakeChunkedChunkedInt64MonotonicIndices(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).ChunkedInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
+      .ChunkedInt64(
+          /*num_chunks=*/100, /*chunk_indices_too=*/true);
+}
+
+static void TakeChunkedFlatInt64RandomIndicesNoNulls(benchmark::State& state) {
+  TakeBenchmark(state, false)
+      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
+}
+
+static void TakeChunkedFlatInt64RandomIndicesWithNulls(benchmark::State& state) {
+  TakeBenchmark(state, true).ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
+}
+
+static void TakeChunkedFlatInt64MonotonicIndices(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
+      .ChunkedInt64(
+          /*num_chunks=*/100, /*chunk_indices_too=*/true);
 }
 
 static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
@@ -454,6 +486,9 @@ BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeChunkedChunkedInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeChunkedChunkedInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeChunkedChunkedInt64MonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedFlatInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedFlatInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedFlatInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesNoNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesWithNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryMonotonicIndices)->Apply(TakeFSBSetArgs);
