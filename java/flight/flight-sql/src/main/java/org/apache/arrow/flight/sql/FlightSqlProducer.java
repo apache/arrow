@@ -56,16 +56,22 @@ import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelStatus;
+import org.apache.arrow.flight.CloseSessionRequest;
+import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.GetSessionOptionsRequest;
+import org.apache.arrow.flight.GetSessionOptionsResult;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
+import org.apache.arrow.flight.SetSessionOptionsRequest;
+import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionClosePreparedStatementRequest;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementRequest;
@@ -383,6 +389,42 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         return;
       }
       renewFlightEndpoint(request, context, new FlightEndpointListener(listener));
+    } else if (actionType.equals(FlightConstants.SET_SESSION_OPTIONS.getType())) {
+      final SetSessionOptionsRequest request;
+      try {
+        request = SetSessionOptionsRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack SetSessionOptionsRequest: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      setSessionOptions(request, context, new SetSessionOptionsResultListener(listener));
+    } else if (actionType.equals(FlightConstants.GET_SESSION_OPTIONS.getType())) {
+      final GetSessionOptionsRequest request;
+      try {
+        request = GetSessionOptionsRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack GetSessionOptionsRequest: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      getSessionOptions(request, context, new GetSessionOptionsResultListener(listener));
+    } else if (actionType.equals(FlightConstants.CLOSE_SESSION.getType())) {
+      final CloseSessionRequest request;
+      try {
+        request = CloseSessionRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack CloseSessionRequest: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      closeSession(request, context, new CloseSessionResultListener(listener));
     } else {
       throw CallStatus.INVALID_ARGUMENT
           .withDescription("Unrecognized request: " + action.getType())
@@ -470,6 +512,43 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         listener.onCompleted();
       }
     });
+  }
+
+  /**
+   * Set server session options(s).
+   *
+   * @param request The session options to set. For *DBC driver compatibility, servers
+   *                should support converting values from strings.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  default void setSessionOptions(SetSessionOptionsRequest request, CallContext context,
+                                StreamListener<SetSessionOptionsResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Get server session option(s).
+   *
+   * @param request The (empty) GetSessionOptionsRequest.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  default void getSessionOptions(GetSessionOptionsRequest request, CallContext context,
+                                StreamListener<GetSessionOptionsResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+  /**
+   * Close/invalidate the session.
+   *
+   * @param request The (empty) CloseSessionRequest.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  default void closeSession(CloseSessionRequest request, CallContext context,
+                                StreamListener<CloseSessionResult> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
   }
 
   /**

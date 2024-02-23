@@ -2930,6 +2930,9 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
 
+    CStatus ExportChunkedArray(shared_ptr[CChunkedArray], ArrowArrayStream*)
+    CResult[shared_ptr[CChunkedArray]] ImportChunkedArray(ArrowArrayStream*)
+
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     CResult[int64_t] ReferencedBufferSize(const CArray& array_data)

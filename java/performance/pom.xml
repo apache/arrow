@@ -81,7 +81,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.21</jmh.version>
+        <jmh.version>1.37</jmh.version>
         <javac.target>1.8</javac.target>
         <uberjar.name>benchmarks</uberjar.name>
         <skip.perf.benchmarks>true</skip.perf.benchmarks>

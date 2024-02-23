@@ -1098,7 +1098,7 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
-                                          output_schema()));
+                                          inputs[i]->output_schema()));
       ARROW_ASSIGN_OR_RAISE(
           auto input_state,
           InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),

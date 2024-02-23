@@ -177,6 +177,16 @@ std::string TypeToString(Type::type t) {
   }
 }
 
+std::string TypeToString(Type::type t, int type_length) {
+  auto s = TypeToString(t);
+  if (t == Type::FIXED_LEN_BYTE_ARRAY) {
+    s += '(';
+    s += std::to_string(type_length);
+    s += ')';
+  }
+  return s;
+}
+
 std::string ConvertedTypeToString(ConvertedType::type t) {
   switch (t) {
     case ConvertedType::NONE:
