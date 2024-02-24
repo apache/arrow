@@ -39,12 +39,14 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/validity_internal.h"
 
 namespace arrow {
 
 using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
+using internal::BitmapTag;
 using internal::CheckIndexBounds;
 using internal::OptionalBitBlockCounter;
 
@@ -343,17 +345,17 @@ struct PrimitiveTakeImpl {
     DCHECK_EQ(values.type->byte_width(), kValueWidth);
     const auto* values_data =
         values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
-
     const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
 
     auto out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
     auto out_offset = out_arr->offset;
     DCHECK_EQ(out_offset, 0);
+
+    arrow::internal::OptionalValidity<> values_is_valid(
+        values.length, values.buffers[0].data, values.null_count, values.offset);
+    arrow::internal::OptionalValidity<> indices_is_valid(
+        indices.length, indices.buffers[0].data, indices.null_count, indices.offset);
 
     // If either the values or indices have nulls, we preemptively zero out the
     // out validity bitmap so that we don't have to use ClearBit in each
@@ -375,7 +377,7 @@ struct PrimitiveTakeImpl {
       memset(out + position * kValueWidth, 0, kValueWidth * length);
     };
 
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
+    OptionalBitBlockCounter indices_bit_counter(indices_is_valid.bitmap, indices.offset,
                                                 indices.length);
     int64_t position = 0;
     int64_t valid_count = 0;
@@ -394,7 +396,7 @@ struct PrimitiveTakeImpl {
         } else if (block.popcount > 0) {
           // Slow path: some indices but not all are null
           for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
+            if (indices_is_valid.IsValid(position)) {
               // index is not null
               bit_util::SetBit(out_is_valid, out_offset + position);
               WriteValue(position);
@@ -412,8 +414,7 @@ struct PrimitiveTakeImpl {
         if (block.popcount == block.length) {
           // Faster path: indices are not null but values may be
           for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
+            if (values_is_valid.IsValid(indices_data[position])) {
               // value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
@@ -428,9 +429,8 @@ struct PrimitiveTakeImpl {
           // random access in general we have to check the value nullness one by
           // one.
           for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
+            if (indices_is_valid.IsValid(position) &&
+                values_is_valid.IsValid(indices_data[position])) {
               // index is not null && value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
