@@ -722,6 +722,9 @@ endif()
 
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
+# GH-40236: make generated C++ code easier to compile by disabling an
+# undocumented Cython feature.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--no-c-in-traceback")
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})
