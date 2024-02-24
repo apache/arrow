@@ -1327,7 +1327,7 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
-| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
+| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      | \(2)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
@@ -1342,6 +1342,8 @@ null input value is converted into a null output value.
   See `detailed formatting documentation`_ for descriptions of other flags.
 
 .. _detailed formatting documentation: https://howardhinnant.github.io/date/date.html#to_stream_formatting
+
+* \(2) The strptime kernel currently ignores the %Z specifier for any string.
 
 **Truth value extraction**
 
