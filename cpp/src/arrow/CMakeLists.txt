@@ -304,17 +304,14 @@ set_source_files_properties(vendored/datetime/tz.cpp
 add_definitions(-DURI_STATIC_BUILD)
 
 if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
   list(APPEND ARROW_SRCS util/compression_brotli.cc)
 endif()
 
 if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
   list(APPEND ARROW_SRCS util/compression_bz2.cc)
 endif()
 
 if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
   list(APPEND ARROW_SRCS util/compression_lz4.cc)
 endif()
 
@@ -323,17 +320,14 @@ if(ARROW_WITH_OPENTELEMETRY)
 endif()
 
 if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
   list(APPEND ARROW_SRCS util/compression_snappy.cc)
 endif()
 
 if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
   list(APPEND ARROW_SRCS util/compression_zlib.cc)
 endif()
 
 if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
@@ -493,10 +487,6 @@ if(ARROW_COMPUTE)
 endif()
 
 if(ARROW_FILESYSTEM)
-  if(ARROW_HDFS)
-    add_definitions(-DARROW_HDFS)
-  endif()
-
   list(APPEND
        ARROW_SRCS
        filesystem/filesystem.cc

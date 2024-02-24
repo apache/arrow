@@ -26,6 +26,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
