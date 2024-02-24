@@ -24,6 +24,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -375,6 +376,928 @@ func (s *SqlTestSuite) TestPreparedQuery() {
 	}
 	require.NoError(t, db.Close())
 	require.EqualValues(t, expected, actual)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsManualPrematureClose tests concurrent rows implementation for closing right after loading.
+// Is expected that rows' internal engine update its status, preventing errors and inconsistent further operations.
+func (s *SqlTestSuite) TestRowsManualPrematureClose() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsManualPrematureClose`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount int = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	rows, err := db.QueryContext(context.TODO(), sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	// Close Rows normally
+	require.NoError(t, rows.Close())
+
+	require.False(t, rows.Next())
+
+	// Safe double-closing
+	require.NoError(t, rows.Close())
+
+	// Columns() should return an error after rows.Close() (sql: Rows are closed)
+	columns, err := rows.Columns()
+	require.Error(t, err)
+	require.Empty(t, columns)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsNormalExhaustion tests concurrent rows implementation for normal query/netx/close operation
+func (s *SqlTestSuite) TestRowsNormalExhaustion() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsNormalExhaustion`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount int = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do Query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	var (
+		actualCount = 0
+		xid,
+		xvalue int
+		xname string
+	)
+
+	for rows.Next() {
+		require.NoError(t, rows.Scan(&xid, &xname, &xvalue))
+		actualCount++
+	}
+
+	require.Equal(t, rowCount, actualCount)
+	require.NoError(t, rows.Close())
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsPrematureCloseDuringNextLoop ensures that:
+// - closing during Next() loop doesn't trigger concurrency errors.
+// - the interation is properly/promptly interrupted.
+func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
+	t := s.T()
+
+	// Create and start the server.
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table.
+	const tableName = `TestRowsPrematureCloseDuringNextLoop`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	rows, err := db.QueryContext(context.TODO(), sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	const closeAfterNRows = 10
+	var (
+		i,
+		xid,
+		xvalue int
+		xname string
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&xid, &xname, &xvalue)
+		require.NoError(t, err)
+
+		i++
+		if i >= closeAfterNRows {
+			require.NoError(t, rows.Close())
+		}
+	}
+
+	require.Equal(t, closeAfterNRows, i)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsInterruptionByContextManualCancellation cancels the context before it starts retrieving rows.Next().
+// it gives time for cancellation propagation, and ensures that no further data was retrieved.
+func (s *SqlTestSuite) TestRowsInterruptionByContextManualCancellation() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsInterruptionByContextManualCancellation`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	defer rows.Close()
+
+	go cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+
+	require.Zero(t, count)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsInterruptionByContextTimeout forces a timeout, and ensures no further data is retrieved after that.
+func (s *SqlTestSuite) TestRowsInterruptionByContextTimeout() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsInterruptionByContextTimeout`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const (
+		timeout      = 1500 * time.Millisecond
+		sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	rows, err := db.QueryContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	defer rows.Close()
+
+	// eventually, after time.Sleep(), the context will be cancelled.
+	// then, rows.Next() should return false, and <-ctx.Done() will never be tested.
+	for rows.Next() {
+		select {
+		case <-ctx.Done():
+			t.Fatal("cancellation didn't prevent more records to be read")
+		default:
+			time.Sleep(time.Second)
+		}
+	}
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsManualPrematureCloseStmt tests concurrent rows implementation for closing right after loading.
+// Is expected that rows' internal engine update its status, preventing errors and inconsistent further operations.
+func (s *SqlTestSuite) TestRowsManualPrematureCloseStmt() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsManualPrematureCloseStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount int = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	// Close Rows normally
+	require.NoError(t, rows.Close())
+
+	require.False(t, rows.Next())
+
+	// Safe double-closing
+	require.NoError(t, rows.Close())
+
+	// Columns() should return an error after rows.Close() (sql: Rows are closed)
+	columns, err := rows.Columns()
+	require.Error(t, err)
+	require.Empty(t, columns)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsNormalExhaustionStmt tests concurrent rows implementation for normal query/netx/close operation
+func (s *SqlTestSuite) TestRowsNormalExhaustionStmt() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsNormalExhaustionStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount int = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do Query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	var (
+		actualCount = 0
+		xid,
+		xvalue int
+		xname string
+	)
+
+	for rows.Next() {
+		require.NoError(t, rows.Scan(&xid, &xname, &xvalue))
+		actualCount++
+	}
+
+	require.Equal(t, rowCount, actualCount)
+	require.NoError(t, rows.Close())
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsPrematureCloseDuringNextLoopStmt ensures that:
+// - closing during Next() loop doesn't trigger concurrency errors.
+// - the interation is properly/promptly interrupted.
+func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoopStmt() {
+	t := s.T()
+
+	// Create and start the server.
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table.
+	const tableName = `TestRowsPrematureCloseDuringNextLoopStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	const closeAfterNRows = 10
+	var (
+		i,
+		xid,
+		xvalue int
+		xname string
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&xid, &xname, &xvalue)
+		require.NoError(t, err)
+
+		i++
+		if i >= closeAfterNRows {
+			require.NoError(t, rows.Close())
+		}
+	}
+
+	require.Equal(t, closeAfterNRows, i)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsInterruptionByContextManualCancellationStmt cancels the context before it starts retrieving rows.Next().
+// it gives time for cancellation propagation, and ensures that no further data was retrieved.
+func (s *SqlTestSuite) TestRowsInterruptionByContextManualCancellationStmt() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsInterruptionByContextManualCancellationStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	defer rows.Close()
+
+	go cancel()
+
+	time.Sleep(100 * time.Millisecond)
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+
+	require.Zero(t, count)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
+// TestRowsInterruptionByContextTimeoutStmt forces a timeout, and ensures no further data is retrieved after that.
+func (s *SqlTestSuite) TestRowsInterruptionByContextTimeoutStmt() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+
+	defer s.stopServer(server)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+
+	defer db.Close()
+
+	// Create the table
+	const tableName = `TestRowsInterruptionByContextTimeoutStmt`
+	const ddlCreateTable = `CREATE TABLE ` + tableName + ` (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(300), value INT);`
+
+	_, err = db.Exec(ddlCreateTable)
+	require.NoError(t, err)
+
+	// generate data enough for chunked concurrent test:
+	const rowCount = 6000
+	const randStringLen = 250
+	const sqlInsert = `INSERT INTO ` + tableName + ` (name,value) VALUES `
+
+	gen := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	var sb strings.Builder
+	sb.WriteString(sqlInsert)
+
+	for i := 0; i < rowCount; i++ {
+		sb.WriteString(fmt.Sprintf(`('%s', %d),`, getRandomString(gen, randStringLen), gen.Int()))
+	}
+
+	insertQuery := strings.TrimSuffix(sb.String(), ",")
+
+	rs, err := db.Exec(insertQuery)
+	require.NoError(t, err)
+
+	insertedRows, err := rs.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(rowCount), insertedRows)
+
+	// Do query
+	const (
+		timeout      = 1500 * time.Millisecond
+		sqlSelectAll = `SELECT id, name, value FROM ` + tableName
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := db.PrepareContext(ctx, sqlSelectAll)
+	require.NoError(t, err)
+
+	rows, err := stmt.QueryContext(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+	require.NoError(t, rows.Err())
+
+	defer rows.Close()
+
+	// eventually, after time.Sleep(), the context will be cancelled.
+	// then, rows.Next() should return false, and <-ctx.Done() will never be tested.
+	for rows.Next() {
+		select {
+		case <-ctx.Done():
+			t.Fatal("cancellation didn't prevent more records to be read")
+		default:
+			time.Sleep(time.Second)
+		}
+	}
 
 	// Tear-down server
 	s.stopServer(server)
@@ -917,4 +1840,18 @@ func (s *MockServer) GetFlightInfoStatement(_ context.Context, query flightsql.S
 		TotalRecords: -1,
 		TotalBytes:   -1,
 	}, nil
+}
+
+const getRandomStringCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789. "
+
+var getRandomStringCharsetLen = len(getRandomStringCharset)
+
+func getRandomString(gen *rand.Rand, length int) string {
+	result := make([]byte, length)
+
+	for i := range result {
+		result[i] = getRandomStringCharset[rand.Intn(getRandomStringCharsetLen)]
+	}
+
+	return string(result)
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/apache/arrow/go/v16/arrow"
@@ -36,35 +37,76 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const recordChanBufferSizeDefault = 1
+
 type Rows struct {
-	schema        *arrow.Schema
-	records       []arrow.Record
-	currentRecord int
-	currentRow    int
+	// schema stores the row schema, like column names.
+	schema *arrow.Schema
+	// recordChan enables async reading from server, while client interates.
+	recordChan chan arrow.Record
+	// currentRecord stores a record with n>=0 rows.
+	currentRecord arrow.Record
+	// currentRow tracks the position (row) within currentRecord.
+	currentRow uint64
+	// initializedChan prevents the row being used before properly initialized.
+	initializedChan chan bool
+	// streamError stores the error that interrupted streaming.
+	streamError    error
+	streamErrorMux sync.RWMutex
+	// ctxCancelFunc when called, triggers the streaming cancelation.
+	ctxCancelFunc context.CancelFunc
+}
+
+func newRows() *Rows {
+	return &Rows{
+		recordChan:      make(chan arrow.Record, recordChanBufferSizeDefault),
+		initializedChan: make(chan bool),
+	}
+}
+
+func (r *Rows) setStreamError(err error) {
+	r.streamErrorMux.Lock()
+	defer r.streamErrorMux.Unlock()
+
+	r.streamError = err
+}
+
+func (r *Rows) getStreamError() error {
+	r.streamErrorMux.RLock()
+	defer r.streamErrorMux.RUnlock()
+
+	return r.streamError
 }
 
 // Columns returns the names of the columns.
 func (r *Rows) Columns() []string {
-	if len(r.records) == 0 {
+	if r.schema == nil {
 		return nil
 	}
 
-	// All records have the same columns
-	var cols []string
-	for _, c := range r.schema.Fields() {
-		cols = append(cols, c.Name)
+	// All records have the same columns.
+	cols := make([]string, len(r.schema.Fields()))
+	for i, c := range r.schema.Fields() {
+		cols[i] = c.Name
 	}
 
 	return cols
 }
 
+func (r *Rows) releaseRecord() {
+	if r.currentRecord != nil {
+		r.currentRecord.Release()
+		r.currentRecord = nil
+	}
+}
+
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-	for _, rec := range r.records {
-		rec.Release()
-	}
-	r.currentRecord = 0
+	r.ctxCancelFunc() // interrupting data streaming.
+
 	r.currentRow = 0
+
+	r.releaseRecord()
 
 	return nil
 }
@@ -79,28 +121,37 @@ func (r *Rows) Close() error {
 // should be taken when closing Rows not to modify
 // a buffer held in dest.
 func (r *Rows) Next(dest []driver.Value) error {
-	if r.currentRecord >= len(r.records) {
-		return io.EOF
-	}
-	record := r.records[r.currentRecord]
+	if r.currentRecord == nil || int64(r.currentRow) >= r.currentRecord.NumRows() {
+		if err := r.getStreamError(); err != nil {
+			return err
+		}
 
-	if int64(r.currentRow) >= record.NumRows() {
-		return ErrOutOfRange
+		r.releaseRecord()
+
+		// Get the next record from the channel
+		var ok bool
+		if r.currentRecord, ok = <-r.recordChan; !ok {
+			return io.EOF // Channel closed, no more records
+		}
+
+		r.currentRow = 0
+
+		// safety double-check
+		if r.currentRecord == nil || int64(r.currentRow) >= r.currentRecord.NumRows() {
+			return io.EOF // Channel closed, no more records
+		}
 	}
 
-	for i, arr := range record.Columns() {
-		v, err := fromArrowType(arr, r.currentRow)
+	for i, col := range r.currentRecord.Columns() {
+		v, err := fromArrowType(col, int(r.currentRow))
 		if err != nil {
 			return err
 		}
+
 		dest[i] = v
 	}
 
 	r.currentRow++
-	if int64(r.currentRow) >= record.NumRows() {
-		r.currentRecord++
-		r.currentRow = 0
-	}
 
 	return nil
 }
@@ -226,19 +277,14 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
-	rows := Rows{}
-	for _, endpoint := range info.Endpoint {
-		schema, records, err := readEndpoint(ctx, s.client, endpoint)
-		if err != nil {
-			return &rows, err
-		}
-		if rows.schema == nil {
-			rows.schema = schema
-		}
-		rows.records = append(rows.records, records...)
-	}
+	rows := newRows()
+	ctx, rows.ctxCancelFunc = context.WithCancel(ctx)
 
-	return &rows, nil
+	go rows.streamRecordset(ctx, s.client, info.Endpoint)
+
+	<-rows.initializedChan // waits the rows proper initialization.
+
+	return rows, nil
 }
 
 func (s *Stmt) setParameters(args []driver.NamedValue) error {
@@ -462,43 +508,70 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 		return nil, err
 	}
 
-	rows := Rows{}
-	for _, endpoint := range info.Endpoint {
-		schema, records, err := readEndpoint(ctx, c.client, endpoint)
-		if err != nil {
-			return &rows, err
-		}
-		if rows.schema == nil {
-			rows.schema = schema
-		}
-		rows.records = append(rows.records, records...)
-	}
+	rows := newRows()
+	ctx, rows.ctxCancelFunc = context.WithCancel(ctx)
 
-	return &rows, nil
+	go rows.streamRecordset(ctx, c.client, info.Endpoint)
 
+	<-rows.initializedChan // waits the rows proper initialization.
+
+	return rows, nil
 }
 
-func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *flight.FlightEndpoint) (*arrow.Schema, []arrow.Record, error) {
-	reader, err := client.DoGet(ctx, endpoint.GetTicket())
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting ticket failed: %w", err)
-	}
-	defer reader.Release()
+func (r *Rows) streamRecordset(ctx context.Context, c *flightsql.Client, endpoints []*flight.FlightEndpoint) {
+	defer close(r.recordChan)
 
-	schema := reader.Schema()
-	var records []arrow.Record
-	for reader.Next() {
-		if record := reader.Record(); record.NumRows() > 0 {
-			record.Retain()
-			records = append(records, record)
+	// initializeOnceOnly ensures the {r.initializedChan} is valued once only, preventing a deadlock.
+	initializeOnceOnly := &sync.Once{}
+
+	defer func() { // in case of error, init anyway.
+		initializeOnceOnly.Do(func() { r.initializedChan <- true })
+	}()
+
+	// reads each endpoint.
+	for _, endpoint := range endpoints {
+		if ctx.Err() != nil {
+			r.setStreamError(fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err()))
+			return
 		}
-	}
 
-	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return nil, nil, err
-	}
+		func() { // with a func() is possible to {defer reader.Release()}.
+			reader, err := c.DoGet(ctx, endpoint.GetTicket())
+			if err != nil {
+				r.setStreamError(fmt.Errorf("getting ticket failed: %w", err))
+				return
+			}
 
-	return schema, records, nil
+			defer reader.Release()
+
+			r.schema = reader.Schema()
+
+			// reads each record into a blocking channel
+			for reader.Next() {
+				if ctx.Err() != nil {
+					r.setStreamError(fmt.Errorf("recordset streaming interrupted by context error: %w", ctx.Err()))
+					return
+				}
+
+				record := reader.Record()
+				record.Retain()
+
+				if record.NumRows() < 1 {
+					record.Release()
+					continue
+				}
+
+				r.recordChan <- record
+
+				go initializeOnceOnly.Do(func() { r.initializedChan <- true })
+			}
+
+			if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+				r.setStreamError(err)
+				return
+			}
+		}()
+	}
 }
 
 // Close invalidates and potentially stops any current
