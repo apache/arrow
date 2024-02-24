@@ -396,7 +396,7 @@ struct PrimitiveTakeImpl {
         } else if (block.popcount > 0) {
           // Slow path: some indices but not all are null
           for (int64_t i = 0; i < block.length; ++i) {
-            if (indices_is_valid.IsValid(position)) {
+            if (indices_is_valid.IsValid<BitmapTag::kChecked>(position)) {
               // index is not null
               bit_util::SetBit(out_is_valid, out_offset + position);
               WriteValue(position);
@@ -414,7 +414,7 @@ struct PrimitiveTakeImpl {
         if (block.popcount == block.length) {
           // Faster path: indices are not null but values may be
           for (int64_t i = 0; i < block.length; ++i) {
-            if (values_is_valid.IsValid(indices_data[position])) {
+            if (values_is_valid.IsValid<BitmapTag::kChecked>(indices_data[position])) {
               // value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
@@ -429,8 +429,8 @@ struct PrimitiveTakeImpl {
           // random access in general we have to check the value nullness one by
           // one.
           for (int64_t i = 0; i < block.length; ++i) {
-            if (indices_is_valid.IsValid(position) &&
-                values_is_valid.IsValid(indices_data[position])) {
+            if (indices_is_valid.IsValid<BitmapTag::kChecked>(position) &&
+                values_is_valid.IsValid<BitmapTag::kChecked>(indices_data[position])) {
               // index is not null && value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, out_offset + position);
