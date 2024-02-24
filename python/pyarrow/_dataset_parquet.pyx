@@ -565,41 +565,41 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
     Parameters
     ----------
-    use_dictionary: bool, default True
+    use_dictionary : bool, default True
         Whether to use dictionary encoding for string and binary columns.
-    compression: str, default "snappy"
+    compression : str, default "snappy"
         The compression codec to use. Valid options include "snappy", "gzip",
         "brotli", and "lz4".
-    version: str, default "2.6"
+    version : str, default "2.6"
         The Parquet file version to write.
-    write_statistics: bool, default None
+    write_statistics : bool, default None
         Whether to write column statistics to the file.
-    data_page_size: int, default None
+    data_page_size : int, default None
         The size (in bytes) of data pages.
-    compression_level: int, default None
+    compression_level : int, default None
         The compression level to use. Valid values range from 0 (no
         compression) to 9 (highest compression).
-    use_byte_stream_split: bool, default False
+    use_byte_stream_split : bool, default False
         Whether to split byte stream columns (e.g. UTF-8 strings) into
         multiple Parquet columns.
-    column_encoding: dict, default None
+    column_encoding : dict, default None
         A dictionary mapping column names to encoding types. Valid encoding
         types include "plain", "plain_dictionary", "rle", and
         "bit_packed".
-    data_page_version: str, default "1.0"
+    data_page_version : str, default "1.0"
         The Parquet data page version to write.
-    use_deprecated_int96_timestamps: bool, default False
+    use_deprecated_int96_timestamps : bool, default False
         Whether to use the deprecated INT96 format for timestamps.
-    coerce_timestamps: bool, default None
+    coerce_timestamps : bool, default None
         Whether to coerce timestamps to a particular time zone. If None,
         timestamps will be written in their original time zone.
-    allow_truncated_timestamps: bool, default False
+    allow_truncated_timestamps : bool, default False
         Whether to allow timestamps to be truncated if they are outside of the
         representable range of the Parquet format.
-    use_compliant_nested_type: bool, default True
+    use_compliant_nested_type : bool, default True
         Whether to use the compliant nested type representation for nested
         types.
-    encryption_config: ParquetEncryptionConfiguration, default None
+    encryption_config : ParquetEncryptionConfiguration, default None
         The encryption configuration to use.
 
     Examples
