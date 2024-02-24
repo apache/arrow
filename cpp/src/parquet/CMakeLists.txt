@@ -422,27 +422,3 @@ add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
-
-if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-endif()
-
-if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
-endif()
-
-if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-endif()
-
-if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-endif()
-
-if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-endif()

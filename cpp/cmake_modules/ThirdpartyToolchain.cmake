@@ -2585,7 +2585,6 @@ if(ARROW_WITH_RE2)
                      TRUE
                      PC_PACKAGE_NAMES
                      re2)
-  add_definitions(-DARROW_WITH_RE2)
 endif()
 
 macro(build_bzip2)
@@ -2693,7 +2692,6 @@ if(ARROW_WITH_UTF8PROC)
                      libutf8proc
                      REQUIRED_VERSION
                      "2.2.0")
-  add_definitions(-DARROW_WITH_UTF8PROC)
 endif()
 
 macro(build_cares)

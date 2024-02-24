@@ -20,6 +20,7 @@
 #include "arrow/array.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
