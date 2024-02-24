@@ -848,8 +848,8 @@ if(ARROW_WITH_RE2)
 endif()
 
 if(ARROW_WITH_RAPIDJSON)
-  list(APPEND ARROW_SHARED_LINK_LIBS rapidjson::rapidjson)
-  list(APPEND ARROW_STATIC_LINK_LIBS rapidjson::rapidjson)
+  list(APPEND ARROW_SHARED_LINK_LIBS RapidJSON)
+  list(APPEND ARROW_STATIC_LINK_LIBS RapidJSON)
 endif()
 
 if(ARROW_USE_XSIMD)
