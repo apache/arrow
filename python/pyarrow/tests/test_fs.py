@@ -1905,16 +1905,18 @@ def test_s3_finalize_region_resolver():
         """
     subprocess.check_call([sys.executable, "-c", code])
 
+
 @pytest.mark.s3
 def test_concurrent_fs_init():
     code = """if 1:
         import threading
         import pytest
-        from pyarrow.fs import (FileSystem, S3FileSystem
-                                ensure_s3_initialized, finalize_s3) 
+        from pyarrow.fs import (FileSystem, S3FileSystem,
+                                ensure_s3_initialized, finalize_s3)
         threads = []
+        fn = lambda: FileSystem.from_uri('s3://mf-nwp-models/README.txt')
         for i in range(4):
-            thread = threading.Thread(target = lambda: FileSystem.from_uri('s3://mf-nwp-models/README.txt'))
+            thread = threading.Thread(target = fn)
             threads.append(thread)
             thread.start()
 
@@ -1922,4 +1924,5 @@ def test_concurrent_fs_init():
             thread.join()
 
         finalize_s3()
-    """
+        """
+    subprocess.check_call([sys.executable, "-c", code])
