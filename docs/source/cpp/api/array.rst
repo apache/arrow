@@ -89,3 +89,15 @@ Utilities
    :project: arrow_cpp
    :members:
    :undoc-members:
+
+Aliases
+=======
+
+.. doxygentypedef:: arrow::ArrayDataVector
+   :project: arrow_cpp
+
+.. doxygentypedef:: arrow::ArrayVector
+   :project: arrow_cpp
+
+.. doxygentypedef:: arrow::ChunkedArrayVector
+   :project: arrow_cpp

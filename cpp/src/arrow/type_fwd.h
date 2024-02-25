@@ -73,8 +73,11 @@ struct ArraySpan;
 class ArrayBuilder;
 struct Scalar;
 
+/// \typedef ArrayDataVector
 using ArrayDataVector = std::vector<std::shared_ptr<ArrayData>>;
+/// \typedef ArrayVector
 using ArrayVector = std::vector<std::shared_ptr<Array>>;
+/// \typedef ScalarVector
 using ScalarVector = std::vector<std::shared_ptr<Scalar>>;
 
 class ChunkedArray;
@@ -85,8 +88,11 @@ class Table;
 struct Datum;
 struct TypeHolder;
 
+/// \typedef ChunkedArrayVector
 using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
+/// \typedef RecordBatchVector
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
+/// \typedef RecordBatchIterator
 using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class DictionaryType;

@@ -47,3 +47,12 @@ Tables
 .. doxygengroup:: promote-table-to-schema
    :project: arrow_cpp
    :content-only:
+
+Aliases
+=======
+
+.. doxygentypedef:: arrow::RecordBatchVector
+   :project: arrow_cpp
+
+.. doxygentypedef:: arrow::RecordBatchIterator
+   :project: arrow_cpp
