@@ -44,5 +44,6 @@ Tables
 .. doxygenfunction:: arrow::ConcatenateTables
    :project: arrow_cpp
 
-.. doxygenfunction:: arrow::PromoteTableToSchema
+.. doxygengroup:: promote-table-to-schema
    :project: arrow_cpp
+   :content-only:

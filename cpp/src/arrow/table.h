@@ -317,6 +317,9 @@ namespace compute {
 class CastOptions;
 }
 
+/// \defgroup promote-table-to-schema Schema Promotion
+/// @{
+
 /// \brief Promotes a table to conform to the given schema.
 ///
 /// If a field in the schema does not have a corresponding column in
@@ -363,5 +366,7 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
     const compute::CastOptions& options, MemoryPool* pool = default_memory_pool());
+
+/// @}
 
 }  // namespace arrow
