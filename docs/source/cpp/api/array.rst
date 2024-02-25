@@ -19,6 +19,9 @@
 Arrays
 ======
 
+Base classes
+============
+
 .. doxygenclass:: arrow::ArrayData
    :project: arrow_cpp
    :members:
@@ -75,6 +78,10 @@ Chunked Arrays
 ==============
 
 .. doxygenclass:: arrow::ChunkedArray
+   :project: arrow_cpp
+   :members:
+
+.. doxygenstruct:: arrow::ChunkLocation
    :project: arrow_cpp
    :members:
 
