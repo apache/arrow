@@ -17,6 +17,8 @@
 
 #include "arrow/util/logging.h"
 
+#include "arrow/util/config.h"
+
 #ifdef ARROW_WITH_BACKTRACE
 #include <execinfo.h>
 #endif
@@ -28,7 +30,7 @@
 #include <signal.h>
 #include <vector>
 
-#include "glog/logging.h"
+#include <glog/logging.h>
 
 // Restore our versions of DCHECK and friends, as GLog defines its own
 #undef DCHECK
