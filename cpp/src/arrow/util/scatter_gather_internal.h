@@ -39,42 +39,59 @@ inline namespace scatter_gather_internal {
 template <int kValueWidth, typename IndexCType>
 class Gather {
  private:
-  const int64_t src_length_;  // number of elements of kValueWidth bytes in src
-  const int64_t idx_length_;  // number IndexCType elements in idx
+  const int64_t src_length_;  // number of elements of kValueWidth bytes in src_
+  const uint8_t* src_;
+  const int64_t idx_length_;  // number IndexCType elements in idx_
+  const IndexCType* idx_;
+  uint8_t* out_;
 
- public:
-  Gather(int64_t src_length, int64_t idx_length)
-      : src_length_(src_length), idx_length_(idx_length) {}
+  void WriteValue(int64_t position) {
+    memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
+           kValueWidth);
+  }
+
+  void WriteZero(int64_t position) {
+    memset(out_ + position * kValueWidth, 0, kValueWidth);
+  }
+
+  void WriteZeroSegment(int64_t position, int64_t length) {
+    memset(out_ + position * kValueWidth, 0, kValueWidth * length);
+  }
 
   template <class SrcValidity, class IdxValidity>
-  ARROW_FORCE_INLINE int64_t Execute(const SrcValidity& src_validity, const uint8_t* src,
-                                     const IdxValidity& idx_validity,
-                                     const IndexCType* idx, uint8_t* out,
-                                     uint8_t* out_is_valid) {
+  static constexpr bool EitherMightHaveNulls =
+      SrcValidity::kMayHaveBitmap || IdxValidity::kMayHaveBitmap;
+
+ public:
+  Gather(int64_t src_length, const uint8_t* src, int64_t idx_length,
+         const IndexCType* idx, uint8_t* out)
+      : src_length_(src_length),
+        src_(src),
+        idx_length_(idx_length),
+        idx_(idx),
+        out_(out) {
+    assert(src && idx && out);
+  }
+
+  ARROW_FORCE_INLINE
+  int64_t Execute() {
+    for (int64_t position = 0; position < idx_length_; position++) {
+      memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
+             kValueWidth);
+    }
+    return idx_length_;
+  }
+
+  /// \pre Bits in out_is_valid are already zeroed out.
+  /// \post The bits for the valid elements (and only those) are set in out_is_valid.
+  /// \return The number of valid elements in out.
+  template <class SrcValidity, class IdxValidity>
+  ARROW_FORCE_INLINE
+      std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
+      Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
     assert(src_length_ == src_validity.length);
     assert(idx_length_ == idx_validity.length);
-    assert((!src_validity.HasBitmap() && !idx_validity.HasBitmap()) ||
-           out_is_valid &&
-               "(src_validity || idx_validity) implies out_is_valid is provided");
-    // If either src or idx have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (src_validity.null_count != 0 || idx_validity.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, 0, idx_length_, false);
-    }
-
-    auto WriteValue = [&](int64_t position) {
-      memcpy(out + position * kValueWidth, src + idx[position] * kValueWidth,
-             kValueWidth);
-    };
-
-    auto WriteZero = [&](int64_t position) {
-      memset(out + position * kValueWidth, 0, kValueWidth);
-    };
-
-    auto WriteZeroSegment = [&](int64_t position, int64_t length) {
-      memset(out + position * kValueWidth, 0, kValueWidth * length);
-    };
+    assert(out_is_valid);
 
     OptionalBitBlockCounter indices_bit_counter(idx_validity.bitmap, idx_validity.offset,
                                                 idx_length_);
@@ -113,7 +130,7 @@ class Gather {
         if (block.popcount == block.length) {
           // Faster path: indices are not null but values may be
           for (int64_t i = 0; i < block.length; ++i) {
-            if (src_validity.template IsValid<BitmapTag::kChecked>(idx[position])) {
+            if (src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
               // value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, position);
@@ -129,7 +146,7 @@ class Gather {
           // one.
           for (int64_t i = 0; i < block.length; ++i) {
             if (idx_validity.template IsValid<BitmapTag::kChecked>(position) &&
-                src_validity.template IsValid<BitmapTag::kChecked>(idx[position])) {
+                src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
               // index is not null && value is not null
               WriteValue(position);
               bit_util::SetBit(out_is_valid, position);
