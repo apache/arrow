@@ -64,7 +64,7 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
   return reader;
 }
 
-CastingRecordBatchReader::CastingRecordBatchReader() {}
+CastingRecordBatchReader::CastingRecordBatchReader() = default;
 
 Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
                                       std::shared_ptr<Schema> schema) {
