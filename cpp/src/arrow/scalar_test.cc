@@ -16,6 +16,7 @@
 // under the License.
 
 #include <chrono>
+#include <future>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -23,7 +24,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include <future>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -1986,40 +1986,55 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
 }
 
 template <typename T>
-class TestScalarScratchSpace : public ::testing::Test {
- public:
-  TestScalarScratchSpace() = default;
+struct TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits {
+  using DataType = T;
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  static std::shared_ptr<ScalarType> MakeScalar() {
+    std::string value = "test data";
+    return std::make_shared<ScalarType>(value);
+  }
 };
 
-TYPED_TEST_SUITE(TestScalarScratchSpace, BaseBinaryOrBinaryViewLikeArrowTypes);
+using TestFillArraySpanBaseBinaryOrBinaryViewLikeTypes =
+    ::testing::Types<TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<BinaryType>,
+                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<LargeBinaryType>,
+                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<BinaryViewType>,
+                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<StringType>,
+                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<LargeStringType>,
+                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<StringViewType>>;
+
+template <typename T>
+class TestFillArraySpan : public ::testing::Test {
+ public:
+  TestFillArraySpan() = default;
+};
+
+TYPED_TEST_SUITE(TestFillArraySpan, TestFillArraySpanBaseBinaryOrBinaryViewLikeTypes);
 
 // GH-40069: race condition when filling the scratch space of a scalar in parallel.
-TYPED_TEST(TestScalarScratchSpace, ParallelFillScratchSpace) {
-  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+TYPED_TEST(TestFillArraySpan, ParallelFill) {
+  using DataType = typename TypeParam::DataType;
+  // using ddScalarType = typename TypeParam::ScalarType;
 
-  std::string value = "test data";
+  auto scalar_val = TypeParam::MakeScalar();
 
-  auto scalar_val = std::make_shared<ScalarType>(value);
-  // ASSERT_EQ(value, scalar_val->value);
-  ASSERT_TRUE(scalar_val->is_valid);
-  ASSERT_OK(scalar_val->ValidateFull());
+  // Lambda to fill an ArraySpan with the scalar (and consequently fill the scratch
+  // space of the scalar), and use the ArraySpan a bit.
+  auto array_span_from_scalar = [&]() {
+    auto expected_type = TypeTraits<DataType>::type_singleton();
 
-  auto expected_type = TypeTraits<TypeParam>::type_singleton();
-  ASSERT_TRUE(scalar_val->type->Equals(*expected_type));
-
-  ArraySpan span1, span2;
-
-  auto fut1 = std::async(std::launch::async, [&]() {
-    span1.FillFromScalar(*scalar_val);
-  });
-  auto fut2 = std::async(std::launch::async, [&]() {
-    span2.FillFromScalar(*scalar_val);
-  });
+    ArraySpan span;
+    span.FillFromScalar(*scalar_val);
+    ASSERT_TRUE(span.type->Equals(*expected_type));
+    ASSERT_EQ(span.length, 1);
+  };
+  // Two concurrent calls to the lambda are just enough for TSAN to report a race
+  // condition.
+  auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+  auto fut2 = std::async(std::launch::async, array_span_from_scalar);
   fut1.wait();
   fut2.wait();
-
-  ASSERT_EQ(span1.length, 1);
-  ASSERT_EQ(span2.length, 1);
 }
 
 }  // namespace arrow
