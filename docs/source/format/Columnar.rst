@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-:ref:`*Version: 1.4* <format-version-1-4>`
+:ref:`Version: 1.4 <format-version-1-4>`
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
