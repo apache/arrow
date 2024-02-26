@@ -793,8 +793,8 @@ cdef class RecordBatchReader(_Weakrefable):
 
         if self.schema.names != target_schema.names:
             raise ValueError("Target schema's field names are not matching "
-                             "the table's field names: {!r}, {!r}"
-                             .format(self.schema.names, target_schema.names))
+                             f"the table's field names: {self.schema.names}, "
+                             f"{target_schema.names}")
 
         c_schema = pyarrow_unwrap_schema(target_schema)
         c_reader = GetResultValue(CCastingRecordBatchReader.Make(
