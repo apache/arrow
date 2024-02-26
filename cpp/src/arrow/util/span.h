@@ -59,7 +59,8 @@ writing code which would break when it is replaced by std::span.)");
   template <
       typename R,
       typename DisableUnlessConstructibleFromDataAndSize =
-          decltype(span<T>(std::data(std::declval<R>()), std::size(std::declval<R>()))),
+          std::enable_if_t<std::is_convertible_v< std::remove_pointer_t<decltype(std::data(std::declval<R&>()))> (*)[],
+                                              T(*)[]>>,
       typename DisableUnlessSimilarTypes = std::enable_if_t<std::is_same_v<
           std::decay_t<std::remove_pointer_t<decltype(std::data(std::declval<R>()))>>,
           std::decay_t<T>>>>
