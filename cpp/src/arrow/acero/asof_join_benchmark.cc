@@ -144,23 +144,23 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 
   for (int freq : {200, 400, 1000}) {
     bench->Args({freq, default_cols, default_ids, default_batch_size, default_num_tables,
-                 freq, default_cols, default_ids});
+                 freq, default_cols, default_ids, default_batch_size});
   }
   for (int cols : {10, 20, 100}) {
     bench->Args({default_freq, cols, default_ids, default_batch_size, default_num_tables,
-                 default_freq, cols, default_ids});
+                 default_freq, cols, default_ids, default_batch_size});
   }
   for (int ids : {100, 500, 1000}) {
     bench->Args({default_freq, default_cols, ids, default_batch_size, default_num_tables,
-                 default_freq, default_cols, ids});
+                 default_freq, default_cols, ids, default_batch_size});
   }
   for (int num_tables : {1, 10, 50}) {
     bench->Args({default_freq, default_cols, default_ids, default_batch_size, num_tables,
-                 default_freq, default_cols, default_ids});
+                 default_freq, default_cols, default_ids, default_batch_size});
   }
   for (int batch_size : {1000, 4000, 32000}) {
     bench->Args({default_freq, default_cols, default_ids, batch_size, default_num_tables,
-                 default_freq, default_cols, default_ids});
+                 default_freq, default_cols, default_ids, batch_size});
   }
 }
 
