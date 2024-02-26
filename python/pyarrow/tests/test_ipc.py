@@ -1241,7 +1241,7 @@ def test_record_batch_reader_from_arrow_stream():
 
 
 def test_record_batch_reader_cast():
-    schema_src = pa.schema([pa.field("a", pa.int64())])
+    schema_src = pa.schema([pa.field('a', pa.int64())])
     data = [
         pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
         pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a']),
@@ -1265,7 +1265,7 @@ def test_record_batch_reader_cast():
     # Check error for impossible cast in call to .cast()
     reader = pa.RecordBatchReader.from_batches(schema_src, data)
     with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
-        reader.cast(pa.schema([pa.field("a", pa.list_(pa.int32()))]))
+        reader.cast(pa.schema([pa.field('a', pa.list_(pa.int32()))]))
 
 
 def test_record_batch_reader_cast_nulls():
