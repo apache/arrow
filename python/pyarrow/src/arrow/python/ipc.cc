@@ -80,9 +80,9 @@ Status CastingRecordBatchReader::Init(std::shared_ptr<RecordBatchReader> parent,
   // Ensure all columns can be cast before succeeding
   for (int i = 0; i < num_fields; i++) {
     if (!compute::CanCast(*src->field(i)->type(), *schema->field(i)->type())) {
-      return Status::NotImplemented("Field ", i, " cannot be cast from ",
-                                    src->field(i)->type()->ToString(), " to ",
-                                    schema->field(i)->type()->ToString());
+      return Status::TypeError("Field ", i, " cannot be cast from ",
+                               src->field(i)->type()->ToString(), " to ",
+                               schema->field(i)->type()->ToString());
     }
   }
 

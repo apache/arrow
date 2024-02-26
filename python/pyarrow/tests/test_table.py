@@ -642,7 +642,7 @@ def test_table_c_stream_interface():
 
     # If schema doesn't match, raises NotImplementedError
     with pytest.raises(
-        pa.lib.ArrowNotImplementedError, match="Field 0 cannot be cast"
+        pa.lib.ArrowTypeError, match="Field 0 cannot be cast"
     ):
         pa.table(
             wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
