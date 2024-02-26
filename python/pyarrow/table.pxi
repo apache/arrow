@@ -2701,7 +2701,8 @@ cdef class RecordBatch(_Tabular):
         # Wrap the more general Table cast implementation
         tbl = Table.from_batches([self])
         casted_tbl = tbl.cast(target_schema, safe=safe, options=options)
-        return list(casted_tbl.to_batches())[0]
+        casted_batch, = casted_tbl.to_batches()
+        return casted_batch
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
