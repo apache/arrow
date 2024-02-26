@@ -46,6 +46,9 @@ jobs:
           # brew install sccache
           # remove cmake so that we can test our cmake downloading abilities
           brew uninstall cmake
+          # install GNU libtool to ensure that we simulate the CRAN macOS builders
+          brew install libtool
+          echo "/usr/local/opt/libtool/libexec/gnubin" >> $GITHUB_PATH
       - name: Configure dependencies (linux)
         if: contains(matrix.os, 'ubuntu')
         run: |
@@ -76,6 +79,7 @@ jobs:
           LIBARROW_BINARY: false
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
+          echo "$PATH"
           sccache --start-server || echo 'sccache not found'
           cd arrow/r
           R CMD INSTALL . --install-tests

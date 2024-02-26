@@ -97,8 +97,18 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
-    set(BUNDLE_COMMAND "libtool" "-no_warning_for_no_symbols" "-static" "-o"
-                       ${output_lib_path} ${all_library_paths})
+    execute_process(COMMAND "libtool" -V
+    OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if("${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
+      # this is the macOS provided libtool
+      set(BUNDLE_COMMAND "libtool" "-no_warning_for_no_symbols" "-static" "-o"
+      ${output_lib_path} ${all_library_paths})
+    else()
+      # this is the GNU libtool, but we should be able to find the macos libtool we want
+      set(BUNDLE_COMMAND "/usr/bin/libtool" "-no_warning_for_no_symbols" "-static" "-o"
+          ${output_lib_path} ${all_library_paths})
+    endif()
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
