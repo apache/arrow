@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <future>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -1982,6 +1983,43 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   AssertValidationFails(*invalid_storage);
   scalar = ExtensionScalar(invalid_storage, type_);
   AssertValidationFails(scalar);
+}
+
+template <typename T>
+class TestScalarScratchSpace : public ::testing::Test {
+ public:
+  TestScalarScratchSpace() = default;
+};
+
+TYPED_TEST_SUITE(TestScalarScratchSpace, BaseBinaryOrBinaryViewLikeArrowTypes);
+
+// GH-40069: race condition when filling the scratch space of a scalar in parallel.
+TYPED_TEST(TestScalarScratchSpace, ParallelFillScratchSpace) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+
+  std::string value = "test data";
+
+  auto scalar_val = std::make_shared<ScalarType>(value);
+  // ASSERT_EQ(value, scalar_val->value);
+  ASSERT_TRUE(scalar_val->is_valid);
+  ASSERT_OK(scalar_val->ValidateFull());
+
+  auto expected_type = TypeTraits<TypeParam>::type_singleton();
+  ASSERT_TRUE(scalar_val->type->Equals(*expected_type));
+
+  ArraySpan span1, span2;
+
+  auto fut1 = std::async(std::launch::async, [&]() {
+    span1.FillFromScalar(*scalar_val);
+  });
+  auto fut2 = std::async(std::launch::async, [&]() {
+    span2.FillFromScalar(*scalar_val);
+  });
+  fut1.wait();
+  fut2.wait();
+
+  ASSERT_EQ(span1.length, 1);
+  ASSERT_EQ(span2.length, 1);
 }
 
 }  // namespace arrow
