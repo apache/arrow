@@ -293,6 +293,13 @@ struct CastFunctor<
   }
 };
 
+template <>
+struct CastFunctor<HalfFloatType, StringType, enable_if_t<true>> {
+    static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+        return applicator::ScalarUnaryNotNull<HalfFloatType, StringType, ParseString<HalfFloatType>>::Exec(ctx, batch, out);
+    }
+};
+
 // ----------------------------------------------------------------------
 // Decimal to integer
 
@@ -838,6 +845,13 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   auto cast_half_float =
       std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
   AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
+
+  // Cast from other strings to half float.
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
+    DCHECK_OK(cast_half_float->AddKernel(in_ty->id(), {in_ty}, TypeTraits<HalfFloatType>::type_singleton(), exec));
+  }
+
   DCHECK_OK(cast_half_float.get()->AddKernel(Type::FLOAT,
       {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
   DCHECK_OK(cast_half_float.get()->AddKernel(Type::DOUBLE,
