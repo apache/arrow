@@ -1226,10 +1226,15 @@ def test_record_batch_reader_from_arrow_stream():
     reader = pa.RecordBatchReader.from_stream(wrapper, schema=data[0].schema)
     assert reader.read_all() == expected
 
-    # If schema doesn't match, raises NotImplementedError
-    with pytest.raises(NotImplementedError):
+    # Passing a different but castable schema works
+    good_schema = pa.schema([pa.field("a", pa.int32())])
+    reader = pa.RecordBatchReader.from_stream(wrapper, schema=good_schema)
+    assert reader.read_all() == expected.cast(good_schema)
+
+    # If schema doesn't match, raises TypeError
+    with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
         pa.RecordBatchReader.from_stream(
-            wrapper, schema=pa.schema([pa.field('a', pa.int32())])
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
         )
 
     # Proper type errors for wrong input
