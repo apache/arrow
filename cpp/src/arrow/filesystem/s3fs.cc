@@ -2899,9 +2899,12 @@ struct AwsInstance {
       return Status::Invalid("Attempt to initialize S3 after it has been finalized");
     }
     bool newly_initialized = false;
+    // EnsureInitialized() can be called concurrently by FileSystemFromUri,
+    // therefore we need to serialize initialization (GH-39897).
     std::call_once(initialize_flag_, [&]() {
+      bool was_initialized = is_initialized_.exchange(true);
+      DCHECK(!was_initialized);
       DoInitialize(options);
-      is_initialized_.exchange(true);
       newly_initialized = true;
     });
     return newly_initialized;
