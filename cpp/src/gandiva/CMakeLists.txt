@@ -98,13 +98,12 @@ if(WIN32 AND NOT CMAKE_VERSION VERSION_LESS 3.18)
 endif()
 
 set(GANDIVA_SHARED_LINK_LIBS arrow_shared LLVM::LLVM_HEADERS)
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS re2::re2 ${GANDIVA_OPENSSL_LIBS}
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_LIBS}
                                      Boost::headers)
 set(GANDIVA_STATIC_LINK_LIBS
     arrow_static
     LLVM::LLVM_HEADERS
     LLVM::LLVM_LIBS
-    re2::re2
     ${GANDIVA_OPENSSL_LIBS}
     Boost::headers)
 if(ARROW_USE_XSIMD)
@@ -122,8 +121,7 @@ endif()
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX
                                       ))
-  set(GANDIVA_STATIC_LINK_LIBS ${GANDIVA_STATIC_LINK_LIBS} -static-libstdc++
-                               -static-libgcc)
+  list(APPEND GANDIVA_STATIC_LINK_LIBS -static-libstdc++ -static-libgcc)
 endif()
 
 # if (MSVC)
@@ -135,10 +133,8 @@ endif()
 #   endforeach()
 # endif()
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
-  set(GANDIVA_VERSION_SCRIPT_FLAGS
-      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
-  set(GANDIVA_SHARED_LINK_FLAGS
-      "${GANDIVA_SHARED_LINK_FLAGS} ${GANDIVA_VERSION_SCRIPT_FLAGS}")
+  string(APPEND GANDIVA_SHARED_LINK_FLAGS
+         " -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/symbols.map")
 endif()
 
 add_arrow_lib(gandiva
@@ -182,8 +178,8 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
 arrow_install_all_headers("gandiva")
 
-set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS})
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS} LLVM::LLVM_LIBS)
+set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static arrow_testing_static)
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared arrow_testing_shared LLVM::LLVM_LIBS)
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS utf8proc::utf8proc)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS utf8proc::utf8proc)
@@ -192,6 +188,8 @@ if(WIN32)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_LIBS})
 endif()
+list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${ARROW_GTEST_GTEST_MAIN})
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
   set(options USE_STATIC_LINKING)
