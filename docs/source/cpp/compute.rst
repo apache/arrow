@@ -1343,7 +1343,7 @@ null input value is converted into a null output value.
 
 .. _detailed formatting documentation: https://howardhinnant.github.io/date/date.html#to_stream_formatting
 
-* \(2) The strptime kernel currently ignores the %Z specifier for any string.
+* \(2) The strptime kernel currently ignores the ``%Z`` specifier for any string.
 
 **Truth value extraction**
 
