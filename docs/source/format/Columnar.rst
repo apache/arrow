@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.4*
+:ref:`*Version: 1.4* <format-version-1-4>`
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -48,47 +48,6 @@ mutation operations. This document is concerned only with in-memory
 data representation and serialization details; issues such as
 coordinating mutation of data structures are left to be handled by
 implementations.
-
-Version History
-===============
-
-At the 1.0.0 release, the Arrow columnar format was declared stable, with
-forward and backward compatibility guarantees. See
-:doc:`./Versioning` for more details.
-
-.. note::
-
-  Arrow libraries are versioned separately from the Arrow columnar format.
-
-Since version 1.0.0, there have been four new minor versions and zero new
-major versions of the Arrow columnar format. Each new minor version added
-new features. When these new features are not used, the new minor format
-versions are compatible with format version 1.0.0. The new features added
-in each minor version since 1.0.0 are as follows:
-
-Version 1.1
------------
-
-* Added 256-bit Decimal type.
-
-Version 1.2
------------
-
-* Added MonthDayNano interval type.
-
-Version 1.3
------------
-
-* Added :ref:`run-end-encoded-layout`.
-
-Version 1.4
------------
-
-* Added :ref:`variable-size-binary-view-layout` and the associated BinaryView
-  and Utf8View types.
-* Added :ref:`listview-layout` and the associated ListView and LargeListView
-  types.
-* Added :ref:`variadic-buffers`.
 
 Terminology
 ===========
