@@ -28,10 +28,10 @@
     <url>https://arrow.apache.org</url>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest-core -->
+        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
         <dependency>
             <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
+            <artifactId>hamcrest</artifactId>
             <version>2.2</version>
             <scope>test</scope>
         </dependency>
