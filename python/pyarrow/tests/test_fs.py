@@ -503,7 +503,7 @@ def skip_fsspec_s3fs(fs):
 
 def skip_azure(fs, reason):
     if fs.type_name == "abfs":
-        pytest.xfail(reason=reason)
+        pytest.skip(reason=reason)
 
 
 @pytest.mark.s3
