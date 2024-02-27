@@ -202,6 +202,7 @@ struct TakeBenchmark {
         ABORT_NOT_OK(Take(values, indices).status());
       }
     }
+    state.SetItemsProcessed(state.iterations() * values->length());
   }
 };
 
@@ -343,11 +344,11 @@ static void FilterRecordBatchWithNulls(benchmark::State& state) {
 }
 
 static void TakeInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false).Int64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false).Int64();
 }
 
 static void TakeInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).Int64();
+  TakeBenchmark(state, /*indices_with_nulls=*/true).Int64();
 }
 
 static void TakeInt64MonotonicIndices(benchmark::State& state) {
@@ -355,11 +356,11 @@ static void TakeInt64MonotonicIndices(benchmark::State& state) {
 }
 
 static void TakeFixedSizeBinaryRandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false).FixedSizeBinary();
+  TakeBenchmark(state, /*indices_with_nulls=*/false).FixedSizeBinary();
 }
 
 static void TakeFixedSizeBinaryRandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).FixedSizeBinary();
+  TakeBenchmark(state, /*indices_with_nulls=*/true).FixedSizeBinary();
 }
 
 static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
@@ -368,12 +369,13 @@ static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
 }
 
 static void TakeChunkedChunkedInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false)
+  TakeBenchmark(state, /*indices_with_nulls=*/false)
       .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
 }
 
 static void TakeChunkedChunkedInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
+  TakeBenchmark(state, /*indices_with_nulls=*/true)
+      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
 }
 
 static void TakeChunkedChunkedInt64MonotonicIndices(benchmark::State& state) {
@@ -383,26 +385,27 @@ static void TakeChunkedChunkedInt64MonotonicIndices(benchmark::State& state) {
 }
 
 static void TakeChunkedFlatInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false)
-      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
+  TakeBenchmark(state, /*indices_with_nulls=*/false)
+      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/false);
 }
 
 static void TakeChunkedFlatInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/true);
+  TakeBenchmark(state, /*indices_with_nulls=*/true)
+      .ChunkedInt64(/*num_chunks=*/100, /*chunk_indices_too=*/false);
 }
 
 static void TakeChunkedFlatInt64MonotonicIndices(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
       .ChunkedInt64(
-          /*num_chunks=*/100, /*chunk_indices_too=*/true);
+          /*num_chunks=*/100, /*chunk_indices_too=*/false);
 }
 
 static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false).FSLInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false).FSLInt64();
 }
 
 static void TakeFSLInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).FSLInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/true).FSLInt64();
 }
 
 static void TakeFSLInt64MonotonicIndices(benchmark::State& state) {
@@ -410,11 +413,11 @@ static void TakeFSLInt64MonotonicIndices(benchmark::State& state) {
 }
 
 static void TakeStringRandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, false).String();
+  TakeBenchmark(state, /*indices_with_nulls=*/false).String();
 }
 
 static void TakeStringRandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, true).String();
+  TakeBenchmark(state, /*indices_with_nulls=*/true).String();
 }
 
 static void TakeStringMonotonicIndices(benchmark::State& state) {
