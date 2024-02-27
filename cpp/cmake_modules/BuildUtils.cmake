@@ -97,18 +97,31 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
-    execute_process(COMMAND "libtool" -V
-    OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if("${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      # this is the macOS provided libtool
-      set(BUNDLE_COMMAND "libtool" "-no_warning_for_no_symbols" "-static" "-o"
-      ${output_lib_path} ${all_library_paths})
-    else()
-      # this is the GNU libtool, but we should be able to find the macos libtool we want
-      set(BUNDLE_COMMAND "/usr/bin/libtool" "-no_warning_for_no_symbols" "-static" "-o"
-          ${output_lib_path} ${all_library_paths})
+    # The apple-distributed libtool is what we want for bundling, but there is
+    # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
+    # We are not compatible with GNU libtool, so we need to avoid it.
+    # TODO: use a VALIDATOR when we require cmake >= 3.25
+
+    # check in the obvious places first to find Apple's libtool
+    find_program(LIBTOOL_MACOS libtool
+                 PATHS /usr/bin /Library/Developer/CommandLineTools/usr/bin
+                 NO_DEFAULT_PATH)
+
+    # if it's not found in obvious places, check on the standard path
+    if(LIBTOOL_MACOS-NOTFOUND)
+      set(LIBTOOL_MACOS "libtool")
     endif()
+
+    # confirm that the libtool we found is not GNU libtool
+    execute_process(COMMAND ${LIBTOOL_MACOS} -V
+                    OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
+      message(FATAL_ERROR "libtool found appears to be the incompatible GNU libtool")
+    endif()
+
+    set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
+                       ${output_lib_path} ${all_library_paths})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
