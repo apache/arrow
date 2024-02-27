@@ -756,8 +756,8 @@ Status FindOneFile(const PlatformFilename& fn, WIN32_FIND_DATAW* find_data,
 
 }  // namespace
 
-Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
-  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path));
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path, const bool allow_errors) {
+  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path, allow_errors));
 
   std::vector<PlatformFilename> results;
   results.reserve(entries.size());
@@ -769,9 +769,13 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
 
 #else
 
-Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path, const bool allow_errors) {
   DIR* dir = opendir(dir_path.ToNative().c_str());
+  std::vector<PlatformFilename> results;
   if (dir == nullptr) {
+    if (allow_errors) {
+      return results;
+    }
     return IOErrorFromErrno(errno, "Cannot list directory '", dir_path.ToString(), "'");
   }
 
@@ -782,7 +786,6 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
   };
   std::unique_ptr<DIR, decltype(dir_deleter)> dir_guard(dir, dir_deleter);
 
-  std::vector<PlatformFilename> results;
   errno = 0;
   struct dirent* entry = readdir(dir);
   while (entry != nullptr) {
@@ -836,7 +839,7 @@ Status DeleteDirEntry(const PlatformFilename& path, const WIN32_FIND_DATAW& entr
 }
 
 Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
-  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path));
+  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path, false));
   for (const auto& entry : entries) {
     PlatformFilename path = dir_path.Join(PlatformFilename(entry.cFileName));
     RETURN_NOT_OK(DeleteDirEntry(path, entry));
@@ -909,7 +912,7 @@ Status DeleteDirEntry(const PlatformFilename& path, const struct stat& lst) {
 }
 
 Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
-  ARROW_ASSIGN_OR_RAISE(auto children, ListDir(dir_path));
+  ARROW_ASSIGN_OR_RAISE(auto children, ListDir(dir_path, false));
   for (const auto& child : children) {
     struct stat lst;
     PlatformFilename full_path = dir_path.Join(child);
