@@ -300,10 +300,10 @@ std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_spac
   auto* offsets = scratch_space;
   auto* sizes = scratch_space + sizeof(offset_type);
   static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
-  reinterpret_cast<std::atomic<offset_type>*>(offsets)->store(0,
-                                                              std::memory_order_relaxed);
-  reinterpret_cast<std::atomic<offset_type>*>(sizes)->store(
-      static_cast<offset_type>(value_size), std::memory_order_relaxed);
+  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
+  auto* sizes = offsets + 1;
+  offsets[0].store(0, std::memory_order_relaxed);
+  sizes[0].store(value_size, std::memory_order_relaxed);
   static_assert(2 * sizeof(offset_type) <= 16);
   return {BufferSpan{offsets, sizeof(offset_type)},
           BufferSpan{sizes, sizeof(offset_type)}};
