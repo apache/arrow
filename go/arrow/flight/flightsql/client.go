@@ -592,6 +592,18 @@ func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewF
 	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
 }
 
+func (c *Client) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	return c.Client.SetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	return c.Client.GetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	return c.Client.CloseSession(ctx, request, opts...)
+}
+
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
 	request := &pb.ActionBeginTransactionRequest{}
 	action, err := packAction(BeginTransactionActionType, request)

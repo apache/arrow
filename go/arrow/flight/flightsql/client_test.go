@@ -70,6 +70,21 @@ func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, reque
 	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
 }
 
+func (m *FlightServiceClientMock) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.SetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.GetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.CloseSessionResult), args.Error(1)
+}
+
 func (m *FlightServiceClientMock) Close() error {
 	return m.Called().Error(0)
 }
@@ -671,7 +686,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementLoadFromResult() {
 	result := &pb.ActionCreatePreparedStatementResult{
 		PreparedStatementHandle: []byte(query),
 	}
-	
+
 	parameterSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "p_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
 	result.ParameterSchema = flight.SerializeSchema(parameterSchemaResult, memory.DefaultAllocator)
 	datasetSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "ds_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)

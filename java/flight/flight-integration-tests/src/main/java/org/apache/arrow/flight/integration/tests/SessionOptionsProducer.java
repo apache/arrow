@@ -20,7 +20,6 @@ package org.apache.arrow.flight.integration.tests;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -84,11 +83,6 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   public void getSessionOptions(GetSessionOptionsRequest request, CallContext context,
                          StreamListener<GetSessionOptionsResult> listener) {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
-    if (!middleware.hasSession()) {
-      // Attempt to get options without an existing session
-      listener.onError(CallStatus.NOT_FOUND.withDescription("No current server session").toRuntimeException());
-      return;
-    }
     final Map<String, SessionOptionValue> sessionOptions = middleware.getSession().getSessionOptions();
     listener.onNext(new GetSessionOptionsResult(sessionOptions));
     listener.onCompleted();
