@@ -1985,56 +1985,34 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   AssertValidationFails(scalar);
 }
 
-template <typename T>
-struct TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits {
-  using DataType = T;
-  using ScalarType = typename TypeTraits<T>::ScalarType;
+TEST(TestScalarFillArraySpan, ParallelFill) {
+  for (auto scalar : {
+           ScalarFromJSON(utf8(), R"("test data")"),
+           //  ScalarFromJSON(utf8_view(), R"("test data")"),
+           //  ScalarFromJSON(list(int8()), "[1, 2, 3]"),
+           //  ScalarFromJSON(list_view(int8()), "[1, 2, 3]"),
+           // TODO: more coming.
+       }) {
+    ARROW_SCOPED_TRACE("Scalar: ", scalar->ToString());
 
-  static std::shared_ptr<ScalarType> MakeScalar() {
-    std::string value = "test data";
-    return std::make_shared<ScalarType>(value);
+    // Lambda to fill an ArraySpan with the scalar (and consequently fill the scratch
+    // space of the scalar), and use the ArraySpan a bit.
+    auto array_span_from_scalar = [&scalar]() {
+      ArraySpan span;
+      span.FillFromScalar(*scalar);
+      ASSERT_TRUE(span.type->Equals(scalar->type));
+      ASSERT_EQ(span.length, 1);
+      auto values = span.GetValues<int32_t>(1);
+      ASSERT_EQ(values[0], 0);
+    };
+
+    // Two concurrent calls to the lambda are just enough for TSAN to report a race
+    // condition.
+    auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+    auto fut2 = std::async(std::launch::async, array_span_from_scalar);
+    fut1.get();
+    fut2.get();
   }
-};
-
-using TestFillArraySpanBaseBinaryOrBinaryViewLikeTypes =
-    ::testing::Types<TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<BinaryType>,
-                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<LargeBinaryType>,
-                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<BinaryViewType>,
-                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<StringType>,
-                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<LargeStringType>,
-                     TestFillArraySpanBaseBinaryOrBinaryViewLikeTraits<StringViewType>>;
-
-template <typename T>
-class TestFillArraySpan : public ::testing::Test {
- public:
-  TestFillArraySpan() = default;
-};
-
-TYPED_TEST_SUITE(TestFillArraySpan, TestFillArraySpanBaseBinaryOrBinaryViewLikeTypes);
-
-// GH-40069: race condition when filling the scratch space of a scalar in parallel.
-TYPED_TEST(TestFillArraySpan, ParallelFill) {
-  using DataType = typename TypeParam::DataType;
-  // using ddScalarType = typename TypeParam::ScalarType;
-
-  auto scalar_val = TypeParam::MakeScalar();
-
-  // Lambda to fill an ArraySpan with the scalar (and consequently fill the scratch
-  // space of the scalar), and use the ArraySpan a bit.
-  auto array_span_from_scalar = [&]() {
-    auto expected_type = TypeTraits<DataType>::type_singleton();
-
-    ArraySpan span;
-    span.FillFromScalar(*scalar_val);
-    ASSERT_TRUE(span.type->Equals(*expected_type));
-    ASSERT_EQ(span.length, 1);
-  };
-  // Two concurrent calls to the lambda are just enough for TSAN to report a race
-  // condition.
-  auto fut1 = std::async(std::launch::async, array_span_from_scalar);
-  auto fut2 = std::async(std::launch::async, array_span_from_scalar);
-  fut1.wait();
-  fut2.wait();
 }
 
 }  // namespace arrow
