@@ -308,8 +308,9 @@ std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_spac
   offsets[0].store(0, std::memory_order_relaxed);
   sizes[0].store(value_size, std::memory_order_relaxed);
   static_assert(2 * sizeof(offset_type) <= 16);
-  return {BufferSpan{offsets, sizeof(offset_type)},
-          BufferSpan{sizes, sizeof(offset_type)}};
+  return {
+      BufferSpan{scratch_space, sizeof(offset_type)},
+      BufferSpan{scratch_space + sizeof(offset_type), sizeof(offset_type)}};  // namespace
 }
 
 int GetNumBuffers(const DataType& type) {
