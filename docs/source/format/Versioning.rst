@@ -71,6 +71,8 @@ versions prior to 1.0.0. However, we made every effort to ensure
 that new clients can read serialized data produced by library version
 0.8.0 and onward.
 
+.. _post-1-0-0-format-versions:
+
 Post-1.0.0 Format Versions
 ==========================
 
@@ -80,28 +82,20 @@ When these new features are not used, the new minor format versions are
 compatible with format version 1.0.0. The new features added in each minor
 format version since 1.0.0 are as follows:
 
-.. _format-version-1-1:
-
 Version 1.1
 -----------
 
 * Added 256-bit Decimal type.
-
-.. _format-version-1-2:
 
 Version 1.2
 -----------
 
 * Added MonthDayNano interval type.
 
-.. _format-version-1-3:
-
 Version 1.3
 -----------
 
 * Added :ref:`run-end-encoded-layout`.
-
-.. _format-version-1-4:
 
 Version 1.4
 -----------
