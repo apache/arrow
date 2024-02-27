@@ -104,7 +104,6 @@ function(arrow_create_merged_static_lib output_target)
 
     # check in the obvious places first to find Apple's libtool
     find_program(LIBTOOL_MACOS libtool
-                 PATHS /usr/bin /Library/Developer/CommandLineTools/usr/bin
                  NO_DEFAULT_PATH)
 
     # if it's not found in obvious places, check on the standard path
