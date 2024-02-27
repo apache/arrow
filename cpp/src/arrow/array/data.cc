@@ -536,7 +536,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       }
     } else {
       const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
-      TypeCodeAndOffsetsForSparseUnionScalar(scalar, scalar.type_code);
+      this->buffers[1] = TypeCodeAndOffsetsForSparseUnionScalar(scalar, scalar.type_code);
       // Sparse union scalars have a full complement of child values even
       // though only one of them is relevant, so we just fill them in here
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
