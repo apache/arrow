@@ -325,7 +325,8 @@ std::pair<BufferSpan, BufferSpan> TypeCodeAndOffsetsForDenseUnionScalar(
   static_assert(sizeof(UnionScratchSpace) <=
                 sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
   return {BufferSpan{reinterpret_cast<uint8_t*>(&union_scratch_space->type_code), 1},
-          BufferSpan{reinterpret_cast<uint8_t*>(&union_scratch_space->offsets), 1}};
+          BufferSpan{reinterpret_cast<uint8_t*>(&union_scratch_space->offsets),
+                     sizeof(int32_t)}};
 }
 
 BufferSpan TypeCodeAndOffsetsForSparseUnionScalar(
