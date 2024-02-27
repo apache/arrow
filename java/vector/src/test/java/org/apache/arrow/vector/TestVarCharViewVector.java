@@ -108,6 +108,11 @@ public class TestVarCharViewVector {
     }
   }
 
+  /**
+  * Validate the InlineValueBuffer by comparing the expected byte array with the actual byte array stored in the buffer.
+   * @param expected byte array expected to be compared
+   * @param inlineValueBuffer InlineValueBuffer to be validated
+  */
   private void validateInlineValueBuffer(byte[] expected, InlineValueBuffer inlineValueBuffer) {
     assert inlineValueBuffer.getLength() == expected.length;
     byte[] viewBytes = new byte[expected.length];
@@ -117,6 +122,15 @@ public class TestVarCharViewVector {
     assert expectedStr.equals(viewStr);
   }
 
+  /**
+  * Validate the ReferenceValueBuffer by comparing the expected byte array with the actual byte array stored in the
+   * buffer.
+   * @param expected byte array expected to be compared
+   * @param referenceValueBuffer ReferenceValueBuffer to be validated
+   * @param dataBuffers List of ArrowBuf extracted from the ViewVarCharVector
+   * @param startOffSet starting index to read from the ArrowBuf, useful when there are multiple values stored in the
+   *                    same ArrowBuf
+  */
   private void validateReferenceValueBuffer(byte[] expected, ReferenceValueBuffer referenceValueBuffer,
       List<ArrowBuf> dataBuffers, int startOffSet) {
     int bufId = referenceValueBuffer.getBufId();
@@ -151,50 +165,18 @@ public class TestVarCharViewVector {
 
       ViewBuffer view0 = views.getFirst();
       assert view0 instanceof InlineValueBuffer;
-      InlineValueBuffer inlineValueBuffer = (InlineValueBuffer) view0;
-      assert inlineValueBuffer.getLength() == STR1.length;
-      byte[] view0Bytes = new byte[STR1.length];
-      inlineValueBuffer.getValueBuffer().getBytes(0, view0Bytes);
-      String expectedStr0 = new String(view0Bytes, StandardCharsets.UTF_8);
-      String viewStr0 = new String(STR1, StandardCharsets.UTF_8);
-      assert expectedStr0.equals(viewStr0);
+      validateInlineValueBuffer(STR1, (InlineValueBuffer) view0);
 
       ViewBuffer view1 = views.get(1);
       assert view1 instanceof ReferenceValueBuffer;
-      ReferenceValueBuffer referenceValueBuffer1 = (ReferenceValueBuffer) view1;
-      int bufId0 = referenceValueBuffer1.getBufId();
-      assert bufId0 == 0;
-      byte[] expectedPrefix1Bytes = new byte[4];
-      System.arraycopy(STR2, 0, expectedPrefix1Bytes, 0, 4);
-      String expectedPrefix1 = new String(expectedPrefix1Bytes, StandardCharsets.UTF_8);
-      String viewPrefix1 = new String(referenceValueBuffer1.getPrefix(), StandardCharsets.UTF_8);
-      assert expectedPrefix1.equals(viewPrefix1);
-      // second view
-      ArrowBuf dataBuf1 = dataBuffers.get(bufId0);
-      byte[] dataBuf1Bytes = new byte[STR2.length];
-      dataBuf1.getBytes(0, dataBuf1Bytes);
-      String viewData1 = new String(dataBuf1Bytes, StandardCharsets.UTF_8);
-      String viewData1Expected = new String(STR2, StandardCharsets.UTF_8);
-      assert viewData1.equals(viewData1Expected);
+      validateReferenceValueBuffer(STR2, (ReferenceValueBuffer) view1, dataBuffers, 0);
       // third view
       ViewBuffer view2 = views.get(2);
       assert view2 instanceof ReferenceValueBuffer;
-      ReferenceValueBuffer referenceValueBuffer2 = (ReferenceValueBuffer) view2;
-      int bufId2 = referenceValueBuffer2.getBufId();
-      assert bufId2 == 0;
-      byte[] expectedPrefix2Bytes = new byte[4];
-      System.arraycopy(STR3, 0, expectedPrefix2Bytes, 0, 4);
-      String expectedPrefix2 = new String(expectedPrefix2Bytes, StandardCharsets.UTF_8);
-      String viewPrefix2 = new String(referenceValueBuffer1.getPrefix(), StandardCharsets.UTF_8);
-      assert expectedPrefix2.equals(viewPrefix2);
-      ArrowBuf dataBuf2 = dataBuffers.get(bufId2);
-      byte[] dataBuf2Bytes = new byte[STR3.length];
-      dataBuf2.getBytes(STR2.length, dataBuf2Bytes);
-      String viewData2 = new String(dataBuf2Bytes, StandardCharsets.UTF_8);
-      String viewData2Expected = new String(STR3, StandardCharsets.UTF_8);
-      assert viewData2.equals(viewData2Expected);
-      // all values
+      validateReferenceValueBuffer(STR3, (ReferenceValueBuffer) view1, dataBuffers, STR2.length);
+      // checking if the first buffer in `dataBuffers` contains all the data as expected
       byte[] dataBufAllBytes = new byte[STR2.length + STR3.length];
+      ArrowBuf dataBuf1 = dataBuffers.get(0);
       dataBuf1.getBytes(0, dataBufAllBytes);
       String viewDataAll = new String(dataBufAllBytes, StandardCharsets.UTF_8);
       byte[] expectedAllBytes = new byte[STR2.length + STR3.length];
