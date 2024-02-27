@@ -92,7 +92,7 @@ jobs:
         with:
           python-version: '3.8'
       - name: Install Ruby
-        uses: ruby/setup-ruby@250fcd6a742febb1123a77a841497ccaa8b9e939 # v1.152.0
+        uses: ruby/setup-ruby@54a18e26dbbb1eabc604f317ade9a5788dddef81 # v1.159.0
         with:
           ruby-version: '2.7'
       - name: Install .NET
