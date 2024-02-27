@@ -117,7 +117,7 @@ function(arrow_create_merged_static_lib output_target)
                     OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
     if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      message(FATAL_ERROR "libtool found appears to be the incompatible GNU libtool")
+      message(FATAL_ERROR "libtool found appears to be the incompatible GNU libtool: ${LIBTOOL_MACOS}")
     endif()
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
