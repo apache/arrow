@@ -23,7 +23,10 @@ Arrow Columnar Format
 
 *Version: 1.4*
 
-The "Arrow Columnar Format" includes a language-agnostic in-memory
+.. seealso:: :ref:`Additions to the Arrow columnar format since version 1.0.0
+   <post-1-0-0-format-versions>`
+
+The **Arrow columnar format** includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
 for serialization and generic data transport.
 
@@ -359,6 +362,8 @@ will be represented as follows: ::
     |----------------|-----------------------|
     | joemark        | unspecified (padding) |
 
+.. _variable-size-binary-view-layout:
+
 Variable-size Binary View Layout
 --------------------------------
 
@@ -499,8 +504,12 @@ will be represented as follows: ::
           |-------------------------------|-----------------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
 
+.. _listview-layout:
+
 ListView Layout
 ~~~~~~~~~~~~~~~
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 The ListView layout is defined by three buffers: a validity bitmap, an offsets
 buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
@@ -957,6 +966,8 @@ below.
 Run-End Encoded Layout
 ----------------------
 
+.. versionadded:: Arrow Columnar Format 1.3
+
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
 same value, called runs. In run-end encoding, each run is represented as a
@@ -1232,8 +1243,12 @@ bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
 
+.. _variadic-buffers:
+
 Variadic buffers
 ----------------
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be
