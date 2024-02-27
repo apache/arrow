@@ -221,7 +221,7 @@ def s3_server(s3_connection, tmpdir_factory):
         yield {
             'connection': s3_connection,
             'process': proc,
-            'tempdir': tmpdir,
+            'tempdir': tmpdir
         }
     finally:
         if proc is not None:

@@ -2727,7 +2727,7 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
 @pytest.mark.parquet
 @pytest.mark.s3
-def test_dataset_from_fileinfos(s3_example_simple, dataset_reader):
+def test_open_dataset_from_fileinfos(s3_example_simple, dataset_reader):
     table, path, filesystem, uri, _, _, _, _ = s3_example_simple
     selector = fs.FileSelector("mybucket")
     finfos = filesystem.get_file_info(selector)
