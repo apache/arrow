@@ -89,6 +89,9 @@ public class TestVarCharViewVector {
       List<ViewBuffer> views = largeVarCharVector.views;
       List<ArrowBuf> dataBuffers = largeVarCharVector.dataBuffers;
 
+      assert views.size() == 3;
+      assert dataBuffers.size() == 1;
+
       ViewBuffer view0 = views.getFirst();
       assert view0 instanceof InlineValueBuffer;
       InlineValueBuffer inlineValueBuffer = (InlineValueBuffer) view0;
@@ -98,34 +101,50 @@ public class TestVarCharViewVector {
       String expectedStr0 = new String(view0Bytes, StandardCharsets.UTF_8);
       String viewStr0 = new String(STR1, StandardCharsets.UTF_8);
       assert expectedStr0.equals(viewStr0);
-      System.out.println(viewStr0);
 
       ViewBuffer view1 = views.get(1);
       assert view1 instanceof ReferenceValueBuffer;
       ReferenceValueBuffer referenceValueBuffer1 = (ReferenceValueBuffer) view1;
-      assert referenceValueBuffer1.getBufId() == 0;
+      int bufId0 = referenceValueBuffer1.getBufId();
+      assert bufId0 == 0;
       byte[] expectedPrefix1Bytes = new byte[4];
       System.arraycopy(STR2, 0, expectedPrefix1Bytes, 0, 4);
       String expectedPrefix1 = new String(expectedPrefix1Bytes, StandardCharsets.UTF_8);
       String viewPrefix1 = new String(referenceValueBuffer1.getPrefix(), StandardCharsets.UTF_8);
-      System.out.println(viewPrefix1);
       assert expectedPrefix1.equals(viewPrefix1);
-      ArrowBuf dataBuf1 = dataBuffers.getFirst();
-      // first value
+      // second view
+      ArrowBuf dataBuf1 = dataBuffers.get(bufId0);
       byte[] dataBuf1Bytes = new byte[STR2.length];
       dataBuf1.getBytes(0, dataBuf1Bytes);
       String viewData1 = new String(dataBuf1Bytes, StandardCharsets.UTF_8);
-      System.out.println(viewData1);
-      // second value
+      String viewData1Expected = new String(STR2, StandardCharsets.UTF_8);
+      assert viewData1.equals(viewData1Expected);
+      // third view
+      ViewBuffer view2 = views.get(2);
+      assert view2 instanceof ReferenceValueBuffer;
+      ReferenceValueBuffer referenceValueBuffer2 = (ReferenceValueBuffer) view2;
+      int bufId2 = referenceValueBuffer2.getBufId();
+      assert bufId2 == 0;
+      byte[] expectedPrefix2Bytes = new byte[4];
+      System.arraycopy(STR3, 0, expectedPrefix2Bytes, 0, 4);
+      String expectedPrefix2 = new String(expectedPrefix2Bytes, StandardCharsets.UTF_8);
+      String viewPrefix2 = new String(referenceValueBuffer1.getPrefix(), StandardCharsets.UTF_8);
+      assert expectedPrefix2.equals(viewPrefix2);
+      ArrowBuf dataBuf2 = dataBuffers.get(bufId2);
       byte[] dataBuf2Bytes = new byte[STR3.length];
-      dataBuf1.getBytes(STR2.length, dataBuf2Bytes);
+      dataBuf2.getBytes(STR2.length, dataBuf2Bytes);
       String viewData2 = new String(dataBuf2Bytes, StandardCharsets.UTF_8);
-      System.out.println(viewData2);
+      String viewData2Expected = new String(STR3, StandardCharsets.UTF_8);
+      assert viewData2.equals(viewData2Expected);
       // all values
       byte[] dataBufAllBytes = new byte[STR2.length + STR3.length];
       dataBuf1.getBytes(0, dataBufAllBytes);
       String viewDataAll = new String(dataBufAllBytes, StandardCharsets.UTF_8);
-      System.out.println(viewDataAll);
+      byte[] expectedAllBytes = new byte[STR2.length + STR3.length];
+      System.arraycopy(STR2, 0, expectedAllBytes, 0, STR2.length);
+      System.arraycopy(STR3, 0, expectedAllBytes, STR2.length, STR3.length);
+      String expectedAll = new String(expectedAllBytes, StandardCharsets.UTF_8);
+      assert viewDataAll.equals(expectedAll);
     }
   }
 
