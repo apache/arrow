@@ -79,7 +79,6 @@ jobs:
           LIBARROW_BINARY: false
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
-          echo "$PATH"
           sccache --start-server || echo 'sccache not found'
           cd arrow/r
           R CMD INSTALL . --install-tests
