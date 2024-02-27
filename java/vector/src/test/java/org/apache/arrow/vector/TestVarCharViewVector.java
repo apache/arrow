@@ -96,7 +96,7 @@ public class TestVarCharViewVector {
       assert views.size() == 3;
       assert dataBuffers.isEmpty();
 
-      ViewBuffer view0 = views.getFirst();
+      ViewBuffer view0 = views.get(0);
       assert view0 instanceof InlineValueBuffer;
       validateInlineValueBuffer(STR0, (InlineValueBuffer) view0);
 
@@ -165,7 +165,7 @@ public class TestVarCharViewVector {
       assert views.size() == 3;
       assert dataBuffers.size() == 1;
 
-      ViewBuffer view0 = views.getFirst();
+      ViewBuffer view0 = views.get(0);
       assert view0 instanceof InlineValueBuffer;
       validateInlineValueBuffer(STR1, (InlineValueBuffer) view0);
 
