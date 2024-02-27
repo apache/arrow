@@ -65,7 +65,7 @@ writing code which would break when it is replaced by std::span.)");
           std::decay_t<std::remove_pointer_t<decltype(std::data(std::declval<R>()))>>,
           std::decay_t<T>>>>
   // NOLINTNEXTLINE runtime/explicit, non-const reference
-  constexpr span(R& range) : span{std::data(range), std::size(range)} {}
+  constexpr span(R&& range) : span{std::data(range), std::size(range)} {}
 
   constexpr T* begin() const { return data_; }
   constexpr T* end() const { return data_ + size_; }
