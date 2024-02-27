@@ -409,6 +409,9 @@ All integers (length, buffer index, and offset) are signed.
 
 This layout is adapted from TU Munich's `UmbraDB`_.
 
+Note that this layout uses one additional buffer to store the variadic buffer
+lengths in the :ref:`Arrow C data interface <c-data-interface-binary-view-arrays>`.
+
 .. _variable-size-list-layout:
 
 Variable-size List Layout
