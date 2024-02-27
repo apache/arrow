@@ -146,7 +146,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
         List<ArrowBuf> dataBuffers) {
       if (value.length <= INLINE_SIZE) {
         ArrowBuf newBuffer = allocateViewDataBuffer(allocator, length);
-        newBuffer.setBytes(startOffset, value, start, length);
+        newBuffer.setBytes(0, value, start, length);
         return new InlineValueBuffer(newBuffer, value.length);
       } else {
         byte [] prefix = new byte[4];
