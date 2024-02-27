@@ -4094,8 +4094,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for ChunkedArray chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for ChunkedArray chunks. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -4189,8 +4189,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -4259,8 +4259,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
