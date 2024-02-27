@@ -297,17 +297,17 @@ def azurefs(request, azure_server):
     from pyarrow.fs import AzureFileSystem
 
     host, port, account_name, account_key = azure_server['connection']
-    azureite_authority = f"{host}:{port}"
-    azureite_scheme = "http"
+    azurite_authority = f"{host}:{port}"
+    azurite_scheme = "http"
 
     container = 'pyarrow-filesystem/'
 
     fs = AzureFileSystem(account_name=account_name,
                          account_key=account_key,
-                         blob_storage_authority=azureite_authority,
-                         dfs_storage_authority=azureite_authority,
-                         blob_storage_scheme=azureite_scheme,
-                         dfs_storage_scheme=azureite_scheme)
+                         blob_storage_authority=azurite_authority,
+                         dfs_storage_authority=azurite_authority,
+                         blob_storage_scheme=azurite_scheme,
+                         dfs_storage_scheme=azurite_scheme)
 
     fs.create_dir(container)
 
