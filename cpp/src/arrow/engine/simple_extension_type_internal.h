@@ -70,7 +70,7 @@ class SimpleExtensionType : public ExtensionType {
 
   std::string extension_name() const override { return std::string(kExtensionName); }
 
-  std::string ToString(bool show_meta = false) const override {
+  std::string ToString(bool show_metadata = false) const override {
     return "extension<" + this->Serialize() + ">";
   }
   /// \brief A comparator which returns true iff all parameter properties are equal

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -1896,7 +1897,10 @@ TEST(TestListViewType, Equals) {
   ASSERT_NE(list_view_type.ToString(), list_view_type_named.ToString());
 }
 
-TEST(TestListType, Metadata) {
+using ListListTypeFactory =
+    std::function<std::shared_ptr<DataType>(std::shared_ptr<Field>)>;
+
+void CheckListListTypeMetadata(ListListTypeFactory list_type_factory) {
   auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md3 = key_value_metadata({"foo"}, {"foo value"});
@@ -1907,11 +1911,11 @@ TEST(TestListType, Metadata) {
   auto f4 = field("item", utf8());
   auto f5 = field("item", utf8(), /*nullable =*/false, md1);
 
-  auto t1 = list(f1);
-  auto t2 = list(f2);
-  auto t3 = list(f3);
-  auto t4 = list(f4);
-  auto t5 = list(f5);
+  auto t1 = list_type_factory(f1);
+  auto t2 = list_type_factory(f2);
+  auto t3 = list_type_factory(f3);
+  auto t4 = list_type_factory(f4);
+  auto t5 = list_type_factory(f5);
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
@@ -1919,81 +1923,37 @@ TEST(TestListType, Metadata) {
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t3->ToString(/*show_metadata=*/false));
   ASSERT_NE(t1->ToString(/*show_metadata=*/true), t3->ToString(/*show_metadata=*/true));
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t4->ToString(/*show_metadata=*/false));
   ASSERT_NE(t1->ToString(/*show_metadata=*/true), t4->ToString(/*show_metadata=*/true));
 
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(/*show_metadata=*/false), t5->ToString(/*show_metadata=*/false));
   ASSERT_NE(t1->ToString(/*show_metadata=*/true), t5->ToString(/*show_metadata=*/true));
 }
 
+TEST(TestListType, Metadata) {
+  CheckListListTypeMetadata([](std::shared_ptr<Field> field) { return list(field); });
+}
+
+TEST(TestLargeListType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list(field); });
+}
+
 TEST(TestListViewType, Metadata) {
-  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md3 = key_value_metadata({"foo"}, {"foo value"});
-
-  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
-  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
-  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
-  auto f4 = field("item", utf8());
-  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
-
-  auto t1 = list_view(f1);
-  auto t2 = list_view(f2);
-  auto t3 = list_view(f3);
-  auto t4 = list_view(f4);
-  auto t5 = list_view(f5);
-
-  AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-  ASSERT_EQ(t1->ToString(/*show_metadata=*/true), t2->ToString(/*show_metadata=*/true));
-  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t2->ToString());
-  ASSERT_NE(t1->ToString(), t2->ToString(/*show_metadata=*/true));
-
-  AssertTypeEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
-  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t3->ToString(/*show_metadata=*/true));
-
-  AssertTypeEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
-  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t4->ToString(/*show_metadata=*/true));
-
-  AssertTypeNotEqual(*t1, *t5);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
-  ASSERT_NE(t1->ToString(true), t5->ToString(/*show_metadata=*/true));
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return list_view(field); });
 }
 
 TEST(TestLargeListViewType, Metadata) {
-  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
-  auto md3 = key_value_metadata({"foo"}, {"foo value"});
-
-  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
-  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
-  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
-  auto f4 = field("item", utf8());
-  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
-
-  auto t1 = large_list_view(f1);
-  auto t2 = large_list_view(f2);
-  auto t3 = large_list_view(f3);
-  auto t4 = large_list_view(f4);
-  auto t5 = large_list_view(f5);
-
-  AssertTypeEqual(*t1, *t2);
-  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
-
-  AssertTypeEqual(*t1, *t3);
-  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
-
-  AssertTypeEqual(*t1, *t4);
-  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
-
-  AssertTypeNotEqual(*t1, *t5);
-  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list_view(field); });
 }
 
 TEST(TestNestedType, Equals) {
