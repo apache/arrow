@@ -25,4 +25,5 @@ module org.apache.arrow.memory.core {
   requires jsr305;
   requires org.immutables.value;
   requires org.slf4j;
+  requires org.checkerframework.checker.qual;
 }
