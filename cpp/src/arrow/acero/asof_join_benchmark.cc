@@ -131,9 +131,8 @@ static void AsOfJoinOverhead(benchmark::State& state) {
 // this generates the set of right hand tables to test on.
 void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
-      ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size",
-                  "num_right_tables", "right_freq", "right_cols", "right_ids",
-                  "right_batch_size"})
+      ->ArgNames({"left_freq", "left_cols", "left_ids", "batch_size", "num_right_tables",
+                  "right_freq", "right_cols", "right_ids"})
       ->UseRealTime();
 
   int default_freq = 400;
@@ -144,23 +143,23 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 
   for (int freq : {200, 400, 1000}) {
     bench->Args({freq, default_cols, default_ids, default_batch_size, default_num_tables,
-                 freq, default_cols, default_ids, default_batch_size});
+                 freq, default_cols, default_ids});
   }
   for (int cols : {10, 20, 100}) {
     bench->Args({default_freq, cols, default_ids, default_batch_size, default_num_tables,
-                 default_freq, cols, default_ids, default_batch_size});
+                 default_freq, cols, default_ids});
   }
   for (int ids : {100, 500, 1000}) {
     bench->Args({default_freq, default_cols, ids, default_batch_size, default_num_tables,
-                 default_freq, default_cols, ids, default_batch_size});
+                 default_freq, default_cols, ids});
   }
   for (int num_tables : {1, 10, 50}) {
     bench->Args({default_freq, default_cols, default_ids, default_batch_size, num_tables,
-                 default_freq, default_cols, default_ids, default_batch_size});
+                 default_freq, default_cols, default_ids});
   }
   for (int batch_size : {1000, 4000, 32000}) {
     bench->Args({default_freq, default_cols, default_ids, batch_size, default_num_tables,
-                 default_freq, default_cols, default_ids, batch_size});
+                 default_freq, default_cols, default_ids});
   }
 }
 
