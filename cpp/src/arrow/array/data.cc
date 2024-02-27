@@ -287,10 +287,9 @@ template <typename offset_type>
 BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
   auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
   static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
-  reinterpret_cast<std::atomic<offset_type>*>(&offsets[0])
-      ->store(0, std::memory_order_relaxed);
-  reinterpret_cast<std::atomic<offset_type>*>(&offsets[1])
-      ->store(static_cast<offset_type>(value_size), std::memory_order_relaxed);
+  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
+  offsets[0].store(0, std::memory_order_relaxed);
+  offsets[1].store(value_size, std::memory_order_relaxed);
   static_assert(2 * sizeof(offset_type) <= 16);
   return {scratch_space, sizeof(offset_type) * 2};
 }
