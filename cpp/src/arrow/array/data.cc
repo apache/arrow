@@ -338,6 +338,17 @@ BufferSpan TypeCodeAndOffsetsForSparseUnionScalar(
   return {scalar.scratch_space_, 1};
 }
 
+template <typename run_end_type>
+BufferSpan RunEndForRunEndEncodedScalar(
+    const internal::ArraySpanFillFromScalarScratchSpace& scalar, run_end_type run_end) {
+  scalar.FillScratchSpace([&](uint8_t* scratch_space) {
+    reinterpret_cast<run_end_type*>(scratch_space)[0] = run_end;
+  });
+  static_assert(sizeof(run_end_type) <=
+                sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
+  return {scalar.scratch_space_, sizeof(run_end_type)};
+}
+
 int GetNumBuffers(const DataType& type) {
   switch (type.id()) {
     case Type::NA:
@@ -559,9 +570,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       e.type = scalar.run_end_type().get();
       e.length = 1;
       e.null_count = 0;
-      e.buffers[1].data = scalar.scratch_space_;
-      e.buffers[1].size = sizeof(run_end);
-      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
+      e.buffers[1] = RunEndForRunEndEncodedScalar(scalar, run_end);
     };
 
     switch (scalar.run_end_type()->id()) {
