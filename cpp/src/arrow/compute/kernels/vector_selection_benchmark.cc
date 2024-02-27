@@ -343,6 +343,10 @@ static void FilterRecordBatchWithNulls(benchmark::State& state) {
   FilterBenchmark(state, true).BenchRecordBatch();
 }
 
+static void  marker(benchmark::State& state) {
+  FilterBenchmark(state, true).BenchRecordBatch();
+}
+
 static void TakeInt64RandomIndicesNoNulls(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false).Int64();
 }
@@ -366,6 +370,30 @@ static void TakeFixedSizeBinaryRandomIndicesWithNulls(benchmark::State& state) {
 static void TakeFixedSizeBinaryMonotonicIndices(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
       .FixedSizeBinary();
+}
+
+static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false).FSLInt64();
+}
+
+static void TakeFSLInt64RandomIndicesWithNulls(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/true).FSLInt64();
+}
+
+static void TakeFSLInt64MonotonicIndices(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
+}
+
+static void TakeStringRandomIndicesNoNulls(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false).String();
+}
+
+static void TakeStringRandomIndicesWithNulls(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/true).String();
+}
+
+static void TakeStringMonotonicIndices(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
 }
 
 static void TakeChunkedChunkedInt64RandomIndicesNoNulls(benchmark::State& state) {
@@ -398,30 +426,6 @@ static void TakeChunkedFlatInt64MonotonicIndices(benchmark::State& state) {
   TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true)
       .ChunkedInt64(
           /*num_chunks=*/100, /*chunk_indices_too=*/false);
-}
-
-static void TakeFSLInt64RandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false).FSLInt64();
-}
-
-static void TakeFSLInt64RandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/true).FSLInt64();
-}
-
-static void TakeFSLInt64MonotonicIndices(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
-}
-
-static void TakeStringRandomIndicesNoNulls(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false).String();
-}
-
-static void TakeStringRandomIndicesWithNulls(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/true).String();
-}
-
-static void TakeStringMonotonicIndices(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
 }
 
 void FilterSetArgs(benchmark::internal::Benchmark* bench) {
@@ -483,15 +487,10 @@ void TakeFSBSetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
+// Flat values x Flat indices
 BENCHMARK(TakeInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeInt64MonotonicIndices)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedChunkedInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedChunkedInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedChunkedInt64MonotonicIndices)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedFlatInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedFlatInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
-BENCHMARK(TakeChunkedFlatInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesNoNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryRandomIndicesWithNulls)->Apply(TakeFSBSetArgs);
 BENCHMARK(TakeFixedSizeBinaryMonotonicIndices)->Apply(TakeFSBSetArgs);
@@ -501,6 +500,16 @@ BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringMonotonicIndices)->Apply(TakeSetArgs);
+
+// Chunked values x Chunked indices
+BENCHMARK(TakeChunkedChunkedInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedChunkedInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedChunkedInt64MonotonicIndices)->Apply(TakeSetArgs);
+
+// Chunked values x Flat indices
+BENCHMARK(TakeChunkedFlatInt64RandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedFlatInt64RandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeChunkedFlatInt64MonotonicIndices)->Apply(TakeSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
