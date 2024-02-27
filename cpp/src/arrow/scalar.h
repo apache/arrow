@@ -22,6 +22,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <mutex>
 #include <ratio>
 #include <string>
 #include <string_view>
