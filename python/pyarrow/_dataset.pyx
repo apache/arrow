@@ -3139,6 +3139,13 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         self.options.selector_ignore_prefixes = [tobytes(v) for v in values]
 
 
+cdef vector[CFileInfo] unwrap_finfos(finfos):
+    cdef vector[CFileInfo] o_vect
+    for fi in finfos:
+        o_vect.push_back((<FileInfo> fi).unwrap())
+    return o_vect
+
+
 cdef class FileSystemDatasetFactory(DatasetFactory):
     """
     Create a DatasetFactory from a list of paths with schema inspection.
@@ -3163,6 +3170,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                  FileSystemFactoryOptions options=None):
         cdef:
             vector[c_string] paths
+            vector[CFileInfo] finfos
             CFileSelector c_selector
             CResult[shared_ptr[CDatasetFactory]] result
             shared_ptr[CFileSystem] c_filesystem
@@ -3184,14 +3192,24 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
                     c_options
                 )
         elif isinstance(paths_or_selector, (list, tuple)):
-            paths = [tobytes(s) for s in paths_or_selector]
-            with nogil:
-                result = CFileSystemDatasetFactory.MakeFromPaths(
-                    c_filesystem,
-                    paths,
-                    c_format,
-                    c_options
-                )
+            if len(paths_or_selector) > 0 and isinstance(paths_or_selector[0], FileInfo):
+                finfos = unwrap_finfos(paths_or_selector)
+                with nogil:
+                    result = CFileSystemDatasetFactory.MakeFromFileInfos(
+                        c_filesystem,
+                        finfos,
+                        c_format,
+                        c_options
+                    )
+            else:
+                paths = [tobytes(s) for s in paths_or_selector]
+                with nogil:
+                    result = CFileSystemDatasetFactory.MakeFromPaths(
+                        c_filesystem,
+                        paths,
+                        c_format,
+                        c_options
+                    )
         else:
             raise TypeError('Must pass either paths or a FileSelector, but '
                             'passed {}'.format(type(paths_or_selector)))
