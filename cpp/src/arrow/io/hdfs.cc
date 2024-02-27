@@ -380,7 +380,11 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     }
 
     driver_->BuilderSetForceNewInstance(builder);
-    fs_ = driver_->BuilderConnect(builder);
+    if (config -> filesystem_java == nullptr) {
+      fs_ = driver_->BuilderConnect(builder);
+    } else {
+      fs_ = *(static_cast<hdfsFS*>(config -> filesystem_java.get()));
+    }
 
     if (fs_ == nullptr) {
       return Status::IOError("HDFS connection failed");
