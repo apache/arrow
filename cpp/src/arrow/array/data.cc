@@ -284,32 +284,58 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 template <typename offset_type>
-BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
-  // The scalar scratch space could be filled concurrently (with the same content), thus
-  // we use relaxed atomic stores. This consequently requires the size of the atomic to
-  // match the size of the offset type.
-  static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
-  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
-  offsets[0].store(0, std::memory_order_relaxed);
-  offsets[1].store(value_size, std::memory_order_relaxed);
+BufferSpan OffsetsForScalar(const internal::ArraySpanFillFromScalarScratchSpace& scalar,
+                            offset_type value_size) {
+  scalar.FillScratchSpace([&](uint8_t* scratch_space) {
+    auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
+    offsets[0] = 0;
+    offsets[1] = static_cast<offset_type>(value_size);
+  });
   static_assert(2 * sizeof(offset_type) <= 16);
-  return {scratch_space, sizeof(offset_type) * 2};
+  return {scalar.scratch_space_, sizeof(offset_type) * 2};
 }
 
 template <typename offset_type>
-std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_space,
-                                                           offset_type value_size) {
-  // The scalar scratch space could be filled concurrently (with the same content), thus
-  // we use relaxed atomic stores. This consequently requires the size of the atomic to
-  // match the size of the offset type.
-  static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
-  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
-  auto* sizes = offsets + 1;
-  offsets[0].store(0, std::memory_order_relaxed);
-  sizes[0].store(value_size, std::memory_order_relaxed);
+std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(
+    const internal::ArraySpanFillFromScalarScratchSpace& scalar, offset_type value_size) {
+  scalar.FillScratchSpace([&](uint8_t* scratch_space) {
+    auto* offsets = scratch_space;
+    auto* sizes = scratch_space + sizeof(offset_type);
+    reinterpret_cast<offset_type*>(offsets)[0] = 0;
+    reinterpret_cast<offset_type*>(sizes)[0] = value_size;
+  });
   static_assert(2 * sizeof(offset_type) <= 16);
-  return {BufferSpan{offsets, sizeof(offset_type)},
-          BufferSpan{sizes, sizeof(offset_type)}};
+  return {BufferSpan{scalar.scratch_space_, sizeof(offset_type)},
+          BufferSpan{scalar.scratch_space_ + sizeof(offset_type), sizeof(offset_type)}};
+}
+
+std::pair<BufferSpan, BufferSpan> TypeCodeAndOffsetsForDenseUnionScalar(
+    const internal::ArraySpanFillFromScalarScratchSpace& scalar, int8_t type_code) {
+  // Dense union needs scratch space to store both offsets and a type code
+  struct UnionScratchSpace {
+    alignas(int64_t) int8_t type_code;
+    alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
+  };
+  auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(scalar.scratch_space_);
+  scalar.FillScratchSpace([&](uint8_t*) {
+    union_scratch_space->type_code = type_code;
+    reinterpret_cast<int32_t*>(union_scratch_space->offsets)[0] = 0;
+    reinterpret_cast<int32_t*>(union_scratch_space->offsets)[1] = 1;
+  });
+  static_assert(sizeof(UnionScratchSpace) <=
+                sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
+  return {BufferSpan{reinterpret_cast<uint8_t*>(&union_scratch_space->type_code), 1},
+          BufferSpan{reinterpret_cast<uint8_t*>(&union_scratch_space->offsets), 1}};
+}
+
+BufferSpan TypeCodeAndOffsetsForSparseUnionScalar(
+    const internal::ArraySpanFillFromScalarScratchSpace& scalar, int8_t type_code) {
+  scalar.FillScratchSpace([&](uint8_t* scratch_space) {
+    reinterpret_cast<int8_t*>(scratch_space)[0] = type_code;
+  });
+  static_assert(sizeof(int8_t) <=
+                sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
+  return {scalar.scratch_space_, 1};
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -423,11 +449,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
+      this->buffers[1] = OffsetsForScalar(scalar, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
+      this->buffers[1] = OffsetsForScalar(scalar, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -465,16 +490,15 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
+      this->buffers[1] = OffsetsForScalar(scalar, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
+      this->buffers[1] = OffsetsForScalar(scalar, value_length);
     } else if (type_id == Type::LIST_VIEW) {
-      std::tie(this->buffers[1], this->buffers[2]) = OffsetsAndSizesForScalar(
-          scalar.scratch_space_, static_cast<int32_t>(value_length));
+      std::tie(this->buffers[1], this->buffers[2]) =
+          OffsetsAndSizesForScalar(scalar, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST_VIEW) {
       std::tie(this->buffers[1], this->buffers[2]) =
-          OffsetsAndSizesForScalar(scalar.scratch_space_, value_length);
+          OffsetsAndSizesForScalar(scalar, value_length);
     } else {
       DCHECK_EQ(type_id, Type::FIXED_SIZE_LIST);
       // FIXED_SIZE_LIST: does not have a second buffer
@@ -488,27 +512,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       this->child_data[i].FillFromScalar(*scalar.value[i]);
     }
   } else if (is_union(type_id)) {
-    // Dense union needs scratch space to store both offsets and a type code
-    struct UnionScratchSpace {
-      alignas(int64_t) int8_t type_code;
-      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
-    };
-    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
-    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
-        &checked_cast<const UnionScalar&>(value).scratch_space_);
-
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
-
-    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
-    this->buffers[1].size = 1;
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      this->buffers[2] =
-          OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
+      std::tie(this->buffers[1], this->buffers[2]) =
+          TypeCodeAndOffsetsForDenseUnionScalar(scalar, scalar.type_code);
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
@@ -525,6 +536,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       }
     } else {
       const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
+      TypeCodeAndOffsetsForSparseUnionScalar(scalar, scalar.type_code);
       // Sparse union scalars have a full complement of child values even
       // though only one of them is relevant, so we just fill them in here
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
