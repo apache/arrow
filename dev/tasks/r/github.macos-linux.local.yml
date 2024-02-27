@@ -63,6 +63,12 @@ jobs:
           # CRAN builders have the entire bin here added to the path. This sometimes
           # includes things like GNU libtool which name-collide with what we expect
           echo "/Library/Frameworks/R.framework/Resources/bin" >> $GITHUB_PATH
+      - name : Check whether libtool in R is used
+        run: |
+          if [ "$(which libtool)" != "/Library/Frameworks/R.framework/Resources/bin/libtool" ]; then
+            echo "libtool provided by R isn't found: $(which libtool)"
+            exit 1
+          fi
       - name: Install dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
