@@ -34,9 +34,11 @@ import org.junit.Test;
 
 public class TestVarCharViewVector {
 
+  private static final byte[] STR0 = "0123456".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR1 = "012345678912".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR2 = "0123456789123".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR3 = "01234567891234567".getBytes(StandardCharsets.UTF_8);
+  private static final byte[] STR4 = "01234567".getBytes(StandardCharsets.UTF_8);
 
   private BufferAllocator allocator;
 
@@ -78,6 +80,61 @@ public class TestVarCharViewVector {
 
   @Test
   public void testInlineAllocation() {
+    try (final ViewVarCharVector largeVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      largeVarCharVector.allocateNew(32, 3);
+      final int valueCount = 3;
+      largeVarCharVector.set(0, STR0);
+      largeVarCharVector.set(1, STR1);
+      largeVarCharVector.set(2, STR4);
+      largeVarCharVector.setValueCount(valueCount);
+
+      List<ViewBuffer> views = largeVarCharVector.views;
+      List<ArrowBuf> dataBuffers = largeVarCharVector.dataBuffers;
+
+      assert views.size() == 3;
+      assert dataBuffers.isEmpty();
+
+      ViewBuffer view0 = views.getFirst();
+      assert view0 instanceof InlineValueBuffer;
+      validateInlineValueBuffer(STR0, (InlineValueBuffer) view0);
+
+      ViewBuffer view1 = views.get(1);
+      assert view1 instanceof InlineValueBuffer;
+      validateInlineValueBuffer(STR1, (InlineValueBuffer) view1);
+
+      ViewBuffer view2 = views.get(1);
+      assert view2 instanceof InlineValueBuffer;
+      validateInlineValueBuffer(STR1, (InlineValueBuffer) view2);
+    }
+  }
+
+  private void validateInlineValueBuffer(byte[] expected, InlineValueBuffer inlineValueBuffer) {
+    assert inlineValueBuffer.getLength() == expected.length;
+    byte[] viewBytes = new byte[expected.length];
+    inlineValueBuffer.getValueBuffer().getBytes(0, viewBytes);
+    String expectedStr = new String(viewBytes, StandardCharsets.UTF_8);
+    String viewStr = new String(expected, StandardCharsets.UTF_8);
+    assert expectedStr.equals(viewStr);
+  }
+
+  private void validateReferenceValueBuffer(byte[] expected, ReferenceValueBuffer referenceValueBuffer,
+      List<ArrowBuf> dataBuffers, int startOffSet) {
+    int bufId = referenceValueBuffer.getBufId();
+    byte[] expectedPrefixBytes = new byte[4];
+    System.arraycopy(expected, 0, expectedPrefixBytes, 0, 4);
+    String expectedPrefix = new String(expectedPrefixBytes, StandardCharsets.UTF_8);
+    String viewPrefix = new String(referenceValueBuffer.getPrefix(), StandardCharsets.UTF_8);
+    assert expectedPrefix.equals(viewPrefix);
+    ArrowBuf dataBuf = dataBuffers.get(bufId);
+    byte[] dataBufBytes = new byte[expected.length];
+    dataBuf.getBytes(startOffSet, dataBufBytes);
+    String viewData = new String(dataBufBytes, StandardCharsets.UTF_8);
+    String viewDataExpected = new String(expected, StandardCharsets.UTF_8);
+    assert viewData.equals(viewDataExpected);
+  }
+
+  @Test
+  public void testInlineAndReferenceAllocation() {
     try (final ViewVarCharVector largeVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       largeVarCharVector.allocateNew(32, 3);
       final int valueCount = 3;
