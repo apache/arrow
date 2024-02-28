@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"

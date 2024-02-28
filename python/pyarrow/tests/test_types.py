@@ -214,6 +214,7 @@ def test_is_nested_or_struct():
 
     assert types.is_nested(struct_ex)
     assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.list_(pa.int32(), 3))
     assert types.is_nested(pa.large_list(pa.int32()))
     assert not types.is_nested(pa.int32())
 

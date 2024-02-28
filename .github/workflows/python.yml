@@ -132,6 +132,7 @@ jobs:
     timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
+      ARROW_AZURE: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON

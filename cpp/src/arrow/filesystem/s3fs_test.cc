@@ -150,7 +150,7 @@ class ShortRetryStrategy : public S3RetryStrategy {
 class AwsTestMixin : public ::testing::Test {
  public:
   void SetUp() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
     aws_options_.loggingOptions.logLevel = aws_log_level;
     aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
@@ -161,13 +161,13 @@ class AwsTestMixin : public ::testing::Test {
   }
 
   void TearDown() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     Aws::ShutdownAPI(aws_options_);
 #endif
   }
 
  private:
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
   Aws::SDKOptions aws_options_;
 #endif
 };

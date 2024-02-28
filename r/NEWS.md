@@ -50,6 +50,17 @@
 * A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
 * The developer documentation has been updated to match changes made in recent releases (#38220)
 
+# arrow 14.0.2.1
+
+##  Minor improvements and fixes
+
+* Check for internet access when building from source and fallback to a
+  minimally scoped Arrow C++ build (#39699).
+* Build from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
+* Support building against older versions of Arrow C++. This is currently opt-in
+  (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires atleast Arrow C++ 13.0.0 (#39739).
+* Make it possible to use Arrow C++ from Rtools on windows (in future Rtools versions). (#39986).
+
 # arrow 14.0.2
 
 ##  Minor improvements and fixes

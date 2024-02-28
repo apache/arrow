@@ -40,8 +40,8 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                     lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
-                 lib.Type_MAP} | _UNION_TYPES
+_NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
+                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
 @doc(datatype="null")
