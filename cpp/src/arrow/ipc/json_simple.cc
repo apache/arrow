@@ -38,6 +38,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
+#include "arrow/util/float16.h"
 
 #include "arrow/json/rapidjson_defs.h"
 
@@ -52,6 +53,7 @@ namespace rj = arrow::rapidjson;
 namespace arrow {
 
 using internal::ParseValue;
+using util::Float16;
 
 namespace ipc {
 namespace internal {
@@ -232,7 +234,7 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json
 
 // Convert single unsigned integer value
 template <typename T>
-enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
                                                              const DataType& type,
                                                              typename T::c_type* out) {
   if (json_obj.IsUint64()) {
@@ -247,6 +249,26 @@ enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& js
     *out = static_cast<typename T::c_type>(0);
     return JSONTypeError("unsigned int", json_obj.GetType());
   }
+}
+
+// Convert float16/HalfFloatType
+template <typename T> 
+enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                       const DataType& type,
+                                       uint16_t* out) {
+    if (json_obj.IsDouble()) {
+        double f64 = json_obj.GetDouble();
+        Float16 f16 = Float16(f64);
+        *out = f16.bits();
+        if (f16.ToDouble() == f64) {
+            return Status::OK();
+        } else {
+            return Status::Invalid("Value ", f64, " out of bounds for ", type);
+        }
+    } else {
+        *out = static_cast<uint16_t>(0);
+        return JSONTypeError("unsigned int", json_obj.GetType());
+    }
 }
 
 // Convert single floating point value
