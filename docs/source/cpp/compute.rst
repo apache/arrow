@@ -1828,7 +1828,7 @@ Structural transforms
     and the bitmap for the child ``a``.
   * The index ``1, 1`` or the field name ``"b.d"`` yields an array of type ``float64`` whose
     validity bitmap is the intersection of the bitmaps for the
-    outermost struct, for struct ``b`` and for the child ``d``.
+    outermost struct, for struct ``b``, and for the child ``d``.
 
   For unions, a validity bitmap is synthesized based on the type
   codes. Also, the index is always the child index and not a type code.
