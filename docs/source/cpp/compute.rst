@@ -1826,7 +1826,7 @@ Structural transforms
   * The index ``0`` or the field name ``"a"`` yields an array of type ``int32`` whose validity
     bitmap is the intersection of the bitmap for the outermost struct
     and the bitmap for the child ``a``.
-  * The index ``1, 1`` or the field name ``b.d`` yields an array of type ``float64`` whose
+  * The index ``1, 1`` or the field name ``"b.d"`` yields an array of type ``float64`` whose
     validity bitmap is the intersection of the bitmaps for the
     outermost struct, for struct ``b`` and for the child ``d``.
 
