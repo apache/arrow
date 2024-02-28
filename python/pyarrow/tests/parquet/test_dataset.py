@@ -1008,7 +1008,7 @@ def _test_write_to_dataset_no_partitions(base_path,
         assert selector.base_dir == str(base_path)
 
         infos = filesystem.get_file_info(selector)
-        output_files = [info for info in infos if (info.path.endswith(".parquet"))]
+        output_files = [info for info in infos if info.path.endswith(".parquet")]
     assert len(output_files) == n
 
     # Deduplicated incoming DataFrame should match
