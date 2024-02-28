@@ -1989,8 +1989,9 @@ class ResidualFilterCaseRunner {
   static std::string OutputString(const std::vector<FieldRef>& left_output,
                                   const std::vector<FieldRef>& right_output) {
     std::vector<FieldRef> both_output;
-    std::copy(left_output.begin(), left_output.end(), std::back_inserter(both_output));
-    std::copy(right_output.begin(), right_output.end(), std::back_inserter(both_output));
+    both_output.reserve(left_output.size() + right_output.size());
+    both_output.insert(both_output.end(), left_output.begin(), left_output.end());
+    both_output.insert(both_output.end(), right_output.begin(), right_output.end());
     std::stringstream ss;
     ss << "output (";
     for (size_t i = 0; i < both_output.size(); ++i) {
@@ -2121,35 +2122,35 @@ TEST(HashJoin, FineGrainedResidualFilter) {
 
   BatchesWithSchema left;
   left.batches = {ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                      [null, null, "payload"],
-                      [null, 0, "payload"],
-                      [null, 42, "payload"],
-                      ["left_only", null, "payload"],
-                      ["left_only", 0, "payload"],
-                      ["left_only", 42, "payload"],
-                      ["both1", null, "payload"],
-                      ["both1", 0, "payload"],
-                      ["both1", 42, "payload"],
-                      ["both2", null, "payload"],
-                      ["both2", 0, "payload"],
-                      ["both2", 42, "payload"]])")};
+                      [null, null, "l_payload"],
+                      [null, 0, "l_payload"],
+                      [null, 42, "l_payload"],
+                      ["left_only", null, "l_payload"],
+                      ["left_only", 0, "l_payload"],
+                      ["left_only", 42, "l_payload"],
+                      ["both1", null, "l_payload"],
+                      ["both1", 0, "l_payload"],
+                      ["both1", 42, "l_payload"],
+                      ["both2", null, "l_payload"],
+                      ["both2", 0, "l_payload"],
+                      ["both2", 42, "l_payload"]])")};
   left.schema = schema(
       {field("l_key", utf8()), field("l_filter", int32()), field("l_payload", utf8())});
 
   BatchesWithSchema right;
   right.batches = {ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                       [null, null, "payload"],
-                       [null, 0, "payload"],
-                       [null, 42, "payload"],
-                       ["both1", null, "payload"],
-                       ["both1", 0, "payload"],
-                       ["both1", 42, "payload"],
-                       ["both2", null, "payload"],
-                       ["both2", 0, "payload"],
-                       ["both2", 42, "payload"],
-                       ["right_only", null, "payload"],
-                       ["right_only", 0, "payload"],
-                       ["right_only", 42, "payload"]])")};
+                       [null, null, "r_payload"],
+                       [null, 0, "r_payload"],
+                       [null, 42, "r_payload"],
+                       ["both1", null, "r_payload"],
+                       ["both1", 0, "r_payload"],
+                       ["both1", 42, "r_payload"],
+                       ["both2", null, "r_payload"],
+                       ["both2", 0, "r_payload"],
+                       ["both2", 42, "r_payload"],
+                       ["right_only", null, "r_payload"],
+                       ["right_only", 0, "r_payload"],
+                       ["right_only", 42, "r_payload"]])")};
   right.schema = schema(
       {field("r_key", utf8()), field("r_filter", int32()), field("r_payload", utf8())});
 
@@ -2172,10 +2173,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::INNER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2188,18 +2189,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::LEFT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2212,18 +2213,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::RIGHT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2236,26 +2237,26 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::FULL_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2267,10 +2268,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left semi join.
         JoinType join_type = JoinType::LEFT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 0, "l_payload"],
+                            ["both1", 42, "l_payload"],
+                            ["both2", 0, "l_payload"],
+                            ["both2", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2282,14 +2283,14 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left anti join.
         JoinType join_type = JoinType::LEFT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"],
-                            ["left_only", null, "payload"],
-                            ["left_only", 0, "payload"],
-                            ["left_only", 42, "payload"],
-                            ["both1", null, "payload"],
-                            ["both2", null, "payload"]])");
+                            [null, null, "l_payload"],
+                            [null, 0, "l_payload"],
+                            [null, 42, "l_payload"],
+                            ["left_only", null, "l_payload"],
+                            ["left_only", 0, "l_payload"],
+                            ["left_only", 42, "l_payload"],
+                            ["both1", null, "l_payload"],
+                            ["both2", null, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2301,10 +2302,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right semi join.
         JoinType join_type = JoinType::RIGHT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 0, "r_payload"],
+                            ["both1", 42, "r_payload"],
+                            ["both2", 0, "r_payload"],
+                            ["both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2316,14 +2317,14 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right anti join.
         JoinType join_type = JoinType::RIGHT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"], 
-                            ["both1", null, "payload"],
-                            ["both2", null, "payload"],
-                            ["right_only", null, "payload"],
-                            ["right_only", 0, "payload"],
-                            ["right_only", 42, "payload"]])");
+                            [null, null, "r_payload"],
+                            [null, 0, "r_payload"],
+                            [null, 42, "r_payload"], 
+                            ["both1", null, "r_payload"],
+                            ["both2", null, "r_payload"],
+                            ["right_only", null, "r_payload"],
+                            ["right_only", 0, "r_payload"],
+                            ["right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2357,18 +2358,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::LEFT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both1", 0, "payload", null, null, null],
-                ["both1", 42, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both2", 0, "payload", null, null, null],
-                ["both2", 42, "payload", null, null, null]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", null, null, null],
+                ["both1", 42, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both2", 0, "l_payload", null, null, null],
+                ["both2", 42, "l_payload", null, null, null]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2381,18 +2382,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::RIGHT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both1", 0, "payload"],
-                [null, null, null, "both1", 42, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "both2", 0, "payload"],
-                [null, null, null, "both2", 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both1", 0, "r_payload"],
+                [null, null, null, "both1", 42, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "both2", 0, "r_payload"],
+                [null, null, null, "both2", 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2405,30 +2406,30 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::FULL_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both1", 0, "payload", null, null, null],
-                ["both1", 42, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both2", 0, "payload", null, null, null],
-                ["both2", 42, "payload", null, null, null],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both1", 0, "payload"],
-                [null, null, null, "both1", 42, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "both2", 0, "payload"],
-                [null, null, null, "both2", 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", null, null, null],
+                ["both1", 42, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both2", 0, "l_payload", null, null, null],
+                ["both2", 42, "l_payload", null, null, null],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both1", 0, "r_payload"],
+                [null, null, null, "both1", 42, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "both2", 0, "r_payload"],
+                [null, null, null, "both2", 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2451,18 +2452,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left anti join.
         JoinType join_type = JoinType::LEFT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"],
-                            ["left_only", null, "payload"],
-                            ["left_only", 0, "payload"],
-                            ["left_only", 42, "payload"],
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            [null, null, "l_payload"],
+                            [null, 0, "l_payload"],
+                            [null, 42, "l_payload"],
+                            ["left_only", null, "l_payload"],
+                            ["left_only", 0, "l_payload"],
+                            ["left_only", 42, "l_payload"],
+                            ["both1", null, "l_payload"],
+                            ["both1", 0, "l_payload"],
+                            ["both1", 42, "l_payload"],
+                            ["both2", null, "l_payload"],
+                            ["both2", 0, "l_payload"],
+                            ["both2", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2485,18 +2486,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right anti join.
         JoinType join_type = JoinType::RIGHT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"], 
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"],
-                            ["right_only", null, "payload"],
-                            ["right_only", 0, "payload"],
-                            ["right_only", 42, "payload"]])");
+                            [null, null, "r_payload"],
+                            [null, 0, "r_payload"],
+                            [null, 42, "r_payload"], 
+                            ["both1", null, "r_payload"],
+                            ["both1", 0, "r_payload"],
+                            ["both1", 42, "r_payload"],
+                            ["both2", null, "r_payload"],
+                            ["both2", 0, "r_payload"],
+                            ["both2", 42, "r_payload"],
+                            ["right_only", null, "r_payload"],
+                            ["right_only", 0, "r_payload"],
+                            ["right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2516,12 +2517,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::INNER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 42, "payload", "both1", null, "payload"],
-                ["both1", 42, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 42, "payload", "both2", null, "payload"],
-                ["both2", 42, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                ["both1", 42, "l_payload", "both1", null, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", null, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2534,22 +2535,22 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::LEFT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both1", 0, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both2", 0, "payload", null, null, null],
-                ["both1", 42, "payload", "both1", null, "payload"],
-                ["both1", 42, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 42, "payload", "both2", null, "payload"],
-                ["both2", 42, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both2", 0, "l_payload", null, null, null],
+                ["both1", 42, "l_payload", "both1", null, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", null, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2562,18 +2563,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::RIGHT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 42, "payload", "both1", null, "payload"],
-                ["both1", 42, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 42, "payload", "both2", null, "payload"],
-                ["both2", 42, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                ["both1", 42, "l_payload", "both1", null, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", null, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2586,28 +2587,28 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::FULL_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both1", 0, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both2", 0, "payload", null, null, null],
-                ["both1", 42, "payload", "both1", null, "payload"],
-                ["both1", 42, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 42, "payload", "both2", null, "payload"],
-                ["both2", 42, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both2", 0, "l_payload", null, null, null],
+                ["both1", 42, "l_payload", "both1", null, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", null, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2619,8 +2620,8 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left semi join.
         JoinType join_type = JoinType::LEFT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 42, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 42, "l_payload"],
+                            ["both2", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2632,16 +2633,16 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left anti join.
         JoinType join_type = JoinType::LEFT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"],
-                            ["left_only", null, "payload"],
-                            ["left_only", 0, "payload"],
-                            ["left_only", 42, "payload"],
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"]])");
+                            [null, null, "l_payload"],
+                            [null, 0, "l_payload"],
+                            [null, 42, "l_payload"],
+                            ["left_only", null, "l_payload"],
+                            ["left_only", 0, "l_payload"],
+                            ["left_only", 42, "l_payload"],
+                            ["both1", null, "l_payload"],
+                            ["both1", 0, "l_payload"],
+                            ["both2", null, "l_payload"],
+                            ["both2", 0, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2653,12 +2654,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right semi join.
         JoinType join_type = JoinType::RIGHT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", null, "r_payload"],
+                            ["both1", 0, "r_payload"],
+                            ["both1", 42, "r_payload"],
+                            ["both2", null, "r_payload"],
+                            ["both2", 0, "r_payload"],
+                            ["both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2670,12 +2671,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right anti join.
         JoinType join_type = JoinType::RIGHT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"], 
-                            ["right_only", null, "payload"],
-                            ["right_only", 0, "payload"],
-                            ["right_only", 42, "payload"]])");
+                            [null, null, "r_payload"],
+                            [null, 0, "r_payload"],
+                            [null, 42, "r_payload"], 
+                            ["right_only", null, "r_payload"],
+                            ["right_only", 0, "r_payload"],
+                            ["right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2695,12 +2696,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::INNER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", null, "payload", "both1", 42, "payload"],
-                ["both1", 0, "payload", "both1", 42, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", null, "payload", "both2", 42, "payload"],
-                ["both2", 0, "payload", "both2", 42, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                ["both1", null, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 0, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", null, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2713,18 +2714,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::LEFT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", "both1", 42, "payload"],
-                ["both1", 0, "payload", "both1", 42, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", null, "payload", "both2", 42, "payload"],
-                ["both2", 0, "payload", "both2", 42, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 0, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", null, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2737,22 +2738,22 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::RIGHT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", null, "payload", "both1", 42, "payload"],
-                ["both1", 0, "payload", "both1", 42, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", null, "payload", "both2", 42, "payload"],
-                ["both2", 0, "payload", "both2", 42, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both1", 0, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "both2", 0, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                ["both1", null, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 0, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", null, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both1", 0, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "both2", 0, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2765,28 +2766,28 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::FULL_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", "both1", 42, "payload"],
-                ["both1", 0, "payload", "both1", 42, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", null, "payload", "both2", 42, "payload"],
-                ["both2", 0, "payload", "both2", 42, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both1", 0, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "both2", 0, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 0, "l_payload", "both1", 42, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", null, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 42, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both1", 0, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "both2", 0, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2798,12 +2799,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left semi join.
         JoinType join_type = JoinType::LEFT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", null, "l_payload"],
+                            ["both1", 0, "l_payload"],
+                            ["both1", 42, "l_payload"],
+                            ["both2", null, "l_payload"],
+                            ["both2", 0, "l_payload"],
+                            ["both2", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2815,12 +2816,12 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left anti join.
         JoinType join_type = JoinType::LEFT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"],
-                            ["left_only", null, "payload"],
-                            ["left_only", 0, "payload"],
-                            ["left_only", 42, "payload"]])");
+                            [null, null, "l_payload"],
+                            [null, 0, "l_payload"],
+                            [null, 42, "l_payload"],
+                            ["left_only", null, "l_payload"],
+                            ["left_only", 0, "l_payload"],
+                            ["left_only", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2832,8 +2833,8 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right semi join.
         JoinType join_type = JoinType::RIGHT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 42, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 42, "r_payload"],
+                            ["both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2845,16 +2846,16 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right anti join.
         JoinType join_type = JoinType::RIGHT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"], 
-                            ["both1", null, "payload"],
-                            ["both1", 0, "payload"],
-                            ["both2", null, "payload"],
-                            ["both2", 0, "payload"],
-                            ["right_only", null, "payload"],
-                            ["right_only", 0, "payload"],
-                            ["right_only", 42, "payload"]])");
+                            [null, null, "r_payload"],
+                            [null, 0, "r_payload"],
+                            [null, 42, "r_payload"], 
+                            ["both1", null, "r_payload"],
+                            ["both1", 0, "r_payload"],
+                            ["both2", null, "r_payload"],
+                            ["both2", 0, "r_payload"],
+                            ["right_only", null, "r_payload"],
+                            ["right_only", 0, "r_payload"],
+                            ["right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2876,10 +2877,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::INNER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2892,18 +2893,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::LEFT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2916,18 +2917,18 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::RIGHT_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2940,26 +2941,26 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         JoinType join_type = JoinType::FULL_OUTER;
         auto expected =
             ExecBatchFromJSON({utf8(), int32(), utf8(), utf8(), int32(), utf8()}, R"([
-                [null, null, "payload", null, null, null],
-                [null, 0, "payload", null, null, null],
-                [null, 42, "payload", null, null, null],
-                ["left_only", null, "payload", null, null, null],
-                ["left_only", 0, "payload", null, null, null],
-                ["left_only", 42, "payload", null, null, null],
-                ["both1", null, "payload", null, null, null],
-                ["both2", null, "payload", null, null, null],
-                ["both1", 0, "payload", "both1", 0, "payload"],
-                ["both1", 42, "payload", "both1", 42, "payload"],
-                ["both2", 0, "payload", "both2", 0, "payload"],
-                ["both2", 42, "payload", "both2", 42, "payload"],
-                [null, null, null, null, null, "payload"],
-                [null, null, null, null, 0, "payload"],
-                [null, null, null, null, 42, "payload"],
-                [null, null, null, "both1", null, "payload"],
-                [null, null, null, "both2", null, "payload"],
-                [null, null, null, "right_only", null, "payload"],
-                [null, null, null, "right_only", 0, "payload"],
-                [null, null, null, "right_only", 42, "payload"]])");
+                [null, null, "l_payload", null, null, null],
+                [null, 0, "l_payload", null, null, null],
+                [null, 42, "l_payload", null, null, null],
+                ["left_only", null, "l_payload", null, null, null],
+                ["left_only", 0, "l_payload", null, null, null],
+                ["left_only", 42, "l_payload", null, null, null],
+                ["both1", null, "l_payload", null, null, null],
+                ["both2", null, "l_payload", null, null, null],
+                ["both1", 0, "l_payload", "both1", 0, "r_payload"],
+                ["both1", 42, "l_payload", "both1", 42, "r_payload"],
+                ["both2", 0, "l_payload", "both2", 0, "r_payload"],
+                ["both2", 42, "l_payload", "both2", 42, "r_payload"],
+                [null, null, null, null, null, "r_payload"],
+                [null, null, null, null, 0, "r_payload"],
+                [null, null, null, null, 42, "r_payload"],
+                [null, null, null, "both1", null, "r_payload"],
+                [null, null, null, "both2", null, "r_payload"],
+                [null, null, null, "right_only", null, "r_payload"],
+                [null, null, null, "right_only", 0, "r_payload"],
+                [null, null, null, "right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2971,10 +2972,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left semi join.
         JoinType join_type = JoinType::LEFT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 0, "l_payload"],
+                            ["both1", 42, "l_payload"],
+                            ["both2", 0, "l_payload"],
+                            ["both2", 42, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -2986,14 +2987,14 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Left anti join.
         JoinType join_type = JoinType::LEFT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"],
-                            ["left_only", null, "payload"],
-                            ["left_only", 0, "payload"],
-                            ["left_only", 42, "payload"],
-                            ["both1", null, "payload"],
-                            ["both2", null, "payload"]])");
+                            [null, null, "l_payload"],
+                            [null, 0, "l_payload"],
+                            [null, 42, "l_payload"],
+                            ["left_only", null, "l_payload"],
+                            ["left_only", 0, "l_payload"],
+                            ["left_only", 42, "l_payload"],
+                            ["both1", null, "l_payload"],
+                            ["both2", null, "l_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -3005,10 +3006,10 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right semi join.
         JoinType join_type = JoinType::RIGHT_SEMI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            ["both1", 0, "payload"],
-                            ["both1", 42, "payload"],
-                            ["both2", 0, "payload"],
-                            ["both2", 42, "payload"]])");
+                            ["both1", 0, "r_payload"],
+                            ["both1", 42, "r_payload"],
+                            ["both2", 0, "r_payload"],
+                            ["both2", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
@@ -3020,14 +3021,14 @@ TEST(HashJoin, FineGrainedResidualFilter) {
         // Right anti join.
         JoinType join_type = JoinType::RIGHT_ANTI;
         auto expected = ExecBatchFromJSON({utf8(), int32(), utf8()}, R"([
-                            [null, null, "payload"],
-                            [null, 0, "payload"],
-                            [null, 42, "payload"], 
-                            ["both1", null, "payload"],
-                            ["both2", null, "payload"],
-                            ["right_only", null, "payload"],
-                            ["right_only", 0, "payload"],
-                            ["right_only", 42, "payload"]])");
+                            [null, null, "r_payload"],
+                            [null, 0, "r_payload"],
+                            [null, 42, "r_payload"], 
+                            ["both1", null, "r_payload"],
+                            ["both2", null, "r_payload"],
+                            ["right_only", null, "r_payload"],
+                            ["right_only", 0, "r_payload"],
+                            ["right_only", 42, "r_payload"]])");
         for (const auto& projector : projectors) {
           runner.Run(join_type, left_keys, right_keys, projector.LeftOutput(join_type),
                      projector.RightOutput(join_type), filter,
