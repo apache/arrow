@@ -390,6 +390,7 @@ def test_export_import_batch_with_extension():
             make_extension_batch,
         )
 
+
 @needs_cffi
 def test_export_import_device_batch():
     check_export_import_batch(
