@@ -945,18 +945,37 @@ def test_type_id():
         assert isinstance(ty.id, int)
 
 
-def test_bit_width():
-    for ty, expected in [(pa.bool_(), 1),
-                         (pa.int8(), 8),
-                         (pa.uint32(), 32),
-                         (pa.float16(), 16),
-                         (pa.decimal128(19, 4), 128),
-                         (pa.decimal256(76, 38), 256),
-                         (pa.binary(42), 42 * 8)]:
-        assert ty.bit_width == expected
-    for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
+def test_bit_and_byte_width():
+    for ty, expected_bit_width, expected_byte_width in [
+        (pa.bool_(), 1, 0),
+        (pa.int8(), 8, 1),
+        (pa.uint32(), 32, 4),
+        (pa.float16(), 16, 2),
+        (pa.timestamp('s'), 64, 8),
+        (pa.date32(), 32, 4),
+        (pa.decimal128(19, 4), 128, 16),
+        (pa.decimal256(76, 38), 256, 32),
+        (pa.binary(42), 42 * 8, 42)
+    ]:
+        assert ty.bit_width == expected_bit_width
+
+        if expected_byte_width == 0:
+            with pytest.raises(ValueError, match="Less than one byte"):
+                ty.byte_width
+        else:
+            assert ty.byte_width == expected_byte_width
+
+    for ty in [
+        pa.binary(),
+        pa.string(),
+        pa.list_(pa.int16()),
+        pa.map_(pa.string(), pa.int32()),
+        pa.struct([('f1', pa.int32())])
+    ]:
         with pytest.raises(ValueError, match="fixed width"):
             ty.bit_width
+        with pytest.raises(ValueError, match="fixed width"):
+            ty.byte_width
 
 
 def test_fixed_size_binary_byte_width():

@@ -245,6 +245,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
+        int byte_width()
 
     cdef cppclass CNullArray" arrow::NullArray"(CArray):
         CNullArray(int64_t length)
