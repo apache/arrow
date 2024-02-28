@@ -3010,11 +3010,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)
 
-cdef extern from "arrow/type.h" namespace "arrow":
-    cdef cppclass CTypeHolder" arrow::TypeHolder":
-        CTypeHolder()
-        CTypeHolder(const shared_ptr[CDataType]& type)
-
 cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
-    CResult[CDatum] Cast(const CDatum& value, const CTypeHolder& to_type, const CCastOptions& options,
-                         CExecContext * ctx)
+    CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)
