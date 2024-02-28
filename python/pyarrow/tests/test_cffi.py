@@ -633,9 +633,8 @@ def test_roundtrip_reader_capsule(constructor):
 
     obj = constructor(schema, batches)
 
-    # TODO: turn this to ValueError once we implement validation.
     bad_schema = pa.schema({'ints': pa.int32()})
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(pa.lib.ArrowTypeError, match="Field 0 cannot be cast"):
         obj.__arrow_c_stream__(bad_schema.__arrow_c_schema__())
 
     # Can work with matching schema
@@ -645,6 +644,21 @@ def test_roundtrip_reader_capsule(constructor):
     assert imported_reader.schema == matching_schema
     for batch, expected in zip(imported_reader, batches):
         assert batch.equals(expected)
+
+
+def test_roundtrip_batch_reader_capsule_requested_schema():
+    batch = make_batch()
+    requested_schema = pa.schema([('ints', pa.list_(pa.int64()))])
+    requested_capsule = requested_schema.__arrow_c_schema__()
+    batch_as_requested = batch.cast(requested_schema)
+
+    capsule = batch.__arrow_c_stream__(requested_capsule)
+    assert PyCapsule_IsValid(capsule, b"arrow_array_stream") == 1
+    imported_reader = pa.RecordBatchReader._import_from_c_capsule(capsule)
+    assert imported_reader.schema == requested_schema
+    assert imported_reader.read_next_batch().equals(batch_as_requested)
+    with pytest.raises(StopIteration):
+        imported_reader.read_next_batch()
 
 
 def test_roundtrip_batch_reader_capsule():

@@ -2742,6 +2742,29 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def cast(self, Schema target_schema, safe=None, options=None):
+        """
+        Cast batch values to another schema.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+        safe : bool, default True
+            Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
+
+        Returns
+        -------
+        RecordBatch
+        """
+        # Wrap the more general Table cast implementation
+        tbl = Table.from_batches([self])
+        casted_tbl = tbl.cast(target_schema, safe=safe, options=options)
+        casted_batch, = casted_tbl.to_batches()
+        return casted_batch
+
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
