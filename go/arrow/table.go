@@ -39,6 +39,7 @@ type Table interface {
 
 	Retain()
 	Release()
+	String() string
 }
 
 // Column is an immutable column data structure consisting of
