@@ -218,6 +218,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
 using DeviceMemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
+ARROW_EXPORT
 Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
                                                            int64_t device_id);
 
