@@ -567,6 +567,7 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 struct ArrayExporter {
   explicit ArrayExporter(bool device_interface = false)
       : device_interface_(device_interface) {}
+
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
@@ -614,10 +615,10 @@ struct ArrayExporter {
 
     // Export children
     export_.children_.resize(data->child_data.size());
-    child_exporters_.resize(data->child_data.size());
-    for (size_t i = 0; i < data->child_data.size(); ++i) {
-      child_exporters_[i] = std::make_unique<ArrayExporter>(device_interface_);
-      RETURN_NOT_OK(child_exporters_[i]->Export(data->child_data[i]));
+    child_exporters_.reserve(data->child_data.size());
+    for (const auto& child : data->child_data) {
+      child_exporters_.emplace_back(ArrayExporter{device_interface_});
+      RETURN_NOT_OK(child_exporters_.back().Export(child));
     }
 
     // Store owning pointer to ArrayData
@@ -647,7 +648,7 @@ struct ArrayExporter {
     for (size_t i = 0; i < data.child_data.size(); ++i) {
       auto ptr = &pdata->children_[i];
       pdata->child_pointers_[i] = ptr;
-      child_exporters_[i]->Finish(ptr);
+      child_exporters_[i].Finish(ptr);
     }
 
     // Third, fill C struct.
@@ -668,7 +669,7 @@ struct ArrayExporter {
 
   ExportedArrayPrivateData export_;
   std::unique_ptr<ArrayExporter> dict_exporter_;
-  std::vector<std::unique_ptr<ArrayExporter>> child_exporters_;
+  std::vector<ArrayExporter> child_exporters_;
   bool device_interface_ = false;
 };
 

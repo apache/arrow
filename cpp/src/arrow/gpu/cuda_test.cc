@@ -767,6 +767,7 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
     std::shared_ptr<Array> array_roundtripped;
     ASSERT_OK_AND_ASSIGN(array_roundtripped,
                          device_array_roundtripped->CopyTo(default_cpu_memory_manager()));
+    ASSERT_OK(array_roundtripped->ValidateFull());
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, factory_expected());
@@ -786,6 +787,7 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
     array_roundtripped.reset();
     ASSERT_OK_AND_ASSIGN(array_roundtripped,
                          device_array_roundtripped->CopyTo(default_cpu_memory_manager()));
+    ASSERT_OK(array_roundtripped->ValidateFull());
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, factory_expected());
