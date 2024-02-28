@@ -26,7 +26,7 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<#list ["List", "LargeList"] as listName>
+<#list ["List", "LargeList", "ListView"] as listName>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
