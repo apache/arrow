@@ -377,5 +377,18 @@ INSTANTIATE_TEST_SUITE_P(
                          "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n")));
 #endif
 
+INSTANTIATE_TEST_SUITE_P(
+    LargeStringColumnWriteCSVTest, TestWriteCSV,
+    ::testing::Values(WriterTestParams(schema({
+                                           field("a", utf8()),
+                                           field("b", large_utf8()),
+                                       }),
+                                       R"([{ "a": "a\"b\"c\"", "b": "d\"e\"f\"" }])",
+                                       WriteOptions(),
+                                       R"("a","b")"
+                                       "\n"
+                                       R"("a""b""c""","d""e""f""")"
+                                       "\n")));
+
 }  // namespace csv
 }  // namespace arrow
