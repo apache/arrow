@@ -760,7 +760,7 @@ class ColumnReaderImplBase {
 
     if (page->encoding() == Encoding::PLAIN_DICTIONARY ||
         page->encoding() == Encoding::PLAIN) {
-      auto dictionary = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+      auto dictionary = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_, pool_);
       dictionary->SetData(page->num_values(), page->data(), page->size());
 
       // The dictionary is fully decoded during DictionaryDecoder::Init, so the
@@ -883,46 +883,20 @@ class ColumnReaderImplBase {
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {
-        case Encoding::PLAIN: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+        case Encoding::PLAIN:
+        case Encoding::BYTE_STREAM_SPLIT:
+        case Encoding::RLE:
+        case Encoding::DELTA_BINARY_PACKED:
+        case Encoding::DELTA_BYTE_ARRAY:
+        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
+          auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
           current_decoder_ = decoder.get();
           decoders_[static_cast<int>(encoding)] = std::move(decoder);
           break;
         }
-        case Encoding::BYTE_STREAM_SPLIT: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::BYTE_STREAM_SPLIT, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::RLE: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::RLE, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
+
         case Encoding::RLE_DICTIONARY:
           throw ParquetException("Dictionary page must be before data page.");
-
-        case Encoding::DELTA_BINARY_PACKED: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_BYTE_ARRAY: {
-          auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BYTE_ARRAY, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
-        case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
-          auto decoder =
-              MakeTypedDecoder<DType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_);
-          current_decoder_ = decoder.get();
-          decoders_[static_cast<int>(encoding)] = std::move(decoder);
-          break;
-        }
 
         default:
           throw ParquetException("Unknown encoding type.");
@@ -1062,11 +1036,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
-      for (int64_t i = 0; i < *num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++(*values_to_read);
-        }
-      }
+      *values_to_read +=
+          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
       *values_to_read = batch_size;
@@ -1195,12 +1166,8 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     const bool has_spaced_values = HasSpacedValues(this->descr_);
     int64_t null_count = 0;
     if (!has_spaced_values) {
-      int values_to_read = 0;
-      for (int64_t i = 0; i < num_def_levels; ++i) {
-        if (def_levels[i] == this->max_def_level_) {
-          ++values_to_read;
-        }
-      }
+      int64_t values_to_read =
+          std::count(def_levels, def_levels + num_def_levels, this->max_def_level_);
       total_values = this->ReadValues(values_to_read, values);
       ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
                                    /*length=*/total_values,
@@ -1368,6 +1335,26 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       throw ParquetException("Total size of items too large");
     }
     return bytes_for_values;
+  }
+
+  const void* ReadDictionary(int32_t* dictionary_length) override {
+    if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
+      dictionary_length = 0;
+      return nullptr;
+    }
+    // Verify the current data page is dictionary encoded. The current_encoding_ should
+    // have been set as RLE_DICTIONARY if the page encoding is RLE_DICTIONARY or
+    // PLAIN_DICTIONARY.
+    if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
+      std::stringstream ss;
+      ss << "Data page is not dictionary encoded. Encoding: "
+         << EncodingToString(this->current_encoding_);
+      throw ParquetException(ss.str());
+    }
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    const T* dictionary = nullptr;
+    decoder->GetDictionary(&dictionary, dictionary_length);
+    return reinterpret_cast<const void*>(dictionary);
   }
 
   int64_t ReadRecords(int64_t num_records) override {
@@ -1909,11 +1896,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // When reading dense we need to figure out number of values to read.
     const int16_t* def_levels = this->def_levels();
-    for (int64_t i = start_levels_position; i < levels_position_; ++i) {
-      if (def_levels[i] == this->max_def_level_) {
-        ++(*values_to_read);
-      }
-    }
+    *values_to_read += std::count(def_levels + start_levels_position,
+                                  def_levels + levels_position_, this->max_def_level_);
     ReadValuesDense(*values_to_read);
   }
 

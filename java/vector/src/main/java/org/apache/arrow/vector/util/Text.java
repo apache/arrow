@@ -210,7 +210,7 @@ public class Text extends ReusableByteArray {
   }
 
   /**
-   * Set to a utf8 byte array.
+   * Set to an utf8 byte array.
    *
    * @param utf8 the byte array to initialize from
    */

@@ -91,8 +91,9 @@ if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; th
   "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh"
 fi
 
-# Install rsync for bundling cpp source and curl to make sure it is installed on all images
-$PACKAGE_MANAGER install -y rsync curl
+# Install rsync for bundling cpp source and curl to make sure it is installed on all images,
+# cmake is now a listed sys req.
+$PACKAGE_MANAGER install -y rsync cmake curl
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

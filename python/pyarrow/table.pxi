@@ -1327,6 +1327,67 @@ cdef class ChunkedArray(_PandasConvertible):
             result += self.chunk(i).to_pylist()
         return result
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream = NULL
+
+        if requested_schema is not None:
+            out_type = DataType._import_from_c_capsule(requested_schema)
+            if self.type != out_type:
+                raise NotImplementedError("Casting to requested_schema")
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportChunkedArray(self.sp_chunked_array, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import ChunkedArray from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CChunkedArray] c_chunked_array
+            ChunkedArray self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_chunked_array = GetResultValue(ImportChunkedArray(c_stream))
+
+        self = ChunkedArray.__new__(ChunkedArray)
+        self.init(c_chunked_array)
+        return self
+
 
 def chunked_array(arrays, type=None):
     """
@@ -2681,6 +2742,29 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def cast(self, Schema target_schema, safe=None, options=None):
+        """
+        Cast batch values to another schema.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+        safe : bool, default True
+            Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
+
+        Returns
+        -------
+        RecordBatch
+        """
+        # Wrap the more general Table cast implementation
+        tbl = Table.from_batches([self])
+        casted_tbl = tbl.cast(target_schema, safe=safe, options=options)
+        casted_batch, = casted_tbl.to_batches()
+        return casted_batch
+
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
@@ -3082,6 +3166,68 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_batch = GetResultValue(ImportRecordBatch(c_array, c_schema))
 
+        return pyarrow_wrap_batch(c_batch)
+
+    def _export_to_c_device(self, out_ptr, out_schema_ptr=0):
+        """
+        Export to a C ArrowDeviceArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the record batch
+        schema is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowDeviceArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
+        with nogil:
+            check_status(ExportDeviceRecordBatch(
+                deref(self.sp_batch), <shared_ptr[CSyncEvent]>NULL,
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr)
+            )
+
+    @staticmethod
+    def _import_from_c_device(in_ptr, schema):
+        """
+        Import RecordBatch from a C ArrowDeviceArray struct, given its pointer
+        and the imported schema.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        type: Schema or int
+            Either a Schema object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_schema_ptr
+            shared_ptr[CRecordBatch] c_batch
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        if c_schema == nullptr:
+            # Not a Schema object, perhaps a raw ArrowSchema pointer
+            c_schema_ptr = _as_c_pointer(schema, allow_null=True)
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+        else:
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
 
@@ -3992,6 +4138,60 @@ cdef class Table(_Tabular):
         return result
 
     @staticmethod
+    def from_struct_array(struct_array):
+        """
+        Construct a Table from a StructArray.
+
+        Each field in the StructArray will become a column in the resulting
+        ``Table``.
+
+        Parameters
+        ----------
+        struct_array : StructArray or ChunkedArray
+            Array to construct the table from.
+
+        Returns
+        -------
+        pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> pa.Table.from_struct_array(struct).to_pandas()
+          animals  n_legs    year
+        0  Parrot       2     NaN
+        1    None       4  2022.0
+        """
+        if isinstance(struct_array, Array):
+            return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
+        else:
+            return Table.from_batches([
+                RecordBatch.from_struct_array(chunk)
+                for chunk in struct_array.chunks
+            ])
+
+    def to_struct_array(self, max_chunksize=None):
+        """
+        Convert to a chunked array of struct type.
+
+        Parameters
+        ----------
+        max_chunksize : int, default None
+            Maximum number of rows for ChunkedArray chunks. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        return chunked_array([
+            batch.to_struct_array()
+            for batch in self.to_batches(max_chunksize=max_chunksize)
+        ])
+
+    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
@@ -4074,8 +4274,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -4118,6 +4318,8 @@ cdef class Table(_Tabular):
         reader.reset(new TableBatchReader(deref(self.table)))
 
         if max_chunksize is not None:
+            if not max_chunksize > 0:
+                raise ValueError("'max_chunksize' should be strictly positive")
             c_max_chunksize = max_chunksize
             reader.get().set_chunksize(c_max_chunksize)
 
@@ -4142,8 +4344,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -5148,7 +5350,17 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
+    elif _pandas_api.is_data_frame(data):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     elif hasattr(data, "__arrow_c_stream__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         if schema is not None:
             requested = schema.__arrow_c_schema__()
         else:
@@ -5162,14 +5374,12 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             table = table.cast(schema)
         return table
     elif hasattr(data, "__arrow_c_array__"):
-        batch = record_batch(data, schema)
-        return Table.from_batches([batch])
-    elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
-                "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
+                "using Arrow PyCapsule Interface")
+        batch = record_batch(data, schema)
+        return Table.from_batches([batch])
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")

@@ -116,26 +116,47 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
               sqlClient.getStream(endpoint.getTicket(), getOptions()), null));
         } else {
           // Clone the builder and then set the new endpoint on it.
-          // GH-38573: This code currently only tries the first Location and treats a failure as fatal.
-          // This should be changed to try other Locations that are available.
-          
+
           // GH-38574: Currently a new FlightClient will be made for each partition that returns a non-empty Location
           // then disposed of. It may be better to cache clients because a server may report the same Locations.
           // It would also be good to identify when the reported location is the same as the original connection's
           // Location and skip creating a FlightClient in that scenario.
-          final URI endpointUri = endpoint.getLocations().get(0).getUri();
-          final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
-              .withHost(endpointUri.getHost())
-              .withPort(endpointUri.getPort())
-              .withEncryption(endpointUri.getScheme().equals(LocationSchemes.GRPC_TLS));
+          List<Exception> exceptions = new ArrayList<>();
+          CloseableEndpointStreamPair stream = null;
+          for (Location location : endpoint.getLocations()) {
+            final URI endpointUri = location.getUri();
+            final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
+                    .withHost(endpointUri.getHost())
+                    .withPort(endpointUri.getPort())
+                    .withEncryption(endpointUri.getScheme().equals(LocationSchemes.GRPC_TLS));
 
-          final ArrowFlightSqlClientHandler endpointHandler = builderForEndpoint.build();
-          try {
-            endpoints.add(new CloseableEndpointStreamPair(
-                endpointHandler.sqlClient.getStream(endpoint.getTicket(),
-                    endpointHandler.getOptions()), endpointHandler.sqlClient));
-          } catch (Exception ex) {
-            AutoCloseables.close(endpointHandler);
+            ArrowFlightSqlClientHandler endpointHandler = null;
+            try {
+              endpointHandler = builderForEndpoint.build();
+              stream = new CloseableEndpointStreamPair(
+                      endpointHandler.sqlClient.getStream(endpoint.getTicket(),
+                              endpointHandler.getOptions()), endpointHandler.sqlClient);
+              // Make sure we actually get data from the server
+              stream.getStream().getSchema();
+            } catch (Exception ex) {
+              if (endpointHandler != null) {
+                AutoCloseables.close(endpointHandler);
+              }
+              exceptions.add(ex);
+              continue;
+            }
+            break;
+          }
+          if (stream != null) {
+            endpoints.add(stream);
+          } else if (exceptions.isEmpty()) {
+            // This should never happen...
+            throw new IllegalStateException("Could not connect to endpoint and no errors occurred");
+          } else {
+            Exception ex = exceptions.remove(0);
+            while (!exceptions.isEmpty()) {
+              ex.addSuppressed(exceptions.remove(exceptions.size() - 1));
+            }
             throw ex;
           }
         }

@@ -25,11 +25,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
 )
 
-func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []string {
+func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array, stringsReplacer func(string)string) []string {
 	res := make([]string, col.Len())
 	switch typ.(type) {
 	case *arrow.BooleanType:
@@ -144,7 +144,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		arr := col.(*array.String)
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
-				res[i] = arr.Value(i)
+				res[i] = stringsReplacer(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
 			}
@@ -153,7 +153,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		arr := col.(*array.LargeString)
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
-				res[i] = arr.Value(i)
+				res[i] = stringsReplacer(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
 			}
@@ -224,7 +224,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				var b bytes.Buffer
 				b.Write([]byte{'{'})
 				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Write(w.transformColToStringArr(list.DataType(), list, stringsReplacer))
 				writer.Flush()
 				b.Truncate(b.Len() - 1)
 				b.Write([]byte{'}'})
@@ -243,7 +243,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				var b bytes.Buffer
 				b.Write([]byte{'{'})
 				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Write(w.transformColToStringArr(list.DataType(), list, stringsReplacer))
 				writer.Flush()
 				b.Truncate(b.Len() - 1)
 				b.Write([]byte{'}'})
@@ -262,7 +262,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				var b bytes.Buffer
 				b.Write([]byte{'{'})
 				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Write(w.transformColToStringArr(list.DataType(), list, stringsReplacer))
 				writer.Flush()
 				b.Truncate(b.Len() - 1)
 				b.Write([]byte{'}'})

@@ -150,7 +150,7 @@ class ShortRetryStrategy : public S3RetryStrategy {
 class AwsTestMixin : public ::testing::Test {
  public:
   void SetUp() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
     aws_options_.loggingOptions.logLevel = aws_log_level;
     aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
@@ -161,13 +161,13 @@ class AwsTestMixin : public ::testing::Test {
   }
 
   void TearDown() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     Aws::ShutdownAPI(aws_options_);
 #endif
   }
 
  private:
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
   Aws::SDKOptions aws_options_;
 #endif
 };
@@ -303,6 +303,11 @@ TEST_F(S3OptionsTest, FromUri) {
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
 
   // Endpoint from environment variable
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL_S3", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
   {
     EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
     ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));

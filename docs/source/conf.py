@@ -201,7 +201,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
+copyright = (
+    f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
+    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "project logo are either registered trademarks or trademarks of The Apache "
+    "Software Foundation in the United States and other countries"
+)
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -409,7 +414,7 @@ html_baseurl = "https://arrow.apache.org/docs/"
 
 # If true, links to the reST sources are added to the pages.
 #
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #

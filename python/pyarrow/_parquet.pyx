@@ -849,6 +849,13 @@ cdef class FileMetaData(_Weakrefable):
         cdef Buffer buffer = sink.getvalue()
         return _reconstruct_filemetadata, (buffer,)
 
+    def __hash__(self):
+        return hash((self.schema,
+                     self.num_rows,
+                     self.num_row_groups,
+                     self.format_version,
+                     self.serialized_size))
+
     def __repr__(self):
         return """{0}
   created_by: {1}
@@ -1070,6 +1077,9 @@ cdef class ParquetSchema(_Weakrefable):
 
     def __getitem__(self, i):
         return self.column(i)
+
+    def __hash__(self):
+        return hash(self.schema.ToString())
 
     @property
     def names(self):

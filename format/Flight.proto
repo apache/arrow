@@ -525,3 +525,117 @@ message FlightData {
 message PutResult {
   bytes app_metadata = 1;
 }
+
+/*
+ * EXPERIMENTAL: Union of possible value types for a Session Option to be set to.
+ *
+ * By convention, an attempt to set a valueless SessionOptionValue should
+ * attempt to unset or clear the named option value on the server.
+ */
+message SessionOptionValue {
+  message StringListValue {
+    repeated string values = 1;
+  }
+
+  oneof option_value {
+    string string_value = 1;
+    bool bool_value = 2;
+    sfixed64 int64_value = 3;
+    double double_value = 4;
+    StringListValue string_list_value = 5;
+  }
+}
+
+/*
+ * EXPERIMENTAL: A request to set session options for an existing or new (implicit)
+ * server session.
+ *
+ * Sessions are persisted and referenced via a transport-level state management, typically
+ * RFC 6265 HTTP cookies when using an HTTP transport.  The suggested cookie name or state
+ * context key is 'arrow_flight_session_id', although implementations may freely choose their
+ * own name.
+ *
+ * Session creation (if one does not already exist) is implied by this RPC request, however
+ * server implementations may choose to initiate a session that also contains client-provided
+ * session options at any other time, e.g. on authentication, or when any other call is made
+ * and the server wishes to use a session to persist any state (or lack thereof).
+ */
+message SetSessionOptionsRequest {
+  map<string, SessionOptionValue> session_options = 1;
+}
+
+/*
+ * EXPERIMENTAL: The results (individually) of setting a set of session options.
+ *
+ * Option names should only be present in the response if they were not successfully
+ * set on the server; that is, a response without an Error for a name provided in the
+ * SetSessionOptionsRequest implies that the named option value was set successfully.
+ */
+message SetSessionOptionsResult {
+  enum ErrorValue {
+    // Protobuf deserialization fallback value: The status is unknown or unrecognized.
+    // Servers should avoid using this value. The request may be retried by the client.
+    UNSPECIFIED = 0;
+    // The given session option name is invalid.
+    INVALID_NAME = 1;
+    // The session option value or type is invalid.
+    INVALID_VALUE = 2;
+    // The session option cannot be set.
+    ERROR = 3;
+  }
+
+  message Error {
+    ErrorValue value = 1;
+  }
+  
+  map<string, Error> errors = 1;
+}
+
+/*
+ * EXPERIMENTAL: A request to access the session options for the current server session.
+ *
+ * The existing session is referenced via a cookie header or similar (see
+ * SetSessionOptionsRequest above); it is an error to make this request with a missing,
+ * invalid, or expired session cookie header or other implementation-defined session
+ * reference token.
+ */
+message GetSessionOptionsRequest {
+}
+
+/*
+ * EXPERIMENTAL: The result containing the current server session options.
+ */
+message GetSessionOptionsResult {
+    map<string, SessionOptionValue> session_options = 1;
+}
+
+/*
+ * Request message for the "Close Session" action.
+ *
+ * The exiting session is referenced via a cookie header.
+ */
+message CloseSessionRequest {
+}
+
+/*
+ * The result of closing a session.
+ */
+message CloseSessionResult {
+  enum Status {
+    // Protobuf deserialization fallback value: The session close status is unknown or
+    // not recognized. Servers should avoid using this value (send a NOT_FOUND error if
+    // the requested session is not known or expired). Clients can retry the request.
+    UNSPECIFIED = 0;
+    // The session close request is complete. Subsequent requests with
+    // the same session produce a NOT_FOUND error.
+    CLOSED = 1;
+    // The session close request is in progress. The client may retry
+    // the close request.
+    CLOSING = 2;
+    // The session is not closeable. The client should not retry the
+    // close request.
+    NOT_CLOSEABLE = 3;
+  }
+
+  Status status = 1;
+}

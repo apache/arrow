@@ -404,16 +404,16 @@ public class TestUnionVector {
     assertTrue(vector.getField().equals(field));
 
     // Union has 2 child vectors
-    assertEquals(vector.size(), 2);
+    assertEquals(2, vector.size());
 
     // Check child field 0
     VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
-    assertEquals(intChild.ordinal, 0);
+    assertEquals(0, intChild.ordinal);
     assertEquals(intChild.vector.getField(), children.get(0));
 
     // Check child field 1
     VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
-    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(1, varcharChild.ordinal);
     assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
@@ -455,7 +455,7 @@ public class TestUnionVector {
 
 
       try {
-        long offsetAddress = vector.getOffsetBufferAddress();
+        vector.getOffsetBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
@@ -464,7 +464,7 @@ public class TestUnionVector {
       }
 
       try {
-        long dataAddress = vector.getDataBufferAddress();
+        vector.getDataBufferAddress();
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {

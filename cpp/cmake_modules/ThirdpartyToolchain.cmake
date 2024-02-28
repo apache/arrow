@@ -18,7 +18,6 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
@@ -1005,16 +1004,14 @@ if("${MAKE}" STREQUAL "")
   endif()
 endif()
 
-# Using make -j in sub-make is fragile
-# see discussion https://github.com/apache/arrow/pull/2779
-if(${CMAKE_GENERATOR} MATCHES "Makefiles")
-  set(MAKE_BUILD_ARGS "")
-else()
-  # limit the maximum number of jobs for ninja
-  set(MAKE_BUILD_ARGS "-j${NPROC}")
-endif()
+# Args for external projects using make.
+set(MAKE_BUILD_ARGS "-j${NPROC}")
 
 include(FetchContent)
+set(FC_DECLARE_COMMON_OPTIONS)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+  list(APPEND FC_DECLARE_COMMON_OPTIONS EXCLUDE_FROM_ALL TRUE)
+endif()
 
 macro(prepare_fetchcontent)
   set(BUILD_SHARED_LIBS OFF)
@@ -2036,10 +2033,13 @@ macro(build_jemalloc)
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
+
   externalproject_add(jemalloc_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${JEMALLOC_SOURCE_URL}
@@ -2146,6 +2146,9 @@ function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
   fetchcontent_declare(googletest
+                       # We should not specify "EXCLUDE_FROM_ALL TRUE" here.
+                       # Because we install GTest with custom path.
+                       # ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GTEST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
@@ -2324,9 +2327,9 @@ macro(build_rapidjson)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${RAPIDJSON_INCLUDE_DIR}")
 
-  add_dependencies(toolchain rapidjson_ep)
-  add_dependencies(toolchain-tests rapidjson_ep)
-  add_dependencies(rapidjson rapidjson_ep)
+  add_library(RapidJSON INTERFACE IMPORTED)
+  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
+  add_dependencies(RapidJSON rapidjson_ep)
 
   set(RAPIDJSON_VENDORED TRUE)
 endmacro()
@@ -2340,19 +2343,6 @@ if(ARROW_WITH_RAPIDJSON)
                      ${ARROW_RAPIDJSON_REQUIRED_VERSION}
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
-
-  if(RapidJSON_INCLUDE_DIR)
-    set(RAPIDJSON_INCLUDE_DIR "${RapidJSON_INCLUDE_DIR}")
-  endif()
-  if(WIN32 AND "${RAPIDJSON_INCLUDE_DIR}" MATCHES "^/")
-    # MSYS2
-    execute_process(COMMAND "cygpath" "--windows" "${RAPIDJSON_INCLUDE_DIR}"
-                    OUTPUT_VARIABLE RAPIDJSON_INCLUDE_DIR
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
-
-  add_library(rapidjson::rapidjson INTERFACE IMPORTED)
-  target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
 endif()
 
 macro(build_xsimd)
@@ -2590,17 +2580,11 @@ macro(build_re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
-  # Don't specify "PC_PACKAGE_NAMES re2" here because re2.pc may
-  # include -std=c++11. It's not compatible with C source and C++
-  # source not uses C++ 11.
-  resolve_dependency(re2 HAVE_ALT TRUE)
-  if(${re2_SOURCE} STREQUAL "SYSTEM" AND ARROW_BUILD_STATIC)
-    get_target_property(RE2_TYPE re2::re2 TYPE)
-    if(NOT RE2_TYPE STREQUAL "INTERFACE_LIBRARY")
-      string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:re2::re2>")
-    endif()
-  endif()
-  add_definitions(-DARROW_WITH_RE2)
+  resolve_dependency(re2
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     re2)
 endif()
 
 macro(build_bzip2)
@@ -2630,7 +2614,7 @@ macro(build_bzip2)
                       BUILD_IN_SOURCE 1
                       BUILD_COMMAND ${MAKE} libbz2.a ${MAKE_BUILD_ARGS}
                                     ${BZIP2_EXTRA_ARGS}
-                      INSTALL_COMMAND ${MAKE} install PREFIX=${BZIP2_PREFIX}
+                      INSTALL_COMMAND ${MAKE} install -j1 PREFIX=${BZIP2_PREFIX}
                                       ${BZIP2_EXTRA_ARGS}
                       INSTALL_DIR ${BZIP2_PREFIX}
                       URL ${ARROW_BZIP2_SOURCE_URL}
@@ -2708,7 +2692,6 @@ if(ARROW_WITH_UTF8PROC)
                      libutf8proc
                      REQUIRED_VERSION
                      "2.2.0")
-  add_definitions(-DARROW_WITH_UTF8PROC)
 endif()
 
 macro(build_cares)
@@ -5096,8 +5079,7 @@ function(build_azure_sdk)
   endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
-                       # EXCLUDE_FROM_ALL is available since CMake 3.28
-                       # EXCLUDE_FROM_ALL TRUE
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${ARROW_AZURE_SDK_URL}
                        URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()

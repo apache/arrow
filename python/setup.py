@@ -407,7 +407,7 @@ class build_ext(_build_ext):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '15.0.0-SNAPSHOT'
+default_version = '16.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -492,7 +492,7 @@ setup(
                                  'pyarrow/_generated_version.py'),
         'version_scheme': guess_next_dev_version
     },
-    setup_requires=['setuptools_scm < 8.0.0', 'cython >= 0.29.31'] + setup_requires,
+    setup_requires=['setuptools_scm', 'cython >= 0.29.31'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
     python_requires='>=3.8',

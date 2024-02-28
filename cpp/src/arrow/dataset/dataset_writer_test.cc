@@ -189,8 +189,7 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
-  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files,
-                         bool check_num_record_batches = true) {
+  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files) {
     counter_ = 0;
     for (const auto& expected_file : expected_files) {
       std::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
@@ -198,9 +197,7 @@ class DatasetWriterTestFixture : public testing::Test {
       int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
                          *ReadAsBatch(written_file->data, &num_batches));
-      if (check_num_record_batches) {
-        ASSERT_EQ(expected_file.num_record_batches, num_batches);
-      }
+      ASSERT_EQ(expected_file.num_record_batches, num_batches);
     }
   }
 
@@ -290,18 +287,16 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   write_options_.max_open_files = 2;
   write_options_.min_rows_per_group = kFileSizeLimit - 1;
   auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
-  for (int i = 0; i < 20; ++i) {
-    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 5), "");
+  for (int i = 0; i < 5; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 2), "");
   }
   EndWriterChecked(dataset_writer.get());
   std::vector<ExpectedFile> expected_files;
-  for (int i = 0; i < 100; ++i) {
+  for (int i = 0; i < 10; ++i) {
     expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
                                 kFileSizeLimit * i, kFileSizeLimit);
   }
-  // Not checking the number of record batches because file may contain the
-  // zero-length record batch.
-  AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
+  AssertCreatedData(expected_files);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
@@ -346,6 +341,23 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   EndWriterChecked(dataset_writer.get());
   AssertCreatedData(
       {{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
+}
+
+TEST_F(DatasetWriterTestFixture, NotProduceZeroSizedBatch) {
+  // GH-39965: avoid creating zero-sized batch when max_rows_per_file enabled.
+  write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
+  auto dataset_writer = MakeDatasetWriter();
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({
+      {"testdir/chunk-0.arrow", 0, 10, 1},
+      {"testdir/chunk-1.arrow", 10, 10, 1},
+      {"testdir/chunk-2.arrow", 20, 10, 1},
+      {"testdir/chunk-3.arrow", 30, 10, 1},
+  });
+  AssertNotFiles({"testdir/chunk-4.arrow"});
 }
 
 TEST_F(DatasetWriterTestFixture, MinRowGroup) {

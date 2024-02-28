@@ -156,6 +156,7 @@ using internal::ToURLEncodedAwsString;
 
 static const char kSep = '/';
 constexpr char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+constexpr char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -366,9 +367,15 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
   } else {
     options.ConfigureDefaultCredentials();
   }
-  auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
-  if (endpoint_env.ok()) {
-    options.endpoint_override = *endpoint_env;
+  // Prefer AWS service-specific endpoint url
+  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
+  if (s3_endpoint_env.ok()) {
+    options.endpoint_override = *s3_endpoint_env;
+  } else {
+    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
+    if (endpoint_env.ok()) {
+      options.endpoint_override = *endpoint_env;
+    }
   }
 
   bool region_set = false;
@@ -2891,12 +2898,16 @@ struct AwsInstance {
     if (is_finalized_.load()) {
       return Status::Invalid("Attempt to initialize S3 after it has been finalized");
     }
-    if (!is_initialized_.exchange(true)) {
-      // Not already initialized
+    bool newly_initialized = false;
+    // EnsureInitialized() can be called concurrently by FileSystemFromUri,
+    // therefore we need to serialize initialization (GH-39897).
+    std::call_once(initialize_flag_, [&]() {
+      bool was_initialized = is_initialized_.exchange(true);
+      DCHECK(!was_initialized);
       DoInitialize(options);
-      return true;
-    }
-    return false;
+      newly_initialized = true;
+    });
+    return newly_initialized;
   }
 
   bool IsInitialized() { return !is_finalized_ && is_initialized_; }
@@ -2972,6 +2983,7 @@ struct AwsInstance {
   Aws::SDKOptions aws_options_;
   std::atomic<bool> is_initialized_;
   std::atomic<bool> is_finalized_;
+  std::once_flag initialize_flag_;
 };
 
 AwsInstance* GetAwsInstance() {

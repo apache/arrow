@@ -61,9 +61,13 @@ def get_many_types():
         pa.binary(10),
         pa.large_string(),
         pa.large_binary(),
+        pa.string_view(),
+        pa.binary_view(),
         pa.list_(pa.int32()),
         pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
+        pa.list_view(pa.int32()),
+        pa.large_list_view(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
         pa.map_(pa.field('key', pa.int32(), nullable=False),
                 pa.field('value', pa.int32())),
@@ -167,6 +171,18 @@ def test_is_list():
     assert not types.is_list(pa.int32())
 
 
+def test_is_list_view():
+    a = pa.list_view(pa.int32())
+    b = pa.large_list_view(pa.int32())
+
+    assert types.is_list_view(a)
+    assert not types.is_large_list_view(a)
+    assert not types.is_list(a)
+    assert types.is_large_list_view(b)
+    assert not types.is_list_view(b)
+    assert not types.is_large_list(b)
+
+
 def test_is_map():
     m = pa.map_(pa.utf8(), pa.int32())
 
@@ -198,7 +214,10 @@ def test_is_nested_or_struct():
 
     assert types.is_nested(struct_ex)
     assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.list_(pa.int32(), 3))
     assert types.is_nested(pa.large_list(pa.int32()))
+    assert types.is_nested(pa.list_view(pa.int32()))
+    assert types.is_nested(pa.large_list_view(pa.int32()))
     assert not types.is_nested(pa.int32())
 
 
@@ -243,6 +262,12 @@ def test_is_binary_string():
 
     assert types.is_fixed_size_binary(pa.binary(5))
     assert not types.is_fixed_size_binary(pa.binary())
+
+    assert types.is_string_view(pa.string_view())
+    assert not types.is_string_view(pa.string())
+    assert types.is_binary_view(pa.binary_view())
+    assert not types.is_binary_view(pa.binary())
+    assert not types.is_binary_view(pa.string_view())
 
 
 def test_is_temporal_date_time_timestamp():
@@ -487,6 +512,17 @@ def test_timestamp():
             pa.timestamp(invalid_unit)
 
 
+def test_timestamp_print():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas',
+                   'Mars/Mariner_Valley', '-00:42', '+42:00'):
+            ty = pa.timestamp(unit, tz=tz)
+            arr = pa.array([0], ty)
+            assert "Z" in str(arr)
+        arr = pa.array([0], pa.timestamp(unit))
+        assert "Z" not in str(arr)
+
+
 def test_time32_units():
     for valid_unit in ('s', 'ms'):
         ty = pa.time32(valid_unit)
@@ -552,6 +588,41 @@ def test_large_list_type():
 
     with pytest.raises(TypeError):
         pa.large_list(None)
+
+
+def test_list_view_type():
+    ty = pa.list_view(pa.int64())
+    assert isinstance(ty, pa.ListViewType)
+    assert ty.value_type == pa.int64()
+    assert ty.value_field == pa.field("item", pa.int64(), nullable=True)
+
+    # nullability matters in comparison
+    ty_non_nullable = pa.list_view(pa.field("item", pa.int64(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.list_view(pa.field("element", pa.int64()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_metadata=True)
+
+    # metadata doesn't matter by default
+    ty_metadata = pa.list_view(
+        pa.field("item", pa.int64(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
+
+    with pytest.raises(TypeError):
+        pa.list_view(None)
+
+
+def test_large_list_view_type():
+    ty = pa.large_list_view(pa.utf8())
+    assert isinstance(ty, pa.LargeListViewType)
+    assert ty.value_type == pa.utf8()
+    assert ty.value_field == pa.field("item", pa.utf8(), nullable=True)
+
+    with pytest.raises(TypeError):
+        pa.large_list_view(None)
 
 
 def test_map_type():
@@ -874,18 +945,37 @@ def test_type_id():
         assert isinstance(ty.id, int)
 
 
-def test_bit_width():
-    for ty, expected in [(pa.bool_(), 1),
-                         (pa.int8(), 8),
-                         (pa.uint32(), 32),
-                         (pa.float16(), 16),
-                         (pa.decimal128(19, 4), 128),
-                         (pa.decimal256(76, 38), 256),
-                         (pa.binary(42), 42 * 8)]:
-        assert ty.bit_width == expected
-    for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
+def test_bit_and_byte_width():
+    for ty, expected_bit_width, expected_byte_width in [
+        (pa.bool_(), 1, 0),
+        (pa.int8(), 8, 1),
+        (pa.uint32(), 32, 4),
+        (pa.float16(), 16, 2),
+        (pa.timestamp('s'), 64, 8),
+        (pa.date32(), 32, 4),
+        (pa.decimal128(19, 4), 128, 16),
+        (pa.decimal256(76, 38), 256, 32),
+        (pa.binary(42), 42 * 8, 42)
+    ]:
+        assert ty.bit_width == expected_bit_width
+
+        if expected_byte_width == 0:
+            with pytest.raises(ValueError, match="Less than one byte"):
+                ty.byte_width
+        else:
+            assert ty.byte_width == expected_byte_width
+
+    for ty in [
+        pa.binary(),
+        pa.string(),
+        pa.list_(pa.int16()),
+        pa.map_(pa.string(), pa.int32()),
+        pa.struct([('f1', pa.int32())])
+    ]:
         with pytest.raises(ValueError, match="fixed width"):
             ty.bit_width
+        with pytest.raises(ValueError, match="fixed width"):
+            ty.byte_width
 
 
 def test_fixed_size_binary_byte_width():
