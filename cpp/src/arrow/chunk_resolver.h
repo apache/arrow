@@ -56,19 +56,15 @@ struct ARROW_EXPORT ChunkResolver {
   mutable std::atomic<int64_t> cached_chunk_;
 
  public:
-  explicit ChunkResolver(const ArrayVector& chunks);
-  explicit ChunkResolver(const std::vector<const Array*>& chunks);
-  explicit ChunkResolver(const RecordBatchVector& batches);
+  explicit ChunkResolver(const ArrayVector& chunks) noexcept;
+  explicit ChunkResolver(const std::vector<const Array*>& chunks) noexcept;
+  explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
-  ChunkResolver(ChunkResolver&& other) noexcept
-      : offsets_(std::move(other.offsets_)),
-        cached_chunk_(other.cached_chunk_.load(std::memory_order_relaxed)) {}
+  ChunkResolver(ChunkResolver&& other) noexcept;
+  ChunkResolver& operator=(ChunkResolver&& other) noexcept;
 
-  ChunkResolver& operator=(ChunkResolver&& other) {
-    offsets_ = std::move(other.offsets_);
-    cached_chunk_.store(other.cached_chunk_.load(std::memory_order_relaxed));
-    return *this;
-  }
+  ChunkResolver(const ChunkResolver& other) noexcept;
+  ChunkResolver& operator=(const ChunkResolver& other) noexcept;
 
   /// \brief Resolve a logical index to a ChunkLocation.
   ///
