@@ -31,26 +31,7 @@ namespace compute {
 namespace internal {
 
 // The target chunk in a chunked array.
-template <typename ArrayType>
 struct ResolvedChunk {
-  using ViewType = GetViewType<typename ArrayType::TypeClass>;
-  using LogicalValueType = typename ViewType::T;
-
-  // The target array in chunked array.
-  const ArrayType* array;
-  // The index in the target array.
-  const int64_t index;
-
-  ResolvedChunk(const ArrayType* array, int64_t index) : array(array), index(index) {}
-
-  bool IsNull() const { return array->IsNull(index); }
-
-  LogicalValueType Value() const { return ViewType::LogicalValue(array->GetView(index)); }
-};
-
-// ResolvedChunk specialization for untyped arrays when all is needed is null lookup
-template <>
-struct ResolvedChunk<Array> {
   // The target array in chunked array.
   const Array* array;
   // The index in the target array.
@@ -58,7 +39,15 @@ struct ResolvedChunk<Array> {
 
   ResolvedChunk(const Array* array, int64_t index) : array(array), index(index) {}
 
+ public:
   bool IsNull() const { return array->IsNull(index); }
+
+  template <typename ArrowType, typename ViewType = GetViewType<ArrowType>>
+  typename ViewType::T Value() const {
+    using LogicalArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    auto* typed_array = checked_cast<const LogicalArrayType*>(array);
+    return ViewType::LogicalValue(typed_array->GetView(index));
+  }
 };
 
 class ChunkedArrayResolver {
@@ -76,10 +65,9 @@ class ChunkedArrayResolver {
   ChunkedArrayResolver(const ChunkedArrayResolver& other) = default;
   ChunkedArrayResolver& operator=(const ChunkedArrayResolver& other) = default;
 
-  template <typename ArrayType>
-  ResolvedChunk<ArrayType> Resolve(int64_t index) const {
+  ResolvedChunk Resolve(int64_t index) const {
     const auto loc = resolver_.Resolve(index);
-    return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
   }
 };
 
