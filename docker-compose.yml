@@ -1777,14 +1777,14 @@ services:
     #   docker-compose build ubuntu-cpp
     #   docker-compose build ubuntu-lint
     #   docker-compose run ubuntu-lint
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
+    image: ${REPO}:${ARCH}-ubuntu-22.04-lint
     build:
       context: .
       dockerfile: ci/docker/linux-apt-lint.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-lint
+        - ${REPO}:${ARCH}-ubuntu-22.04-lint
       args:
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        base: ${REPO}:${ARCH}-ubuntu-22.04-cpp
         clang_tools: ${CLANG_TOOLS}
     environment:
       <<: [*common, *ccache]
