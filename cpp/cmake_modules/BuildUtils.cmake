@@ -100,17 +100,13 @@ function(arrow_create_merged_static_lib output_target)
     # The apple-distributed libtool is what we want for bundling, but there is
     # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
     # We are not compatible with GNU libtool, so we need to avoid it.
-    # TODO: use a VALIDATOR when we require cmake >= 3.25
 
     # check in the obvious places first to find Apple's libtool
+    # HINTS is used before system paths and before PATHS, so we use that
+    # even though hard coded paths should go in PATHS
+    # TODO: use a VALIDATOR when we require cmake >= 3.25
     find_program(LIBTOOL_MACOS libtool
-                 PATHS /usr/bin /Library/Developer/CommandLineTools/usr/bin
-                 NO_DEFAULT_PATH)
-
-    # if it's not found in obvious places, check on the standard path
-    if(LIBTOOL_MACOS-NOTFOUND)
-      set(LIBTOOL_MACOS "libtool")
-    endif()
+                HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin)
 
     # confirm that the libtool we found is not GNU libtool
     execute_process(COMMAND ${LIBTOOL_MACOS} -V
