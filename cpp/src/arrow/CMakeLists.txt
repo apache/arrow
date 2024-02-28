@@ -183,6 +183,20 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS "atomic")
 endif()
 
+# This creates OBJECT libraries for arrow_shared/arrow_static. This is
+# not intended to use for other libraries such as
+# arrow_acero_shared/arrow_acero_static for now.
+#
+# arrow_shared/arrow_static depends on many external libraries such as
+# Zstandard and jemalloc. If we use bundled libraries, we can't start
+# building arrow_shared/arrow_static until all bundled libraries are
+# built. It prevent parallel build speedup.
+#
+# We can avoid the situation by creating small OBJECT libraries that
+# depend only needed external libraries. If an OBJECT library doesn't
+# depend on any bundled libraries, it can be built before bundled
+# libraries are built. If an OBJECT library depend on only a few
+# bundled libraries, it can be built after only they are built.
 function(arrow_add_object_library PREFIX)
   set(SOURCES ${ARGN})
   string(TOLOWER "${PREFIX}" prefix)
