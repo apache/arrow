@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/klauspost/compress/gzip"
+	gzip "github.com/klauspost/pgzip"
 )
 
 type gzipCodec struct{}
