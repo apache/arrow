@@ -25,8 +25,7 @@ add_arrow_test(test
                PREFIX
                "arrow-json"
                EXTRA_LINK_LIBS
-               RapidJSON
-               ${ARROW_GTEST_GMOCK})
+               RapidJSON)
 
 add_arrow_benchmark(parser_benchmark
                     PREFIX

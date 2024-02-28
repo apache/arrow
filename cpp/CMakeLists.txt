@@ -692,14 +692,16 @@ if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
-  set(ARROW_TEST_LINK_LIBS arrow_testing_shared ${ARROW_GTEST_GTEST_MAIN})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_shared ${ARROW_GTEST_GMOCK}
+                           ${ARROW_GTEST_GTEST_MAIN})
   set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
-  set(ARROW_TEST_LINK_LIBS arrow_testing_static ${ARROW_GTEST_GTEST_MAIN})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_static ${ARROW_GTEST_GMOCK}
+                           ${ARROW_GTEST_GTEST_MAIN})
   set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
 

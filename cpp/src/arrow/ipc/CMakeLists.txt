@@ -39,8 +39,7 @@ endfunction()
 
 add_arrow_test(feather_test)
 add_arrow_ipc_test(json_simple_test)
-add_arrow_ipc_test(read_write_test EXTRA_LINK_LIBS arrow::flatbuffers
-                   ${ARROW_GTEST_GMOCK})
+add_arrow_ipc_test(read_write_test EXTRA_LINK_LIBS arrow::flatbuffers)
 add_arrow_ipc_test(tensor_test)
 
 # Headers: top level

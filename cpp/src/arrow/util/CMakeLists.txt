@@ -38,7 +38,7 @@ else()
   set(IO_UTIL_TEST_SOURCES io_util_test.cc)
 endif()
 
-set(ARROW_UTILITY_TEST_LINK_LIBS Boost::headers ${ARROW_GTEST_GMOCK})
+set(ARROW_UTILITY_TEST_LINK_LIBS Boost::headers)
 if(ARROW_USE_XSIMD)
   list(APPEND ARROW_UTILITY_TEST_LINK_LIBS ${ARROW_XSIMD})
 endif()
@@ -94,9 +94,7 @@ add_arrow_test(bit-utility-test
                SOURCES
                bit_block_counter_test.cc
                bit_util_test.cc
-               rle_encoding_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               rle_encoding_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES
@@ -105,9 +103,7 @@ add_arrow_test(threading-utility-test
                future_test.cc
                task_group_test.cc
                test_common.cc
-               thread_pool_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               thread_pool_test.cc)
 
 add_arrow_test(crc32-test
                SOURCES

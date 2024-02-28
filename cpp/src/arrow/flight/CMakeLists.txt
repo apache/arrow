@@ -68,8 +68,7 @@ list(APPEND
      ARROW_FLIGHT_TEST_INTERFACE_LIBS
      Boost::headers
      Boost::filesystem
-     Boost::system
-     ${ARROW_GTEST_GMOCK})
+     Boost::system)
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking

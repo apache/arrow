@@ -1112,9 +1112,7 @@ add_arrow_test(array_test
                array/array_union_test.cc
                array/array_view_test.cc
                PRECOMPILED_HEADERS
-               "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>"
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
 
 add_arrow_test(buffer_test)
 
@@ -1129,32 +1127,23 @@ add_arrow_test(misc_test
                memory_pool_test.cc
                result_test.cc
                pretty_print_test.cc
-               status_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               status_test.cc)
 
-add_arrow_test(public_api_test EXTRA_LINK_LIBS ${ARROW_GTEST_GMOCK})
+add_arrow_test(public_api_test)
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
-add_arrow_test(scalar_test EXTRA_LINK_LIBS ${ARROW_GTEST_GMOCK})
-add_arrow_test(type_test
-               SOURCES
-               field_ref_test.cc
-               type_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+add_arrow_test(scalar_test)
+add_arrow_test(type_test SOURCES field_ref_test.cc type_test.cc)
 
 add_arrow_test(table_test
                SOURCES
                chunked_array_test.cc
                record_batch_test.cc
                table_test.cc
-               table_builder_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               table_builder_test.cc)
 
-add_arrow_test(tensor_test EXTRA_LINK_LIBS ${ARROW_GTEST_GMOCK})
+add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
 
 add_arrow_test(stl_test SOURCES stl_iterator_test.cc stl_test.cc)
