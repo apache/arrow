@@ -53,23 +53,22 @@ def s3_bucket(s3_server):
 
 @pytest.fixture
 def s3_example_s3fs(s3_server, s3_bucket):
-    s3fs = pytest.importorskip('s3fs')
+    from pyarrow.fs import S3FileSystem
 
     host, port, access_key, secret_key = s3_server['connection']
-    fs = s3fs.S3FileSystem(
-        key=access_key,
-        secret=secret_key,
-        client_kwargs={
-            'endpoint_url': 'http://{}:{}'.format(host, port)
-        }
+    fs = S3FileSystem(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http'
     )
 
     test_path = '{}/{}'.format(s3_bucket, guid())
 
-    fs.mkdir(test_path)
+    fs.create_dir(test_path)
     yield fs, test_path
     try:
-        fs.rm(test_path, recursive=True)
+        fs.delete_dir_contents(test_path, missing_dir_ok=True)
     except FileNotFoundError:
         pass
 
@@ -81,6 +80,7 @@ def s3_example_fs(s3_server):
     host, port, access_key, secret_key = s3_server['connection']
     uri = (
         "s3://{}:{}@mybucket/data.parquet?scheme=http&endpoint_override={}:{}"
+        "&allow_bucket_creation=True"
         .format(access_key, secret_key, host, port)
     )
     fs, path = FileSystem.from_uri(uri)

@@ -561,41 +561,28 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
                 str(base_dir),
                 '{}={}'.format(name, value)
             ])
-            try:
-                fs.create_dir(level_dir)
-            except AttributeError:
-                fs.mkdir(level_dir)
+            fs.create_dir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
+                from pyarrow.fs import FileType
+
                 file_path = pathsep.join([level_dir, guid()])
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
-                try:
-                    with fs.open_output_stream(file_path) as f:
-                        _write_table(part_table, f)
-                    assert os.path.exists(file_path)
-                except AttributeError:
-                    with fs.open(file_path, 'wb') as f:
-                        _write_table(part_table, f)
-                    assert fs.exists(file_path)
+                with fs.open_output_stream(file_path) as f:
+                    _write_table(part_table, f)
+                assert fs.get_file_info(file_path).type != FileType.NotFound
+                assert fs.get_file_info(file_path).type == FileType.File
 
                 file_success = pathsep.join([level_dir, '_SUCCESS'])
-                try:
-                    with fs.open_output_stream(file_success) as f:
-                        pass
-                except AttributeError:
-                    with fs.open(file_success, 'wb') as f:
-                        pass
+                with fs.open_output_stream(file_success) as f:
+                    pass
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
                 file_success = pathsep.join([level_dir, '_SUCCESS'])
-                try:
-                    with fs.open_output_stream(file_success) as f:
-                        pass
-                except AttributeError:
-                    with fs.open(file_success, 'wb') as f:
-                        pass
+                with fs.open_output_stream(file_success) as f:
+                    pass
 
     _visit_level(base_dir, 0, [])
 
@@ -953,7 +940,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     metadata_path = os.path.join(str(base_path), '_common_metadata')
 
     if filesystem is not None:
-        with filesystem.open(metadata_path, 'wb') as f:
+        with filesystem.open_output_stream(metadata_path) as f:
             pq.write_metadata(output_table.schema, f)
     else:
         pq.write_metadata(output_table.schema, metadata_path)
