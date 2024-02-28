@@ -99,7 +99,7 @@ cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DPARQUET_BUILD_EXECUTABLES=ON ^
       -DPARQUET_REQUIRE_ENCRYPTION=ON ^
       ..  || exit /B
-cmake --build . --target install --config Release --verbose || exit /B
+cmake --build . --target install --config Release || exit /B
 
 @rem For ORC C++
 set TZDIR=%CONDA_PREFIX%\share\zoneinfo
