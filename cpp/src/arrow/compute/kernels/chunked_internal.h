@@ -61,21 +61,26 @@ struct ResolvedChunk<Array> {
   bool IsNull() const { return array->IsNull(index); }
 };
 
-struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
-  ChunkedArrayResolver(const ChunkedArrayResolver& other)
-      : ::arrow::internal::ChunkResolver(other.chunks_), chunks_(other.chunks_) {}
+class ChunkedArrayResolver {
+ private:
+  ::arrow::internal::ChunkResolver resolver_;
+  std::vector<const Array*> chunks_;
 
+ public:
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
-      : ::arrow::internal::ChunkResolver(chunks), chunks_(chunks) {}
+      : resolver_(chunks), chunks_(chunks) {}
+
+  ChunkedArrayResolver(ChunkedArrayResolver&& other) = default;
+  ChunkedArrayResolver& operator=(ChunkedArrayResolver&& other) = default;
+
+  ChunkedArrayResolver(const ChunkedArrayResolver& other) = default;
+  ChunkedArrayResolver& operator=(const ChunkedArrayResolver& other) = default;
 
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
-    const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
+    const auto loc = resolver_.Resolve(index);
     return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
   }
-
- protected:
-  const std::vector<const Array*> chunks_;
 };
 
 inline std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {
