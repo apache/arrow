@@ -1822,7 +1822,7 @@ Structural transforms
   an array with type ``struct<a: int32, b: struct<c: int64, d:
   float64>>``:
 
-  * An empty sequence of indices yields the original value unchanged and in case of an empty field name it yields an error.
+  * An empty sequence of indices yields the original value unchanged.
   * The index ``0`` or the field name ``a`` yields an array of type ``int32`` whose validity
     bitmap is the intersection of the bitmap for the outermost struct
     and the bitmap for the child ``a``.
