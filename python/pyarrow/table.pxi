@@ -3145,6 +3145,68 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def _export_to_c_device(self, out_ptr, out_schema_ptr=0):
+        """
+        Export to a C ArrowDeviceArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the record batch
+        schema is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowDeviceArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
+        with nogil:
+            check_status(ExportDeviceRecordBatch(
+                deref(self.sp_batch), <shared_ptr[CSyncEvent]>NULL,
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr)
+            )
+
+    @staticmethod
+    def _import_from_c_device(in_ptr, schema):
+        """
+        Import RecordBatch from a C ArrowDeviceArray struct, given its pointer
+        and the imported schema.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        type: Schema or int
+            Either a Schema object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_schema_ptr
+            shared_ptr[CRecordBatch] c_batch
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        if c_schema == nullptr:
+            # Not a Schema object, perhaps a raw ArrowSchema pointer
+            c_schema_ptr = _as_c_pointer(schema, allow_null=True)
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+        else:
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, c_schema))
+        return pyarrow_wrap_batch(c_batch)
+
 
 def _reconstruct_record_batch(columns, schema):
     """
