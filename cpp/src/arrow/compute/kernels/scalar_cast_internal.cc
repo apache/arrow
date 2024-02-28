@@ -93,6 +93,20 @@ struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>:
   }
 };
 
+// Cast int to half float
+template<typename InType>
+struct CastPrimitive<HalfFloatType, InType, enable_if_integer<InType>> {
+   static void Exec(const ArraySpan& arr, ArraySpan* out) {
+        using InT = typename InType::c_type;
+        const InT* in_values = arr.GetValues<InT>(1);
+        uint16_t* out_values = out->GetValues<uint16_t>(1);
+        for (int64_t i = 0; i < arr.length; ++i) {
+          float temp = static_cast<float>(*in_values++);
+          *out_values++ = Float16(temp).bits();
+        }
+   }
+};
+
 template <typename InType>
 void CastNumberImpl(Type::type out_type, const ArraySpan& input, ArraySpan* out) {
   switch (out_type) {

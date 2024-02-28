@@ -151,6 +151,10 @@ Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& outpu
       return CheckFloatToIntTruncationImpl<FloatType>(input.array, *output.array_span());
     case Type::DOUBLE:
       return CheckFloatToIntTruncationImpl<DoubleType>(input.array, *output.array_span());
+    // FIXME: Is this OK?  It seems like the underlying check may not operator correctly
+    // on a type that is backed by a uint16_t.
+    case Type::HALF_FLOAT:
+      return CheckFloatToIntTruncationImpl<HalfFloatType>(input.array, *output.array_span());
     default:
       break;
   }
@@ -696,6 +700,10 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToInteger));
   }
 
+  // Cast from half-float
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)}, 
+              out_ty, CastFloatingToInteger));
+
   // From other numbers to integer
   AddCommonNumberCasts<OutType>(out_ty, func.get());
 
@@ -807,6 +815,32 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   return func;
 }
 
+std::shared_ptr<CastFunction> GetCastToHalfFloat() {
+  // HalfFloat is a bit brain-damaged for now
+  auto func =
+      std::make_shared<CastFunction>("func", Type::HALF_FLOAT);
+  AddCommonCasts(Type::HALF_FLOAT, float16(), func.get());
+
+  // Casts from integer to floating point
+  for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, 
+        TypeTraits<HalfFloatType>::type_singleton(), CastIntegerToFloating));
+  }
+
+  // Cast from other strings to half float.
+  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
+    auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, 
+                TypeTraits<HalfFloatType>::type_singleton(), exec));
+  }
+
+  DCHECK_OK(func.get()->AddKernel(Type::FLOAT,
+      {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
+  DCHECK_OK(func.get()->AddKernel(Type::DOUBLE,
+      {InputType(Type::DOUBLE)}, float16(), CastFloatingToFloating));
+  return func;
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
@@ -842,20 +876,7 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   functions.push_back(GetCastToInteger<UInt64Type>("cast_uint64"));
 
   // HalfFloat is a bit brain-damaged for now
-  auto cast_half_float =
-      std::make_shared<CastFunction>("cast_half_float", Type::HALF_FLOAT);
-  AddCommonCasts(Type::HALF_FLOAT, float16(), cast_half_float.get());
-
-  // Cast from other strings to half float.
-  for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
-    auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
-    DCHECK_OK(cast_half_float->AddKernel(in_ty->id(), {in_ty}, TypeTraits<HalfFloatType>::type_singleton(), exec));
-  }
-
-  DCHECK_OK(cast_half_float.get()->AddKernel(Type::FLOAT,
-      {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
-  DCHECK_OK(cast_half_float.get()->AddKernel(Type::DOUBLE,
-      {InputType(Type::DOUBLE)}, float16(), CastFloatingToFloating));
+  auto cast_half_float = GetCastToHalfFloat();
   functions.push_back(cast_half_float);
 
   auto cast_float = GetCastToFloating<FloatType>("cast_float");
