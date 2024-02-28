@@ -1834,7 +1834,7 @@ Structural transforms
   codes. Also, the index is always the child index and not a type code.
   Hence for array with type ``sparse_union<2: int32, 7: utf8>``:
 
-  * The index ``0`` or the field name ``2`` yields an array of type ``int32``, which is valid
+  * The index ``0`` or the field name ``"2"`` yields an array of type ``int32``, which is valid
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
