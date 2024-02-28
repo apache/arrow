@@ -41,6 +41,7 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
+                 lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
                  lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
