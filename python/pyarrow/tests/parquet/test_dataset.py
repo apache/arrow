@@ -995,6 +995,8 @@ def _test_write_to_dataset_no_partitions(base_path,
 
     if filesystem is None:
         filesystem = LocalFileSystem()
+    elif (not isinstance(filesystem, FileSystem)):
+        filesystem = PyFileSystem(FSSpecHandler(filesystem))
 
     # Without partitions, append files to root_path
     n = 5
@@ -1002,16 +1004,12 @@ def _test_write_to_dataset_no_partitions(base_path,
         pq.write_to_dataset(output_table, base_path,
                             filesystem=filesystem)
 
-    try:
-        output_files = [file for file in filesystem.ls(str(base_path))
-                        if file.endswith(".parquet")]
-    except AttributeError:
-        selector = FileSelector(str(base_path), allow_not_found=False,
-                                recursive=True)
-        assert selector.base_dir == str(base_path)
+    selector = FileSelector(str(base_path), allow_not_found=False,
+                            recursive=True)
+    assert selector.base_dir == str(base_path)
 
-        infos = filesystem.get_file_info(selector)
-        output_files = [info for info in infos if info.path.endswith(".parquet")]
+    infos = filesystem.get_file_info(selector)
+    output_files = [info for info in infos if info.path.endswith(".parquet")]
     assert len(output_files) == n
 
     # Deduplicated incoming DataFrame should match
