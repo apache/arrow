@@ -66,7 +66,7 @@ namespace {
 
 class NoopLogger : public Logger {
  public:
-  void Log(LogLevel, std::string_view, const AttributeHolder&) override {}
+  void Log(const LogDescriptor&) override {}
 };
 
 }  // namespace
@@ -308,34 +308,46 @@ class OtelLogger : public Logger {
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
       : logger_(ot_logger), options_(std::move(options)) {}
 
-  void Log(LogLevel severity, std::string_view body,
-           const AttributeHolder& holder) override {
-    if (severity < options_.severity_threshold) {
+  void Log(const LogDescriptor& desc) override {
+    if (desc.severity < options_.severity_threshold) {
       return;
     }
+
+    const auto timestamp =
+        otel::common::SystemTimestamp(std::chrono::system_clock::now());
 
     auto log = logger_->CreateLogRecord();
     if (log == nullptr) {
       return;
     }
 
-    log->SetTimestamp(otel::common::SystemTimestamp(std::chrono::system_clock::now()));
-    log->SetSeverity(ToOtelSeverity(severity));
-    log->SetBody(otel_string_view(body.data(), body.length()));
-
-    auto span_ctx = otel::trace::Tracer::GetCurrentSpan()->GetContext();
-    log->SetSpanId(span_ctx.span_id());
-    log->SetTraceId(span_ctx.trace_id());
-    log->SetTraceFlags(span_ctx.trace_flags());
-
-    if (holder.num_attributes() > 0) {
+    if (desc.attributes && desc.attributes->num_attributes() > 0) {
       auto callback = [&log](std::string_view k, const AttributeValue& v) -> bool {
         AttributeConverter converter{};
         log->SetAttribute(otel_string_view(k.data(), k.length()),
                           std::visit(converter, v));
         return true;
       };
-      holder.ForEach(std::move(callback));
+      desc.attributes->ForEach(std::move(callback));
+    }
+
+    // We set the remaining attributes AFTER the custom attributes in AttributeHolder
+    // because, in the event of key collisions, these should take precedence.
+    log->SetTimestamp(timestamp);
+    log->SetSeverity(ToOtelSeverity(desc.severity));
+
+    auto span_ctx = otel::trace::Tracer::GetCurrentSpan()->GetContext();
+    log->SetSpanId(span_ctx.span_id());
+    log->SetTraceId(span_ctx.trace_id());
+    log->SetTraceFlags(span_ctx.trace_flags());
+
+    if (desc.body) {
+      auto body = *desc.body;
+      log->SetBody(otel_string_view(body.data(), body.length()));
+    }
+
+    if (const auto& event = desc.event_id; event.is_valid()) {
+      log->SetEventId(event.id, otel_string_view(event.name.data(), event.name.length()));
     }
 
     logger_->EmitLogRecord(std::move(log));
