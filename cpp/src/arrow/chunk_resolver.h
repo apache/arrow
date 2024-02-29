@@ -32,12 +32,12 @@ struct ChunkLocation {
   ///
   /// The value is always in the range `[0, chunks.size()]`. `chunks.size()` is used
   /// to represent out-of-bounds locations.
-  int64_t chunk_index;
+  int64_t chunk_index = 0;
 
   /// \brief Index of the value in the chunk
   ///
   /// The value is undefined if chunk_index >= chunks.size()
-  int64_t index_in_chunk;
+  int64_t index_in_chunk = 0;
 };
 
 /// \brief An utility that incrementally resolves logical indices into
@@ -56,19 +56,15 @@ struct ARROW_EXPORT ChunkResolver {
   mutable std::atomic<int64_t> cached_chunk_;
 
  public:
-  explicit ChunkResolver(const ArrayVector& chunks);
-  explicit ChunkResolver(const std::vector<const Array*>& chunks);
-  explicit ChunkResolver(const RecordBatchVector& batches);
+  explicit ChunkResolver(const ArrayVector& chunks) noexcept;
+  explicit ChunkResolver(const std::vector<const Array*>& chunks) noexcept;
+  explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
-  ChunkResolver(ChunkResolver&& other) noexcept
-      : offsets_(std::move(other.offsets_)),
-        cached_chunk_(other.cached_chunk_.load(std::memory_order_relaxed)) {}
+  ChunkResolver(ChunkResolver&& other) noexcept;
+  ChunkResolver& operator=(ChunkResolver&& other) noexcept;
 
-  ChunkResolver& operator=(ChunkResolver&& other) {
-    offsets_ = std::move(other.offsets_);
-    cached_chunk_.store(other.cached_chunk_.load(std::memory_order_relaxed));
-    return *this;
-  }
+  ChunkResolver(const ChunkResolver& other) noexcept;
+  ChunkResolver& operator=(const ChunkResolver& other) noexcept;
 
   /// \brief Resolve a logical index to a ChunkLocation.
   ///
@@ -96,16 +92,16 @@ struct ARROW_EXPORT ChunkResolver {
   /// \pre index >= 0
   /// \post location.chunk_index in [0, chunks.size()]
   /// \param index The logical index to resolve
-  /// \param cached_chunk_index 0 or the chunk_index of the last ChunkLocation
-  /// returned by this ChunkResolver.
+  /// \param hint ChunkLocation{} or the last ChunkLocation returned by
+  ///             this ChunkResolver.
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
   ///         `>= chunked_array.length()`.
   inline ChunkLocation ResolveWithChunkIndexHint(int64_t index,
-                                                 int64_t cached_chunk_index) const {
-    assert(cached_chunk_index < static_cast<int64_t>(offsets_.size()));
+                                                 ChunkLocation hint) const {
+    assert(hint.chunk_index < static_cast<int64_t>(offsets_.size()));
     const auto chunk_index =
-        ResolveChunkIndex</*StoreCachedChunk=*/false>(index, cached_chunk_index);
+        ResolveChunkIndex</*StoreCachedChunk=*/false>(index, hint.chunk_index);
     return {chunk_index, index - offsets_[chunk_index]};
   }
 
