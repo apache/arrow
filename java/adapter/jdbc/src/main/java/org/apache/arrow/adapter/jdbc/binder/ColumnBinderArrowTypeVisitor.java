@@ -45,6 +45,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -81,6 +82,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   @Override
   public ColumnBinder visit(ArrowType.List type) {
     return new ListBinder((ListVector) vector);
+  }
+
+  @Override
+  public ColumnBinder visit(ArrowType.ListView type) {
+    return new ListBinder((ListViewVector) vector);
   }
 
   @Override
