@@ -605,12 +605,12 @@ TEST(Expression, BindCall) {
 }
 
 TEST(Expression, BindWithDecimalArithmeticOps) {
-  for (const std::string& arith_op : {"add", "subtract", "multiply", "divide"}) {
+  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
     auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
     EXPECT_FALSE(expr.IsBound());
 
     static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
-    for (const auto& s : scales) {
+    for (auto s : scales) {
       auto schema = arrow::schema(
           {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
       ExpectBindsTo(expr, no_change, &expr, *schema);
