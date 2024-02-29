@@ -15,8 +15,9 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+*******************************
 Format Versioning and Stability
-===============================
+*******************************
 
 Starting with version 1.0.0, Apache Arrow uses
 **two versions** to describe each release of the project:
@@ -32,7 +33,7 @@ changes. From 1.0.0 onward, we follow `Semantic Versioning
 expect most releases to be major library releases.
 
 Backward Compatibility
-----------------------
+======================
 
 A newer versioned client library will be able to read any data and
 metadata produced by an older client library.
@@ -41,7 +42,7 @@ So long as the **major** format version is not changed, a newer
 library is backward compatible with an older library.
 
 Forward Compatibility
----------------------
+=====================
 
 An older client library must be able to either read data generated
 from a new client library or detect that it cannot properly read the
@@ -53,7 +54,7 @@ available in 1.0.0. So long as these features are not used (such as a
 new logical data type), forward compatibility is preserved.
 
 Long-Term Stability
--------------------
+===================
 
 A change in the format major version (e.g. from 1.0.0 to 2.0.0)
 indicates a disruption to these compatibility guarantees in some way.
@@ -63,9 +64,44 @@ event and, should this come to pass, we would exercise caution in
 ensuring that production applications are not harmed.
 
 Pre-1.0.0 Versions
-------------------
+==================
 
 We made no forward or backward compatibility guarantees for
 versions prior to 1.0.0. However, we made every effort to ensure
 that new clients can read serialized data produced by library version
 0.8.0 and onward.
+
+.. _post-1-0-0-format-versions:
+
+Post-1.0.0 Format Versions
+==========================
+
+Since version 1.0.0, there have been four new minor versions and zero new
+major versions of the Arrow format. Each new minor version added new features.
+When these new features are not used, the new minor format versions are
+compatible with format version 1.0.0. The new features added in each minor
+format version since 1.0.0 are as follows:
+
+Version 1.1
+-----------
+
+* Added 256-bit Decimal type.
+
+Version 1.2
+-----------
+
+* Added MonthDayNano interval type.
+
+Version 1.3
+-----------
+
+* Added :ref:`run-end-encoded-layout`.
+
+Version 1.4
+-----------
+
+* Added :ref:`variable-size-binary-view-layout` and the associated BinaryView
+  and Utf8View types.
+* Added :ref:`listview-layout` and the associated ListView and LargeListView
+  types.
+* Added :ref:`variadic-buffers`.

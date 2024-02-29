@@ -218,6 +218,10 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
 using DeviceMemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
+ARROW_EXPORT
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id);
+
 /// \brief EXPERIMENTAL: Import C++ device array from the C data interface.
 ///
 /// The ArrowArray struct has its contents moved (as per the C data interface
@@ -226,12 +230,13 @@ using DeviceMemoryMapper =
 ///
 /// \param[in,out] array C data interface struct holding the array data
 /// \param[in] type type of the imported array
-/// \param[in] mapper A function to map device + id to memory manager
+/// \param[in] mapper A function to map device + id to memory manager. If not
+/// specified, defaults to map "cpu" to the built-in default memory manager.
 /// \return Imported array object
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
-                                                 std::shared_ptr<DataType> type,
-                                                 const DeviceMemoryMapper& mapper);
+Result<std::shared_ptr<Array>> ImportDeviceArray(
+    struct ArrowDeviceArray* array, std::shared_ptr<DataType> type,
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
 /// \brief EXPERIMENTAL: Import C++ device array and its type from the C data interface.
 ///
@@ -242,12 +247,13 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 ///
 /// \param[in,out] array C data interface struct holding the array data
 /// \param[in,out] type C data interface struct holding the array type
-/// \param[in] mapper A function to map device + id to memory manager
+/// \param[in] mapper A function to map device + id to memory manager. If not
+/// specified, defaults to map "cpu" to the built-in default memory manager.
 /// \return Imported array object
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
-                                                 struct ArrowSchema* type,
-                                                 const DeviceMemoryMapper& mapper);
+Result<std::shared_ptr<Array>> ImportDeviceArray(
+    struct ArrowDeviceArray* array, struct ArrowSchema* type,
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device from the C data
 /// interface.
@@ -259,12 +265,13 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 ///
 /// \param[in,out] array C data interface struct holding the record batch data
 /// \param[in] schema schema of the imported record batch
-/// \param[in] mapper A function to map device + id to memory manager
+/// \param[in] mapper A function to map device + id to memory manager. If not
+/// specified, defaults to map "cpu" to the built-in default memory manager.
 /// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema,
-    const DeviceMemoryMapper& mapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device and its schema
 /// from the C data interface.
@@ -278,12 +285,13 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 ///
 /// \param[in,out] array C data interface struct holding the record batch data
 /// \param[in,out] schema C data interface struct holding the record batch schema
-/// \param[in] mapper A function to map device + id to memory manager
+/// \param[in] mapper A function to map device + id to memory manager. If not
+/// specified, defaults to map "cpu" to the built-in default memory manager.
 /// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, struct ArrowSchema* schema,
-    const DeviceMemoryMapper& mapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
 /// @}
 

@@ -635,9 +635,18 @@ def test_table_c_stream_interface():
     result = pa.table(wrapper, schema=data[0].schema)
     assert result == expected
 
+    # Passing a different schema will cast
+    good_schema = pa.schema([pa.field('a', pa.int32())])
+    result = pa.table(wrapper, schema=good_schema)
+    assert result == expected.cast(good_schema)
+
     # If schema doesn't match, raises NotImplementedError
-    with pytest.raises(NotImplementedError):
-        pa.table(wrapper, schema=pa.schema([pa.field('a', pa.int32())]))
+    with pytest.raises(
+        pa.lib.ArrowTypeError, match="Field 0 cannot be cast"
+    ):
+        pa.table(
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
+        )
 
 
 def test_recordbatch_itercolumns():
@@ -2618,6 +2627,25 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
+
+
+def test_record_batch_cast():
+    rb = pa.RecordBatch.from_arrays([
+        pa.array([None, 1]),
+        pa.array([False, True])
+    ], names=["a", "b"])
+    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
+                            pa.field("b", "bool", nullable=False)])
+
+    assert rb.cast(new_schema).schema == new_schema
+
+    # Casting a nullable field to non-nullable is invalid
+    rb = pa.RecordBatch.from_arrays([
+        pa.array([None, 1]),
+        pa.array([None, True])
+    ], names=["a", "b"])
+    with pytest.raises(ValueError):
+        rb.cast(new_schema)
 
 
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])

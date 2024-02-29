@@ -283,6 +283,14 @@ cdef extern from "arrow/python/ipc.h" namespace "arrow::py":
                                                      object)
 
 
+cdef extern from "arrow/python/ipc.h" namespace "arrow::py" nogil:
+    cdef cppclass CCastingRecordBatchReader" arrow::py::CastingRecordBatchReader" \
+            (CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CRecordBatchReader],
+                                                     shared_ptr[CSchema])
+
+
 cdef extern from "arrow/python/extension_type.h" namespace "arrow::py":
     cdef cppclass CPyExtensionType \
             " arrow::py::PyExtensionType"(CExtensionType):

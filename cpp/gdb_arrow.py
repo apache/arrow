@@ -956,10 +956,12 @@ class ExtensionType:
 
     def to_string(self):
         """
-        The result of calling ToString().
+        The result of calling ToString(show_metadata=True).
         """
+        # XXX `show_metadata` is an optional argument, but gdb doesn't allow
+        # omitting it.
         return StdString(gdb.parse_and_eval(
-            f"{for_evaluation(self.val)}.ToString()"))
+            f"{for_evaluation(self.val)}.ToString(true)"))
 
 
 class Schema:

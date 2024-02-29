@@ -181,11 +181,10 @@ def test_export_import_field():
         pa.Field._import_from_c(ptr_schema)
 
 
-@needs_cffi
-def test_export_import_array():
+def check_export_import_array(array_type, exporter, importer):
     c_schema = ffi.new("struct ArrowSchema*")
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))
-    c_array = ffi.new("struct ArrowArray*")
+    c_array = ffi.new(f"struct {array_type}*")
     ptr_array = int(ffi.cast("uintptr_t", c_array))
 
     gc.collect()  # Make sure no Arrow data dangles in a ref cycle
@@ -195,11 +194,11 @@ def test_export_import_array():
     typ = pa.list_(pa.int32())
     arr = pa.array([[1], [2, 42]], type=typ)
     py_value = arr.to_pylist()
-    arr._export_to_c(ptr_array)
+    exporter(arr, ptr_array)
     assert pa.total_allocated_bytes() > old_allocated
     # Delete recreate C++ object from exported pointer
     del arr
-    arr_new = pa.Array._import_from_c(ptr_array, typ)
+    arr_new = importer(ptr_array, typ)
     assert arr_new.to_pylist() == py_value
     assert arr_new.type == pa.list_(pa.int32())
     assert pa.total_allocated_bytes() > old_allocated
@@ -207,15 +206,15 @@ def test_export_import_array():
     assert pa.total_allocated_bytes() == old_allocated
     # Now released
     with assert_array_released:
-        pa.Array._import_from_c(ptr_array, pa.list_(pa.int32()))
+        importer(ptr_array, pa.list_(pa.int32()))
 
     # Type is exported and imported at the same time
     arr = pa.array([[1], [2, 42]], type=pa.list_(pa.int32()))
     py_value = arr.to_pylist()
-    arr._export_to_c(ptr_array, ptr_schema)
+    exporter(arr, ptr_array, ptr_schema)
     # Delete and recreate C++ objects from exported pointers
     del arr
-    arr_new = pa.Array._import_from_c(ptr_array, ptr_schema)
+    arr_new = importer(ptr_array, ptr_schema)
     assert arr_new.to_pylist() == py_value
     assert arr_new.type == pa.list_(pa.int32())
     assert pa.total_allocated_bytes() > old_allocated
@@ -223,7 +222,35 @@ def test_export_import_array():
     assert pa.total_allocated_bytes() == old_allocated
     # Now released
     with assert_schema_released:
-        pa.Array._import_from_c(ptr_array, ptr_schema)
+        importer(ptr_array, ptr_schema)
+
+
+@needs_cffi
+def test_export_import_array():
+    check_export_import_array(
+        "ArrowArray",
+        pa.Array._export_to_c,
+        pa.Array._import_from_c,
+    )
+
+
+@needs_cffi
+def test_export_import_device_array():
+    check_export_import_array(
+        "ArrowDeviceArray",
+        pa.Array._export_to_c_device,
+        pa.Array._import_from_c_device,
+    )
+
+    # verify exported struct
+    c_array = ffi.new("struct ArrowDeviceArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+    arr = pa.array([[1], [2, 42]], type=pa.list_(pa.int32()))
+    arr._export_to_c_device(ptr_array)
+
+    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1
+    assert c_array.array.length == 2
 
 
 def check_export_import_schema(schema_factory, expected_schema_factory=None):
@@ -289,10 +316,10 @@ def test_export_import_schema_float_pointer():
     assert schema_new == make_schema()
 
 
-def check_export_import_batch(batch_factory):
+def check_export_import_batch(array_type, exporter, importer, batch_factory):
     c_schema = ffi.new("struct ArrowSchema*")
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))
-    c_array = ffi.new("struct ArrowArray*")
+    c_array = ffi.new(f"struct {array_type}*")
     ptr_array = int(ffi.cast("uintptr_t", c_array))
 
     gc.collect()  # Make sure no Arrow data dangles in a ref cycle
@@ -302,11 +329,11 @@ def check_export_import_batch(batch_factory):
     batch = batch_factory()
     schema = batch.schema
     py_value = batch.to_pydict()
-    batch._export_to_c(ptr_array)
+    exporter(batch, ptr_array)
     assert pa.total_allocated_bytes() > old_allocated
     # Delete and recreate C++ object from exported pointer
     del batch
-    batch_new = pa.RecordBatch._import_from_c(ptr_array, schema)
+    batch_new = importer(ptr_array, schema)
     assert batch_new.to_pydict() == py_value
     assert batch_new.schema == schema
     assert pa.total_allocated_bytes() > old_allocated
@@ -314,7 +341,7 @@ def check_export_import_batch(batch_factory):
     assert pa.total_allocated_bytes() == old_allocated
     # Now released
     with assert_array_released:
-        pa.RecordBatch._import_from_c(ptr_array, make_schema())
+        importer(ptr_array, make_schema())
 
     # Type is exported and imported at the same time
     batch = batch_factory()
@@ -322,7 +349,7 @@ def check_export_import_batch(batch_factory):
     batch._export_to_c(ptr_array, ptr_schema)
     # Delete and recreate C++ objects from exported pointers
     del batch
-    batch_new = pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
+    batch_new = importer(ptr_array, ptr_schema)
     assert batch_new.to_pydict() == py_value
     assert batch_new.schema == batch_factory().schema
     assert pa.total_allocated_bytes() > old_allocated
@@ -330,28 +357,57 @@ def check_export_import_batch(batch_factory):
     assert pa.total_allocated_bytes() == old_allocated
     # Now released
     with assert_schema_released:
-        pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
+        importer(ptr_array, ptr_schema)
 
     # Not a struct type
     pa.int32()._export_to_c(ptr_schema)
     batch_factory()._export_to_c(ptr_array)
     with pytest.raises(ValueError,
                        match="ArrowSchema describes non-struct type"):
-        pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
+        importer(ptr_array, ptr_schema)
     # Now released
     with assert_schema_released:
-        pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
+        importer(ptr_array, ptr_schema)
 
 
 @needs_cffi
 def test_export_import_batch():
-    check_export_import_batch(make_batch)
+    check_export_import_batch(
+        "ArrowArray",
+        pa.RecordBatch._export_to_c,
+        pa.RecordBatch._import_from_c,
+        make_batch,
+    )
 
 
 @needs_cffi
 def test_export_import_batch_with_extension():
     with registered_extension_type(ParamExtType(1)):
-        check_export_import_batch(make_extension_batch)
+        check_export_import_batch(
+            "ArrowArray",
+            pa.RecordBatch._export_to_c,
+            pa.RecordBatch._import_from_c,
+            make_extension_batch,
+        )
+
+
+@needs_cffi
+def test_export_import_device_batch():
+    check_export_import_batch(
+        "ArrowDeviceArray",
+        pa.RecordBatch._export_to_c_device,
+        pa.RecordBatch._import_from_c_device,
+        make_batch,
+    )
+
+    # verify exported struct
+    c_array = ffi.new("struct ArrowDeviceArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+    batch = make_batch()
+    batch._export_to_c_device(ptr_array)
+    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1
+    assert c_array.array.length == 2
 
 
 def _export_import_batch_reader(ptr_stream, reader_factory):
@@ -577,9 +633,8 @@ def test_roundtrip_reader_capsule(constructor):
 
     obj = constructor(schema, batches)
 
-    # TODO: turn this to ValueError once we implement validation.
     bad_schema = pa.schema({'ints': pa.int32()})
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(pa.lib.ArrowTypeError, match="Field 0 cannot be cast"):
         obj.__arrow_c_stream__(bad_schema.__arrow_c_schema__())
 
     # Can work with matching schema
@@ -589,6 +644,21 @@ def test_roundtrip_reader_capsule(constructor):
     assert imported_reader.schema == matching_schema
     for batch, expected in zip(imported_reader, batches):
         assert batch.equals(expected)
+
+
+def test_roundtrip_batch_reader_capsule_requested_schema():
+    batch = make_batch()
+    requested_schema = pa.schema([('ints', pa.list_(pa.int64()))])
+    requested_capsule = requested_schema.__arrow_c_schema__()
+    batch_as_requested = batch.cast(requested_schema)
+
+    capsule = batch.__arrow_c_stream__(requested_capsule)
+    assert PyCapsule_IsValid(capsule, b"arrow_array_stream") == 1
+    imported_reader = pa.RecordBatchReader._import_from_c_capsule(capsule)
+    assert imported_reader.schema == requested_schema
+    assert imported_reader.read_next_batch().equals(batch_as_requested)
+    with pytest.raises(StopIteration):
+        imported_reader.read_next_batch()
 
 
 def test_roundtrip_batch_reader_capsule():

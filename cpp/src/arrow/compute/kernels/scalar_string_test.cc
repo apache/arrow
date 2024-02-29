@@ -23,10 +23,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
-#endif
-
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
@@ -34,7 +30,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/config.h"
 #include "arrow/util/value_parsing.h"
+
+#ifdef ARROW_WITH_UTF8PROC
+#include <utf8proc.h>
+#endif
 
 namespace arrow::compute {
 
