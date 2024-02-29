@@ -32,6 +32,7 @@ import (
 	"github.com/apache/arrow/go/v16/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 var ErrNoSession error = errors.New("flight: server session not present")
@@ -109,7 +110,7 @@ func (session *serverSession) GetSessionOptions() map[string]*flight.SessionOpti
 	session.mu.RLock()
 	defer session.mu.RUnlock()
 	for k, v := range session.options {
-		options[k] = v
+		options[k] = proto.Clone(v).(*flight.SessionOptionValue)
 	}
 
 	return options
