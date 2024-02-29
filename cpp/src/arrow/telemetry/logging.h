@@ -51,6 +51,9 @@ struct ServiceAttributes {
   static ServiceAttributes Defaults() { return ServiceAttributes{}; }
 };
 
+constexpr LogLevel kDefaultSeverityThreshold = LogLevel::ARROW_WARNING;
+constexpr LogLevel kDefaultSeverity = LogLevel::ARROW_INFO;
+
 struct LoggingOptions {
   /// \brief Attributes to set for the LoggerProvider's Resource
   ServiceAttributes service_attributes = ServiceAttributes::Defaults();
@@ -61,29 +64,74 @@ struct LoggingOptions {
   std::ostream* default_export_stream = NULLPTR;
 
   /// \brief Minimum severity required to emit an OpenTelemetry log record
-  LogLevel severity_threshold = LogLevel::ARROW_INFO;
+  LogLevel severity_threshold = kDefaultSeverityThreshold;
 
   static LoggingOptions Defaults() { return LoggingOptions{}; }
+};
+
+/// \brief Represents an event as a name/integer id pair
+struct EventId {
+  constexpr EventId() = default;
+  constexpr EventId(int64_t id, std::string_view name) : name(name), id(id) {}
+
+  constexpr bool is_valid() const { return id >= 0; }
+  constexpr operator bool() const { return is_valid(); }
+
+  static constexpr EventId Invalid() { return EventId{}; }
+
+  std::string_view name;
+  int64_t id = -1;
+};
+
+struct LogDescriptor {
+  LogLevel severity = kDefaultSeverity;
+
+  std::optional<std::string_view> body = std::nullopt;
+
+  EventId event_id = EventId::Invalid();
+
+  const AttributeHolder* attributes = NULLPTR;
 };
 
 class ARROW_EXPORT Logger {
  public:
   virtual ~Logger() = default;
 
-  virtual void Log(LogLevel severity, std::string_view body, const AttributeHolder&) = 0;
+  virtual void Log(const LogDescriptor&) = 0;
 
-  void Log(LogLevel severity, const AttributeHolder& attributes) {
-    this->Log(severity, "", attributes);
+  void Log(LogLevel severity, std::string_view body, const AttributeHolder& attributes,
+           EventId event_id = EventId::Invalid()) {
+    LogDescriptor desc;
+    desc.severity = severity;
+    desc.body = body;
+    desc.attributes = &attributes;
+    desc.event_id = event_id;
+    this->Log(desc);
   }
 
-  void Log(LogLevel severity, std::string_view body) {
-    this->Log(severity, body, AttributeList{});
+  void Log(LogLevel severity, EventId event_id = EventId::Invalid()) {
+    LogDescriptor desc;
+    desc.severity = severity;
+    desc.event_id = event_id;
+    this->Log(desc);
   }
 
-  void Log(std::string_view message) { this->Log(LogLevel::ARROW_INFO, message); }
+  void Log(LogLevel severity, const AttributeHolder& attributes,
+           EventId event_id = EventId::Invalid()) {
+    LogDescriptor desc;
+    desc.severity = severity;
+    desc.attributes = &attributes;
+    desc.event_id = event_id;
+    this->Log(desc);
+  }
 
-  void Log(std::string_view body, const AttributeHolder& attributes) {
-    this->Log(LogLevel::ARROW_INFO, body, attributes);
+  void Log(LogLevel severity, std::string_view body,
+           EventId event_id = EventId::Invalid()) {
+    LogDescriptor desc;
+    desc.severity = severity;
+    desc.body = body;
+    desc.event_id = event_id;
+    this->Log(desc);
   }
 };
 
