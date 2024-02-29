@@ -14,6 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package session provides server middleware and reference implementations for Flight session management.
+//
+// The existing middleware implementation uses cookies, so any client would need middleware/support for storing and sending those cookies.
+// Both stateful and stateless session cookie implementations are provided.
+// The default stateful implementation persists sessions in-memory, but a custom SessionStore may be provided for more durable persistence.
+// Stateless session cookies may be used with no additional infrastructure, but they are not encrypted and should not contain sensitive information.
 package session
 
 import (
