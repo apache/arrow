@@ -82,10 +82,6 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     encode_funcs_.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
     decode_funcs_.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
 #endif
-#if defined(ARROW_HAVE_AVX512)
-    encode_funcs_.push_back({"avx512", &ByteStreamSplitEncodeAvx512<kWidth>});
-    decode_funcs_.push_back({"avx512", &ByteStreamSplitDecodeAvx512<kWidth>});
-#endif
   }
 
   void TestRoundtrip(int64_t num_values) {

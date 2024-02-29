@@ -18,12 +18,10 @@
 #
 # Messaging and interprocess communication
 
-add_custom_target(arrow_ipc)
-
 function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
   set(options)
   set(one_value_args PREFIX)
-  set(multi_value_args LABELS)
+  set(multi_value_args)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -36,17 +34,12 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
     set(PREFIX "arrow-ipc")
   endif()
 
-  add_arrow_test(${REL_TEST_NAME}
-                 EXTRA_LINK_LIBS
-                 ${ARROW_DATASET_TEST_LINK_LIBS}
-                 PREFIX
-                 ${PREFIX}
-                 ${ARG_UNPARSED_ARGUMENTS})
+  add_arrow_test(${REL_TEST_NAME} PREFIX ${PREFIX} ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 add_arrow_test(feather_test)
 add_arrow_ipc_test(json_simple_test)
-add_arrow_ipc_test(read_write_test)
+add_arrow_ipc_test(read_write_test EXTRA_LINK_LIBS arrow::flatbuffers)
 add_arrow_ipc_test(tensor_test)
 
 # Headers: top level

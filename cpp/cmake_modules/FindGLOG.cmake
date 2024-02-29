@@ -17,6 +17,11 @@
 #
 #  find_package(GLOG)
 
+find_package(glog CONFIG)
+if(glog_FOUND)
+  return()
+endif()
+
 if(GLOG_FOUND)
   return()
 endif()
@@ -56,5 +61,6 @@ if(GLOG_FOUND)
   add_library(glog::glog UNKNOWN IMPORTED)
   set_target_properties(glog::glog
                         PROPERTIES IMPORTED_LOCATION "${GLOG_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}"
+                                   INTERFACE_COMPILE_DEFINITIONS "GLOG_USE_GLOG_EXPORT")
 endif()

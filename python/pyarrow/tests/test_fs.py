@@ -1904,3 +1904,26 @@ def test_s3_finalize_region_resolver():
             resolve_s3_region('voltrondata-labs-datasets')
         """
     subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.s3
+def test_concurrent_s3fs_init():
+    # GH-39897: lazy concurrent initialization of S3 subsystem should not crash
+    code = """if 1:
+        import threading
+        import pytest
+        from pyarrow.fs import (FileSystem, S3FileSystem,
+                                ensure_s3_initialized, finalize_s3)
+        threads = []
+        fn = lambda: FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+        for i in range(4):
+            thread = threading.Thread(target = fn)
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        finalize_s3()
+        """
+    subprocess.check_call([sys.executable, "-c", code])

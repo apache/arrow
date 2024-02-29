@@ -2898,12 +2898,16 @@ struct AwsInstance {
     if (is_finalized_.load()) {
       return Status::Invalid("Attempt to initialize S3 after it has been finalized");
     }
-    if (!is_initialized_.exchange(true)) {
-      // Not already initialized
+    bool newly_initialized = false;
+    // EnsureInitialized() can be called concurrently by FileSystemFromUri,
+    // therefore we need to serialize initialization (GH-39897).
+    std::call_once(initialize_flag_, [&]() {
+      bool was_initialized = is_initialized_.exchange(true);
+      DCHECK(!was_initialized);
       DoInitialize(options);
-      return true;
-    }
-    return false;
+      newly_initialized = true;
+    });
+    return newly_initialized;
   }
 
   bool IsInitialized() { return !is_finalized_ && is_initialized_; }
@@ -2979,6 +2983,7 @@ struct AwsInstance {
   Aws::SDKOptions aws_options_;
   std::atomic<bool> is_initialized_;
   std::atomic<bool> is_finalized_;
+  std::once_flag initialize_flag_;
 };
 
 AwsInstance* GetAwsInstance() {

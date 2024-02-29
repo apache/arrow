@@ -258,6 +258,28 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
+    def byte_width(self):
+        """
+        Byte width for fixed width type.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.int64()
+        DataType(int64)
+        >>> pa.int64().byte_width
+        8
+        """
+        cdef _CFixedWidthTypePtr ty
+        ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
+        if ty == nullptr:
+            raise ValueError("Non-fixed width type")
+        byte_width = ty.byte_width()
+        if byte_width == 0:
+            raise ValueError("Less than one byte")
+        return byte_width
+
+    @property
     def num_fields(self):
         """
         The number of child fields.
@@ -1341,20 +1363,6 @@ cdef class FixedSizeBinaryType(DataType):
 
     def __reduce__(self):
         return binary, (self.byte_width,)
-
-    @property
-    def byte_width(self):
-        """
-        The binary size in bytes.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> t = pa.binary(3)
-        >>> t.byte_width
-        3
-        """
-        return self.fixed_size_binary_type.byte_width()
 
 
 cdef class Decimal128Type(FixedSizeBinaryType):

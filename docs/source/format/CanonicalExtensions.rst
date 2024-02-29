@@ -25,7 +25,7 @@ Canonical Extension Types
 Introduction
 ============
 
-The Arrow Columnar Format allows defining
+The Arrow columnar format allows defining
 :ref:`extension types <format_metadata_extension_types>` so as to extend
 standard Arrow data types with custom semantics.  Often these semantics
 will be specific to a system or application.  However, it is beneficial

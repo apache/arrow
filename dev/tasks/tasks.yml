@@ -1192,12 +1192,22 @@ tasks:
         PYTHON: "3.10"
       image: conda-python-cython2
 
-  test-debian-11-python-3:
+  test-debian-11-python-3-amd64:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
+      image: debian-python
+
+  test-debian-11-python-3-i386:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        ARCH: i386
+        DEBIAN: 11
+      flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
 
   test-ubuntu-20.04-python-3:

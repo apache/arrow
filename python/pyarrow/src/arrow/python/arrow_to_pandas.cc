@@ -134,6 +134,13 @@ struct WrapBytes<LargeStringType> {
 };
 
 template <>
+struct WrapBytes<StringViewType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyUnicode_FromStringAndSize(data, length);
+  }
+};
+
+template <>
 struct WrapBytes<BinaryType> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
@@ -142,6 +149,13 @@ struct WrapBytes<BinaryType> {
 
 template <>
 struct WrapBytes<LargeBinaryType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
+  }
+};
+
+template <>
+struct WrapBytes<BinaryViewType> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
   }
@@ -1154,7 +1168,8 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<is_base_binary_type<Type>::value || is_fixed_size_binary_type<Type>::value,
+  enable_if_t<is_base_binary_type<Type>::value || is_binary_view_like_type<Type>::value ||
+                  is_fixed_size_binary_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const std::string_view& view, PyObject** out) {
@@ -1355,8 +1370,7 @@ struct ObjectWriterVisitor {
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
-                  std::is_base_of<UnionType, Type>::value ||
-                  std::is_base_of<BinaryViewType, Type>::value,
+                  std::is_base_of<UnionType, Type>::value,
               Status>
   Visit(const Type& type) {
     return Status::NotImplemented("No implemented conversion to object dtype: ",
@@ -2086,8 +2100,10 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       break;
     case Type::STRING:        // fall through
     case Type::LARGE_STRING:  // fall through
+    case Type::STRING_VIEW:   // fall through
     case Type::BINARY:        // fall through
     case Type::LARGE_BINARY:
+    case Type::BINARY_VIEW:
     case Type::NA:                       // fall through
     case Type::FIXED_SIZE_BINARY:        // fall through
     case Type::STRUCT:                   // fall through

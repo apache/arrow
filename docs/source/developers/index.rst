@@ -211,6 +211,13 @@ All participation in the Apache Arrow project is governed by the ASF's
 
    To learn about the detailed information on the steps followed to perform a release, see :ref:`release`.
 
+.. dropdown:: Release Verification Process
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-none
+
+   To learn how to verify a release, see :ref:`release_verification`.
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -226,3 +233,4 @@ All participation in the Apache Arrow project is governed by the ASF's
    benchmarks
    documentation
    release
+   release_verification

@@ -110,5 +110,5 @@ func (brotliCodec) NewWriterLevel(w io.Writer, level int) (io.WriteCloser, error
 }
 
 func init() {
-	codecs[Codecs.Brotli] = brotliCodec{}
+	RegisterCodec(Codecs.Brotli, brotliCodec{})
 }
