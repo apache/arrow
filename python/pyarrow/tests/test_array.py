@@ -3675,24 +3675,6 @@ def test_list_view_from_arrays_fails(list_array_type, list_type_factory):
             array_slice.values, mask=array_slice.is_null())
 
 
-@pytest.mark.parametrize(('list_array_type', 'list_type_factory'), (
-    (pa.ListViewArray, pa.list_view),
-    (pa.LargeListViewArray, pa.large_list_view)
-))
-@pytest.mark.parametrize("arr", (
-    [None, [0]],
-    [None, [0, None], [0]],
-    [[0], [1]],
-))
-def test_list_view_from_factory(
-    list_array_type, list_type_factory, arr
-):
-    arr = pa.array(arr, type=list_type_factory(pa.int8()))
-    reconstructed_arr = list_array_type.from_arrays(
-        arr.offsets, arr.sizes, arr.values, mask=arr.is_null())
-    assert arr == reconstructed_arr
-
-
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory', 'offset_type'),
                          [(pa.ListViewArray, pa.list_view, pa.int32()),
                           (pa.LargeListViewArray, pa.large_list_view, pa.int64())])

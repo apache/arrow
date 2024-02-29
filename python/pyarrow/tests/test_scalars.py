@@ -567,10 +567,13 @@ def test_list(ty, klass):
     pa.list_(pa.int64()),
     pa.large_list(pa.int64()),
     pa.list_view(pa.int64()),
-    pa.large_list_view(pa.int64())
+    pa.large_list_view(pa.int64()),
+    None
 ])
 def test_list_from_numpy(ty):
     s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()), type=ty)
+    if ty is None:
+        ty = pa.list_(pa.int64())  # expected inferred type
     assert s.type == ty
     assert s.as_py() == [1, 2, 3]
 
