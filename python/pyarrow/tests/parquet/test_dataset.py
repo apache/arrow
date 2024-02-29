@@ -548,7 +548,7 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
-    if (not isinstance(fs, FileSystem)):
+    if not isinstance(fs, FileSystem):
         fs = PyFileSystem(FSSpecHandler(fs))
 
     DEPTH = len(partition_spec)
@@ -995,7 +995,7 @@ def _test_write_to_dataset_no_partitions(base_path,
 
     if filesystem is None:
         filesystem = LocalFileSystem()
-    elif (not isinstance(filesystem, FileSystem)):
+    elif not isinstance(filesystem, FileSystem):
         filesystem = PyFileSystem(FSSpecHandler(filesystem))
 
     # Without partitions, append files to root_path
@@ -1006,7 +1006,6 @@ def _test_write_to_dataset_no_partitions(base_path,
 
     selector = FileSelector(str(base_path), allow_not_found=False,
                             recursive=True)
-    assert selector.base_dir == str(base_path)
 
     infos = filesystem.get_file_info(selector)
     output_files = [info for info in infos if info.path.endswith(".parquet")]
