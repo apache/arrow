@@ -100,6 +100,8 @@ struct PARQUET_EXPORT DecryptionConfiguration {
 /// level parameters.
 class PARQUET_EXPORT CryptoFactory {
  public:
+  CryptoFactory();
+
   /// a KmsClientFactory object must be registered via this method before calling any of
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
@@ -125,10 +127,10 @@ class PARQUET_EXPORT CryptoFactory {
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
-    key_toolkit_.RemoveCacheEntriesForToken(access_token);
+    key_toolkit_->RemoveCacheEntriesForToken(access_token);
   }
 
-  void RemoveCacheEntriesForAllTokens() { key_toolkit_.RemoveCacheEntriesForAllTokens(); }
+  void RemoveCacheEntriesForAllTokens() { key_toolkit_->RemoveCacheEntriesForAllTokens(); }
 
   /// Rotates master encryption keys for a Parquet file that uses external key material.
   /// In single wrapping mode, data encryption keys are decrypted with the old master keys
@@ -148,7 +150,7 @@ class PARQUET_EXPORT CryptoFactory {
       int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
 
   /// Key utilities object for kms client initialization and cache control
-  KeyToolkit key_toolkit_;
+  std::shared_ptr<KeyToolkit> key_toolkit_;
 };
 
 }  // namespace parquet::encryption

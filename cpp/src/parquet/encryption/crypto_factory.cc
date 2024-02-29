@@ -28,9 +28,39 @@
 
 namespace parquet::encryption {
 
+namespace {
+
+/// Holds a FileKeyUnwrapper and shared pointer to a KeyToolkit to allow
+/// keeping the KeyToolkit alive alongside the FileKeyUnwrapper
+class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
+ public:
+  CryptoFactoryFileKeyRetriever(
+      std::shared_ptr<KeyToolkit> key_toolkit,
+      const KmsConnectionConfig& kms_connection_config,
+      double cache_lifetime_seconds, const std::string& file_path = "",
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR)
+      : file_key_unwrapper_(key_toolkit.get(), kms_connection_config, cache_lifetime_seconds, file_path, file_system) {
+    key_toolkit_ = key_toolkit;
+  }
+
+  std::string GetKey(const std::string& key_metadata) override {
+    return file_key_unwrapper_.GetKey(key_metadata);
+  }
+
+ private:
+  FileKeyUnwrapper file_key_unwrapper_;
+  std::shared_ptr<KeyToolkit> key_toolkit_;
+};
+
+}
+
+CryptoFactory::CryptoFactory() {
+  key_toolkit_ = std::make_shared<KeyToolkit>();
+}
+
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
-  key_toolkit_.RegisterKmsClientFactory(kms_client_factory);
+  key_toolkit_->RegisterKmsClientFactory(kms_client_factory);
 }
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
@@ -58,7 +88,7 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     }
   }
 
-  FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
+  FileKeyWrapper key_wrapper(key_toolkit_.get(), kms_connection_config, key_material_store,
                              encryption_config.cache_lifetime_seconds,
                              encryption_config.double_wrapping);
 
@@ -172,8 +202,8 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
     const KmsConnectionConfig& kms_connection_config,
     const DecryptionConfiguration& decryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
-  auto key_retriever = std::make_shared<FileKeyUnwrapper>(
-      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
+  auto key_retriever = std::make_shared<CryptoFactoryFileKeyRetriever>(
+      key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
       file_path, file_system);
 
   return FileDecryptionProperties::Builder()
@@ -187,7 +217,7 @@ void CryptoFactory::RotateMasterKeys(
     const std::string& parquet_file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
     double cache_lifetime_seconds) {
-  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
+  key_toolkit_->RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
                                 double_wrapping, cache_lifetime_seconds);
 }
 
