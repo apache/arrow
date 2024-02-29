@@ -96,6 +96,7 @@ RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \

@@ -80,6 +80,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # Python process explicitly if we use LLVM 17 or later.
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
