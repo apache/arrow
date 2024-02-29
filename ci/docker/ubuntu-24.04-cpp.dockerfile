@@ -114,6 +114,7 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
+        tzdata-legacy \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
