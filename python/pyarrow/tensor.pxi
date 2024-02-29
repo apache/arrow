@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Avoid name clash with `pa.struct` function
+import struct as _struct
+
 
 cdef class Tensor(_Weakrefable):
     """
@@ -31,7 +34,6 @@ cdef class Tensor(_Weakrefable):
     shape: (2, 3)
     strides: (12, 4)
     """
-
     def __init__(self):
         raise TypeError("Do not call Tensor's constructor directly, use one "
                         "of the `pyarrow.Tensor.from_*` functions instead.")
@@ -40,6 +42,14 @@ cdef class Tensor(_Weakrefable):
         self.sp_tensor = sp_tensor
         self.tp = sp_tensor.get()
         self.type = pyarrow_wrap_data_type(self.tp.type())
+        self._ssize_t_shape = self._make_shape_or_strides_buffer(self.shape)
+        self._ssize_t_strides = self._make_shape_or_strides_buffer(self.strides)
+
+    def _make_shape_or_strides_buffer(self, values):
+        """
+        Make a bytes object holding an array of `values` cast to `Py_ssize_t`.
+        """
+        return _struct.pack(f"{len(values)}n", *values)
 
     def __repr__(self):
         return """<pyarrow.Tensor>
@@ -282,10 +292,8 @@ strides: {0.strides}""".format(self)
             buffer.readonly = 0
         else:
             buffer.readonly = 1
-        # NOTE: This assumes Py_ssize_t == int64_t, and that the shape
-        # and strides arrays lifetime is tied to the tensor's
-        buffer.shape = <Py_ssize_t *> &self.tp.shape()[0]
-        buffer.strides = <Py_ssize_t *> &self.tp.strides()[0]
+        buffer.shape = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_shape)
+        buffer.strides = <Py_ssize_t *> cp.PyBytes_AsString(self._ssize_t_strides)
         buffer.suboffsets = NULL
 
 
