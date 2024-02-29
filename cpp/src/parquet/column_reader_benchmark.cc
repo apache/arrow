@@ -113,7 +113,7 @@ static void ColumnReaderSkipInt32(::benchmark::State& state) {
     }
   }
 
-  state.SetItemsProcessed(state.iterations() * helper.total_size());
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
 }
 
 // Benchmarks ReadBatch for ColumnReader with the following parameters in order:
@@ -260,14 +260,14 @@ BENCHMARK(RecordReaderReadRecords)
 
 BENCHMARK(RecordReaderReadAndSkipRecords)
     ->ArgNames({"Repetition", "BatchSize", "LevelsPerPage"})
-    ->Args({0, 100, 80000})
+    ->Args({0, 10, 80000})
     ->Args({0, 1000, 80000})
     ->Args({0, 10000, 1000000})
-    ->Args({1, 100, 80000})
+    ->Args({1, 10, 80000})
     ->Args({1, 1000, 80000})
     ->Args({1, 10000, 1000000})
+    ->Args({2, 10, 80000})
     ->Args({2, 100, 80000})
-    ->Args({2, 1000, 80000})
     ->Args({2, 10000, 1000000});
 
 void GenerateLevels(int level_repeats, int max_level, int num_levels,
