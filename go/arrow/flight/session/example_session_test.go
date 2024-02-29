@@ -59,7 +59,8 @@ func Example_customStatefulMiddleware() {
 	// Generate IDs for new sessions using provided function
 	factory := session.NewSessionFactory(uuid.NewString)
 
-	// Create a SessionStore to persist sessions. In-memory store is provided; other impls possible.
+	// Create a SessionStore to persist sessions.
+	// In-memory store is default; may provide your own implementation.
 	store := session.NewSessionStore()
 
 	// Construct the middleware with the custom manager.
