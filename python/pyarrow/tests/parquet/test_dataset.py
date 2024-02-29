@@ -26,12 +26,11 @@ import unittest.mock as mock
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow import fs
+from pyarrow.fs import (FileSelector, FileSystem, LocalFileSystem,
+                        PyFileSystem, SubTreeFileSystem, FSSpecHandler)
 from pyarrow.tests import util
 from pyarrow.util import guid
 
-from pyarrow.fs import (FileSelector, FileSystem,
-                        LocalFileSystem, PyFileSystem, FSSpecHandler)
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
@@ -1244,7 +1243,7 @@ def test_parquet_dataset_new_filesystem(tempdir):
     # Ensure we can pass new FileSystem object to ParquetDataset
     table = pa.table({'a': [1, 2, 3]})
     pq.write_table(table, tempdir / 'data.parquet')
-    filesystem = fs.SubTreeFileSystem(str(tempdir), LocalFileSystem())
+    filesystem = SubTreeFileSystem(str(tempdir), LocalFileSystem())
     dataset = pq.ParquetDataset('.', filesystem=filesystem)
     result = dataset.read()
     assert result.equals(table)
