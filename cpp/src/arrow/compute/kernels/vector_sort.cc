@@ -647,8 +647,7 @@ class TableSorter {
 
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
-    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
-    const int64_t num_batches = static_cast<int64_t>(batches.size());
+    const int64_t num_batches = static_cast<int64_t>(batches_.size());
     if (num_batches == 0) {
       return Status::OK();
     }
@@ -659,7 +658,7 @@ class TableSorter {
     int64_t end_offset = 0;
     int64_t null_count = 0;
     for (int64_t i = 0; i < num_batches; ++i) {
-      const auto& batch = *batches[i];
+      const auto& batch = *batches_[i];
       end_offset += batch.num_rows();
       RadixRecordBatchSorter sorter(indices_begin_ + begin_offset,
                                     indices_begin_ + end_offset, batch, options_);
