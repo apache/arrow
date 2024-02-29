@@ -108,8 +108,20 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     final int startOffset = getStartOffset(index);
     final int dataLength = getEndOffset(index) - startOffset;
     final byte[] result = new byte[dataLength];
-    valueBuffer.getBytes(startOffset, result, 0, dataLength);
-    return result;
+    if (dataLength > INLINE_SIZE) {
+      // data is in the inline buffer
+      // get buffer index
+      final int bufferIndex = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH +
+          BUF_INDEX_WIDTH);
+      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+      return result;
+    } else {
+      // data is in the value buffer
+      valueBuffer.getBytes((long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
+      return result;
+    }
   }
 
   /**
