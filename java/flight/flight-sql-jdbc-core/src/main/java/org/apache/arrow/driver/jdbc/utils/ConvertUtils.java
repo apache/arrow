@@ -36,6 +36,7 @@ import org.apache.arrow.driver.jdbc.converter.impl.LargeBinaryAvaticaParameterCo
 import org.apache.arrow.driver.jdbc.converter.impl.LargeListAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.LargeUtf8AvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.ListAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.ListViewAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.MapAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.NullAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.StructAvaticaParameterConverter;
@@ -167,6 +168,12 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.List type) {
       return new ListAvaticaParameterConverter(type).createParameter(field);
+
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.ListView type) {
+      return new ListViewAvaticaParameterConverter(type).createParameter(field);
 
     }
 
