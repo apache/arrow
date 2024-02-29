@@ -48,8 +48,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
-
-  private static final int INLINE_SIZE = 12;
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
   private long initialBufferSize;
@@ -57,6 +55,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
+  protected static final int INLINE_SIZE = 12;
+  protected static final int VIEW_BUFFER_SIZE = 16;
+  protected static final int LENGTH_WIDTH = 4;
+  protected static final int INLINE_BUF_DATA_WIDTH = 12;
+  protected static final int PREFIX_WIDTH = 4;
+  protected static final int BUF_INDEX_WIDTH = 4;
+  protected static final int BUF_OFFSET_WIDTH = 4;
   protected static final byte[] emptyByteArray = new byte[]{};
   protected ArrowBuf validityBuffer;
   protected ArrowBuf valueBuffer;
@@ -66,129 +71,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   protected final Field field;
 
   protected List<ArrowBuf> dataBuffers;
-  protected List<ViewBuffer> views;
-
-  interface ViewBuffer {
-  }
-
-  static class InlineValueBuffer implements ViewBuffer {
-    private final ArrowBuf valueBuffer;
-    private final int length;
-
-    public InlineValueBuffer(ArrowBuf buffer, int length) {
-      this.valueBuffer = buffer;
-      this.length = length;
-    }
-
-    public ArrowBuf getValueBuffer() {
-      return valueBuffer;
-    }
-
-    public int getLength() {
-      return length;
-    }
-  }
-
-  static class ReferenceValueBuffer implements ViewBuffer {
-    private final int length;
-    private final byte[] prefix;
-    private final int bufId;
-    private final int offset;
-
-    public ReferenceValueBuffer(int length, byte[] prefix, int bufId, int offset) {
-      this.length = length;
-      this.prefix = prefix;
-      this.bufId = bufId;
-      this.offset = offset;
-    }
-
-    public int getLength() {
-      return length;
-    }
-
-    public byte[] getPrefix() {
-      return prefix;
-    }
-
-    public int getBufId() {
-      return bufId;
-    }
-
-    public int getOffset() {
-      return offset;
-    }
-  }
-
-  static class ViewBufferFactory {
-    private static ViewBuffer createInlineValueBuffer(BufferAllocator allocator, byte[] value, int start, int length,
-        long allocationSizeInBytes) {
-      ArrowBuf newBuffer = allocateViewDataBuffer(allocator, allocationSizeInBytes);
-      newBuffer.setBytes(0, value, start, length);
-      return new InlineValueBuffer(newBuffer, value.length);
-    }
-
-    private static ViewBuffer createReferenceValueBuffer(BufferAllocator allocator, byte[] value, int start,
-        int length, int startOffset, List<ArrowBuf> dataBuffers, long allocationSizeInBytes) {
-      int prefixLen = Math.min(length, 4);
-      byte [] prefix = new byte[prefixLen];
-      System.arraycopy(value, 0, prefix, 0, prefixLen);
-      if (!dataBuffers.isEmpty()) {
-        // the dataBuffer is already populated with at least one buffer
-        // determine bufId
-        ArrowBuf currentBuf = dataBuffers.get(dataBuffers.size() - 1);
-        if (currentBuf.capacity() - currentBuf.writerIndex() >= length) {
-          // we can use the current buffer
-          currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
-          currentBuf.writerIndex(currentBuf.writerIndex() + length);
-          dataBuffers.set(dataBuffers.size() - 1, currentBuf);
-          return new ReferenceValueBuffer(value.length, prefix, dataBuffers.size() - 1,
-              (int) currentBuf.writerIndex());
-        } else {
-          // reallocation i.e creating a new buffer and add it to the dataBuffers
-          ArrowBuf newBuffer = allocateViewDataBuffer(allocator, allocationSizeInBytes);
-          newBuffer.setBytes(0, value, start, length);
-          newBuffer.writerIndex(length);
-          dataBuffers.add(newBuffer);
-          return new ReferenceValueBuffer(value.length, prefix, dataBuffers.size() - 1, 0);
-        }
-      } else {
-        // allocating the first buffer and append it to dataBuffers
-        ArrowBuf newBuffer = allocateViewDataBuffer(allocator, allocationSizeInBytes);
-        newBuffer.setBytes(0, value, start, length);
-        newBuffer.writerIndex(length);
-        dataBuffers.add(newBuffer);
-        return new ReferenceValueBuffer(value.length, prefix, 0, 0);
-      }
-    }
-
-    private static void checkDataBufferSize(long size) {
-      if (size > MAX_BUFFER_SIZE || size < 0) {
-        throw new OversizedAllocationException("Memory required for vector " +
-            "is (" + size + "), which is overflow or more than max allowed (" + MAX_BUFFER_SIZE + "). " +
-            "You could consider using LargeVarCharVector/LargeVarBinaryVector for large strings/large bytes types");
-      }
-    }
-
-    private static ArrowBuf allocateViewDataBuffer(BufferAllocator allocator, long size) {
-      final long newAllocationSize = CommonUtil.nextPowerOfTwo(size);
-      assert newAllocationSize >= 1;
-      checkDataBufferSize(newAllocationSize);
-      return allocator.buffer(newAllocationSize);
-    }
-
-    public static ViewBuffer createValueBuffer(BufferAllocator allocator, byte[] value, int startOffset, int start,
-        int length,
-        List<ArrowBuf> dataBuffers) {
-      if (value.length <= INLINE_SIZE) {
-        // inline buffer
-        return createInlineValueBuffer(allocator, value, start, length, length);
-      } else {
-        // reference buffer
-        return createReferenceValueBuffer(allocator, value, start, length, startOffset, dataBuffers,
-            INITIAL_VALUE_ALLOCATION);
-      }
-    }
-  }
 
   /**
    * Constructs a new instance.
@@ -207,7 +89,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     offsetBuffer = allocator.getEmpty();
     validityBuffer = allocator.getEmpty();
     valueBuffer = allocator.getEmpty();
-    views = new ArrayList<>();
     dataBuffers = new ArrayList<>();
   }
 
@@ -304,7 +185,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     final long size = (long) valueCount * DEFAULT_RECORD_BYTE_COUNT;
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
-    // lastValueAllocationSizeInBytes = (int) size;
+    lastValueAllocationSizeInBytes = (int) size;
     lastValueCapacity = valueCount;
   }
 
@@ -319,7 +200,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     long size = Math.max((long) (valueCount * density), 1L);
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
-    // lastValueAllocationSizeInBytes = (int) size;
+    lastValueAllocationSizeInBytes = (int) size;
     lastValueCapacity = valueCount;
   }
 
@@ -403,24 +284,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     valueBuffer = releaseBuffer(valueBuffer);
     offsetBuffer = releaseBuffer(offsetBuffer);
     clearDataBuffers();
-    clearViews();
     lastSet = -1;
     valueCount = 0;
-  }
-
-  /**
-  * Release the buffers in views and clear the views.
-  */
-  public void clearViews() {
-    for (ViewBuffer view : views) {
-      if (view instanceof InlineValueBuffer) {
-        ArrowBuf valueBuf = ((InlineValueBuffer) view).valueBuffer;
-        if (valueBuf != null) {
-          valueBuf.getReferenceManager().release();
-        }
-      }
-    }
-    views.clear();
   }
 
   /**
@@ -533,34 +398,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
   }
 
-  private void setReaderAndWriteIndexForViews() {
-    if (valueCount == 0) {
-      for (ViewBuffer view : views) {
-        if (view instanceof InlineValueBuffer) {
-          ((InlineValueBuffer) view).getValueBuffer().readerIndex(0);
-          ((InlineValueBuffer) view).getValueBuffer().writerIndex(0);
-        } else {
-          for (ArrowBuf refBuffer : dataBuffers) {
-            refBuffer.readerIndex(0);
-            refBuffer.writerIndex(0);
-          }
-        }
-      }
-    } else {
-      final int lastDataOffset = getStartOffset(valueCount);
-      ViewBuffer lastBuffer = views.get(views.size() - 1);
-      if (lastBuffer instanceof InlineValueBuffer) {
-        // since we allocate a valueBuffer per each inline, this wouldn't make much sense
-        ((InlineValueBuffer) lastBuffer).getValueBuffer().writerIndex(lastDataOffset);
-      } else {
-        for (ArrowBuf refBuffer : dataBuffers) {
-          refBuffer.writerIndex(lastDataOffset);
-        }
-      }
-    }
-
-  }
-
   /**
    * Same as {@link #allocateNewSafe()}.
    */
@@ -647,11 +484,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   /* allocate the inner buffers */
   private void allocateBytes(final long valueBufferSize, final int valueCount) {
     /* allocate data buffer */
-    //    long curSize = valueBufferSize;
-    //    valueBuffer = allocator.buffer(curSize);
-    //    valueBuffer.readerIndex(0);
-
-    initialBufferSize = valueBufferSize;
+    long curSize = valueBufferSize;
+    valueBuffer = allocator.buffer(curSize);
+    valueBuffer.readerIndex(0);
 
     /* allocate offset buffer and validity buffer */
     DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(valueCount + 1, OFFSET_WIDTH);
@@ -661,7 +496,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     initValidityBuffer();
 
     lastValueCapacity = getValueCapacity();
-    // lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
+    lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
   }
 
   /* allocate offset buffer */
@@ -705,47 +540,45 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
 
     long newAllocationSize = currentBufferCapacity * 2;
-    //    if (newAllocationSize == 0) {
-    //      if (lastValueAllocationSizeInBytes > 0) {
-    //        newAllocationSize = lastValueAllocationSizeInBytes;
-    //      } else {
-    //        newAllocationSize = INITIAL_BYTE_COUNT * 2L;
-    //      }
-    //    }
     if (newAllocationSize == 0) {
-      newAllocationSize = INITIAL_BYTE_COUNT;
+      if (lastValueAllocationSizeInBytes > 0) {
+        newAllocationSize = lastValueAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_BYTE_COUNT * 2L;
+      }
     }
-    // reallocDataBuffer(newAllocationSize);
+
+    reallocDataBuffer(newAllocationSize);
     reallocViewReferenceBuffer(newAllocationSize);
   }
 
-  //  /**
-  //   * Reallocate the data buffer to given size. Data Buffer stores the actual data for
-  //   * VARCHAR or VARBINARY elements in the vector. The actual allocate size may be larger
-  //   * than the request one because it will round up the provided value to the nearest
-  //   * power of two.
-  //   *
-  //   * @param desiredAllocSize the desired new allocation size
-  //   * @throws OversizedAllocationException if the desired new size is more than
-  //   *                                      max allowed
-  //   * @throws OutOfMemoryException if the internal memory allocation fails
-  //   */
-  //  public void reallocDataBuffer(long desiredAllocSize) {
-  //    if (desiredAllocSize == 0) {
-  //      return;
-  //    }
-  //
-  //    final long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
-  //    assert newAllocationSize >= 1;
-  //
-  //    checkDataBufferSize(newAllocationSize);
-  //
-  //    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
-  //    newBuf.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
-  //    valueBuffer.getReferenceManager().release();
-  //    valueBuffer = newBuf;
-  //    lastValueAllocationSizeInBytes = valueBuffer.capacity();
-  //  }
+  /**
+   * Reallocate the data buffer to given size. Data Buffer stores the actual data for
+   * VARCHAR or VARBINARY elements in the vector. The actual allocate size may be larger
+   * than the request one because it will round up the provided value to the nearest
+   * power of two.
+   *
+   * @param desiredAllocSize the desired new allocation size
+   * @throws OversizedAllocationException if the desired new size is more than
+   *                                      max allowed
+   * @throws OutOfMemoryException if the internal memory allocation fails
+   */
+  public void reallocDataBuffer(long desiredAllocSize) {
+    if (desiredAllocSize == 0) {
+      return;
+    }
+
+    final long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
+    assert newAllocationSize >= 1;
+
+    checkDataBufferSize(newAllocationSize);
+
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
+    newBuf.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
+    valueBuffer.getReferenceManager().release();
+    valueBuffer = newBuf;
+    lastValueAllocationSizeInBytes = valueBuffer.capacity();
+  }
 
   /**
   * Reallocate the data buffer for reference buffer.
@@ -1174,7 +1007,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     fillHoles(valueCount);
     lastSet = valueCount - 1;
     setReaderAndWriterIndex();
-    setReaderAndWriteIndexForViews();
   }
 
   /**
@@ -1490,6 +1322,76 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     lastSet = index - 1;
   }
 
+  protected void createValueBuffer(BufferAllocator allocator, byte[] value, List<ArrowBuf> dataBuffers) {
+    if (value.length <= INLINE_SIZE) {
+      // inline buffer
+      // set length
+      valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+      // set data
+      valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
+      valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, value.length);
+      valueBuffer.writerIndex(valueBuffer.writerIndex() + INLINE_BUF_DATA_WIDTH);
+    } else {
+      // reference buffer
+      if (dataBuffers.isEmpty()) {
+        // first data buffer needs to be added
+        ArrowBuf newDataBuf = allocator.buffer(lastValueAllocationSizeInBytes);
+        // set length
+        valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
+        // set prefix
+        valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, PREFIX_WIDTH);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
+        // set buf id
+        valueBuffer.setInt(valueBuffer.writerIndex(), /*first buffer*/0);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+        // set offset
+        valueBuffer.setInt(valueBuffer.writerIndex(), 0);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+        newDataBuf.setBytes(0, value, 0, value.length);
+        newDataBuf.writerIndex(value.length);
+        dataBuffers.add(newDataBuf);
+      } else {
+        // insert to the last buffer in the data buffers or allocate new if the last buffer isn't enough
+        // set length
+        valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
+        // set prefix
+        valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, PREFIX_WIDTH);
+        valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
+        // set buf id
+        int currentBufId = dataBuffers.size() - 1;
+        ArrowBuf currentBuf = dataBuffers.get(currentBufId);
+        if (currentBuf.capacity() - currentBuf.writerIndex() >= value.length) {
+          // current buffer is enough
+          // set buf index
+          valueBuffer.setInt(valueBuffer.writerIndex(), currentBufId);
+          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+          // set offset
+          valueBuffer.setInt(valueBuffer.writerIndex(), (int) currentBuf.writerIndex());
+          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+          currentBuf.setBytes(currentBuf.writerIndex(), value, 0, value.length);
+          currentBuf.writerIndex(currentBuf.writerIndex() + value.length);
+          dataBuffers.set(currentBufId, currentBuf); // is this needed?
+        } else {
+          // current buffer is not enough
+          // allocate new buffer
+          ArrowBuf newBuf = allocator.buffer(lastValueAllocationSizeInBytes);
+          // set buf index
+          valueBuffer.setInt(valueBuffer.writerIndex(), dataBuffers.size());
+          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+          // set offset
+          valueBuffer.setInt(valueBuffer.writerIndex(), 0);
+          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+          newBuf.setBytes(0, value, 0, value.length);
+          newBuf.writerIndex(newBuf.writerIndex() + value.length);
+          dataBuffers.add(newBuf);
+        }
+      }
+
+    }
+  }
+
   protected final void setBytes(int index, byte[] value, int start, int length) {
     /* end offset of current last element in the vector. this will
      * be the start offset of new element we are trying to store.
@@ -1499,45 +1401,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     /*check whether the buffer is inline or reference buffer*/
-    ViewBuffer viewBuffer;
-    if (initialBufferSize == 0) {
-      // initial allocation sizes are not set. Allocate the buffer based on the size of the value.
-      viewBuffer = ViewBufferFactory.createValueBuffer(allocator, value, startOffset, start, length,
-          dataBuffers);
-      views.add(viewBuffer);
-    } else {
-      if (initialBufferSize - value.length >= 0 && value.length <= INLINE_SIZE) {
-        viewBuffer =
-            ViewBufferFactory.createInlineValueBuffer(
-                allocator,
-                value,
-                start,
-                length,
-                initialBufferSize);
-        views.add(viewBuffer);
-      }
-
-      if (initialBufferSize - value.length >= 0 && value.length > INLINE_SIZE) {
-        viewBuffer =
-            ViewBufferFactory.createReferenceValueBuffer(
-                allocator,
-                value,
-                start,
-                length,
-                startOffset,
-                dataBuffers,
-                initialBufferSize);
-        views.add(viewBuffer);
-      }
-    }
-
-    //    if (viewBuffer instanceof InlineValueBuffer) {
-    //      lastValueAllocationSizeInBytes = ((InlineValueBuffer) viewBuffer).getValueBuffer().capacity();
-    //    } else {
-    //      ReferenceValueBuffer referenceValueBuffer = (ReferenceValueBuffer) viewBuffer;
-    //      lastValueAllocationSizeInBytes = dataBuffers.get(referenceValueBuffer.getBufId()).capacity();
-    //    }
-    // valueBuffer.setBytes(startOffset, value, start, length);
+    createValueBuffer(allocator, value, dataBuffers);
   }
 
   public final int getStartOffset(int index) {
@@ -1570,14 +1434,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
     final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
     final long targetCapacity = startOffset + dataLength;
-    //    if (valueBuffer.capacity() < targetCapacity) {
-    //      reallocDataBuffer(targetCapacity);
-    //    }
-
-    // safe allocation doesn't apply for inline buffers. Inline buffers are always allocated with the required capacity.
-    // But for reference buffers, we need to check if the buffer has enough capacity to hold the new data.
-
-
+    if (valueBuffer.capacity() < targetCapacity) {
+      reallocDataBuffer(targetCapacity);
+    }
   }
 
   /**
