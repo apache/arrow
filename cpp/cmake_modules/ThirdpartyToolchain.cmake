@@ -115,7 +115,7 @@ if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
   set(lz4_SOURCE ${Lz4_SOURCE})
 endif()
 
-# For backward compatibility. We use "glog_SOURCE" if "GLOG_SOURCE"
+# For backward compatibility. We use "GLOG_SOURCE" if "glog_SOURCE"
 # isn't specified and "GLOG_SOURCE" is specified.
 # We renamed "GLOG" dependency name to "glog" in 16.0.0 because
 # upstream uses "glog" not "GLOG" as package name.
