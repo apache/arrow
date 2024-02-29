@@ -23,7 +23,6 @@
 #include <string>
 #include <string_view>
 
-#include "arrow/telemetry/util.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -31,6 +30,8 @@
 
 namespace arrow {
 namespace telemetry {
+
+class AttributeHolder;
 
 using LogLevel = util::ArrowLogLevel;
 

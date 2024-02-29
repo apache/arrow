@@ -22,7 +22,7 @@
 
 #include "arrow/result.h"
 #include "arrow/telemetry/logging.h"
-#include "arrow/telemetry/util.h"
+#include "arrow/telemetry/util_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -75,68 +75,11 @@ std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>()
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
-namespace otel = ::opentelemetry;
 namespace SemanticConventions = otel::sdk::resource::SemanticConventions;
 
 namespace {
 
-template <typename T>
-using otel_shared_ptr = otel::nostd::shared_ptr<T>;
-template <typename T>
-using otel_span = otel::nostd::span<T>;
-using otel_string_view = otel::nostd::string_view;
-
-using util::span;
-
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
-
-struct AttributeConverter {
-  using OtelValue = otel::common::AttributeValue;
-
-  OtelValue operator()(bool v) { return OtelValue(v); }
-  OtelValue operator()(int32_t v) { return OtelValue(v); }
-  OtelValue operator()(uint32_t v) { return OtelValue(v); }
-  OtelValue operator()(int64_t v) { return OtelValue(v); }
-  OtelValue operator()(double v) { return OtelValue(v); }
-  OtelValue operator()(const char* v) { return OtelValue(otel_string_view(v)); }
-  OtelValue operator()(std::string_view v) {
-    return OtelValue(otel_string_view(v.data(), v.length()));
-  }
-  OtelValue operator()(span<const uint8_t> v) { return ToOtelSpan<uint8_t>(v); }
-  OtelValue operator()(span<const int32_t> v) { return ToOtelSpan<int32_t>(v); }
-  OtelValue operator()(span<const uint32_t> v) { return ToOtelSpan<uint32_t>(v); }
-  OtelValue operator()(span<const int64_t> v) { return ToOtelSpan<int64_t>(v); }
-  OtelValue operator()(span<const uint64_t> v) { return ToOtelSpan<uint64_t>(v); }
-  OtelValue operator()(span<const double> v) { return ToOtelSpan<double>(v); }
-  OtelValue operator()(span<const char* const> v) {
-    return ToOtelStringSpan<const char*>(v);
-  }
-  OtelValue operator()(span<const std::string> v) {
-    return ToOtelStringSpan<std::string>(v);
-  }
-  OtelValue operator()(span<const std::string_view> v) {
-    return ToOtelStringSpan<std::string_view>(v);
-  }
-
- private:
-  template <typename T, typename U = T>
-  OtelValue ToOtelSpan(span<const U> vals) const {
-    return otel_span<const T>(vals.begin(), vals.end());
-  }
-
-  template <typename T>
-  OtelValue ToOtelStringSpan(span<const T> vals) {
-    const size_t length = vals.size();
-    output_views_.resize(length);
-    for (size_t i = 0; i < length; ++i) {
-      const std::string_view s{vals[i]};
-      output_views_[i] = otel_string_view(s.data(), s.length());
-    }
-    return otel_span<const otel_string_view>(output_views_.data(), length);
-  }
-
-  std::vector<otel_string_view> output_views_;
-};
 
 class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExporter {
  public:
@@ -324,8 +267,7 @@ class OtelLogger : public Logger {
     if (desc.attributes && desc.attributes->num_attributes() > 0) {
       auto callback = [&log](std::string_view k, const AttributeValue& v) -> bool {
         AttributeConverter converter{};
-        log->SetAttribute(otel_string_view(k.data(), k.length()),
-                          std::visit(converter, v));
+        log->SetAttribute(ToOtel(k), std::visit(converter, v));
         return true;
       };
       desc.attributes->ForEach(std::move(callback));
@@ -343,11 +285,11 @@ class OtelLogger : public Logger {
 
     if (desc.body) {
       auto body = *desc.body;
-      log->SetBody(otel_string_view(body.data(), body.length()));
+      log->SetBody(ToOtel(body));
     }
 
     if (const auto& event = desc.event_id; event.is_valid()) {
-      log->SetEventId(event.id, otel_string_view(event.name.data(), event.name.length()));
+      log->SetEventId(event.id, ToOtel(event.name));
     }
 
     logger_->EmitLogRecord(std::move(log));
