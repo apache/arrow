@@ -555,48 +555,45 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
 
   // First try and bind exactly
   Result<const Kernel*> maybe_exact_match = call.function->DispatchExact(types);
-  if (maybe_exact_match.ok()) {
+  if (maybe_exact_match.ok() && FinishBind().ok()) {
     call.kernel = *maybe_exact_match;
-
     if (FinishBind().ok()) {
       return Expression(std::move(call));
     }
   }
 
-  {
-    if (!insert_implicit_casts) {
-      return maybe_exact_match.status();
+  if (!insert_implicit_casts) {
+    return maybe_exact_match.status();
+  }
+
+  // If exact binding fails, and we are allowed to cast, then prefer casting literals
+  // first.  Since DispatchBest generally prefers up-casting the best way to do this is
+  // first down-cast the literals as much as possible
+  types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
+  ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
+
+  for (size_t i = 0; i < types.size(); ++i) {
+    if (types[i] == call.arguments[i].type()) continue;
+
+    if (const Datum* lit = call.arguments[i].literal()) {
+      ARROW_ASSIGN_OR_RAISE(Datum new_lit, compute::Cast(*lit, types[i].GetSharedPtr()));
+      call.arguments[i] = literal(std::move(new_lit));
+      continue;
     }
-    // If exact binding fails, and we are allowed to cast, then prefer casting literals
-    // first.  Since DispatchBest generally prefers up-casting the best way to do this is
-    // first down-cast the literals as much as possible
-    types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
-    ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
 
-    for (size_t i = 0; i < types.size(); ++i) {
-      if (types[i] == call.arguments[i].type()) continue;
+    // construct an implicit cast Expression with which to replace this argument
+    Expression::Call implicit_cast;
+    implicit_cast.function_name = "cast";
+    implicit_cast.arguments = {std::move(call.arguments[i])};
 
-      if (const Datum* lit = call.arguments[i].literal()) {
-        ARROW_ASSIGN_OR_RAISE(Datum new_lit,
-                              compute::Cast(*lit, types[i].GetSharedPtr()));
-        call.arguments[i] = literal(std::move(new_lit));
-        continue;
-      }
+    // TODO(wesm): Use TypeHolder in options
+    implicit_cast.options = std::make_shared<compute::CastOptions>(
+        compute::CastOptions::Safe(types[i].GetSharedPtr()));
 
-      // construct an implicit cast Expression with which to replace this argument
-      Expression::Call implicit_cast;
-      implicit_cast.function_name = "cast";
-      implicit_cast.arguments = {std::move(call.arguments[i])};
-
-      // TODO(wesm): Use TypeHolder in options
-      implicit_cast.options = std::make_shared<compute::CastOptions>(
-          compute::CastOptions::Safe(types[i].GetSharedPtr()));
-
-      ARROW_ASSIGN_OR_RAISE(
-          call.arguments[i],
-          BindNonRecursive(std::move(implicit_cast),
-                           /*insert_implicit_casts=*/false, exec_context));
-    }
+    ARROW_ASSIGN_OR_RAISE(
+        call.arguments[i],
+        BindNonRecursive(std::move(implicit_cast),
+                         /*insert_implicit_casts=*/false, exec_context));
   }
 
   RETURN_NOT_OK(FinishBind());
