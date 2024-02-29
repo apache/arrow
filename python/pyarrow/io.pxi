@@ -48,6 +48,9 @@ cdef extern from "Python.h":
 
 
 def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
     try:
         with nogil:
             check_status(HaveLibHdfs())
