@@ -60,7 +60,7 @@ func Example_customStatefulMiddleware() {
 	factory := session.NewSessionFactory(uuid.NewString)
 
 	// Create a SessionStore to persist sessions.
-	// In-memory store is default; may provide your own implementation.
+	// In-memory store is default; you may provide your own implementation.
 	store := session.NewSessionStore()
 
 	// Construct the middleware with the custom manager.

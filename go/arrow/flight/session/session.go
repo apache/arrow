@@ -16,10 +16,17 @@
 
 // Package session provides server middleware and reference implementations for Flight session management.
 //
-// The existing middleware implementation uses cookies, so any client would need middleware/support for storing and sending those cookies.
-// Both stateful and stateless session cookie implementations are provided.
-// The default stateful implementation persists sessions in-memory, but a custom SessionStore may be provided for more durable persistence.
-// Stateless session cookies may be used with no additional infrastructure, but they are not encrypted and should not contain sensitive information.
+// For more details on the Flight Session Specification, see:
+// https://arrow.apache.org/docs/format/FlightSql.html#flight-server-session-management
+//
+// [NewServerSessionMiddleware] manages sessions using cookies, so any client would need its own
+// middleware/support for storing and sending those cookies. The cookies may be stateful or stateless:
+//
+//   - [NewStatefulServerSessionManager] implements stateful cookies.
+//
+//   - [NewStatelessServerSessionManager] implements stateless cookies.
+//
+// See details of either implementation for caveats and recommended usage scenarios.
 package session
 
 import (

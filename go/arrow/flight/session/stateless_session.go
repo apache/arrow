@@ -29,6 +29,7 @@ import (
 const StatelessSessionCookieName string = "arrow_flight_session"
 
 // Create a new StatelessServerSessionManager.
+//
 // The tokens it produces contain the entire session state, so sessions can
 // be maintained across multiple backends.
 // Token contents are considered opaque but are NOT encrypted.

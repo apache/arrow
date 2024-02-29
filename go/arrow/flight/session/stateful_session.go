@@ -121,9 +121,10 @@ func WithStore(store SessionStore) StatefulSessionManagerOption {
 	}
 }
 
-// Create a new ServerSessionManager
-// If unset via options, the default factory produces sessions with UUIDs.
-// If unset via options, sessions are stored in-memory.
+// Create a new ServerSessionManager.
+//
+//   - If unset via options, the default factory produces sessions with UUIDs.
+//   - If unset via options, sessions are stored in-memory.
 func NewStatefulServerSessionManager(opts ...StatefulSessionManagerOption) *statefulServerSessionManager {
 	manager := &statefulServerSessionManager{}
 	for _, opt := range opts {
