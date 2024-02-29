@@ -323,6 +323,37 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
   EXPECT_THROW(this->RotateKeys(double_wrapping, encryption_no), ParquetException);
 }
 
+TEST_F(TestEncryptionKeyManagement, UsePropertiesAfterCrytoFactoryDestroyed) {
+  std::shared_ptr<KmsClientFactory> kms_client_factory =
+      std::make_shared<TestOnlyInMemoryKmsClientFactory>(true, key_list_);
+  std::shared_ptr<CryptoFactory> crypto_factory = std::make_shared<CryptoFactory>();
+  crypto_factory->RegisterKmsClientFactory(kms_client_factory);
+
+  bool double_wrapping = true;
+  bool internal_key_material = true;
+  int encryption_no = 0;
+
+  std::string file_name =
+      GetFileName(double_wrapping, wrap_locally_, internal_key_material, encryption_no);
+  auto encryption_config =
+      GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
+  auto decryption_config =
+      GetDecryptionConfiguration();
+
+  auto file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
+      kms_connection_config_, encryption_config);
+  auto file_decryption_properties = crypto_factory->GetFileDecryptionProperties(
+      kms_connection_config_, decryption_config);
+
+  // Free CryptoFactory
+  crypto_factory.reset();
+
+  // File encryption and decryption properties should still be usable
+  std::string file_path = temp_dir_->path().ToString() + file_name;
+  encryptor_.EncryptFile(file_path, file_encryption_properties);
+  decryptor_.DecryptFile(file_path, file_decryption_properties);
+}
+
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
