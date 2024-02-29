@@ -94,12 +94,12 @@ jobs:
             cat <<JSON >> "$GITHUB_OUTPUT"
           {
             "arch": "arm64v8",
-            "clang-tools": "14",
+            "clang-tools": "10",
             "image": "ubuntu-cpp",
-            "llvm": "14",
+            "llvm": "10",
             "runs-on": ["self-hosted", "arm", "linux"],
-            "title": "ARM64 Ubuntu 22.04 C++",
-            "ubuntu": "22.04"
+            "title": "ARM64 Ubuntu 20.04 C++",
+            "ubuntu": "20.04"
           }
           JSON
           fi

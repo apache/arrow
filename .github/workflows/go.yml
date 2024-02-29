@@ -90,7 +90,7 @@ jobs:
           echo "JSON" >> "$GITHUB_OUTPUT"
 
   docker:
-    name: ${{ matrix.arch-label }} Debian 12 Go ${{ matrix.go }}
+    name: ${{ matrix.arch-label }} Debian 11 Go ${{ matrix.go }}
     needs: docker-targets
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -101,7 +101,6 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
-      DEBIAN: "12"
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
@@ -201,7 +200,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: 3.12
+          python-version: 3.8
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -241,7 +240,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: 3.12
+          python-version: 3.8
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -315,7 +314,7 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Install staticcheck
+      - name: Install staticcheck      
         run: |
           . .env
           go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
