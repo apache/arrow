@@ -16,6 +16,8 @@
  */
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
+import org.apache.arrow.vector.complex.impl.PromotableWriter;
 import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
 import org.apache.arrow.vector.holders.Decimal256Holder;
@@ -26,7 +28,7 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<#list ["List", "LargeList", "ListView"] as listName>
+<#list ["List", "LargeList"] as listName>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 

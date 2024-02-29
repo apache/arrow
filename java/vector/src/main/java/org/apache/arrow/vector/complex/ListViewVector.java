@@ -24,6 +24,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -43,7 +44,8 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 public class ListViewVector extends ListVector {
   protected ArrowBuf sizeBuffer;
   protected long sizeAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
-  private int valueCountOfDataVector = 0;
+
+  private int childArraySize = 0;
 
   /**
    * Constructs a new instance.
@@ -109,17 +111,6 @@ public class ListViewVector extends ListVector {
     sizeBuffer = releaseBuffer(sizeBuffer);
   }
 
-  /**
-   * Update index values for offset and size buffer.
-   *
-   * @param index Current index position.
-   * @param size The number of items added.
-   */
-  public void endValue(int index, int size) {
-    sizeBuffer.setInt(index * OFFSET_WIDTH, size);
-    valueCountOfDataVector = valueCountOfDataVector + size;
-  }
-
   @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
@@ -128,7 +119,7 @@ public class ListViewVector extends ListVector {
         reallocValidityAndOffsetBuffers();
       }
     }
-    vector.setValueCount(valueCountOfDataVector);
+    vector.setValueCount(childArraySize);
   }
 
   /**
@@ -147,6 +138,20 @@ public class ListViewVector extends ListVector {
   }
 
   /**
+   * Update index values for offset and size buffer.
+   *
+   * @param index Current index position.
+   * @param size The number of items added.
+   */
+  public void endValue(int index, int size) {
+    sizeBuffer.setInt(index * OFFSET_WIDTH, size);
+    int currentchildArraySize = size + offsetBuffer.getInt(index * OFFSET_WIDTH);
+    if (currentchildArraySize > childArraySize) {
+      childArraySize = currentchildArraySize;
+    }
+  }
+
+  /**
    * Get the element in the list vector at a particular index.
    * @param index position of the element
    * @return Object at given position
@@ -157,19 +162,31 @@ public class ListViewVector extends ListVector {
       return null;
     }
     final List<Object> vals = new JsonStringArrayList<>();
-    final int end = sizeBuffer.getInt(index * OFFSET_WIDTH);
     final ValueVector vv = getDataVector();
-    int delta = 0;
-    if (index > 0) {
-      for (int i = index; i > 0; i--) {
-        delta += sizeBuffer.getInt((i - 1) * OFFSET_WIDTH);
-      }
-    }
-    for (int i = 0; i < end; i++) {
-      vals.add(i, vv.getObject(i + delta));
+    int items = sizeBuffer.getInt(index * OFFSET_WIDTH);
+    int position = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    for (int i = 0; i < items; i++) {
+      vals.add(vv.getObject(i + position));
     }
 
     return vals;
+  }
+
+  /**
+   * Sets list at index to be null.
+   * @param index position in vector
+   */
+  @Override
+  public void setNull(int index) {
+    while (index >= getValueCapacity()) {
+      reallocValidityAndOffsetBuffers();
+    }
+    BitVectorHelper.unsetBit(validityBuffer, index);
+  }
+
+  @Override
+  public UnionListViewWriter getWriter() {
+    return new UnionListViewWriter(this);
   }
 
   protected void allocateSizeBuffer(final long size) {
