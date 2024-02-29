@@ -190,8 +190,11 @@ class S3TestMixin : public AwsTestMixin {
   }
 
   void TearDown() override {
-    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
-                      // reset before Aws::ShutdownAPI
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    client_.reset();
+    client_config_.reset();
+
     AwsTestMixin::TearDown();
   }
 
@@ -466,6 +469,13 @@ class TestS3FS : public S3TestMixin {
       req.SetBody(std::make_shared<std::stringstream>("other data"));
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
@@ -1357,6 +1367,14 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
     fs_ = std::make_shared<SubTreeFileSystem>("s3fs-test-bucket", s3fs_);
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    s3fs_.reset();
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
  protected:

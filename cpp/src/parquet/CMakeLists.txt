@@ -118,7 +118,7 @@ endfunction()
 # TODO(wesm): Handling of ABI/SO version
 
 if(ARROW_BUILD_STATIC)
-  set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
+  set(PARQUET_STATIC_LINK_LIBS arrow_static)
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
@@ -227,7 +227,11 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   endif()
 endif()
 
+set(PARQUET_SHARED_LINK_LIBS)
+set(PARQUET_SHARED_PRIVATE_LINK_LIBS)
+
 if(PARQUET_REQUIRE_ENCRYPTION)
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
                    encryption/openssl_internal.cc)
   # Encryption key management
@@ -248,11 +252,11 @@ else()
 endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
-  set(PARQUET_SHARED_LINK_LIBS arrow_shared)
+  list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
   # These are libraries that we will link privately with parquet_shared (as they
   # do not need to be linked transitively by other linkers)
-  set(PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS thrift::thrift)
 
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
@@ -260,6 +264,9 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
   if(NOT THRIFT_VENDORED)
     list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
   endif()
+endif()
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -298,6 +305,15 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   target_link_libraries(parquet_test_support thrift::thrift)
   list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
+endif()
+
+if(ARROW_TESTING)
+  add_library(parquet_testing OBJECT test_util.cc)
+  # Even though this is still just an object library we still need to
+  # "link" our dependencies so that include paths are configured
+  # correctly
+  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
@@ -354,8 +370,7 @@ add_parquet_test(internals-test
                  metadata_test.cc
                  page_index_test.cc
                  public_api_test.cc
-                 types_test.cc
-                 test_util.cc)
+                 types_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
@@ -366,28 +381,22 @@ add_parquet_test(reader-test
                  level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
-                 stream_reader_test.cc
-                 test_util.cc)
+                 stream_reader_test.cc)
 
 add_parquet_test(writer-test
                  SOURCES
                  column_writer_test.cc
                  file_serialize_test.cc
-                 stream_writer_test.cc
-                 test_util.cc)
+                 stream_writer_test.cc)
 
 add_parquet_test(arrow-test
                  SOURCES
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
-                 arrow/arrow_statistics_test.cc
-                 test_util.cc)
+                 arrow/arrow_statistics_test.cc)
 
-add_parquet_test(arrow-internals-test
-                 SOURCES
-                 arrow/path_internal_test.cc
-                 arrow/reconstruct_internal_test.cc
-                 test_util.cc)
+add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
+                 arrow/reconstruct_internal_test.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
@@ -395,8 +404,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
-                   encryption/test_encryption_util.cc
-                   test_util.cc)
+                   encryption/test_encryption_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption/key_management_test.cc
@@ -404,13 +412,12 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/key_wrapping_test.cc
                    encryption/test_encryption_util.cc
                    encryption/test_in_memory_kms.cc
-                   encryption/two_level_cache_with_expiration_test.cc
-                   test_util.cc)
+                   encryption/two_level_cache_with_expiration_test.cc)
 endif()
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
+add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc)
 add_parquet_test(schema_test)
 
 add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
