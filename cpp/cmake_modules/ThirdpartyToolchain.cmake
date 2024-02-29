@@ -51,7 +51,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     BZip2
     c-ares
     gflags
-    GLOG
+    glog
     google_cloud_cpp_storage
     gRPC
     GTest
@@ -109,6 +109,14 @@ endif()
 # upstream uses "lz4" not "Lz4" as package name.
 if("${lz4_SOURCE}" STREQUAL "" AND NOT "${Lz4_SOURCE}" STREQUAL "")
   set(lz4_SOURCE ${Lz4_SOURCE})
+endif()
+
+# For backward compatibility. We use "GLOG_SOURCE" if "glog_SOURCE"
+# isn't specified and "GLOG_SOURCE" is specified.
+# We renamed "GLOG" dependency name to "glog" in 16.0.0 because
+# upstream uses "glog" not "GLOG" as package name.
+if("${glog_SOURCE}" STREQUAL "" AND NOT "${GLOG_SOURCE}" STREQUAL "")
+  set(glog_SOURCE ${GLOG_SOURCE})
 endif()
 
 # For backward compatibility. We use bundled jemalloc by default.
@@ -180,7 +188,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_cares()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "glog")
     build_glog()
   elseif("${DEPENDENCY_NAME}" STREQUAL "google_cloud_cpp_storage")
     build_google_cloud_cpp_storage()
@@ -1528,7 +1536,11 @@ macro(build_glog)
 endmacro()
 
 if(ARROW_USE_GLOG)
-  resolve_dependency(GLOG PC_PACKAGE_NAMES libglog)
+  resolve_dependency(glog
+                     HAVE_ALT
+                     TRUE
+                     PC_PACKAGE_NAMES
+                     libglog)
 endif()
 
 # ----------------------------------------------------------------------
