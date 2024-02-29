@@ -34,6 +34,7 @@ cdef class Tensor(_Weakrefable):
     shape: (2, 3)
     strides: (12, 4)
     """
+
     def __init__(self):
         raise TypeError("Do not call Tensor's constructor directly, use one "
                         "of the `pyarrow.Tensor.from_*` functions instead.")
