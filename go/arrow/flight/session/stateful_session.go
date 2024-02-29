@@ -166,7 +166,7 @@ func (manager *statefulServerSessionManager) GetSession(ctx context.Context) (Se
 		return session, nil
 	}
 
-	sessionID, err := GetSessionIDFromIncomingCookie(ctx)
+	sessionID, err := getSessionIDFromIncomingCookie(ctx)
 	if err == nil {
 		return manager.store.Get(sessionID)
 	}
@@ -185,7 +185,7 @@ func (manager *statefulServerSessionManager) CloseSession(session ServerSession)
 }
 
 // Check the provided context for cookies in the incoming gRPC metadata.
-func GetSessionIDFromIncomingCookie(ctx context.Context) (string, error) {
+func getSessionIDFromIncomingCookie(ctx context.Context) (string, error) {
 	cookie, err := GetIncomingCookieByName(ctx, StatefulSessionCookieName)
 	if err != nil {
 		return "", err

@@ -186,9 +186,7 @@ type FlightSqlServerSuite struct {
 }
 
 func (s *FlightSqlServerSuite) SetupSuite() {
-	s.s = flight.NewServerWithMiddleware([]flight.ServerMiddleware{
-		flight.CreateServerMiddleware(session.NewServerSessionMiddleware(nil)),
-	})
+	s.s = flight.NewServerWithMiddleware(nil)
 	srv := flightsql.NewFlightServer(&testServer{})
 	s.s.RegisterFlightService(srv)
 	s.s.Init("localhost:0")
@@ -201,10 +199,7 @@ func (s *FlightSqlServerSuite) TearDownSuite() {
 }
 
 func (s *FlightSqlServerSuite) SetupTest() {
-	middleware := []flight.ClientMiddleware{
-		flight.NewClientCookieMiddleware(),
-	}
-	cl, err := flightsql.NewClient(s.s.Addr().String(), nil, middleware, dialOpts...)
+	cl, err := flightsql.NewClient(s.s.Addr().String(), nil, nil, dialOpts...)
 	s.Require().NoError(err)
 	s.cl = cl
 }
@@ -700,7 +695,7 @@ func TestBaseServer(t *testing.T) {
 	suite.Run(t, &FlightSqlServerSessionSuite{sessionManager: session.NewStatelessServerSessionManager()})
 }
 
-func TestServerSession(t *testing.T) {
+func TestStatefulServerSessionCookies(t *testing.T) {
 	// Generate session IDs deterministically
 	sessionIDGenerator := func(ids []string) func() string {
 		ch := make(chan string, len(ids))
@@ -819,7 +814,7 @@ func TestServerSession(t *testing.T) {
 	require.Nil(t, session)
 }
 
-func TestStatelessServerSession(t *testing.T) {
+func TestStatelessServerSessionCookies(t *testing.T) {
 	manager := session.NewStatelessServerSessionManager()
 	middleware := session.NewServerSessionMiddleware(manager)
 

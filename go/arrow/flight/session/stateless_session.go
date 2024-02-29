@@ -48,7 +48,7 @@ func (manager *statelessServerSessionManager) GetSession(ctx context.Context) (S
 		return session, nil
 	}
 
-	session, err = GetSessionFromIncomingCookie(ctx)
+	session, err = getSessionFromIncomingCookie(ctx)
 	if err == nil {
 		return session, err
 	}
@@ -92,7 +92,8 @@ func (session *statelessServerSession) Token() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func DecodeStatelessToken(token string) (*statelessServerSession, error) {
+// Reconstruct the session from its fully encoded token representation
+func decodeStatelessToken(token string) (*statelessServerSession, error) {
 	decoded, err := base64.StdEncoding.DecodeString(token)
 	if err != nil {
 		return nil, err
@@ -106,12 +107,13 @@ func DecodeStatelessToken(token string) (*statelessServerSession, error) {
 	return NewStatelessServerSession(parsed.SessionOptions), nil
 }
 
-// Check the provided context for cookies in the incoming gRPC metadata.
-func GetSessionFromIncomingCookie(ctx context.Context) (*statelessServerSession, error) {
+// Check the provided context for a cookie in the incoming gRPC metadata containing the
+// stateless session token. Decode the token payload to reconstruct the session.
+func getSessionFromIncomingCookie(ctx context.Context) (*statelessServerSession, error) {
 	cookie, err := GetIncomingCookieByName(ctx, StatelessSessionCookieName)
 	if err != nil {
 		return nil, err
 	}
 
-	return DecodeStatelessToken(cookie.Value)
+	return decodeStatelessToken(cookie.Value)
 }
