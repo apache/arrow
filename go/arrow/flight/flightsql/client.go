@@ -584,7 +584,7 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 	return
 }
 
-func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	return c.Client.CancelFlightInfo(ctx, request, opts...)
 }
 

@@ -66,7 +66,7 @@ type Client interface {
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
-	CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
+	CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (*CancelFlightInfoResult, error)
 	Close() error
 	RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	SetSessionOptions(ctx context.Context, request *SetSessionOptionsRequest, opts ...grpc.CallOption) (*SetSessionOptionsResult, error)
@@ -367,26 +367,14 @@ func ReadUntilEOF(stream FlightService_DoActionClient) error {
 	}
 }
 
-func (c *client) CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (result CancelFlightInfoResult, err error) {
-	var action flight.Action
-	action.Type = CancelFlightInfoActionType
-	action.Body, err = proto.Marshal(request)
+func (c *client) CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (*CancelFlightInfoResult, error) {
+	var result CancelFlightInfoResult
+	err := handleAction(ctx, c, CancelFlightInfoActionType, request, &result, opts...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	stream, err := c.DoAction(ctx, &action, opts...)
-	if err != nil {
-		return
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		return
-	}
-	if err = proto.Unmarshal(res.Body, &result); err != nil {
-		return
-	}
-	err = ReadUntilEOF(stream)
-	return
+
+	return &result, err
 }
 
 func (c *client) Close() error {
@@ -398,113 +386,68 @@ func (c *client) Close() error {
 }
 
 func (c *client) RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error) {
-	var err error
-	var action flight.Action
-	action.Type = RenewFlightEndpointActionType
-	action.Body, err = proto.Marshal(request)
+	var result FlightEndpoint
+	err := handleAction(ctx, c, RenewFlightEndpointActionType, request, &result, opts...)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := c.DoAction(ctx, &action, opts...)
-	if err != nil {
-		return nil, err
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		return nil, err
-	}
-	var renewedEndpoint FlightEndpoint
-	err = proto.Unmarshal(res.Body, &renewedEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	err = ReadUntilEOF(stream)
-	if err != nil {
-		return nil, err
-	}
-	return &renewedEndpoint, nil
+
+	return &result, err
 }
 
 func (c *client) SetSessionOptions(ctx context.Context, request *SetSessionOptionsRequest, opts ...grpc.CallOption) (*SetSessionOptionsResult, error) {
-	var err error
-	var action flight.Action
-	action.Type = SetSessionOptionsActionType
-	action.Body, err = proto.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	stream, err := c.DoAction(ctx, &action, opts...)
-	if err != nil {
-		return nil, err
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		return nil, err
-	}
 	var result SetSessionOptionsResult
-	err = proto.Unmarshal(res.Body, &result)
+	err := handleAction(ctx, c, SetSessionOptionsActionType, request, &result, opts...)
 	if err != nil {
 		return nil, err
 	}
-	err = ReadUntilEOF(stream)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
+
+	return &result, err
 }
 
 func (c *client) GetSessionOptions(ctx context.Context, request *GetSessionOptionsRequest, opts ...grpc.CallOption) (*GetSessionOptionsResult, error) {
-	var err error
-	var action flight.Action
-	action.Type = GetSessionOptionsActionType
-	action.Body, err = proto.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-	stream, err := c.DoAction(ctx, &action, opts...)
-	if err != nil {
-		return nil, err
-	}
-	res, err := stream.Recv()
-	if err != nil {
-		return nil, err
-	}
 	var result GetSessionOptionsResult
-	err = proto.Unmarshal(res.Body, &result)
+	err := handleAction(ctx, c, GetSessionOptionsActionType, request, &result, opts...)
 	if err != nil {
 		return nil, err
 	}
-	err = ReadUntilEOF(stream)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
+
+	return &result, err
 }
 
 func (c *client) CloseSession(ctx context.Context, request *CloseSessionRequest, opts ...grpc.CallOption) (*CloseSessionResult, error) {
-	var err error
-	var action flight.Action
-	action.Type = CloseSessionActionType
-	action.Body, err = proto.Marshal(request)
+	var result CloseSessionResult
+	err := handleAction(ctx, c, CloseSessionActionType, request, &result, opts...)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := c.DoAction(ctx, &action, opts...)
+
+	return &result, err
+}
+
+func handleAction[T, U proto.Message](ctx context.Context, client FlightServiceClient, name string, request T, response U, opts ...grpc.CallOption) error {
+	var (
+		action flight.Action
+		err    error
+	)
+
+	action.Type = name
+	action.Body, err = proto.Marshal(request)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	stream, err := client.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return err
 	}
 	res, err := stream.Recv()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var result CloseSessionResult
-	err = proto.Unmarshal(res.Body, &result)
+	err = proto.Unmarshal(res.Body, response)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	err = ReadUntilEOF(stream)
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
+
+	return ReadUntilEOF(stream)
 }

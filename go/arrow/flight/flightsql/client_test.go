@@ -60,9 +60,9 @@ func (m *FlightServiceClientMock) AuthenticateBasicToken(_ context.Context, user
 	return args.Get(0).(context.Context), args.Error(1)
 }
 
-func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	args := m.Called(request, opts)
-	return args.Get(0).(flight.CancelFlightInfoResult), args.Error(1)
+	return args.Get(0).(*flight.CancelFlightInfoResult), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
@@ -654,10 +654,10 @@ func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
 	mockedCancelResult := flight.CancelFlightInfoResult{
 		Status: flight.CancelStatusCancelled,
 	}
-	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(mockedCancelResult, nil)
+	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(&mockedCancelResult, nil)
 	cancelResult, err := s.sqlClient.CancelFlightInfo(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
-	s.Equal(mockedCancelResult, cancelResult)
+	s.Equal(&mockedCancelResult, cancelResult)
 }
 
 func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
