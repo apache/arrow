@@ -1607,11 +1607,12 @@ TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
   record_reader_->Reset();
 }
 
-// Tests kipping buffered records.
+// Test skipping buffered records when reading/skipping more than kMinLevelBatchSize
+// levels at a time.
 TEST_P(ByteArrayRecordReaderTest, ReadAndBatchSkipOptional) {
   MakeRecordReader(/*levels_per_page=*/9000, /*num_pages=*/1);
 
-  // Read 100 records and buffered some recodds.
+  // Read 100 records and buffer some records.
   ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/100), 100);
   CheckReadValues(0, 100);
   record_reader_->Reset();
@@ -1619,7 +1620,7 @@ TEST_P(ByteArrayRecordReaderTest, ReadAndBatchSkipOptional) {
   // Skip 3000 records. The buffered records will be skipped.
   ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3000), 3000);
 
-  // Read 900 records and buffered some recodds again.
+  // Read 900 records and buffer some records again.
   ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/900), 900);
   CheckReadValues(3100, 4000);
   record_reader_->Reset();
