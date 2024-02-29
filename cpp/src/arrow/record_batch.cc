@@ -255,9 +255,7 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
 
   // Loop through all of the columns
   for (int i = 0; i < batch.num_columns(); ++i) {
-    const auto& arr = *batch.column(i);
-    auto data = arr.data();
-    const auto& in_values = data->GetValues<CType>(1);
+    const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
     // Copy data of each column
     memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
