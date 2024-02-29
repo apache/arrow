@@ -30,7 +30,8 @@ from pyarrow import fs
 from pyarrow.tests import util
 from pyarrow.util import guid
 
-from pyarrow.fs import (FileSelector, LocalFileSystem)
+from pyarrow.fs import (FileSelector, FileSystem,
+                        LocalFileSystem, PyFileSystem, FSSpecHandler)
 try:
     import pyarrow.parquet as pq
     from pyarrow.tests.parquet.common import (
@@ -548,6 +549,9 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
     # partition_spec : list of lists, e.g. [['foo', [0, 1, 2],
     #                                       ['bar', ['a', 'b', 'c']]
     # part_table : a pyarrow.Table to write to each partition
+    if (not isinstance(fs, FileSystem)):
+        fs = PyFileSystem(FSSpecHandler(fs))
+
     DEPTH = len(partition_spec)
 
     pathsep = getattr(fs, "pathsep", getattr(fs, "sep", "/"))
@@ -940,7 +944,7 @@ def _test_write_to_dataset_with_partitions(base_path,
     metadata_path = os.path.join(str(base_path), '_common_metadata')
 
     if filesystem is not None:
-        with filesystem.open_output_stream(metadata_path) as f:
+        with filesystem.open(metadata_path, 'wb') as f:
             pq.write_metadata(output_table.schema, f)
     else:
         pq.write_metadata(output_table.schema, metadata_path)

@@ -770,7 +770,5 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     pq.write_metadata(table.schema, meta5, [], filesystem=s3_fs)
 
     assert meta1.read_bytes() == meta2.read_bytes() \
-        == meta3.read_bytes() == meta4.read_bytes()
-
-    with s3_fs.open_input_file(meta5) as f:
-        assert f.readall() == meta1.read_bytes()
+        == meta3.read_bytes() == meta4.read_bytes() \
+        == s3_fs.open(meta5).read()
