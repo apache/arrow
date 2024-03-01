@@ -61,7 +61,7 @@ namespace Apache.Arrow.Tests
         [InlineData(false, 32154)]
         public void CanWriteToNetworkStream(bool createDictionaryArray, int port)
         {
-            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100, createDictionaryArray: createDictionaryArray);
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 10_000_000, createDictionaryArray: createDictionaryArray);
 
             TcpListener listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
@@ -544,6 +544,61 @@ namespace Apache.Arrow.Tests
             Assert.Equal("RecordBatch: 10 columns by 3 rows", originalRecordBatches[0].ToString());
             Assert.Equal("Schema: Num fields=10, Num metadata=0", originalRecordBatches[0].Schema.ToString());
             Assert.Equal("Field: Name=dictionaryField_int8, DataType=dictionary, IsNullable=False, Metadata count=0",
+                originalRecordBatches[0].Schema.FieldsLookup["dictionaryField_int8"].Single().ToString());
+            TestRoundTripRecordBatches(originalRecordBatches);
+        }
+
+        private List<RecordBatch> CreateMultipleDictionaryArraysTestData_Foo(int length)
+        {
+            //var dictionaryData = new List<string> { "a", "b", "c" };
+            //int length = dictionaryData.Count;
+
+            //int length = 2_000;
+
+            // TODO: Takes 3.3 mins then causes BitmapBuilder.Reallocate(Int32 numBytes) to trigger Debug.Fail
+            //int length = 2_000_000_000;
+
+            //var schemaForSimpleCase = new Schema(new List<Field> {
+            //    new Field("int8", Int8Type.Default, true),
+            //    //new Field("uint8", UInt8Type.Default, true),
+            //    //new Field("int16", Int16Type.Default, true),
+            //    //new Field("uint16", UInt16Type.Default, true),
+            //    //new Field("int32", Int32Type.Default, true),
+            //    //new Field("uint32", UInt32Type.Default, true),
+            //    //new Field("int64", Int64Type.Default, true),
+            //    //new Field("uint64", UInt64Type.Default, true)
+            //}, null);
+
+            //StringArray dictionary = new StringArray.Builder().AppendRange(dictionaryData).Build();
+            //IEnumerable<IArrowArray> indicesArraysForSimpleCase = TestData.CreateArrays(schemaForSimpleCase, length);
+
+
+            IArrowArray indices = new Int8Array(new ArrayData(Int8Type.Default, length, 0, 0, buffers: new ArrowBuffer[] {
+                new ArrowBuffer(new ReadOnlyMemory<byte>(new byte[] { 1, 2, 3, 4, 5 })),
+                new ArrowBuffer()
+            }));
+
+            var fields = new List<Field>(capacity: length + 1)
+                { new Field($"dictionaryField_{indices.Data.DataType.Name}", indices.Data.DataType, false) };
+
+            var schema = new Schema(fields, null);
+
+            var testTargetArrays = new List<IArrowArray> { indices };
+
+            return new List<RecordBatch> {
+                new RecordBatch(schema, testTargetArrays, length),
+                new RecordBatch(schema, testTargetArrays, length),
+            };
+        }
+
+        [Fact]
+        public void WriteMultipleDictionaryArrays_Foo()
+        {
+            const int length = 5; // 2_000;
+            List<RecordBatch> originalRecordBatches = CreateMultipleDictionaryArraysTestData_Foo(length);
+            Assert.Equal($"RecordBatch: 1 columns by {length} rows", originalRecordBatches[0].ToString());
+            Assert.Equal("Schema: Num fields=1, Num metadata=0", originalRecordBatches[0].Schema.ToString());
+            Assert.Equal("Field: Name=dictionaryField_int8, DataType=int8, IsNullable=False, Metadata count=0",
                 originalRecordBatches[0].Schema.FieldsLookup["dictionaryField_int8"].Single().ToString());
             TestRoundTripRecordBatches(originalRecordBatches);
         }
