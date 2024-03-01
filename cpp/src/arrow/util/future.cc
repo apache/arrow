@@ -59,7 +59,7 @@ class ConcreteFutureImpl : public FutureImpl {
     };
 #endif
     CallbackRecord callback_record{std::move(callback), opts};
-    if (IsFutureFinished(state_)) {
+    if (IsFutureFinished(state())) {
       lock.unlock();
       RunOrScheduleCallback(shared_from_this(), std::move(callback_record),
                             /*in_add_callback=*/true);
@@ -72,7 +72,7 @@ class ConcreteFutureImpl : public FutureImpl {
                       CallbackOptions opts) {
     CheckOptions(opts);
     std::unique_lock<std::mutex> lock(mutex_);
-    if (IsFutureFinished(state_)) {
+    if (IsFutureFinished(state())) {
       return false;
     } else {
       callbacks_.push_back({callback_factory(), opts});
@@ -123,14 +123,14 @@ class ConcreteFutureImpl : public FutureImpl {
       }
 #endif
 
-      DCHECK(!IsFutureFinished(state_)) << "Future already marked finished";
+      DCHECK(!IsFutureFinished(this->state())) << "Future already marked finished";
       if (!callbacks_.empty()) {
         callbacks = std::move(callbacks_);
         auto self_inner = shared_from_this();
         self = std::move(self_inner);
       }
 
-      state_ = state;
+      this->set_final_state(state);
       // We need to notify while holding the lock.  This notify often triggers
       // waiters to delete the future and it is not safe to delete a cv_ while
       // it is performing a notify_all
@@ -153,11 +153,11 @@ class ConcreteFutureImpl : public FutureImpl {
 #ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lock(mutex_);
 
-    cv_.wait(lock, [this] { return IsFutureFinished(state_); });
+    cv_.wait(lock, [this] { return IsFutureFinished(state()); });
 #else
     auto last_processed_time = std::chrono::steady_clock::now();
     while (true) {
-      if (IsFutureFinished(state_)) {
+      if (IsFutureFinished(state())) {
         return;
       }
       if (arrow::internal::SerialExecutor::RunTasksOnAllExecutors() == false) {
@@ -177,19 +177,19 @@ class ConcreteFutureImpl : public FutureImpl {
     std::unique_lock<std::mutex> lock(mutex_);
 
     cv_.wait_for(lock, std::chrono::duration<double>(seconds),
-                 [this] { return IsFutureFinished(state_); });
-    return IsFutureFinished(state_);
+                 [this] { return IsFutureFinished(state()); });
+    return IsFutureFinished(state());
 #else
     auto start = std::chrono::steady_clock::now();
     auto fsec = std::chrono::duration<double>(seconds);
     while (std::chrono::steady_clock::now() - start < fsec) {
       // run one task then check time
-      if (IsFutureFinished(state_)) {
+      if (IsFutureFinished(state())) {
         return true;
       }
       arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     }
-    return IsFutureFinished(state_);
+    return IsFutureFinished(state());
 #endif
   }
 
@@ -211,7 +211,7 @@ std::unique_ptr<FutureImpl> FutureImpl::Make() {
 
 std::unique_ptr<FutureImpl> FutureImpl::MakeFinished(FutureState state) {
   std::unique_ptr<ConcreteFutureImpl> ptr(new ConcreteFutureImpl());
-  ptr->state_ = state;
+  ptr->set_final_state(state);
   return std::move(ptr);
 }
 

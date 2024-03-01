@@ -261,6 +261,8 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   virtual ~FutureImpl() = default;
 
   FutureState state() { return state_.load(); }
+  /// \pre end_state == SUCCESS || end_state == FAILURE
+  FutureState set_final_state(FutureState end_state) { return state_ = end_state; }
 
   static std::unique_ptr<FutureImpl> Make();
   static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
@@ -284,17 +286,20 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   bool TryAddCallback(const std::function<Callback()>& callback_factory,
                       CallbackOptions opts);
 
-  std::atomic<FutureState> state_{FutureState::PENDING};
-
   // Type erased storage for arbitrary results
   // XXX small objects could be stored inline instead of boxed in a pointer
   using Storage = std::unique_ptr<void, void (*)(void*)>;
-  Storage result_{NULLPTR, NULLPTR};
 
   struct CallbackRecord {
     Callback callback;
     CallbackOptions options;
   };
+
+ private:
+  std::atomic<FutureState> state_{FutureState::PENDING};
+
+ public:
+  Storage result_{NULLPTR, NULLPTR};
   std::vector<CallbackRecord> callbacks_;
 #ifdef ARROW_WITH_OPENTELEMETRY
   util::tracing::Span* span_ = NULLPTR;
