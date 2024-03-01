@@ -611,7 +611,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "session_options",
             description="Ensure Flight SQL Sessions work as expected.",
-            skip_testers={"JS", "C#", "Rust", "Go"}
+            skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
             "poll_flight_info",

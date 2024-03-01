@@ -18,6 +18,7 @@ package flight
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -54,6 +55,14 @@ type (
 	Result                          = flight.Result
 	CancelFlightInfoResult          = flight.CancelFlightInfoResult
 	CancelStatus                    = flight.CancelStatus
+	SessionOptionValue              = flight.SessionOptionValue
+	SetSessionOptionsRequest        = flight.SetSessionOptionsRequest
+	SetSessionOptionsResult         = flight.SetSessionOptionsResult
+	SetSessionOptionsResultError    = flight.SetSessionOptionsResult_Error
+	GetSessionOptionsRequest        = flight.GetSessionOptionsRequest
+	GetSessionOptionsResult         = flight.GetSessionOptionsResult
+	CloseSessionRequest             = flight.CloseSessionRequest
+	CloseSessionResult              = flight.CloseSessionResult
 	Empty                           = flight.Empty
 )
 
@@ -61,7 +70,74 @@ type (
 const (
 	CancelFlightInfoActionType    = "CancelFlightInfo"
 	RenewFlightEndpointActionType = "RenewFlightEndpoint"
+	SetSessionOptionsActionType   = "SetSessionOptions"
+	GetSessionOptionsActionType   = "GetSessionOptions"
+	CloseSessionActionType        = "CloseSession"
 )
+
+const (
+	// The set option error is unknown. Servers should avoid
+	// using this value (send a NOT_FOUND error if the requested
+	// FlightInfo is not known). Clients can retry the request.
+	SetSessionOptionsResultErrorUnspecified = flight.SetSessionOptionsResult_UNSPECIFIED
+	// The given session option name is invalid.
+	SetSessionOptionsResultErrorInvalidName = flight.SetSessionOptionsResult_INVALID_NAME
+	// The session option value or type is invalid.
+	SetSessionOptionsResultErrorInvalidValue = flight.SetSessionOptionsResult_INVALID_VALUE
+	// The session option cannot be set.
+	SetSessionOptionsResultErrorError = flight.SetSessionOptionsResult_ERROR
+)
+
+const (
+	// The close session status is unknown. Servers should avoid
+	// using this value (send a NOT_FOUND error if the requested
+	// FlightInfo is not known). Clients can retry the request.
+	CloseSessionResultUnspecified = flight.CloseSessionResult_UNSPECIFIED
+	// The session close request is complete.
+	CloseSessionResultClosed = flight.CloseSessionResult_CLOSED
+	// The session close request is in progress. The client may retry the request.
+	CloseSessionResultClosing = flight.CloseSessionResult_CLOSING
+	// The session is not closeable.
+	CloseSessionResultNotCloseable = flight.CloseSessionResult_NOT_CLOSEABLE
+)
+
+// NewSessionOptionValues returns a map with the same keys as the input map, but with all values converted
+// to SessionOptionValues. If any values fail conversion, an error will be returned.
+func NewSessionOptionValues(options map[string]any) (map[string]*flight.SessionOptionValue, error) {
+	sessionOptions := make(map[string]*flight.SessionOptionValue, len(options))
+	for key, val := range options {
+		optval, err := NewSessionOptionValue(val)
+		if err != nil {
+			return nil, err
+		}
+		sessionOptions[key] = &optval
+	}
+
+	return sessionOptions, nil
+}
+
+// NewSessionOptionValue takes any value and constructs a SessionOptionValue suitable for setting session values.
+// An error will be returned if the value is not one of the types supported by SessionOptionValue.
+func NewSessionOptionValue(value any) (flight.SessionOptionValue, error) {
+	if value == nil {
+		return flight.SessionOptionValue{}, nil
+	}
+
+	switch val := value.(type) {
+	case string:
+		return flight.SessionOptionValue{OptionValue: &flight.SessionOptionValue_StringValue{StringValue: val}}, nil
+	case bool:
+		return flight.SessionOptionValue{OptionValue: &flight.SessionOptionValue_BoolValue{BoolValue: val}}, nil
+	case int64:
+		return flight.SessionOptionValue{OptionValue: &flight.SessionOptionValue_Int64Value{Int64Value: val}}, nil
+	case float64:
+		return flight.SessionOptionValue{OptionValue: &flight.SessionOptionValue_DoubleValue{DoubleValue: val}}, nil
+	case []string:
+		return flight.SessionOptionValue{OptionValue: &flight.SessionOptionValue_StringListValue_{StringListValue: &flight.SessionOptionValue_StringListValue{Values: val}}}, nil
+	default:
+		return flight.SessionOptionValue{}, fmt.Errorf("invalid option type %[1]T for value %[1]v", val)
+	}
+}
 
 // Constants for CancelStatus
 const (
