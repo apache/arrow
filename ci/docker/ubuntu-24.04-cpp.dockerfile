@@ -164,12 +164,7 @@ COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 # Prioritize system packages and local installation
-# The following dependencies will be downloaded due to missing/invalid packages
-# provided by the distribution:
-# - Abseil is old
-# - libc-ares-dev does not install CMake config files
-ENV absl_SOURCE=BUNDLED \
-    ARROW_ACERO=ON \
+ENV ARROW_ACERO=ON \
     ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
