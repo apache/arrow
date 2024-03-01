@@ -260,9 +260,14 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
   FutureImpl();
   virtual ~FutureImpl() = default;
 
-  FutureState state() { return state_.load(); }
+  // state_ starts as PENDING and only transitions to SUCCESS or FAILURE,
+  // never back to PENDING. This allows the use of Acquire-Release ordering.
+  FutureState state() { return state_.load(std::memory_order_acquire); }
   /// \pre end_state == SUCCESS || end_state == FAILURE
-  FutureState set_final_state(FutureState end_state) { return state_ = end_state; }
+  FutureState set_final_state(FutureState end_state) {
+    state_.store(end_state, std::memory_order_release);
+    return end_state;
+  }
 
   static std::unique_ptr<FutureImpl> Make();
   static std::unique_ptr<FutureImpl> MakeFinished(FutureState state);
