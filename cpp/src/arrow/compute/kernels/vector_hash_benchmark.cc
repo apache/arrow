@@ -125,7 +125,7 @@ struct HashParams<StringType> {
     std::vector<int64_t> draws;
     randint<int64_t>(params.length, 0, params.num_unique, &draws);
 
-    const int64_t total_bytes = this->byte_width * params.num_unique;
+    const int64_t total_bytes = this->byte_width * params.length;
     std::vector<uint8_t> uniques(total_bytes);
     const uint32_t seed = 0;
     random_bytes(total_bytes, seed, uniques.data());
