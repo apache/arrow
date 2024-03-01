@@ -28,7 +28,7 @@ import (
 
 const StatelessSessionCookieName string = "arrow_flight_session"
 
-// Create a new StatelessServerSessionManager.
+// NewStatelessServerSessionManager creates a new StatelessServerSessionManager.
 //
 // The tokens it produces contain the entire session state, so sessions can
 // be maintained across multiple backends.
@@ -64,6 +64,8 @@ func (manager *statelessServerSessionManager) CloseSession(session ServerSession
 	return nil
 }
 
+// NewStatelessServerSession creates a new instance of a server session that can serialize its entire state.
+// A map is provided containing the initial state. If it is nil, a new empty state will be created.
 func NewStatelessServerSession(options map[string]*flight.SessionOptionValue) *statelessServerSession {
 	if options == nil {
 		options = make(map[string]*flight.SessionOptionValue)

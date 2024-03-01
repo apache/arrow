@@ -46,12 +46,12 @@ var ErrNoSession error = errors.New("flight: server session not present")
 
 type sessionMiddlewareKey struct{}
 
-// Return a copy of the provided context containing the provided ServerSession
+// NewSessionContex returns a copy of the provided context containing the provided ServerSession
 func NewSessionContext(ctx context.Context, session ServerSession) context.Context {
 	return context.WithValue(ctx, sessionMiddlewareKey{}, session)
 }
 
-// Retrieve the ServerSession from the provided context if it exists.
+// GetSessionFromContext retrieves the ServerSession from the provided context if it exists.
 // An error indicates that the session was not found in the context.
 func GetSessionFromContext(ctx context.Context) (ServerSession, error) {
 	session, ok := ctx.Value(sessionMiddlewareKey{}).(ServerSession)
@@ -61,7 +61,7 @@ func GetSessionFromContext(ctx context.Context) (ServerSession, error) {
 	return session, nil
 }
 
-// Container for named SessionOptionValues
+// ServerSession is a container for named SessionOptionValues
 type ServerSession interface {
 	// An identifier for the session that the server can use to reconstruct
 	// the session state on future requests. It is the responsibility of
@@ -81,7 +81,7 @@ type ServerSession interface {
 	Closed() bool
 }
 
-// Handles session lifecycle management
+// ServerSessionManager handles session lifecycle management
 type ServerSessionManager interface {
 	// Create a new, empty ServerSession
 	CreateSession(ctx context.Context) (ServerSession, error)
@@ -150,7 +150,7 @@ func (session *serverSession) Closed() bool {
 	return session.closed
 }
 
-// Create new instance of CustomServerMiddleware implementing server session persistence.
+// NewServerSessionMiddleware creates new instance of CustomServerMiddleware implementing server session persistence.
 //
 // The provided manager can be used to customize session implementation/behavior.
 // If no manager is provided, a stateful in-memory, goroutine-safe implementation is used.

@@ -101,6 +101,8 @@ const (
 	CloseSessionResultNotCloseable = flight.CloseSessionResult_NOT_CLOSEABLE
 )
 
+// NewSessionOptionValues returns a map with the same keys as the input map, but with all values converted
+// to SessionOptionValues. If any values fail conversion, an error will be returned.
 func NewSessionOptionValues(options map[string]any) (map[string]*flight.SessionOptionValue, error) {
 	sessionOptions := make(map[string]*flight.SessionOptionValue, len(options))
 	for key, val := range options {
@@ -114,6 +116,8 @@ func NewSessionOptionValues(options map[string]any) (map[string]*flight.SessionO
 	return sessionOptions, nil
 }
 
+// NewSessionOptionValue takes any value and constructs a SessionOptionValue suitable for setting session values.
+// An error will be returned if the value is not one of the types supported by SessionOptionValue.
 func NewSessionOptionValue(value any) (flight.SessionOptionValue, error) {
 	if value == nil {
 		return flight.SessionOptionValue{}, nil

@@ -28,7 +28,8 @@ import (
 
 const StatefulSessionCookieName string = "arrow_flight_session_id"
 
-// Persistence of ServerSession instances for stateful session implementations
+// SessionStore handles persistence of ServerSession instances for
+// stateful session implementations.
 type SessionStore interface {
 	// Get the session with the provided ID
 	Get(id string) (ServerSession, error)
@@ -38,13 +39,13 @@ type SessionStore interface {
 	Remove(id string) error
 }
 
-// Creation of ServerSession instances
+// SessionFactory creates ServerSession instances
 type SessionFactory interface {
 	// Create a new, empty ServerSession
 	CreateSession() (ServerSession, error)
 }
 
-// Creates a simple in-memory, goroutine-safe SessionStore
+// NewSessionStore creates a simple in-memory, goroutine-safe SessionStore
 func NewSessionStore() *sessionStore {
 	return &sessionStore{sessions: make(map[string]ServerSession)}
 }
@@ -79,7 +80,7 @@ func (store *sessionStore) Remove(id string) error {
 	return nil
 }
 
-// Create a new SessionFactory, producing in-memory, goroutine-safe ServerSessions.
+// NewSessionFactory creates a new SessionFactory, producing in-memory, goroutine-safe ServerSessions.
 // The provided function MUST produce collision-free identifiers.
 func NewSessionFactory(generateID func() string) *sessionFactory {
 	return &sessionFactory{generateID: generateID}
@@ -121,7 +122,7 @@ func WithStore(store SessionStore) StatefulSessionManagerOption {
 	}
 }
 
-// Create a new ServerSessionManager.
+// NewStatefulServerSessionManager creates a new ServerSessionManager.
 //
 //   - If unset via options, the default factory produces sessions with UUIDs.
 //   - If unset via options, sessions are stored in-memory.
