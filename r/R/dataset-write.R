@@ -133,6 +133,28 @@ write_dataset <- function(dataset,
                           min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
+  call <- match.call()
+  call[[1]] <- quote(.write_dataset_internal)
+  plan <- eval.parent(call)
+  plan$DoWrite()
+}
+
+# To see what the exec plan is that write_dataset would do:
+# arrow:::.write_dataset_internal(stuff)$ToString()
+
+.write_dataset_internal <- function(dataset,
+                                    path,
+                                    format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
+                                    partitioning = dplyr::group_vars(dataset),
+                                    basename_template = paste0("part-{i}.", as.character(format)),
+                                    hive_style = TRUE,
+                                    existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                                    max_partitions = 1024L,
+                                    max_open_files = 900L,
+                                    max_rows_per_file = 0L,
+                                    min_rows_per_group = 0L,
+                                    max_rows_per_group = bitwShiftL(1, 20),
+                                    ...) {
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
@@ -152,7 +174,6 @@ write_dataset <- function(dataset,
   }
 
   plan <- ExecPlan$create()
-  on.exit(plan$.unsafe_delete())
 
   final_node <- plan$Build(dataset)
   if (!is.null(final_node$extras$sort %||% final_node$extras$head %||% final_node$extras$tail)) {
@@ -218,14 +239,14 @@ write_dataset <- function(dataset,
   validate_positive_int_value(min_rows_per_group)
   validate_positive_int_value(max_rows_per_group)
 
-  plan$Write(
-    final_node,
+  final_node$Write(
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group
   )
+  plan
 }
 
 #' Write a dataset into partitioned flat files.

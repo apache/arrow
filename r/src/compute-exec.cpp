@@ -306,8 +306,9 @@ std::shared_ptr<acero::ExecNode> ExecNode_Scan(
                             ds::ScanNodeOptions{dataset, options});
 }
 
+// TODO: do we need plan and final_node? Do whatever the other ExecNode wrappers do
 // [[dataset::export]]
-void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
+std::shared_ptr<acero::ExecNode> ExecNode_Write(
                     const std::shared_ptr<acero::ExecNode>& final_node,
                     const std::shared_ptr<arrow::Schema>& schema,
                     const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
@@ -339,8 +340,12 @@ void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
   ds::WriteNodeOptions options(std::move(opts));
   options.custom_schema = std::move(schema);
 
-  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()}, std::move(options));
+  return MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()}, std::move(options));
+                    }
 
+// TODO: rename this to something better?
+// [[dataset::export]]
+void ExecPlan_DoWrite(const std::shared_ptr<acero::ExecPlan>& plan) {
   StopIfNotOk(plan->Validate());
 
   arrow::Status result = RunWithCapturedRIfPossibleVoid([&]() {
