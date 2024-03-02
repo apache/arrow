@@ -1293,8 +1293,8 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: library
-      r_image: r-base
+      r_org: rocker
+      r_image: r-ver
       r_tag: latest
       flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
 
@@ -1309,8 +1309,8 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: library
-      r_image: r-base
+      r_org: rocker
+      r_image: r-ver
       r_tag: latest
       flags: '-e ARROW_OFFLINE_BUILD=true'
 
@@ -1336,7 +1336,7 @@ tasks:
       r_custom_ccache: true
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
-                                 ("library", "r-base", "latest"),
+                                 ("rocker", "r-ver", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
                                  ("rstudio", "r-base", "4.1-opensuse153")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
@@ -1403,8 +1403,8 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: library
-      r_image: r-base
+      r_org: rocker
+      r_image: r-ver
       r_tag: latest
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
