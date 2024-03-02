@@ -604,6 +604,17 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+TEST(Expression, BindWithAliasCasts) {
+  auto fm = GetFunctionRegistry();
+  EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
+
+  auto expr = call("alias_cast", {field_ref("f1")}, CastOptions::Unsafe(arrow::int32()));
+  EXPECT_FALSE(expr.IsBound());
+
+  auto schema = arrow::schema({field("f1", decimal128(30, 3))});
+  ExpectBindsTo(expr, no_change, &expr, *schema);
+}
+
 TEST(Expression, BindWithDecimalArithmeticOps) {
   for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
     auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
