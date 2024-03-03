@@ -65,6 +65,133 @@ AzureOptions::AzureOptions() = default;
 
 AzureOptions::~AzureOptions() = default;
 
+Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
+                                           std::string* out_path) {
+  AzureOptions options;
+  const auto host = uri.host();
+  std::string container;
+  std::string path;
+  if (arrow::internal::EndsWith(host, options.blob_storage_authority)) {
+    options.account_name =
+        host.substr(0, host.size() - options.blob_storage_authority.size());
+    auto components = internal::SplitAbstractPath(uri.path());
+    if (!components.empty()) {
+      container = components[0];
+      path = internal::JoinAbstractPath(components.begin() + 1, components.end());
+    }
+  } else if (arrow::internal::EndsWith(host, options.dfs_storage_authority)) {
+    options.account_name =
+        host.substr(0, host.size() - options.dfs_storage_authority.size());
+    container = uri.username();
+    path = uri.path();
+  } else {
+    options.account_name = uri.username();
+    std::string host_port = host;
+    const auto port_text = uri.port_text();
+    if (!port_text.empty()) {
+      host_port += ":" + port_text;
+    }
+    options.blob_storage_authority = host_port;
+    options.dfs_storage_authority = host_port;
+    if (uri.scheme() == "abfs") {
+      options.blob_storage_scheme = "http";
+      options.dfs_storage_scheme = "http";
+    }
+    auto components = internal::SplitAbstractPath(uri.path());
+    if (!components.empty()) {
+      container = components[0];
+      path = internal::JoinAbstractPath(components.begin() + 1, components.end());
+    }
+  }
+  const auto account_key = uri.password();
+
+  if (container.empty()) {
+    return Status::Invalid("Missing container name in Azure Blob File System URI");
+  }
+  if (out_path != nullptr) {
+    *out_path = std::string(internal::ConcatAbstractPath(container, path));
+  }
+
+  std::unordered_map<std::string, std::string> options_map;
+  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
+  for (const auto& kv : options_items) {
+    options_map.emplace(kv.first, kv.second);
+  }
+
+  CredentialKind credential_kind = options.account_name.empty()
+                                       ? CredentialKind::kAnonymous
+                                       : CredentialKind::kDefault;
+  std::string tenant_id;
+  std::string client_id;
+  std::string client_secret;
+  for (const auto& kv : options_map) {
+    if (kv.first == "blob_storage_authority") {
+      options.blob_storage_authority = kv.second;
+    } else if (kv.first == "dfs_storage_authority") {
+      options.dfs_storage_authority = kv.second;
+    } else if (kv.first == "blob_storage_scheme") {
+      options.blob_storage_scheme = kv.second;
+    } else if (kv.first == "dfs_storage_scheme") {
+      options.dfs_storage_scheme = kv.second;
+    } else if (kv.first == "credential_kind") {
+      if (kv.second == "default") {
+        credential_kind = CredentialKind::kDefault;
+      } else if (kv.second == "anonymous") {
+        credential_kind = CredentialKind::kAnonymous;
+      } else if (kv.second == "storage_shared_key") {
+        credential_kind = CredentialKind::kStorageSharedKey;
+      } else if (kv.second == "client_secret") {
+        credential_kind = CredentialKind::kClientSecret;
+      } else if (kv.second == "managed_identity") {
+        credential_kind = CredentialKind::kManagedIdentity;
+      } else if (kv.second == "workload_identity") {
+        credential_kind = CredentialKind::kWorkloadIdentity;
+      } else {
+        return Status::Invalid("Unexpected credential_kind: '", kv.second, "'");
+      }
+    } else if (kv.first == "tenant_id") {
+      tenant_id = kv.second;
+    } else if (kv.first == "client_id") {
+      client_id = kv.second;
+    } else if (kv.first == "client_secret") {
+      client_secret = kv.second;
+    } else {
+      return Status::Invalid(
+          "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
+    }
+  }
+
+  switch (credential_kind) {
+    case CredentialKind::kDefault:
+      break;
+    case CredentialKind::kAnonymous:
+      RETURN_NOT_OK(options.ConfigureAnonymousCredential());
+      break;
+    case CredentialKind::kStorageSharedKey:
+      RETURN_NOT_OK(options.ConfigureAccountKeyCredential(account_key));
+      break;
+    case CredentialKind::kClientSecret:
+      RETURN_NOT_OK(
+          options.ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+      break;
+    case CredentialKind::kManagedIdentity:
+      RETURN_NOT_OK(options.ConfigureManagedIdentityCredential(client_id));
+      break;
+    case CredentialKind::kWorkloadIdentity:
+      RETURN_NOT_OK(options.ConfigureWorkloadIdentityCredential());
+      break;
+  }
+
+  return options;
+}
+
+Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
+                                           std::string* out_path) {
+  arrow::internal::Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri, out_path);
+}
+
 bool AzureOptions::Equals(const AzureOptions& other) const {
   // TODO(GH-38598): update here when more auth methods are added.
   const bool equals = blob_storage_authority == other.blob_storage_authority &&

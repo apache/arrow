@@ -45,6 +45,7 @@ class DataLakeServiceClient;
 namespace arrow::fs {
 
 class TestAzureFileSystem;
+class TestAzureOptions;
 
 /// Options for the AzureFileSystem implementation.
 ///
@@ -59,6 +60,8 @@ class TestAzureFileSystem;
 ///
 /// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
+  friend class TestAzureOptions;
+
   /// \brief The name of the Azure Storage Account being accessed.
   ///
   /// All service URLs will be constructed using this storage account name.
@@ -122,6 +125,11 @@ struct ARROW_EXPORT AzureOptions {
  public:
   AzureOptions();
   ~AzureOptions();
+
+  /// Initialize from URIs such as "abfs://container/blog".
+  static Result<AzureOptions> FromUri(const arrow::internal::Uri& uri,
+                                      std::string* out_path);
+  static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
