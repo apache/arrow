@@ -115,10 +115,6 @@ class PARQUET_EXPORT CryptoFactory {
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   /// Get decryption properties for a Parquet file.
-  /// The returned FileDecryptionProperties object will use the cache inside this
-  /// CryptoFactory object, so please keep this
-  /// CryptoFactory object alive along with the returned
-  /// FileDecryptionProperties object.
   /// If external key material is used then a file system and path to the
   /// parquet file must be provided.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
