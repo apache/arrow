@@ -167,6 +167,7 @@ public class RoundtripTest {
   boolean roundtrip(FieldVector vector, Class<?> clazz) {
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
     List<Integer> orgRefCnts = fieldBuffers.stream().map(buf -> buf.refCnt()).collect(Collectors.toList());
+    long orgMemorySize = allocator.getAllocatedMemory();
 
     boolean result = false;
     try (ValueVector imported = vectorRoundtrip(vector)) {
@@ -179,6 +180,8 @@ public class RoundtripTest {
       ArrowBuf buf = fieldBuffers.get(i);
       assertEquals(buf.refCnt(), orgRefCnts.get(i));
     });
+
+    assertEquals(orgMemorySize, allocator.getAllocatedMemory());
 
     return result;
   }
