@@ -126,7 +126,9 @@ struct ARROW_EXPORT AzureOptions {
   AzureOptions();
   ~AzureOptions();
 
-  /// Initialize from URIs such as "abfs://container/blog".
+  /// Initialize from URIs such as
+  /// "abfs://account.blob.core.windows.net/container/dir/blob" and
+  /// "abfs://file_system@account.dfs.core.windows.net/dir/file".
   static Result<AzureOptions> FromUri(const arrow::internal::Uri& uri,
                                       std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
