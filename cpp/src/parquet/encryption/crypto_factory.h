@@ -126,7 +126,9 @@ class PARQUET_EXPORT CryptoFactory {
     key_toolkit_->RemoveCacheEntriesForToken(access_token);
   }
 
-  void RemoveCacheEntriesForAllTokens() { key_toolkit_->RemoveCacheEntriesForAllTokens(); }
+  void RemoveCacheEntriesForAllTokens() {
+    key_toolkit_->RemoveCacheEntriesForAllTokens();
+  }
 
   /// Rotates master encryption keys for a Parquet file that uses external key material.
   /// In single wrapping mode, data encryption keys are decrypted with the old master keys

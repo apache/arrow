@@ -337,8 +337,7 @@ TEST_F(TestEncryptionKeyManagement, UsePropertiesAfterCrytoFactoryDestroyed) {
       GetFileName(double_wrapping, wrap_locally_, internal_key_material, encryption_no);
   auto encryption_config =
       GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
-  auto decryption_config =
-      GetDecryptionConfiguration();
+  auto decryption_config = GetDecryptionConfiguration();
 
   auto file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
       kms_connection_config_, encryption_config);

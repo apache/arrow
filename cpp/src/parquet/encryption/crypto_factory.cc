@@ -36,10 +36,11 @@ class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
  public:
   CryptoFactoryFileKeyRetriever(
       std::shared_ptr<KeyToolkit> key_toolkit,
-      const KmsConnectionConfig& kms_connection_config,
-      double cache_lifetime_seconds, const std::string& file_path = "",
+      const KmsConnectionConfig& kms_connection_config, double cache_lifetime_seconds,
+      const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR)
-      : file_key_unwrapper_(key_toolkit.get(), kms_connection_config, cache_lifetime_seconds, file_path, file_system) {
+      : file_key_unwrapper_(key_toolkit.get(), kms_connection_config,
+                            cache_lifetime_seconds, file_path, file_system) {
     key_toolkit_ = key_toolkit;
   }
 
@@ -52,11 +53,9 @@ class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
   std::shared_ptr<KeyToolkit> key_toolkit_;
 };
 
-}
+}  // namespace
 
-CryptoFactory::CryptoFactory() {
-  key_toolkit_ = std::make_shared<KeyToolkit>();
-}
+CryptoFactory::CryptoFactory() { key_toolkit_ = std::make_shared<KeyToolkit>(); }
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
@@ -88,8 +87,8 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     }
   }
 
-  FileKeyWrapper key_wrapper(key_toolkit_.get(), kms_connection_config, key_material_store,
-                             encryption_config.cache_lifetime_seconds,
+  FileKeyWrapper key_wrapper(key_toolkit_.get(), kms_connection_config,
+                             key_material_store, encryption_config.cache_lifetime_seconds,
                              encryption_config.double_wrapping);
 
   int32_t dek_length_bits = encryption_config.data_key_length_bits;
@@ -218,7 +217,7 @@ void CryptoFactory::RotateMasterKeys(
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
     double cache_lifetime_seconds) {
   key_toolkit_->RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
-                                double_wrapping, cache_lifetime_seconds);
+                                 double_wrapping, cache_lifetime_seconds);
 }
 
 }  // namespace parquet::encryption
