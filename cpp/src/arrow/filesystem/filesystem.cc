@@ -693,6 +693,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     }
     return std::make_shared<LocalFileSystem>(options, io_context);
   }
+  /// "abfs" and "abfss" schemes are taken from
+  /// the Azure Data Lake Storage Gen2 URI:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
+  ///
+  /// abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<file_name>
   if (scheme == "abfs" || scheme == "abfss") {
 #ifdef ARROW_AZURE
     ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));
