@@ -210,7 +210,7 @@ class FunctionRegistry::FunctionRegistryImpl {
   std::mutex lock_;
   std::unordered_map<std::string, std::shared_ptr<Function>> name_to_function_;
   std::unordered_map<std::string, const FunctionOptionsType*> name_to_options_type_;
-  
+
   const Function* cast_function_;
 };
 
