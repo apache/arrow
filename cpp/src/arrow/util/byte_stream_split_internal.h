@@ -104,7 +104,6 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
-  const simd_batch* raw_values_sse = reinterpret_cast<const simd_batch*>(raw_values);
   simd_batch* output_buffer_streams[kNumStreams];
   for (int i = 0; i < kNumStreams; ++i) {
     output_buffer_streams[i] =
@@ -135,7 +134,9 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
-      stage[0][i] = raw_values_sse[block_index * kNumStreams + i];
+      stage[0][i] = simd_batch::load_unaligned(
+          reinterpret_cast<const int8_t*>(raw_values) +
+          (block_index * kNumStreams + i) * sizeof(simd_batch));
     }
 
     // The shuffling of bytes is performed through the unpack intrinsics.
