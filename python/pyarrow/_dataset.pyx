@@ -884,6 +884,12 @@ cdef class Dataset(_Weakrefable):
         """
         Perform an asof join between this dataset and another one.
 
+        This is similar to a left-join except that we match on nearest key rather
+        than equal keys. Both datasets must be sorted by the key. This type of join
+        is most useful for time series data that are not perfectly aligned.
+
+        Optionally match on equivalent keys with "by" before searching with "on".
+
         Result of the join will be a new Dataset, where further
         operations can be applied.
 
