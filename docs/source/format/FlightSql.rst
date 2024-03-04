@@ -143,7 +143,11 @@ the ``type`` should be ``ClosePreparedStatement``).
     When used with DoPut: binds parameter values to the prepared statement.
     The server may optionally respond with an updated handle. The client
     should use this updated handle for all subsequent requests for this
-    prepared statement.
+    prepared statement. The updated handle allows implementing query 
+    parameters with stateless services. Note that the server is responsible 
+    for detecting the case where the client does not use the updated handle on 
+    subsequent requests (older clients may ignore this field) and responding 
+    appropriately.
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
