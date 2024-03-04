@@ -19,15 +19,13 @@ package org.apache.arrow.vector;
 
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
-
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -55,18 +53,6 @@ public class TestVarCharViewVector {
   }
 
   @Test
-  public void testAllocationLimits() {
-    try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator)) {
-      largeVarCharVector.allocateNew(17, 1);
-      final int valueCount = 1;
-      largeVarCharVector.set(0, STR3);
-      largeVarCharVector.setValueCount(valueCount);
-      System.out.println(largeVarCharVector);
-      System.out.println(largeVarCharVector.getByteCapacity());
-    }
-  }
-
-  @Test
   public void testInlineAllocation() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(48, 3);
@@ -84,10 +70,22 @@ public class TestVarCharViewVector {
       assert view2 != null;
       assert view3 != null;
 
-      System.out.println(new String(view1, StandardCharsets.UTF_8));
-      System.out.println(new String(view2, StandardCharsets.UTF_8));
-      System.out.println(new String(view3, StandardCharsets.UTF_8));
+      String str1 = new String(STR0, StandardCharsets.UTF_8);
+      String str2 = new String(STR1, StandardCharsets.UTF_8);
+      String str3 = new String(STR4, StandardCharsets.UTF_8);
 
+      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      
+      assert viewVarCharVector.dataBuffers.isEmpty();
+      
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+          StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+          StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+          StandardCharsets.UTF_8), str3);
       // TODO: assert length, offset, and values per each view
       // refer to testSetLastSetUsage
     }
@@ -98,10 +96,11 @@ public class TestVarCharViewVector {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(48, 4);
       final int valueCount = 4;
+      String str4 = generateRandomString(34);
       viewVarCharVector.set(0, STR1);
       viewVarCharVector.set(1, STR2);
       viewVarCharVector.set(2, STR3);
-      viewVarCharVector.set(3, generateRandomString(34).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.set(3, str4.getBytes(StandardCharsets.UTF_8));
       viewVarCharVector.setValueCount(valueCount);
 
       byte[] view1 = viewVarCharVector.get(0);
@@ -114,12 +113,27 @@ public class TestVarCharViewVector {
       assert view3 != null;
       assert view4 != null;
 
-      System.out.println(new String(view1, StandardCharsets.UTF_8));
-      System.out.println(new String(view2, StandardCharsets.UTF_8));
-      System.out.println(new String(view3, StandardCharsets.UTF_8));
-      System.out.println(new String(view4, StandardCharsets.UTF_8));
+      String str1 = new String(STR1, StandardCharsets.UTF_8);
+      String str2 = new String(STR2, StandardCharsets.UTF_8);
+      String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      System.out.println(viewVarCharVector.dataBuffers.size()); // 1
+      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+
+      assert viewVarCharVector.dataBuffers.size() == 1;
+
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+          StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+          StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+          StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+          StandardCharsets.UTF_8), str4);
+      // TODO: assert length, offset, and values per each view
+      // refer to testSetLastSetUsage
     }
   }
 
@@ -128,10 +142,11 @@ public class TestVarCharViewVector {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(48, 4);
       final int valueCount = 4;
+      String str4 = generateRandomString(35);
       viewVarCharVector.set(0, STR1);
       viewVarCharVector.set(1, STR2);
       viewVarCharVector.set(2, STR3);
-      viewVarCharVector.set(3, generateRandomString(35).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.set(3, str4.getBytes(StandardCharsets.UTF_8));
       viewVarCharVector.setValueCount(valueCount);
 
       byte[] view1 = viewVarCharVector.get(0);
@@ -144,12 +159,27 @@ public class TestVarCharViewVector {
       assert view3 != null;
       assert view4 != null;
 
-      System.out.println(new String(view1, StandardCharsets.UTF_8));
-      System.out.println(new String(view2, StandardCharsets.UTF_8));
-      System.out.println(new String(view3, StandardCharsets.UTF_8));
-      System.out.println(new String(view4, StandardCharsets.UTF_8));
+      String str1 = new String(STR1, StandardCharsets.UTF_8);
+      String str2 = new String(STR2, StandardCharsets.UTF_8);
+      String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      System.out.println(viewVarCharVector.dataBuffers.size()); // 2
+      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+
+      assert viewVarCharVector.dataBuffers.size() == 2;
+
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+          StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+          StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+          StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+          StandardCharsets.UTF_8), str4);
+      // TODO: assert length, offset, and values per each view
+      // refer to testSetLastSetUsage
     }
   }
 
@@ -158,30 +188,57 @@ public class TestVarCharViewVector {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(128, 6);
       final int valueCount = 6;
+      String str4 = generateRandomString(35);
+      String str6 = generateRandomString(40);
       viewVarCharVector.set(0, STR1);
       viewVarCharVector.set(1, STR2);
       viewVarCharVector.set(2, STR3);
-      viewVarCharVector.set(3, generateRandomString(35).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.set(3, str4.getBytes(StandardCharsets.UTF_8));
       viewVarCharVector.set(4, STR1);
-      viewVarCharVector.set(5, generateRandomString(40).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.set(5, str6.getBytes(StandardCharsets.UTF_8));
       viewVarCharVector.setValueCount(valueCount);
 
       byte[] view1 = viewVarCharVector.get(0);
       byte[] view2 = viewVarCharVector.get(1);
       byte[] view3 = viewVarCharVector.get(2);
       byte[] view4 = viewVarCharVector.get(3);
+      byte[] view5 = viewVarCharVector.get(4);
+      byte[] view6 = viewVarCharVector.get(5);
 
       assert view1 != null;
       assert view2 != null;
       assert view3 != null;
       assert view4 != null;
+      assert view5 != null;
+      assert view6 != null;
 
-      System.out.println(new String(view1, StandardCharsets.UTF_8));
-      System.out.println(new String(view2, StandardCharsets.UTF_8));
-      System.out.println(new String(view3, StandardCharsets.UTF_8));
-      System.out.println(new String(view4, StandardCharsets.UTF_8));
+      String str1 = new String(STR1, StandardCharsets.UTF_8);
+      String str2 = new String(STR2, StandardCharsets.UTF_8);
+      String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      System.out.println(viewVarCharVector.dataBuffers.size()); // 2
+      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+      Assert.assertEquals(new String(view5, StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(view6, StandardCharsets.UTF_8), str6);
+
+      assert viewVarCharVector.dataBuffers.size() == 1;
+
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+          StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+          StandardCharsets.UTF_8), str2);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+          StandardCharsets.UTF_8), str3);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+          StandardCharsets.UTF_8), str4);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(4)).getBuffer(),
+          StandardCharsets.UTF_8), str1);
+      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
+          StandardCharsets.UTF_8), str6);
+      // TODO: assert length, offset, and values per each view
+      // refer to testSetLastSetUsage
     }
   }
 
@@ -194,118 +251,7 @@ public class TestVarCharViewVector {
       largeVarCharVector.set(1, STR2);
       largeVarCharVector.set(2, STR2);
       largeVarCharVector.setValueCount(valueCount);
-      System.out.println(largeVarCharVector);
     }
-  }
-
-  @Test
-  public void testBasicV2() {
-    // TODO: implement setSafe
-    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
-        ViewVarCharVector v1 = new ViewVarCharVector("v1", childAllocator1);
-        ViewVarCharVector v2 = new ViewVarCharVector("v2", childAllocator1)) {
-        //      v1.allocateNew();
-        //      v1.setSafe(0, STR1);
-        //      v1.setValueCount(1);
-        //      v2.allocateNew();
-        //      v2.setSafe(0, STR2);
-        //      v2.setValueCount(1);
-        //
-        //      System.out.println("v1 value count: " + v1.getValueCount());
-        //      System.out.println(v1);
-        //      System.out.println("v2 value count: " + v2.getValueCount());
-        //      System.out.println(v2);
-    }
-  }
-
-  @Test
-  public void testBufferCreation() {
-    // inline buffer creation
-    final int VIEW_BUFFER_SIZE = 16;
-    final int LENGTH_WIDTH = 4;
-    final int INLINE_BUF_DATA_LENGTH = 12;
-    final int PREFIX_WIDTH = 4;
-    final int BUF_INDEX_WIDTH = 4;
-    final int BUF_OFFSET_WIDTH = 4;
-    int lastWriteIndexInLineBuffer = 0;
-    List<ArrowBuf> dataBuffer = new ArrayList<>();
-    ArrowBuf inlineBuf = allocator.buffer(BaseVariableWidthViewVector.INITIAL_VALUE_ALLOCATION * 8);
-    inlineBuf.setInt(0, STR0.length);
-
-    inlineBuf.readerIndex(0);
-    inlineBuf.writerIndex(LENGTH_WIDTH);
-
-    inlineBuf.setBytes(LENGTH_WIDTH, STR0, 0, STR0.length);
-    inlineBuf.writerIndex(VIEW_BUFFER_SIZE);
-
-
-    // reference buffer creation
-    // set buffer id
-    if (dataBuffer.isEmpty()) {
-      // add first buffer
-      ArrowBuf dataBuf = allocator.buffer(BaseVariableWidthViewVector.INITIAL_VALUE_ALLOCATION * 8);
-      // set length
-      inlineBuf.setInt(inlineBuf.writerIndex(), STR2.length);
-      inlineBuf.writerIndex(inlineBuf.writerIndex() + LENGTH_WIDTH);
-      // set prefix
-      inlineBuf.setBytes(inlineBuf.writerIndex(), STR2, 0, PREFIX_WIDTH);
-      inlineBuf.writerIndex(inlineBuf.writerIndex() + PREFIX_WIDTH);
-      // set buf id
-      inlineBuf.setInt(inlineBuf.writerIndex(), 0);
-      inlineBuf.writerIndex(inlineBuf.writerIndex() + BUF_INDEX_WIDTH);
-      // add offset
-      inlineBuf.setInt(inlineBuf.writerIndex(), 0);
-      inlineBuf.writerIndex(inlineBuf.writerIndex() + BUF_OFFSET_WIDTH);
-      dataBuf.setBytes(0, STR2, 0, STR2.length);
-      dataBuf.readerIndex(0);
-      dataBuf.writerIndex(STR2.length);
-      dataBuffer.add(dataBuf);
-    } else {
-      // continue from last buffer
-    }
-
-    System.out.println("Reading Inline Buffer");
-    System.out.println("Length: " + inlineBuf.getInt(0));
-    byte[] bytes = new byte[STR0.length];
-    inlineBuf.getBytes(LENGTH_WIDTH, bytes, 0, bytes.length);
-    String str = new String(bytes, StandardCharsets.UTF_8);
-    System.out.println("Value: " + str);
-
-    System.out.println("Read Next Buffer");
-    inlineBuf.readerIndex(inlineBuf.readerIndex() + VIEW_BUFFER_SIZE);
-    int refBufLength = inlineBuf.getInt(inlineBuf.readerIndex());
-    System.out.println("Length: " + refBufLength);
-    if (refBufLength > 12) {
-      // must be a reference buffer
-      // read prefix
-      byte[] prefixBytes = new byte[PREFIX_WIDTH];
-      inlineBuf.readerIndex(inlineBuf.readerIndex() + PREFIX_WIDTH);
-      inlineBuf.getBytes(inlineBuf.readerIndex(), prefixBytes, 0, PREFIX_WIDTH);
-      String prefix = new String(prefixBytes, StandardCharsets.UTF_8);
-      System.out.println("PREFIX : " + prefix);
-      // read buf Id
-      inlineBuf.readerIndex(inlineBuf.readerIndex() + BUF_INDEX_WIDTH);
-      int bufId = inlineBuf.getInt(inlineBuf.readerIndex());
-      System.out.println("Buf Id: " + bufId);
-      // read offset
-      inlineBuf.readerIndex(inlineBuf.readerIndex() + BUF_OFFSET_WIDTH);
-      int offset = inlineBuf.getInt(inlineBuf.readerIndex());
-      System.out.println("Offset: " + offset);
-      ArrowBuf refBuf = dataBuffer.get(bufId);
-      byte[] refBytes = new byte[refBufLength];
-      refBuf.getBytes(offset, refBytes, 0, refBytes.length);
-      String refStr = new String(refBytes, StandardCharsets.UTF_8);
-      System.out.println("Value: " + refStr);
-    } else {
-      // inline buffer
-    }
-
-    inlineBuf.clear();
-    inlineBuf.close();
-    ArrowBuf referenceBuf = dataBuffer.get(0);
-    referenceBuf.clear();
-    referenceBuf.close();
-    allocator.close();
   }
 
   public static void setBytes(int index, byte[] bytes, LargeVarCharVector vector) {

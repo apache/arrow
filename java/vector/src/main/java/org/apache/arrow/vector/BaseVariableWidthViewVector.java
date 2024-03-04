@@ -1322,7 +1322,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     lastSet = index - 1;
   }
 
-  protected void createValueBuffer(BufferAllocator allocator, byte[] value, List<ArrowBuf> dataBuffers) {
+  protected void createValueBuffer(BufferAllocator allocator, byte[] value,
+      ArrowBuf valueBuffer, List<ArrowBuf> dataBuffers) {
+    // TODO: handle value.length=0 case
     if (value.length <= INLINE_SIZE) {
       // inline buffer
       // set length
@@ -1401,7 +1403,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     /*check whether the buffer is inline or reference buffer*/
-    createValueBuffer(allocator, value, dataBuffers);
+    createValueBuffer(allocator, value, valueBuffer, dataBuffers);
   }
 
   public final int getStartOffset(int index) {

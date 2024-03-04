@@ -56,6 +56,7 @@ import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
@@ -2481,6 +2482,36 @@ public class TestValueVector {
   }
 
   @Test
+  public void testSetNullableViewVarCharHolder() {
+    try (ViewVarCharVector vector = new ViewVarCharVector("", allocator)) {
+      vector.allocateNew(100, 10);
+
+      NullableViewVarCharHolder nullHolder = new NullableViewVarCharHolder();
+      nullHolder.isSet = 0;
+
+      NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
+      stringHolder.isSet = 1;
+
+      String str = "hello";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
+
+      stringHolder.start = 0;
+      stringHolder.end = str.length();
+      stringHolder.buffer = buf;
+
+      vector.set(0, nullHolder);
+      vector.set(1, stringHolder);
+
+      // verify results
+      assertTrue(vector.isNull(0));
+      assertEquals(str, new String(vector.get(1), StandardCharsets.UTF_8));
+
+      buf.close();
+    }
+  }
+
+  @Test
   public void testSetNullableVarCharHolderSafe() {
     try (VarCharVector vector = new VarCharVector("", allocator)) {
       vector.allocateNew(5, 1);
@@ -2489,6 +2520,36 @@ public class TestValueVector {
       nullHolder.isSet = 0;
 
       NullableVarCharHolder stringHolder = new NullableVarCharHolder();
+      stringHolder.isSet = 1;
+
+      String str = "hello world";
+      ArrowBuf buf = allocator.buffer(16);
+      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
+
+      stringHolder.start = 0;
+      stringHolder.end = str.length();
+      stringHolder.buffer = buf;
+
+      vector.setSafe(0, stringHolder);
+      vector.setSafe(1, nullHolder);
+
+      // verify results
+      assertEquals(str, new String(vector.get(0), StandardCharsets.UTF_8));
+      assertTrue(vector.isNull(1));
+
+      buf.close();
+    }
+  }
+
+  @Test
+  public void testSetNullableVarCharViewHolderSafe() {
+    try (ViewVarCharVector vector = new ViewVarCharVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      NullableViewVarCharHolder nullHolder = new NullableViewVarCharHolder();
+      nullHolder.isSet = 0;
+
+      NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
       stringHolder.isSet = 1;
 
       String str = "hello world";

@@ -19,6 +19,9 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.List;
+
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarCharReaderImpl;
@@ -156,7 +159,36 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   public void read(int index, ReusableBuffer<?> buffer) {
     final int startOffset = getStartOffset(index);
     final int dataLength = getEndOffset(index) - startOffset;
-    buffer.set(valueBuffer, startOffset, dataLength);
+    byte[] data = getData(index, dataLength);
+    buffer.set(data, 0, data.length);
+  }
+
+  public static class HolderCallback {
+    /**
+     * Get the variable length element at specified index and sets the state.
+     * @param index position of element.
+     * @param dataLength length of the buffer.
+     * @param input input buffer.
+     * @param dataBufs list of data buffers.
+     * @param output output buffer.
+    */
+    public void getData(int index, int dataLength, ArrowBuf input, List<ArrowBuf> dataBufs, ArrowBuf output) {
+      if (dataLength > INLINE_SIZE) {
+        // data is in the inline buffer
+        // get buffer index
+        final int bufferIndex =
+            input.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+        // get data offset
+        final int dataOffset =
+            input.getInt(
+                ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        dataBufs.get(bufferIndex).getBytes(dataOffset, output, 0, dataLength);
+      } else {
+        // data is in the value buffer
+        input.getBytes(
+            (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
+      }
+    }
   }
 
   /**
@@ -176,6 +208,8 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     holder.start = getStartOffset(index);
     holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
+    holder.dataBuffers = dataBuffers;
+    holder.callBack = new HolderCallback();
   }
 
 
@@ -239,9 +273,12 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     final int startOffset = getStartOffset(index);
     if (holder.isSet != 0) {
       final int dataLength = holder.end - holder.start;
-      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+      byte[] data = new byte[dataLength];
+      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      setBytes(index, data, holder.start, dataLength);
     } else {
+      byte[] data = new byte[0];
+      setBytes(index, data, 0, 0);
       offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset);
     }
     lastSet = index;
@@ -261,9 +298,12 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
       final int dataLength = holder.end - holder.start;
       handleSafe(index, dataLength);
       fillHoles(index);
-      final int startOffset = getStartOffset(index);
-      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+      //      final int startOffset = getStartOffset(index);
+      //      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
+      //      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+      byte[] data = new byte[dataLength];
+      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      setBytes(index, data, holder.start, dataLength);
     } else {
       fillEmpties(index + 1);
     }
