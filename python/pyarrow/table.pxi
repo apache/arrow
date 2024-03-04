@@ -2216,6 +2216,46 @@ cdef class _Tabular(_PandasConvertible):
 
         return res
 
+    def append_column(self, field_, column):
+        """
+        Append column at end of columns.
+
+        Parameters
+        ----------
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        Table or RecordBatch
+            New table or record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Append column at the end:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.append_column('year', [year])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        year: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        year: [[2021,2022,2019,2021]]
+        """
+        return self.add_column(self.num_columns, field_, column)
+
 
 cdef class RecordBatch(_Tabular):
     """
@@ -2622,46 +2662,6 @@ cdef class RecordBatch(_Tabular):
                 i, c_field.sp_field, c_arr.sp_array))
 
         return pyarrow_wrap_batch(c_batch)
-
-    def append_column(self, field_, column):
-        """
-        Append column at end of columns.
-
-        Parameters
-        ----------
-        field_ : str or Field
-            If a string is passed then the type is deduced from the column
-            data.
-        column : Array or value coercible to array
-            Column data.
-
-        Returns
-        -------
-        RecordBatch
-            New record batch with the passed column added.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> batch = pa.RecordBatch.from_pandas(df)
-
-        Append column at the end:
-
-        >>> year = [2021, 2022, 2019, 2021]
-        >>> batch.append_column('year', year)
-        pyarrow.RecordBatch
-        n_legs: int64
-        animals: string
-        year: int64
-        ----
-        n_legs: [2,4,5,100]
-        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
-        year: [2021,2022,2019,2021]
-        """
-        return self.add_column(self.num_columns, field_, column)
 
     def remove_column(self, int i):
         """
@@ -5003,46 +5003,6 @@ cdef class Table(_Tabular):
                 i, c_field.sp_field, c_arr.sp_chunked_array))
 
         return pyarrow_wrap_table(c_table)
-
-    def append_column(self, field_, column):
-        """
-        Append column at end of columns.
-
-        Parameters
-        ----------
-        field_ : str or Field
-            If a string is passed then the type is deduced from the column
-            data.
-        column : Array, list of Array, or values coercible to arrays
-            Column data.
-
-        Returns
-        -------
-        Table
-            New table with the passed column added.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Append column at the end:
-
-        >>> year = [2021, 2022, 2019, 2021]
-        >>> table.append_column('year', [year])
-        pyarrow.Table
-        n_legs: int64
-        animals: string
-        year: int64
-        ----
-        n_legs: [[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        year: [[2021,2022,2019,2021]]
-        """
-        return self.add_column(self.num_columns, field_, column)
 
     def remove_column(self, int i):
         """
