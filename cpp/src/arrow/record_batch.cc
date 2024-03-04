@@ -313,7 +313,7 @@ std::vector<std::string> RecordBatch::ColumnNames() const {
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
     const std::vector<std::string>& names) const {
-  int n = static_cast<int>(num_columns());
+  int n = num_columns();
 
   if (static_cast<int>(names.size()) != n) {
     return Status::Invalid("tried to rename a record batch of ", n, " columns but only ",
