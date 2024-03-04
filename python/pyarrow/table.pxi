@@ -5388,10 +5388,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, dict, list, Arrow-compatible table
-        A DataFrame, mapping of strings to Arrays or Python lists, list of
-        arrays or chunked arrays, or a tabular object implementing the Arrow
-        PyCapsule Protocol (has an ``__arrow_c_array__`` method).
+    data : dict, list, pandas.DataFrame, Arrow-compatible table
+        A mapping of strings to Arrays or Python lists, a list of Arrays,
+        a pandas DataFame, or any tabular object implementing the
+        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5416,6 +5416,24 @@ def record_batch(data, names=None, schema=None, metadata=None):
     >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
     >>> names = ["n_legs", "animals"]
 
+    Construct a RecordBatch from a python dictionary:
+
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals})
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals}).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
     Creating a RecordBatch from a list of arrays with names:
 
     >>> pa.record_batch([n_legs, animals], names=names)
@@ -5425,14 +5443,6 @@ def record_batch(data, names=None, schema=None, metadata=None):
     ----
     n_legs: [2,2,4,4,5,100]
     animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
-    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
-       n_legs        animals
-    0       2       Flamingo
-    1       2         Parrot
-    2       4            Dog
-    3       4          Horse
-    4       5  Brittle stars
-    5     100      Centipede
 
     Creating a RecordBatch from a list of arrays with names and metadata:
 
@@ -5527,10 +5537,12 @@ def record_batch(data, names=None, schema=None, metadata=None):
         if schema is not None and batch.schema != schema:
             # __arrow_c_array__ coerces schema with best effort, so we might
             # need to cast it if the producer wasn't able to cast to exact schema.
-            batch = Table.from_batches([batch]).cast(schema).to_batches()[0]
+            batch = batch.cast(schema)
         return batch
+
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
+
     else:
         raise TypeError("Expected pandas DataFrame or list of arrays")
 
