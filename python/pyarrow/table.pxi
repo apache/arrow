@@ -3002,6 +3002,60 @@ cdef class RecordBatch(_Tabular):
 
         return result
 
+    def select(self, object columns):
+        """
+        Select columns of the RecordBatch.
+
+        Returns a new RecordBatch with the specified columns, and metadata
+        preserved.
+
+        Parameters
+        ----------
+        columns : list-like
+            The column names or integer indices to select.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                          names=["n_legs", "animals"])
+
+        Select columns my indices:
+
+        >>> batch.select([1])
+        pyarrow.RecordBatch
+        animals: string
+        ----
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
+
+        Select columns by names:
+
+        >>> batch.select(["n_legs"])
+        pyarrow.RecordBatch
+        n_legs: int64
+        ----
+        n_legs: [2,2,4,4,5,100]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[int] c_indices
+
+        for idx in columns:
+            idx = self._ensure_integer_index(idx)
+            idx = _normalize_index(idx, self.num_columns)
+            c_indices.push_back(<int> idx)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
+
+        return pyarrow_wrap_batch(c_batch)
+
     def cast(self, Schema target_schema, safe=None, options=None):
         """
         Cast record batch values to another schema.
@@ -3064,83 +3118,6 @@ cdef class RecordBatch(_Tabular):
             newcols.append(casted)
 
         return RecordBatch.from_arrays(newcols, schema=target_schema)
-
-    def select(self, object columns):
-        """
-        Select columns of the RecordBatch.
-
-        Returns a new RecordBatch with the specified columns, and metadata
-        preserved.
-
-        Parameters
-        ----------
-        columns : list-like
-            The column names or integer indices to select.
-
-        Returns
-        -------
-        RecordBatch
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.record_batch([n_legs, animals],
-        ...                          names=["n_legs", "animals"])
-
-        Select columns my indices:
-
-        >>> batch.select([1])
-        pyarrow.RecordBatch
-        animals: string
-        ----
-        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
-
-        Select columns by names:
-
-        >>> batch.select(["n_legs"])
-        pyarrow.RecordBatch
-        n_legs: int64
-        ----
-        n_legs: [2,2,4,4,5,100]
-        """
-        cdef:
-            shared_ptr[CRecordBatch] c_batch
-            vector[int] c_indices
-
-        for idx in columns:
-            idx = self._ensure_integer_index(idx)
-            idx = _normalize_index(idx, self.num_columns)
-            c_indices.push_back(<int> idx)
-
-        with nogil:
-            c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
-
-        return pyarrow_wrap_batch(c_batch)
-
-    def cast(self, Schema target_schema, safe=None, options=None):
-        """
-        Cast batch values to another schema.
-
-        Parameters
-        ----------
-        target_schema : Schema
-            Schema to cast to, the names and order of fields must match.
-        safe : bool, default True
-            Check for overflows or other unsafe conversions.
-        options : CastOptions, default None
-            Additional checks pass by CastOptions
-
-        Returns
-        -------
-        RecordBatch
-        """
-        # Wrap the more general Table cast implementation
-        tbl = Table.from_batches([self])
-        casted_tbl = tbl.cast(target_schema, safe=safe, options=options)
-        casted_batch, = casted_tbl.to_batches()
-        return casted_batch
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)

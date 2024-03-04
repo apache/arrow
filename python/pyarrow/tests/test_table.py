@@ -2709,25 +2709,6 @@ def test_record_batch_sort():
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
 
 
-def test_record_batch_cast():
-    rb = pa.RecordBatch.from_arrays([
-        pa.array([None, 1]),
-        pa.array([False, True])
-    ], names=["a", "b"])
-    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
-                            pa.field("b", "bool", nullable=False)])
-
-    assert rb.cast(new_schema).schema == new_schema
-
-    # Casting a nullable field to non-nullable is invalid
-    rb = pa.RecordBatch.from_arrays([
-        pa.array([None, 1]),
-        pa.array([None, True])
-    ], names=["a", "b"])
-    with pytest.raises(ValueError):
-        rb.cast(new_schema)
-
-
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_asarray(constructor):
     table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
