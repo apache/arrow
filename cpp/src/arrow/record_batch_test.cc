@@ -334,6 +334,7 @@ TEST_F(TestRecordBatch, RenameColumns) {
 
   ASSERT_OK_AND_ASSIGN(auto renamed, batch->RenameColumns({"zero", "one", "two"}));
   EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  EXPECT_THAT(renamed->columns(), testing::ElementsAre(array1, array2, array3));
   ASSERT_OK(renamed->ValidateFull());
 
   ASSERT_RAISES(Invalid, batch->RenameColumns({"hello", "world"}));
