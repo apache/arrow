@@ -1267,128 +1267,86 @@ def test_table_column_with_duplicates():
         table.column('a')
 
 
-def test_table_add_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_add_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     new_field = pa.field('d', data[1].type)
     t2 = table.add_column(3, new_field, data[1])
     t3 = table.append_column(new_field, data[1])
 
-    expected = pa.Table.from_arrays(data + [data[1]],
-                                    names=('a', 'b', 'c', 'd'))
+    expected = cls.from_arrays(data + [data[1]],
+                               names=('a', 'b', 'c', 'd'))
     assert t2.equals(expected)
     assert t3.equals(expected)
 
     t4 = table.add_column(0, new_field, data[1])
-    expected = pa.Table.from_arrays([data[1]] + data,
-                                    names=('d', 'a', 'b', 'c'))
+    expected = cls.from_arrays([data[1]] + data,
+                               names=('d', 'a', 'b', 'c'))
     assert t4.equals(expected)
 
 
-def test_record_batch_add_column():
-    data_type = pa.int64()
-    data = [
-        range(5),
-        [-10, -5, 0, 5, 10],
-        pa.array(range(5, 10))
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
-
-    new_field = pa.field('d', data_type)
-    t2 = batch.add_column(3, new_field, data[1])
-    t3 = batch.append_column(new_field, data[1])
-
-    expected = pa.RecordBatch.from_arrays(data + [data[1]],
-                                          names=('a', 'b', 'c', 'd'))
-    assert t2.equals(expected)
-    assert t3.equals(expected)
-
-    t4 = batch.add_column(0, new_field, data[1])
-    expected = pa.RecordBatch.from_arrays([data[1]] + data,
-                                          names=('d', 'a', 'b', 'c'))
-    assert t4.equals(expected)
-
-
-def test_table_set_column():
+)
+def test_table_set_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     new_field = pa.field('d', data[1].type)
     t2 = table.set_column(0, new_field, data[1])
 
     expected_data = list(data)
     expected_data[0] = data[1]
-    expected = pa.Table.from_arrays(expected_data,
-                                    names=('d', 'b', 'c'))
+    expected = cls.from_arrays(expected_data,
+                               names=('d', 'b', 'c'))
     assert t2.equals(expected)
 
 
-def test_record_batch_set_column():
-    data_type = pa.int64()
-    data = [
-        range(5),
-        [-10, -5, 0, 5, 10],
-        pa.array(range(5, 10))
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
-
-    new_field = pa.field('d', data_type)
-    t2 = batch.set_column(0, new_field, data[1])
-
-    expected_data = list(data)
-    expected_data[0] = data[1]
-    expected = pa.RecordBatch.from_arrays(expected_data,
-                                          names=('d', 'b', 'c'))
-    assert t2.equals(expected)
-
-
-def test_table_drop_columns():
+)
+def test_table_drop_columns(cls):
     """ drop one or more columns given labels"""
     a = pa.array(range(5))
     b = pa.array([-10, -5, 0, 5, 10])
     c = pa.array(range(5, 10))
 
-    table = pa.Table.from_arrays([a, b, c], names=('a', 'b', 'c'))
+    table = cls.from_arrays([a, b, c], names=('a', 'b', 'c'))
     t2 = table.drop_columns(['a', 'b'])
     t3 = table.drop_columns('a')
 
-    exp_t2 = pa.Table.from_arrays([c], names=('c',))
+    exp_t2 = cls.from_arrays([c], names=('c',))
     assert exp_t2.equals(t2)
-    exp_t3 = pa.Table.from_arrays([b, c], names=('b', 'c',))
+    exp_t3 = cls.from_arrays([b, c], names=('b', 'c',))
     assert exp_t3.equals(t3)
 
     # -- raise KeyError if column not in Table
     with pytest.raises(KeyError, match="Column 'd' not found"):
         table.drop_columns(['d'])
-
-
-def test_record_batch_drop_columns():
-    """ drop one or more columns given labels"""
-    a = pa.array(range(5))
-    b = pa.array([-10, -5, 0, 5, 10])
-    c = pa.array(range(5, 10))
-
-    batch = pa.RecordBatch.from_arrays([a, b, c], names=('a', 'b', 'c'))
-    t2 = batch.drop_columns(['a', 'b'])
-    t3 = batch.drop_columns('a')
-
-    exp_t2 = pa.RecordBatch.from_arrays([c], names=('c',))
-    assert exp_t2.equals(t2)
-    exp_t3 = pa.RecordBatch.from_arrays([b, c], names=('b', 'c',))
-    assert exp_t3.equals(t3)
-
-    # -- raise KeyError if column not in RecordBatch
-    with pytest.raises(KeyError, match="Column 'd' not found"):
-        batch.drop_columns(['d'])
 
 
 def test_table_drop():
@@ -1411,40 +1369,40 @@ def test_table_drop():
         table.drop(['d'])
 
 
-def test_table_remove_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_remove_column(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=('a', 'b', 'c'))
+    table = cls.from_arrays(data, names=('a', 'b', 'c'))
 
     t2 = table.remove_column(0)
     t2.validate()
-    expected = pa.Table.from_arrays(data[1:], names=('b', 'c'))
+    expected = cls.from_arrays(data[1:], names=('b', 'c'))
     assert t2.equals(expected)
 
 
-def test_record_batch_remove_column():
-    data = [
-        range(5),
-        [-10, -5, 0, 5, 10],
-        pa.array(range(5, 10))
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    batch = pa.RecordBatch.from_arrays(data, names=('a', 'b', 'c'))
-
-    t2 = batch.remove_column(0)
-    t2.validate()
-    expected = pa.RecordBatch.from_arrays(data[1:], names=('b', 'c'))
-    assert t2.equals(expected)
-
-
-def test_table_remove_column_empty():
+)
+def test_table_remove_column_empty(cls):
     # ARROW-1865
     data = [
         pa.array(range(5)),
     ]
-    table = pa.Table.from_arrays(data, names=['a'])
+    table = cls.from_arrays(data, names=['a'])
 
     t2 = table.remove_column(0)
     t2.validate()
@@ -1453,21 +1411,6 @@ def test_table_remove_column_empty():
     t3 = t2.add_column(0, table.field(0), table[0])
     t3.validate()
     assert t3.equals(table)
-
-
-def test_record_batch_remove_column_empty():
-    data = [
-        range(5),
-    ]
-    batch = pa.RecordBatch.from_arrays(data, names=['a'])
-
-    t2 = batch.remove_column(0)
-    t2.validate()
-    assert len(t2) == len(batch)
-
-    t3 = t2.add_column(0, batch.field(0), batch[0])
-    t3.validate()
-    assert t3.equals(batch)
 
 
 def test_empty_table_with_names():
@@ -1487,37 +1430,27 @@ def test_empty_table():
     assert table.equals(pa.Table.from_arrays([], []))
 
 
-def test_table_rename_columns():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
         pa.array(range(5, 10))
     ]
-    table = pa.Table.from_arrays(data, names=['a', 'b', 'c'])
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
     assert table.column_names == ['a', 'b', 'c']
 
     t2 = table.rename_columns(['eh', 'bee', 'sea'])
     t2.validate()
     assert t2.column_names == ['eh', 'bee', 'sea']
 
-    expected = pa.Table.from_arrays(data, names=['eh', 'bee', 'sea'])
-    assert t2.equals(expected)
-
-
-def test_record_batch_rename_columns():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10]),
-        pa.array(range(5, 10))
-    ]
-    batch = pa.RecordBatch.from_arrays(data, names=['a', 'b', 'c'])
-    assert batch.column_names == ['a', 'b', 'c']
-
-    t2 = batch.rename_columns(['eh', 'bee', 'sea'])
-    t2.validate()
-    assert t2.column_names == ['eh', 'bee', 'sea']
-
-    expected = pa.RecordBatch.from_arrays(data, names=['eh', 'bee', 'sea'])
+    expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
 
 
@@ -1740,12 +1673,19 @@ def test_table_negative_indexing():
         table[4]
 
 
-def test_table_cast_to_incompatible_schema():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_cast_to_incompatible_schema(cls):
     data = [
         pa.array(range(5)),
         pa.array([-10, -5, 0, 5, 10]),
     ]
-    table = pa.Table.from_arrays(data, names=tuple('ab'))
+    table = cls.from_arrays(data, names=tuple('ab'))
 
     target_schema1 = pa.schema([
         pa.field('A', pa.int32()),
@@ -1754,44 +1694,35 @@ def test_table_cast_to_incompatible_schema():
     target_schema2 = pa.schema([
         pa.field('a', pa.int32()),
     ])
-    message = ("Target schema's field names are not matching the table's "
-               "field names:.*")
+
+    if cls is pa.Table:
+        cls_name = 'table'
+    else:
+        cls_name = 'record batch'
+    message = ("Target schema's field names are not matching the "
+               f"{cls_name}'s field names:.*")
+
     with pytest.raises(ValueError, match=message):
         table.cast(target_schema1)
     with pytest.raises(ValueError, match=message):
         table.cast(target_schema2)
 
 
-def test_record_batch_cast_to_incompatible_schema():
-    data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10]),
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    batch = pa.RecordBatch.from_arrays(data, names=tuple('ab'))
-
-    target_schema1 = pa.schema([
-        pa.field('A', pa.int32()),
-        pa.field('b', pa.int16()),
-    ])
-    target_schema2 = pa.schema([
-        pa.field('a', pa.int32()),
-    ])
-    message = ("Target schema's field names are not matching the "
-               "record batch's field names:.*")
-    with pytest.raises(ValueError, match=message):
-        batch.cast(target_schema1)
-    with pytest.raises(ValueError, match=message):
-        batch.cast(target_schema2)
-
-
-def test_table_safe_casting():
+)
+def test_table_safe_casting(cls):
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+    table = cls.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
@@ -1799,7 +1730,7 @@ def test_table_safe_casting():
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+    expected_table = cls.from_arrays(expected_data, names=tuple('abcd'))
 
     target_schema = pa.schema([
         pa.field('a', pa.int32()),
@@ -1812,42 +1743,21 @@ def test_table_safe_casting():
     assert casted_table.equals(expected_table)
 
 
-def test_record_batch_safe_casting():
-    data = [
-        pa.array(range(5), type=pa.int64()),
-        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
-        pa.array([1.0, 2.0, 3.0, 4.0, 5.0], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    batch = pa.RecordBatch.from_arrays(data, names=tuple('abcd'))
-
-    expected_data = [
-        pa.array(range(5), type=pa.int32()),
-        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
-        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
-    ]
-    expected_batch = pa.RecordBatch.from_arrays(expected_data, names=tuple('abcd'))
-
-    target_schema = pa.schema([
-        pa.field('a', pa.int32()),
-        pa.field('b', pa.int16()),
-        pa.field('c', pa.int64()),
-        pa.field('d', pa.string())
-    ])
-    casted_batch = batch.cast(target_schema)
-
-    assert casted_batch.equals(expected_batch)
-
-
-def test_table_unsafe_casting():
+)
+def test_table_unsafe_casting(cls):
     data = [
         pa.array(range(5), type=pa.int64()),
         pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
         pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    table = pa.Table.from_arrays(data, names=tuple('abcd'))
+    table = cls.from_arrays(data, names=tuple('abcd'))
 
     expected_data = [
         pa.array(range(5), type=pa.int32()),
@@ -1855,7 +1765,7 @@ def test_table_unsafe_casting():
         pa.array([1, 2, 3, 4, 5], type=pa.int64()),
         pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
     ]
-    expected_table = pa.Table.from_arrays(expected_data, names=tuple('abcd'))
+    expected_table = cls.from_arrays(expected_data, names=tuple('abcd'))
 
     target_schema = pa.schema([
         pa.field('a', pa.int32()),
@@ -1869,37 +1779,6 @@ def test_table_unsafe_casting():
 
     casted_table = table.cast(target_schema, safe=False)
     assert casted_table.equals(expected_table)
-
-
-def test_record_batch_unsafe_casting():
-    data = [
-        pa.array(range(5), type=pa.int64()),
-        pa.array([-10, -5, 0, 5, 10], type=pa.int32()),
-        pa.array([1.1, 2.2, 3.3, 4.4, 5.5], type=pa.float64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
-    ]
-    batch = pa.RecordBatch.from_arrays(data, names=tuple('abcd'))
-
-    expected_data = [
-        pa.array(range(5), type=pa.int32()),
-        pa.array([-10, -5, 0, 5, 10], type=pa.int16()),
-        pa.array([1, 2, 3, 4, 5], type=pa.int64()),
-        pa.array(['ab', 'bc', 'cd', 'de', 'ef'], type=pa.string())
-    ]
-    expected_batch = pa.RecordBatch.from_arrays(expected_data, names=tuple('abcd'))
-
-    target_schema = pa.schema([
-        pa.field('a', pa.int32()),
-        pa.field('b', pa.int16()),
-        pa.field('c', pa.int64()),
-        pa.field('d', pa.string())
-    ])
-
-    with pytest.raises(pa.ArrowInvalid, match='truncated'):
-        batch.cast(target_schema)
-
-    casted_batch = batch.cast(target_schema, safe=False)
-    assert casted_batch.equals(expected_batch)
 
 
 def test_invalid_table_construct():
@@ -2759,28 +2638,23 @@ def test_table_join_many_columns():
     })
 
 
-def test_table_cast_invalid():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_cast_invalid(cls):
     # Casting a nullable field to non-nullable should be invalid!
-    table = pa.table({'a': [None, 1], 'b': [None, True]})
+    table = cls.from_pydict({'a': [None, 1], 'b': [None, True]})
     new_schema = pa.schema([pa.field("a", "int64", nullable=True),
                             pa.field("b", "bool", nullable=False)])
     with pytest.raises(ValueError):
         table.cast(new_schema)
 
-    table = pa.table({'a': [None, 1], 'b': [False, True]})
+    table = cls.from_pydict({'a': [None, 1], 'b': [False, True]})
     assert table.cast(new_schema).schema == new_schema
-
-
-def test_record_batch_cast_invalid():
-    # Casting a nullable field to non-nullable should be invalid!
-    batch = pa.record_batch({'a': [None, 1], 'b': [None, True]})
-    new_schema = pa.schema([pa.field("a", "int64", nullable=True),
-                            pa.field("b", "bool", nullable=False)])
-    with pytest.raises(ValueError):
-        batch.cast(new_schema)
-
-    batch = pa.record_batch({'a': [None, 1], 'b': [False, True]})
-    assert batch.cast(new_schema).schema == new_schema
 
 
 def test_table_sort_by():
