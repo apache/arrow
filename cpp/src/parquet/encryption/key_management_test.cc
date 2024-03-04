@@ -324,18 +324,18 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
 }
 
 TEST_F(TestEncryptionKeyManagement, UsePropertiesAfterCrytoFactoryDestroyed) {
+  constexpr bool wrap_locally = true;
   std::shared_ptr<KmsClientFactory> kms_client_factory =
-      std::make_shared<TestOnlyInMemoryKmsClientFactory>(/*wrap_locally=*/true,
-                                                         key_list_);
+      std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
   std::shared_ptr<CryptoFactory> crypto_factory = std::make_shared<CryptoFactory>();
   crypto_factory->RegisterKmsClientFactory(kms_client_factory);
 
-  bool double_wrapping = true;
-  bool internal_key_material = true;
-  int encryption_no = 0;
+  constexpr bool double_wrapping = true;
+  constexpr bool internal_key_material = true;
+  constexpr int encryption_no = 0;
 
   std::string file_name =
-      GetFileName(double_wrapping, wrap_locally_, internal_key_material, encryption_no);
+      GetFileName(double_wrapping, wrap_locally, internal_key_material, encryption_no);
   auto encryption_config =
       GetEncryptionConfiguration(double_wrapping, internal_key_material, encryption_no);
   auto decryption_config = GetDecryptionConfiguration();
