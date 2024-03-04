@@ -270,6 +270,11 @@ Result<std::string> FileSystem::PathFromUri(const std::string& uri_string) const
   return Status::NotImplemented("PathFromUri is not yet supported on this filesystem");
 }
 
+Result<std::string> FileSystem::MakeUri(std::string path) const {
+  return Status::NotImplemented("MakeUri is not yet supported for ", type_name(),
+                                " filesystems");
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SubTreeFileSystem implementation
 
@@ -719,9 +724,13 @@ class FileSystemFactoryRegistry {
         continue;
       }
 
-      auto [it, success] = main_registry->scheme_to_factory_.emplace(
-          std::move(scheme), std::move(registered));
+      auto [it, success] =
+          main_registry->scheme_to_factory_.emplace(std::move(scheme), registered);
       if (success) continue;
+
+      if (it->second.ok()) {
+        if (registered->factory == it->second->factory) continue;
+      }
 
       duplicated_schemes.emplace_back(it->first);
     }
@@ -849,18 +858,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
         auto* factory,
         FileSystemFactoryRegistry::GetInstance()->FactoryForScheme(scheme));
     if (factory != nullptr) {
-      return (*factory)(uri, io_context, out_path);
+      return factory->function(uri, io_context, out_path);
     }
   }
 
-  if (scheme == "file") {
-    std::string path;
-    ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
-    if (out_path != nullptr) {
-      *out_path = path;
-    }
-    return std::make_shared<LocalFileSystem>(options, io_context);
-  }
   if (scheme == "abfs" || scheme == "abfss") {
 #ifdef ARROW_AZURE
     ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));

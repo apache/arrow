@@ -16,10 +16,7 @@
 // under the License.
 
 #include <arrow/filesystem/filesystem.h>
-<<<<<<< HEAD
 #include <arrow/filesystem/filesystem_library.h>
-=======
->>>>>>> e447cfaac (GH-38309: [C++] build filesystems as separate modules)
 #include <arrow/io/memory.h>
 #include <arrow/result.h>
 #include <arrow/util/uri.h>
@@ -141,7 +138,7 @@ class ExampleFileSystem : public fs::FileSystem {
   }
 };
 
-fs::FileSystemRegistrar kExampleFileSystemModule{
+auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
     [](const arrow::util::Uri& uri, const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<fs::FileSystem>> {
@@ -151,4 +148,4 @@ fs::FileSystemRegistrar kExampleFileSystemModule{
       }
       return fs;
     },
-};
+    {});

@@ -16,32 +16,23 @@
 // under the License.
 
 #include "arrow/filesystem/filesystem.h"
-<<<<<<< HEAD
 #include "arrow/filesystem/filesystem_library.h"
 #include "arrow/result.h"
 #include "arrow/util/uri.h"
 
 #include <gtest/gtest.h>
 
-=======
-#include "arrow/result.h"
-#include "arrow/util/uri.h"
-
->>>>>>> e447cfaac (GH-38309: [C++] build filesystems as separate modules)
 namespace arrow::fs {
 
-FileSystemRegistrar kExampleFileSystemModule{
+auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
     [](const Uri& uri, const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
       constexpr std::string_view kScheme = "example";
-<<<<<<< HEAD
       EXPECT_EQ(uri.scheme(), kScheme);
-=======
->>>>>>> e447cfaac (GH-38309: [C++] build filesystems as separate modules)
       auto local_uri = "file" + uri.ToString().substr(kScheme.size());
       return FileSystemFromUri(local_uri, io_context, out_path);
     },
-};
+    {});
 
 }  // namespace arrow::fs
