@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 try:
-    from pyarrow.acero import _perform_join, _perform_join_asof, _filter_table
+    from pyarrow.acero import _perform_join, _filter_table
 except ImportError:
     pass
 
