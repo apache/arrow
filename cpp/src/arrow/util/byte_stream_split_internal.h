@@ -197,13 +197,13 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
 template <int kNumStreams>
 void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t stride,
                                uint8_t* out) {
-  ByteStreamSplitEncode128B(data, num_values, stride, out);
+  ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
 }
 
 template <int kNumStreams>
 void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const int64_t num_values,
                                uint8_t* output_buffer_raw) {
-  ByteStreamSplitEncode128B(raw_values, num_values, output_buffer_raw);
+  ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values, output_buffer_raw);
 }
 #endif  // ARROW_HAVE_SSE4_2
 
