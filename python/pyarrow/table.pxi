@@ -2551,7 +2551,7 @@ cdef class RecordBatch(_Tabular):
 
     def add_column(self, int i, field_, column):
         """
-        Add column to RecordBatch at position.
+        Add column to RecordBatch at position i.
 
         A new record batch is returned with the column added, the original record batch
         object is left unchanged.
