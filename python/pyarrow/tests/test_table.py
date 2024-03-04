@@ -2657,8 +2657,15 @@ def test_table_cast_invalid(cls):
     assert table.cast(new_schema).schema == new_schema
 
 
-def test_table_sort_by():
-    table = pa.table([
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_sort_by(cls):
+    table = cls.from_arrays([
         pa.array([3, 1, 4, 2, 5]),
         pa.array(["b", "a", "b", "a", "c"]),
     ], names=["values", "keys"])
@@ -2673,7 +2680,7 @@ def test_table_sort_by():
         "values": [5, 4, 3, 2, 1]
     }
 
-    tab = pa.Table.from_arrays([
+    tab = cls.from_arrays([
         pa.array([5, 7, 7, 35], type=pa.int64()),
         pa.array(["foo", "car", "bar", "foobar"])
     ], names=["a", "b"])
@@ -2687,26 +2694,6 @@ def test_table_sort_by():
     sorted_tab_dict = sorted_tab.to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
-
-
-def test_record_batch_sort():
-    rb = pa.RecordBatch.from_arrays([
-        pa.array([7, 35, 7, 5], type=pa.int64()),
-        pa.array([4, 1, 3, 2], type=pa.int64()),
-        pa.array(["foo", "car", "bar", "foobar"])
-    ], names=["a", "b", "c"])
-
-    sorted_rb = rb.sort_by([("a", "descending"), ("b", "descending")])
-    sorted_rb_dict = sorted_rb.to_pydict()
-    assert sorted_rb_dict["a"] == [35, 7, 7, 5]
-    assert sorted_rb_dict["b"] == [1, 4, 3, 2]
-    assert sorted_rb_dict["c"] == ["car", "foo", "bar", "foobar"]
-
-    sorted_rb = rb.sort_by([("a", "ascending"), ("b", "ascending")])
-    sorted_rb_dict = sorted_rb.to_pydict()
-    assert sorted_rb_dict["a"] == [5, 7, 7, 35]
-    assert sorted_rb_dict["b"] == [2, 3, 4, 1]
-    assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
 
 
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
