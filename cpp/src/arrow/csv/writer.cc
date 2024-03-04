@@ -139,13 +139,17 @@ class ColumnPopulator {
     // Populators are intented to be applied to reasonably small data.  In most cases
     // threading overhead would not be justified.
     ctx.set_use_threads(false);
-    auto casted = compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx);
-    if (casted.ok()) {
-      array_ = casted.ValueOrDie();
-    } else {
-      ASSIGN_OR_RAISE(casted, compute::Cast(data, /*to_type=*/large_utf8(),
+    if (data.type() && is_large_binary_like(data.type()->id())) {
+      ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
                                             compute::CastOptions(), &ctx));
-      array_ = casted.ValueOrDie();
+    } else {
+      auto casted = compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx);
+      if (casted.ok()) {
+        array_ = casted.ValueOrDie();
+      } else {
+        ASSIGN_OR_RAISE(array_, compute::Cast(data, /*to_type=*/large_utf8(),
+                                              compute::CastOptions(), &ctx));
+      }
     }
     return UpdateRowLengths(row_lengths);
   }
