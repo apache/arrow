@@ -325,7 +325,8 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
 
 TEST_F(TestEncryptionKeyManagement, UsePropertiesAfterCrytoFactoryDestroyed) {
   std::shared_ptr<KmsClientFactory> kms_client_factory =
-      std::make_shared<TestOnlyInMemoryKmsClientFactory>(true, key_list_);
+      std::make_shared<TestOnlyInMemoryKmsClientFactory>(/*wrap_locally=*/true,
+                                                         key_list_);
   std::shared_ptr<CryptoFactory> crypto_factory = std::make_shared<CryptoFactory>();
   crypto_factory->RegisterKmsClientFactory(kms_client_factory);
 

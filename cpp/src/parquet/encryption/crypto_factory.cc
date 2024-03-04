@@ -41,7 +41,7 @@ class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR)
       : file_key_unwrapper_(key_toolkit.get(), kms_connection_config,
                             cache_lifetime_seconds, file_path, file_system) {
-    key_toolkit_ = key_toolkit;
+    key_toolkit_ = std::move(key_toolkit);
   }
 
   std::string GetKey(const std::string& key_metadata) override {
@@ -54,8 +54,6 @@ class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
 };
 
 }  // namespace
-
-CryptoFactory::CryptoFactory() { key_toolkit_ = std::make_shared<KeyToolkit>(); }
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {

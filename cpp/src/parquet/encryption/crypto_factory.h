@@ -100,7 +100,7 @@ struct PARQUET_EXPORT DecryptionConfiguration {
 /// level parameters.
 class PARQUET_EXPORT CryptoFactory {
  public:
-  CryptoFactory();
+  CryptoFactory() : key_toolkit_{std::make_shared<KeyToolkit>()} {}
 
   /// a KmsClientFactory object must be registered via this method before calling any of
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
