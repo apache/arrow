@@ -25,7 +25,6 @@ import pytest
 
 import pyarrow as pa
 from pyarrow import fs
-from pyarrow.filesystem import LocalFileSystem, FileSystem
 from pyarrow.tests import util
 from pyarrow.tests.parquet.common import (_check_roundtrip, _roundtrip_table,
                                           _test_dataframe)
@@ -259,11 +258,11 @@ def test_fspath(tempdir):
 
     # combined with non-local filesystem raises
     with pytest.raises(TypeError):
-        _read_table(fs_protocol_obj, filesystem=FileSystem())
+        _read_table(fs_protocol_obj, filesystem=fs.FileSystem())
 
 
 @pytest.mark.parametrize("filesystem", [
-    None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
+    None, fs.LocalFileSystem()
 ])
 @pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
 def test_relative_paths(tempdir, filesystem, name):
