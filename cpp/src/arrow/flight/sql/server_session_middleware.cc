@@ -80,7 +80,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   Status CloseSession() override {
     const std::lock_guard<std::shared_mutex> l(mutex_);
-    if (static_cast<bool>(session_)) {
+    if (!static_cast<bool>(session_)) {
       return Status::Invalid("Nonexistent session cannot be closed.");
     }
     ARROW_RETURN_NOT_OK(factory_->CloseSession(session_id_));

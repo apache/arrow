@@ -604,6 +604,20 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+TEST(Expression, BindWithDecimalArithmeticOps) {
+  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
+    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
+    EXPECT_FALSE(expr.IsBound());
+
+    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
+    for (auto s : scales) {
+      auto schema = arrow::schema(
+          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
+      ExpectBindsTo(expr, no_change, &expr, *schema);
+    }
+  }
+}
+
 TEST(Expression, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type

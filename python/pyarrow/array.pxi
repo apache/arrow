@@ -1573,7 +1573,7 @@ cdef class Array(_PandasConvertible):
         # decoding the dictionary will make sure nulls are correctly handled.
         # Decoding a dictionary does imply a copy by the way,
         # so it can't be done if the user requested a zero_copy.
-        c_options.decode_dictionaries = not zero_copy_only
+        c_options.decode_dictionaries = True
         c_options.zero_copy_only = zero_copy_only
         c_options.to_numpy = True
 
@@ -1584,9 +1584,6 @@ cdef class Array(_PandasConvertible):
         # wrap_array_output uses pandas to convert to Categorical, here
         # always convert to numpy array without pandas dependency
         array = PyObject_to_object(out)
-
-        if isinstance(array, dict):
-            array = np.take(array['dictionary'], array['indices'])
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True

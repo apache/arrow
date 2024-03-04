@@ -167,7 +167,9 @@ def list_types(item_strategy=primitive_types):
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
-        )
+        ),
+        st.builds(pa.list_view, item_strategy),
+        st.builds(pa.large_list_view, item_strategy)
     )
 
 

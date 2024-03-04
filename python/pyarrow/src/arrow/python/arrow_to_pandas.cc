@@ -2515,6 +2515,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                                    std::shared_ptr<ChunkedArray> arr, PyObject* py_ref,
                                    PyObject** out) {
   if (options.decode_dictionaries && arr->type()->id() == Type::DICTIONARY) {
+    // XXX we should return an error as below if options.zero_copy_only
+    // is true, but that would break compatibility with existing tests.
     const auto& dense_type =
         checked_cast<const DictionaryType&>(*arr->type()).value_type();
     RETURN_NOT_OK(DecodeDictionaries(options.pool, dense_type, &arr));

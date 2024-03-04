@@ -15,14 +15,22 @@
 #
 # Usage of this module as follows:
 #
-#  find_package(GLOG)
+#  find_package(glogAlt)
 
-find_package(glog CONFIG)
-if(glog_FOUND)
+if(glogAlt_FOUND)
   return()
 endif()
 
-if(GLOG_FOUND)
+set(find_package_args CONFIG)
+if(glogAlt_FIND_VERSION)
+  list(APPEND find_package_args ${glogAlt_FIND_VERSION})
+endif()
+if(glogAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(glog ${find_package_args})
+if(glog_FOUND)
+  set(glogAlt_FOUND TRUE)
   return()
 endif()
 
@@ -55,9 +63,9 @@ else()
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-find_package_handle_standard_args(GLOG REQUIRED_VARS GLOG_INCLUDE_DIR GLOG_LIB)
+find_package_handle_standard_args(glogAlt REQUIRED_VARS GLOG_INCLUDE_DIR GLOG_LIB)
 
-if(GLOG_FOUND)
+if(glogAlt_FOUND)
   add_library(glog::glog UNKNOWN IMPORTED)
   set_target_properties(glog::glog
                         PROPERTIES IMPORTED_LOCATION "${GLOG_LIB}"

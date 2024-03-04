@@ -683,235 +683,8 @@ if(${INFER_FOUND})
 endif()
 
 #
-# Linker and Dependencies
+# Link targets
 #
-
-# Libraries to link statically with libarrow.so.
-#
-# Note that arrow::hadoop is a header only target that refers
-# cpp/thirdparty/hadoop/include/. See
-# cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-set(ARROW_SHARED_LINK_LIBS arrow::flatbuffers arrow::hadoop)
-set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
-set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
-
-# We must use google-cloud-cpp::storage first. If
-# google-cloud-cpp::storage depends on bundled Abseil, bundled Abseil
-# and system Abseil may be mixed.
-#
-# For example, if Boost::headers is used before
-# google-cloud-cpp::storage AND Boost::headers has
-# -I/opt/homebrew/include AND /opt/homebrew/include/absl/ exists,
-# /opt/homebrew/include/absl/**/*.h are used instead of .h provided by
-# bundled Abseil.
-if(ARROW_GCS)
-  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
-  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
-  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
-  endif()
-endif()
-
-if(ARROW_USE_BOOST)
-  list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
-  list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
-endif()
-
-if(ARROW_USE_OPENSSL)
-  set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_OPENSSL_LIBS})
-endif()
-
-if(ARROW_WITH_BROTLI)
-  # Order is important for static linking
-  set(ARROW_BROTLI_LIBS Brotli::brotlienc Brotli::brotlidec Brotli::brotlicommon)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_BROTLI_LIBS})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_BROTLI_LIBS})
-  if(Brotli_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_BROTLI_LIBS})
-  endif()
-endif()
-
-if(ARROW_WITH_BZ2)
-  list(APPEND ARROW_STATIC_LINK_LIBS BZip2::BZip2)
-  if(BZip2_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS BZip2::BZip2)
-  endif()
-endif()
-
-if(ARROW_WITH_LZ4)
-  list(APPEND ARROW_STATIC_LINK_LIBS LZ4::lz4)
-  if(lz4_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS LZ4::lz4)
-  endif()
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  list(APPEND ARROW_STATIC_LINK_LIBS ${Snappy_TARGET})
-  if(Snappy_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${Snappy_TARGET})
-  endif()
-endif()
-
-if(ARROW_WITH_ZLIB)
-  list(APPEND ARROW_STATIC_LINK_LIBS ZLIB::ZLIB)
-  if(ZLIB_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ZLIB::ZLIB)
-  endif()
-endif()
-
-if(ARROW_WITH_ZSTD)
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_ZSTD_LIBZSTD})
-  if(zstd_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_ZSTD_LIBZSTD})
-  endif()
-endif()
-
-if(ARROW_ORC)
-  list(APPEND ARROW_SHARED_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  list(APPEND ARROW_STATIC_LINK_LIBS orc::orc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  if(ORC_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
-  endif()
-endif()
-
-if(ARROW_USE_GLOG)
-  list(APPEND ARROW_SHARED_LINK_LIBS glog::glog)
-  list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
-  endif()
-endif()
-
-if(ARROW_S3)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
-  if(AWSSDK_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         aws-cpp-sdk-identity-management
-         aws-cpp-sdk-sts
-         aws-cpp-sdk-cognito-identity
-         aws-cpp-sdk-s3
-         aws-cpp-sdk-core)
-  elseif(AWSSDK_SOURCE STREQUAL "BUNDLED")
-    if(UNIX)
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-    endif()
-  endif()
-endif()
-
-if(ARROW_WITH_OPENTELEMETRY)
-  list(APPEND
-       ARROW_SHARED_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
-  list(APPEND
-       ARROW_STATIC_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
-  if(opentelemetry_SOURCE STREQUAL "SYSTEM")
-    list(APPEND
-         ARROW_STATIC_INSTALL_INTERFACE_LIBS
-         opentelemetry-cpp::trace
-         opentelemetry-cpp::ostream_span_exporter
-         opentelemetry-cpp::otlp_http_exporter)
-  endif()
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-endif()
-
-if(ARROW_WITH_AZURE_SDK)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
-endif()
-
-if(ARROW_WITH_UTF8PROC)
-  list(APPEND ARROW_SHARED_LINK_LIBS utf8proc::utf8proc)
-  list(APPEND ARROW_STATIC_LINK_LIBS utf8proc::utf8proc)
-  if(utf8proc_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS utf8proc::utf8proc)
-  endif()
-endif()
-
-if(ARROW_WITH_RE2)
-  list(APPEND ARROW_SHARED_LINK_LIBS re2::re2)
-  list(APPEND ARROW_STATIC_LINK_LIBS re2::re2)
-  if(re2_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS re2::re2)
-  endif()
-endif()
-
-if(ARROW_WITH_RAPIDJSON)
-  list(APPEND ARROW_SHARED_LINK_LIBS RapidJSON)
-  list(APPEND ARROW_STATIC_LINK_LIBS RapidJSON)
-endif()
-
-if(ARROW_USE_XSIMD)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_XSIMD})
-  list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_XSIMD})
-endif()
-
-# This should be done after if(ARROW_ORC) and if(ARROW_WITH_OPENTELEMETRY)
-# because they depend on Protobuf.
-if(ARROW_WITH_PROTOBUF)
-  if(Protobuf_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-endif()
-
-add_custom_target(arrow_dependencies)
-add_custom_target(arrow_benchmark_dependencies)
-add_custom_target(arrow_test_dependencies)
-
-# ARROW-4581: CMake can be finicky about invoking the ExternalProject builds
-# for some of the library dependencies, so we "nuke it from orbit" by making
-# the toolchain dependency explicit using these "dependencies" targets
-add_dependencies(arrow_dependencies toolchain)
-add_dependencies(arrow_test_dependencies toolchain-tests)
-
-if(ARROW_STATIC_LINK_LIBS)
-  add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
-  if(ARROW_HDFS OR ARROW_ORC)
-    if(NOT MSVC_TOOLCHAIN)
-      list(APPEND ARROW_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
-      list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
-    endif()
-  endif()
-endif()
-
-set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
-
-if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
-endif()
-
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GMOCK}
-                              ${ARROW_GTEST_GTEST_MAIN})
-
-if(ARROW_BUILD_TESTS)
-  add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
-endif()
-
-if(ARROW_BUILD_BENCHMARKS)
-  # Some benchmarks use gtest
-  add_dependencies(arrow_benchmark_dependencies arrow_test_dependencies
-                   toolchain-benchmarks)
-endif()
-
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
-                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
-
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
-                                ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
-
-if(NOT MSVC)
-  list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
-endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_SHARED)
@@ -919,68 +692,25 @@ if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
-  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_shared ${ARROW_GTEST_GMOCK}
+                           ${ARROW_GTEST_GTEST_MAIN})
   set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
-  set(ARROW_TEST_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_static ${ARROW_GTEST_GMOCK}
+                           ${ARROW_GTEST_GTEST_MAIN})
   set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  # In the case that benchmark::benchmark_main is not available,
-  # we need to provide our own version. This only happens for older versions
-  # of benchmark.
-  if(NOT TARGET benchmark::benchmark_main)
-    add_library(arrow_benchmark_main STATIC src/arrow/util/benchmark_main.cc)
-    add_library(benchmark::benchmark_main ALIAS arrow_benchmark_main)
-  endif()
-
-  set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main benchmark::benchmark
-                                ${ARROW_TEST_LINK_LIBS})
+  set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
   if(WIN32)
-    set(ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll ${ARROW_BENCHMARK_LINK_LIBS})
+    list(APPEND ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll)
   endif()
 endif()
-
-if(ARROW_JEMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS jemalloc::jemalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS jemalloc::jemalloc)
-endif()
-
-if(ARROW_MIMALLOC)
-  list(APPEND ARROW_SHARED_LINK_LIBS mimalloc::mimalloc)
-  list(APPEND ARROW_STATIC_LINK_LIBS mimalloc::mimalloc)
-endif()
-
-# ----------------------------------------------------------------------
-# Handle platform-related libraries like -pthread
-
-set(ARROW_SYSTEM_LINK_LIBS)
-
-if(ARROW_ENABLE_THREADING)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
-endif()
-if(CMAKE_THREAD_LIBS_INIT)
-  string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
-endif()
-
-if(WIN32)
-  # Winsock
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
-endif()
-
-if(NOT WIN32 AND NOT APPLE)
-  # Pass -lrt on Linux only
-  list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
-endif()
-
-list(APPEND ARROW_SHARED_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
-list(APPEND ARROW_STATIC_LINK_LIBS ${ARROW_SYSTEM_LINK_LIBS})
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 
 #
 # Subdirectories

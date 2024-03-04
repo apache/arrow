@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/io/file.h"
+#include "arrow/util/config.h"
 #include "parquet/exception.h"
 #include "parquet/stream_reader.h"
 #include "parquet/stream_writer.h"
