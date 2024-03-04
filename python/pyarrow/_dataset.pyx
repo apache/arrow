@@ -896,13 +896,13 @@ cdef class Dataset(_Weakrefable):
             The column from current dataset that should be used as the on key
             of the join operation left side.
 
-            An inexact match is used on the “on” key.i.e., a row is considered a
+            An inexact match is used on the "on” key.i.e., a row is considered a
             match iff left_on - tolerance <= right_on <= left_on.
 
-            The input table must be sorted by the “on” key. Must be a single
+            The input table must be sorted by the "on” key. Must be a single
             field of a common type.
 
-            Currently, the “on” key must be an integer, date, or timestamp type.
+            Currently, the "on” key must be an integer, date, or timestamp type.
         by : str or list[str]
             The columns from current dataset that should be used as the keys
             of the join operation left side. The join operation is then done
