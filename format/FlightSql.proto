@@ -1797,11 +1797,12 @@ message DoPutUpdateResult {
   int64 record_count = 1;
 }
 
-// An *optional* response returned when `DoPut` is called with `CommandPreparedStatementQuery`.
-//
-// *Note on legacy behavior*: previous versions of the protocol did not return any result for
-// this command, and that behavior should still be supported by clients. See documentation
-// of individual fields for more details on expected client behavior in this case. 
+/* An *optional* response returned when `DoPut` is called with `CommandPreparedStatementQuery`.
+ *
+ * *Note on legacy behavior*: previous versions of the protocol did not return any result for
+ * this command, and that behavior should still be supported by clients. See documentation
+ * of individual fields for more details on expected client behavior in this case. 
+ */
 message DoPutPreparedStatementResult {
   option (experimental) = true;
 
