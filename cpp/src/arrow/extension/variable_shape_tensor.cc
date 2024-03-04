@@ -66,7 +66,7 @@ bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const 
          (uniform_shape_ == other_ext.uniform_shape()) && permutation_equivalent;
 }
 
-std::string VariableShapeTensorType::ToString() const {
+std::string VariableShapeTensorType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name()
      << "[value_type=" << value_type_->ToString() << ", ndim=" << ndim_;
