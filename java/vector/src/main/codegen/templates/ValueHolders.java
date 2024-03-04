@@ -27,7 +27,9 @@
 package org.apache.arrow.vector.holders;
 
 <#include "/@includes/vv_imports.ftl" />
-
+<#if minor.class == "ViewVarChar">
+import org.apache.arrow.vector.${minor.class}Vector.HolderCallback;
+</#if>
 /**
  * Source code generated using FreeMarker template ${.template_name}
  */
@@ -40,11 +42,17 @@ public final class ${className} implements ValueHolder{
     
     /** The last index (exclusive) into the Vector. **/
     public int end;
-    
+
     /** The Vector holding the actual values. **/
     public ${minor.class}Vector vector;
-    
+
     <#else>
+
+    <#if minor.class == "ViewVarChar">
+    public HolderCallback callBack;
+    public List<ArrowBuf> dataBuffers;
+    </#if>
+
     public static final int WIDTH = ${type.width};
     
     <#if mode.name == "Optional">public int isSet;
@@ -70,10 +78,6 @@ public final class ${className} implements ValueHolder{
       throw new UnsupportedOperationException();
     }
     </#if>
-    
-    
-    
-    
 }
 
 </#list>
