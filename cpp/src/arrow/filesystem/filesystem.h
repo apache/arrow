@@ -197,6 +197,11 @@ class ARROW_EXPORT FileSystem
   /// \return The path inside the filesystem that is indicated by the URI.
   virtual Result<std::string> PathFromUri(const std::string& uri_string) const;
 
+  /// \brief Make a URI from which FileSystemFromUri produces an equivalent filesystem
+  /// \param path The path component to use in the resulting URI
+  /// \return A URI string, or an error if an equivalent URI cannot be produced
+  virtual Result<std::string> MakeUri(std::string path) const;
+
   virtual bool Equals(const FileSystem& other) const = 0;
 
   virtual bool Equals(const std::shared_ptr<FileSystem>& other) const {
