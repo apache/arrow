@@ -468,6 +468,33 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
+#if defined(ARROW_HAVE_NEON)
+static void BM_ByteStreamSplitDecode_Float_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, ::arrow::util::internal::ByteStreamSplitDecode128B<sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, ::arrow::util::internal::ByteStreamSplitDecode128B<sizeof(double)>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, ::arrow::util::internal::ByteStreamSplitEncode128B<sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, ::arrow::util::internal::ByteStreamSplitEncode128B<sizeof(double)>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Neon)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
 template <typename DType>
 static auto MakeDeltaBitPackingInputFixed(size_t length) {
   using T = typename DType::c_type;
