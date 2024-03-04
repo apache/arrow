@@ -4919,8 +4919,8 @@ cdef class Table(_Tabular):
         --------
         >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df1 = pd.DataFrame({'id': [1, 2, 3],
-        ...                     'year': [2020, 2022, 2019]})
+        >>> df1 = pd.DataFrame({'id': [1, 2, 3, 3, 3],
+        ...                     'year': [2020, 2022, 2021, 2022, 2023]})
         >>> df2 = pd.DataFrame({'id': [3, 4],
         ...                     'year': [2020, 2021],
         ...                     'n_legs': [5, 100],
@@ -4929,7 +4929,7 @@ cdef class Table(_Tabular):
         >>> t2 = pa.Table.from_pandas(df2).sort_by('year')
 
         >>> t1.join_asof(
-        ...     t2, on='year', by='id', tolerance=1
+        ...     t2, on='year', by='id', tolerance=-2
         ... ).combine_chunks().sort_by('year')
         pyarrow.Table
         id: int64
@@ -4937,10 +4937,10 @@ cdef class Table(_Tabular):
         n_legs: int64
         animal: string
         ----
-        id: [[3,1,2]]
-        year: [[2019,2020,2022]]
-        n_legs: [[5,null,null]]
-        animal: [["Brittle stars",null,null]]
+        id: [[1,3,2,3,3]]
+        year: [[2020,2021,2022,2022,2023]]
+        n_legs: [[null,5,null,5,null]]
+        animal: [[null,"Brittle stars",null,"Brittle stars",null]]
         """
         if right_on is None:
             right_on = on
