@@ -1802,7 +1802,9 @@ message DoPutPreparedStatementResult {
   option (experimental) = true;
 
   // (potentially updated) opaque handle for the prepared statement on the server.
-  // All subsequent requests for this prepared statement must use this new handle, if specified
+  // All subsequent requests for this prepared statement must use this new handle, if specified.
+  // The updated handle allows implementing query parameters with stateless services
+  // as described in https://github.com/apache/arrow/issues/37720
   bytes prepared_statement_handle = 1;
 }
 
