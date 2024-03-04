@@ -186,7 +186,9 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
       }
     }
     for (int i = 0; i < kNumStreams; ++i) {
-      output_buffer_streams[i][block_index] = final_result[i];
+      xsimd::store_unaligned(
+          reinterpret_cast<int8_t*>(&output_buffer_streams[i][block_index]),
+          final_result[i]);
     }
   }
 }
