@@ -55,21 +55,6 @@ public class TestVarCharViewVector {
   }
 
   @Test
-  public void testTransfer() {
-    // TODO: implement setSafe
-    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
-        ViewVarCharVector v1 = new ViewVarCharVector("v1", childAllocator1)) {
-      //      v1.allocateNew();
-      //      v1.setSafe(0, STR1);
-      //      v1.setSafe(1, STR2);
-      //      v1.setValueCount(2);
-      //
-      //      System.out.println("v1 value count: " + v1.getValueCount());
-      //      System.out.println(v1);
-    }
-  }
-
-  @Test
   public void testAllocationLimits() {
     try (final LargeVarCharVector largeVarCharVector = new LargeVarCharVector("myvector", allocator)) {
       largeVarCharVector.allocateNew(17, 1);

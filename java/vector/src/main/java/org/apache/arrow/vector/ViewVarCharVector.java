@@ -83,16 +83,34 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    */
   @Override
   public MinorType getMinorType() {
-    return MinorType.VARCHAR;
+    return MinorType.VIEWVARCHAR;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
+  private byte[] getData(int index, int dataLength) {
+    byte[] result = new byte[dataLength];
+    if (dataLength > INLINE_SIZE) {
+      // data is in the inline buffer
+      // get buffer index
+      final int bufferIndex =
+          valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset =
+          valueBuffer.getInt(
+              ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+    } else {
+      // data is in the value buffer
+      valueBuffer.getBytes(
+          (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
+    }
+    return result;
+  }
 
   /**
    * Get the variable length element at specified index as byte array.
@@ -107,21 +125,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     }
     final int startOffset = getStartOffset(index);
     final int dataLength = getEndOffset(index) - startOffset;
-    final byte[] result = new byte[dataLength];
-    if (dataLength > INLINE_SIZE) {
-      // data is in the inline buffer
-      // get buffer index
-      final int bufferIndex = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-      // get data offset
-      final int dataOffset = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH +
-          BUF_INDEX_WIDTH);
-      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
-      return result;
-    } else {
-      // data is in the value buffer
-      valueBuffer.getBytes((long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
-      return result;
-    }
+    return getData(index, dataLength);
   }
 
   /**
@@ -302,73 +306,46 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @return {@link TransferPair}
+   * @return {@link TransferPair} (UnsupportedOperationException)
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl(ref, allocator);
-  }
-
-  @Override
-  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    return new TransferImpl(field, allocator);
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support getTransferPair(String, BufferAllocator)");
   }
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
-   * @param to target vector
-   * @return {@link TransferPair}
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair} (UnsupportedOperationException)
    */
   @Override
-  public TransferPair makeTransferPair(ValueVector to) {
-    return new TransferImpl((ViewVarCharVector) to);
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support getTransferPair(Field, BufferAllocator)");
   }
 
-  private class TransferImpl implements TransferPair {
-    ViewVarCharVector to;
-
-    public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new ViewVarCharVector(ref, field.getFieldType(), allocator);
-    }
-
-    public TransferImpl(Field field, BufferAllocator allocator) {
-      to = new ViewVarCharVector(field, allocator);
-    }
-
-    public TransferImpl(ViewVarCharVector to) {
-      this.to = to;
-    }
-
-    @Override
-    public ViewVarCharVector getTo() {
-      return to;
-    }
-
-    @Override
-    public void transfer() {
-      transferTo(to);
-    }
-
-    @Override
-    public void splitAndTransfer(int startIndex, int length) {
-      splitAndTransferTo(startIndex, length, to);
-    }
-
-    @Override
-    public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, ViewVarCharVector.this);
-    }
+  /**
+   * Construct a TransferPair with a desired target vector of the same type.
+   *
+   * @param target the target for the transfer
+   * @return {@link TransferPair} (UnsupportedOperationException)
+   */
+  @Override
+  public TransferPair makeTransferPair(ValueVector target) {
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support makeTransferPair(ValueVector)");
   }
 }
