@@ -444,21 +444,22 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
         The left key on which the join operation should be performed.
         Can be a string column name or a field expression.
 
-        An inexact match is used on the “on” key.i.e., a row is considered a
-        match iff left_on - tolerance <= right_on <= left_on.
+        An inexact match is used on the "on" key, i.e. a row is considered a
+        match if and only if left_on - tolerance <= right_on <= left_on.
 
-        The input dataset must be sorted by the “on” key. Must be a single
+        The input dataset must be sorted by the "on" key. Must be a single
         field of a common type.
 
-        Currently, the “on” key must be an integer, date, or timestamp type.
-    left_by: str, Expression or list[str]
+        Currently, the "on" key must be an integer, date, or timestamp type.
+    left_by: str, Expression or list
         The left keys on which the join operation should be performed.
+        Exact equality is used for each field of the "by" keys.
         Each key can be a string column name or a field expression,
         or a list of such field references.
     right_on : str, Expression
         The right key on which the join operation should be performed.
         See `left_on` for details.
-    right_by: str, Expression or list[str]
+    right_by: str, Expression or list
         The right keys on which the join operation should be performed.
         See `left_by` for details.
     tolerance : int
