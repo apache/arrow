@@ -339,8 +339,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                        pool)
     else:
+        if type and type.id == _Type_RUN_END_ENCODED:
+            from pyarrow.compute import run_end_encode
+            result = run_end_encode(obj)
         # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        else:
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)

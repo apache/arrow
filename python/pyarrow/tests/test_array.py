@@ -3579,6 +3579,18 @@ def test_run_end_encoded_from_buffers():
                                            1, offset, children)
 
 
+def test_run_end_encoded_from_array_with_type():
+    arr = [1, 2, 2, 3, 3, 3]
+    run_ends = pa.array([1, 3, 6], type=pa.int32())
+    values = pa.array([1, 2, 3], type=pa.int64())
+
+    ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
+    result = pa.array(arr, type=ree_type)
+
+    assert result.run_ends.equals(run_ends)
+    assert result.values.equals(values)
+
+
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListViewArray, pa.list_view),
                           (pa.LargeListViewArray, pa.large_list_view)])
