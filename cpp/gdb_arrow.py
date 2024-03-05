@@ -304,7 +304,8 @@ def format_timestamp(val, unit):
     seconds, subseconds = divmod(val, traits.multiplier)
     try:
         dt = datetime.datetime.utcfromtimestamp(seconds)
-    except (ValueError, OSError):  # value out of range for datetime.datetime
+    except (ValueError, OSError, OverflowError):
+        # value out of range for datetime.datetime
         pretty = "too large to represent"
     else:
         pretty = dt.isoformat().replace('T', ' ')
