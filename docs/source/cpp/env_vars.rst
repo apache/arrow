@@ -132,11 +132,15 @@ that changing their value later will have an effect.
 
 .. envvar:: ARROW_USER_SIMD_LEVEL
 
-   The SIMD optimization level to select.  By default, Arrow C++ detects
-   the capabilities of the current CPU at runtime and chooses the best
-   execution paths based on that information.  One can override the detection
-   by setting this environment variable to a well-defined value.
-   Supported values are:
+   The maximum SIMD optimization level selectable at runtime.  Useful for
+   comparing the performance impact of enabling or disabling respective code
+   paths or working around situations where instructions are supported but are
+   either buggy or not performant.
+
+   By default, Arrow C++ detects the capabilities of the current CPU at runtime
+   and chooses the best execution paths based on that information.  This
+   behavior can be overriden by setting this environment variable to a
+   well-defined value.  Supported values are:
 
    - ``NONE`` disables any runtime-selected SIMD optimization;
    - ``SSE4_2`` enables any SSE2-based optimizations until SSE4.2 (included);
@@ -148,19 +152,27 @@ that changing their value later will have an effect.
    platforms currently do not implement any form of runtime dispatch.
 
    .. note::
-      In addition to runtime dispatch, the compile-time SIMD level can
-      be set using the ``ARROW_SIMD_LEVEL`` CMake configuration variable.
-      Unlike runtime dispatch, compile-time SIMD optimizations cannot be
-      changed at runtime (for example, if you compile Arrow C++ with AVX512
-      enabled, the resulting binary will only run on AVX512-enabled CPUs).
-      Setting ``ARROW_USER_SIMD_LEVEL=NONE`` prevents the execution of
-      explicit SIMD optimization code, but it does not rule out the execution
-      of compiler generated SIMD instructions.  E.g., on x86_64 platform,
-      Arrow is built with ``ARROW_SIMD_LEVEL=SSE4_2`` by default.  Compiler
-      may generate SSE4.2 instructions from any C/C++ source code.  On legacy
-      x86_64 platforms do not support SSE4.2, Arrow binary may fail with
-      SIGILL (Illegal Instruction).  User must rebuild Arrow and PyArrow from
-      scratch by setting cmake option ``ARROW_SIMD_LEVEL=NONE``.
+      In addition to runtime dispatch, Arrow's build system supports two
+      compile-time CMake variables for controlling SIMD: ``ARROW_SIMD_LEVEL``
+      and ``ARROW_RUNTIME_SIMD_LEVEL``.
+
+      The ``ARROW_SIMD_LEVEL`` variable sets the maximum SIMD level at the
+      compiler level.  Unlike runtime dispatch, compile-time SIMD optimizations
+      cannot be changed at runtime (for example, if you compile Arrow C++ with
+      AVX512 enabled, the resulting binary will only run on AVX512-enabled
+      CPUs).  Setting ``ARROW_USER_SIMD_LEVEL=NONE`` prevents the execution of
+      explicit SIMD optimization code, but it does not rule out the execution of
+      compiler-generated SIMD instructions.  E.g., on x86, Arrow is built with
+      ``ARROW_SIMD_LEVEL=SSE4_2`` by default.  The compiler may generate SSE4.2
+      instructions from any C/C++ source code.  On legacy x86 platforms which do
+      not support SSE4.2, an Arrow binary may fail with SIGILL (Illegal
+      Instruction).  In this case, one must rebuild Arrow and PyArrow from
+      scratch by setting the CMake configuration variable
+      ``ARROW_SIMD_LEVEL=NONE``.
+
+      The ``ARROW_RUNTIME_SIMD_LEVEL`` variable sets the maximum
+      runtime-selectable SIMD path that is compiled. For example, if set to AVX2
+      on x86, then all AVX512 code paths with be omitted from the compiled code.
 
 .. envvar:: AWS_ENDPOINT_URL
 
