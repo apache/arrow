@@ -354,11 +354,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(path, "container/dir/blob");
   }
 
-  void TestFromUriBlobStorageEmptyContainer() {
-    ASSERT_RAISES(
-        Invalid, AzureOptions::FromUri("abfs://account.blob.core.windows.net/", nullptr));
-  }
-
   void TestFromUriDfsStorage() {
     AzureOptions default_options;
     std::string path;
@@ -375,11 +370,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(path, "file_system/dir/file");
   }
 
-  void TestFromUriDfsStorageEmptyContainer() {
-    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
-                               "abfs://account.dfs.core.windows.net/dir/file", nullptr));
-  }
-
   void TestFromUriAbfs() {
     std::string path;
     ASSERT_OK_AND_ASSIGN(
@@ -393,11 +383,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "http");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
-  }
-
-  void TestFromUriAbfsEmptyContainer() {
-    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
-                               "abfs://account:password@127.0.0.1:10000/", nullptr));
   }
 
   void TestFromUriAbfss() {
@@ -524,15 +509,8 @@ class TestAzureOptions : public ::testing::Test {
 };
 
 TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
-TEST_F(TestAzureOptions, FromUriBlobStorageEmptyContainer) {
-  TestFromUriBlobStorageEmptyContainer();
-}
 TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
-TEST_F(TestAzureOptions, FromUriDfsStorageEmptyContainer) {
-  TestFromUriDfsStorageEmptyContainer();
-}
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
-TEST_F(TestAzureOptions, FromUriAbfsEmptyContainer) { TestFromUriAbfsEmptyContainer(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }

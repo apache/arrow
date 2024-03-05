@@ -105,9 +105,6 @@ Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
   }
   const auto account_key = uri.password();
 
-  if (container.empty()) {
-    return Status::Invalid("Missing container name in Azure Blob File System URI");
-  }
   if (out_path != nullptr) {
     *out_path = std::string(internal::ConcatAbstractPath(container, path));
   }
