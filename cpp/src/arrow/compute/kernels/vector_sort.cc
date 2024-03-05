@@ -157,21 +157,22 @@ class ChunkedArraySorter : public TypeVisitor {
   void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
     using ArrowType = typename ArrayType::TypeClass;
+    // XXX: only one needed
     const ChunkedArrayResolver left_resolver(arrays);
     const ChunkedArrayResolver right_resolver(arrays);
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve(left);
-                   const auto chunk_right = right_resolver.Resolve(right);
+                   const auto chunk_left = left_resolver.ResolveLogicalIndex(left);
+                   const auto chunk_right = right_resolver.ResolveLogicalIndex(right);
                    return chunk_left.Value<ArrowType>() < chunk_right.Value<ArrowType>();
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve(left);
-                   const auto chunk_right = right_resolver.Resolve(right);
+                   const auto chunk_left = left_resolver.ResolveLogicalIndex(left);
+                   const auto chunk_right = right_resolver.ResolveLogicalIndex(right);
                    // We don't use 'left > right' here to reduce required
                    // operator. If we use 'right < left' here, '<' is only
                    // required.

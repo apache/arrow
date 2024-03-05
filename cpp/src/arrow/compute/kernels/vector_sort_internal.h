@@ -278,13 +278,13 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto nulls_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind);
       return chunk.IsNull();
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, nulls_end);
   } else {
     auto nulls_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind);
       return !chunk.IsNull();
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, nulls_begin);
@@ -307,13 +307,13 @@ PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind);
       return std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, null_likes_end);
   } else {
     auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind);
       return !std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, null_likes_begin);

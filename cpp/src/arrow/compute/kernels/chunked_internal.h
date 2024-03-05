@@ -51,6 +51,9 @@ struct ResolvedChunk {
 };
 
 class ChunkedArrayResolver {
+ public:
+  using ChunkLocation = ::arrow::internal::ChunkLocation;
+
  private:
   ::arrow::internal::ChunkResolver resolver_;
   std::vector<const Array*> chunks_;
@@ -65,7 +68,13 @@ class ChunkedArrayResolver {
   ChunkedArrayResolver(const ChunkedArrayResolver& other) = default;
   ChunkedArrayResolver& operator=(const ChunkedArrayResolver& other) = default;
 
-  ResolvedChunk Resolve(int64_t index) const {
+  /// \pre Valid(loc)
+  ResolvedChunk ResolveLocation(ChunkLocation loc) const {
+    assert(resolver_.Valid(loc));
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
+  }
+
+  ResolvedChunk ResolveLogicalIndex(int64_t index) const {
     const auto loc = resolver_.Resolve(index);
     return {chunks_[loc.chunk_index], loc.index_in_chunk};
   }

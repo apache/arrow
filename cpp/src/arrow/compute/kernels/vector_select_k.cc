@@ -406,7 +406,9 @@ class TableSelector : public TypeVisitor {
 
     // Find the target chunk and index in the target chunk from an
     // index in chunked array.
-    ResolvedChunk GetChunk(int64_t index) const { return resolver.Resolve(index); }
+    ResolvedChunk GetChunk(int64_t index) const {
+      return resolver.ResolveLogicalIndex(index);
+    }
 
     const SortOrder order;
     const std::shared_ptr<DataType> type;
