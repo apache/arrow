@@ -341,13 +341,13 @@ using TakeState = OptionsWrapper<TakeOptions>;
 /// and DO NOT ASSUME `values.type()` is a primitive type.
 ///
 /// \pre the indices have been boundschecked
-template <typename IndexCType, typename ValueWidthConstant>
+template <typename IndexCType, typename ValueBitWidthConstant>
 struct PrimitiveTakeImpl {
-  static constexpr int kValueWidth = ValueWidthConstant::value;
+  static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    DCHECK_EQ(util::FixedWidthInBytes(*values.type), kValueWidth);
+    DCHECK_EQ(util::FixedWidthInBits(*values.type), kValueWidthInBits);
     const auto* src = util::OffsetPointerOfFixedWidthValues(values);
     auto* idx = indices.GetValues<IndexCType>(1);
 
@@ -356,7 +356,7 @@ struct PrimitiveTakeImpl {
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
     int64_t valid_count = 0;
-    arrow::internal::Gather<kValueWidth, IndexCType> gather{
+    arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
         /*src_length=*/values.length, src,
         /*idx_length=*/indices.length, idx, out};
     if (!values.MayHaveNulls() && !indices.MayHaveNulls()) {
@@ -526,29 +526,29 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
           values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 2>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
           values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 4>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
           values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
           values, indices, out_arr);
       break;
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
           values, indices, out_arr);
       break;
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
           values, indices, out_arr);
       break;
     default:
