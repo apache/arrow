@@ -156,8 +156,8 @@ that changing their value later will have an effect.
       compile-time CMake variables for controlling SIMD: ``ARROW_SIMD_LEVEL``
       and ``ARROW_RUNTIME_SIMD_LEVEL``.
 
-      The ``ARROW_SIMD_LEVEL`` variable sets the maximum SIMD level at the
-      compiler level.  Unlike runtime dispatch, compile-time SIMD optimizations
+      The ``ARROW_SIMD_LEVEL`` variable sets the minimum supported SIMD level at the
+      compiler level. This works by passing the appropriate target architecture flag, such as ``-march=haswell`` for AVX2, to the compiler.  Unlike runtime dispatch, compile-time SIMD optimizations
       cannot be changed at runtime (for example, if you compile Arrow C++ with
       AVX512 enabled, the resulting binary will only run on AVX512-enabled
       CPUs).  Setting ``ARROW_USER_SIMD_LEVEL=NONE`` prevents the execution of
