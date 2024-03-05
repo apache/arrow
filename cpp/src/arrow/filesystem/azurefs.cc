@@ -109,19 +109,14 @@ Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
     *out_path = std::string(internal::ConcatAbstractPath(container, path));
   }
 
-  std::unordered_map<std::string, std::string> options_map;
-  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
-  for (const auto& kv : options_items) {
-    options_map.emplace(kv.first, kv.second);
-  }
-
   CredentialKind credential_kind = options.account_name.empty()
                                        ? CredentialKind::kAnonymous
                                        : CredentialKind::kDefault;
   std::string tenant_id;
   std::string client_id;
   std::string client_secret;
-  for (const auto& kv : options_map) {
+  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
+  for (const auto& kv : options_items) {
     if (kv.first == "blob_storage_authority") {
       options.blob_storage_authority = kv.second;
     } else if (kv.first == "dfs_storage_authority") {
