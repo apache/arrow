@@ -567,16 +567,25 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     if (desiredAllocSize == 0) {
       return;
     }
-
-    final long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
+    final long lastWriteIndex = valueBuffer.writerIndex();
+    long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
     assert newAllocationSize >= 1;
 
     checkDataBufferSize(newAllocationSize);
+    // for each set operation, we have to allocate 16 bytes
+    // here we are adjusting the desired allocation based allocation size
+    // to align with the 16bytes requirement.
+    if (newAllocationSize <= lastWriteIndex) {
+      newAllocationSize += lastWriteIndex;
+    }
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
+
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
+    // After reallocation, we need to reset the writer index to the last write index of the old buffer.
+    valueBuffer.writerIndex(lastWriteIndex);
     lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
 
@@ -1436,7 +1445,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
     final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
     final long targetCapacity = startOffset + dataLength;
-    if (valueBuffer.capacity() < targetCapacity) {
+    // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
+    // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
+    if (valueBuffer.capacity() <= valueBuffer.writerIndex() || valueBuffer.capacity() < targetCapacity) {
       reallocDataBuffer(targetCapacity);
     }
   }

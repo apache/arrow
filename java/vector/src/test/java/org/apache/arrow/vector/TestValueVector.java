@@ -2546,28 +2546,66 @@ public class TestValueVector {
     try (ViewVarCharVector vector = new ViewVarCharVector("", allocator)) {
       vector.allocateNew(5, 1);
 
-      NullableViewVarCharHolder nullHolder = new NullableViewVarCharHolder();
-      nullHolder.isSet = 0;
+      NullableViewVarCharHolder nullHolder1 = new NullableViewVarCharHolder();
+      nullHolder1.isSet = 0;
 
-      NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
-      stringHolder.isSet = 1;
+      NullableViewVarCharHolder nullHolder2 = new NullableViewVarCharHolder();
+      nullHolder2.isSet = 0;
 
-      String str = "hello world";
-      ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
+      NullableViewVarCharHolder nullHolder3 = new NullableViewVarCharHolder();
+      nullHolder3.isSet = 0;
 
-      stringHolder.start = 0;
-      stringHolder.end = str.length();
-      stringHolder.buffer = buf;
+      NullableViewVarCharHolder stringHolder1 = new NullableViewVarCharHolder();
+      stringHolder1.isSet = 1;
 
-      vector.setSafe(0, stringHolder);
-      vector.setSafe(1, nullHolder);
+      NullableViewVarCharHolder stringHolder2 = new NullableViewVarCharHolder();
+      stringHolder2.isSet = 1;
+
+      NullableViewVarCharHolder stringHolder3 = new NullableViewVarCharHolder();
+      stringHolder3.isSet = 1;
+
+      String str1 = "hello world";
+      ArrowBuf buf1 = allocator.buffer(16);
+      buf1.setBytes(0, str1.getBytes(StandardCharsets.UTF_8));
+
+      stringHolder1.start = 0;
+      stringHolder1.end = str1.length();
+      stringHolder1.buffer = buf1;
+
+      String str2 = "hello universe";
+      ArrowBuf buf2 = allocator.buffer(16);
+      buf2.setBytes(0, str2.getBytes(StandardCharsets.UTF_8));
+
+      stringHolder2.start = 0;
+      stringHolder2.end = str2.length();
+      stringHolder2.buffer = buf2;
+
+      String str3 = "hello galaxy";
+      ArrowBuf buf3 = allocator.buffer(16);
+      buf3.setBytes(0, str3.getBytes(StandardCharsets.UTF_8));
+
+      stringHolder3.start = 0;
+      stringHolder3.end = str3.length();
+      stringHolder3.buffer = buf3;
+
+      vector.setSafe(0, stringHolder1);
+      vector.setSafe(1, nullHolder1);
+      vector.setSafe(2, stringHolder2);
+      vector.setSafe(3, nullHolder2);
+      vector.setSafe(4, nullHolder3);
+      vector.setSafe(5, stringHolder3);
 
       // verify results
-      assertEquals(str, new String(vector.get(0), StandardCharsets.UTF_8));
+      assertEquals(str1, new String(vector.get(0), StandardCharsets.UTF_8));
       assertTrue(vector.isNull(1));
+      assertEquals(str2, new String(vector.get(2), StandardCharsets.UTF_8));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertEquals(str3, new String(vector.get(5), StandardCharsets.UTF_8));
 
-      buf.close();
+      buf1.close();
+      buf2.close();
+      buf3.close();
     }
   }
 
