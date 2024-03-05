@@ -35,8 +35,12 @@
 namespace arrow::internal {
 inline namespace gather_internal {
 
-template <int kValueWidth, typename IndexCType>
+template <int kValueWidthInBits, typename IndexCType,
+          std::enable_if_t<kValueWidthInBits % 8 == 0, bool> = true>
 class Gather {
+ public:
+  static constexpr int kValueWidth = kValueWidthInBits / 8;
+
  private:
   const int64_t src_length_;  // number of elements of kValueWidth bytes in src_
   const uint8_t* src_;
