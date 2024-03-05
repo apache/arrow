@@ -42,7 +42,6 @@ struct ResolvedChunk {
 
   ResolvedChunk(const Array* array, int64_t index) : array(array), index(index) {}
 
- public:
   bool IsNull() const { return array->IsNull(index); }
 
   template <typename ArrowType, typename ViewType = GetViewType<ArrowType>>
