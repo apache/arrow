@@ -977,6 +977,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
+        CResult[shared_ptr[CTensor]] ToTensor() const
+
     cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
         shared_ptr[CRecordBatch] batch
         # The struct in C++ does not actually have these two `const` qualifiers, but

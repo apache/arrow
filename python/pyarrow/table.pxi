@@ -3010,6 +3010,20 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
+    def to_tensor(self):
+        """
+        Convert to a :class:`~pyarrow.Tensor`.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_record_batch
+            shared_ptr[CTensor] c_tensor
+
+        c_record_batch = pyarrow_unwrap_batch(self)
+        with nogil:
+            c_tensor = GetResultValue(
+                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor())
+        return pyarrow_wrap_tensor(c_tensor)
+
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.
