@@ -336,12 +336,24 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                       pool)
+            if type and type.id == _Type_RUN_END_ENCODED:
+                if mask is not None:
+                    raise ValueError("Cannot pass a mask for Run-End Encoded arrays.")
+                from pyarrow.compute import run_end_encode
+                ree_arr = run_end_encode(obj)
+                result = RunEndEncodedArray.from_arrays(
+                    ree_arr.run_ends.to_pylist(), ree_arr.values.to_pylist(), type)
+            else:
+                result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                           pool)
     else:
         if type and type.id == _Type_RUN_END_ENCODED:
+            if mask is not None:
+                raise ValueError("Cannot pass a mask for Run-End Encoded arrays.")
             from pyarrow.compute import run_end_encode
-            result = run_end_encode(obj)
+            ree_arr = run_end_encode(obj)
+            result = RunEndEncodedArray.from_arrays(
+                ree_arr.run_ends.to_pylist(), ree_arr.values.to_pylist(), type)
         # ConvertPySequence does strict conversion if type is explicitly passed
         else:
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)

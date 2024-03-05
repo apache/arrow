@@ -3580,15 +3580,35 @@ def test_run_end_encoded_from_buffers():
 
 
 def test_run_end_encoded_from_array_with_type():
-    arr = [1, 2, 2, 3, 3, 3]
     run_ends = pa.array([1, 3, 6], type=pa.int32())
     values = pa.array([1, 2, 3], type=pa.int64())
 
     ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
+
+    arr = [1, 2, 2, 3, 3, 3]
     result = pa.array(arr, type=ree_type)
 
     assert result.run_ends.equals(run_ends)
     assert result.values.equals(values)
+
+    result = pa.array(np.array(arr), type=ree_type)
+
+    assert result.run_ends.equals(run_ends)
+    assert result.values.equals(values)
+
+    arr = [1, 2, 2, 3, 3, None]
+    result = pa.array(arr, type=ree_type)
+
+    run_ends = pa.array([1, 3, 5, 6], type=pa.int32())
+    values = pa.array([1, 2, 3, None], type=pa.int64())
+
+    assert result.run_ends.equals(run_ends)
+    assert result.values.equals(values)
+
+    mask = pa.array([False, True, False, True, False])
+    msg = "Cannot pass a mask for Run-End Encoded arrays."
+    with pytest.raises(ValueError, match=msg):
+        pa.array(arr, type=ree_type, mask=mask)
 
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
