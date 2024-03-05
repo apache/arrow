@@ -337,21 +337,22 @@ using TakeState = OptionsWrapper<TakeOptions>;
 /// only generate one take function for each byte width.
 ///
 /// This function assumes that the indices have been boundschecked.
-template <typename IndexCType, typename ValueWidthConstant>
+template <typename IndexCType, typename ValueBitWidthConstant>
 struct PrimitiveTakeImpl {
-  static constexpr int kValueWidth = ValueWidthConstant::value;
+  static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    DCHECK_EQ(values.type->byte_width(), kValueWidth);
+    DCHECK_EQ(values.type->bit_width(), kValueWidthInBits);
     DCHECK_EQ(out_arr->offset, 0);
+    constexpr int kValueWidth = kValueWidthInBits / 8;
     auto* src = values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
     auto* idx = indices.GetValues<IndexCType>(1);
     auto* out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
     int64_t valid_count = 0;
-    arrow::internal::Gather<kValueWidth, IndexCType> gather{
+    arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
         /*src_length=*/values.length, src,
         /*idx_length=*/indices.length, idx, out};
     if (values.null_count == 0 && indices.null_count == 0) {
@@ -518,29 +519,29 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
           values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 2>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
           values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 4>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
           values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
           values, indices, out_arr);
       break;
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
           values, indices, out_arr);
       break;
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
           values, indices, out_arr);
       break;
     default:
