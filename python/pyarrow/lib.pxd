@@ -295,6 +295,8 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
+        bytes _ssize_t_shape
+        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
