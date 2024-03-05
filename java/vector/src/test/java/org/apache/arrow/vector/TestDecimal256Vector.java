@@ -40,8 +40,8 @@ public class TestDecimal256Vector {
   static {
     intValues = new long[60];
     for (int i = 0; i < intValues.length / 2; i++) {
-      intValues[i] = 1 << i + 1;
-      intValues[2 * i] = -1 * (1 << i + 1);
+      intValues[i] = 1L << (i + 1);
+      intValues[2 * i] = -1L * (1 << (i + 1));
     }
   }
 

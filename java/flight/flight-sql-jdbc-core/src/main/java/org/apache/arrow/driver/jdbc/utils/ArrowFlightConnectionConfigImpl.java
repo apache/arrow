@@ -33,6 +33,7 @@ import org.apache.calcite.avatica.ConnectionConfig;
 import org.apache.calcite.avatica.ConnectionConfigImpl;
 import org.apache.calcite.avatica.ConnectionProperty;
 
+
 /**
  * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
  */

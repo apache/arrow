@@ -353,7 +353,7 @@ class ARROW_EXPORT ResizableArrayData {
   MemoryPool* pool_;
   int num_rows_;
   int num_rows_allocated_;
-  int var_len_buf_size_;
+  int64_t var_len_buf_size_;
   static constexpr int kMaxBuffers = 3;
   std::shared_ptr<ResizableBuffer> buffers_[kMaxBuffers];
 };

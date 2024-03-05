@@ -30,7 +30,6 @@ import re
 import warnings
 
 import numpy as np
-from numpy.core.numerictypes import sctypes as _np_sctypes
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes  # noqa
@@ -717,9 +716,15 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
-        block = _int.make_block(block_arr, placement=placement,
-                                klass=_int.DatetimeTZBlock,
-                                dtype=dtype)
+        if _pandas_api.is_ge_v21():
+            pd_arr = _pandas_api.pd.array(
+                block_arr.view("int64"), dtype=dtype, copy=False
+            )
+            block = _int.make_block(pd_arr, placement=placement)
+        else:
+            block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
+                                    dtype=dtype)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -783,9 +788,10 @@ def table_to_dataframe(
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
-    str(np.dtype(typ))
-    for typ in (_np_sctypes['int'] + _np_sctypes['uint'] + _np_sctypes['float'] +
-                ['object', 'bool'])
+    "int8", "int16", "int32", "int64",
+    "uint8", "uint16", "uint32", "uint64",
+    "float16", "float32", "float64",
+    "object", "bool"
 }
 
 
@@ -961,20 +967,9 @@ def _extract_index_level(table, result_table, field_name,
         # The serialized index column was removed by the user
         return result_table, None, None
 
-    pd = _pandas_api.pd
-
     col = table.column(i)
-    values = col.to_pandas(types_mapper=types_mapper).values
-
-    if hasattr(values, 'flags') and not values.flags.writeable:
-        # ARROW-1054: in pandas 0.19.2, factorize will reject
-        # non-writeable arrays when calling MultiIndex.from_arrays
-        values = values.copy()
-
-    if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
-    else:
-        index_level = pd.Series(values, dtype=values.dtype, copy=False)
+    index_level = col.to_pandas(types_mapper=types_mapper)
+    index_level.name = None
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )

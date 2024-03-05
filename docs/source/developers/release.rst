@@ -200,6 +200,8 @@ Verify the Release
     # on dev@arrow.apache.org. To regenerate the email template use
     SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
 
+See :ref:`release_verification` for details.
+
 Voting and approval
 ===================
 

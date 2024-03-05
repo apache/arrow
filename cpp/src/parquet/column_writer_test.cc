@@ -15,16 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/config.h"
 
+#include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -479,6 +483,8 @@ using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
+using ::testing::HasSubstr;
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
@@ -889,6 +895,52 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
+TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  auto sink = CreateOutputStream();
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
+
+  uint8_t data;
+  std::shared_ptr<Buffer> buffer =
+      std::make_shared<Buffer>(&data, std::numeric_limits<int32_t>::max() + int64_t{1});
+  DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
+                                   Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+                                   /*uncompressed_size=*/100);
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+  DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
+                                                  Encoding::PLAIN);
+  EXPECT_THROW_THAT(
+      [&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("overflows INT32_MAX")));
+
+  buffer = std::make_shared<Buffer>(&data, 1);
+  DataPageV1 over_uncompressed_limit(
+      buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+      Encoding::BIT_PACKED,
+      /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+}
+
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   // In ARROW-3930 we discovered a bug when writing from Arrow when we had data
   // that looks like this:
@@ -976,7 +1028,7 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
 }
 
 void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
-                          std::vector<int16_t>& input_levels,
+                          const std::vector<int16_t>& input_levels,
                           std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
@@ -1015,7 +1067,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
 }
 
 void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
-                                   std::vector<int16_t>& input_levels,
+                                   const std::vector<int16_t>& input_levels,
                                    std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;

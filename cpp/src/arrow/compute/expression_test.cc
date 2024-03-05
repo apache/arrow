@@ -604,6 +604,31 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
+TEST(Expression, BindWithAliasCasts) {
+  auto fm = GetFunctionRegistry();
+  EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
+
+  auto expr = call("alias_cast", {field_ref("f1")}, CastOptions::Unsafe(arrow::int32()));
+  EXPECT_FALSE(expr.IsBound());
+
+  auto schema = arrow::schema({field("f1", decimal128(30, 3))});
+  ExpectBindsTo(expr, no_change, &expr, *schema);
+}
+
+TEST(Expression, BindWithDecimalArithmeticOps) {
+  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
+    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
+    EXPECT_FALSE(expr.IsBound());
+
+    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
+    for (auto s : scales) {
+      auto schema = arrow::schema(
+          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
+      ExpectBindsTo(expr, no_change, &expr, *schema);
+    }
+  }
+}
+
 TEST(Expression, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type
@@ -861,6 +886,25 @@ TEST(Expression, ExecuteCall) {
     {"a": {"a": 0.0,   "b": 1}},
     {"a": {"a": -1,    "b": 4.75}}
   ])"));
+}
+
+TEST(Expression, ExecuteCallWithNoArguments) {
+  const int kCount = 10;
+  auto random_options = RandomOptions::FromSeed(/*seed=*/0);
+  ExecBatch input({}, kCount);
+
+  Expression random_expr = call("random", {}, random_options);
+  ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
+
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(random_expr, input));
+  compute::ExecContext* exec_context = default_exec_context();
+  ASSERT_OK_AND_ASSIGN(auto function,
+                       exec_context->func_registry()->GetFunction("random"));
+  ASSERT_OK_AND_ASSIGN(Datum expected,
+                       function->Execute(input, &random_options, exec_context));
+  AssertDatumsEqual(actual, expected, /*verbose=*/true);
+
+  EXPECT_EQ(actual.length(), kCount);
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {

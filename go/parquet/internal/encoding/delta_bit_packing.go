@@ -23,11 +23,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/utils"
 )
 
 // see the deltaBitPack encoder for a description of the encoding format that is
@@ -466,6 +466,10 @@ func (enc *deltaBitPackEncoder) FlushValues() (Buffer, error) {
 
 // EstimatedDataEncodedSize returns the current amount of data actually flushed out and written
 func (enc *deltaBitPackEncoder) EstimatedDataEncodedSize() int64 {
+	if enc.bitWriter == nil {
+		return 0
+	}
+
 	return int64(enc.bitWriter.Written())
 }
 

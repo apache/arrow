@@ -55,6 +55,7 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
     }
   }
 
+  @Override
   public BufferAllocator getAllocator() {
     return allocator;
   }

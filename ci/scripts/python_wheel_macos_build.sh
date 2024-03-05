@@ -50,16 +50,20 @@ echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
 export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
 
+# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
 pip install \
   --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
-  -r ${source_dir}/python/requirements-wheel-build.txt
+  -r ${source_dir}/python/requirements-wheel-build.txt \
+  --pre \
+  --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
 pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_ACERO:=ON}
+: ${ARROW_AZURE:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
@@ -92,6 +96,7 @@ pushd ${build_dir}/build
 
 cmake \
     -DARROW_ACERO=${ARROW_ACERO} \
+    -DARROW_AZURE=${ARROW_AZURE} \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
@@ -145,6 +150,7 @@ export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
 export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
+export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}

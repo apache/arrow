@@ -58,8 +58,10 @@ that changing their value later will have an effect.
    - ``abort`` exits the processus with a non-zero return value;
    - ``trap`` issues a platform-specific debugger breakpoint / trap instruction;
    - ``warn`` prints a warning on stderr and continues execution;
+   - ``none`` disables memory checks;
 
-   If this variable is not set, or has empty an value, memory checks are disabled.
+   If this variable is not set, or has an empty value, it has the same effect
+   as the value ``none`` - memory checks are disabled.
 
    .. note::
       While this functionality can be useful and has little overhead, it
@@ -163,6 +165,13 @@ that changing their value later will have an effect.
 .. envvar:: AWS_ENDPOINT_URL
 
    Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   Alternatively, one can set :envvar:`AWS_ENDPOINT_URL_S3`.
+
+.. envvar:: AWS_ENDPOINT_URL_S3
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+   This takes precedence over :envvar:`AWS_ENDPOINT_URL` if both variables
+   are set.
 
 .. envvar:: GANDIVA_CACHE_SIZE
 

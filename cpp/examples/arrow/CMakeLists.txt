@@ -17,7 +17,9 @@
 
 add_arrow_example(row_wise_conversion_example)
 
-add_arrow_example(rapidjson_row_converter)
+if(ARROW_WITH_RAPIDJSON)
+  add_arrow_example(rapidjson_row_converter EXTRA_LINK_LIBS RapidJSON)
+endif()
 
 if(ARROW_ACERO)
   if(ARROW_BUILD_SHARED)
@@ -93,6 +95,17 @@ if(ARROW_FLIGHT)
   add_custom_target(flight_grpc_example_gen ALL
                     DEPENDS ${FLIGHT_EXAMPLE_GENERATED_PROTO_FILES})
 
+  set(FLIGHT_GRPC_EXAMPLE_LINK_LIBS
+      ${FLIGHT_EXAMPLES_LINK_LIBS}
+      gRPC::grpc++
+      ${GRPC_REFLECTION_LINK_LIBS}
+      ${ARROW_PROTOBUF_LIBPROTOBUF}
+      ${GFLAGS_LIBRARIES})
+  if(TARGET absl::log_internal_check_op)
+    # Protobuf generated files may use ABSL_DCHECK*() and
+    # absl::log_internal_check_op is needed for them.
+    list(APPEND FLIGHT_GRPC_EXAMPLE_LINK_LIBS absl::log_internal_check_op)
+  endif()
   add_arrow_example(flight_grpc_example
                     DEPENDENCIES
                     flight_grpc_example_gen
@@ -102,11 +115,7 @@ if(ARROW_FLIGHT)
                     EXTRA_INCLUDES
                     ${CMAKE_BINARY_DIR}
                     EXTRA_LINK_LIBS
-                    ${FLIGHT_EXAMPLES_LINK_LIBS}
-                    gRPC::grpc++
-                    ${GRPC_REFLECTION_LINK_LIBS}
-                    ${ARROW_PROTOBUF_LIBPROTOBUF}
-                    ${GFLAGS_LIBRARIES}
+                    ${FLIGHT_GRPC_EXAMPLE_LINK_LIBS}
                     EXTRA_SOURCES
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")

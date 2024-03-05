@@ -54,6 +54,11 @@ class IntegrationTest {
   }
 
   @Test
+  void locationReuseConnection() throws Exception {
+    testScenario("location:reuse_connection");
+  }
+
+  @Test
   void middleware() throws Exception {
     testScenario("middleware");
   }
@@ -81,6 +86,11 @@ class IntegrationTest {
   @Test
   void appMetadataFlightInfoEndpoint() throws Exception {
     testScenario("app_metadata_flight_info_endpoint");
+  }
+
+  @Test
+  void sessionOptions() throws Exception {
+    testScenario("session_options");
   }
 
   void testScenario(String scenarioName) throws Exception {

@@ -47,8 +47,23 @@ namespace arrow::fs {
 class TestAzureFileSystem;
 
 /// Options for the AzureFileSystem implementation.
+///
+/// By default, authentication is handled by the Azure SDK's credential chain
+/// which may read from multiple environment variables, such as:
+/// - `AZURE_TENANT_ID`
+/// - `AZURE_CLIENT_ID`
+/// - `AZURE_CLIENT_SECRET`
+/// - `AZURE_AUTHORITY_HOST`
+/// - `AZURE_CLIENT_CERTIFICATE_PATH`
+/// - `AZURE_FEDERATED_TOKEN_FILE`
+///
+/// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief account name of the Azure Storage account.
+  /// \brief The name of the Azure Storage Account being accessed.
+  ///
+  /// All service URLs will be constructed using this storage account name.
+  /// `ConfigureAccountKeyCredential` assumes the user wants to authenticate
+  /// this account.
   std::string account_name;
 
   /// \brief hostname[:port] of the Azure Blob Storage Service.
@@ -92,30 +107,30 @@ struct ARROW_EXPORT AzureOptions {
 
  private:
   enum class CredentialKind {
+    kDefault,
     kAnonymous,
-    kTokenCredential,
-    kStorageSharedKeyCredential,
-  } credential_kind_ = CredentialKind::kAnonymous;
+    kStorageSharedKey,
+    kClientSecret,
+    kManagedIdentity,
+    kWorkloadIdentity,
+  } credential_kind_ = CredentialKind::kDefault;
 
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
   Status ConfigureDefaultCredential();
-
-  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
-
-  Status ConfigureWorkloadIdentityCredential();
-
+  Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
-
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureWorkloadIdentityCredential();
 
   bool Equals(const AzureOptions& other) const;
 
@@ -195,6 +210,25 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Status DeleteFile(const std::string& path) override;
 
+  /// \brief Move / rename a file or directory.
+  ///
+  /// There are no files immediately at the root directory, so paths like
+  /// "/segment" always refer to a container of the storage account and are
+  /// treated as directories.
+  ///
+  /// If `dest` exists but the operation fails for some reason, `Move`
+  /// guarantees `dest` is not lost.
+  ///
+  /// Conditions for a successful move:
+  /// 1. `src` must exist.
+  /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
+  ///    a directory can't be made a subdirectory of itself.
+  /// 3. If `dest` already exists and it's a file, `src` must also be a file.
+  ///    `dest` is then replaced by `src`.
+  /// 4. All components of `dest` must exist, except for the last.
+  /// 5. If `dest` already exists and it's a directory, `src` must also be a
+  ///    directory and `dest` must be empty. `dest` is then replaced by `src`
+  ///    and its contents.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;

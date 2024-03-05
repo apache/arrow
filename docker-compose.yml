@@ -172,7 +172,7 @@ x-hierarchy:
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
-  - python-wheel-windows-vs2017
+  - python-wheel-windows-vs2019
   - python-wheel-windows-test
 
 volumes:
@@ -320,6 +320,8 @@ services:
       # Shrink test runtime by enabling minimal optimizations
       ARROW_C_FLAGS_DEBUG: "-g1 -Og"
       ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
+      # GH-39973: Do not use debug memory pool for valgrind
+      ARROW_DEBUG_MEMORY_POOL: "none"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
@@ -371,7 +373,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -598,6 +600,8 @@ services:
       CXX: clang++-${CLANG_TOOLS}
       # Avoid creating huge static libraries
       ARROW_BUILD_STATIC: "OFF"
+      # GH-39973: Do not use debug memory pool for ASAN
+      ARROW_DEBUG_MEMORY_POOL: "none"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
@@ -654,7 +658,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 38
+    #   FEDORA: 39
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -955,7 +959,7 @@ services:
     #   docker-compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 38
+    #   FEDORA: 39
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -1030,7 +1034,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1053,7 +1057,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-10-03-72cdc42
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-02-04-ea37246
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2_28
@@ -1098,19 +1102,19 @@ services:
       CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  python-wheel-windows-vs2017:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+  python-wheel-windows-vs2019:
+    image: ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-vs2017.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-vs2019.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
       # Uncomment if no local cache is available.
       # cache_from:
-      #   - abrarov/msvc-2017:2.11.0
-      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+      #   - abrarov/msvc-2019:2.11.0
+      #   - ${REPO}:python-${PYTHON}-wheel-windows-vs2019-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
@@ -1119,12 +1123,12 @@ services:
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
   python-wheel-windows-test:
-    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2017-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+    image: ${REPO}:python-${PYTHON}-wheel-windows-test-vs2019-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
     build:
       args:
         python: ${PYTHON}
       context: .
-      dockerfile: ci/docker/python-wheel-windows-test-vs2017.dockerfile
+      dockerfile: ci/docker/python-wheel-windows-test-vs2019.dockerfile
     volumes:
       - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
       - type: bind
@@ -1343,7 +1347,7 @@ services:
     command:
       [ "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
           /arrow/ci/scripts/python_build.sh /arrow /build &&
-          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/$$(arch) &&
+          /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/ &&
           /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
 
@@ -1414,6 +1418,7 @@ services:
       ARROW_DEPENDENCY_SOURCE: ''
       ARROW_SOURCE_HOME: '/arrow'
       FORCE_BUNDLED_BUILD: 'true'
+      LIBARROW_BINARY: 'false'
       LIBARROW_BUILD: 'true'
     extends: ubuntu-r
     command: >
@@ -1443,7 +1448,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
-      LIBARROW_DOWNLOAD: "false"
+      LIBARROW_BINARY: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
@@ -1708,9 +1713,7 @@ services:
         arch: ${ARCH}
         # Use a newer JDK as it seems to improve stability
         jdk: 17
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
@@ -1741,6 +1744,7 @@ services:
       args:
         r: ${R}
         jdk: ${JDK}
+        maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
@@ -1842,9 +1846,7 @@ services:
         arch: ${ARCH}
         python: ${PYTHON}
         jdk: ${JDK}
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         hdfs: ${HDFS}
     links:
       - impala:impala
@@ -1885,9 +1887,7 @@ services:
         arch: ${ARCH}
         python: ${PYTHON}
         jdk: ${JDK}
-        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
-        # be set to ${MAVEN}
-        maven: 3.5
+        maven: ${MAVEN}
         spark: ${SPARK}
         numpy: ${NUMPY}
     shm_size: *shm-size
