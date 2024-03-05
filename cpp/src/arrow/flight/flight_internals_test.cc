@@ -353,6 +353,11 @@ TEST(FlightTypes, LocationUnknownScheme) {
   ASSERT_OK(Location::Parse("https://example.com/foo"));
 }
 
+TEST(FlightTypes, LocationFallback) {
+  EXPECT_EQ("arrow-flight-reuse-connection://?", Location::ReuseConnection().ToString());
+  EXPECT_EQ("arrow-flight-reuse-connection", Location::ReuseConnection().scheme());
+}
+
 TEST(FlightTypes, RoundtripStatus) {
   // Make sure status codes round trip through our conversions
 

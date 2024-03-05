@@ -157,6 +157,14 @@ const (
 	CancelStatusNotCancellable = flight.CancelStatus_CANCEL_STATUS_NOT_CANCELLABLE
 )
 
+// Constants for Location
+const (
+	// LocationReuseConnection is a special location that tells clients
+	// they may fetch the data from the same service that they obtained
+	// the FlightEndpoint response from.
+	LocationReuseConnection = "arrow-flight-reuse-connection://?"
+)
+
 // RegisterFlightServiceServer registers an existing flight server onto an
 // existing grpc server, or anything that is a grpc service registrar.
 func RegisterFlightServiceServer(s *grpc.Server, srv FlightServer) {

@@ -2079,6 +2079,50 @@ class FlightSqlExtensionScenario : public FlightSqlScenario {
     return Status::OK();
   }
 };
+
+/// \brief The server for testing arrow-flight-reuse-connection://.
+class ReuseConnectionServer : public FlightServerBase {
+ public:
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* info) override {
+    auto location = Location::ReuseConnection();
+    auto endpoint = FlightEndpoint{{"reuse"}, {location}};
+    ARROW_ASSIGN_OR_RAISE(auto info_data, FlightInfo::Make(arrow::Schema({}), descriptor,
+                                                           {endpoint}, -1, -1));
+    *info = std::make_unique<FlightInfo>(std::move(info_data));
+    return Status::OK();
+  }
+};
+
+/// \brief A scenario for testing arrow-flight-reuse-connection://?.
+class ReuseConnectionScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ReuseConnectionServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    auto descriptor = FlightDescriptor::Command("reuse");
+    ARROW_ASSIGN_OR_RAISE(auto info, client->GetFlightInfo(descriptor));
+    if (info->endpoints().size() != 1) {
+      return Status::Invalid("Expected 1 endpoint, got ", info->endpoints().size());
+    }
+    const auto& endpoint = info->endpoints().front();
+    if (endpoint.locations.size() != 1) {
+      return Status::Invalid("Expected 1 location, got ",
+                             info->endpoints().front().locations.size());
+    } else if (endpoint.locations.front().ToString() !=
+               "arrow-flight-reuse-connection://?") {
+      return Status::Invalid("Expected arrow-flight-reuse-connection://?, got ",
+                             endpoint.locations.front().ToString());
+    }
+    return Status::OK();
+  }
+};
 }  // namespace
 
 Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* out) {
@@ -2102,6 +2146,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
     *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "location:reuse_connection") {
+    *out = std::make_shared<ReuseConnectionScenario>();
     return Status::OK();
   } else if (scenario_name == "session_options") {
     *out = std::make_shared<SessionOptionsScenario>();
