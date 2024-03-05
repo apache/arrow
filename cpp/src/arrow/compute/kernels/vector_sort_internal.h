@@ -276,7 +276,7 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
     return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
   }
   Partitioner partitioner;
-  ::arrow::internal::ChunkLocation hint;
+  ChunkLocation hint;
   if (null_placement == NullPlacement::AtStart) {
     auto nulls_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
       const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
@@ -306,7 +306,7 @@ enable_if_t<has_null_like_values<TypeClass>::value, NullPartitionResult>
 PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
                    const ChunkedArrayResolver& resolver, NullPlacement null_placement) {
   Partitioner partitioner;
-  ::arrow::internal::ChunkLocation hint;
+  ChunkLocation hint;
   if (null_placement == NullPlacement::AtStart) {
     auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
       const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
@@ -582,8 +582,6 @@ inline ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
 // Compare two records in a single column (either from a batch or table)
 template <typename ResolvedSortKey>
 struct ColumnComparator {
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
-
   ColumnComparator(const ResolvedSortKey& sort_key, NullPlacement null_placement)
       : sort_key_(sort_key), null_placement_(null_placement) {}
 
@@ -598,7 +596,6 @@ struct ColumnComparator {
 
 template <typename ResolvedSortKey, typename Type>
 struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
   using ColumnComparator<ResolvedSortKey>::ColumnComparator;
 
   int DoCompare(const ResolvedChunk& chunk_left, const ResolvedChunk& chunk_right) const {
@@ -636,7 +633,6 @@ struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
 template <typename ResolvedSortKey>
 struct ConcreteColumnComparator<ResolvedSortKey, NullType>
     : public ColumnComparator<ResolvedSortKey> {
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
   using ColumnComparator<ResolvedSortKey>::ColumnComparator;
 
   int Compare(int64_t left, int64_t right) const override { return 0; }
@@ -648,8 +644,6 @@ struct ConcreteColumnComparator<ResolvedSortKey, NullType>
 template <typename ResolvedSortKey>
 class MultipleKeyComparator {
  public:
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
-
   MultipleKeyComparator(const std::vector<ResolvedSortKey>& sort_keys,
                         NullPlacement null_placement)
       : sort_keys_(sort_keys), null_placement_(null_placement) {
@@ -743,8 +737,6 @@ struct ResolvedRecordBatchSortKey {
         order(order),
         null_count(array->null_count()) {}
 
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
-
   ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
     return {&array, index};
   }
@@ -772,9 +764,7 @@ struct ResolvedTableSortKey {
         order(order),
         null_count(null_count) {}
 
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
-
-  ResolvedChunk GetChunk(int64_t index, ::arrow::internal::ChunkLocation* hint) const {
+  ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
     return resolver.ResolveLogicalIndex(index, hint);
   }
 

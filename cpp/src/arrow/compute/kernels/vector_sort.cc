@@ -24,7 +24,6 @@
 namespace arrow {
 
 using internal::checked_cast;
-using internal::ChunkLocation;
 
 namespace compute {
 namespace internal {

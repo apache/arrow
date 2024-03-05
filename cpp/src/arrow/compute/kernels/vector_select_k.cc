@@ -29,8 +29,6 @@ namespace compute::internal {
 
 namespace {
 
-using ChunkLocation = ::arrow::internal::ChunkLocation;
-
 // ----------------------------------------------------------------------
 // TopK/BottomK implementations
 

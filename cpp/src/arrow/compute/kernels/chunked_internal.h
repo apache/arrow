@@ -30,6 +30,9 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// Expose ChunkLocation in arrow::compute::internal as well because it's used a lot
+using ChunkLocation = ::arrow::internal::ChunkLocation;
+
 // The target chunk in a chunked array.
 struct ResolvedChunk {
   // The target array in chunked array.
@@ -51,9 +54,6 @@ struct ResolvedChunk {
 };
 
 class ChunkedArrayResolver {
- public:
-  using ChunkLocation = ::arrow::internal::ChunkLocation;
-
  private:
   ::arrow::internal::ChunkResolver resolver_;
   std::vector<const Array*> chunks_;
