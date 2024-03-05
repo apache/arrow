@@ -545,7 +545,6 @@ set(CYTHON_EXTENSIONS
     _csv
     _feather
     _fs
-    _hdfsio
     _json
     _pyarrow_cpp_tests)
 set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)

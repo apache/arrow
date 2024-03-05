@@ -962,6 +962,148 @@ def test_table_to_struct_array_with_max_chunksize():
     ))
 
 
+def check_tensors(tensor, expected_tensor, type, size):
+    assert tensor.equals(expected_tensor)
+    assert tensor.size == size
+    assert tensor.type == type
+    assert tensor.shape == expected_tensor.shape
+    assert tensor.strides == expected_tensor.strides
+
+
+@pytest.mark.parametrize('typ', [
+    np.uint8, np.uint16, np.uint32, np.uint64,
+    np.int8, np.int16, np.int32, np.int64,
+    np.float32, np.float64,
+])
+def test_recordbatch_to_tensor(typ):
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr2, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr3, type=pa.from_numpy_dtype(typ)),
+        ], ["a", "b", "c"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2, arr3], typ).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+
+    # Test offset
+    batch1 = batch.slice(1)
+    result = batch1.to_tensor()
+
+    arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
+
+    x = np.array([arr1, arr2, arr3], typ).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+
+    batch2 = batch.slice(1, 5)
+    result = batch2.to_tensor()
+
+    arr1 = [2, 3, 4, 5, 6]
+    arr2 = [20, 30, 40, 50, 60]
+    arr3 = [100, 100, 100, 100, 100]
+
+    x = np.array([arr1, arr2, arr3], typ).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+
+
+def test_recordbatch_to_tensor_nan():
+    arr1 = [1, 2, 3, 4, np.nan, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, np.nan, 90]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.float32()),
+            pa.array(arr2, type=pa.float32()),
+        ], ["a", "b"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2], np.float32).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+
+def test_recordbatch_to_tensor_null():
+    arr1 = [1, 2, 3, 4, None, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, None, 90]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.float32()),
+            pa.array(arr2, type=pa.float32()),
+        ], ["a", "b"]
+    )
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match="Can only convert a RecordBatch with no nulls."
+    ):
+        batch.to_tensor()
+
+
+def test_recordbatch_to_tensor_empty():
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array([], type=pa.float32()),
+            pa.array([], type=pa.float32()),
+        ], ["a", "b"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([[], []], np.float32).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    assert result.size == expected.size
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == (4, 4)
+
+
+def test_recordbatch_to_tensor_unsupported():
+    # Mixed data type
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int32()),
+            pa.array(arr2, type=pa.float32()),
+        ], ["a", "b"]
+    )
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match="Can only convert a RecordBatch with uniform data type."
+    ):
+        batch.to_tensor()
+
+    # Unsupported data type
+    arr3 = ["a", "b", "c", "a", "b", "c", "a", "b", "c"]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr3, type=pa.utf8()),
+        ], ["c"]
+    )
+    with pytest.raises(
+        pa.ArrowTypeError,
+        match="DataType is not supported"
+    ):
+        batch.to_tensor()
+
+
 def _table_like_slice_tests(factory):
     data = [
         pa.array(range(5)),

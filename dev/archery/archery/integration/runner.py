@@ -609,6 +609,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
+            "location:reuse_connection",
+            description="Ensure arrow-flight-reuse-connection is accepted.",
+            skip_testers={"JS", "C#", "Rust"},
+        ),
+        Scenario(
             "session_options",
             description="Ensure Flight SQL Sessions work as expected.",
             skip_testers={"JS", "C#", "Rust"}

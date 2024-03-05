@@ -80,6 +80,14 @@ class ARROW_EXPORT RecordBatch {
   /// in the resulting struct array.
   Result<std::shared_ptr<StructArray>> ToStructArray() const;
 
+  /// \brief Convert record batch with one data type to Tensor
+  ///
+  /// Create a Tensor object with shape (number of rows, number of columns) and
+  /// strides (type size in bytes, type size in bytes * number of rows).
+  /// Generated Tensor will have column-major layout.
+  Result<std::shared_ptr<Tensor>> ToTensor(
+      MemoryPool* pool = default_memory_pool()) const;
+
   /// \brief Construct record batch from struct array
   ///
   /// This constructs a record batch using the child arrays of the given
