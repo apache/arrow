@@ -604,8 +604,8 @@ struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
   int Compare(const Location& left, const Location& right) const override {
     const auto& sort_key = this->sort_key_;
 
-    const auto chunk_left = sort_key.GetChunk(left);
-    const auto chunk_right = sort_key.GetChunk(right);
+    const auto chunk_left = sort_key.GetChunkByLocation(left);
+    const auto chunk_right = sort_key.GetChunkByLocation(right);
     if (sort_key.null_count > 0) {
       const bool is_null_left = chunk_left.IsNull();
       const bool is_null_right = chunk_right.IsNull();
@@ -733,7 +733,11 @@ struct ResolvedRecordBatchSortKey {
 
   using LocationType = int64_t;
 
-  ResolvedChunk GetChunk(int64_t index) const { return {&array, index}; }
+  ResolvedChunk GetChunkByLocation(LocationType index) const { return {&array, index}; }
+
+  ResolvedChunk GetChunk(int64_t index, ::arrow::internal::ChunkLocation* hint) const {
+    return {&array, index};
+  }
 
   const std::shared_ptr<DataType> type;
   std::shared_ptr<Array> owned_array;
@@ -747,14 +751,18 @@ struct ResolvedTableSortKey {
                        SortOrder order, int64_t null_count)
       : type(GetPhysicalType(type)),
         owned_chunks(std::move(chunks)),
-        chunks(GetArrayPointers(owned_chunks)),
+        resolver(GetArrayPointers(owned_chunks)),
         order(order),
         null_count(null_count) {}
 
   using LocationType = ::arrow::internal::ChunkLocation;
 
-  ResolvedChunk GetChunk(::arrow::internal::ChunkLocation loc) const {
-    return {chunks[loc.chunk_index], loc.index_in_chunk};
+  ResolvedChunk GetChunkByLocation(LocationType loc) const {
+    return resolver.ResolveLocation(loc);
+  }
+
+  ResolvedChunk GetChunk(int64_t index, ::arrow::internal::ChunkLocation* hint) const {
+    return resolver.ResolveLogicalIndex(index, hint);
   }
 
   // Make a vector of ResolvedSortKeys for the sort keys and the given table.
@@ -784,7 +792,7 @@ struct ResolvedTableSortKey {
 
   std::shared_ptr<DataType> type;
   ArrayVector owned_chunks;
-  std::vector<const Array*> chunks;
+  ChunkedArrayResolver resolver;
   SortOrder order;
   int64_t null_count;
 };

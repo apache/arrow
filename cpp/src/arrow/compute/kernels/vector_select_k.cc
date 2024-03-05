@@ -404,10 +404,15 @@ class TableSelector : public TypeVisitor {
 
     using LocationType = int64_t;
 
+    ResolvedChunk GetChunkByLocation(LocationType index) const {
+      // This is slightly less efficient than GetChunk with the hint parameter.
+      return resolver.ResolveLogicalIndex(index);
+    }
+
     // Find the target chunk and index in the target chunk from an
     // index in chunked array.
-    ResolvedChunk GetChunk(int64_t index) const {
-      return resolver.ResolveLogicalIndex(index);
+    ResolvedChunk GetChunk(int64_t index, ::arrow::internal::ChunkLocation* hint) const {
+      return resolver.ResolveLogicalIndex(index, hint);
     }
 
     const SortOrder order;
@@ -504,11 +509,13 @@ class TableSelector : public TypeVisitor {
     if (k_ > table_.num_rows()) {
       k_ = table_.num_rows();
     }
+    ::arrow::internal::ChunkLocation left_hint;
+    ::arrow::internal::ChunkLocation right_hint;
     std::function<bool(const uint64_t&, const uint64_t&)> cmp;
     SelectKComparator<sort_order> select_k_comparator;
     cmp = [&](const uint64_t& left, const uint64_t& right) -> bool {
-      auto chunk_left = first_sort_key.GetChunk(left);
-      auto chunk_right = first_sort_key.GetChunk(right);
+      auto chunk_left = first_sort_key.GetChunk(left, &left_hint);
+      auto chunk_right = first_sort_key.GetChunk(right, &right_hint);
       auto value_left = chunk_left.Value<InType>();
       auto value_right = chunk_right.Value<InType>();
       if (value_left == value_right) {
