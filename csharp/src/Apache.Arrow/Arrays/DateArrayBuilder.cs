@@ -226,7 +226,8 @@ namespace Apache.Arrow
 
         public TBuilder SetNull(int index)
         {
-            throw new NotImplementedException();
+            InnerBuilder.SetNull(index);
+            return this as TBuilder;
         }
 
         /// <summary>

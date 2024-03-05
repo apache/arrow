@@ -229,14 +229,17 @@ namespace Apache.Arrow
 
             public TBuilder Set(int index, byte value)
             {
-                // TODO: Implement
-                throw new NotImplementedException();
+                ValidityBuffer.Set(index, true);
+                Span<byte> buf = stackalloc[] { value };
+                BinaryViews.Span[index] = new BinaryView(buf);
+                return Instance;
             }
 
             public TBuilder SetNull(int index)
             {
-                // TODO: Implement
-                throw new NotImplementedException();
+                ValidityBuffer.Set(index, false);
+                BinaryViews.Span[index] = default;
+                return Instance;
             }
 
             /// <summary>

@@ -137,7 +137,10 @@ namespace Apache.Arrow
             
             public Builder SetNull(int index)
             {
-                throw new NotImplementedException();
+                CheckIndex(index);
+                ValueBuffer.Set(index, false);
+                ValidityBuffer.Set(index, false);
+                return this;
             }
 
             public Builder Set(int index, bool value)

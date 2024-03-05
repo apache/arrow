@@ -253,20 +253,25 @@ namespace Apache.Arrow
 
             public TBuilder Swap(int i, int j)
             {
-                // TODO: Implement
-                throw new NotImplementedException();
+                byte ti = ValueBuffer.Span[i];
+                byte tj = ValueBuffer.Span[j];
+                ValueBuffer.Span[i] = tj;
+                ValueBuffer.Span[j] = ti;
+                return Instance;
             }
 
             public TBuilder Set(int index, byte value)
             {
-                // TODO: Implement
-                throw new NotImplementedException();
+                ValueBuffer.Span[index] = value;
+                ValidityBuffer.Set(index);
+                return Instance;
             }
 
             public TBuilder SetNull(int index)
             {
-                throw new NotImplementedException();
-
+                ValueBuffer.Span[index] = default;
+                ValidityBuffer.Set(index, false);
+                return Instance;
             }
 
             /// <summary>
