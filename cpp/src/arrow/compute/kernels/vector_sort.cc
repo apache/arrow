@@ -753,10 +753,8 @@ class TableSorter {
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is either null or nan
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
-                 right_loc =
-                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
+                 left_loc = left_resolver_.ResolveWithHint(left, /*hint=*/left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, /*hint=*/right_loc);
                  auto chunk_left = first_sort_key.GetChunk(left_loc);
                  auto chunk_right = first_sort_key.GetChunk(right_loc);
                  const auto left_is_null = chunk_left.IsNull();
@@ -792,10 +790,8 @@ class TableSorter {
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
-                 right_loc =
-                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
+                 left_loc = left_resolver_.ResolveWithHint(left, /*hint=*/left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, /*hint=*/right_loc);
                  return comparator.Compare(left_loc, right_loc, 1);
                });
     // Copy back temp area into main buffer
@@ -818,10 +814,8 @@ class TableSorter {
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.
-                 left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
-                 right_loc =
-                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
+                 left_loc = left_resolver_.ResolveWithHint(left, /*hint=*/left_loc);
+                 right_loc = right_resolver_.ResolveWithHint(right, /*hint=*/right_loc);
                  auto chunk_left = first_sort_key.GetChunk(left_loc);
                  auto chunk_right = first_sort_key.GetChunk(right_loc);
                  DCHECK(!chunk_left.IsNull());

@@ -114,8 +114,7 @@ struct ARROW_EXPORT ChunkResolver {
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
   ///         `>= chunked_array.length()`.
-  inline ChunkLocation ResolveWithChunkIndexHint(int64_t index,
-                                                 ChunkLocation hint) const {
+  inline ChunkLocation ResolveWithHint(int64_t index, ChunkLocation hint) const {
     assert(hint.chunk_index < static_cast<int64_t>(offsets_.size()));
     const auto chunk_index =
         ResolveChunkIndex</*StoreCachedChunk=*/false>(index, hint.chunk_index);
