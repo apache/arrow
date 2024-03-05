@@ -53,6 +53,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -423,6 +424,15 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
   return *Table::FromRecordBatches(schema, std::move(batches));
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       const std::vector<int64_t>& shape,
+                                       std::string_view json,
+                                       const std::vector<int64_t>& strides,
+                                       const std::vector<std::string>& dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, json);
+  return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
