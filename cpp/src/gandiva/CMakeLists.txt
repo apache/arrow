@@ -269,7 +269,8 @@ add_gandiva_test(internals-test
                  interval_holder_test.cc
                  tests/test_util.cc
                  EXTRA_LINK_LIBS
-                 re2::re2)
+                 re2::re2
+                 ${GANDIVA_OPENSSL_LIBS})
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
