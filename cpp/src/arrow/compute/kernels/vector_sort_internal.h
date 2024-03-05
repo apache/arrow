@@ -738,6 +738,7 @@ struct ResolvedRecordBatchSortKey {
         null_count(array->null_count()) {}
 
   ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
+    *hint = {0, index};
     return {&array, index};
   }
 
