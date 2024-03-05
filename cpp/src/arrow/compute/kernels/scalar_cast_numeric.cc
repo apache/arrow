@@ -23,6 +23,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/value_parsing.h"
 
@@ -34,6 +35,7 @@ using internal::IntegersCanFit;
 using internal::OptionalBitBlockCounter;
 using internal::ParseValue;
 using internal::PrimitiveScalarBase;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -56,18 +58,39 @@ Status CastFloatingToFloating(KernelContext*, const ExecSpan& batch, ExecResult*
 
 // ----------------------------------------------------------------------
 // Implement fast safe floating point to integer cast
+//
+template<typename InType, typename OutType,
+         typename InT = typename InType::c_type,
+         typename OutT = typename OutType::c_type>
+struct WasTruncated {
+    static bool Check(OutT out_val, InT in_val) {
+        return static_cast<InT>(out_val) != in_val;
+    }
+
+    static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
+        return is_valid && static_cast<InT>(out_val) != in_val;
+    }
+};
+
+// Half float to int
+template<typename OutType>
+struct WasTruncated<HalfFloatType, OutType> {
+    using OutT = typename OutType::c_type;
+    static bool Check(OutT out_val, uint16_t in_val) {
+        return static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
+    }
+
+    static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
+        return is_valid && static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
+    }
+
+};
 
 // InType is a floating point type we are planning to cast to integer
 template <typename InType, typename OutType, typename InT = typename InType::c_type,
           typename OutT = typename OutType::c_type>
 ARROW_DISABLE_UBSAN("float-cast-overflow")
 Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
-  auto WasTruncated = [&](OutT out_val, InT in_val) -> bool {
-    return static_cast<InT>(out_val) != in_val;
-  };
-  auto WasTruncatedMaybeNull = [&](OutT out_val, InT in_val, bool is_valid) -> bool {
-    return is_valid && static_cast<InT>(out_val) != in_val;
-  };
   auto GetErrorMessage = [&](InT val) {
     return Status::Invalid("Float value ", val, " was truncated converting to ",
                            *output.type);
@@ -86,26 +109,26 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
     if (block.popcount == block.length) {
       // Fast path: branchless
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= WasTruncated(out_data[i], in_data[i]);
+        block_out_of_bounds |= WasTruncated<InType, OutType>::Check(out_data[i], in_data[i]);
       }
     } else if (block.popcount > 0) {
       // Indices have nulls, must only boundscheck non-null values
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= WasTruncatedMaybeNull(
+        block_out_of_bounds |= WasTruncated<InType, OutType>::CheckMaybeNull(
             out_data[i], in_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (input.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (WasTruncatedMaybeNull(out_data[i], in_data[i],
+          if (WasTruncated<InType, OutType>::CheckMaybeNull(out_data[i], in_data[i],
                                     bit_util::GetBit(bitmap, offset_position + i))) {
             return GetErrorMessage(in_data[i]);
           }
         }
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (WasTruncated(out_data[i], in_data[i])) {
+          if (WasTruncated<InType, OutType>::Check(out_data[i], in_data[i])) {
             return GetErrorMessage(in_data[i]);
           }
         }
@@ -701,7 +724,7 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   }
 
   // Cast from half-float
-  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)}, 
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)},
               out_ty, CastFloatingToInteger));
 
   // From other numbers to integer
@@ -823,14 +846,14 @@ std::shared_ptr<CastFunction> GetCastToHalfFloat() {
 
   // Casts from integer to floating point
   for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, 
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty},
         TypeTraits<HalfFloatType>::type_singleton(), CastIntegerToFloating));
   }
 
   // Cast from other strings to half float.
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
-    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, 
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty},
                 TypeTraits<HalfFloatType>::type_singleton(), exec));
   }
 
