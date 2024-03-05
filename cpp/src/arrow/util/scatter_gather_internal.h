@@ -77,6 +77,16 @@ class Gather {
     assert(src && idx && out);
   }
 
+  Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
+         const IndexCType* idx, uint8_t* out, int64_t out_offset)
+      : Gather(/*src_length=*/src_length,
+               /*       src=*/src + src_offset * kValueWidth,
+               /*idx_length=*/idx_length,
+               /*       idx=*/idx,
+               /*       out=*/out + out_offset * kValueWidth) {
+    assert(src && idx && out);
+  }
+
   ARROW_FORCE_INLINE
   int64_t Execute() {
     for (int64_t position = 0; position < idx_length_; position++) {

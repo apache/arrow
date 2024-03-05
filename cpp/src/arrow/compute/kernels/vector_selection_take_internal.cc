@@ -327,14 +327,14 @@ using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement optimized take for primitive types from boolean to 1/2/4/8-byte
-// C-type based types. Use common implementation for every byte width and only
+// C-type based types. Use common implementation for every bit width and only
 // generate code for unsigned integer indices, since after boundschecking to
 // check for negative numbers in the indices we can safely reinterpret_cast
 // signed integers as unsigned.
 
 /// \brief The Take implementation for primitive (fixed-width) types does not
 /// use the logical Arrow type but rather the physical C type. This way we
-/// only generate one take function for each byte width.
+/// only generate one take function for each bit width.
 ///
 /// This function assumes that the indices have been boundschecked.
 template <typename IndexCType, typename ValueBitWidthConstant>
@@ -345,16 +345,17 @@ struct PrimitiveTakeImpl {
                    ArrayData* out_arr) {
     DCHECK_EQ(values.type->bit_width(), kValueWidthInBits);
     DCHECK_EQ(out_arr->offset, 0);
-    constexpr int kValueWidth = kValueWidthInBits / 8;
-    auto* src = values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
-    auto* idx = indices.GetValues<IndexCType>(1);
-    auto* out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
     int64_t valid_count = 0;
     arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
-        /*src_length=*/values.length, src,
-        /*idx_length=*/indices.length, idx, out};
+        /*src_length=*/values.length,
+        /*       src=*/values.GetValues<uint8_t>(1, 0),
+        /*src_offset=*/values.offset,
+        /*idx_length=*/indices.length,
+        /*       idx=*/indices.GetValues<IndexCType>(1),
+        /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0),
+        /*out_offset=*/0};
     if (values.null_count == 0 && indices.null_count == 0) {
       // See TODO in PrimitiveTakeExec about skipping allocation of validity bitmaps
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
@@ -373,7 +374,7 @@ struct PrimitiveTakeImpl {
 };
 
 template <typename IndexCType>
-struct BooleanTakeImpl {
+struct PrimitiveTakeImpl<IndexCType, std::integral_constant<int, 1>> {
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
     const uint8_t* values_data = values.buffers[1].data;
@@ -516,7 +517,8 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
                                               /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
-      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+          values, indices, out_arr);
       break;
     case 8:
       TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
