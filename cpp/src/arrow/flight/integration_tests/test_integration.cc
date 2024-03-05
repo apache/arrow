@@ -2095,7 +2095,7 @@ class ReuseConnectionServer : public FlightServerBase {
   }
 };
 
-/// \brief A scenario for testing arrow-flight-reuse-connection://.
+/// \brief A scenario for testing arrow-flight-reuse-connection://?.
 class ReuseConnectionScenario : public Scenario {
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {

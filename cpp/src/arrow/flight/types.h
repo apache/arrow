@@ -426,7 +426,7 @@ struct ARROW_FLIGHT_EXPORT Location {
 
   /// \brief Get the fallback URI.
   ///
-  /// arrow-flight-reuse-connection:// means that a client may attempt to
+  /// arrow-flight-reuse-connection://? means that a client may attempt to
   /// reuse an existing connection to a Flight service to fetch data instead
   /// of creating a new connection to one of the other locations listed in a
   /// FlightEndpoint response.
