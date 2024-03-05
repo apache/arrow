@@ -276,15 +276,16 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
     return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
   }
   Partitioner partitioner;
+  ::arrow::internal::ChunkLocation hint;
   if (null_placement == NullPlacement::AtStart) {
     auto nulls_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.ResolveLogicalIndex(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
       return chunk.IsNull();
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, nulls_end);
   } else {
     auto nulls_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.ResolveLogicalIndex(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
       return !chunk.IsNull();
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, nulls_begin);
@@ -305,15 +306,16 @@ enable_if_t<has_null_like_values<TypeClass>::value, NullPartitionResult>
 PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
                    const ChunkedArrayResolver& resolver, NullPlacement null_placement) {
   Partitioner partitioner;
+  ::arrow::internal::ChunkLocation hint;
   if (null_placement == NullPlacement::AtStart) {
     auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.ResolveLogicalIndex(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
       return std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, null_likes_end);
   } else {
     auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.ResolveLogicalIndex(ind);
+      const auto chunk = resolver.ResolveLogicalIndex(ind, &hint);
       return !std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, null_likes_begin);

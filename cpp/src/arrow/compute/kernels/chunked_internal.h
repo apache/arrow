@@ -78,6 +78,12 @@ class ChunkedArrayResolver {
     const auto loc = resolver_.Resolve(index);
     return {chunks_[loc.chunk_index], loc.index_in_chunk};
   }
+
+  ResolvedChunk ResolveLogicalIndex(int64_t index, ChunkLocation* hint) const {
+    const auto loc = resolver_.ResolveWithHint(index, *hint);
+    *hint = loc;
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
+  }
 };
 
 inline std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {

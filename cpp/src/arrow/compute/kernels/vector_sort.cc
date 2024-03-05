@@ -157,22 +157,24 @@ class ChunkedArraySorter : public TypeVisitor {
   void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
     using ArrowType = typename ArrayType::TypeClass;
-    // XXX: only one needed
-    const ChunkedArrayResolver left_resolver(arrays);
-    const ChunkedArrayResolver right_resolver(arrays);
+    const ChunkedArrayResolver resolver(arrays);
+    ChunkLocation left_hint;
+    ChunkLocation right_hint;
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.ResolveLogicalIndex(left);
-                   const auto chunk_right = right_resolver.ResolveLogicalIndex(right);
+                   const auto chunk_left = resolver.ResolveLogicalIndex(left, &left_hint);
+                   const auto chunk_right =
+                       resolver.ResolveLogicalIndex(right, &right_hint);
                    return chunk_left.Value<ArrowType>() < chunk_right.Value<ArrowType>();
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.ResolveLogicalIndex(left);
-                   const auto chunk_right = right_resolver.ResolveLogicalIndex(right);
+                   const auto chunk_left = resolver.ResolveLogicalIndex(left, &left_hint);
+                   const auto chunk_right =
+                       resolver.ResolveLogicalIndex(right, &right_hint);
                    // We don't use 'left > right' here to reduce required
                    // operator. If we use 'right < left' here, '<' is only
                    // required.
@@ -785,8 +787,8 @@ class TableSorter {
     // Untyped implementation
     auto& comparator = comparator_;
 
-    ChunkLocation left_loc{0, 0};
-    ChunkLocation right_loc{0, 0};
+    ChunkLocation left_loc;
+    ChunkLocation right_loc;
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
@@ -809,8 +811,8 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
-    ChunkLocation left_loc{0, 0};
-    ChunkLocation right_loc{0, 0};
+    ChunkLocation left_loc;
+    ChunkLocation right_loc;
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.
