@@ -19,7 +19,6 @@
 
 #include <cstdint>
 
-#include "arrow/util/macros.h"
 #include "gandiva/visibility.h"
 
 /// Stub functions that can be accessed from LLVM.
@@ -49,7 +48,11 @@ using gdv_month_interval = int32_t;
 // unit tests may be compiled without O2, so inlining may not happen.
 #define GDV_FORCE_INLINE
 #else
-#define GDV_FORCE_INLINE inline ARROW_FORCE_INLINE
+#ifdef _MSC_VER
+#define GDV_FORCE_INLINE __forceinline
+#else
+#define GDV_FORCE_INLINE inline __attribute__((always_inline))
+#endif
 #endif
 
 GANDIVA_EXPORT
