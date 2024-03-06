@@ -49,7 +49,7 @@ using gdv_month_interval = int32_t;
 // unit tests may be compiled without O2, so inlining may not happen.
 #define GDV_FORCE_INLINE
 #else
-#define GDV_FORCE_INLINE ARROW_FORCE_INLINE
+#define GDV_FORCE_INLINE inline ARROW_FORCE_INLINE
 #endif
 
 GANDIVA_EXPORT
