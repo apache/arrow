@@ -4773,8 +4773,8 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
                                                            opentelemetry-cpp::resources)
-  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::resources
-                                                          opentelemetry-cpp::common)
+  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::common
+                                                          opentelemetry-cpp::resources)
   target_link_libraries(opentelemetry-cpp::http_client_curl
                         INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
                                   CURL::libcurl)
@@ -4814,11 +4814,11 @@ if(ARROW_WITH_OPENTELEMETRY)
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
       opentelemetry-cpp::trace
-      opentelemetry-cpp::ostream_span_exporter
-      opentelemetry-cpp::otlp_http_exporter
       opentelemetry-cpp::logs
       opentelemetry-cpp::otlp_http_log_record_exporter
-      opentelemetry-cpp::ostream_log_record_exporter)
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_exporter)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")

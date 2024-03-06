@@ -375,7 +375,6 @@ set(ARROW_SRCS
     status.cc
     table.cc
     table_builder.cc
-    telemetry/logging.cc
     tensor.cc
     tensor/coo_converter.cc
     tensor/csf_converter.cc
@@ -487,6 +486,7 @@ foreach(ARROW_VENDORED_TARGET ${ARROW_VENDORED_TARGETS})
 endforeach()
 
 set(ARROW_UTIL_SRCS
+    telemetry/logging.cc
     util/align_util.cc
     util/async_util.cc
     util/atfork_internal.cc
