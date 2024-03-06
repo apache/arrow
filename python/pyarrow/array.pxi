@@ -118,6 +118,13 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     return res
 
 
+def _handle_run_end_encoded_arrays(obj, type):
+    from pyarrow.compute import run_end_encode
+    ree_arr = run_end_encode(obj)
+    return RunEndEncodedArray.from_arrays(
+        ree_arr.run_ends.to_pylist(), ree_arr.values.to_pylist(), type)
+
+
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
           bint safe=True, MemoryPool memory_pool=None):
     """
@@ -339,10 +346,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if type and type.id == _Type_RUN_END_ENCODED:
                 if mask is not None:
                     raise ValueError("Cannot pass a mask for Run-End Encoded arrays.")
-                from pyarrow.compute import run_end_encode
-                ree_arr = run_end_encode(obj)
-                result = RunEndEncodedArray.from_arrays(
-                    ree_arr.run_ends.to_pylist(), ree_arr.values.to_pylist(), type)
+                result = _handle_run_end_encoded_arrays(obj, type)
             else:
                 result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                            pool)
@@ -350,10 +354,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         if type and type.id == _Type_RUN_END_ENCODED:
             if mask is not None:
                 raise ValueError("Cannot pass a mask for Run-End Encoded arrays.")
-            from pyarrow.compute import run_end_encode
-            ree_arr = run_end_encode(obj)
-            result = RunEndEncodedArray.from_arrays(
-                ree_arr.run_ends.to_pylist(), ree_arr.values.to_pylist(), type)
+            result = _handle_run_end_encoded_arrays(obj, type)
         # ConvertPySequence does strict conversion if type is explicitly passed
         else:
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
