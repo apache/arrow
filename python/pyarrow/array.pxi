@@ -21,8 +21,8 @@ import os
 import warnings
 from cython import sizeof
 
-from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
-# from pyarrow.includes.libarrow_memory cimport DeviceMapper
+# from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
+from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultMemoryMapper
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,

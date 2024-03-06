@@ -20,8 +20,8 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCap
 import warnings
 from cython import sizeof
 
-from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
-# from pyarrow.includes.libarrow_memory cimport DeviceMapper
+# from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
+from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultMemoryMapper
 
 
 cdef class ChunkedArray(_PandasConvertible):
