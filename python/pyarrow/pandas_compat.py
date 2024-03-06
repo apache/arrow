@@ -199,8 +199,13 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     -------
     dict
     """
-    num_serialized_index_levels = len([descr for descr in index_descriptors
-                                       if not isinstance(descr, dict)])
+    serialized_index_levels = [
+        (level, descriptor)
+        for level, descriptor in zip(index_levels, index_descriptors)
+        if not isinstance(descriptor, dict)
+    ]
+
+    num_serialized_index_levels = len(serialized_index_levels)
     # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
     # behaves differently to what we want.
     ntypes = len(types)
@@ -218,13 +223,9 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     index_column_metadata = []
     if preserve_index is not False:
         non_str_index_names = []
-        for level, arrow_type, descriptor in zip(index_levels, index_types,
-                                                 index_descriptors):
-            if isinstance(descriptor, dict):
-                # The index is represented in a non-serialized fashion,
-                # e.g. RangeIndex
-                continue
-
+        for (level, descriptor), arrow_type in zip(
+            serialized_index_levels, index_types
+        ):
             if level.name is not None and not isinstance(level.name, str):
                 non_str_index_names.append(level.name)
 
