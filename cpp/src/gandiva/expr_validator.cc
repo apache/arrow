@@ -195,4 +195,12 @@ Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
   return ValidateInExpression(node, arrow::utf8());
 }
 
+Status ExprValidator::Visit(const PreEvalInExpressionNode& node) {
+  ARROW_RETURN_NOT_OK(node.eval_expr()->Accept(*this));
+  ARROW_RETURN_NOT_OK(node.condition_eval_expr()->Accept(*this));
+  return Status::OK();
+}
+
+Status ExprValidator::Visit(const ReadProxyNode& node) { return Status::OK(); }
+
 }  // namespace gandiva

@@ -248,6 +248,28 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
   return Status::OK();
 }
 
+Status ExprDecomposer::Visit(const PreEvalInExpressionNode& node) {
+  auto status = node.eval_expr()->Accept(*this);
+  ARROW_RETURN_NOT_OK(status);
+  read_proxy_result_ = result_;
+  auto eval_expr_vv = result();
+
+  status = node.condition_eval_expr()->Accept(*this);
+  ARROW_RETURN_NOT_OK(status);
+  auto condition_eval_expr_vv = result();
+  auto value_dex =
+      std::make_shared<PreEvalInExprDex>(eval_expr_vv, condition_eval_expr_vv);
+  result_ = std::make_shared<ValueValidityPair>(value_dex);
+  return Status::OK();
+}
+
+Status ExprDecomposer::Visit(const ReadProxyNode& node) {
+  auto value_dex = std::make_shared<ReadProxyDex>(node.return_type());
+  result_ = std::make_shared<ValueValidityPair>(read_proxy_result_->validity_exprs(),
+                                                value_dex);
+  return Status::OK();
+}
+
 // The below functions use a stack to detect :
 // a. nested if-else expressions.
 //    In such cases,  the local bitmap can be re-used.

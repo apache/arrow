@@ -315,4 +315,51 @@ class InExpressionNode<gandiva::DecimalScalar128> : public Node {
   int32_t precision_, scale_;
 };
 
+class PreEvalInExpressionNode : public Node {
+ public:
+  PreEvalInExpressionNode(NodePtr eval_expr, NodePtr condition_eval_expr,
+                          DataTypePtr type)
+      : Node(type),
+        eval_expr_(eval_expr),
+        condition_eval_expr_(condition_eval_expr),
+        type_(type){};
+  const DataTypePtr& type() const { return type_; }
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "PreEvalIN expr : ( ";
+    ss << condition_eval_expr_->ToString() << " )";
+    return ss.str();
+  }
+
+  const NodePtr& eval_expr() const { return eval_expr_; }
+
+  const NodePtr& condition_eval_expr() const { return condition_eval_expr_; }
+
+ private:
+  NodePtr eval_expr_;
+  NodePtr condition_eval_expr_;
+  DataTypePtr type_;
+};
+
+class ReadProxyNode : public Node {
+ public:
+  ReadProxyNode(DataTypePtr type, std::string read_proxy_to_string)
+      : Node(type), type_(type), read_proxy_to_string_(read_proxy_to_string){};
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "ReadProxyNode (" << read_proxy_to_string_ << ")";
+    return ss.str();
+  }
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+ private:
+  DataTypePtr type_;
+  std::string read_proxy_to_string_;
+};
+
 }  // namespace gandiva
