@@ -737,6 +737,8 @@ struct ResolvedRecordBatchSortKey {
         order(order),
         null_count(array->null_count()) {}
 
+  static bool constexpr kPreferResolveByIndex = true;
+
   ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
     *hint = {0, index};
     return {&array, index};
@@ -764,6 +766,8 @@ struct ResolvedTableSortKey {
         resolver(GetArrayPointers(owned_chunks)),
         order(order),
         null_count(null_count) {}
+
+  static bool constexpr kPreferResolveByIndex = false;
 
   ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
     return resolver.ResolveLogicalIndex(index, hint);

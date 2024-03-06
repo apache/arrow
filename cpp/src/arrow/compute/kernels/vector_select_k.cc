@@ -402,6 +402,8 @@ class TableSelector : public TypeVisitor {
           null_count(chunked_array->null_count()),
           resolver(GetArrayPointers(chunks)) {}
 
+    static bool constexpr kPreferResolveByIndex = false;
+
     // Find the target chunk and index in the target chunk from an
     // index in chunked array.
     ResolvedChunk GetChunk(int64_t index, ChunkLocation* hint) const {
@@ -520,7 +522,11 @@ class TableSelector : public TypeVisitor {
       auto value_left = chunk_left.Value<InType>();
       auto value_right = chunk_right.Value<InType>();
       if (value_left == value_right) {
-        return comparator.Compare(left_loc, right_loc, 1);
+        if constexpr (ResolvedSortKey::kPreferResolveByIndex) {
+          return comparator.Compare(left, right, 1);
+        } else {
+          return comparator.Compare(left_loc, right_loc, 1);
+        }
       }
       return select_k_comparator(value_left, value_right);
     };

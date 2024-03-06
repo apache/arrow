@@ -758,7 +758,11 @@ class TableSorter {
                  const auto left_is_null = chunk_left.IsNull();
                  const auto right_is_null = chunk_right.IsNull();
                  if (left_is_null == right_is_null) {
-                   return comparator.Compare(left_loc, right_loc, 1);
+                   if constexpr (ResolvedSortKey::kPreferResolveByIndex) {
+                     return comparator.Compare(left, right, 1);
+                   } else {
+                     return comparator.Compare(left_loc, right_loc, 1);
+                   }
                  } else if (options_.null_placement == NullPlacement::AtEnd) {
                    return right_is_null;
                  } else {
@@ -790,7 +794,11 @@ class TableSorter {
                  // First column is always null
                  left_loc = resolver_.ResolveWithHint(left, /*hint=*/left_loc);
                  right_loc = resolver_.ResolveWithHint(right, /*hint=*/right_loc);
-                 return comparator.Compare(left_loc, right_loc, 1);
+                 if constexpr (ResolvedSortKey::kPreferResolveByIndex) {
+                   return comparator.Compare(left, right, 1);
+                 } else {
+                   return comparator.Compare(left_loc, right_loc, 1);
+                 }
                });
     // Copy back temp area into main buffer
     std::copy(temp_indices, temp_indices + (nulls_end - nulls_begin), nulls_begin);
@@ -822,7 +830,11 @@ class TableSorter {
                    // If the left value equals to the right value,
                    // we need to compare the second and following
                    // sort keys.
-                   return comparator.Compare(left_loc, right_loc, 1);
+                   if constexpr (ResolvedSortKey::kPreferResolveByIndex) {
+                     return comparator.Compare(left, right, 1);
+                   } else {
+                     return comparator.Compare(left_loc, right_loc, 1);
+                   }
                  } else {
                    auto compared = value_left < value_right;
                    if (first_sort_key.order == SortOrder::Ascending) {
