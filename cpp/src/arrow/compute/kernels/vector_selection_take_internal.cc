@@ -367,8 +367,7 @@ struct PrimitiveTakeImpl {
         /*src_offset=*/values.offset,
         /*idx_length=*/indices.length,
         /*       idx=*/indices.GetValues<IndexCType>(1),
-        /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0),
-        /*out_offset=*/0};
+        /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0)};
     if (values.null_count == 0 && indices.null_count == 0) {
       // See TODO above
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);

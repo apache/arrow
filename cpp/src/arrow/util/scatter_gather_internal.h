@@ -171,13 +171,18 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
     assert(src && idx && out);
   }
 
+  // Output offset is not supported by Gather and idx is supposed to have offset
+  // pre-applied. idx_validity parameters on functions can use the offset they
+  // carry to read the validity bitmap as bitmaps can't have pre-applied offsets
+  // (they might not align to byte boundaries).
+
   Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
-         const IndexCType* idx, uint8_t* out, int64_t out_offset)
+         const IndexCType* idx, uint8_t* out)
       : Gather(/*src_length=*/src_length,
                /*       src=*/src + src_offset * kValueWidth,
                /*idx_length=*/idx_length,
                /*       idx=*/idx,
-               /*       out=*/out + out_offset * kValueWidth) {
+               /*       out=*/out) {
     assert(src && idx && out);
   }
 
@@ -212,37 +217,35 @@ class Gather<1, IndexCType> {
   const int64_t src_offset_;  // offset in bits
   const int64_t idx_length_;  // number IndexCType elements in idx_
   const IndexCType* idx_;
-  uint8_t* out_;              // output boolean array data buffer in bits
-  const int64_t out_offset_;  // offset in bits
+  uint8_t* out_;  // output boolean array data buffer in bits
 
   void WriteValue(int64_t position) {
-    bit_util::SetBitTo(out_, out_offset_ + position,
+    bit_util::SetBitTo(out_, position,
                        bit_util::GetBit(src_, src_offset_ + idx_[position]));
   }
 
-  void WriteZero(int64_t position) { bit_util::ClearBit(out_, out_offset_ + position); }
+  void WriteZero(int64_t position) { bit_util::ClearBit(out_, position); }
 
   void WriteZeroSegment(int64_t position, int64_t block_length) {
-    bit_util::SetBitsTo(out_, out_offset_ + position, block_length, false);
+    bit_util::SetBitsTo(out_, position, block_length, false);
   }
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
-         const IndexCType* idx, uint8_t* out, int64_t out_offset)
+         const IndexCType* idx, uint8_t* out)
       : src_length_(src_length),
         src_(src),
         src_offset_(src_offset),
         idx_length_(idx_length),
         idx_(idx),
-        out_(out),
-        out_offset_(out_offset) {
+        out_(out) {
     assert(src && idx && out);
   }
 
   ARROW_FORCE_INLINE
   int64_t Execute() {
     for (int64_t position = 0; position < idx_length_; position++) {
-      bit_util::SetBitTo(out_, out_offset_ + position,
+      bit_util::SetBitTo(out_, position,
                          bit_util::GetBit(src_, src_offset_ + idx_[position]));
     }
     return idx_length_;
@@ -271,7 +274,7 @@ class Gather<1, IndexCType> {
         valid_count += block.popcount;
         if (block.popcount == block.length) {
           // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset_ + position, block.length, true);
+          bit_util::SetBitsTo(out_is_valid, position, block.length, true);
           for (int64_t i = 0; i < block.length; ++i) {
             WriteValue(position);
             ++position;
@@ -281,7 +284,7 @@ class Gather<1, IndexCType> {
           for (int64_t i = 0; i < block.length; ++i) {
             if (idx_validity.template IsValid<BitmapTag::kChecked>(position)) {
               // index is not null
-              bit_util::SetBit(out_is_valid, out_offset_ + position);
+              bit_util::SetBit(out_is_valid, position);
               WriteValue(position);
             }
             ++position;
@@ -297,7 +300,7 @@ class Gather<1, IndexCType> {
             if (src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
               // value is not null
               WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset_ + position);
+              bit_util::SetBit(out_is_valid, position);
               ++valid_count;
             }
             ++position;
@@ -311,7 +314,7 @@ class Gather<1, IndexCType> {
                 src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
               // index is not null && value is not null
               WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset_ + position);
+              bit_util::SetBit(out_is_valid, position);
               ++valid_count;
             }
             ++position;
