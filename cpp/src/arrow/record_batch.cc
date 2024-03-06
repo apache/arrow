@@ -257,9 +257,7 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
       batch.column(0)->type()) {  // If all columns are of same data type
     // Loop through all of the columns
     for (int i = 0; i < batch.num_columns(); ++i) {
-      const auto& arr = *batch.column(i);
-      auto data = arr.data();
-      const auto& in_values = data->GetValues<CType>(1);
+      const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
       // Copy data of each column
       memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
@@ -273,7 +271,7 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
       auto data = arr.data();
 
       // Copy data of each column
-      for (int i = 0; i < arr.length(); ++i) {
+      for (int64_t i = 0; i < arr.length(); ++i) {
         switch (arr.type_id()) {
           case Type::UINT8:
             *out_values++ = static_cast<CType>(data->GetValues<uint8_t>(1)[i]);
