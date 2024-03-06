@@ -21,6 +21,9 @@
   <name>Arrow Memory - Unsafe</name>
   <description>Allocator and utils for allocating memory in Arrow based on sun.misc.Unsafe</description>
 
+  <properties>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+  </properties>
 
   <dependencies>
     <dependency>

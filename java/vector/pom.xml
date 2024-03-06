@@ -20,8 +20,11 @@
   <name>Arrow Vectors</name>
   <description>An off-heap reference implementation for Arrow columnar data format.</description>
 
-  <dependencies>
+  <properties>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+  </properties>
 
+  <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-format</artifactId>

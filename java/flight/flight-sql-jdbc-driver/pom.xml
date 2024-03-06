@@ -27,6 +27,10 @@
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
+    <properties>
+        <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+    </properties>
+
     <dependencies>
         <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
         <dependency>

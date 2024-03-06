@@ -22,6 +22,10 @@
   <name>Arrow Memory - Core</name>
   <description>Core off-heap memory management libraries for Arrow ValueVectors.</description>
 
+  <properties>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>

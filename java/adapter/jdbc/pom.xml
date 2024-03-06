@@ -25,6 +25,10 @@
     <description>(Contrib/Experimental)A library for converting JDBC data to Arrow data.</description>
     <url>http://maven.apache.org</url>
 
+    <properties>
+        <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+    </properties>
+
     <dependencies>
 
         <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->

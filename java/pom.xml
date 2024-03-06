@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>31</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -28,6 +28,7 @@
   <url>https://arrow.apache.org/</url>
 
   <properties>
+    <minimalMavenBuildVersion>3.5.0</minimalMavenBuildVersion>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
@@ -446,6 +447,13 @@
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>3.4.1</version>
+          <configuration>
+            <rules>
+              <requireMavenVersion>
+                <version>[3.3.0,4)</version>
+              </requireMavenVersion>
+            </rules>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>

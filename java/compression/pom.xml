@@ -20,6 +20,10 @@
   <name>Arrow Compression</name>
   <description>(Experimental/Contrib) A library for working with the compression/decompression of Arrow data.</description>
 
+  <properties>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>

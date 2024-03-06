@@ -30,6 +30,7 @@
   </prerequisites>
 
   <properties>
+    <project.build.outputTimestamp>1980-01-01T00:00:02Z</project.build.outputTimestamp>
     <maven.version>3.3.9</maven.version>
   </properties>
 
