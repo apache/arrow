@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { zip } from 'ix/iterable/zip';
+import { zip } from 'ix/iterable/zip.js';
 import { Table, Vector, RecordBatch, util } from 'apache-arrow';
 
 declare global {

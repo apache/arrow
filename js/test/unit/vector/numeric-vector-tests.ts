@@ -28,7 +28,7 @@ import type {
     TypedArrayConstructor,
     BigIntArray,
     BigIntArrayConstructor
-} from 'apache-arrow/interfaces';
+} from 'apache-arrow/interfaces.js';
 
 const { joinUint8Arrays, float64ToUint16, uint16ToFloat64 } = util;
 

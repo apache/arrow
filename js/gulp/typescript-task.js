@@ -61,7 +61,7 @@ function compileTypescript(out, tsconfigPath, tsconfigOverrides, writeSourcemaps
     );
     const writeSources = observableFromStreams(tsProject.src(), gulp.dest(path.join(out, 'src')));
     const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false, sourceRoot: './src' }), gulp.dest(out));
-    const mapFile = tsProject.options.module === tsc.ModuleKind.ES2015 ? esmMapFile : cjsMapFile;
+    const mapFile = tsProject.options.module === tsc.ModuleKind.CommonJS ? cjsMapFile : esmMapFile;
     const writeJSArgs = writeSourcemaps ? [
         js,
         sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: './src' }),
