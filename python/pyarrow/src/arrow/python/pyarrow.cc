@@ -14,9 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
-#include "arrow/python/pyarrow.h"
-
 #include <memory>
 #include <utility>
 
@@ -28,17 +25,16 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
+#include "arrow/python/lib_api.h"
+#include "arrow/python/pyarrow.h"
+#include "arrow/python/wrap_macros.h"
+
 namespace {
 #include "arrow/python/pyarrow_api.h"
 }
 
 namespace arrow {
 namespace py {
-
-static Status UnwrapError(PyObject* obj, const char* expected_type) {
-  return Status::TypeError("Could not unwrap ", expected_type,
-                           " from Python object of type '", Py_TYPE(obj)->tp_name, "'");
-}
 
 int import_pyarrow() {
 #ifdef PYPY_VERSION
@@ -49,42 +45,25 @@ int import_pyarrow() {
   return ::import_pyarrow__lib();
 }
 
-#define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
-  bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
-                                                                                        \
-  PyObject* wrap_##FUNC_SUFFIX(const std::shared_ptr<TYPE_NAME>& src) {                 \
-    return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
-  }                                                                                     \
-  Result<std::shared_ptr<TYPE_NAME>> unwrap_##FUNC_SUFFIX(PyObject* obj) {              \
-    auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
-    if (out) {                                                                          \
-      return std::move(out);                                                            \
-    } else {                                                                            \
-      return UnwrapError(obj, #TYPE_NAME);                                              \
-    }                                                                                   \
-  }
+DEFINE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>, out)
 
-DEFINE_WRAP_FUNCTIONS(buffer, Buffer)
+DEFINE_WRAP_FUNCTIONS(data_type, std::shared_ptr<DataType>, out)
+DEFINE_WRAP_FUNCTIONS(field, std::shared_ptr<Field>, out)
+DEFINE_WRAP_FUNCTIONS(schema, std::shared_ptr<Schema>, out)
 
-DEFINE_WRAP_FUNCTIONS(data_type, DataType)
-DEFINE_WRAP_FUNCTIONS(field, Field)
-DEFINE_WRAP_FUNCTIONS(schema, Schema)
+DEFINE_WRAP_FUNCTIONS(scalar, std::shared_ptr<Scalar>, out)
 
-DEFINE_WRAP_FUNCTIONS(scalar, Scalar)
+DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<arrow::Array>, out)
+DEFINE_WRAP_FUNCTIONS(chunked_array, std::shared_ptr<ChunkedArray>, out)
 
-DEFINE_WRAP_FUNCTIONS(array, Array)
-DEFINE_WRAP_FUNCTIONS(chunked_array, ChunkedArray)
+DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, std::shared_ptr<SparseCOOTensor>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, std::shared_ptr<SparseCSCMatrix>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, std::shared_ptr<SparseCSFTensor>, out)
+DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, std::shared_ptr<SparseCSRMatrix>, out)
+DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>, out)
 
-DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, SparseCOOTensor)
-DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, SparseCSCMatrix)
-DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, SparseCSFTensor)
-DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, SparseCSRMatrix)
-DEFINE_WRAP_FUNCTIONS(tensor, Tensor)
-
-DEFINE_WRAP_FUNCTIONS(batch, RecordBatch)
-DEFINE_WRAP_FUNCTIONS(table, Table)
-
-#undef DEFINE_WRAP_FUNCTIONS
+DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>, out)
+DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>, out)
 
 namespace internal {
 
@@ -96,5 +75,6 @@ PyObject* convert_status(const Status& status) {
 }
 
 }  // namespace internal
+
 }  // namespace py
 }  // namespace arrow
