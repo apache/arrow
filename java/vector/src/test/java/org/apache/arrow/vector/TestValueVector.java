@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
+import static org.apache.arrow.vector.TestUtils.newViewVarCharVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -317,10 +318,24 @@ public class TestValueVector {
     }
   }
 
-  @Test /* VarCharVector */
+  @Test /* VarCharVector and ViewVarCharVector */
   public void testSizeOfValueBuffer() {
     try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       int valueCount = 100;
+      int currentSize = 0;
+      vector.setInitialCapacity(valueCount);
+      vector.allocateNew();
+      vector.setValueCount(valueCount);
+      for (int i = 0; i < valueCount; i++) {
+        currentSize += i;
+        vector.setSafe(i, new byte[i]);
+      }
+
+      assertEquals(currentSize, vector.sizeOfValueBuffer());
+    }
+
+    try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      int valueCount = 3;
       int currentSize = 0;
       vector.setInitialCapacity(valueCount);
       vector.allocateNew();
@@ -1265,11 +1280,45 @@ public class TestValueVector {
     }
   }
 
-  @Test /* VarCharVector */
+  @Test /* VarCharVector and ViewVarCharVector */
   public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
+    // VarCharVector
     try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      vector.set(0, STR1);
+      vector.set(1, STR2);
+      vector.set(2, STR3);
+      vector.setSafe(3, STR3, 1, STR3.length - 1);
+      vector.setSafe(4, STR3, 2, STR3.length - 2);
+      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
+
+      // Set with convenience function
+      Text txt = new Text("foo");
+      vector.setSafe(7, txt);
+
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
+
+      // Check returning a Text object
+      assertEquals(txt, vector.getObject(7));
+
+      // Ensure null value throws.
+      assertNull(vector.get(8));
+    }
+
+    // ViewVarCharVector
+    try (final ViewVarCharVector vector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
       vector.set(0, STR1);
