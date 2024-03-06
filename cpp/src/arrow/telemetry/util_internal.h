@@ -24,6 +24,7 @@
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/common/attribute_value.h>
+#include <opentelemetry/common/key_value_iterable.h>
 #include <opentelemetry/nostd/shared_ptr.h>
 #include <opentelemetry/nostd/span.h>
 #include <opentelemetry/nostd/string_view.h>
@@ -96,6 +97,26 @@ struct AttributeConverter {
   }
 
   std::vector<otel_string_view> output_views_;
+};
+
+class OtelAttributeHolder : public otel::common::KeyValueIterable {
+ public:
+  explicit OtelAttributeHolder(const AttributeHolder& holder) : holder_(&holder) {}
+
+  bool ForEachKeyValue(otel::nostd::function_ref<bool(otel::nostd::string_view,
+                                                      otel::common::AttributeValue)>
+                           callback) const noexcept override {
+    auto wrapped_callback = [&](std::string_view k, const AttributeValue& v) {
+      AttributeConverter converter{};
+      return callback(ToOtel(k), std::visit(converter, v));
+    };
+    return holder_->ForEach(std::move(wrapped_callback));
+  }
+
+  size_t size() const noexcept override { return holder_->num_attributes(); }
+
+ private:
+  const AttributeHolder* holder_;
 };
 #endif
 

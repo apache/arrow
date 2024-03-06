@@ -77,5 +77,14 @@ class AttributeList final : public AttributeHolder {
   std::vector<Attribute> attributes_;
 };
 
+class EmptyAttributeHolder : public AttributeHolder {
+ public:
+  bool ForEach(std::function<bool(std::string_view, const AttributeValue&)>)
+      const noexcept override {
+    return true;
+  }
+  size_t num_attributes() const noexcept override { return 0; }
+};
+
 }  // namespace telemetry
 }  // namespace arrow
