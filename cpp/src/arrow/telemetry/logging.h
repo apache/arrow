@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <iosfwd>
 #include <memory>
 #include <optional>
@@ -52,10 +53,7 @@ struct ServiceAttributes {
   static ServiceAttributes Defaults() { return ServiceAttributes{}; }
 };
 
-constexpr LogLevel kDefaultSeverityThreshold = LogLevel::ARROW_WARNING;
-constexpr LogLevel kDefaultSeverity = LogLevel::ARROW_INFO;
-
-struct LoggingOptions {
+struct LoggerProviderOptions {
   /// \brief Attributes to set for the LoggerProvider's Resource
   ServiceAttributes service_attributes = ServiceAttributes::Defaults();
 
@@ -64,8 +62,18 @@ struct LoggingOptions {
   /// If null, stderr will be used
   std::ostream* default_export_stream = NULLPTR;
 
+  static LoggerProviderOptions Defaults() { return LoggerProviderOptions{}; }
+};
+
+constexpr LogLevel kDefaultSeverityThreshold = LogLevel::ARROW_WARNING;
+constexpr LogLevel kDefaultSeverity = LogLevel::ARROW_INFO;
+
+struct LoggingOptions {
   /// \brief Minimum severity required to emit an OpenTelemetry log record
   LogLevel severity_threshold = kDefaultSeverityThreshold;
+
+  /// \brief Minimum severity required to immediately attempt to flush pending log records
+  LogLevel flush_severity = LogLevel::ARROW_ERROR;
 
   static LoggingOptions Defaults() { return LoggingOptions{}; }
 };
@@ -134,24 +142,41 @@ class ARROW_EXPORT Logger {
     desc.event_id = event_id;
     this->Log(desc);
   }
+
+  virtual bool Flush(std::chrono::microseconds timeout) = 0;
+  bool Flush() { return this->Flush(std::chrono::microseconds::max()); }
+
+  virtual std::string_view name() const = 0;
 };
 
 ARROW_EXPORT std::unique_ptr<Logger> MakeNoopLogger();
 
-class ARROW_EXPORT LoggingEnvironment {
+class ARROW_EXPORT GlobalLoggerProvider {
  public:
-  static Status Initialize(const LoggingOptions& options = LoggingOptions::Defaults());
+  static Status Initialize(
+      const LoggerProviderOptions& = LoggerProviderOptions::Defaults());
 
-  static void Reset() { logger_.reset(); }
+  static bool ShutDown();
 
-  static Logger* GetLogger() {
+  static bool Flush(std::chrono::microseconds timeout = std::chrono::microseconds::max());
+
+  static Result<std::unique_ptr<Logger>> MakeLogger(
+      std::string_view name, const LoggingOptions& options = LoggingOptions::Defaults());
+  static Result<std::unique_ptr<Logger>> MakeLogger(std::string_view name,
+                                                    const LoggingOptions& options,
+                                                    const AttributeHolder& attributes);
+};
+
+class ARROW_EXPORT GlobalLogger {
+ public:
+  static Logger* Get() {
     if (!logger_) {
       logger_ = MakeNoopLogger();
     }
     return logger_.get();
   }
 
-  static void SetLogger(std::unique_ptr<Logger> logger) {
+  static void Set(std::unique_ptr<Logger> logger) {
     if (logger) {
       logger_ = std::move(logger);
     } else {
@@ -160,7 +185,7 @@ class ARROW_EXPORT LoggingEnvironment {
   }
 
  private:
-  static inline std::unique_ptr<Logger> logger_{};
+  static std::unique_ptr<Logger> logger_;
 };
 
 }  // namespace telemetry

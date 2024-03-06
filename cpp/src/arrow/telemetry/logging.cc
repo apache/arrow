@@ -22,7 +22,6 @@
 
 #include "arrow/result.h"
 #include "arrow/telemetry/logging.h"
-#include "arrow/telemetry/util_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -31,6 +30,8 @@
 #pragma warning(push)
 #pragma warning(disable : 4522)
 #endif
+#include "arrow/telemetry/util_internal.h"
+
 #include <google/protobuf/util/json_util.h>
 
 #include <opentelemetry/exporters/ostream/log_record_exporter.h>
@@ -67,6 +68,8 @@ namespace {
 class NoopLogger : public Logger {
  public:
   void Log(const LogDescriptor&) override {}
+  bool Flush(std::chrono::microseconds) override { return true; }
+  std::string_view name() const override { return "noop"; }
 };
 
 }  // namespace
@@ -170,7 +173,7 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
 }
 
 std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporterFromEnv(
-    const LoggingOptions& options) {
+    const LoggerProviderOptions& options) {
   auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingBackendEnvVar);
   if (maybe_env_var.ok()) {
     auto env_var = maybe_env_var.ValueOrDie();
@@ -234,7 +237,7 @@ otel::sdk::resource::Resource MakeResource(const ServiceAttributes& service_attr
 }
 
 otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
-    const LoggingOptions& options) {
+    const LoggerProviderOptions& options) {
   auto exporter = MakeExporterFromEnv(options);
   if (exporter) {
     auto processor = MakeLogRecordProcessor(std::move(exporter));
@@ -293,6 +296,19 @@ class OtelLogger : public Logger {
     }
 
     logger_->EmitLogRecord(std::move(log));
+
+    if (desc.severity >= options_.flush_severity) {
+      Logger::Flush();
+    }
+  }
+
+  bool Flush(std::chrono::microseconds timeout) override {
+    return GlobalLoggerProvider::Flush(timeout);
+  }
+
+  std::string_view name() const override {
+    otel_string_view s = logger_->GetName();
+    return std::string_view(s.data(), s.length());
   }
 
  private:
@@ -300,22 +316,48 @@ class OtelLogger : public Logger {
   LoggingOptions options_;
 };
 
-std::unique_ptr<Logger> MakeOTelLogger(const LoggingOptions& options) {
-  otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(options));
-  return std::make_unique<OtelLogger>(
-      options, otel::logs::Provider::GetLoggerProvider()->GetLogger("arrow"));
-}
-
 }  // namespace
 
-Status LoggingEnvironment::Initialize(const LoggingOptions& options) {
-  logger_ = MakeOTelLogger(options);
+Status GlobalLoggerProvider::Initialize(const LoggerProviderOptions& options) {
+  otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(options));
   return Status::OK();
 }
 
-#else
+bool GlobalLoggerProvider::ShutDown() {
+  auto provider = otel::logs::Provider::GetLoggerProvider();
+  if (auto sdk_provider =
+          dynamic_cast<otel::sdk::logs::LoggerProvider*>(provider.get())) {
+    return sdk_provider->Shutdown();
+  }
+  return false;
+}
 
-Status LoggingEnvironment::Initialize(const LoggingOptions&) { return Status::OK(); }
+bool GlobalLoggerProvider::Flush(std::chrono::microseconds timeout) {
+  auto provider = otel::logs::Provider::GetLoggerProvider();
+  if (auto sdk_provider =
+          dynamic_cast<otel::sdk::logs::LoggerProvider*>(provider.get())) {
+    return sdk_provider->ForceFlush(timeout);
+  }
+  return false;
+}
+
+Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+    std::string_view name, const LoggingOptions& options,
+    const AttributeHolder& attributes) {
+  auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(
+      ToOtel(name), /*library_name=*/"", /*library_version=*/"", /*schema_url=*/"",
+      OtelAttributeHolder(attributes));
+  return std::make_unique<OtelLogger>(options, std::move(ot_logger));
+}
+
+Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+    std::string_view name, const LoggingOptions& options) {
+  return MakeLogger(name, options, EmptyAttributeHolder{});
+}
+
+std::unique_ptr<Logger> GlobalLogger::logger_ = nullptr;
+
+#else
 
 #endif
 
