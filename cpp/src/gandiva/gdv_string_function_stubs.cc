@@ -335,7 +335,6 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
 }
 
 // Substring_index
-GDV_FORCE_INLINE
 const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt_len,
                                    const char* pat, int32_t pat_len, int32_t cnt,
                                    int32_t* out_len) {
