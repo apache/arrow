@@ -356,10 +356,10 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
-                                       const std::vector<int64_t>& shape,
-                                       std::string_view json,
-                                       const std::vector<int64_t>& strides = {},
-                                       const std::vector<std::string>& dim_names = {});
+                                       std::string_view data,
+                                       std::string_view shape,
+                                       std::string_view dim_names = "[]",
+                                       std::string_view strides = "[]");
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
