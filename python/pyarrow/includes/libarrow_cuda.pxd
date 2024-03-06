@@ -93,6 +93,9 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
     CResult[shared_ptr[CCudaHostBuffer]] AllocateCudaHostBuffer(
         int device_number, const int64_t size)
 
+    CResult[shared_ptr[CMemoryManager]] DefaultMemoryMapper(
+        ArrowDeviceType device_type, int64_t device_id)
+
     # Cuda prefix is added to avoid picking up arrow::cuda functions
     # from arrow namespace.
     CResult[shared_ptr[CCudaBuffer]] \

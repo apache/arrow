@@ -346,6 +346,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CResult[unique_ptr[CResizableBuffer]] AllocateResizableBuffer(
         const int64_t size, CMemoryPool* pool)
 
+    cdef cppclass CMemoryManager" arrow::MemoryManager":
+        pass
+
     cdef cppclass CSyncEvent" arrow::Device::SyncEvent":
         pass
 
@@ -2916,6 +2919,8 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    ctypedef int32_t ArrowDeviceType
+
     cdef struct ArrowDeviceArray:
         pass
 
@@ -2951,20 +2956,25 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportChunkedArray(shared_ptr[CChunkedArray], ArrowArrayStream*)
     CResult[shared_ptr[CChunkedArray]] ImportChunkedArray(ArrowArrayStream*)
 
+    ctypedef CResult[shared_ptr[CMemoryManager]] CDeviceMemoryMapper(
+        ArrowDeviceType, int64_t)
+
+    CResult[shared_ptr[CMemoryManager]] DefaultDeviceMapper(
+        ArrowDeviceType device_type, int64_t device_id)
+
     CStatus ExportDeviceArray(const CArray&, shared_ptr[CSyncEvent],
                               ArrowDeviceArray* out, ArrowSchema*)
     CResult[shared_ptr[CArray]] ImportDeviceArray(
-        ArrowDeviceArray*, shared_ptr[CDataType])
+        ArrowDeviceArray*, shared_ptr[CDataType], const CDeviceMemoryMapper&)
     CResult[shared_ptr[CArray]] ImportDeviceArray(
-        ArrowDeviceArray*, ArrowSchema*)
+        ArrowDeviceArray*, ArrowSchema*, const CDeviceMemoryMapper&)
 
     CStatus ExportDeviceRecordBatch(const CRecordBatch&, shared_ptr[CSyncEvent],
                                     ArrowDeviceArray* out, ArrowSchema*)
     CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
-        ArrowDeviceArray*, shared_ptr[CSchema])
+        ArrowDeviceArray*, shared_ptr[CSchema], const CDeviceMemoryMapper&)
     CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
-        ArrowDeviceArray*, ArrowSchema*)
-
+        ArrowDeviceArray*, ArrowSchema*, const CDeviceMemoryMapper&)
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     CResult[int64_t] ReferencedBufferSize(const CArray& array_data)

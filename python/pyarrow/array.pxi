@@ -21,6 +21,9 @@ import os
 import warnings
 from cython import sizeof
 
+from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
+# from pyarrow.includes.libarrow_memory cimport DeviceMapper
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -1834,12 +1837,14 @@ cdef class Array(_PandasConvertible):
             with nogil:
                 c_array = GetResultValue(
                     ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
-                                      <ArrowSchema*> c_type_ptr)
+                                      <ArrowSchema*> c_type_ptr,
+                                      DefaultMemoryMapper)
                 )
         else:
             with nogil:
                 c_array = GetResultValue(
-                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type)
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
+                                      DefaultMemoryMapper)
                 )
         return pyarrow_wrap_array(c_array)
 

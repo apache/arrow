@@ -20,6 +20,10 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCap
 import warnings
 from cython import sizeof
 
+from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
+# from pyarrow.includes.libarrow_memory cimport DeviceMapper
+
+
 cdef class ChunkedArray(_PandasConvertible):
     """
     An array-like composed from a (possibly empty) collection of pyarrow.Arrays
@@ -3596,11 +3600,12 @@ cdef class RecordBatch(_Tabular):
             c_schema_ptr = _as_c_pointer(schema, allow_null=True)
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
+                    DefaultMemoryMapper))
         else:
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, c_schema))
+                    <ArrowDeviceArray*> c_ptr, c_schema, DefaultMemoryMapper))
         return pyarrow_wrap_batch(c_batch)
 
 
