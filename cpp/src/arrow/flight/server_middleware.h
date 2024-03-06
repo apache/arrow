@@ -49,6 +49,12 @@ class ARROW_FLIGHT_EXPORT ServerMiddleware {
 
   /// \brief A callback after the call has completed.
   virtual void CallCompleted(const Status& status) = 0;
+
+  /// \brief Callbacks before forwarding a request to its transport-specific server
+  virtual void HandlingRequest(FlightMethod method, const Criteria& criteria) {}
+  virtual void HandlingRequest(FlightMethod method, const FlightDescriptor& descriptor) {}
+  virtual void HandlingRequest(FlightMethod method, const Ticket& ticket) {}
+  virtual void HandlingRequest(FlightMethod method, const Action& action) {}
 };
 
 /// \brief A factory for new middleware instances.
