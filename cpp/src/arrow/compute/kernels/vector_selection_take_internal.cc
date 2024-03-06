@@ -341,9 +341,16 @@ template <typename IndexCType, typename ValueBitWidthConstant>
 struct PrimitiveTakeImpl {
   static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
+  static Status Exec(KernelContext* ctx, const ArraySpan& values,
+                     const ArraySpan& indices, ArrayData* out_arr) {
     DCHECK_EQ(values.type->bit_width(), kValueWidthInBits);
+
+    // TODO: When neither values nor indices contain nulls, we can skip
+    // allocating the validity bitmap altogether and save time and space. A
+    // streamlined PrimitiveTakeImpl would need to be written that skips all
+    // interactions with the output validity bitmap, though.
+    RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, kValueWidthInBits,
+                                                /*allocate_validity=*/true, out_arr));
     DCHECK_EQ(out_arr->offset, 0);
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
@@ -363,7 +370,7 @@ struct PrimitiveTakeImpl {
         /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0),
         /*out_offset=*/0};
     if (values.null_count == 0 && indices.null_count == 0) {
-      // See TODO in PrimitiveTakeExec about skipping allocation of validity bitmaps
+      // See TODO above
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
       valid_count = gather.Execute();
     } else {
@@ -376,12 +383,13 @@ struct PrimitiveTakeImpl {
       valid_count = gather.Execute(src_validity, idx_validity, out_is_valid);
     }
     out_arr->null_count = out_arr->length - valid_count;
+    return Status::OK();
   }
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
-void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
-                       ArrayData* out) {
+Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
+                         const ArraySpan& indices, ArrayData* out) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -389,17 +397,16 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   // width.
   switch (indices.type->byte_width()) {
     case 1:
-      return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint8_t, Args...>::Exec(ctx, values, indices, out);
     case 2:
-      return TakeImpl<uint16_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out);
     case 4:
-      return TakeImpl<uint32_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out);
     case 8:
-      return TakeImpl<uint64_t, Args...>::Exec(values, indices, out);
-    default:
-      DCHECK(false) << "Invalid indices byte width";
-      break;
+      return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out);
   }
+  DCHECK(false) << "Invalid indices byte width";
+  return Status::OK();
 }
 
 }  // namespace
@@ -413,45 +420,37 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   }
 
   ArrayData* out_arr = out->array_data().get();
-
   const int bit_width = values.type->bit_width();
-
-  // TODO: When neither values nor indices contain nulls, we can skip
-  // allocating the validity bitmap altogether and save time and space. A
-  // streamlined PrimitiveTakeImpl would need to be written that skips all
-  // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
-                                              /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+          ctx, values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+          ctx, values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+          ctx, values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+          ctx, values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
+          ctx, values, indices, out_arr);
       break;
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
+          ctx, values, indices, out_arr);
       break;
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
+          ctx, values, indices, out_arr);
       break;
     default:
       return Status::NotImplemented("Unsupported primitive type for take: ",
