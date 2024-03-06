@@ -60,6 +60,8 @@
 #define ARROW_PREFETCH(addr)
 #else
 #define ARROW_NORETURN
+#define ARROW_NOINLINE
+#define ARROW_FORCE_INLINE
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
