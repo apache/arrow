@@ -176,7 +176,7 @@ static void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char va
 }
 
 GDV_FORCE_INLINE
-int32_t gdv_fn_utf8_char_length(char c) {
+static int32_t utf8_char_length_inline(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
   } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
@@ -189,6 +189,8 @@ int32_t gdv_fn_utf8_char_length(char c) {
   // invalid char
   return 0;
 }
+
+int32_t gdv_fn_utf8_char_length(char c) { return utf8_char_length_inline(c); }
 
 // Convert an utf8 string to its corresponding lowercase string
 GANDIVA_EXPORT
@@ -213,7 +215,7 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
   uint32_t char_codepoint;
 
   for (int32_t i = 0; i < data_len; i += char_len) {
-    char_len = gdv_fn_utf8_char_length(data[i]);
+    char_len = utf8_char_length_inline(data[i]);
     // For single byte characters:
     // If it is an uppercase ASCII character, set the output to its corresponding
     // lowercase character; else, set the output to the read character
@@ -285,7 +287,7 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
   uint32_t char_codepoint;
 
   for (int32_t i = 0; i < data_len; i += char_len) {
-    char_len = gdv_fn_utf8_char_length(data[i]);
+    char_len = utf8_char_length_inline(data[i]);
     // For single byte characters:
     // If it is a lowercase ASCII character, set the output to its corresponding uppercase
     // character; else, set the output to the read character
@@ -497,7 +499,7 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
       continue;
     }
 
-    char_len = gdv_fn_utf8_char_length(data[i]);
+    char_len = utf8_char_length_inline(data[i]);
 
     // Control reaches here when we encounter a multibyte character
     const auto* in_char = (const uint8_t*)(data + i);
@@ -696,7 +698,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
     for (int in_for = 0; in_for < in_len; in_for += len_char_in) {
       // Updating len to char in this position
-      len_char_in = gdv_fn_utf8_char_length(in[in_for]);
+      len_char_in = utf8_char_length_inline(in[in_for]);
       // Making copy to std::string with length for this char position
       std::string insert_copy_key(in + in_for, len_char_in);
       if (subs_list.find(insert_copy_key) != subs_list.end()) {
@@ -709,7 +711,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
       } else {
         for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
           // Updating len to char in this position
-          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
+          len_char_from = utf8_char_length_inline(from[from_for]);
           // Making copy to std::string with length for this char position
           std::string copy_from_compare(from + from_for, len_char_from);
           if (from_for == from_len) {
@@ -735,7 +737,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           } else {
             // If exist and the start_compare is in range, add to map with the
             // corresponding TO in position start_compare
-            len_char_to = gdv_fn_utf8_char_length(to[start_compare]);
+            len_char_to = utf8_char_length_inline(to[start_compare]);
             std::string insert_copy_value(to + start_compare, len_char_to);
             // Insert in map to next loops
             subs_list.insert(
