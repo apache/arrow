@@ -344,22 +344,18 @@ struct PrimitiveTakeImpl {
   static Status Exec(KernelContext* ctx, const ArraySpan& values,
                      const ArraySpan& indices, ArrayData* out_arr) {
     DCHECK_EQ(values.type->bit_width(), kValueWidthInBits);
-
-    // TODO: When neither values nor indices contain nulls, we can skip
-    // allocating the validity bitmap altogether and save time and space. A
-    // streamlined PrimitiveTakeImpl would need to be written that skips all
-    // interactions with the output validity bitmap, though.
+    // When we know for sure that values nor indices contain nulls, we can skip
+    // allocating the validity bitmap altogether and save time and space.
+    const bool allocate_validity = values.null_count != 0 || indices.null_count != 0;
     RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, kValueWidthInBits,
-                                                /*allocate_validity=*/true, out_arr));
+                                                allocate_validity, out_arr));
     DCHECK_EQ(out_arr->offset, 0);
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
     if constexpr (kValueWidthInBits == 1) {
       // XXX: Gather for booleans doesn't zero out the bits of nulls in the
       // output buffer, so we need to do it manually.
       memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
     }
-
     int64_t valid_count = 0;
     arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
         /*src_length=*/values.length,
@@ -368,18 +364,16 @@ struct PrimitiveTakeImpl {
         /*idx_length=*/indices.length,
         /*       idx=*/indices.GetValues<IndexCType>(1),
         /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0)};
-    if (values.null_count == 0 && indices.null_count == 0) {
-      // See TODO above
-      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
-      valid_count = gather.Execute();
-    } else {
+    if (allocate_validity) {
       arrow::internal::OptionalValidity src_validity(values);
       arrow::internal::OptionalValidity idx_validity(indices);
-      // If either src or idx have nulls, we preemptively zero out the
-      // out validity bitmap so that we don't have to use ClearBit in each
-      // iteration for nulls.
+      // out_is_valid must be zero-initiliazed, because Gather::Execute
+      // saves time by not having to ClearBit on every null element.
+      auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, false);
       valid_count = gather.Execute(src_validity, idx_validity, out_is_valid);
+    } else {
+      valid_count = gather.Execute();
     }
     out_arr->null_count = out_arr->length - valid_count;
     return Status::OK();
