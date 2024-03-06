@@ -166,7 +166,7 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 #undef GDV_FN_CAST_VARLEN_TYPE_FROM_REAL
 
 GDV_FORCE_INLINE
-void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
+static void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
@@ -433,7 +433,7 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
 // https://www.compart.com/en/unicode/category shows
 // more information about characters categories.
 GDV_FORCE_INLINE
-bool gdv_fn_is_codepoint_for_space(uint32_t val) {
+static bool gdv_fn_is_codepoint_for_space(uint32_t val) {
   auto category = utf8proc_category(val);
 
   return category != utf8proc_category_t::UTF8PROC_CATEGORY_LU &&
