@@ -44,17 +44,6 @@ using gdv_binary = char*;
 using gdv_day_time_interval = int64_t;
 using gdv_month_interval = int32_t;
 
-#ifdef GANDIVA_UNIT_TEST
-// unit tests may be compiled without O2, so inlining may not happen.
-#define GDV_FORCE_INLINE
-#else
-#ifdef _MSC_VER
-#define GDV_FORCE_INLINE __forceinline
-#else
-#define GDV_FORCE_INLINE inline __attribute__((always_inline))
-#endif
-#endif
-
 GANDIVA_EXPORT
 int64_t gdv_fn_crc_32_utf8(int64_t ctx, const char* input, int32_t input_len);
 
