@@ -228,6 +228,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, ViewVarCharHolder holder) {
+    // TODO: fix this
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
@@ -247,6 +248,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, ViewVarCharHolder holder) {
+    // TODO: fix this
     assert index >= 0;
     final int dataLength = holder.end - holder.start;
     handleSafe(index, dataLength);
@@ -298,9 +300,6 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
       final int dataLength = holder.end - holder.start;
       handleSafe(index, dataLength);
       fillHoles(index);
-      //      final int startOffset = getStartOffset(index);
-      //      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-      //      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
       byte[] data = new byte[dataLength];
       holder.buffer.getBytes(holder.start, data, 0, dataLength);
       setBytes(index, data, holder.start, dataLength);

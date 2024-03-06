@@ -41,11 +41,11 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
- * TODO: Update the interface for N buffers
+ *
  */
 public abstract class BaseVariableWidthViewVector extends BaseValueVector
         implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
-  private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
+  private static final int DEFAULT_RECORD_BYTE_COUNT = 16;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
   private int lastValueCapacity;
@@ -132,6 +132,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    */
   @Override
   public ArrowBuf getDataBuffer() {
+    // TODO: fixme
     return valueBuffer;
   }
 
@@ -1189,9 +1190,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + length);
-    valueBuffer.setBytes(startOffset, value, start, length);
+    setBytes(index, value.array(), start, length);
     lastSet = index;
   }
 
@@ -1210,9 +1209,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     handleSafe(index, length);
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + length);
-    valueBuffer.setBytes(startOffset, value, start, length);
+    setBytes(index, value.array(), start, length);
     lastSet = index;
   }
 
@@ -1245,9 +1242,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     final int dataLength = end - start;
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
-    final int startOffset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, buffer, start, dataLength);
+    byte[] data = new byte[dataLength];
+    buffer.getBytes(start, data, 0, dataLength);
+    setBytes(index, data, start, dataLength);
     lastSet = index;
   }
 
@@ -1268,9 +1265,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     handleSafe(index, dataLength);
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
-    final int startOffset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-    offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, buffer, start, dataLength);
+    byte[] data = new byte[dataLength];
+    buffer.getBytes(start, data, 0, dataLength);
+    setBytes(index, data, start, dataLength);
     lastSet = index;
   }
 
@@ -1287,10 +1284,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-    offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
-    final ArrowBuf bb = buffer.slice(start, length);
-    valueBuffer.setBytes(startOffset, bb);
+    byte[] data = new byte[length];
+    buffer.getBytes(start, data, 0, length);
+    setBytes(index, data, start, length);
     lastSet = index;
   }
 
@@ -1309,10 +1305,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     handleSafe(index, length);
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
-    final ArrowBuf bb = buffer.slice(start, length);
-    valueBuffer.setBytes(startOffset, bb);
+    byte[] data = new byte[length];
+    buffer.getBytes(start, data, 0, length);
+    setBytes(index, data, start, length);
     lastSet = index;
   }
 
@@ -1331,16 +1326,16 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     lastSet = index - 1;
   }
 
-  protected void createValueBuffer(BufferAllocator allocator, byte[] value,
+  // TODO: rename to createViewBuffer
+  protected void createValueBuffer(BufferAllocator allocator, byte[] value, int start, int length,
       ArrowBuf valueBuffer, List<ArrowBuf> dataBuffers) {
-    // TODO: handle value.length=0 case
     if (value.length <= INLINE_SIZE) {
       // inline buffer
       // set length
-      valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+      valueBuffer.setInt(valueBuffer.writerIndex(), length);
       // set data
       valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
-      valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, value.length);
+      valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, length);
       valueBuffer.writerIndex(valueBuffer.writerIndex() + INLINE_BUF_DATA_WIDTH);
     } else {
       // reference buffer
@@ -1348,10 +1343,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
         // first data buffer needs to be added
         ArrowBuf newDataBuf = allocator.buffer(lastValueAllocationSizeInBytes);
         // set length
-        valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+        valueBuffer.setInt(valueBuffer.writerIndex(), length);
         valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
         // set prefix
-        valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, PREFIX_WIDTH);
+        valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, PREFIX_WIDTH);
         valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
         // set buf id
         valueBuffer.setInt(valueBuffer.writerIndex(), /*first buffer*/0);
@@ -1359,21 +1354,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
         // set offset
         valueBuffer.setInt(valueBuffer.writerIndex(), 0);
         valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
-        newDataBuf.setBytes(0, value, 0, value.length);
-        newDataBuf.writerIndex(value.length);
+        newDataBuf.setBytes(0, value, 0, length);
+        newDataBuf.writerIndex(length);
         dataBuffers.add(newDataBuf);
       } else {
         // insert to the last buffer in the data buffers or allocate new if the last buffer isn't enough
         // set length
-        valueBuffer.setInt(valueBuffer.writerIndex(), value.length);
+        valueBuffer.setInt(valueBuffer.writerIndex(), length);
         valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
         // set prefix
-        valueBuffer.setBytes(valueBuffer.writerIndex(), value, 0, PREFIX_WIDTH);
+        valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, PREFIX_WIDTH);
         valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
         // set buf id
         int currentBufId = dataBuffers.size() - 1;
         ArrowBuf currentBuf = dataBuffers.get(currentBufId);
-        if (currentBuf.capacity() - currentBuf.writerIndex() >= value.length) {
+        if (currentBuf.capacity() - currentBuf.writerIndex() >= length) {
           // current buffer is enough
           // set buf index
           valueBuffer.setInt(valueBuffer.writerIndex(), currentBufId);
@@ -1381,8 +1376,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
           // set offset
           valueBuffer.setInt(valueBuffer.writerIndex(), (int) currentBuf.writerIndex());
           valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
-          currentBuf.setBytes(currentBuf.writerIndex(), value, 0, value.length);
-          currentBuf.writerIndex(currentBuf.writerIndex() + value.length);
+          currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
+          currentBuf.writerIndex(currentBuf.writerIndex() + length);
           dataBuffers.set(currentBufId, currentBuf); // is this needed?
         } else {
           // current buffer is not enough
@@ -1394,8 +1389,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
           // set offset
           valueBuffer.setInt(valueBuffer.writerIndex(), 0);
           valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
-          newBuf.setBytes(0, value, 0, value.length);
-          newBuf.writerIndex(newBuf.writerIndex() + value.length);
+          newBuf.setBytes(0, value, start, length);
+          newBuf.writerIndex(newBuf.writerIndex() + length);
           dataBuffers.add(newBuf);
         }
       }
@@ -1412,7 +1407,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     /*check whether the buffer is inline or reference buffer*/
-    createValueBuffer(allocator, value, valueBuffer, dataBuffers);
+    createValueBuffer(allocator, value, start, length, valueBuffer, dataBuffers);
   }
 
   public final int getStartOffset(int index) {
@@ -1464,6 +1459,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @return array of bytes
    */
   public static byte[] get(final ArrowBuf data, final ArrowBuf offset, int index) {
+    // TODO: fixme
     final int currentStartOffset = offset.getInt((long) index * OFFSET_WIDTH);
     final int dataLength =
             offset.getInt((long) (index + 1) * OFFSET_WIDTH) - currentStartOffset;
@@ -1488,6 +1484,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    */
   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                              int valueCount, int index, int value) {
+    // TODO: fixme
     if (buffer == null) {
       buffer = allocator.buffer((long) valueCount * OFFSET_WIDTH);
     }
@@ -1509,6 +1506,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    // TODO: fixme
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       fillHoles(thisIndex);
@@ -1539,6 +1537,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    // TODO: fixme
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       handleSafe(thisIndex, 0);
@@ -1562,11 +1561,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
 
   @Override
   public ArrowBufPointer getDataPointer(int index) {
+    // TODO: fixme
     return getDataPointer(index, new ArrowBufPointer());
   }
 
   @Override
   public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
+    // TODO: fixme
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
@@ -1584,6 +1585,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
+    // TODO: fixme
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
