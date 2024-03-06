@@ -252,20 +252,26 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
 }
 
 // Convert float16/HalfFloatType
-template <typename T> 
+template <typename T>
 enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
                                        const DataType& type,
                                        uint16_t* out) {
     if (json_obj.IsDouble()) {
         double f64 = json_obj.GetDouble();
-        Float16 f16 = Float16(f64);
-        *out = f16.bits();
-        if (f16.ToDouble() == f64) {
-            return Status::OK();
-        } else {
-            return Status::Invalid("Value ", f64, " out of bounds for ", type);
-        }
-    } else {
+        *out = Float16(f64).bits();
+        return Status::OK();
+    } else if (json_obj.IsUint()) {
+        uint32_t u32t = json_obj.GetUint();
+        double f64 = static_cast<double>(u32t);
+        *out = Float16(f64).bits();
+        return Status::OK();
+    } else if (json_obj.IsInt()) {
+        int32_t i32t = json_obj.GetInt();
+        double f64 = static_cast<double>(i32t);
+        *out = Float16(f64).bits();
+        return Status::OK();
+    }
+    else {
         *out = static_cast<uint16_t>(0);
         return JSONTypeError("unsigned int", json_obj.GetType());
     }

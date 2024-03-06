@@ -52,7 +52,7 @@ struct CastPrimitive {
 
 // Converting floating types to half float.
 template <typename InType>
-struct CastPrimitive<HalfFloatType, InType, enable_if_floating_point<typename InType::c_type>> {
+struct CastPrimitive<HalfFloatType, InType, enable_if_physical_floating_point<InType>> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using InT = typename InType::c_type;
     const InT* in_values = arr.GetValues<InT>(1);
