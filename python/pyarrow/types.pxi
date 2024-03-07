@@ -275,7 +275,7 @@ cdef class DataType(_Weakrefable):
         if ty == nullptr:
             raise ValueError("Non-fixed width type")
         byte_width = ty.byte_width()
-        if byte_width == 0:
+        if byte_width == 0 and self.bit_width != 0:
             raise ValueError("Less than one byte")
         return byte_width
 
