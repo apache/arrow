@@ -3091,5 +3091,6 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   return resolver->ResolveRegion(bucket);
 }
 
+
 }  // namespace fs
 }  // namespace arrow
