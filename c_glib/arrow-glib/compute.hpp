@@ -204,3 +204,9 @@ garrow_strftime_options_new_raw(
   const arrow::compute::StrftimeOptions *arrow_options);
 arrow::compute::StrftimeOptions *
 garrow_strftime_options_get_raw(GArrowStrftimeOptions *options);
+
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new_raw(
+  const arrow::compute::SplitPatternOptions *arrow_options);
+arrow::compute::SplitPatternOptions *
+garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options);

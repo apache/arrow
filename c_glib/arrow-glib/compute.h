@@ -1145,4 +1145,20 @@ GARROW_AVAILABLE_IN_16_0
 GArrowStrftimeOptions *
 garrow_strftime_options_new(void);
 
+#define GARROW_TYPE_SPLIT_PATTERN_OPTIONS      \
+  (garrow_split_pattern_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSplitPatternOptions,
+                         garrow_split_pattern_options,
+                         GARROW,
+                         SPLIT_PATTERN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSplitPatternOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new(void);
+
 G_END_DECLS

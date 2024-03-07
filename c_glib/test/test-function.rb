@@ -250,5 +250,11 @@ class TestFunction < Test::Unit::TestCase
       assert_equal(Arrow::StrftimeOptions.gtype,
                    strftime_function.options_type)
     end
+
+    def test_split_pattern_options
+      split_pattern_function = Arrow::Function.find("split_pattern")
+      assert_equal(Arrow::SplitPatternOptions.gtype,
+                   split_pattern_function.options_type)
+    end
   end
 end

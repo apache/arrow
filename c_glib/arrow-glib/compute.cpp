@@ -245,6 +245,9 @@ G_BEGIN_DECLS
  *
  * #GArrowStrftimeOptions is a class to customize the `strftime` function.
  *
+ * #GArrowSplitPatternOptions is a class to customize the `split_pattern` and
+ *  `split_pattern_regex` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6341,6 +6344,151 @@ garrow_strftime_options_new(void)
   return GARROW_STRFTIME_OPTIONS(options);
 }
 
+enum {
+  PROP_SPLIT_PATTERN_OPTIONS_PATTERN = 1,
+  PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS,
+  PROP_SPLIT_PATTERN_OPTIONS_REVERSE,
+};
+
+G_DEFINE_TYPE(GArrowSplitPatternOptions,
+              garrow_split_pattern_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_split_pattern_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_split_pattern_options_get_raw(
+    GARROW_SPLIT_PATTERN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SPLIT_PATTERN_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS:
+    options->max_splits = g_value_get_int64(value);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_REVERSE:
+    options->reverse = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_split_pattern_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_split_pattern_options_get_raw(
+    GARROW_SPLIT_PATTERN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SPLIT_PATTERN_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS:
+    g_value_set_int64(value, options->max_splits);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_REVERSE:
+    g_value_set_boolean(value, options->reverse);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_split_pattern_options_init(GArrowSplitPatternOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::SplitPatternOptions());
+}
+
+static void
+garrow_split_pattern_options_class_init(GArrowSplitPatternOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_split_pattern_options_set_property;
+  gobject_class->get_property = garrow_split_pattern_options_get_property;
+
+  arrow::compute::SplitPatternOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSplitPatternOptions:pattern:
+   *
+   * The exact substring to split on.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "The exact substring to split on",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_PATTERN,
+                                  spec);
+
+  /**
+   * GArrowSplitPatternOptions:max_splits:
+   *
+   * Maximum number of splits allowed, or unlimited when -1.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_int64("max_splits",
+                            "Max splits",
+                            "Maximum number of splits allowed, or unlimited when -1",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.max_splits,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS,
+                                  spec);
+
+  /**
+   * GArrowSplitPatternOptions:reverse:
+   *
+   * Start splitting from the end of the string (only relevant when
+   * max_splits != -1)
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boolean("reverse",
+                              "Reverse",
+                              "Start splitting from the end of the string (only relevant when max_splits != -1)",
+                              options.reverse,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_REVERSE,
+                                  spec);
+}
+
+/**
+ * garrow_split_pattern_options_new:
+ *
+ * Returns: A newly created #GArrowSplitPatternOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_SPLIT_PATTERN_OPTIONS, NULL);
+  return GARROW_SPLIT_PATTERN_OPTIONS(options);
+}
+
 G_END_DECLS
 
 
@@ -6468,6 +6616,11 @@ garrow_function_options_new_raw(
     const auto arrow_strftime_options =
       static_cast<const arrow::compute::StrftimeOptions *>(arrow_options);
     auto options = garrow_strftime_options_new_raw(arrow_strftime_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SplitPatternOptions") {
+    const auto arrow_split_pattern_options =
+      static_cast<const arrow::compute::SplitPatternOptions *>(arrow_options);
+    auto options = garrow_split_pattern_options_new_raw(arrow_split_pattern_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -6980,5 +7133,24 @@ arrow::compute::StrftimeOptions *
 garrow_strftime_options_get_raw(GArrowStrftimeOptions *options)
 {
   return static_cast<arrow::compute::StrftimeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new_raw(
+  const arrow::compute::SplitPatternOptions *arrow_options)
+{
+  return GARROW_SPLIT_PATTERN_OPTIONS(
+    g_object_new(GARROW_TYPE_SPLIT_PATTERN_OPTIONS,
+                 "pattern", arrow_options->pattern.c_str(),
+                 "max_splits", arrow_options->max_splits,
+                 "reverse", arrow_options->reverse,
+                 NULL));
+}
+
+arrow::compute::SplitPatternOptions *
+garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options)
+{
+  return static_cast<arrow::compute::SplitPatternOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
