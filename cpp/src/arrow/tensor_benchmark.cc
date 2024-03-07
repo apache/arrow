@@ -34,13 +34,13 @@ static void BatchToTensorSimple(benchmark::State& state) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
   auto schema = ::arrow::schema(fields);
 
-  constexpr int kNumRows = 500;
+  constexpr int kNumRows = 100000;
   arrow::random::RandomArrayGenerator gen_{42};
-  auto a0 = gen_.ArrayOf(ty, kNumRows);
-  auto a1 = gen_.ArrayOf(ty, kNumRows);
-  auto a2 = gen_.ArrayOf(ty, kNumRows);
-
-  auto batch = RecordBatch::Make(schema, kNumRows, {a0, a1, a2});
+  std::vector<std::shared_ptr<Array>> columns = {};
+  for (int i = 0; i < 100; ++i) {
+    columns.push_back(gen_.ArrayOf(ty, kNumRows));
+  }
+  auto batch = RecordBatch::Make(schema, kNumRows, columns);
 
   ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
 
