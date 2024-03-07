@@ -104,10 +104,10 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
-  simd_batch* output_buffer_streams[kNumStreams];
+  int8_t* output_buffer_streams[kNumStreams];
   for (int i = 0; i < kNumStreams; ++i) {
     output_buffer_streams[i] =
-        reinterpret_cast<simd_batch*>(&output_buffer_raw[num_values * i]);
+        reinterpret_cast<int8_t*>(&output_buffer_raw[num_values * i]);
   }
 
   // First handle suffix.
@@ -152,44 +152,43 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
     }
     if constexpr (kNumStreams == 8) {
       // This is the path for 64bits data.
-      using simd_batch_32b = xsimd::make_sized_batch_t<int32_t, 4>;
       simd_batch tmp[8];
 
       for (int i = 0; i < 4; ++i) {
-        tmp[i * 2] =
-            simd_batch(xsimd::zip_lo(static_cast<simd_batch_32b>(stage[2][i]),
-                                     static_cast<simd_batch_32b>(stage[2][i + 4])));
-        tmp[i * 2 + 1] =
-            simd_batch(xsimd::zip_hi(static_cast<simd_batch_32b>(stage[2][i]),
-                                     static_cast<simd_batch_32b>(stage[2][i + 4])));
+        tmp[i * 2] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_lo(xsimd::bitwise_cast<int32_t>(stage[2][i]),
+                          xsimd::bitwise_cast<int32_t>(stage[2][i + 4])));
+        tmp[i * 2 + 1] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_hi(xsimd::bitwise_cast<int32_t>(stage[2][i]),
+                          xsimd::bitwise_cast<int32_t>(stage[2][i + 4])));
       }
       for (int i = 0; i < 4; ++i) {
-        final_result[i * 2] =
-            simd_batch(xsimd::zip_lo(static_cast<simd_batch_32b>(tmp[i]),
-                                     static_cast<simd_batch_32b>(tmp[i + 4])));
-        final_result[i * 2 + 1] =
-            simd_batch(xsimd::zip_hi(static_cast<simd_batch_32b>(tmp[i]),
-                                     static_cast<simd_batch_32b>(tmp[i + 4])));
+        final_result[i * 2] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_lo(xsimd::bitwise_cast<int32_t>(tmp[i]),
+                          xsimd::bitwise_cast<int32_t>(tmp[i + 4])));
+        final_result[i * 2 + 1] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_hi(xsimd::bitwise_cast<int32_t>(tmp[i]),
+                          xsimd::bitwise_cast<int32_t>(tmp[i + 4])));
       }
     } else {
-      // this is the path for 32bits data.
+      // This is the path for 32bits data.
       simd_batch tmp[4];
       for (int i = 0; i < 2; ++i) {
         tmp[i * 2] = xsimd::zip_lo(stage[2][i * 2], stage[2][i * 2 + 1]);
         tmp[i * 2 + 1] = xsimd::zip_hi(stage[2][i * 2], stage[2][i * 2 + 1]);
       }
-      using simd_batch_64b = xsimd::make_sized_batch_t<int64_t, 2>;
       for (int i = 0; i < 2; ++i) {
-        final_result[i * 2] =
-            simd_batch(xsimd::zip_lo(simd_batch_64b(tmp[i]), simd_batch_64b(tmp[i + 2])));
-        final_result[i * 2 + 1] =
-            simd_batch(xsimd::zip_hi(simd_batch_64b(tmp[i]), simd_batch_64b(tmp[i + 2])));
+        final_result[i * 2] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_lo(xsimd::bitwise_cast<int64_t>(tmp[i]),
+                          xsimd::bitwise_cast<int64_t>(tmp[i + 2])));
+        final_result[i * 2 + 1] = xsimd::bitwise_cast<int8_t>(
+            xsimd::zip_hi(xsimd::bitwise_cast<int64_t>(tmp[i]),
+                          xsimd::bitwise_cast<int64_t>(tmp[i + 2])));
       }
     }
     for (int i = 0; i < kNumStreams; ++i) {
-      xsimd::store_unaligned(
-          reinterpret_cast<int8_t*>(&output_buffer_streams[i][block_index]),
-          final_result[i]);
+      xsimd::store_unaligned(&output_buffer_streams[i][block_index * sizeof(simd_batch)],
+                             final_result[i]);
     }
   }
 }
