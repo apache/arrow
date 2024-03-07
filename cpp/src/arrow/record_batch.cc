@@ -248,69 +248,61 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
+#define TYPE_CASE(type)                                 \
+  case Type::type: {                                    \
+    using T = typename TypeIdTraits<Type::type>::Type;  \
+    using CType_in = typename TypeTraits<T>::CType;     \
+    auto* in_values = data->GetValues<CType_in>(1);     \
+    for (int64_t i = 0; i < arr.length(); ++i) {        \
+      *out_values++ = static_cast<CType>(*in_values++); \
+    }                                                   \
+    break;                                              \
+  }
+
 template <typename DataType>
 inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
 
-  if (TypeTraits<DataType>::type_singleton() ==
-      batch.column(0)->type()) {  // If all columns are of same data type
-    // Loop through all of the columns
-    for (int i = 0; i < batch.num_columns(); ++i) {
-      const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    const auto& arr = *batch.column(i);
+    auto data = arr.data();
 
-      // Copy data of each column
-      memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
-      out_values += batch.num_rows();
-    }  // End loop through columns
+    // If the column is of the same type than resulting data type
+    if (TypeTraits<DataType>::type_singleton() == batch.column(0)->type()) {
+      for (int i = 0; i < batch.num_columns(); ++i) {
+        const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
-  } else {  // If columns have mixed data type
-    // Loop through all of the columns
-    for (int i = 0; i < batch.num_columns(); ++i) {
-      const auto& arr = *batch.column(i);
-      auto data = arr.data();
-
-      // Copy data of each column
-      for (int64_t i = 0; i < arr.length(); ++i) {
-        switch (arr.type_id()) {
-          case Type::UINT8:
-            *out_values++ = static_cast<CType>(data->GetValues<uint8_t>(1)[i]);
-            break;
-          case Type::UINT16:
-          case Type::HALF_FLOAT:
-            *out_values++ = static_cast<CType>(data->GetValues<uint16_t>(1)[i]);
-            break;
-          case Type::UINT32:
-            *out_values++ = static_cast<CType>(data->GetValues<uint32_t>(1)[i]);
-            break;
-          case Type::UINT64:
-            *out_values++ = static_cast<CType>(data->GetValues<uint64_t>(1)[i]);
-            break;
-          case Type::INT8:
-            *out_values++ = static_cast<CType>(data->GetValues<int8_t>(1)[i]);
-            break;
-          case Type::INT16:
-            *out_values++ = static_cast<CType>(data->GetValues<int16_t>(1)[i]);
-            break;
-          case Type::INT32:
-            *out_values++ = static_cast<CType>(data->GetValues<int32_t>(1)[i]);
-            break;
-          case Type::INT64:
-            *out_values++ = static_cast<CType>(data->GetValues<int64_t>(1)[i]);
-            break;
-          case Type::FLOAT:
-            *out_values++ = static_cast<CType>(data->GetValues<float>(1)[i]);
-            break;
-          case Type::DOUBLE:
-            *out_values++ = static_cast<CType>(data->GetValues<double>(1)[i]);
-            break;
-          default:
-            break;
+        memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
+        out_values += batch.num_rows();
+      }
+    } else {  // If the column is different type than resulting data type
+      switch (arr.type_id()) {
+        case Type::HALF_FLOAT: {
+          auto* in_values = data->GetValues<uint16_t>(1);
+          for (int64_t i = 0; i < arr.length(); ++i) {
+            *out_values++ = static_cast<CType>(*in_values++);
+          }
+          break;
         }
-      }  // End loop through array
-    }    // End loop through columns
+          TYPE_CASE(UINT8)
+          TYPE_CASE(UINT16)
+          TYPE_CASE(UINT32)
+          TYPE_CASE(UINT64)
+          TYPE_CASE(INT8)
+          TYPE_CASE(INT16)
+          TYPE_CASE(INT32)
+          TYPE_CASE(INT64)
+          TYPE_CASE(FLOAT)
+          TYPE_CASE(DOUBLE)
+        default:
+          break;
+      }
+    }
   }
 }
+
+#undef TYPE_CASE
 
 Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
   if (num_columns() == 0) {
