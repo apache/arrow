@@ -845,7 +845,8 @@ Result<Expression> FoldConstants(Expression expr) {
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
-        if (std::all_of(call->arguments.begin(), call->arguments.end(),
+        if (!call->arguments.empty() &&
+            std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
           static const ExecBatch ignored_input = ExecBatch({}, 1);

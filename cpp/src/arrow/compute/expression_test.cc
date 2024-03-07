@@ -895,8 +895,10 @@ TEST(Expression, ExecuteCallWithNoArguments) {
 
   Expression random_expr = call("random", {}, random_options);
   ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
+  ASSERT_OK_AND_ASSIGN(auto simplify_expr,
+                       SimplifyWithGuarantee(random_expr, input.guarantee));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(random_expr, input));
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(simplify_expr, input));
   compute::ExecContext* exec_context = default_exec_context();
   ASSERT_OK_AND_ASSIGN(auto function,
                        exec_context->func_registry()->GetFunction("random"));
