@@ -210,6 +210,10 @@ jobs:
       ARROW_WITH_ZSTD: ON
       GTest_SOURCE: BUNDLED
     steps:
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          detached: true
       - name: CPU Info
         run: |
           sysctl -a | grep cpu
