@@ -44,6 +44,7 @@ final class Scenarios {
     scenarios.put("expiration_time:renew_flight_endpoint", ExpirationTimeRenewFlightEndpointScenario::new);
     scenarios.put("expiration_time:do_get", ExpirationTimeDoGetScenario::new);
     scenarios.put("expiration_time:list_actions", ExpirationTimeListActionsScenario::new);
+    scenarios.put("location:reuse_connection", LocationReuseConnectionScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
     scenarios.put("ordered", OrderedScenario::new);
     scenarios.put("poll_flight_info", PollFlightInfoScenario::new);

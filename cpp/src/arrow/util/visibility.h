@@ -52,13 +52,10 @@
 #endif
 
 #define ARROW_NO_EXPORT
-#define ARROW_FORCE_INLINE __forceinline
 
 #else
 
 // Non-Windows
-
-#define ARROW_FORCE_INLINE
 
 #if defined(__cplusplus) && (defined(__GNUC__) || defined(__clang__))
 #ifndef ARROW_EXPORT
