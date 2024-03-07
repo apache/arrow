@@ -42,6 +42,7 @@ override_dh_auto_configure:
 	  -DARROW_PARQUET=ON					\
 	  -DARROW_S3=ON						\
 	  -DARROW_USE_CCACHE=OFF				\
+	  -DARROW_USE_MOLD=ON					\
 	  -DARROW_WITH_BROTLI=ON				\
 	  -DARROW_WITH_BZ2=ON					\
 	  -DARROW_WITH_LZ4=ON					\
