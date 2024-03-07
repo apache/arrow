@@ -46,7 +46,23 @@ static constexpr bool EitherMightHaveNulls =
 // [1] https://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
 template <class GatherImpl>
 class GatherBaseCRTP {
+ public:
+  GatherBaseCRTP() = default;
+  GatherBaseCRTP(const GatherBaseCRTP&) = delete;
+  GatherBaseCRTP(GatherBaseCRTP&&) = delete;
+  GatherBaseCRTP& operator=(const GatherBaseCRTP&) = delete;
+  GatherBaseCRTP& operator=(GatherBaseCRTP&&) = delete;
+
  protected:
+  template <typename IndexCType>
+  ARROW_FORCE_INLINE int64_t ExecuteNoNulls(int64_t idx_length, const IndexCType* idx) {
+    auto* self = static_cast<GatherImpl*>(this);
+    for (int64_t position = 0; position < idx_length; position++) {
+      self->WriteValue(position);
+    }
+    return idx_length;
+  }
+
   /// \pre Bits in out_is_valid are already zeroed out.
   /// \post The bits for the valid elements (and only those) are set in out_is_valid.
   /// \return The number of valid elements in out.
@@ -144,23 +160,6 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
   uint8_t* out_;
 
  public:
-  void WriteValue(int64_t position) {
-    memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
-           kValueWidth);
-  }
-
-  void WriteZero(int64_t position) {
-    memset(out_ + position * kValueWidth, 0, kValueWidth);
-  }
-
-  void WriteZeroSegment(int64_t position, int64_t length) {
-    memset(out_ + position * kValueWidth, 0, kValueWidth * length);
-  }
-
-  Gather(const Gather&) = delete;
-  Gather(Gather&&) = delete;
-  Gather& operator=(const Gather&) = delete;
-  Gather& operator=(Gather&&) = delete;
   Gather(int64_t src_length, const uint8_t* src, int64_t idx_length,
          const IndexCType* idx, uint8_t* out)
       : src_length_(src_length),
@@ -186,13 +185,21 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
     assert(src && idx && out);
   }
 
-  ARROW_FORCE_INLINE
-  int64_t Execute() {
-    for (int64_t position = 0; position < idx_length_; position++) {
-      WriteValue(position);
-    }
-    return idx_length_;
+  void WriteValue(int64_t position) {
+    memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
+           kValueWidth);
   }
+
+  void WriteZero(int64_t position) {
+    memset(out_ + position * kValueWidth, 0, kValueWidth);
+  }
+
+  void WriteZeroSegment(int64_t position, int64_t length) {
+    memset(out_ + position * kValueWidth, 0, kValueWidth * length);
+  }
+
+  ARROW_FORCE_INLINE
+  int64_t Execute() { return this->ExecuteNoNulls(idx_length_, idx_); }
 
   /// \pre Bits in out_is_valid are already zeroed out.
   /// \post The bits for the valid elements (and only those) are set in out_is_valid.
@@ -210,7 +217,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
 };
 
 template <typename IndexCType>
-class Gather<1, IndexCType> {
+class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
  private:
   const int64_t src_length_;  // number of elements of kValueWidth bytes in src_
   const uint8_t* src_;        // the boolean array data buffer in bits
@@ -218,17 +225,6 @@ class Gather<1, IndexCType> {
   const int64_t idx_length_;  // number IndexCType elements in idx_
   const IndexCType* idx_;
   uint8_t* out_;  // output boolean array data buffer in bits
-
-  void WriteValue(int64_t position) {
-    bit_util::SetBitTo(out_, position,
-                       bit_util::GetBit(src_, src_offset_ + idx_[position]));
-  }
-
-  void WriteZero(int64_t position) { bit_util::ClearBit(out_, position); }
-
-  void WriteZeroSegment(int64_t position, int64_t block_length) {
-    bit_util::SetBitsTo(out_, position, block_length, false);
-  }
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
@@ -242,14 +238,19 @@ class Gather<1, IndexCType> {
     assert(src && idx && out);
   }
 
-  ARROW_FORCE_INLINE
-  int64_t Execute() {
-    for (int64_t position = 0; position < idx_length_; position++) {
-      bit_util::SetBitTo(out_, position,
-                         bit_util::GetBit(src_, src_offset_ + idx_[position]));
-    }
-    return idx_length_;
+  void WriteValue(int64_t position) {
+    bit_util::SetBitTo(out_, position,
+                       bit_util::GetBit(src_, src_offset_ + idx_[position]));
   }
+
+  void WriteZero(int64_t position) { bit_util::ClearBit(out_, position); }
+
+  void WriteZeroSegment(int64_t position, int64_t block_length) {
+    bit_util::SetBitsTo(out_, position, block_length, false);
+  }
+
+  ARROW_FORCE_INLINE
+  int64_t Execute() { return this->ExecuteNoNulls(idx_length_, idx_); }
 
   /// \pre Bits in out_is_valid are already zeroed out.
   /// \post The bits for the valid elements (and only those) are set in out_is_valid.
@@ -258,73 +259,11 @@ class Gather<1, IndexCType> {
   ARROW_FORCE_INLINE
       std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
       Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
-    assert(src_length_ == src_validity.length);
-    assert(src_offset_ == src_validity.offset);
+    assert(src_length_ == src_validity.length && src_offset_ == src_validity.offset);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
-
-    OptionalBitBlockCounter indices_bit_counter(idx_validity.bitmap, idx_validity.offset,
-                                                idx_length_);
-    int64_t position = 0;
-    int64_t valid_count = 0;
-    while (position < idx_length_) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (SrcValidity::kBitmapTag == BitmapTag::kEmpty || src_validity.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            WriteValue(position);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (idx_validity.template IsValid<BitmapTag::kChecked>(position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, position);
-              WriteValue(position);
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
-              // value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, position);
-              ++valid_count;
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (idx_validity.template IsValid<BitmapTag::kChecked>(position) &&
-                src_validity.template IsValid<BitmapTag::kChecked>(idx_[position])) {
-              // index is not null && value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, position);
-              ++valid_count;
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      }
-    }
-    return valid_count;
+    return this->ExecuteWithNulls(src_validity, idx_length_, idx_, idx_validity,
+                                  out_is_valid);
   }
 };
 

@@ -351,11 +351,10 @@ struct PrimitiveTakeImpl {
                                                 allocate_validity, out_arr));
     DCHECK_EQ(out_arr->offset, 0);
 
-    if constexpr (kValueWidthInBits == 1) {
-      // XXX: Gather for booleans doesn't zero out the bits of nulls in the
-      // output buffer, so we need to do it manually.
-      memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
-    }
+    // XXX: re-enable this in following commits
+    // if constexpr (kValueWidthInBits == 1) {
+    //   memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
+    // }
     int64_t valid_count = 0;
     arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
         /*src_length=*/values.length,
