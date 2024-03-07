@@ -1069,7 +1069,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       case KeyKind::BYTES:
         return AppendDict(dict, bytes_field_names_.obj());
       default:
-        RETURN_NOT_OK(InferKeyKind(PyDict_Items(dict)));
+        OwnedRef item_ref(PyDict_Items(dict));
+        RETURN_NOT_OK(InferKeyKind(item_ref.obj()));
         if (key_kind_ == KeyKind::UNKNOWN) {
           // was unable to infer the type which means that all keys are absent
           return AppendEmpty();
@@ -1114,6 +1115,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
 
   Result<std::pair<PyObject*, PyObject*>> GetKeyValuePair(PyObject* seq, int index) {
     PyObject* pair = PySequence_GetItem(seq, index);
+    OwnedRef pair_ref(pair);
     RETURN_IF_PYERROR();
     if (!PyTuple_Check(pair) || PyTuple_Size(pair) != 2) {
       return internal::InvalidType(pair, "was expecting tuple of (key, value) pair");
