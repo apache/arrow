@@ -94,8 +94,12 @@ void ByteStreamSplitDecode128B(const uint8_t* data, int64_t num_values, int64_t 
 template <int kNumStreams>
 void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_values,
                                uint8_t* output_buffer_raw) {
-  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
-  using simd_arch = typename simd_batch::arch_type;
+#if defined(ARROW_HAVE_NEON)
+  using simd_arch = typename xsimd::neon;
+#elif defined(ARROW_HAVE_SSE4_2)
+  using simd_arch = typename xsimd::sse4_2;
+#endif
+  using simd_batch = xsimd::batch<int8_t, simd_arch>;
 
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
