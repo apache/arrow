@@ -28,6 +28,7 @@ dask=$1
 
 if [ "${dask}" = "upstream_devel" ]; then
   pip install "dask[dataframe] @ git+https://github.com/dask/dask.git"
+  pip install -U git+https://github.com/dask-contrib/dask-expr.git
 elif [ "${dask}" = "latest" ]; then
   pip install dask[dataframe]
 else
