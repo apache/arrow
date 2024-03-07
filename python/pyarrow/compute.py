@@ -661,7 +661,7 @@ def random(n, *, initializer='system', options=None, memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
     """
-    options = RandomOptions(initializer=initializer)
+    options = options or RandomOptions(initializer=initializer)
     return call_function("random", [], options, memory_pool, length=n)
 
 
