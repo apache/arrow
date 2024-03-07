@@ -154,7 +154,7 @@ using internal::S3Backend;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
-static const char kSep = '/';
+constexpr const char kSep = '/';
 constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
 constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
@@ -1216,7 +1216,9 @@ Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata
 }
 
 bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) {
-  // If it has a non-zero length, it's a regular file
+  // If it has a non-zero length, it's a regular file. We do this even if
+  // the key has a trailing slash, as directory markers should never have
+  // any data associated to them.
   if (result.GetContentLength() > 0) {
     return false;
   }
