@@ -379,9 +379,9 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.account_name, "account");
     ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
-    ASSERT_EQ(options.blob_storage_scheme, "http");
-    ASSERT_EQ(options.dfs_storage_scheme, "http");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
+    ASSERT_EQ(options.blob_storage_scheme, "https");
+    ASSERT_EQ(options.dfs_storage_scheme, "https");
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
   }
 
@@ -396,7 +396,23 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
     ASSERT_EQ(options.blob_storage_scheme, "https");
     ASSERT_EQ(options.dfs_storage_scheme, "https");
-    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(path, "container/dir/blob");
+  }
+
+  void TestFromUriEnableTls() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
+                             "enable_tls=false",
+                             &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
   }
 
@@ -421,9 +437,9 @@ class TestAzureOptions : public ::testing::Test {
   void TestFromUriCredentialStorageSharedKey() {
     ASSERT_OK_AND_ASSIGN(
         auto options,
-        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
-                              "credential_kind=storage_shared_key",
-                              nullptr));
+        AzureOptions::FromUri(
+            "abfs://:password@account.blob.core.windows.net/container/dir/blob",
+            nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
   }
 
@@ -431,7 +447,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(
         auto options,
         AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
-                              "credential_kind=client_secret&"
                               "tenant_id=tenant-id&"
                               "client_id=client-id&"
                               "client_secret=client-secret",
@@ -443,7 +458,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(
         auto options,
         AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
-                              "credential_kind=managed_identity&"
                               "client_id=client-id",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kManagedIdentity);
@@ -482,24 +496,6 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_authority, ".dfs.local");
   }
 
-  void TestFromUriBlobStorageScheme() {
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
-                              "blob_storage_scheme=http",
-                              nullptr));
-    ASSERT_EQ(options.blob_storage_scheme, "http");
-  }
-
-  void TestFromUriDfsStorageScheme() {
-    ASSERT_OK_AND_ASSIGN(
-        auto options,
-        AzureOptions::FromUri("abfs://file_system@account.dfs.core.windows.net/dir/file?"
-                              "dfs_storage_scheme=http",
-                              nullptr));
-    ASSERT_EQ(options.dfs_storage_scheme, "http");
-  }
-
   void TestFromUriInvalidQueryParameter() {
     ASSERT_RAISES(Invalid, AzureOptions::FromUri(
                                "abfs://file_system@account.dfs.core.windows.net/dir/file?"
@@ -512,6 +508,7 @@ TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
 TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
+TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
 TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
@@ -531,8 +528,6 @@ TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
   TestFromUriBlobStorageAuthority();
 }
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
-TEST_F(TestAzureOptions, FromUriBlobStorageScheme) { TestFromUriBlobStorageScheme(); }
-TEST_F(TestAzureOptions, FromUriDfsStorageScheme) { TestFromUriDfsStorageScheme(); }
 TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
 }

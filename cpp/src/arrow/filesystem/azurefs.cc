@@ -65,115 +65,162 @@ AzureOptions::AzureOptions() = default;
 
 AzureOptions::~AzureOptions() = default;
 
-Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
-                                           std::string* out_path) {
-  AzureOptions options;
+void AzureOptions::ExtractFromUriSchemeAndHierPart(const arrow::internal::Uri& uri,
+                                                   std::string* out_path) {
   const auto host = uri.host();
-  std::string container;
   std::string path;
-  if (arrow::internal::EndsWith(host, options.blob_storage_authority)) {
-    options.account_name =
-        host.substr(0, host.size() - options.blob_storage_authority.size());
-    auto components = internal::SplitAbstractPath(uri.path());
-    if (!components.empty()) {
-      container = components[0];
-      path = internal::JoinAbstractPath(components.begin() + 1, components.end());
-    }
-  } else if (arrow::internal::EndsWith(host, options.dfs_storage_authority)) {
-    options.account_name =
-        host.substr(0, host.size() - options.dfs_storage_authority.size());
-    container = uri.username();
-    path = uri.path();
+  if (arrow::internal::EndsWith(host, blob_storage_authority)) {
+    account_name = host.substr(0, host.size() - blob_storage_authority.size());
+    path = internal::RemoveLeadingSlash(uri.path());
+  } else if (arrow::internal::EndsWith(host, dfs_storage_authority)) {
+    account_name = host.substr(0, host.size() - dfs_storage_authority.size());
+    path = internal::ConcatAbstractPath(uri.username(), uri.path());
   } else {
-    options.account_name = uri.username();
-    std::string host_port = host;
+    account_name = uri.username();
     const auto port_text = uri.port_text();
-    if (!port_text.empty()) {
-      host_port += ":" + port_text;
-    }
-    options.blob_storage_authority = host_port;
-    options.dfs_storage_authority = host_port;
-    if (uri.scheme() == "abfs") {
-      options.blob_storage_scheme = "http";
-      options.dfs_storage_scheme = "http";
-    }
-    auto components = internal::SplitAbstractPath(uri.path());
-    if (!components.empty()) {
-      container = components[0];
-      path = internal::JoinAbstractPath(components.begin() + 1, components.end());
+    if (host.find(".") == std::string::npos && port_text.empty()) {
+      // abfs://container/dir/file
+      path = internal::ConcatAbstractPath(host, uri.path());
+    } else {
+      // abfs://host.domain/container/dir/file
+      // abfs://host.domain:port/container/dir/file
+      // abfs://host:port/container/dir/file
+      std::string host_port = host;
+      if (!port_text.empty()) {
+        host_port += ":" + port_text;
+      }
+      blob_storage_authority = host_port;
+      dfs_storage_authority = host_port;
+      path = internal::RemoveLeadingSlash(uri.path());
     }
   }
-  const auto account_key = uri.password();
-
   if (out_path != nullptr) {
-    *out_path = std::string(internal::ConcatAbstractPath(container, path));
+    *out_path = path;
   }
+}
 
-  CredentialKind credential_kind = options.account_name.empty()
-                                       ? CredentialKind::kAnonymous
-                                       : CredentialKind::kDefault;
+Status AzureOptions::ExtractFromUriQuery(const arrow::internal::Uri& uri) {
+  const auto account_key = uri.password();
+  std::optional<CredentialKind> credential_kind;
+  std::optional<std::string> credential_kind_value;
   std::string tenant_id;
   std::string client_id;
   std::string client_secret;
   ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
   for (const auto& kv : options_items) {
     if (kv.first == "blob_storage_authority") {
-      options.blob_storage_authority = kv.second;
+      blob_storage_authority = kv.second;
     } else if (kv.first == "dfs_storage_authority") {
-      options.dfs_storage_authority = kv.second;
-    } else if (kv.first == "blob_storage_scheme") {
-      options.blob_storage_scheme = kv.second;
-    } else if (kv.first == "dfs_storage_scheme") {
-      options.dfs_storage_scheme = kv.second;
+      dfs_storage_authority = kv.second;
     } else if (kv.first == "credential_kind") {
       if (kv.second == "default") {
         credential_kind = CredentialKind::kDefault;
       } else if (kv.second == "anonymous") {
         credential_kind = CredentialKind::kAnonymous;
-      } else if (kv.second == "storage_shared_key") {
-        credential_kind = CredentialKind::kStorageSharedKey;
-      } else if (kv.second == "client_secret") {
-        credential_kind = CredentialKind::kClientSecret;
-      } else if (kv.second == "managed_identity") {
-        credential_kind = CredentialKind::kManagedIdentity;
       } else if (kv.second == "workload_identity") {
         credential_kind = CredentialKind::kWorkloadIdentity;
       } else {
+        // Other credential kinds should be inferred from the given
+        // parameters automatically.
         return Status::Invalid("Unexpected credential_kind: '", kv.second, "'");
       }
+      credential_kind_value = kv.second;
     } else if (kv.first == "tenant_id") {
       tenant_id = kv.second;
     } else if (kv.first == "client_id") {
       client_id = kv.second;
     } else if (kv.first == "client_secret") {
       client_secret = kv.second;
+    } else if (kv.first == "enable_tls") {
+      ARROW_ASSIGN_OR_RAISE(auto enable_tls, ::arrow::internal::ParseBoolean(kv.second));
+      if (enable_tls) {
+        blob_storage_scheme = "https";
+        dfs_storage_scheme = "https";
+      } else {
+        blob_storage_scheme = "http";
+        dfs_storage_scheme = "http";
+      }
     } else {
       return Status::Invalid(
           "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
     }
   }
 
-  switch (credential_kind) {
-    case CredentialKind::kDefault:
-      break;
-    case CredentialKind::kAnonymous:
-      RETURN_NOT_OK(options.ConfigureAnonymousCredential());
-      break;
-    case CredentialKind::kStorageSharedKey:
-      RETURN_NOT_OK(options.ConfigureAccountKeyCredential(account_key));
-      break;
-    case CredentialKind::kClientSecret:
-      RETURN_NOT_OK(
-          options.ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
-      break;
-    case CredentialKind::kManagedIdentity:
-      RETURN_NOT_OK(options.ConfigureManagedIdentityCredential(client_id));
-      break;
-    case CredentialKind::kWorkloadIdentity:
-      RETURN_NOT_OK(options.ConfigureWorkloadIdentityCredential());
-      break;
-  }
+  if (credential_kind) {
+    if (!account_key.empty()) {
+      return Status::Invalid("Password must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!tenant_id.empty()) {
+      return Status::Invalid("tenant_id must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!client_id.empty()) {
+      return Status::Invalid("client_id must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!client_secret.empty()) {
+      return Status::Invalid("client_secret must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
 
+    switch (*credential_kind) {
+      case CredentialKind::kAnonymous:
+        RETURN_NOT_OK(ConfigureAnonymousCredential());
+        break;
+      case CredentialKind::kWorkloadIdentity:
+        RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      default:
+        // Default credential
+        break;
+    }
+  } else {
+    if (!account_key.empty()) {
+      // With password
+      if (!tenant_id.empty()) {
+        return Status::Invalid("tenant_id must not be specified with password");
+      }
+      if (!client_id.empty()) {
+        return Status::Invalid("client_id must not be specified with password");
+      }
+      if (!client_secret.empty()) {
+        return Status::Invalid("client_secret must not be specified with password");
+      }
+      RETURN_NOT_OK(ConfigureAccountKeyCredential(account_key));
+    } else {
+      // Without password
+      if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
+        // No related parameters
+        if (account_name.empty()) {
+          RETURN_NOT_OK(ConfigureAnonymousCredential());
+        } else {
+          // Default credential
+        }
+      } else {
+        // One or more tenant_id, client_id or client_secret are specified
+        if (client_id.empty()) {
+          return Status::Invalid("client_id must be specified");
+        }
+        if (tenant_id.empty() && client_secret.empty()) {
+          RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
+        } else if (!tenant_id.empty() && !client_secret.empty()) {
+          RETURN_NOT_OK(
+              ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+        } else {
+          return Status::Invalid("Both of tenant_id and client_secret must be specified");
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
+                                           std::string* out_path) {
+  AzureOptions options;
+  options.ExtractFromUriSchemeAndHierPart(uri, out_path);
+  RETURN_NOT_OK(options.ExtractFromUriQuery(uri));
   return options;
 }
 
