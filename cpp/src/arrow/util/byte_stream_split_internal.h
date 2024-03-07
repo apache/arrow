@@ -193,20 +193,6 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
 
 #endif
 
-#if defined(ARROW_HAVE_SSE4_2)
-template <int kNumStreams>
-void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t stride,
-                               uint8_t* out) {
-  ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
-}
-
-template <int kNumStreams>
-void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const int64_t num_values,
-                               uint8_t* output_buffer_raw) {
-  ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values, output_buffer_raw);
-}
-#endif  // ARROW_HAVE_SSE4_2
-
 #if defined(ARROW_HAVE_AVX2)
 template <int kNumStreams>
 void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t stride,
@@ -217,7 +203,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSse2<kNumStreams>(data, num_values, stride, out);
+    return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
 
   // First handle suffix.
@@ -299,12 +285,12 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const int64_t num_valu
   constexpr int kBlockSize = sizeof(__m256i) * kNumStreams;
 
   if constexpr (kNumStreams == 8)  // Back to SSE, currently no path for double.
-    return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
+    return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
                                                   output_buffer_raw);
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
+    return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
                                                   output_buffer_raw);
   const int64_t num_blocks = size / kBlockSize;
   const __m256i* raw_values_simd = reinterpret_cast<const __m256i*>(raw_values);
@@ -372,7 +358,7 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
 #if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2<kNumStreams>(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitDecodeSse2<kNumStreams>(data, num_values, stride, out);
+  return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_NEON)
   return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
 #else
@@ -387,7 +373,7 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t n
   return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, num_values,
                                                 output_buffer_raw);
 #elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
+  return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
                                                 output_buffer_raw);
 #elif defined(ARROW_HAVE_NEON)
   return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
