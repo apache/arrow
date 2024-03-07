@@ -136,9 +136,11 @@ struct ARROW_EXPORT AzureOptions {
   ///
   /// Supported formats:
   ///
-  /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net[/\<container\>[/\<path\>]]
+  /// 1.
+  /// abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net[/\<container\>[/\<path\>]]
   /// 2. abfs[s]://\<container\>[:\<password\>]@\<account\>.dfs.core.windows.net[/path]
-  /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>][/\<container\>[/path]]
+  /// 3.
+  /// abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>][/\<container\>[/path]]
   /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
   ///
   /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
