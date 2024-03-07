@@ -94,12 +94,8 @@ void ByteStreamSplitDecode128B(const uint8_t* data, int64_t num_values, int64_t 
 template <int kNumStreams>
 void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_values,
                                uint8_t* output_buffer_raw) {
-#if defined(ARROW_HAVE_NEON)
-  using simd_arch = typename xsimd::neon;
-#elif defined(ARROW_HAVE_SSE4_2)
-  using simd_arch = typename xsimd::sse4_2;
-#endif
-  using simd_batch = xsimd::batch<int8_t, simd_arch>;
+  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
+  using simd_arch = typename simd_batch::arch_type;
 
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
@@ -159,33 +155,53 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
       // This is the path for 64bits data.
       simd_batch tmp[8];
       using int32_batch = xsimd::batch<int32_t, simd_arch>;
+      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
+      auto from_int32_batch = [](int32_batch from) -> simd_batch {
+        simd_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
+      auto to_int32_batch = [](simd_batch from) -> int32_batch {
+        int32_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
       for (int i = 0; i < 4; ++i) {
-        tmp[i * 2] = static_cast<simd_batch>(
-            xsimd::zip_lo(static_cast<int32_batch>(stage[2][i]),
-                          static_cast<int32_batch>(stage[2][i + 4])));
-        tmp[i * 2 + 1] = static_cast<simd_batch>(
-            xsimd::zip_hi(static_cast<int32_batch>(stage[2][i]),
-                          static_cast<int32_batch>(stage[2][i + 4])));
+        tmp[i * 2] = from_int32_batch(
+            xsimd::zip_lo(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
+        tmp[i * 2 + 1] = from_int32_batch(
+            xsimd::zip_hi(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
       }
       for (int i = 0; i < 4; ++i) {
-        final_result[i * 2] = static_cast<simd_batch>(xsimd::zip_lo(
-            static_cast<int32_batch>(tmp[i]), static_cast<int32_batch>(tmp[i + 4])));
-        final_result[i * 2 + 1] = static_cast<simd_batch>(xsimd::zip_hi(
-            static_cast<int32_batch>(tmp[i]), static_cast<int32_batch>(tmp[i + 4])));
+        final_result[i * 2] = from_int32_batch(
+            xsimd::zip_lo(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
+        final_result[i * 2 + 1] = from_int32_batch(
+            xsimd::zip_hi(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
       }
     } else {
       // This is the path for 32bits data.
       using int64_batch = xsimd::batch<int64_t, simd_arch>;
+      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
+      auto from_int64_batch = [](int64_batch from) -> simd_batch {
+        simd_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
+      auto to_int64_batch = [](simd_batch from) -> int64_batch {
+        int64_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
       simd_batch tmp[4];
       for (int i = 0; i < 2; ++i) {
         tmp[i * 2] = xsimd::zip_lo(stage[2][i * 2], stage[2][i * 2 + 1]);
         tmp[i * 2 + 1] = xsimd::zip_hi(stage[2][i * 2], stage[2][i * 2 + 1]);
       }
       for (int i = 0; i < 2; ++i) {
-        final_result[i * 2] = static_cast<simd_batch>(xsimd::zip_lo(
-            static_cast<int64_batch>(tmp[i]), static_cast<int64_batch>(tmp[i + 2])));
-        final_result[i * 2 + 1] = static_cast<simd_batch>(xsimd::zip_hi(
-            static_cast<int64_batch>(tmp[i]), static_cast<int64_batch>(tmp[i + 2])));
+        final_result[i * 2] = from_int64_batch(
+            xsimd::zip_lo(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
+        final_result[i * 2 + 1] = from_int64_batch(
+            xsimd::zip_hi(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
       }
     }
     for (int i = 0; i < kNumStreams; ++i) {
@@ -361,9 +377,7 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
                                       int64_t stride, uint8_t* out) {
 #if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2<kNumStreams>(data, num_values, stride, out);
-#elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
-#elif defined(ARROW_HAVE_NEON)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
 #else
 #error "ByteStreamSplitDecodeSimd not implemented"
@@ -376,10 +390,7 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t n
 #if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, num_values,
                                                 output_buffer_raw);
-#elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
-                                                output_buffer_raw);
-#elif defined(ARROW_HAVE_NEON)
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
                                                 output_buffer_raw);
 #else

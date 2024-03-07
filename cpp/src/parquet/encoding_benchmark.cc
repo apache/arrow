@@ -427,12 +427,12 @@ static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
 
 static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(float)>);
+      state, ::arrow::util::internal::ByteStreamSplitEncode128B<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(double)>);
+      state, ::arrow::util::internal::ByteStreamSplitEncode128B<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
