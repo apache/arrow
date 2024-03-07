@@ -1,4 +1,49 @@
 
+# Apache Arrow 15.0.1 (2024-02-23)
+
+## Bug Fixes
+
+* [GH-38655](https://github.com/apache/arrow/issues/38655) - [C++] "iso_calendar" kernel returns incorrect results for array length > 32 (#39360)
+* [GH-39313](https://github.com/apache/arrow/issues/39313) - [Python] Fix race condition in _pandas_api#_check_import (#39314)
+* [GH-39332](https://github.com/apache/arrow/issues/39332) - [C++] Explicit error in ExecBatchBuilder when appending var length data exceeds offset limit (int32 max) (#39383)
+* [GH-39525](https://github.com/apache/arrow/issues/39525) - [C++][Parquet] Pass memory pool to decoders (#39526)
+* [GH-39527](https://github.com/apache/arrow/issues/39527) - [C++][Parquet] Validate page sizes before truncating to int32 (#39528)
+* [GH-39577](https://github.com/apache/arrow/issues/39577) - [C++] Fix tail-word access cross buffer boundary in `CompareBinaryColumnToRow` (#39606)
+* [GH-39583](https://github.com/apache/arrow/issues/39583) - [C++] Fix the issue of ExecBatchBuilder when appending consecutive tail rows with the same id may exceed buffer boundary (for fixed size types) (#39585)
+* [GH-39599](https://github.com/apache/arrow/issues/39599) - [Python] Avoid leaking references to Numpy dtypes (#39636)
+* [GH-39640](https://github.com/apache/arrow/issues/39640) - [Docs] Pin pydata-sphinx-theme to 0.14.* (#39758)
+* [GH-39640](https://github.com/apache/arrow/issues/39640) - [Docs] Pin pydata-sphinx-theme to 0.14.1 (#39658)
+* [GH-39656](https://github.com/apache/arrow/issues/39656) - [Release] Update platform tags for macOS wheels to macosx_10_15 (#39657)
+* [GH-39672](https://github.com/apache/arrow/issues/39672) - [Go] Time to Date32/Date64 conversion issues for non-UTC timezones (#39674)
+* [GH-39690](https://github.com/apache/arrow/issues/39690) - [C++][FlightRPC] Fix nullptr dereference in PollInfo (#39711)
+* [GH-39732](https://github.com/apache/arrow/issues/39732) - [Python][CI] Fix test failures with latest/nightly pandas (#39760)
+* [GH-39737](https://github.com/apache/arrow/issues/39737) - [Release][Docs] Update post release documentation task (#39762)
+* [GH-39778](https://github.com/apache/arrow/issues/39778) - [C++] Fix tail-byte access cross buffer boundary in key hash avx2 (#39800)
+* [GH-39803](https://github.com/apache/arrow/issues/39803) - [C++][Acero] Fix AsOfJoin with differently ordered schemas than the output (#39804)
+* [GH-39860](https://github.com/apache/arrow/issues/39860) - [C++] Expression ExecuteScalarExpression execute empty args function with a wrong result (#39908)
+* [GH-39865](https://github.com/apache/arrow/issues/39865) - [C++] Strip extension metadata when importing a registered extension (#39866)
+* [GH-39916](https://github.com/apache/arrow/issues/39916) - [C#] Restore support for .NET 4.6.2 (#40008)
+* [GH-39933](https://github.com/apache/arrow/issues/39933) - [R] Fix pointer conversion to Python for latest reticulate (#39969)
+* [GH-39942](https://github.com/apache/arrow/issues/39942) - [Python] Make capsule name check more lenient (#39977)
+* [GH-39976](https://github.com/apache/arrow/issues/39976) - [C++] Fix out-of-line data size calculation in BinaryViewBuilder::AppendArraySlice (#39994)
+* [GH-40004](https://github.com/apache/arrow/issues/40004) - [Python][FlightRPC] Release GIL in GeneratorStream (#40005)
+* [GH-40112](https://github.com/apache/arrow/issues/40112) - [CI][Python] Ensure CPython is selected, not PyPy (#40131)
+* [GH-40174](https://github.com/apache/arrow/issues/40174) - [C++][CI][Parquet] Fixing parquet column_writer_test building (#40175)
+
+
+## New Features and Improvements
+
+* [GH-39504](https://github.com/apache/arrow/issues/39504) - [Docs] Update footer in main sphinx docs with correct attribution (#39505)
+* [GH-39673](https://github.com/apache/arrow/issues/39673) - [C++] PollFlightInfo does not follow rule of 5
+* [GH-39740](https://github.com/apache/arrow/issues/39740) - [C++] Fix filter and take kernel for month_day_nano intervals (#39795)
+* [GH-39849](https://github.com/apache/arrow/issues/39849) - [Python] Remove the use of pytest-lazy-fixture (#39850)
+* [GH-39876](https://github.com/apache/arrow/issues/39876) - [C++] Thirdparty: Bump zlib to 1.3.1 (#39877)
+* [GH-39880](https://github.com/apache/arrow/issues/39880) - [Python][CI] Pin moto<5 for dask integration tests (#39881)
+* [GH-39999](https://github.com/apache/arrow/issues/39999) - [Python] Fix tests for pandas with CoW / nightly integration tests (#40000)
+* [GH-40009](https://github.com/apache/arrow/issues/40009) - [C++] Add missing "#include <algorithm>" (#40010)
+
+
+
 # Apache Arrow 15.0.0 (2024-01-16)
 
 ## Bug Fixes
