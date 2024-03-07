@@ -351,10 +351,6 @@ struct PrimitiveTakeImpl {
                                                 allocate_validity, out_arr));
     DCHECK_EQ(out_arr->offset, 0);
 
-    // XXX: re-enable this in following commits
-    // if constexpr (kValueWidthInBits == 1) {
-    //   memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
-    // }
     int64_t valid_count = 0;
     arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
         /*src_length=*/values.length,
@@ -364,13 +360,22 @@ struct PrimitiveTakeImpl {
         /*       idx=*/indices.GetValues<IndexCType>(1),
         /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0)};
     if (allocate_validity) {
+      // Zero-initialize the data buffer for the output array when the bit-width is 1
+      // (e.g. Boolean array) to avoid having to ClearBit on every null element.
+      // This might be profitable for other types as well, but this is the most
+      // conservative approach for now.
+      constexpr bool kOutputIsZeroInititalized = kValueWidthInBits == 1;
+      if constexpr (kOutputIsZeroInititalized) {
+        memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
+      }
       arrow::internal::OptionalValidity src_validity(values);
       arrow::internal::OptionalValidity idx_validity(indices);
       // out_is_valid must be zero-initiliazed, because Gather::Execute
       // saves time by not having to ClearBit on every null element.
       auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, false);
-      valid_count = gather.Execute(src_validity, idx_validity, out_is_valid);
+      valid_count = gather.template Execute<kOutputIsZeroInititalized>(
+          src_validity, idx_validity, out_is_valid);
     } else {
       valid_count = gather.Execute();
     }

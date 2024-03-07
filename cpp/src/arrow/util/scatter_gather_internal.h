@@ -63,10 +63,10 @@ class GatherBaseCRTP {
     return idx_length;
   }
 
-  /// \pre Bits in out_is_valid are already zeroed out.
-  /// \post The bits for the valid elements (and only those) are set in out_is_valid.
-  /// \return The number of valid elements in out.
-  template <class SrcValidity, class IdxValidity, typename IndexCType>
+  // See derived Gather classes below for the meaning of the parameters, pre and
+  // post-conditions.
+  template <bool kOutputIsZeroInitialized, class SrcValidity, class IdxValidity,
+            typename IndexCType>
   ARROW_FORCE_INLINE int64_t ExecuteWithNulls(SrcValidity src_validity,
                                               int64_t idx_length, const IndexCType* idx,
                                               IdxValidity idx_validity,
@@ -95,7 +95,7 @@ class GatherBaseCRTP {
               // index is not null
               bit_util::SetBit(out_is_valid, position);
               self->WriteValue(position);
-            } else {
+            } else if constexpr (!kOutputIsZeroInitialized) {
               self->WriteZero(position);
             }
             ++position;
@@ -114,7 +114,7 @@ class GatherBaseCRTP {
               self->WriteValue(position);
               bit_util::SetBit(out_is_valid, position);
               ++valid_count;
-            } else {
+            } else if constexpr (!kOutputIsZeroInitialized) {
               self->WriteZero(position);
             }
             ++position;
@@ -130,13 +130,15 @@ class GatherBaseCRTP {
               self->WriteValue(position);
               bit_util::SetBit(out_is_valid, position);
               ++valid_count;
-            } else {
+            } else if constexpr (!kOutputIsZeroInitialized) {
               self->WriteZero(position);
             }
             ++position;
           }
         } else {
-          self->WriteZeroSegment(position, block.length);
+          if constexpr (!kOutputIsZeroInitialized) {
+            self->WriteZeroSegment(position, block.length);
+          }
           position += block.length;
         }
       }
@@ -201,18 +203,22 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
   ARROW_FORCE_INLINE
   int64_t Execute() { return this->ExecuteNoNulls(idx_length_, idx_); }
 
-  /// \pre Bits in out_is_valid are already zeroed out.
+  /// \pre If kOutputIsZeroInitialized, then this->out_ has to be zero initialized.
+  /// \pre Bits in out_is_valid have to always be zero initialized.
   /// \post The bits for the valid elements (and only those) are set in out_is_valid.
+  /// \post If !kOutputIsZeroInitialized, then positions in this->_out containing null
+  ///       elements have 0s written to them. This might be less efficient than
+  ///       zero-initializing first and calling this->Execute() afterwards.
   /// \return The number of valid elements in out.
-  template <class SrcValidity, class IdxValidity>
+  template <bool kOutputIsZeroInitialized, class SrcValidity, class IdxValidity>
   ARROW_FORCE_INLINE
       std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
       Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
     assert(src_length_ == src_validity.length);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
-    return this->ExecuteWithNulls(src_validity, idx_length_, idx_, idx_validity,
-                                  out_is_valid);
+    return this->template ExecuteWithNulls<kOutputIsZeroInitialized>(
+        src_validity, idx_length_, idx_, idx_validity, out_is_valid);
   }
 };
 
@@ -252,18 +258,22 @@ class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
   ARROW_FORCE_INLINE
   int64_t Execute() { return this->ExecuteNoNulls(idx_length_, idx_); }
 
-  /// \pre Bits in out_is_valid are already zeroed out.
+  /// \pre If kOutputIsZeroInitialized, then this->out_ has to be zero initialized.
+  /// \pre Bits in out_is_valid have to always be zero initialized.
   /// \post The bits for the valid elements (and only those) are set in out_is_valid.
+  /// \post If !kOutputIsZeroInitialized, then positions in this->_out containing null
+  ///       elements have 0s written to them. This might be less efficient than
+  ///       zero-initializing first and calling this->Execute() afterwards.
   /// \return The number of valid elements in out.
-  template <class SrcValidity, class IdxValidity>
+  template <bool kOutputIsZeroInitialized, class SrcValidity, class IdxValidity>
   ARROW_FORCE_INLINE
       std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
       Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
     assert(src_length_ == src_validity.length && src_offset_ == src_validity.offset);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
-    return this->ExecuteWithNulls(src_validity, idx_length_, idx_, idx_validity,
-                                  out_is_valid);
+    return this->template ExecuteWithNulls<kOutputIsZeroInitialized>(
+        src_validity, idx_length_, idx_, idx_validity, out_is_valid);
   }
 };
 
