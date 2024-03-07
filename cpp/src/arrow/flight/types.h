@@ -424,6 +424,14 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
 
+  /// \brief Get the fallback URI.
+  ///
+  /// arrow-flight-reuse-connection://? means that a client may attempt to
+  /// reuse an existing connection to a Flight service to fetch data instead
+  /// of creating a new connection to one of the other locations listed in a
+  /// FlightEndpoint response.
+  static const Location& ReuseConnection();
+
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to

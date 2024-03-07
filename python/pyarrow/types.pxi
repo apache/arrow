@@ -5462,7 +5462,7 @@ cdef void pycapsule_schema_deleter(object schema_capsule) noexcept:
 
     free(schema)
 
-cdef object alloc_c_schema(ArrowSchema** c_schema) noexcept:
+cdef object alloc_c_schema(ArrowSchema** c_schema):
     c_schema[0] = <ArrowSchema*> malloc(sizeof(ArrowSchema))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_schema[0].release = NULL
@@ -5481,7 +5481,7 @@ cdef void pycapsule_array_deleter(object array_capsule) noexcept:
 
     free(array)
 
-cdef object alloc_c_array(ArrowArray** c_array) noexcept:
+cdef object alloc_c_array(ArrowArray** c_array):
     c_array[0] = <ArrowArray*> malloc(sizeof(ArrowArray))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_array[0].release = NULL
@@ -5500,7 +5500,7 @@ cdef void pycapsule_stream_deleter(object stream_capsule) noexcept:
 
     free(stream)
 
-cdef object alloc_c_stream(ArrowArrayStream** c_stream) noexcept:
+cdef object alloc_c_stream(ArrowArrayStream** c_stream):
     c_stream[0] = <ArrowArrayStream*> malloc(sizeof(ArrowArrayStream))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_stream[0].release = NULL
