@@ -32,6 +32,7 @@
 #include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/type.hpp>
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
@@ -239,6 +240,8 @@ G_BEGIN_DECLS
  *
  * #GArrowRunEndEncodeOptions is a class to customize the
  * `run_end_encode` function.
+ *
+ * #GArrowStrptimeOptions is a class to customize the `strptime` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -6073,6 +6076,150 @@ garrow_run_end_encoded_array_decode(GArrowRunEndEncodedArray *array,
   }
 }
 
+enum {
+  PROP_STRPTIME_OPTIONS_FORMAT = 1,
+  PROP_STRPTIME_OPTIONS_UNIT,
+  PROP_STRPTIME_OPTIONS_ERROR_IS_NULL,
+};
+
+G_DEFINE_TYPE(GArrowStrptimeOptions,
+              garrow_strptime_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_strptime_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strptime_options_get_raw(GARROW_STRPTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRPTIME_OPTIONS_FORMAT:
+    options->format = g_value_get_string(value);
+    break;
+  case PROP_STRPTIME_OPTIONS_UNIT:
+    options->unit = garrow_time_unit_to_raw(
+      static_cast<GArrowTimeUnit>(g_value_get_enum(value)));
+    break;
+  case PROP_STRPTIME_OPTIONS_ERROR_IS_NULL:
+    options->error_is_null = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strptime_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strptime_options_get_raw(GARROW_STRPTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRPTIME_OPTIONS_FORMAT:
+    g_value_set_string(value, options->format.c_str());
+    break;
+  case PROP_STRPTIME_OPTIONS_UNIT:
+    g_value_set_enum(value, garrow_time_unit_from_raw(options->unit));
+    break;
+  case PROP_STRPTIME_OPTIONS_ERROR_IS_NULL:
+    g_value_set_boolean(value, options->error_is_null);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strptime_options_init(GArrowStrptimeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StrptimeOptions());
+}
+
+static void
+garrow_strptime_options_class_init(GArrowStrptimeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_strptime_options_set_property;
+  gobject_class->get_property = garrow_strptime_options_get_property;
+
+  arrow::compute::StrptimeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStrptimeOptions:format:
+   *
+   * The desired format string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("format",
+                             "Format",
+                             "The desired format string",
+                             options.format.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_FORMAT,
+                                  spec);
+
+  /**
+   * GArrowStrptimeOptions:unit:
+   *
+   * The desired time resolution.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_enum("unit",
+                           "Unit",
+                           "The desired time resolution",
+                           GARROW_TYPE_TIME_UNIT,
+                           garrow_time_unit_from_raw(options.unit),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_UNIT,
+                                  spec);
+
+  /**
+   * GArrowStrptimeOptions:error-is-null:
+   *
+   * Return null on parsing errors if true or raise if false.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boolean("error-is-null",
+                              "Error is null",
+                              "Return null on parsing errors if true or raise if false",
+                              options.error_is_null,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_ERROR_IS_NULL,
+                                  spec);
+}
+
+/**
+ * garrow_strptime_options_new:
+ *
+ * Returns: A newly created #GArrowStrptimeOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStrptimeOptions *
+garrow_strptime_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRPTIME_OPTIONS, NULL);
+  return GARROW_STRPTIME_OPTIONS(options);
+}
+
 G_END_DECLS
 
 
@@ -6190,6 +6337,11 @@ garrow_function_options_new_raw(
       static_cast<const arrow::compute::RunEndEncodeOptions *>(arrow_options);
     auto options =
       garrow_run_end_encode_options_new_raw(arrow_run_end_encode_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StrptimeOptions") {
+    const auto arrow_strptime_options =
+      static_cast<const arrow::compute::StrptimeOptions *>(arrow_options);
+    auto options = garrow_strptime_options_new_raw(arrow_strptime_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -6665,5 +6817,24 @@ arrow::compute::RunEndEncodeOptions *
 garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options)
 {
   return static_cast<arrow::compute::RunEndEncodeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStrptimeOptions *
+garrow_strptime_options_new_raw(
+  const arrow::compute::StrptimeOptions *arrow_options)
+{
+  return GARROW_STRPTIME_OPTIONS(
+    g_object_new(GARROW_TYPE_STRPTIME_OPTIONS,
+                 "format", arrow_options->format.c_str(),
+                 "unit", arrow_options->unit,
+                 "error_is_null", arrow_options->error_is_null,
+                 NULL));
+}
+
+arrow::compute::StrptimeOptions *
+garrow_strptime_options_get_raw(GArrowStrptimeOptions *options)
+{
+  return static_cast<arrow::compute::StrptimeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

@@ -232,5 +232,11 @@ class TestFunction < Test::Unit::TestCase
       assert_equal(Arrow::RoundToMultipleOptions.gtype,
                    round_to_multiple_function.options_type)
     end
+
+    def test_strptime_options
+      strptime_function = Arrow::Function.find("strptime")
+      assert_equal(Arrow::StrptimeOptions.gtype,
+                   strptime_function.options_type)
+    end
   end
 end

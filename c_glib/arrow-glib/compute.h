@@ -1113,5 +1113,20 @@ GArrowArray *
 garrow_run_end_encoded_array_decode(GArrowRunEndEncodedArray *array,
                                     GError **error);
 
+#define GARROW_TYPE_STRPTIME_OPTIONS      \
+  (garrow_strptime_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStrptimeOptions,
+                         garrow_strptime_options,
+                         GARROW,
+                         STRPTIME_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStrptimeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStrptimeOptions *
+garrow_strptime_options_new(void);
 
 G_END_DECLS

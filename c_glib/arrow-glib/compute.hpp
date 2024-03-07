@@ -192,3 +192,9 @@ garrow_run_end_encode_options_new_raw(
   const arrow::compute::RunEndEncodeOptions *arrow_options);
 arrow::compute::RunEndEncodeOptions *
 garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options);
+
+GArrowStrptimeOptions *
+garrow_strptime_options_new_raw(
+  const arrow::compute::StrptimeOptions *arrow_options);
+arrow::compute::StrptimeOptions *
+garrow_strptime_options_get_raw(GArrowStrptimeOptions *options);
