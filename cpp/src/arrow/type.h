@@ -545,6 +545,12 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
 
 ARROW_EXPORT void PrintTo(const Field& field, std::ostream* os);
 
+/// \brief Merge two data types
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
+                                             std::shared_ptr<DataType> other_type,
+                                             const Field::MergeOptions& options);
+
 namespace detail {
 
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>

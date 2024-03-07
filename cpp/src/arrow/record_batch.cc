@@ -331,8 +331,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
     return Status::TypeError("DataType is not supported: ",
                              column(0)->type()->ToString());
   }
-  std::shared_ptr<Field> result_field = schema_->field(0);
-  std::shared_ptr<DataType> result_type = result_field->type();
+  std::shared_ptr<DataType> result_type = column(0)->type();
 
   if (num_columns() > 1) {
     Field::MergeOptions options;
@@ -345,11 +344,8 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
         return Status::TypeError("DataType is not supported: ",
                                  column(i)->type()->ToString());
       }
-      ARROW_ASSIGN_OR_RAISE(
-          result_field, result_field->MergeWith(
-                            schema_->field(i)->WithName(result_field->name()), options));
+      result_type = *MergeTypes(result_type, column(i)->type(), options);
     }
-    result_type = result_field->type();
   }
 
   // Allocate memory
