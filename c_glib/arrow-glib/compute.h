@@ -1129,4 +1129,20 @@ GARROW_AVAILABLE_IN_16_0
 GArrowStrptimeOptions *
 garrow_strptime_options_new(void);
 
+#define GARROW_TYPE_STRFTIME_OPTIONS      \
+  (garrow_strftime_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStrftimeOptions,
+                         garrow_strftime_options,
+                         GARROW,
+                         STRFTIME_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStrftimeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStrftimeOptions *
+garrow_strftime_options_new(void);
+
 G_END_DECLS

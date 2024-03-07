@@ -198,3 +198,9 @@ garrow_strptime_options_new_raw(
   const arrow::compute::StrptimeOptions *arrow_options);
 arrow::compute::StrptimeOptions *
 garrow_strptime_options_get_raw(GArrowStrptimeOptions *options);
+
+GArrowStrftimeOptions *
+garrow_strftime_options_new_raw(
+  const arrow::compute::StrftimeOptions *arrow_options);
+arrow::compute::StrftimeOptions *
+garrow_strftime_options_get_raw(GArrowStrftimeOptions *options);

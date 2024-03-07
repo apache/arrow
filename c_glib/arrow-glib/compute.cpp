@@ -243,6 +243,8 @@ G_BEGIN_DECLS
  *
  * #GArrowStrptimeOptions is a class to customize the `strptime` function.
  *
+ * #GArrowStrftimeOptions is a class to customize the `strftime` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6220,6 +6222,125 @@ garrow_strptime_options_new(void)
   return GARROW_STRPTIME_OPTIONS(options);
 }
 
+enum {
+  PROP_STRFTIME_OPTIONS_FORMAT = 1,
+  PROP_STRFTIME_OPTIONS_LOCALE,
+};
+
+G_DEFINE_TYPE(GArrowStrftimeOptions,
+              garrow_strftime_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_strftime_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strftime_options_get_raw(GARROW_STRFTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRFTIME_OPTIONS_FORMAT:
+    options->format = g_value_get_string(value);
+    break;
+  case PROP_STRFTIME_OPTIONS_LOCALE:
+    options->locale = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strftime_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strftime_options_get_raw(GARROW_STRFTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRFTIME_OPTIONS_FORMAT:
+    g_value_set_string(value, options->format.c_str());
+    break;
+  case PROP_STRFTIME_OPTIONS_LOCALE:
+    g_value_set_string(value, options->locale.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strftime_options_init(GArrowStrftimeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StrftimeOptions());
+}
+
+static void
+garrow_strftime_options_class_init(GArrowStrftimeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_strftime_options_set_property;
+  gobject_class->get_property = garrow_strftime_options_get_property;
+
+  arrow::compute::StrftimeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStrftimeOptions:format:
+   *
+   * The desired format string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("format",
+                             "Format",
+                             "The desired format string",
+                             options.format.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRFTIME_OPTIONS_FORMAT,
+                                  spec);
+
+  /**
+   * GArrowStrftimeOptions:locale:
+   *
+   * The desired output locale string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("locale",
+                             "locale",
+                             "The desired output locale string",
+                             options.locale.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRFTIME_OPTIONS_LOCALE,
+                                  spec);
+}
+
+/**
+ * garrow_strftime_options_new:
+ *
+ * Returns: A newly created #GArrowStrftimeOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStrftimeOptions *
+garrow_strftime_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRFTIME_OPTIONS, NULL);
+  return GARROW_STRFTIME_OPTIONS(options);
+}
+
 G_END_DECLS
 
 
@@ -6342,6 +6463,11 @@ garrow_function_options_new_raw(
     const auto arrow_strptime_options =
       static_cast<const arrow::compute::StrptimeOptions *>(arrow_options);
     auto options = garrow_strptime_options_new_raw(arrow_strptime_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StrftimeOptions") {
+    const auto arrow_strftime_options =
+      static_cast<const arrow::compute::StrftimeOptions *>(arrow_options);
+    auto options = garrow_strftime_options_new_raw(arrow_strftime_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -6836,5 +6962,23 @@ arrow::compute::StrptimeOptions *
 garrow_strptime_options_get_raw(GArrowStrptimeOptions *options)
 {
   return static_cast<arrow::compute::StrptimeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStrftimeOptions *
+garrow_strftime_options_new_raw(
+  const arrow::compute::StrftimeOptions *arrow_options)
+{
+  return GARROW_STRFTIME_OPTIONS(
+    g_object_new(GARROW_TYPE_STRFTIME_OPTIONS,
+                 "format", arrow_options->format.c_str(),
+                 "locale", arrow_options->locale.c_str(),
+                 NULL));
+}
+
+arrow::compute::StrftimeOptions *
+garrow_strftime_options_get_raw(GArrowStrftimeOptions *options)
+{
+  return static_cast<arrow::compute::StrftimeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
