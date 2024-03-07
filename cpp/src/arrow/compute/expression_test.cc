@@ -898,6 +898,9 @@ TEST(Expression, ExecuteCallWithNoArguments) {
   ASSERT_OK_AND_ASSIGN(auto simplify_expr,
                        SimplifyWithGuarantee(random_expr, input.guarantee));
 
+  // SimplifyWithGuarantee should do nothing for the current expression
+  EXPECT_EQ(random_expr.ToString(), simplify_expr.ToString());
+
   ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(simplify_expr, input));
   compute::ExecContext* exec_context = default_exec_context();
   ASSERT_OK_AND_ASSIGN(auto function,
