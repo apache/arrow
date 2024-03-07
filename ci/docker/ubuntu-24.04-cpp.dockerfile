@@ -102,6 +102,7 @@ RUN apt-get update -y -q && \
         libxml2-dev \
         libzstd-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \

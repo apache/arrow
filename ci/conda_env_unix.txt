@@ -19,5 +19,6 @@
 
 autoconf
 ccache
+mold
 orc
 pkg-config

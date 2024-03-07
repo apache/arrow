@@ -64,6 +64,7 @@ RUN \
     llvm-dev \
     lsb-release \
     meson \
+    mold \
     mlir-15-tools \
     ninja-build \
     nlohmann-json3-dev \
