@@ -256,5 +256,11 @@ class TestFunction < Test::Unit::TestCase
       assert_equal(Arrow::SplitPatternOptions.gtype,
                    split_pattern_function.options_type)
     end
+
+    def test_struct_field_options
+      struct_field_function = Arrow::Function.find("struct_field")
+      assert_equal(Arrow::StructFieldOptions.gtype,
+                   struct_field_function.options_type)
+    end
   end
 end

@@ -1161,4 +1161,26 @@ GARROW_AVAILABLE_IN_16_0
 GArrowSplitPatternOptions *
 garrow_split_pattern_options_new(void);
 
+#define GARROW_TYPE_STRUCT_FIELD_OPTIONS      \
+  (garrow_struct_field_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStructFieldOptions,
+                         garrow_struct_field_options,
+                         GARROW,
+                         STRUCT_FIELD_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStructFieldOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+void
+garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
+                                          const gchar *field_ref,
+                                          GError **error);
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStructFieldOptions *
+garrow_struct_field_options_new(void);
+
 G_END_DECLS

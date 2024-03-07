@@ -210,3 +210,9 @@ garrow_split_pattern_options_new_raw(
   const arrow::compute::SplitPatternOptions *arrow_options);
 arrow::compute::SplitPatternOptions *
 garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options);
+
+GArrowStructFieldOptions *
+garrow_struct_field_options_new_raw(
+  const arrow::compute::StructFieldOptions *arrow_options);
+arrow::compute::StructFieldOptions *
+garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);

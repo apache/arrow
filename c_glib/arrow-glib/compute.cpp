@@ -248,6 +248,9 @@ G_BEGIN_DECLS
  * #GArrowSplitPatternOptions is a class to customize the `split_pattern` and
  *  `split_pattern_regex` functions.
  *
+ * #GArrowStructFieldOptions is a class to customize the `struct_field`
+ *  function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -2780,6 +2783,7 @@ garrow_filter_options_get_property(GObject *object,
     break;
   }
 }
+
 
 static void
 garrow_filter_options_init(GArrowFilterOptions *object)
@@ -6489,6 +6493,115 @@ garrow_split_pattern_options_new(void)
   return GARROW_SPLIT_PATTERN_OPTIONS(options);
 }
 
+enum {
+  PROP_STRUCT_FIELD_OPTIONS_FIELD_REF = 1,
+};
+
+G_DEFINE_TYPE(GArrowStructFieldOptions,
+              garrow_struct_field_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+/**
+ * garrow_struct_field_options_set_field_ref:
+ * @field_ref: The name or dot path specifying what to extract from struct or
+ *  union.
+ *
+ * Since: 16.0.0
+ */
+void
+garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
+                                          const gchar *field_ref,
+                                          GError **error)
+{
+  auto arrow_options = garrow_struct_field_options_get_raw(
+    GARROW_STRUCT_FIELD_OPTIONS(options));
+
+  auto arrow_reference_result = garrow_field_reference_resolve_raw(field_ref);
+  if (!garrow::check(error,
+                     arrow_reference_result,
+                     "[struct-field-options][set-field-ref]")) {
+    return;
+  }
+  arrow_options->field_ref = *arrow_reference_result;
+}
+
+static void
+garrow_struct_field_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_struct_field_options_get_raw(
+    GARROW_STRUCT_FIELD_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRUCT_FIELD_OPTIONS_FIELD_REF:
+    {
+      auto name = options->field_ref.name();
+      if (name) {
+        g_value_set_string(value, name->c_str());
+      } else {
+        g_value_set_string(value, options->field_ref.ToDotPath().c_str());
+      }
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_struct_field_options_init(GArrowStructFieldOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StructFieldOptions());
+}
+
+static void
+garrow_struct_field_options_class_init(GArrowStructFieldOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->get_property = garrow_struct_field_options_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStructFieldOptions:field_ref:
+   *
+   * The name or dot path specifying what to extract from struct or union.
+   *
+   *     dot_path = '.' name
+   *              | '[' digit+ ']'
+   *              | dot_path+
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("field_ref",
+                             "Field ref",
+                             "The name or dot path specifying what to extract from struct or union.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRUCT_FIELD_OPTIONS_FIELD_REF,
+                                  spec);
+}
+
+/**
+ * garrow_struct_field_options_new:
+ *
+ * Returns: A newly created #GArrowStructFieldOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStructFieldOptions *
+garrow_struct_field_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRUCT_FIELD_OPTIONS, NULL);
+  return GARROW_STRUCT_FIELD_OPTIONS(options);
+}
+
 G_END_DECLS
 
 
@@ -6621,6 +6734,11 @@ garrow_function_options_new_raw(
     const auto arrow_split_pattern_options =
       static_cast<const arrow::compute::SplitPatternOptions *>(arrow_options);
     auto options = garrow_split_pattern_options_new_raw(arrow_split_pattern_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StructFieldOptions") {
+    const auto arrow_struct_field_options =
+      static_cast<const arrow::compute::StructFieldOptions *>(arrow_options);
+    auto options = garrow_struct_field_options_new_raw(arrow_struct_field_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -7152,5 +7270,23 @@ arrow::compute::SplitPatternOptions *
 garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options)
 {
   return static_cast<arrow::compute::SplitPatternOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStructFieldOptions *
+garrow_struct_field_options_new_raw(
+  const arrow::compute::StructFieldOptions *arrow_options)
+{
+  auto options = GARROW_STRUCT_FIELD_OPTIONS(
+    g_object_new(GARROW_TYPE_STRUCT_FIELD_OPTIONS, NULL));
+  auto arrow_new_options = garrow_struct_field_options_get_raw(options);
+  arrow_new_options->field_ref = arrow_options->field_ref;
+  return options;
+}
+
+arrow::compute::StructFieldOptions *
+garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options)
+{
+  return static_cast<arrow::compute::StructFieldOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
