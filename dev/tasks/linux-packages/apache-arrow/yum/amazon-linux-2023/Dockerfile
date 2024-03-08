@@ -38,7 +38,6 @@ RUN \
     gobject-introspection-devel \
     grpc-devel \
     grpc-plugins \
-    gtk-doc \
     libzstd-devel \
     llvm-devel \
     lz4-devel \

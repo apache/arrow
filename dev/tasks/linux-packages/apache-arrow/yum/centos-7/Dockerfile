@@ -44,7 +44,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libzstd-devel \
     lz4-devel \

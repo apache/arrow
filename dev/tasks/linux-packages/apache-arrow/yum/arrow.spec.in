@@ -142,7 +142,6 @@ BuildRequires:	ncurses-devel
 %endif
 
 BuildRequires:	gobject-introspection-devel
-BuildRequires:	gtk-doc
 %if %{use_vala}
 BuildRequires:	vala
 %endif
@@ -199,22 +198,16 @@ cd c_glib
 %if %{_amzn} >= 2023
   # Do nothing
 %else
-  %if (%{_rhel} >= 8 || "%{_arch}" != "aarch64")
-    pip3 install meson
-  %else
-    # Meson 0.57.0 or later requires Ninja 1.8.2 or later but EPEL for
-    # Amazon Linux 2 aarch64 provides Ninja 1.7.2. We can remove
-    # '<0.57.0' once we drop support for Amazon Linux 2.
-    pip3 install 'meson<0.57.0'
-  %endif
+  pip3 install meson
 %endif
+pip3 install gi-docgen
 meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true \
+  -Ddoc=true \
 %if %{use_vala}
   -Dvapi=true
 %endif
@@ -596,8 +589,8 @@ Documentation for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow-glib/
 %{_docdir}/arrow-glib/
-%{_datadir}/gtk-doc/html/arrow-glib/
 
 %package -n %{name}%{major_version}-dataset-glib-libs
 Summary:	Runtime libraries for Apache Arrow Dataset GLib
@@ -649,7 +642,7 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-dataset-glib/
+%{_docdir}/arrow-dataset-glib/
 
 %if %{use_flight}
 %package -n %{name}%{major_version}-flight-glib-libs
@@ -702,7 +695,7 @@ Documentation for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-glib/
+%{_docdir}/arrow-flight-glib/
 
 %package -n %{name}%{major_version}-flight-sql-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
@@ -754,7 +747,7 @@ Documentation for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-sql-glib/
+%{_docdir}/arrow-flight-sql-glib/
 %endif
 
 %if %{use_gandiva}
@@ -808,7 +801,7 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/gandiva-glib/
+%{_docdir}/gandiva-glib/
 %endif
 
 %package -n parquet%{major_version}-glib-libs
@@ -861,7 +854,7 @@ Documentation for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/parquet-glib/
+%{_docdir}/parquet-glib/
 
 %changelog
 * Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1

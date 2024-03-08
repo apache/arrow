@@ -39,7 +39,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
     libzstd-devel \

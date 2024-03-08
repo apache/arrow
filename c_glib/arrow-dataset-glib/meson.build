@@ -88,7 +88,7 @@ pkgconfig.generate(libarrow_dataset_glib,
                    version: version)
 
 if have_gi
-  dataset_glib_gir = \
+  arrow_dataset_glib_gir = \
     gnome.generate_gir(libarrow_dataset_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
                        export_packages: 'arrow-dataset-glib',
@@ -115,6 +115,6 @@ if have_gi
                           arrow_glib_vapi,
                           'gio-2.0',
                         ],
-                        sources: [dataset_glib_gir[0]])
+                        sources: [arrow_dataset_glib_gir[0]])
   endif
 endif

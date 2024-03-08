@@ -44,6 +44,7 @@ library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 prefix = get_option('prefix')
 include_dir = join_paths(prefix, get_option('includedir'))
 data_dir = join_paths(prefix, get_option('datadir'))
+doc_dir = join_paths(data_dir, 'doc')
 gir_dir = join_paths(data_dir, 'gir-1.0')
 vapi_dir = join_paths(data_dir, 'vala', 'vapi')
 
@@ -55,7 +56,7 @@ base_include_directories = [
   include_directories('.')
 ]
 
-gi_fatal_warnings = (build_machine.system() != 'windows')
+gi_fatal_warnings = get_option('werror')
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
 if have_gi
   pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
@@ -166,36 +167,23 @@ if parquet.found()
 endif
 subdir('example')
 
-if get_option('gtk_doc')
-  subdir('doc/arrow-glib')
-  if arrow_dataset.found()
-    subdir('doc/arrow-dataset-glib')
-  endif
-  if arrow_flight.found()
-    subdir('doc/arrow-flight-glib')
-  endif
-  if arrow_flight_sql.found()
-    subdir('doc/arrow-flight-sql-glib')
-  endif
-  if gandiva.found()
-    subdir('doc/gandiva-glib')
-  endif
-  if parquet.found()
-    subdir('doc/parquet-glib')
-  endif
+if get_option('doc')
+  subdir('doc')
 endif
 
 install_data('../LICENSE.txt',
              'README.md',
-             install_dir: join_paths(data_dir, 'doc', meson.project_name()))
+             install_dir: data_dir / meson.project_name())
 
 run_test = find_program('test/run-test.sh')
 test('unit test',
      run_test,
      env: [
-       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
        'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
        'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(meson.build_root()),
+       'ARROW_FLIGHT_GLIB_TYPELIB_DIR=@0@/arrow-flight-glib'.format(meson.build_root()),
+       'ARROW_FLIGHT_SQL_GLIB_TYPELIB_DIR=@0@/arrow-flight-sql-glib'.format(meson.build_root()),
+       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
      ])

@@ -65,7 +65,7 @@ pkgconfig.generate(libarrow_flight_glib,
                    version: version)
 
 if have_gi
-  flight_glib_gir = \
+  arrow_flight_glib_gir = \
     gnome.generate_gir(libarrow_flight_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
                        export_packages: 'arrow-flight-glib',
@@ -86,13 +86,13 @@ if have_gi
                        symbol_prefix: 'gaflight')
 
   if generate_vapi
-    flight_glib_vapi = \
+    arrow_flight_glib_vapi = \
       gnome.generate_vapi('arrow-flight-glib',
                           install: true,
                           packages: [
                             arrow_glib_vapi,
                             'gio-2.0',
                           ],
-                          sources: [flight_glib_gir[0]])
+                          sources: [arrow_flight_glib_gir[0]])
   endif
 endif

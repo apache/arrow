@@ -41,7 +41,6 @@ RUN \
     gflags-devel \
     git \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
     libzstd-devel \
