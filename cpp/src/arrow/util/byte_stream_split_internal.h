@@ -122,14 +122,15 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_v
   // should be able to remove the branch since only one path is taken for each template
   // instantiation.
   // Example run for 32-bit variables:
-  // Step 0, copy:
+  // Step 0: copy from unaligned input bytes:
   //   0: ABCD ABCD ABCD ABCD 1: ABCD ABCD ABCD ABCD ...
   // Step 1: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD ...
+  // Step 2: apply simd_batch<int8_t, 8>::zip_lo and  simd_batch<int8_t, 8>::zip_hi again:
   //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD ...
-  // Step 2: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
+  // Step 3: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD ...
-  // Step 3: simd_batch<int64_t, 2>::zip_lo and simd_batch<int64_t, 2>::zip_hi:
+  // Step 4: simd_batch<int64_t, 2>::zip_lo and simd_batch<int64_t, 2>::zip_hi:
   //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB ...
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
