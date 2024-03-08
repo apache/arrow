@@ -110,6 +110,10 @@ macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
+  # Tests are crashed with mold + sanitizer checks.
+  if(ARROW_USE_ASAN OR ARROW_USE_TSAN OR ARROW_USE_UBSAN)
+    set(ARROW_USE_MOLD OFF)
+  endif()
 
   tsort_bool_option_dependencies()
   foreach(option_name ${ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED})
