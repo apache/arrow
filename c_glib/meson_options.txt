@@ -35,7 +35,8 @@ option('doc',
 option('gtk_doc',
        type: 'boolean',
        value: false,
-       deprecated: 'doc',
+       # This requires Meson 0.63.0 or later
+       # deprecated: 'doc',
        description: 'Build document')
 
 option('source_reference',
