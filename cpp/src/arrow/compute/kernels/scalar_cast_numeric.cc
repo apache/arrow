@@ -59,31 +59,29 @@ Status CastFloatingToFloating(KernelContext*, const ExecSpan& batch, ExecResult*
 // ----------------------------------------------------------------------
 // Implement fast safe floating point to integer cast
 //
-template<typename InType, typename OutType,
-         typename InT = typename InType::c_type,
-         typename OutT = typename OutType::c_type>
+template <typename InType, typename OutType, typename InT = typename InType::c_type,
+          typename OutT = typename OutType::c_type>
 struct WasTruncated {
-    static bool Check(OutT out_val, InT in_val) {
-        return static_cast<InT>(out_val) != in_val;
-    }
+  static bool Check(OutT out_val, InT in_val) {
+    return static_cast<InT>(out_val) != in_val;
+  }
 
-    static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
-        return is_valid && static_cast<InT>(out_val) != in_val;
-    }
+  static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {
+    return is_valid && static_cast<InT>(out_val) != in_val;
+  }
 };
 
 // Half float to int
-template<typename OutType>
+template <typename OutType>
 struct WasTruncated<HalfFloatType, OutType> {
-    using OutT = typename OutType::c_type;
-    static bool Check(OutT out_val, uint16_t in_val) {
-        return static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
-    }
+  using OutT = typename OutType::c_type;
+  static bool Check(OutT out_val, uint16_t in_val) {
+    return static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
+  }
 
-    static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
-        return is_valid && static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
-    }
-
+  static bool CheckMaybeNull(OutT out_val, uint16_t in_val, bool is_valid) {
+    return is_valid && static_cast<float>(out_val) != Float16::FromBits(in_val).ToFloat();
+  }
 };
 
 // InType is a floating point type we are planning to cast to integer
@@ -109,7 +107,8 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
     if (block.popcount == block.length) {
       // Fast path: branchless
       for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= WasTruncated<InType, OutType>::Check(out_data[i], in_data[i]);
+        block_out_of_bounds |=
+            WasTruncated<InType, OutType>::Check(out_data[i], in_data[i]);
       }
     } else if (block.popcount > 0) {
       // Indices have nulls, must only boundscheck non-null values
@@ -121,8 +120,9 @@ Status CheckFloatTruncation(const ArraySpan& input, const ArraySpan& output) {
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (input.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
-          if (WasTruncated<InType, OutType>::CheckMaybeNull(out_data[i], in_data[i],
-                                    bit_util::GetBit(bitmap, offset_position + i))) {
+          if (WasTruncated<InType, OutType>::CheckMaybeNull(
+                  out_data[i], in_data[i],
+                  bit_util::GetBit(bitmap, offset_position + i))) {
             return GetErrorMessage(in_data[i]);
           }
         }
@@ -175,7 +175,8 @@ Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& outpu
     case Type::DOUBLE:
       return CheckFloatToIntTruncationImpl<DoubleType>(input.array, *output.array_span());
     case Type::HALF_FLOAT:
-      return CheckFloatToIntTruncationImpl<HalfFloatType>(input.array, *output.array_span());
+      return CheckFloatToIntTruncationImpl<HalfFloatType>(input.array,
+                                                          *output.array_span());
     default:
       break;
   }
@@ -320,9 +321,11 @@ struct CastFunctor<
 
 template <>
 struct CastFunctor<HalfFloatType, StringType, enable_if_t<true>> {
-    static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-        return applicator::ScalarUnaryNotNull<HalfFloatType, StringType, ParseString<HalfFloatType>>::Exec(ctx, batch, out);
-    }
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return applicator::ScalarUnaryNotNull<HalfFloatType, StringType,
+                                          ParseString<HalfFloatType>>::Exec(ctx, batch,
+                                                                            out);
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -722,8 +725,8 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   }
 
   // Cast from half-float
-  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)},
-              out_ty, CastFloatingToInteger));
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)}, out_ty,
+                            CastFloatingToInteger));
 
   // From other numbers to integer
   AddCommonNumberCasts<OutType>(out_ty, func.get());
@@ -752,8 +755,8 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   }
 
   // From half-float to float/double
-  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT,
-      {InputType(Type::HALF_FLOAT)}, out_ty, CastFloatingToFloating));
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {InputType(Type::HALF_FLOAT)}, out_ty,
+                            CastFloatingToFloating));
 
   // From other numbers to floating point
   AddCommonNumberCasts<OutType>(out_ty, func.get());
@@ -838,27 +841,27 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
 
 std::shared_ptr<CastFunction> GetCastToHalfFloat() {
   // HalfFloat is a bit brain-damaged for now
-  auto func =
-      std::make_shared<CastFunction>("func", Type::HALF_FLOAT);
+  auto func = std::make_shared<CastFunction>("func", Type::HALF_FLOAT);
   AddCommonCasts(Type::HALF_FLOAT, float16(), func.get());
 
   // Casts from integer to floating point
   for (const std::shared_ptr<DataType>& in_ty : IntTypes()) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty},
-        TypeTraits<HalfFloatType>::type_singleton(), CastIntegerToFloating));
+                              TypeTraits<HalfFloatType>::type_singleton(),
+                              CastIntegerToFloating));
   }
 
   // Cast from other strings to half float.
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty},
-                TypeTraits<HalfFloatType>::type_singleton(), exec));
+                              TypeTraits<HalfFloatType>::type_singleton(), exec));
   }
 
-  DCHECK_OK(func.get()->AddKernel(Type::FLOAT,
-      {InputType(Type::FLOAT)}, float16(), CastFloatingToFloating));
-  DCHECK_OK(func.get()->AddKernel(Type::DOUBLE,
-      {InputType(Type::DOUBLE)}, float16(), CastFloatingToFloating));
+  DCHECK_OK(func.get()->AddKernel(Type::FLOAT, {InputType(Type::FLOAT)}, float16(),
+                                  CastFloatingToFloating));
+  DCHECK_OK(func.get()->AddKernel(Type::DOUBLE, {InputType(Type::DOUBLE)}, float16(),
+                                  CastFloatingToFloating));
   return func;
 }
 

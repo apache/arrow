@@ -100,8 +100,8 @@ struct FloatingEquality {
 // For half-float equality.
 template <typename Flags>
 struct FloatingEquality<uint16_t, Flags> {
-    explicit FloatingEquality(const EqualOptions& options)
-        : epsilon(static_cast<float>(options.atol())) {}
+  explicit FloatingEquality(const EqualOptions& options)
+      : epsilon(static_cast<float>(options.atol())) {}
 
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
@@ -120,7 +120,6 @@ struct FloatingEquality<uint16_t, Flags> {
 
   const float epsilon;
 };
-
 
 template <typename T, typename Visitor>
 struct FloatingEqualityDispatcher {

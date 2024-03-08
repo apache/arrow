@@ -18,13 +18,13 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/config.h"
 #include "arrow/util/double_conversion.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
-using util::double_conversion::DoubleToStringConverter;
 using util::Float16;
+using util::double_conversion::DoubleToStringConverter;
 
 static constexpr int kMinBufferSize = DoubleToStringConverter::kBase10MaximalLength + 1;
 

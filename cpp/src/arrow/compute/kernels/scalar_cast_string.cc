@@ -438,10 +438,9 @@ void AddNumberToStringCasts(CastFunction* func) {
                         NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 
-  DCHECK_OK(
-         func->AddKernel(Type::HALF_FLOAT, {float16()}, out_ty,
-             NumericToStringCastFunctor<OutType, HalfFloatType>::Exec,
-             NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {float16()}, out_ty,
+                            NumericToStringCastFunctor<OutType, HalfFloatType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
 }
 
 template <typename OutType>

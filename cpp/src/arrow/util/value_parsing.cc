@@ -22,8 +22,8 @@
 #include <string>
 #include <utility>
 
-#include "arrow/vendored/fast_float/fast_float.h"
 #include "arrow/util/float16.h"
+#include "arrow/vendored/fast_float/fast_float.h"
 
 using arrow::util::Float16;
 

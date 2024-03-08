@@ -411,9 +411,8 @@ TEST(Cast, FloatingToFloating) {
   for (auto from : {float16(), float32(), float64()}) {
     for (auto to : {float16(), float32(), float64()}) {
       CheckCast(ArrayFromJSON(from, "[1.0, 0.0, -1.0, 5.0]"),
-                ArrayFromJSON(to,   "[1.0, 0.0, -1.0, 5.0]"));
-
-      }
+                ArrayFromJSON(to, "[1.0, 0.0, -1.0, 5.0]"));
+    }
   }
 }
 
@@ -2242,7 +2241,6 @@ TEST(Cast, FloatingToString) {
     CheckCast(
         ArrayFromJSON(float16(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
         ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
-
   }
 }
 
