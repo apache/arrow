@@ -21,6 +21,8 @@ import os
 import warnings
 from cython import sizeof
 
+from pyarrow.compute import run_end_encode
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -116,14 +118,6 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     if isinstance(res, ChunkedArray) and res.num_chunks==1:
         res = res.chunk(0)
     return res
-
-
-cdef _handle_run_end_encoded_arrays(object sequence, object mask, object size,
-                                    DataType type, CMemoryPool* pool,
-                                    c_bool from_pandas):
-    from pyarrow.compute import run_end_encode
-    arr = _sequence_to_array(sequence, mask, size, type.value_type, pool, from_pandas)
-    return run_end_encode(arr, run_end_type=type.run_end_type)
 
 
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
@@ -345,15 +339,17 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
             if type and type.id == _Type_RUN_END_ENCODED:
-                result = _handle_run_end_encoded_arrays(obj, mask, size, type,
-                                                        pool, c_from_pandas)
+                arr = _ndarray_to_array(
+                    values, mask, type.value_type, c_from_pandas, safe, pool)
+                result = run_end_encode(arr, run_end_type=type.run_end_type)
             else:
                 result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                            pool)
     else:
         if type and type.id == _Type_RUN_END_ENCODED:
-            result = _handle_run_end_encoded_arrays(obj, mask, size, type, pool,
-                                                    c_from_pandas)
+            arr = _sequence_to_array(
+                obj, mask, size, type.value_type, pool, from_pandas)
+            result = run_end_encode(arr, run_end_type=type.run_end_type)
         # ConvertPySequence does strict conversion if type is explicitly passed
         else:
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
