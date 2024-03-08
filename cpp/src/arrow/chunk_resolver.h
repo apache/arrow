@@ -66,6 +66,23 @@ struct ARROW_EXPORT ChunkResolver {
   ChunkResolver(const ChunkResolver& other) noexcept;
   ChunkResolver& operator=(const ChunkResolver& other) noexcept;
 
+  /// \pre loc.chunk_index >= 0
+  /// \pre loc.index_in_chunk is assumed valid if chunk_index is not the last one
+  inline bool Valid(ChunkLocation loc) const {
+    const int64_t last_chunk_index = static_cast<int64_t>(offsets_.size()) - 1;
+    return loc.chunk_index + 1 < last_chunk_index ||
+           (loc.chunk_index + 1 == last_chunk_index &&
+            loc.index_in_chunk < offsets_[last_chunk_index]);
+  }
+
+  /// \pre Valid(loc)
+  inline ChunkLocation Next(ChunkLocation loc) const {
+    const int64_t next_index_in_chunk = loc.index_in_chunk + 1;
+    return (next_index_in_chunk < offsets_[loc.chunk_index + 1])
+               ? ChunkLocation{loc.chunk_index, next_index_in_chunk}
+               : ChunkLocation{loc.chunk_index + 1, 0};
+  }
+
   /// \brief Resolve a logical index to a ChunkLocation.
   ///
   /// The returned ChunkLocation contains the chunk index and the within-chunk index
@@ -97,8 +114,7 @@ struct ARROW_EXPORT ChunkResolver {
   /// \return ChunkLocation with a valid chunk_index if index is within
   ///         bounds, or with chunk_index == chunks.size() if logical index is
   ///         `>= chunked_array.length()`.
-  inline ChunkLocation ResolveWithChunkIndexHint(int64_t index,
-                                                 ChunkLocation hint) const {
+  inline ChunkLocation ResolveWithHint(int64_t index, ChunkLocation hint) const {
     assert(hint.chunk_index < static_cast<int64_t>(offsets_.size()));
     const auto chunk_index =
         ResolveChunkIndex</*StoreCachedChunk=*/false>(index, hint.chunk_index);

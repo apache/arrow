@@ -237,8 +237,9 @@ class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArra
                          physical_chunks_, order_, null_placement_));
 
     const auto arrays = GetArrayPointers(physical_chunks_);
-    auto value_selector = [resolver = ChunkedArrayResolver(arrays)](int64_t index) {
-      return resolver.Resolve(index).Value<InType>();
+    auto value_selector = [resolver = ChunkedArrayResolver(arrays),
+                           hint = ChunkLocation{}](int64_t index) mutable {
+      return resolver.ResolveLogicalIndex(index, &hint).Value<InType>();
     };
     ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
                                                    tiebreaker_, value_selector));

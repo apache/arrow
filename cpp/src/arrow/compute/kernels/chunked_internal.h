@@ -30,6 +30,9 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// Expose ChunkLocation in arrow::compute::internal as well because it's used a lot
+using ChunkLocation = ::arrow::internal::ChunkLocation;
+
 // The target chunk in a chunked array.
 struct ResolvedChunk {
   // The target array in chunked array.
@@ -39,7 +42,6 @@ struct ResolvedChunk {
 
   ResolvedChunk(const Array* array, int64_t index) : array(array), index(index) {}
 
- public:
   bool IsNull() const { return array->IsNull(index); }
 
   template <typename ArrowType, typename ViewType = GetViewType<ArrowType>>
@@ -65,8 +67,20 @@ class ChunkedArrayResolver {
   ChunkedArrayResolver(const ChunkedArrayResolver& other) = default;
   ChunkedArrayResolver& operator=(const ChunkedArrayResolver& other) = default;
 
-  ResolvedChunk Resolve(int64_t index) const {
+  /// \pre Valid(loc)
+  ResolvedChunk ResolveLocation(ChunkLocation loc) const {
+    assert(resolver_.Valid(loc));
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
+  }
+
+  ResolvedChunk ResolveLogicalIndex(int64_t index) const {
     const auto loc = resolver_.Resolve(index);
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
+  }
+
+  ResolvedChunk ResolveLogicalIndex(int64_t index, ChunkLocation* hint) const {
+    const auto loc = resolver_.ResolveWithHint(index, *hint);
+    *hint = loc;
     return {chunks_[loc.chunk_index], loc.index_in_chunk};
   }
 };
