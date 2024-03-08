@@ -1116,7 +1116,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Result<std::pair<PyObject*, PyObject*>> GetKeyValuePair(PyObject* seq, int index) {
     PyObject* pair = PySequence_GetItem(seq, index);
     RETURN_IF_PYERROR();
-    OwnedRef pair_ref(pair);  // ensure reference is properly cleaned up
+    OwnedRef pair_ref(pair);  // ensure reference count is decreased at scope end
     if (!PyTuple_Check(pair) || PyTuple_Size(pair) != 2) {
       return internal::InvalidType(pair, "was expecting tuple of (key, value) pair");
     }
