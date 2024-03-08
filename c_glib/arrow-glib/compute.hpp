@@ -192,3 +192,27 @@ garrow_run_end_encode_options_new_raw(
   const arrow::compute::RunEndEncodeOptions *arrow_options);
 arrow::compute::RunEndEncodeOptions *
 garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options);
+
+GArrowStrptimeOptions *
+garrow_strptime_options_new_raw(
+  const arrow::compute::StrptimeOptions *arrow_options);
+arrow::compute::StrptimeOptions *
+garrow_strptime_options_get_raw(GArrowStrptimeOptions *options);
+
+GArrowStrftimeOptions *
+garrow_strftime_options_new_raw(
+  const arrow::compute::StrftimeOptions *arrow_options);
+arrow::compute::StrftimeOptions *
+garrow_strftime_options_get_raw(GArrowStrftimeOptions *options);
+
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new_raw(
+  const arrow::compute::SplitPatternOptions *arrow_options);
+arrow::compute::SplitPatternOptions *
+garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options);
+
+GArrowStructFieldOptions *
+garrow_struct_field_options_new_raw(
+  const arrow::compute::StructFieldOptions *arrow_options);
+arrow::compute::StructFieldOptions *
+garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);

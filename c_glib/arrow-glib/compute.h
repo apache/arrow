@@ -1113,5 +1113,74 @@ GArrowArray *
 garrow_run_end_encoded_array_decode(GArrowRunEndEncodedArray *array,
                                     GError **error);
 
+#define GARROW_TYPE_STRPTIME_OPTIONS      \
+  (garrow_strptime_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStrptimeOptions,
+                         garrow_strptime_options,
+                         GARROW,
+                         STRPTIME_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStrptimeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStrptimeOptions *
+garrow_strptime_options_new(void);
+
+#define GARROW_TYPE_STRFTIME_OPTIONS      \
+  (garrow_strftime_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStrftimeOptions,
+                         garrow_strftime_options,
+                         GARROW,
+                         STRFTIME_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStrftimeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStrftimeOptions *
+garrow_strftime_options_new(void);
+
+#define GARROW_TYPE_SPLIT_PATTERN_OPTIONS      \
+  (garrow_split_pattern_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSplitPatternOptions,
+                         garrow_split_pattern_options,
+                         GARROW,
+                         SPLIT_PATTERN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSplitPatternOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new(void);
+
+#define GARROW_TYPE_STRUCT_FIELD_OPTIONS      \
+  (garrow_struct_field_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowStructFieldOptions,
+                         garrow_struct_field_options,
+                         GARROW,
+                         STRUCT_FIELD_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowStructFieldOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_16_0
+void
+garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
+                                          const gchar *field_ref,
+                                          GError **error);
+
+GARROW_AVAILABLE_IN_16_0
+GArrowStructFieldOptions *
+garrow_struct_field_options_new(void);
 
 G_END_DECLS

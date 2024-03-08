@@ -32,6 +32,7 @@
 #include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/type.hpp>
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
@@ -239,6 +240,16 @@ G_BEGIN_DECLS
  *
  * #GArrowRunEndEncodeOptions is a class to customize the
  * `run_end_encode` function.
+ *
+ * #GArrowStrptimeOptions is a class to customize the `strptime` function.
+ *
+ * #GArrowStrftimeOptions is a class to customize the `strftime` function.
+ *
+ * #GArrowSplitPatternOptions is a class to customize the `split_pattern` and
+ * `split_pattern_regex` functions.
+ *
+ * #GArrowStructFieldOptions is a class to customize the `struct_field`
+ * function.
  *
  * There are many functions to compute data on an array.
  */
@@ -6073,6 +6084,523 @@ garrow_run_end_encoded_array_decode(GArrowRunEndEncodedArray *array,
   }
 }
 
+enum {
+  PROP_STRPTIME_OPTIONS_FORMAT = 1,
+  PROP_STRPTIME_OPTIONS_UNIT,
+  PROP_STRPTIME_OPTIONS_ERROR_IS_NULL,
+};
+
+G_DEFINE_TYPE(GArrowStrptimeOptions,
+              garrow_strptime_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_strptime_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strptime_options_get_raw(GARROW_STRPTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRPTIME_OPTIONS_FORMAT:
+    options->format = g_value_get_string(value);
+    break;
+  case PROP_STRPTIME_OPTIONS_UNIT:
+    options->unit = garrow_time_unit_to_raw(
+      static_cast<GArrowTimeUnit>(g_value_get_enum(value)));
+    break;
+  case PROP_STRPTIME_OPTIONS_ERROR_IS_NULL:
+    options->error_is_null = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strptime_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strptime_options_get_raw(GARROW_STRPTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRPTIME_OPTIONS_FORMAT:
+    g_value_set_string(value, options->format.c_str());
+    break;
+  case PROP_STRPTIME_OPTIONS_UNIT:
+    g_value_set_enum(value, garrow_time_unit_from_raw(options->unit));
+    break;
+  case PROP_STRPTIME_OPTIONS_ERROR_IS_NULL:
+    g_value_set_boolean(value, options->error_is_null);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strptime_options_init(GArrowStrptimeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StrptimeOptions());
+}
+
+static void
+garrow_strptime_options_class_init(GArrowStrptimeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_strptime_options_set_property;
+  gobject_class->get_property = garrow_strptime_options_get_property;
+
+  arrow::compute::StrptimeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStrptimeOptions:format:
+   *
+   * The desired format string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("format",
+                             "Format",
+                             "The desired format string",
+                             options.format.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_FORMAT,
+                                  spec);
+
+  /**
+   * GArrowStrptimeOptions:unit:
+   *
+   * The desired time resolution.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_enum("unit",
+                           "Unit",
+                           "The desired time resolution",
+                           GARROW_TYPE_TIME_UNIT,
+                           garrow_time_unit_from_raw(options.unit),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_UNIT,
+                                  spec);
+
+  /**
+   * GArrowStrptimeOptions:error-is-null:
+   *
+   * Return null on parsing errors if true or raise if false.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boolean("error-is-null",
+                              "Error is null",
+                              "Return null on parsing errors if true or raise if false",
+                              options.error_is_null,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRPTIME_OPTIONS_ERROR_IS_NULL,
+                                  spec);
+}
+
+/**
+ * garrow_strptime_options_new:
+ *
+ * Returns: A newly created #GArrowStrptimeOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStrptimeOptions *
+garrow_strptime_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRPTIME_OPTIONS, NULL);
+  return GARROW_STRPTIME_OPTIONS(options);
+}
+
+enum {
+  PROP_STRFTIME_OPTIONS_FORMAT = 1,
+  PROP_STRFTIME_OPTIONS_LOCALE,
+};
+
+G_DEFINE_TYPE(GArrowStrftimeOptions,
+              garrow_strftime_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_strftime_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strftime_options_get_raw(GARROW_STRFTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRFTIME_OPTIONS_FORMAT:
+    options->format = g_value_get_string(value);
+    break;
+  case PROP_STRFTIME_OPTIONS_LOCALE:
+    options->locale = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strftime_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options =
+    garrow_strftime_options_get_raw(GARROW_STRFTIME_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRFTIME_OPTIONS_FORMAT:
+    g_value_set_string(value, options->format.c_str());
+    break;
+  case PROP_STRFTIME_OPTIONS_LOCALE:
+    g_value_set_string(value, options->locale.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_strftime_options_init(GArrowStrftimeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StrftimeOptions());
+}
+
+static void
+garrow_strftime_options_class_init(GArrowStrftimeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_strftime_options_set_property;
+  gobject_class->get_property = garrow_strftime_options_get_property;
+
+  arrow::compute::StrftimeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStrftimeOptions:format:
+   *
+   * The desired format string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("format",
+                             "Format",
+                             "The desired format string",
+                             options.format.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRFTIME_OPTIONS_FORMAT,
+                                  spec);
+
+  /**
+   * GArrowStrftimeOptions:locale:
+   *
+   * The desired output locale string.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("locale",
+                             "locale",
+                             "The desired output locale string",
+                             options.locale.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRFTIME_OPTIONS_LOCALE,
+                                  spec);
+}
+
+/**
+ * garrow_strftime_options_new:
+ *
+ * Returns: A newly created #GArrowStrftimeOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStrftimeOptions *
+garrow_strftime_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRFTIME_OPTIONS, NULL);
+  return GARROW_STRFTIME_OPTIONS(options);
+}
+
+enum {
+  PROP_SPLIT_PATTERN_OPTIONS_PATTERN = 1,
+  PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS,
+  PROP_SPLIT_PATTERN_OPTIONS_REVERSE,
+};
+
+G_DEFINE_TYPE(GArrowSplitPatternOptions,
+              garrow_split_pattern_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_split_pattern_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_split_pattern_options_get_raw(
+    GARROW_SPLIT_PATTERN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SPLIT_PATTERN_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS:
+    options->max_splits = g_value_get_int64(value);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_REVERSE:
+    options->reverse = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_split_pattern_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_split_pattern_options_get_raw(
+    GARROW_SPLIT_PATTERN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SPLIT_PATTERN_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS:
+    g_value_set_int64(value, options->max_splits);
+    break;
+  case PROP_SPLIT_PATTERN_OPTIONS_REVERSE:
+    g_value_set_boolean(value, options->reverse);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_split_pattern_options_init(GArrowSplitPatternOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::SplitPatternOptions());
+}
+
+static void
+garrow_split_pattern_options_class_init(GArrowSplitPatternOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_split_pattern_options_set_property;
+  gobject_class->get_property = garrow_split_pattern_options_get_property;
+
+  arrow::compute::SplitPatternOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSplitPatternOptions:pattern:
+   *
+   * The exact substring to split on.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "The exact substring to split on",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_PATTERN,
+                                  spec);
+
+  /**
+   * GArrowSplitPatternOptions:max_splits:
+   *
+   * Maximum number of splits allowed, or unlimited when -1.
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_int64("max_splits",
+                            "Max splits",
+                            "Maximum number of splits allowed, or unlimited when -1",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.max_splits,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_MAX_SPLITS,
+                                  spec);
+
+  /**
+   * GArrowSplitPatternOptions:reverse:
+   *
+   * Start splitting from the end of the string (only relevant when
+   * max_splits != -1)
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_boolean("reverse",
+                              "Reverse",
+                              "Start splitting from the end of the string (only relevant when max_splits != -1)",
+                              options.reverse,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_SPLIT_PATTERN_OPTIONS_REVERSE,
+                                  spec);
+}
+
+/**
+ * garrow_split_pattern_options_new:
+ *
+ * Returns: A newly created #GArrowSplitPatternOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_SPLIT_PATTERN_OPTIONS, NULL);
+  return GARROW_SPLIT_PATTERN_OPTIONS(options);
+}
+
+enum {
+  PROP_STRUCT_FIELD_OPTIONS_FIELD_REF = 1,
+};
+
+G_DEFINE_TYPE(GArrowStructFieldOptions,
+              garrow_struct_field_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+/**
+ * garrow_struct_field_options_set_field_ref:
+ * @field_ref: The name or dot path specifying what to extract from struct or
+ *  union.
+ *
+ * Since: 16.0.0
+ */
+void
+garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
+                                          const gchar *field_ref,
+                                          GError **error)
+{
+  auto arrow_options = garrow_struct_field_options_get_raw(
+    GARROW_STRUCT_FIELD_OPTIONS(options));
+
+  auto arrow_reference_result = garrow_field_reference_resolve_raw(field_ref);
+  if (!garrow::check(error,
+                     arrow_reference_result,
+                     "[struct-field-options][set-field-ref]")) {
+    return;
+  }
+  arrow_options->field_ref = *arrow_reference_result;
+}
+
+static void
+garrow_struct_field_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options = garrow_struct_field_options_get_raw(
+    GARROW_STRUCT_FIELD_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_STRUCT_FIELD_OPTIONS_FIELD_REF:
+    {
+      auto name = options->field_ref.name();
+      if (name) {
+        g_value_set_string(value, name->c_str());
+      } else {
+        g_value_set_string(value, options->field_ref.ToDotPath().c_str());
+      }
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_struct_field_options_init(GArrowStructFieldOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::StructFieldOptions());
+}
+
+static void
+garrow_struct_field_options_class_init(GArrowStructFieldOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->get_property = garrow_struct_field_options_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowStructFieldOptions:field_ref:
+   *
+   * The name or dot path specifying what to extract from struct or union.
+   *
+   *     dot_path = '.' name
+   *              | '[' digit+ ']'
+   *              | dot_path+
+   *
+   * Since: 16.0.0
+   */
+  spec = g_param_spec_string("field_ref",
+                             "Field ref",
+                             "The name or dot path specifying what to extract from struct or union.",
+                             "",
+                             static_cast<GParamFlags>(G_PARAM_READABLE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_STRUCT_FIELD_OPTIONS_FIELD_REF,
+                                  spec);
+}
+
+/**
+ * garrow_struct_field_options_new:
+ *
+ * Returns: A newly created #GArrowStructFieldOptions.
+ *
+ * Since: 16.0.0
+ */
+GArrowStructFieldOptions *
+garrow_struct_field_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_STRUCT_FIELD_OPTIONS, NULL);
+  return GARROW_STRUCT_FIELD_OPTIONS(options);
+}
+
 G_END_DECLS
 
 
@@ -6190,6 +6718,26 @@ garrow_function_options_new_raw(
       static_cast<const arrow::compute::RunEndEncodeOptions *>(arrow_options);
     auto options =
       garrow_run_end_encode_options_new_raw(arrow_run_end_encode_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StrptimeOptions") {
+    const auto arrow_strptime_options =
+      static_cast<const arrow::compute::StrptimeOptions *>(arrow_options);
+    auto options = garrow_strptime_options_new_raw(arrow_strptime_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StrftimeOptions") {
+    const auto arrow_strftime_options =
+      static_cast<const arrow::compute::StrftimeOptions *>(arrow_options);
+    auto options = garrow_strftime_options_new_raw(arrow_strftime_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SplitPatternOptions") {
+    const auto arrow_split_pattern_options =
+      static_cast<const arrow::compute::SplitPatternOptions *>(arrow_options);
+    auto options = garrow_split_pattern_options_new_raw(arrow_split_pattern_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "StructFieldOptions") {
+    const auto arrow_struct_field_options =
+      static_cast<const arrow::compute::StructFieldOptions *>(arrow_options);
+    auto options = garrow_struct_field_options_new_raw(arrow_struct_field_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -6665,5 +7213,79 @@ arrow::compute::RunEndEncodeOptions *
 garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options)
 {
   return static_cast<arrow::compute::RunEndEncodeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStrptimeOptions *
+garrow_strptime_options_new_raw(
+  const arrow::compute::StrptimeOptions *arrow_options)
+{
+  return GARROW_STRPTIME_OPTIONS(
+    g_object_new(GARROW_TYPE_STRPTIME_OPTIONS,
+                 "format", arrow_options->format.c_str(),
+                 "unit", arrow_options->unit,
+                 "error_is_null", arrow_options->error_is_null,
+                 NULL));
+}
+
+arrow::compute::StrptimeOptions *
+garrow_strptime_options_get_raw(GArrowStrptimeOptions *options)
+{
+  return static_cast<arrow::compute::StrptimeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStrftimeOptions *
+garrow_strftime_options_new_raw(
+  const arrow::compute::StrftimeOptions *arrow_options)
+{
+  return GARROW_STRFTIME_OPTIONS(
+    g_object_new(GARROW_TYPE_STRFTIME_OPTIONS,
+                 "format", arrow_options->format.c_str(),
+                 "locale", arrow_options->locale.c_str(),
+                 NULL));
+}
+
+arrow::compute::StrftimeOptions *
+garrow_strftime_options_get_raw(GArrowStrftimeOptions *options)
+{
+  return static_cast<arrow::compute::StrftimeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowSplitPatternOptions *
+garrow_split_pattern_options_new_raw(
+  const arrow::compute::SplitPatternOptions *arrow_options)
+{
+  return GARROW_SPLIT_PATTERN_OPTIONS(
+    g_object_new(GARROW_TYPE_SPLIT_PATTERN_OPTIONS,
+                 "pattern", arrow_options->pattern.c_str(),
+                 "max_splits", arrow_options->max_splits,
+                 "reverse", arrow_options->reverse,
+                 NULL));
+}
+
+arrow::compute::SplitPatternOptions *
+garrow_split_pattern_options_get_raw(GArrowSplitPatternOptions *options)
+{
+  return static_cast<arrow::compute::SplitPatternOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowStructFieldOptions *
+garrow_struct_field_options_new_raw(
+  const arrow::compute::StructFieldOptions *arrow_options)
+{
+  auto options = GARROW_STRUCT_FIELD_OPTIONS(
+    g_object_new(GARROW_TYPE_STRUCT_FIELD_OPTIONS, NULL));
+  auto arrow_new_options = garrow_struct_field_options_get_raw(options);
+  arrow_new_options->field_ref = arrow_options->field_ref;
+  return options;
+}
+
+arrow::compute::StructFieldOptions *
+garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options)
+{
+  return static_cast<arrow::compute::StructFieldOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
