@@ -2523,7 +2523,9 @@ class AzureFileSystem::Impl {
       }
       return CrossContainerMoveNotImplemented(src, dest);
     }
-    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    return Status::NotImplemented(
+        "FileSystem::Move() is not implemented for Azure Storage accounts "
+        "without Hierarchical Namespace support (see arrow/issues/40405).");
   }
 
   Status MovePath(const AzureLocation& src, const AzureLocation& dest) {
