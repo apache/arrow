@@ -95,7 +95,6 @@ template <int kNumStreams>
 void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_values,
                                   uint8_t* output_buffer_raw) {
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
-  using simd_arch = typename simd_batch::arch_type;
 
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
@@ -128,9 +127,9 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_v
   // Step 1: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD ...
   //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD ...
-  // Step 3: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
+  // Step 2: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD ...
-  // Step 4: simd_batch<int64_t, 2> and simd_batch<int64_t, 2>:
+  // Step 3: simd_batch<int64_t, 2>::zip_lo and simd_batch<int64_t, 2>::zip_hi:
   //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB ...
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
@@ -154,7 +153,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_v
     if constexpr (kNumStreams == 8) {
       // This is the path for 64bits data.
       simd_batch tmp[8];
-      using int32_batch = xsimd::batch<int32_t, simd_arch>;
+      using int32_batch = xsimd::make_sized_batch_t<int32_t, 4>;
       // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
       auto from_int32_batch = [](int32_batch from) -> simd_batch {
         simd_batch dest;
@@ -180,7 +179,7 @@ void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_v
       }
     } else {
       // This is the path for 32bits data.
-      using int64_batch = xsimd::batch<int64_t, simd_arch>;
+      using int64_batch = xsimd::make_sized_batch_t<int64_t, 2>;
       // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
       auto from_int64_batch = [](int64_batch from) -> simd_batch {
         simd_batch dest;
