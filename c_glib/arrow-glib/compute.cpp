@@ -246,10 +246,10 @@ G_BEGIN_DECLS
  * #GArrowStrftimeOptions is a class to customize the `strftime` function.
  *
  * #GArrowSplitPatternOptions is a class to customize the `split_pattern` and
- *  `split_pattern_regex` functions.
+ * `split_pattern_regex` functions.
  *
  * #GArrowStructFieldOptions is a class to customize the `struct_field`
- *  function.
+ * function.
  *
  * There are many functions to compute data on an array.
  */
@@ -2783,7 +2783,6 @@ garrow_filter_options_get_property(GObject *object,
     break;
   }
 }
-
 
 static void
 garrow_filter_options_init(GArrowFilterOptions *object)

@@ -42,6 +42,6 @@ class TestStrftimeOptions < Test::Unit::TestCase
     @options.format = "%Y-%m-%d"
     strftime_function = Arrow::Function.find("strftime")
     assert_equal(build_string_array(["2017-09-09"]),
-      strftime_function.execute(args, @options).value)
+                 strftime_function.execute(args, @options).value)
   end
 end

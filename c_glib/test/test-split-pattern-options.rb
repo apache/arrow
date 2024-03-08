@@ -51,6 +51,6 @@ class TestSplitPatternOptions < Test::Unit::TestCase
     @options.pattern = "[lo]+"
     split_pattern_regex_function = Arrow::Function.find("split_pattern_regex")
     assert_equal(build_list_array(Arrow::StringDataType.new, [["he", " w", "r", "d"]]),
-      split_pattern_regex_function.execute(args, @options).value)
+                 split_pattern_regex_function.execute(args, @options).value)
   end
 end

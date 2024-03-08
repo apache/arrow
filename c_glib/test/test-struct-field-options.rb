@@ -31,7 +31,7 @@ class TestStructFieldOptions < Test::Unit::TestCase
     assert_equal("foo", @options.field_ref)
   end
 
-  def test_sset_ymbol
+  def test_set_symbol
     @options.field_ref = :foo
     assert_equal("foo", @options.field_ref)
   end
@@ -70,6 +70,6 @@ class TestStructFieldOptions < Test::Unit::TestCase
     @options.field_ref = "score"
     struct_field_function = Arrow::Function.find("struct_field")
     assert_equal(build_int8_array([-29, 2, nil]),
-      struct_field_function.execute(args, @options).value)
+                 struct_field_function.execute(args, @options).value)
   end
 end

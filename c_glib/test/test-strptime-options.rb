@@ -52,6 +52,6 @@ class TestStrptimeOptions < Test::Unit::TestCase
     @options.unit = :milli
     strptime_function = Arrow::Function.find("strptime")
     assert_equal(build_timestamp_array(:milli, [1504953190000]),
-      strptime_function.execute(args, @options).value)
+                strptime_function.execute(args, @options).value)
   end
 end
