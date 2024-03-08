@@ -630,11 +630,11 @@ namespace {
 // NumPy unicode is UCS4/UTF32 always
 constexpr int kNumPyUnicodeSize = 4;
 
-Status AppendUTF32(const char* data, int itemsize, int byteorder,
+Status AppendUTF32(const char* data, int64_t itemsize, int byteorder,
                    ::arrow::internal::ChunkedStringBuilder* builder) {
   // The binary \x00\x00\x00\x00 indicates a nul terminator in NumPy unicode,
   // so we need to detect that here to truncate if necessary. Yep.
-  int actual_length = 0;
+  Py_ssize_t actual_length = 0;
   for (; actual_length < itemsize / kNumPyUnicodeSize; ++actual_length) {
     const char* code_point = data + actual_length * kNumPyUnicodeSize;
     if ((*code_point == '\0') && (*(code_point + 1) == '\0') &&
@@ -707,7 +707,7 @@ Status NumPyConverter::Visit(const StringType& type) {
   auto AppendNonNullValue = [&](const uint8_t* data) {
     if (is_binary_type) {
       if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
-        return builder.Append(data, itemsize_);
+        return builder.Append(data, static_cast<int32_t>(itemsize_));
       } else {
         return Status::Invalid("Encountered non-UTF8 binary value: ",
                                HexEncode(data, itemsize_));
