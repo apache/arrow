@@ -174,8 +174,6 @@ Status CheckFloatToIntTruncation(const ExecValue& input, const ExecResult& outpu
       return CheckFloatToIntTruncationImpl<FloatType>(input.array, *output.array_span());
     case Type::DOUBLE:
       return CheckFloatToIntTruncationImpl<DoubleType>(input.array, *output.array_span());
-    // FIXME: Is this OK?  It seems like the underlying check may not operator correctly
-    // on a type that is backed by a uint16_t.
     case Type::HALF_FLOAT:
       return CheckFloatToIntTruncationImpl<HalfFloatType>(input.array, *output.array_span());
     default:
