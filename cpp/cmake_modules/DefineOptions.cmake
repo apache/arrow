@@ -111,7 +111,9 @@ macro(resolve_option_dependencies)
     set(ARROW_USE_GLOG OFF)
   endif()
   # Tests are crashed with mold + sanitizer checks.
-  if(ARROW_USE_ASAN OR ARROW_USE_TSAN OR ARROW_USE_UBSAN)
+  if(ARROW_USE_ASAN
+     OR ARROW_USE_TSAN
+     OR ARROW_USE_UBSAN)
     set(ARROW_USE_MOLD OFF)
   endif()
 
