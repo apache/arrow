@@ -38,7 +38,6 @@ RUN \
     cmake \
     debhelper \
     devscripts \
-    gi-docgen \
     git \
     libboost-filesystem-dev \
     libboost-system-dev \
@@ -77,5 +76,6 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
+  pip3 install gi-docgen && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
