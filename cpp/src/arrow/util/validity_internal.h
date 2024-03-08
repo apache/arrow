@@ -42,7 +42,6 @@ struct BitmapTag {
 };
 
 inline namespace validity_internal {
-
 /// \brief Non-owning and immutable validity bitmap view.
 template <BitmapTag::Value Tag = BitmapTag::kMustCheck>
 class OptionalValidity {
@@ -186,6 +185,5 @@ class OptionalValidity {
     return !IsValid<UnsafeTagOverride>(i);
   }
 };
-
 }  // namespace validity_internal
 }  // namespace arrow::internal

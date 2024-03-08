@@ -35,7 +35,6 @@
 
 namespace arrow::internal {
 inline namespace scatter_gather_internal {
-
 // CRTP [1] base class for Gather that provides a gathering loop in terms of
 // Write*() methods that must be implemented by the derived class.
 //
@@ -272,6 +271,5 @@ class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
         src_validity, idx_length_, idx_, idx_validity, out_is_valid);
   }
 };
-
 }  // namespace scatter_gather_internal
 }  // namespace arrow::internal
