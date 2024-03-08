@@ -322,7 +322,7 @@ test_that("schema print truncation", {
   out <- print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 1)
   expect_output(
     cat(out),
-    "int: int32\n...\nUse `schema()` to see entire schema",
+    "int: int32\n...\n6 more columns\nUse `schema()` to see entire schema",
     fixed = TRUE
   )
 })

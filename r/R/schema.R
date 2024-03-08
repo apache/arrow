@@ -226,9 +226,11 @@ prepare_key_value_metadata <- function(metadata) {
 
 # Alternative to Schema__ToString that doesn't print metadata
 print_schema_fields <- function(s, truncate = FALSE, max_fields = 20L) {
-  if (truncate && length(s$fields) > max_fields) {
+  num_fields <- length(s$fields)
+  if (truncate && num_fields > max_fields) {
     fields_out <- paste(map_chr(s$fields[seq_len(max_fields)], ~ .$ToString()), collapse = "\n")
     fields_out <- paste0(fields_out, "\n...\n")
+    fields_out <- paste0(fields_out, num_fields - max_fields, " more columns\n")
     fields_out <- paste0(fields_out, "Use `schema()` to see entire schema")
   } else {
     fields_out <- paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
