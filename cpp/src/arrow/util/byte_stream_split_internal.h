@@ -38,8 +38,8 @@ namespace arrow::util::internal {
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 template <int kNumStreams>
-void ByteStreamSplitDecode128B(const uint8_t* data, int64_t num_values, int64_t stride,
-                               uint8_t* out) {
+void ByteStreamSplitDecodeSimd128(const uint8_t* data, int64_t num_values, int64_t stride,
+                                  uint8_t* out) {
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
@@ -92,8 +92,8 @@ void ByteStreamSplitDecode128B(const uint8_t* data, int64_t num_values, int64_t 
 }
 
 template <int kNumStreams>
-void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_values,
-                               uint8_t* output_buffer_raw) {
+void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, const int64_t num_values,
+                                  uint8_t* output_buffer_raw) {
   using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
   using simd_arch = typename simd_batch::arch_type;
 
@@ -125,10 +125,10 @@ void ByteStreamSplitEncode128B(const uint8_t* raw_values, const int64_t num_valu
   // Example run for 32-bit variables:
   // Step 0, copy:
   //   0: ABCD ABCD ABCD ABCD 1: ABCD ABCD ABCD ABCD ...
-  // Step 1: simd_batch<int8_t, 8>::xip_lo and simd_batch<int8_t, 8>::xip_hi:
+  // Step 1: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD ...
   //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD ...
-  // Step 3: simd_batch<int8_t, 8>::xip_lo and simd_batch<int8_t, 8>::xip_hi:
+  // Step 3: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD ...
   // Step 4: simd_batch<int64_t, 2> and simd_batch<int64_t, 2>:
   //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB ...
@@ -223,7 +223,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
+    return ByteStreamSplitDecodeSimd128<kNumStreams>(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
 
   // First handle suffix.
@@ -305,13 +305,13 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const int64_t num_valu
   constexpr int kBlockSize = sizeof(__m256i) * kNumStreams;
 
   if constexpr (kNumStreams == 8)  // Back to SSE, currently no path for double.
-    return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
-                                                  output_buffer_raw);
+    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, num_values,
+                                                     output_buffer_raw);
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
-                                                  output_buffer_raw);
+    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, num_values,
+                                                     output_buffer_raw);
   const int64_t num_blocks = size / kBlockSize;
   const __m256i* raw_values_simd = reinterpret_cast<const __m256i*>(raw_values);
   __m256i* output_buffer_streams[kNumStreams];
@@ -378,7 +378,7 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
 #if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2<kNumStreams>(data, num_values, stride, out);
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-  return ByteStreamSplitDecode128B<kNumStreams>(data, num_values, stride, out);
+  return ByteStreamSplitDecodeSimd128<kNumStreams>(data, num_values, stride, out);
 #else
 #error "ByteStreamSplitDecodeSimd not implemented"
 #endif
@@ -391,8 +391,8 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t n
   return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, num_values,
                                                 output_buffer_raw);
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-  return ByteStreamSplitEncode128B<kNumStreams>(raw_values, num_values,
-                                                output_buffer_raw);
+  return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, num_values,
+                                                   output_buffer_raw);
 #else
 #error "ByteStreamSplitEncodeSimd not implemented"
 #endif
