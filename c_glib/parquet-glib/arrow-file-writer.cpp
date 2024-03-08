@@ -406,7 +406,7 @@ gparquet_arrow_file_writer_class_init(GParquetArrowFileWriterClass *klass)
  * @schema: Arrow schema for written data.
  * @sink: Arrow output stream to be written.
  * @writer_properties: (nullable): A #GParquetWriterProperties.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileWriter.
  *
@@ -451,7 +451,7 @@ gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
  * @schema: Arrow schema for written data.
  * @path: Path to be read.
  * @writer_properties: (nullable): A #GParquetWriterProperties.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileWriter.
  *
@@ -505,7 +505,7 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
  * @writer: A #GParquetArrowFileWriter.
  * @table: A table to be written.
  * @chunk_size: The max number of rows in a row group.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -528,7 +528,7 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
 /**
  * gparquet_arrow_file_writer_close:
  * @writer: A #GParquetArrowFileWriter.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *

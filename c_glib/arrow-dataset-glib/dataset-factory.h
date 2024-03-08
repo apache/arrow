@@ -100,7 +100,7 @@ GARROW_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_add_selector(
   GADatasetFileSystemDatasetFactory *factory,
-  GArrorFileSelector *selector,
+  GArrowFileSelector *selector,
   GError **error);
 */
 

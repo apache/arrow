@@ -231,7 +231,7 @@ G_BEGIN_DECLS
  * #GArrowUTF8NormalizeOptions is a class to customize the
  * `utf8_normalize` function.
  *
- * #GArrowQuantileOptions is a class to customize the `qunatile`
+ * #GArrowQuantileOptions is a class to customize the `quantile`
  * function.
  *
  * #GArrowIndexOptions is a class to customize the `index` function.
@@ -5434,7 +5434,7 @@ garrow_record_batch_take(GArrowRecordBatch *record_batch,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowArray filterd
+ * Returns: (nullable) (transfer full): The #GArrowArray filtered
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
@@ -5670,7 +5670,7 @@ garrow_table_sort_indices(GArrowTable *table,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowTable filterd
+ * Returns: (nullable) (transfer full): The #GArrowTable filtered
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
@@ -5709,7 +5709,7 @@ garrow_table_filter(GArrowTable *table,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowTable filterd
+ * Returns: (nullable) (transfer full): The #GArrowTable filtered
  *   with a chunked array filter. Nulls in the filter will
  *   result in nulls in the output.
  *
@@ -5750,7 +5750,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray filtered
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *
@@ -5789,7 +5789,7 @@ garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray filtered
  *   with a chunked array filter. Nulls in the filter will
  *   result in nulls in the output.
  *
@@ -5830,7 +5830,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
  * @options: (nullable): A #GArrowFilterOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full): The #GArrowRecordBatch filterd
+ * Returns: (nullable) (transfer full): The #GArrowRecordBatch filtered
  *   with a boolean selection filter. Nulls in the filter will
  *   result in nulls in the output.
  *

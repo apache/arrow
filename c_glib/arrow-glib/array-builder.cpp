@@ -5179,7 +5179,7 @@ garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArra
  * garrow_binary_dictionary_array_builder_get_dictionary_length:
  * @builder: A #GArrowBinaryDictionaryArrayBuilder.
  *
- * Returns: A number of entries in the dicitonary.
+ * Returns: A number of entries in the dictionary.
  *
  * Since: 2.0.0
  */
@@ -5413,7 +5413,7 @@ garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArra
  * garrow_string_dictionary_array_builder_get_dictionary_length:
  * @builder: A #GArrowStringDictionaryArrayBuilder.
  *
- * Returns: A number of entries in the dicitonary.
+ * Returns: A number of entries in the dictionary.
  *
  * Since: 2.0.0
  */

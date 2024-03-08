@@ -202,7 +202,7 @@ G_DECLARE_DERIVABLE_TYPE(GAFlightSQLServer,
 /**
  * GAFlightSQLServerClass:
  * @get_flight_info_statement: A virtual function to implement
- *   `GetFlightInfoStatment` API that gets a #GAFlightInfo for executing a
+ *   `GetFlightInfoStatement` API that gets a #GAFlightInfo for executing a
  *   SQL query.
  * @do_get_statement: A virtual function to implement `DoGetStatement` API
  *   that gets a #GAFlightDataStream containing the query results.

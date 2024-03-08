@@ -2077,7 +2077,7 @@ garrow_run_end_encoded_array_find_physical_offset(
  *   range of values from offset to length.
  *
  *   Avoid calling this function if the physical length can be
- *   estabilished in some other way (e.g. when iterating over the runs
+ *   established in some other way (e.g. when iterating over the runs
  *   sequentially until the end). This function uses binary-search, so
  *   it has a O(log N) cost.
  *

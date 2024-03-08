@@ -28,7 +28,7 @@ G_BEGIN_DECLS
  * @title: Local file system classes
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowLocalFileSystemOptions is a class for specifyiing options of
+ * #GArrowLocalFileSystemOptions is a class for specifying options of
  * an instance of #GArrowLocalFileSystem.
  *
  * #GArrowLocalFileSystem is a class for an implementation of a file system

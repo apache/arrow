@@ -697,7 +697,7 @@ garrow_file_input_stream_new_file_descriptor(gint file_descriptor,
 
 /**
  * garrow_file_input_stream_get_file_descriptor:
- * @stream: A #GArrowFileInuptStream.
+ * @stream: A #GArrowFileInputStream.
  *
  * Returns: The file descriptor of @stream.
  *
