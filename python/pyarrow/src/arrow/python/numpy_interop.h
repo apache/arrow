@@ -67,6 +67,11 @@
 #define NPY_INT32_IS_INT 0
 #endif
 
+// Backported NumPy 2 API (can be removed if numpy 2 is required)
+#if NPY_ABI_VERSION < 0x02000000
+  #define PyDataType_ELSIZE(descr) ((descr)->elsize)
+#endif
+
 namespace arrow {
 namespace py {
 

@@ -196,7 +196,7 @@ class NumPyConverter {
       mask_ = reinterpret_cast<PyArrayObject*>(mo);
     }
     length_ = static_cast<int64_t>(PyArray_SIZE(arr_));
-    itemsize_ = static_cast<int>(PyArray_DESCR(arr_)->elsize);
+    itemsize_ = static_cast<int64_t>(PyArray_ITEMSIZE(arr_));
     stride_ = static_cast<int64_t>(PyArray_STRIDES(arr_)[0]);
   }
 
@@ -296,7 +296,7 @@ class NumPyConverter {
   PyArrayObject* mask_;
   int64_t length_;
   int64_t stride_;
-  int itemsize_;
+  int64_t itemsize_;
 
   bool from_pandas_;
   compute::CastOptions cast_options_;

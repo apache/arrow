@@ -276,7 +276,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
   //
   // * Track allocations
   // * Get better performance through custom allocators
-  int64_t total_size = descr->elsize;
+  int64_t total_size = PyDataType_ELSIZE(descr);
   for (int i = 0; i < nd; ++i) {
     total_size *= dims[i];
   }

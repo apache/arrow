@@ -46,7 +46,7 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
     auto ptr = reinterpret_cast<uint8_t*>(PyArray_DATA(ndarray));
     data_ = const_cast<const uint8_t*>(ptr);
-    size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
+    size_ = PyArray_NBYTES(ndarray);
     capacity_ = size_;
     is_mutable_ = !!(PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE);
   }
