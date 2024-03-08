@@ -150,7 +150,7 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
     TO_ARROW_TYPE_CASE(UNICODE, utf8);
     case NPY_DATETIME: {
       auto date_dtype =
-          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(descr));
       switch (date_dtype->meta.base) {
         case NPY_FR_s:
           return timestamp(TimeUnit::SECOND);
@@ -170,7 +170,7 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
     } break;
     case NPY_TIMEDELTA: {
       auto timedelta_dtype =
-          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(descr));
       switch (timedelta_dtype->meta.base) {
         case NPY_FR_s:
           return duration(TimeUnit::SECOND);
