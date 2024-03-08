@@ -154,10 +154,10 @@ using internal::S3Backend;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
-constexpr const char kSep = '/';
-constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
-constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
-constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
+static constexpr const char kSep = '/';
+static constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+static constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
+static constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -482,12 +482,11 @@ struct S3Path {
   }
 
   static Status Validate(const S3Path& path) {
-    auto result = internal::ValidateAbstractPathParts(path.key_parts);
-    if (!result.ok()) {
-      return Status::Invalid(result.message(), " in path ", path.full_path);
-    } else {
-      return result;
+    auto st = internal::ValidateAbstractPath(path.full_path);
+    if (!st.ok()) {
+      return Status::Invalid(st.message(), " in path ", path.full_path);
     }
+    return Status::OK();
   }
 
   Aws::String ToAwsString() const {
