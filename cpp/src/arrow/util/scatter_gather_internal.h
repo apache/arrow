@@ -36,10 +36,6 @@
 namespace arrow::internal {
 inline namespace scatter_gather_internal {
 
-template <class SrcValidity, class IdxValidity>
-static constexpr bool EitherMightHaveNulls =
-    SrcValidity::kMayHaveBitmap || IdxValidity::kMayHaveBitmap;
-
 // CRTP [1] base class for Gather that provides a gathering loop in terms of
 // Write*() methods that must be implemented by the derived class.
 //
@@ -211,9 +207,9 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
   ///       zero-initializing first and calling this->Execute() afterwards.
   /// \return The number of valid elements in out.
   template <bool kOutputIsZeroInitialized, class SrcValidity, class IdxValidity>
-  ARROW_FORCE_INLINE
-      std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
-      Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
+  ARROW_FORCE_INLINE std::enable_if_t<
+      SrcValidity::kMayHaveBitmap || IdxValidity::kMayHaveBitmap, int64_t>
+  Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
     assert(src_length_ == src_validity.length);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
@@ -266,9 +262,9 @@ class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
   ///       zero-initializing first and calling this->Execute() afterwards.
   /// \return The number of valid elements in out.
   template <bool kOutputIsZeroInitialized, class SrcValidity, class IdxValidity>
-  ARROW_FORCE_INLINE
-      std::enable_if_t<EitherMightHaveNulls<SrcValidity, IdxValidity>, int64_t>
-      Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
+  ARROW_FORCE_INLINE std::enable_if_t<
+      SrcValidity::kMayHaveBitmap || IdxValidity::kMayHaveBitmap, int64_t>
+  Execute(SrcValidity src_validity, IdxValidity idx_validity, uint8_t* out_is_valid) {
     assert(src_length_ == src_validity.length && src_offset_ == src_validity.offset);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
