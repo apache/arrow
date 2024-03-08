@@ -111,7 +111,6 @@ struct CastPrimitive<HalfFloatType, InType, enable_if_integer<InType>> {
 template<typename OutType>
 struct CastPrimitive<OutType, HalfFloatType, enable_if_integer<OutType>> {
    static void Exec(const ArraySpan& arr, ArraySpan* out) {
-        std::cout << "HalfFloat to Int CastPrimitive()!\n";
         using OutT = typename OutType::c_type;
         const uint16_t* in_values = arr.GetValues<uint16_t>(1);
         OutT* out_values = out->GetValues<OutT>(1);
