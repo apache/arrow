@@ -59,5 +59,6 @@ RUN \
     tar \
     thrift-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all

@@ -57,6 +57,7 @@ RUN \
     tar \
     thrift-devel \
     vala \
+    which \
     zlib-devel && \
   yum clean ${quiet} all
 

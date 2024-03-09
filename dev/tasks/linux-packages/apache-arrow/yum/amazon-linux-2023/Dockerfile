@@ -48,6 +48,7 @@ RUN \
     pkg-config \
     protobuf-compiler \
     protobuf-devel \
+    python3-pip \
     rapidjson-devel \
     re2-devel \
     rpmdevtools \
@@ -55,5 +56,6 @@ RUN \
     tar \
     utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all

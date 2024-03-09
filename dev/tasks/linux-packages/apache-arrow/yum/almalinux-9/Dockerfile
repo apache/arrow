@@ -62,5 +62,6 @@ RUN \
     thrift-devel \
     utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all
