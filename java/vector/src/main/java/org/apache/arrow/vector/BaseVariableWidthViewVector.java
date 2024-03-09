@@ -43,15 +43,12 @@ import org.apache.arrow.vector.util.TransferPair;
  * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
  *
  */
-public abstract class BaseVariableWidthViewVector extends BaseValueVector
-        implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 16;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
-  private long initialBufferSize;
-
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
@@ -568,7 +565,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     if (desiredAllocSize == 0) {
       return;
     }
-    final long lastWriteIndex = valueBuffer.writerIndex();
     long newAllocationSize = CommonUtil.nextPowerOfTwo(desiredAllocSize);
     assert newAllocationSize >= 1;
 
@@ -576,17 +572,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     // for each set operation, we have to allocate 16 bytes
     // here we are adjusting the desired allocation based allocation size
     // to align with the 16bytes requirement.
-    if (newAllocationSize <= lastWriteIndex) {
-      newAllocationSize += lastWriteIndex;
-    }
+    newAllocationSize += VIEW_BUFFER_SIZE;
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, valueBuffer, 0, valueBuffer.capacity());
 
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
-    // After reallocation, we need to reset the writer index to the last write index of the old buffer.
-    valueBuffer.writerIndex(lastWriteIndex);
     lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
 
@@ -595,6 +587,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param desiredAllocSize allocation size in bytes
   */
   public void reallocViewReferenceBuffer(long desiredAllocSize) {
+    // TODO: validate this logic
     if (desiredAllocSize == 0) {
       return;
     }
@@ -1132,8 +1125,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
+    // check if current index can be populated
     handleSafe(index, value.length);
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
@@ -1172,6 +1167,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     assert index >= 0;
     handleSafe(index, length);
     fillHoles(index);
+    // in fillHoles we are separately setting 16 byte for each index
+    // as the view buffer requires that space.
+    // TODO: verify if handleSafe needs to be recalled after fillHoles
+    handleSafe(index, value.length);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, start, length);
     lastSet = index;
@@ -1326,56 +1325,53 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     lastSet = index - 1;
   }
 
-  // TODO: rename to createViewBuffer
-  protected void createValueBuffer(BufferAllocator allocator, byte[] value, int start, int length,
+  protected void createViewBuffer(BufferAllocator allocator, int index, byte[] value, int start, int length,
       ArrowBuf valueBuffer, List<ArrowBuf> dataBuffers) {
+    int writePosition = index * VIEW_BUFFER_SIZE;
     if (value.length <= INLINE_SIZE) {
       // inline buffer
       // set length
-      valueBuffer.setInt(valueBuffer.writerIndex(), length);
+      valueBuffer.setInt(writePosition, length);
+      writePosition += LENGTH_WIDTH;
       // set data
-      valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
-      valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, length);
-      valueBuffer.writerIndex(valueBuffer.writerIndex() + INLINE_BUF_DATA_WIDTH);
+      valueBuffer.setBytes(writePosition, value, start, length);
     } else {
       // reference buffer
       if (dataBuffers.isEmpty()) {
         // first data buffer needs to be added
         ArrowBuf newDataBuf = allocator.buffer(lastValueAllocationSizeInBytes);
         // set length
-        valueBuffer.setInt(valueBuffer.writerIndex(), length);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
+        valueBuffer.setInt(writePosition, length);
+        writePosition += LENGTH_WIDTH;
         // set prefix
-        valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, PREFIX_WIDTH);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
+        valueBuffer.setBytes(writePosition, value, start, PREFIX_WIDTH);
+        writePosition += PREFIX_WIDTH;
         // set buf id
-        valueBuffer.setInt(valueBuffer.writerIndex(), /*first buffer*/0);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+        valueBuffer.setInt(writePosition, /*first buffer*/0);
+        writePosition += BUF_INDEX_WIDTH;
         // set offset
-        valueBuffer.setInt(valueBuffer.writerIndex(), 0);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+        valueBuffer.setInt(writePosition, 0);
         newDataBuf.setBytes(0, value, 0, length);
         newDataBuf.writerIndex(length);
         dataBuffers.add(newDataBuf);
       } else {
         // insert to the last buffer in the data buffers or allocate new if the last buffer isn't enough
         // set length
-        valueBuffer.setInt(valueBuffer.writerIndex(), length);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + LENGTH_WIDTH);
+        valueBuffer.setInt(writePosition, length);
+        writePosition += LENGTH_WIDTH;
         // set prefix
-        valueBuffer.setBytes(valueBuffer.writerIndex(), value, start, PREFIX_WIDTH);
-        valueBuffer.writerIndex(valueBuffer.writerIndex() + PREFIX_WIDTH);
+        valueBuffer.setBytes(writePosition, value, start, PREFIX_WIDTH);
+        writePosition += PREFIX_WIDTH;
         // set buf id
         int currentBufId = dataBuffers.size() - 1;
         ArrowBuf currentBuf = dataBuffers.get(currentBufId);
         if (currentBuf.capacity() - currentBuf.writerIndex() >= length) {
           // current buffer is enough
           // set buf index
-          valueBuffer.setInt(valueBuffer.writerIndex(), currentBufId);
-          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+          valueBuffer.setInt(writePosition, currentBufId);
+          writePosition += BUF_INDEX_WIDTH;
           // set offset
-          valueBuffer.setInt(valueBuffer.writerIndex(), (int) currentBuf.writerIndex());
-          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+          valueBuffer.setInt(writePosition, (int) currentBuf.writerIndex());
           currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
           currentBuf.writerIndex(currentBuf.writerIndex() + length);
           dataBuffers.set(currentBufId, currentBuf); // is this needed?
@@ -1384,11 +1380,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
           // allocate new buffer
           ArrowBuf newBuf = allocator.buffer(lastValueAllocationSizeInBytes);
           // set buf index
-          valueBuffer.setInt(valueBuffer.writerIndex(), dataBuffers.size());
-          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_INDEX_WIDTH);
+          valueBuffer.setInt(writePosition, dataBuffers.size());
+          writePosition += BUF_INDEX_WIDTH;
           // set offset
-          valueBuffer.setInt(valueBuffer.writerIndex(), 0);
-          valueBuffer.writerIndex(valueBuffer.writerIndex() + BUF_OFFSET_WIDTH);
+          valueBuffer.setInt(writePosition, 0);
           newBuf.setBytes(0, value, start, length);
           newBuf.writerIndex(newBuf.writerIndex() + length);
           dataBuffers.add(newBuf);
@@ -1407,7 +1402,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     /*check whether the buffer is inline or reference buffer*/
-    createValueBuffer(allocator, value, start, length, valueBuffer, dataBuffers);
+    createViewBuffer(allocator, index, value, start, length, valueBuffer, dataBuffers);
   }
 
   public final int getStartOffset(int index) {
@@ -1442,8 +1437,14 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     final long targetCapacity = startOffset + dataLength;
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
     // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
-    if (valueBuffer.capacity() <= valueBuffer.writerIndex() || valueBuffer.capacity() < targetCapacity) {
-      reallocDataBuffer(targetCapacity);
+    long writePosition = (long) index * VIEW_BUFFER_SIZE;
+    if (valueBuffer.capacity() <= writePosition || valueBuffer.capacity() < targetCapacity) {
+      // TODO: verify this logic
+      // Everytime we want increase the capacity of the valueBuffer, we need to make sure that the new capacity
+      // meets 16 byte alignment. If the targetCapacity is larger than the writePosition, we may not necessarily
+      // want to allocate the targetCapacity to valueBuffer since the when it is >=12 either way we are writing
+      // to the dataBuffer. Validate this logic.
+      reallocDataBuffer(Math.max(writePosition, targetCapacity));
     }
   }
 

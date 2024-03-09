@@ -42,8 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
  */
-public abstract class BaseVariableWidthVector extends BaseValueVector
-        implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseVariableWidthVector extends AbstractVariableWidthVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
@@ -1054,6 +1053,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     fillHoles(index);
@@ -1070,6 +1070,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
     handleSafe(index, value.length);
@@ -1124,6 +1125,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param start   start index in ByteBuffer
    * @param length  length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     fillHoles(index);
