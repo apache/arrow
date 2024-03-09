@@ -114,7 +114,12 @@ macro(resolve_option_dependencies)
   if(ARROW_USE_ASAN
      OR ARROW_USE_TSAN
      OR ARROW_USE_UBSAN)
-    set(ARROW_USE_MOLD OFF)
+    if(ARROW_USE_MOLD)
+      message(WARNING "ARROW_USE_MOLD is disabled when one of "
+                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
+                      "because it causes some problems.")
+      set(ARROW_USE_MOLD OFF)
+    endif()
   endif()
 
   tsort_bool_option_dependencies()
