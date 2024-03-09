@@ -25,6 +25,21 @@
 
 namespace arrow::util {
 
+template<class T>
+class span;
+
+template<class T, class R, class Enable = void>
+struct ConstructibleFromDataAndSize : std::false_type {};
+
+template<class T, class R>
+struct ConstructibleFromDataAndSize<span<T>, R,
+  std::void_t<
+    decltype(span<T>{
+      std::data(std::declval<R>()), std::size(std::declval<R>())
+    })
+  >
+> : std::true_type {};
+
 /// std::span polyfill.
 ///
 /// Does not support static extents.
@@ -56,16 +71,15 @@ writing code which would break when it is replaced by std::span.)");
   constexpr span(T* begin, T* end)
       : data_{begin}, size_{static_cast<size_t>(end - begin)} {}
 
-  template <
+  template<
       typename R,
-      typename DisableUnlessConstructibleFromDataAndSize =
-          std::enable_if_t<std::is_convertible_v< std::remove_pointer_t<decltype(std::data(std::declval<R&>()))> (*)[],
-                                              T(*)[]>>,
+      std::enable_if_t<ConstructibleFromDataAndSize<span<T>, R>::value, bool> = true,
       typename DisableUnlessSimilarTypes = std::enable_if_t<std::is_same_v<
           std::decay_t<std::remove_pointer_t<decltype(std::data(std::declval<R>()))>>,
           std::decay_t<T>>>>
   // NOLINTNEXTLINE runtime/explicit, non-const reference
   constexpr span(R&& range) : span{std::data(range), std::size(range)} {}
+
 
   constexpr T* begin() const { return data_; }
   constexpr T* end() const { return data_ + size_; }
