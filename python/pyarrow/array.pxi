@@ -4174,6 +4174,12 @@ cdef class ExtensionArray(Array):
         return result
 
 
+class UuidArray(ExtensionArray):
+    """
+    Concrete class for Arrow arrays of UUID data type.
+    """
+
+
 cdef class FixedShapeTensorArray(ExtensionArray):
     """
     Concrete class for fixed shape tensor extension arrays.

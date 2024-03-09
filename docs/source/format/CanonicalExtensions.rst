@@ -251,6 +251,17 @@ Variable shape tensor
    Values inside each **data** tensor element are stored in row-major/C-contiguous
    order according to the corresponding **shape**.
 
+UUID
+====
+
+* Extension name: `arrow.uuid`.
+
+* The storage type of the extension is ``FixedSizeBinary`` with a length of 16 bytes.
+
+.. note::
+   A specific UUID version is not required or guaranteed. This extension represents
+   UUIDs as FixedSizeBinary(16) and does not interpret the bytes in any way.
+
 =========================
 Community Extension Types
 =========================

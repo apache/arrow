@@ -363,6 +363,7 @@ set(ARROW_SRCS
     datum.cc
     device.cc
     extension_type.cc
+    extension/uuid.cc
     pretty_print.cc
     record_batch.cc
     result.cc

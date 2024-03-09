@@ -26,6 +26,7 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"
@@ -40,6 +41,8 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
+
+using extension::uuid;
 
 class Parametric1Array : public ExtensionArray {
  public:
@@ -176,22 +179,13 @@ class ExtStructType : public ExtensionType {
   std::string Serialize() const override { return "ext-struct-type-unique-code"; }
 };
 
-class TestExtensionType : public ::testing::Test {
- public:
-  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<UuidType>())); }
-
-  void TearDown() {
-    if (GetExtensionType("uuid")) {
-      ASSERT_OK(UnregisterExtensionType("uuid"));
-    }
-  }
-};
+class TestExtensionType : public ::testing::Test {};
 
 TEST_F(TestExtensionType, ExtensionTypeTest) {
   auto type_not_exist = GetExtensionType("uuid-unknown");
   ASSERT_EQ(type_not_exist, nullptr);
 
-  auto registered_type = GetExtensionType("uuid");
+  auto registered_type = GetExtensionType("arrow.uuid");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = uuid();
@@ -205,20 +199,6 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_binary(16)));
 }
-
-auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
-                         std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
-
-  io::BufferReader reader(complete_ipc_stream);
-  std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
-};
 
 TEST_F(TestExtensionType, IpcRoundtrip) {
   auto ext_arr = ExampleUuid();
@@ -250,10 +230,9 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
 
   ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
 
-  ASSERT_OK(UnregisterExtensionType("uuid"));
-  auto ext_metadata =
-      key_value_metadata({{"ARROW:extension:name", "uuid"},
-                          {"ARROW:extension:metadata", "uuid-serialized"}});
+  ASSERT_OK(UnregisterExtensionType("arrow.uuid"));
+  auto ext_metadata = key_value_metadata(
+      {{"ARROW:extension:name", "arrow.uuid"}, {"ARROW:extension:metadata", ""}});
   auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
   auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
 
