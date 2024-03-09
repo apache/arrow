@@ -67,8 +67,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: ["self-hosted", "macos-10.13"], arch: "x86_64" }
-
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
+          - { runs_on: macos-10.14-arm64, arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:

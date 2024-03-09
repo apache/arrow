@@ -992,7 +992,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: ["self-hosted", "macOS", "arm64"]
+      github_runner: "macos-14-arm64"
   {% endfor %}
 
   {% for macos_version in ["11", "12"] %}
