@@ -42,8 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseLargeVariableWidthVector is a base class providing functionality for large strings/large bytes types.
  */
-public abstract class BaseLargeVariableWidthVector extends BaseValueVector
-    implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseLargeVariableWidthVector extends AbstractVariableWidthVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 12;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private int lastValueCapacity;
@@ -1021,6 +1020,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     fillHoles(index);
@@ -1037,6 +1037,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
     handleSafe(index, value.length);
@@ -1055,6 +1056,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in array of bytes
    * @param length  length of data in array of bytes
    */
+  @Override
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
     fillHoles(index);
@@ -1091,6 +1093,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in ByteBuffer
    * @param length  length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     fillHoles(index);

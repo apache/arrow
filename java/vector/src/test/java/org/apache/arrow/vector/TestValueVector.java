@@ -1280,90 +1280,75 @@ public class TestValueVector {
     }
   }
 
+  private void testNullableVarType1Helper(AbstractVariableWidthVector vector) {
+    vector.allocateNew(1024 * 10, 1024);
+
+    vector.set(0, STR1);
+    vector.set(1, STR2);
+    vector.set(2, STR3);
+    vector.setSafe(3, STR3, 1, STR3.length - 1);
+    vector.setSafe(4, STR3, 2, STR3.length - 2);
+    ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+    vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+    vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
+
+    // Set with convenience function
+    Text txt = new Text("foo");
+    // vector.setSafe(7, txt); cannot use this as a generic method since it is
+    // not supported for VarBinaryVector
+    vector.setSafe(7, txt.getBytes(), 0, (int) txt.getLength());
+
+    // Check the sample strings.
+    assertArrayEquals(STR1, vector.get(0));
+    assertArrayEquals(STR2, vector.get(1));
+    assertArrayEquals(STR3, vector.get(2));
+    assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
+    assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
+    assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
+    assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
+
+    // Check returning a Text object
+    assertEquals(txt, vector.getObject(7));
+
+    // Ensure null value throws.
+    assertNull(vector.get(8));
+  }
+
   @Test /* VarCharVector and ViewVarCharVector */
   public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
     // VarCharVector
     try (final VarCharVector vector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      vector.allocateNew(1024 * 10, 1024);
-
-      vector.set(0, STR1);
-      vector.set(1, STR2);
-      vector.set(2, STR3);
-      vector.setSafe(3, STR3, 1, STR3.length - 1);
-      vector.setSafe(4, STR3, 2, STR3.length - 2);
-      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
-      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
-      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
-
-      // Set with convenience function
-      Text txt = new Text("foo");
-      vector.setSafe(7, txt);
-
-      // Check the sample strings.
-      assertArrayEquals(STR1, vector.get(0));
-      assertArrayEquals(STR2, vector.get(1));
-      assertArrayEquals(STR3, vector.get(2));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
-
-      // Check returning a Text object
-      assertEquals(txt, vector.getObject(7));
-
-      // Ensure null value throws.
-      assertNull(vector.get(8));
+      testNullableVarType1Helper(vector);
     }
-
     // ViewVarCharVector
     try (final ViewVarCharVector vector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      vector.allocateNew(1024 * 10, 1024);
-
-      vector.set(0, STR1);
-      vector.set(1, STR2);
-      vector.set(2, STR3);
-      vector.setSafe(3, STR3, 1, STR3.length - 1);
-      vector.setSafe(4, STR3, 2, STR3.length - 2);
-      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
-      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
-      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
-
-      // Set with convenience function
-      Text txt = new Text("foo");
-      vector.setSafe(7, txt);
-
-      // Check the sample strings.
-      assertArrayEquals(STR1, vector.get(0));
-      assertArrayEquals(STR2, vector.get(1));
-      assertArrayEquals(STR3, vector.get(2));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
-      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
-
-      // Check returning a Text object
-      assertEquals(txt, vector.getObject(7));
-
-      // Ensure null value throws.
-      assertNull(vector.get(8));
+      testNullableVarType1Helper(vector);
     }
+  }
+
+  private void testGetTextRepeatedlyHelper(AbstractVariableWidthVector vector) {
+    vector.setValueCount(2);
+
+    /* check the vector output */
+    Text text = new Text();
+    vector.read(0, text);
+    assertArrayEquals(STR1, text.getBytes());
+    vector.read(1, text);
+    assertArrayEquals(STR2, text.getBytes());
   }
 
   @Test
   public void testGetTextRepeatedly() {
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-
       ValueVectorDataPopulator.setVector(vector, STR1, STR2);
-      vector.setValueCount(2);
+      testGetTextRepeatedlyHelper(vector);
+    }
 
-      /* check the vector output */
-      Text text = new Text();
-      vector.read(0, text);
-      assertArrayEquals(STR1, text.getBytes());
-      vector.read(1, text);
-      assertArrayEquals(STR2, text.getBytes());
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      ValueVectorDataPopulator.setVector(vector, STR1, STR2);
+      testGetTextRepeatedlyHelper(vector);
     }
   }
 
@@ -1846,35 +1831,46 @@ public class TestValueVector {
     }
   }
 
+  private void testReAllocVariableWidthVectorHelper(AbstractVariableWidthVector vector) {
+    final int capacityLimit = 3; // 4095
+    final int overLimitIndex = 3; // 200
+    vector.setInitialCapacity(capacityLimit);
+    vector.allocateNew();
+
+    int initialCapacity = vector.getValueCapacity();
+    assertTrue(initialCapacity >= capacityLimit);
+
+    /* Put values in indexes that fall within the initial allocation */
+    vector.setSafe(0, STR1, 0, STR1.length);
+    vector.setSafe(initialCapacity - 1, STR2, 0, STR2.length);
+
+    /* the above set calls should NOT have triggered a realloc */
+    assertEquals(initialCapacity, vector.getValueCapacity());
+
+    /* Now try to put values in space that falls beyond the initial allocation */
+    vector.setSafe(initialCapacity + overLimitIndex, STR3, 0, STR3.length);
+
+    /* Check valueCapacity is more than initial allocation */
+    assertTrue(initialCapacity * 2 <= vector.getValueCapacity());
+
+    assertArrayEquals(STR1, vector.get(0));
+    assertArrayEquals(STR2, vector.get(initialCapacity - 1));
+    assertArrayEquals(STR3, vector.get(initialCapacity + overLimitIndex));
+
+    // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
+    // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
+    vector.setValueCount(vector.getValueCapacity() + overLimitIndex);
+  }
+
   @Test
   public void testReAllocVariableWidthVector() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      vector.setInitialCapacity(4095);
-      vector.allocateNew();
+      testReAllocVariableWidthVectorHelper(vector);
+    }
 
-      int initialCapacity = vector.getValueCapacity();
-      assertTrue(initialCapacity >= 4095);
-
-      /* Put values in indexes that fall within the initial allocation */
-      vector.setSafe(0, STR1, 0, STR1.length);
-      vector.setSafe(initialCapacity - 1, STR2, 0, STR2.length);
-
-      /* the above set calls should NOT have triggered a realloc */
-      assertEquals(initialCapacity, vector.getValueCapacity());
-
-      /* Now try to put values in space that falls beyond the initial allocation */
-      vector.setSafe(initialCapacity + 200, STR3, 0, STR3.length);
-
-      /* Check valueCapacity is more than initial allocation */
-      assertTrue(initialCapacity * 2 <= vector.getValueCapacity());
-
-      assertArrayEquals(STR1, vector.get(0));
-      assertArrayEquals(STR2, vector.get(initialCapacity - 1));
-      assertArrayEquals(STR3, vector.get(initialCapacity + 200));
-
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
-      // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
-      vector.setValueCount(vector.getValueCapacity() + 200);
+    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR,
+        allocator)) {
+      testReAllocVariableWidthVectorHelper(vector);
     }
   }
 
