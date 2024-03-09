@@ -16,23 +16,29 @@
 # under the License.
 
 [library]
-name = "Apache Gandiva GLib"
+name = "Apache Arrow Gandiva GLib"
 version = "@VERSION@"
 browse_url = "https://github.com/apache/arrow/tree/@SOURCE_REFERENCE@/c_glib/gandiva-glib/"
 repository_url = "https://github.com/apache/arrow.git"
 website_url = "https://arrow.apache.org/docs/c_glib/gandiva-glib/"
 authors = "The Apache Software Foundation"
 license = "Apache-2.0"
-description = "Apache Gandiva GLib API"
-dependencies = ["Gio-2.0", "GObject-2.0"]
+description = "Apache Arrow Gandiva GLib API"
+dependencies = ["Arrow-1.0"]
+related = ["Parquet-1.0", "GObject-2.0"]
 search_index = true
 
-[dependencies."Gio-2.0"]
-name = "GIO"
-description = "GObject Interfaces and Objects, Networking, IPC, and I/O"
-docs_url = "https://docs.gtk.org/gio/"
+[dependencies."Arrow-1.0"]
+name = "Apache Arrow GLib"
+description = "Apache Arrow GLib API"
+docs_url = "https://arrow.apache.org/docs/c_glib/arrow-glib/"
 
-[dependencies."GObject-2.0"]
+[related."Parquet-1.0"]
+name = "Apache Parquet GLib"
+description = "Apache Parquet GLib API"
+docs_url = "https://arrow.apache.org/docs/c_glib/arrow-parquet-glib/"
+
+[related."GObject-2.0"]
 name = "GObject"
 description = "The base type system library"
 docs_url = "https://docs.gtk.org/gobject/"

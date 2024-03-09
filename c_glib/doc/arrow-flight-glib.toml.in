@@ -24,14 +24,9 @@ website_url = "https://arrow.apache.org/docs/c_glib/arrow-flight-glib/"
 authors = "The Apache Software Foundation"
 license = "Apache-2.0"
 description = "Apache Arrow Flight GLib API"
-dependencies = ["ArrowFlight-1.0", "Arrow-1.0"]
+dependencies = ["Arrow-1.0"]
 related = ["Gio-2.0", "GObject-2.0"]
 search_index = true
-
-[dependencies."ArrowFlight-1.0"]
-name = "Apache Arrow Flight GLib"
-description = "Apache Arrow Flight GLib API"
-docs_url = "https://arrow.apache.org/docs/c_glib/arrow-flight-glib/"
 
 [dependencies."Arrow-1.0"]
 name = "Apache Arrow GLib"

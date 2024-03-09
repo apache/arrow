@@ -24,15 +24,21 @@ website_url = "https://arrow.apache.org/docs/c_glib/parquet-glib/"
 authors = "The Apache Software Foundation"
 license = "Apache-2.0"
 description = "Apache Parquet GLib API"
-dependencies = ["Gio-2.0", "GObject-2.0"]
+dependencies = ["Arrow-1.0"]
+related = ["Gio-2.0", "GObject-2.0"]
 search_index = true
 
-[dependencies."Gio-2.0"]
+[dependencies."Arrow-1.0"]
+name = "Apache Arrow GLib"
+description = "Apache Arrow GLib API"
+docs_url = "https://arrow.apache.org/docs/c_glib/arrow-glib/"
+
+[related."Gio-2.0"]
 name = "GIO"
 description = "GObject Interfaces and Objects, Networking, IPC, and I/O"
 docs_url = "https://docs.gtk.org/gio/"
 
-[dependencies."GObject-2.0"]
+[related."GObject-2.0"]
 name = "GObject"
 description = "The base type system library"
 docs_url = "https://docs.gtk.org/gobject/"
