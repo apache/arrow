@@ -2087,7 +2087,7 @@ class ReuseConnectionServer : public FlightServerBase {
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info) override {
     auto location = Location::ReuseConnection();
-    auto endpoint = FlightEndpoint{{"reuse"}, {location}};
+    auto endpoint = FlightEndpoint{{"reuse"}, {location}, std::nullopt, ""};
     ARROW_ASSIGN_OR_RAISE(auto info_data, FlightInfo::Make(arrow::Schema({}), descriptor,
                                                            {endpoint}, -1, -1));
     *info = std::make_unique<FlightInfo>(std::move(info_data));
