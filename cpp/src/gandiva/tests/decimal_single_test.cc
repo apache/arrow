@@ -283,9 +283,9 @@ TEST_F(TestDecimalOps, TestMultiply) {
 }
 
 TEST_F(TestDecimalOps, TestDivide) {
-  DivideAndVerify(decimal_literal("201", 10, 3),              // x
-                  decimal_literal("301", 10, 2),              // y
-                  decimal_literal("6677740863787", 23, 14));  // expected
+  DivideAndVerify(decimal_literal("201", 10, 3),            // x
+                  decimal_literal("301", 10, 2),            // y
+                  decimal_literal("66777408638", 21, 12));  // expected
 
   DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
                   DecimalScalar128(std::string(35, '9'), 38, 20),  // x
