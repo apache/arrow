@@ -56,8 +56,8 @@ endif
 foreach entry : entries
   module_name = entry[0]
   gir = entry[1]
-  gi_docgen_toml = configure_file(input: f'@module_name@.toml.in',
-                                  output: f'@module_name@.toml',
+  gi_docgen_toml = configure_file(input: '@0@.toml.in'.format(module_name),
+                                  output: '@0@.toml'.format(module_name),
                                   configuration: gi_docgen_toml_conf)
   gir_dir = gir_top_build_dir / module_name
   current_source_dir = meson.current_source_dir()
@@ -67,15 +67,15 @@ foreach entry : entries
   ]
   command += gi_docgen_common_args
   command += [
-    f'--add-include-path=@arrow_glib_gir_dir@',
-    f'--add-include-path=@arrow_flight_glib_gir_dir@',
-    f'--add-include-path=@gir_dir@',
+    '--add-include-path=@0@'.format(arrow_flight_glib_gir_dir),
+    '--add-include-path=@0@'.format(arrow_glib_gir_dir),
+    '--add-include-path=@0@'.format(gir_dir),
     '--config=@INPUT0@',
-    f'--content-dir=@current_source_dir@',
+    '--content-dir=@0@'.format(current_source_dir),
     '--output-dir=@OUTPUT@',
     '@INPUT1@',
   ]
-  custom_target(f'@module_name@-doc',
+  custom_target('@0@-doc'.format(module_name),
                 input: [gi_docgen_toml, gir],
                 depend_files: ['urlmap.js'],
                 output: module_name,
