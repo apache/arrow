@@ -877,7 +877,7 @@ Documentation for Apache Parquet GLib.
 %license LICENSE.txt NOTICE.txt
 %if %{enable_glib_doc}
 %{_docdir}/parquet-glib/
-%ednif
+%endif
 
 %changelog
 * Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
