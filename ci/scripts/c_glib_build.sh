@@ -52,5 +52,5 @@ popd
 
 if [ "${BUILD_DOCS_C_GLIB}" == "ON" ]; then
   mkdir -p ${build_root}/docs/c_glib
-  cp -a ${ARROW_HOME}/share/*-glib/ ${build_root}/docs/c_glib/
+  cp -a ${ARROW_HOME}/share/doc/*-glib/ ${build_root}/docs/c_glib/
 fi
