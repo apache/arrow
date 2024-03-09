@@ -25,20 +25,17 @@
 
 namespace arrow::util {
 
-template<class T>
+template <class T>
 class span;
 
-template<class T, class R, class Enable = void>
+template <class T, class R, class Enable = void>
 struct ConstructibleFromDataAndSize : std::false_type {};
 
-template<class T, class R>
-struct ConstructibleFromDataAndSize<span<T>, R,
-  std::void_t<
-    decltype(span<T>{
-      std::data(std::declval<R>()), std::size(std::declval<R>())
-    })
-  >
-> : std::true_type {};
+template <class T, class R>
+struct ConstructibleFromDataAndSize<
+    span<T>, R,
+    std::void_t<decltype(span<T>{std::data(std::declval<R>()),
+                                 std::size(std::declval<R>())})>> : std::true_type {};
 
 /// std::span polyfill.
 ///
@@ -71,7 +68,7 @@ writing code which would break when it is replaced by std::span.)");
   constexpr span(T* begin, T* end)
       : data_{begin}, size_{static_cast<size_t>(end - begin)} {}
 
-  template<
+  template <
       typename R,
       std::enable_if_t<ConstructibleFromDataAndSize<span<T>, R>::value, bool> = true,
       typename DisableUnlessSimilarTypes = std::enable_if_t<std::is_same_v<
@@ -79,7 +76,6 @@ writing code which would break when it is replaced by std::span.)");
           std::decay_t<T>>>>
   // NOLINTNEXTLINE runtime/explicit, non-const reference
   constexpr span(R&& range) : span{std::data(range), std::size(range)} {}
-
 
   constexpr T* begin() const { return data_; }
   constexpr T* end() const { return data_ + size_; }
