@@ -82,6 +82,8 @@
 %define have_thrift (%{_rhel} >= 8)
 %define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
 
+%define enable_glib_doc (%{_rhel} >= 9 || %{is_amazon_linux})
+
 Name:		@PACKAGE@
 Version:	@VERSION@
 Release:	@RELEASE@%{?dist}
@@ -198,16 +200,25 @@ cd c_glib
 %if %{_amzn} >= 2023
   # Do nothing
 %else
-  pip3 install meson
+  %if %{is_centos_7}
+    # Meson 0.62.0 or later requires Python 3.7 or later.
+    pip3 install 'meson<0.62.0'
+  %else
+    pip3 install meson
+  %endif
 %endif
-pip3 install gi-docgen
+%if %{enable_glib_doc}
+  pip3 install gi-docgen
+%endif
 meson setup build \
   --default-library=both \
   --libdir=%{_libdir} \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
+%if %{enable_glib_doc}
   -Ddoc=true \
+%endif
 %if %{use_vala}
   -Dvapi=true
 %endif
@@ -590,7 +601,9 @@ Documentation for Apache Arrow GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/arrow-glib/
+%if %{enable_glib_doc}
 %{_docdir}/arrow-glib/
+%endif
 
 %package -n %{name}%{major_version}-dataset-glib-libs
 Summary:	Runtime libraries for Apache Arrow Dataset GLib
@@ -642,7 +655,9 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%if %{enable_glib_doc}
 %{_docdir}/arrow-dataset-glib/
+%endif
 
 %if %{use_flight}
 %package -n %{name}%{major_version}-flight-glib-libs
@@ -695,7 +710,9 @@ Documentation for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%if %{enable_glib_doc}
 %{_docdir}/arrow-flight-glib/
+%endif
 
 %package -n %{name}%{major_version}-flight-sql-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
@@ -747,7 +764,9 @@ Documentation for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+  %if %{enable_glib_doc}
 %{_docdir}/arrow-flight-sql-glib/
+  %endif
 %endif
 
 %if %{use_gandiva}
@@ -801,7 +820,9 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+  %if %{enable_glib_doc}
 %{_docdir}/gandiva-glib/
+  %edif
 %endif
 
 %package -n parquet%{major_version}-glib-libs
@@ -854,7 +875,9 @@ Documentation for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%if %{enable_glib_doc}
 %{_docdir}/parquet-glib/
+%ednif
 
 %changelog
 * Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
