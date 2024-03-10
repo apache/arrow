@@ -60,20 +60,6 @@ jobs:
       - name: Install Vcpkg
         run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
-      - name: Install Vcpkg
-        if: failure()
-        run: |
-          set -x
-          ls -lah vcpkg/buildtrees/detect_compiler/ || :
-          if [ -x vcpkg/buildtrees/detect_compiler/ ]; then
-            for log in vcpkg/buildtrees/detect_compiler/*.log; do
-              echo ${log}
-              echo "----------"
-              cat ${log}
-              echo "----------"
-            done
-          fi
-
       - name: Add Vcpkg to PATH
         run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
 
@@ -105,6 +91,20 @@ jobs:
             --x-feature=json \
             --x-feature=parquet \
             --x-feature=s3
+
+      - name: Install Vcpkg
+        if: failure()
+        run: |
+          set -x
+          ls -lah vcpkg/buildtrees/detect_compiler/ || :
+          if [ -x vcpkg/buildtrees/detect_compiler/ ]; then
+            for log in vcpkg/buildtrees/detect_compiler/*.log; do
+              echo ${log}
+              echo "----------"
+              cat ${log}
+              echo "----------"
+            done
+          fi
 
       - name: Install Python {{ python_version }}
         run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
