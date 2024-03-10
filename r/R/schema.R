@@ -226,6 +226,7 @@ prepare_key_value_metadata <- function(metadata) {
 
 # Alternative to Schema__ToString that doesn't print metadata
 print_schema_fields <- function(s, truncate = FALSE, max_fields = 20L) {
+  assert_that(max_fields > 0)
   num_fields <- length(s$fields)
   if (truncate && num_fields > max_fields) {
     fields_out <- paste(map_chr(s$fields[seq_len(max_fields)], ~ .$ToString()), collapse = "\n")
@@ -469,3 +470,14 @@ as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
 
 #' @export
 `names<-.Schema` <- function(x, value) x$WithNames(value)
+
+#' Get a string representing a Dataset or RecordBatchReader object's schema
+#' @param obj a Dataset or RecordBatchReader
+#' @return A string containing a formatted representation of the schema of `obj`
+#' @keywords internal
+format_schema <- function(obj){
+  assert_is(obj, c("Dataset", "RecordbatchReader"))
+  n_fields_out <- paste0(length(obj$schema$fields), " columns", "\n")
+  schema <- obj$schema$ToString(truncate = TRUE)
+  paste0(n_fields_out, schema)
+}

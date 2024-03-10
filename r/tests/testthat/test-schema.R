@@ -325,4 +325,10 @@ test_that("schema print truncation", {
     "int: int32\n...\n6 more columns\nUse `schema()` to see entire schema",
     fixed = TRUE
   )
+
+  expect_error(
+    print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 0),
+    regexp = "max_fields not greater than 0"
+  )
+
 })
