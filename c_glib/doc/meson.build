@@ -19,13 +19,6 @@
 
 source_reference = get_option('source_reference')
 gi_docgen = find_program('gi-docgen')
-gi_docgen_common_args = [
-  '--no-namespace-dir',
-  '--quiet',
-]
-if get_option('werror')
-  gi_docgen_common_args += ['--fatal-warnings']
-endif
 
 gi_docgen_toml_conf = configuration_data()
 gi_docgen_toml_conf.set('SOURCE_REFERENCE', source_reference)
@@ -64,17 +57,19 @@ foreach entry : entries
   command = [
     gi_docgen,
     'generate',
-  ]
-  command += gi_docgen_common_args
-  command += [
     '--add-include-path=@0@'.format(arrow_flight_glib_gir_dir),
     '--add-include-path=@0@'.format(arrow_glib_gir_dir),
     '--add-include-path=@0@'.format(gir_dir),
     '--config=@INPUT0@',
     '--content-dir=@0@'.format(current_source_dir),
+    '--no-namespace-dir',
     '--output-dir=@OUTPUT@',
-    '@INPUT1@',
+    '--quiet',
   ]
+  if get_option('werror')
+    command += ['--fatal-warnings']
+  endif
+  command += ['@INPUT1@']
   custom_target('@0@-doc'.format(module_name),
                 input: [gi_docgen_toml, gir],
                 depend_files: ['urlmap.js'],

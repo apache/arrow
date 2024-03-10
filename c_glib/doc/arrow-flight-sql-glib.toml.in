@@ -29,12 +29,12 @@ related = ["GObject-2.0"]
 search_index = true
 
 [dependencies."ArrowFlight-1.0"]
-name = "Apache Arrow Flight GLib"
+name = "ArrowFlight"
 description = "Apache Arrow Flight GLib API"
 docs_url = "https://arrow.apache.org/docs/c_glib/arrow-flight-glib/"
 
 [dependencies."Arrow-1.0"]
-name = "Apache Arrow GLib"
+name = "Arrow"
 description = "Apache Arrow GLib API"
 docs_url = "https://arrow.apache.org/docs/c_glib/arrow-glib/"
 

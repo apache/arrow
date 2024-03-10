@@ -84,7 +84,7 @@ arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
   arrow_cpp_build_lib_dir = ''
 else
-  arrow_cpp_build_lib_dir = join_paths(meson.source_root(),
+  arrow_cpp_build_lib_dir = join_paths(meson.project_source_root(),
                                        arrow_cpp_build_dir,
                                        arrow_cpp_build_type.to_lower())
 endif
@@ -187,15 +187,16 @@ install_data('../LICENSE.txt',
              'README.md',
              install_dir: data_dir / meson.project_name())
 
+build_root = meson.project_build_root()
 run_test = find_program('test/run-test.sh')
 test('unit test',
      run_test,
      env: [
-       'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(meson.build_root()),
-       'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(meson.build_root()),
-       'ARROW_FLIGHT_GLIB_TYPELIB_DIR=@0@/arrow-flight-glib'.format(meson.build_root()),
-       'ARROW_FLIGHT_SQL_GLIB_TYPELIB_DIR=@0@/arrow-flight-sql-glib'.format(meson.build_root()),
-       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(meson.build_root()),
-       'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
-       'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
+       'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(build_root),
+       'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(build_root),
+       'ARROW_FLIGHT_GLIB_TYPELIB_DIR=@0@/arrow-flight-glib'.format(build_root),
+       'ARROW_FLIGHT_SQL_GLIB_TYPELIB_DIR=@0@/arrow-flight-sql-glib'.format(build_root),
+       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(build_root),
+       'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(build_root),
+       'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(build_root),
      ])
