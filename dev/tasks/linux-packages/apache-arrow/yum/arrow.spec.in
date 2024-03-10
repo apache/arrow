@@ -600,7 +600,8 @@ Documentation for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/arrow-glib/
+%{_datadir}/arrow-glib/*.txt
+%{_datadir}/arrow-glib/*.md
 %if %{enable_glib_doc}
 %{_docdir}/arrow-glib/
 %endif
@@ -822,7 +823,7 @@ Documentation for Gandiva GLib.
 %license LICENSE.txt NOTICE.txt
   %if %{enable_glib_doc}
 %{_docdir}/gandiva-glib/
-  %edif
+  %endif
 %endif
 
 %package -n parquet%{major_version}-glib-libs
