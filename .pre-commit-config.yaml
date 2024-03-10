@@ -33,7 +33,7 @@ repos:
         name: Docker Format
         language: docker_image
         types:
-         - dockerfile
+          - dockerfile
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
   - repo: https://github.com/pycqa/flake8
