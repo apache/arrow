@@ -66,8 +66,8 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: macos-10.13, arch: "x86_64" }
-          - { runs_on: macos-10.14, arch: "arm64" }
+          - { runs_on: macos-13, arch: "x86_64" }
+          - { runs_on: macos-14, arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:
@@ -209,7 +209,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-11 , name: "macOS x86_64"}
+          - { runs_on: macos-11, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
