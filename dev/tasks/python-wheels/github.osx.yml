@@ -22,7 +22,6 @@ env:
   ARROW_JEMALLOC: "{{ arrow_jemalloc }}"
   CC: "clang"
   CMAKE_BUILD_TYPE: release
-  CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
@@ -92,7 +91,7 @@ jobs:
             --x-feature=parquet \
             --x-feature=s3
 
-      - name: Install Vcpkg
+      - name: Debug
         if: failure()
         run: |
           set -x
