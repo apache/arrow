@@ -202,7 +202,7 @@ jobs:
 
   r-packages:
     needs: [source, windows-cpp, macos-cpp]
-    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
