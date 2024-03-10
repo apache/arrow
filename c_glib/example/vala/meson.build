@@ -20,8 +20,8 @@
 if generate_vapi
   vala_example_executable_kwargs = {
     'c_args': [
-      '-I' + meson.project_build_root(),
-      '-I' + meson.project_source_root(),
+      '-I' + project_build_root,
+      '-I' + project_source_root,
     ],
     'dependencies': [
       arrow_glib_vapi,

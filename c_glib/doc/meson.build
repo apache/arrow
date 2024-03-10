@@ -22,7 +22,19 @@ gi_docgen = find_program('gi-docgen')
 
 gi_docgen_toml_conf = configuration_data()
 gi_docgen_toml_conf.set('SOURCE_REFERENCE', source_reference)
-gi_docgen_toml_conf.set('VERSION', version.replace('-SNAPSHOT', '.dev'))
+# We can't use "version.replace('-SNAPSHOT', '.dev')" here because
+# Ubuntu 20.04's Meson is < 0.58.0.
+if version_tag == ''
+  gi_docgen_version_tag = ''
+else
+  # GI-DocGen doesn't like MAJOR.MINOR.PATCH-SNAPSHOT format.
+  gi_docgen_version_tag = '.dev'
+endif
+gi_docgen_version = '@0@.@1@.@2@@3@'.format(version_major,
+                                            version_minor,
+                                            version_micro,
+                                            gi_docgen_version_tag)
+gi_docgen_toml_conf.set('VERSION', gi_docgen_version)
 
 gir_top_build_dir = meson.current_build_dir() / '..'
 arrow_glib_gir_dir = gir_top_build_dir / 'arrow-glib'

@@ -33,8 +33,9 @@ project('arrow-glib', 'c', 'cpp',
         # Ubuntu:
         #   https://packages.ubuntu.com/search?keywords=meson
         #
+        #   * 20.04: 0.53.2
         #   * 22.04: 0.61.2
-        meson_version: '>=0.61.2')
+        meson_version: '>=0.53.2')
 
 version = '16.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
@@ -53,6 +54,14 @@ so_version = version_major * 100 + version_minor
 so_version_patch = version_micro
 library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 
+if meson.version().version_compare('>=0.56.0')
+  project_build_root = meson.project_build_root()
+  project_source_root = meson.project_source_root()
+else
+  project_build_root = meson.build_root()
+  project_source_root = meson.source_root()
+endif
+
 prefix = get_option('prefix')
 include_dir = join_paths(prefix, get_option('includedir'))
 data_dir = join_paths(prefix, get_option('datadir'))
@@ -68,7 +77,13 @@ base_include_directories = [
   include_directories('.')
 ]
 
-gi_fatal_warnings = get_option('werror')
+generate_gi_common_args = {
+  'install': true,
+  'nsversion': api_version,
+}
+if get_option('werror') and meson.version().version_compare('>=0.55.0')
+  generate_gi_common_args += {'fatal_warnings': true}
+endif
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
 if have_gi
   pkgconfig_variables += ['girdir=@0@'.format(gir_dir)]
@@ -84,7 +99,7 @@ arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
   arrow_cpp_build_lib_dir = ''
 else
-  arrow_cpp_build_lib_dir = join_paths(meson.project_source_root(),
+  arrow_cpp_build_lib_dir = join_paths(project_source_root,
                                        arrow_cpp_build_dir,
                                        arrow_cpp_build_type.to_lower())
 endif
@@ -187,16 +202,15 @@ install_data('../LICENSE.txt',
              'README.md',
              install_dir: data_dir / meson.project_name())
 
-build_root = meson.project_build_root()
 run_test = find_program('test/run-test.sh')
 test('unit test',
      run_test,
      env: [
-       'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(build_root),
-       'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(build_root),
-       'ARROW_FLIGHT_GLIB_TYPELIB_DIR=@0@/arrow-flight-glib'.format(build_root),
-       'ARROW_FLIGHT_SQL_GLIB_TYPELIB_DIR=@0@/arrow-flight-sql-glib'.format(build_root),
-       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(build_root),
-       'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(build_root),
-       'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(build_root),
+       'ARROW_CUDA_GLIB_TYPELIB_DIR=@0@/arrow-cuda-glib'.format(project_build_root),
+       'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(project_build_root),
+       'ARROW_FLIGHT_GLIB_TYPELIB_DIR=@0@/arrow-flight-glib'.format(project_build_root),
+       'ARROW_FLIGHT_SQL_GLIB_TYPELIB_DIR=@0@/arrow-flight-sql-glib'.format(project_build_root),
+       'ARROW_GLIB_TYPELIB_DIR=@0@/arrow-glib'.format(project_build_root),
+       'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(project_build_root),
+       'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(project_build_root),
      ])
