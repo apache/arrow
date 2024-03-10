@@ -43,13 +43,9 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
-        run: brew install bash bison coreutils ninja
-
-      - name: Remove Homebrew's CMake
-        run: brew uninstall cmake
-
-      - name: Install Specific CMake version
-        uses: lukka/get-cmake@v3.21.2
+        run: |
+          brew install bash bison coreutils ninja
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
@@ -90,20 +86,6 @@ jobs:
             --x-feature=json \
             --x-feature=parquet \
             --x-feature=s3
-
-      - name: Debug
-        if: failure()
-        run: |
-          set -x
-          ls -lah vcpkg/buildtrees/detect_compiler/ || :
-          if [ -x vcpkg/buildtrees/detect_compiler/ ]; then
-            for log in vcpkg/buildtrees/detect_compiler/*.log; do
-              echo ${log}
-              echo "----------"
-              cat ${log}
-              echo "----------"
-            done
-          fi
 
       - name: Install Python {{ python_version }}
         run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
