@@ -48,7 +48,7 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
 
       - name: Add Brew's Bison to PATH
-        run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+        run: echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
