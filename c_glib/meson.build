@@ -18,11 +18,23 @@
 # under the License.
 
 project('arrow-glib', 'c', 'cpp',
-        license: 'Apache-2.0',
         default_options: [
           'c_std=c99',
           'cpp_std=c++17',
-        ])
+        ],
+        license: 'Apache-2.0',
+        # Debian:
+        #   https://packages.debian.org/search?keywords=meson
+        #
+        #   * bullseye: 0.56.2
+        #   * bullseye-backports:1.0.0
+        #   * bookworm: 1.0.0
+        #
+        # Ubuntu:
+        #   https://packages.ubuntu.com/search?keywords=meson
+        #
+        #   * 22.04: 0.61.2
+        meson_version: '>=0.61.2')
 
 version = '16.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')

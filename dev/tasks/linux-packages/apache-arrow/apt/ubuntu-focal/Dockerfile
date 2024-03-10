@@ -75,5 +75,8 @@ RUN \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   pip3 install gi-docgen && \
+  ln -fs /usr/local/bin/gi-docgen /usr/bin && \
+  pip3 install meson && \
+  ln -fs /usr/local/bin/meson /usr/bin && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
