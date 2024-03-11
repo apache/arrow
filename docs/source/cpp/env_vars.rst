@@ -135,7 +135,7 @@ that changing their value later will have an effect.
    The maximum SIMD optimization level selectable at runtime.  Useful for
    comparing the performance impact of enabling or disabling respective code
    paths or working around situations where instructions are supported but are
-   either buggy or not performant.
+   not performant or cause other issues.
 
    By default, Arrow C++ detects the capabilities of the current CPU at runtime
    and chooses the best execution paths based on that information.  This
