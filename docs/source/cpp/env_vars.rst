@@ -168,7 +168,7 @@ that changing their value later will have an effect.
       ``ARROW_SIMD_LEVEL=SSE4_2`` by default.  The compiler may generate SSE4.2
       instructions from any C/C++ source code.  On legacy x86 platforms which do
       not support SSE4.2, an Arrow binary may fail with SIGILL (Illegal
-      Instruction).  In this case, one must rebuild Arrow and PyArrow from
+      Instruction).  In this case, one must rebuild Arrow from
       scratch by setting the CMake configuration variable
       ``ARROW_SIMD_LEVEL=NONE``.
 
