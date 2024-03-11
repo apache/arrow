@@ -1874,23 +1874,28 @@ public class TestValueVector {
     }
   }
 
+  public void testFillEmptiesNotOverfillHelper(AbstractVariableWidthVector vector) {
+    vector.setInitialCapacity(4095);
+    vector.allocateNew();
+
+    int initialCapacity = vector.getValueCapacity();
+    assertTrue(initialCapacity >= 4095);
+
+    vector.setSafe(4094, "hello".getBytes(StandardCharsets.UTF_8), 0, 5);
+    /* the above set method should NOT have triggered a realloc */
+    assertEquals(initialCapacity, vector.getValueCapacity());
+
+    long bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
+    vector.setValueCount(initialCapacity);
+    assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
+    assertEquals(initialCapacity, vector.getValueCapacity());
+
+  }
+
   @Test
   public void testFillEmptiesNotOverfill() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      vector.setInitialCapacity(4095);
-      vector.allocateNew();
-
-      int initialCapacity = vector.getValueCapacity();
-      assertTrue(initialCapacity >= 4095);
-
-      vector.setSafe(4094, "hello".getBytes(StandardCharsets.UTF_8), 0, 5);
-      /* the above set method should NOT have triggered a realloc */
-      assertEquals(initialCapacity, vector.getValueCapacity());
-
-      long bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
-      vector.setValueCount(initialCapacity);
-      assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
-      assertEquals(initialCapacity, vector.getValueCapacity());
+      testFillEmptiesNotOverfillHelper(vector);
     }
   }
 
@@ -1937,6 +1942,100 @@ public class TestValueVector {
        */
       assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
     }
+
+    try (
+        final ViewVarCharVector fromVector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VIEWVARCHAR, allocator);
+        final ViewVarCharVector toVector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VIEWVARCHAR, allocator)) {
+      /*
+       * Populate the from vector with 'numValues' with byte-arrays, each of size 'valueBytesLength'.
+       */
+      fromVector.setInitialCapacity(numValues);
+      fromVector.allocateNew();
+      for (int i = 0; i < numValues; ++i) {
+        fromVector.setSafe(i, valueBytes, 0 /*start*/, valueBytesLength);
+      }
+      fromVector.setValueCount(numValues);
+      ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
+      assertTrue(numValues * valueBytesLength <= fromDataBuffer.capacity());
+
+      /*
+       * Copy the entries one-by-one from 'fromVector' to 'toVector', but use the setSafe with
+       * ArrowBuf API (instead of setSafe with byte-array).
+       */
+      toVector.setInitialCapacity(numValues);
+      toVector.allocateNew();
+      for (int i = 0; i < numValues; i++) {
+        int start = fromVector.getStartOffset(i); // `getStartOffSet` cannot be generalized since it has 2 definitions
+        // across variable
+        // width implementations
+        int end = fromVector.getStartOffset(i + 1);
+        toVector.setSafe(i, isSet, start, end, fromDataBuffer);
+      }
+
+      /*
+       * Since the 'fromVector' and 'toVector' have the same initial capacity, and were populated
+       * with the same varchar elements, the allocations and hence, the final capacity should be
+       * the same.
+       */
+      assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
+    }
+  }
+
+  private void testCopyFromWithNullsHelper(AbstractVariableWidthVector vector, AbstractVariableWidthVector vector2) {
+    vector.setInitialCapacity(4095);
+    vector.allocateNew();
+    int capacity = vector.getValueCapacity();
+    assertTrue(capacity >= 4095);
+
+    for (int i = 0; i < capacity; i++) {
+      if (i % 3 == 0) {
+        continue;
+      }
+      byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+      vector.setSafe(i, b, 0, b.length);
+    }
+
+    /* NO reAlloc() should have happened in setSafe() */
+    assertEquals(capacity, vector.getValueCapacity());
+
+    vector.setValueCount(capacity);
+
+    for (int i = 0; i < capacity; i++) {
+      if (i % 3 == 0) {
+        assertNull(vector.getObject(i));
+      } else {
+        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
+      }
+    }
+
+    vector2.setInitialCapacity(4095);
+    vector2.allocateNew();
+    int capacity2 = vector2.getValueCapacity();
+    assertEquals(capacity2, capacity);
+
+    for (int i = 0; i < capacity; i++) {
+      vector2.copyFromSafe(i, i, vector);
+      if (i % 3 == 0) {
+        assertNull(vector2.getObject(i));
+      } else {
+        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+      }
+    }
+
+    /* NO reAlloc() should have happened in copyFrom */
+    assertEquals(capacity, vector2.getValueCapacity());
+
+    vector2.setValueCount(capacity);
+
+    for (int i = 0; i < capacity; i++) {
+      if (i % 3 == 0) {
+        assertNull(vector2.getObject(i));
+      } else {
+        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+      }
+    }
   }
 
   @Test
@@ -1944,59 +2043,14 @@ public class TestValueVector {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+      testCopyFromWithNullsHelper(vector, vector2);
+    }
 
-      vector.setInitialCapacity(4095);
-      vector.allocateNew();
-      int capacity = vector.getValueCapacity();
-      assertTrue(capacity >= 4095);
-
-      for (int i = 0; i < capacity; i++) {
-        if (i % 3 == 0) {
-          continue;
-        }
-        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
-        vector.setSafe(i, b, 0, b.length);
-      }
-
-      /* NO reAlloc() should have happened in setSafe() */
-      assertEquals(capacity, vector.getValueCapacity());
-
-      vector.setValueCount(capacity);
-
-      for (int i = 0; i < capacity; i++) {
-        if (i % 3 == 0) {
-          assertNull(vector.getObject(i));
-        } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
-        }
-      }
-
-      vector2.setInitialCapacity(4095);
-      vector2.allocateNew();
-      int capacity2 = vector2.getValueCapacity();
-      assertEquals(capacity2, capacity);
-
-      for (int i = 0; i < capacity; i++) {
-        vector2.copyFromSafe(i, i, vector);
-        if (i % 3 == 0) {
-          assertNull(vector2.getObject(i));
-        } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-        }
-      }
-
-      /* NO reAlloc() should have happened in copyFrom */
-      assertEquals(capacity, vector2.getValueCapacity());
-
-      vector2.setValueCount(capacity);
-
-      for (int i = 0; i < capacity; i++) {
-        if (i % 3 == 0) {
-          assertNull(vector2.getObject(i));
-        } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-        }
-      }
+    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR,
+        allocator);
+        final ViewVarCharVector vector2 =
+            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
+      testCopyFromWithNullsHelper(vector, vector2);
     }
   }
 
