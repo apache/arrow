@@ -36,9 +36,10 @@ sources = files(
   'record-batch.cpp',
   'scalar.cpp',
   'schema.cpp',
-  'table.cpp',
   'table-builder.cpp',
+  'table.cpp',
   'tensor.cpp',
+  'timestamp-parser.cpp',
   'type.cpp',
 )
 
@@ -99,9 +100,10 @@ c_headers = files(
   'record-batch.h',
   'scalar.h',
   'schema.h',
-  'table.h',
   'table-builder.h',
+  'table.h',
   'tensor.h',
+  'timestamp-parser.h',
   'type.h',
 )
 
@@ -160,9 +162,10 @@ cpp_headers = files(
   'record-batch.hpp',
   'scalar.hpp',
   'schema.hpp',
-  'table.hpp',
   'table-builder.hpp',
+  'table.hpp',
   'tensor.hpp',
+  'timestamp-parser.hpp',
   'type.hpp',
 )
 
