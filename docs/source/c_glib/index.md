@@ -18,7 +18,7 @@
 -->
 
 (c-glib)=
-# Apache Arrow GLib (c)
+# Apache Arrow GLib (C)
 
 Apache Arrow GLib is a wrapper library for Apache Arrow C++. Apache Arrow GLib provides C API.
 
