@@ -43,7 +43,7 @@ jobs:
 
       - name: Build wheel
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+        run: archery docker run --no-cache -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
       - uses: actions/upload-artifact@v3
         with:
