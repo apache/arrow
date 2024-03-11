@@ -236,6 +236,35 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
         # Write with encryption properties
         write_encrypted_parquet(path, data_table, encryption_config,
                                 kms_connection_config, crypto_factory)
+        
+def test_encrypted_parquet_write_col_key_and_uniform_encryption(tempdir, data_table):
+    """Write an encrypted parquet, but give both column key and uniform encryption.
+    
+    This should raise an error.
+    """
+    path = tempdir / 'encrypted_table_no_col_key.in_mem.parquet'
+
+    # Encrypt the footer with the footer key
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME)
+
+    kms_connection_config = pe.KmsConnectionConfig(
+        custom_kms_conf={
+            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
+        }
+    )
+
+    def kms_factory(kms_connection_configuration):
+        return InMemoryKmsClient(kms_connection_configuration)
+
+    crypto_factory = pe.CryptoFactory(kms_factory)
+    with pytest.raises(OSError,
+                       match="Either column_keys or uniform_encryption "
+                       "must be set"):
+        # Write with encryption properties
+        write_encrypted_parquet(path, data_table, encryption_config,
+                                kms_connection_config, crypto_factory)
 
 
 def test_encrypted_parquet_write_kms_error(tempdir, data_table,
@@ -348,7 +377,7 @@ def test_encrypted_parquet_write_kms_factory_type_error(
                                 kms_connection_config, crypto_factory)
 
 
-def test_encrypted_parquet_encryption_configuration():
+def test_encrypted_parquet_encryption_configuration_via_column_keys():
     def validate_encryption_configuration(encryption_config):
         assert FOOTER_KEY_NAME == encryption_config.footer_key
         assert ["a", "b"] == encryption_config.column_keys[COL_KEY_NAME]
@@ -359,6 +388,7 @@ def test_encrypted_parquet_encryption_configuration():
         assert not encryption_config.internal_key_material
         assert 192 == encryption_config.data_key_length_bits
 
+    # Here we set everything via the constructor
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
         column_keys={COL_KEY_NAME: ["a", "b"], },
@@ -371,6 +401,7 @@ def test_encrypted_parquet_encryption_configuration():
     )
     validate_encryption_configuration(encryption_config)
 
+    # Here we set only footer_key and verify that the setters work for the other properties
     encryption_config_1 = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME)
     encryption_config_1.column_keys = {COL_KEY_NAME: ["a", "b"], }
@@ -382,6 +413,42 @@ def test_encrypted_parquet_encryption_configuration():
     encryption_config_1.data_key_length_bits = 192
     validate_encryption_configuration(encryption_config_1)
 
+def test_encrypted_parquet_encryption_configuration_via_uniform_encryption():
+    def validate_encryption_configuration(encryption_config):
+        assert FOOTER_KEY_NAME == encryption_config.footer_key
+        assert {} == encryption_config.column_keys
+        assert "AES_GCM_CTR_V1" == encryption_config.encryption_algorithm
+        assert encryption_config.plaintext_footer
+        assert encryption_config.uniform_encryption
+        assert not encryption_config.double_wrapping
+        assert timedelta(minutes=10.0) == encryption_config.cache_lifetime
+        assert not encryption_config.internal_key_material
+        assert 192 == encryption_config.data_key_length_bits
+
+    # Here we set everything via the constructor
+    encryption_config = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        encryption_algorithm="AES_GCM_CTR_V1",
+        plaintext_footer=True,
+        uniform_encryption=True,
+        double_wrapping=False,
+        cache_lifetime=timedelta(minutes=10.0),
+        internal_key_material=False,
+        data_key_length_bits=192,
+    )
+    validate_encryption_configuration(encryption_config)
+
+    # Here we set only footer_key and verify that the setters work for the other properties
+    encryption_config_1 = pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME)
+    encryption_config_1.uniform_encryption = True
+    encryption_config_1.encryption_algorithm = "AES_GCM_CTR_V1"
+    encryption_config_1.plaintext_footer = True
+    encryption_config_1.double_wrapping = False
+    encryption_config_1.cache_lifetime = timedelta(minutes=10.0)
+    encryption_config_1.internal_key_material = False
+    encryption_config_1.data_key_length_bits = 192
+    validate_encryption_configuration(encryption_config_1)
 
 def test_encrypted_parquet_decryption_configuration():
     decryption_config = pe.DecryptionConfiguration(

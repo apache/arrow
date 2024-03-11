@@ -181,8 +181,12 @@ class build_ext(_build_ext):
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
 
-        self.with_parquet_encryption = (self.with_parquet_encryption and
-                                        self.with_parquet)
+        if self.with_parquet_encryption and not self.with_parquet:
+            raise ValueError(
+                "Cannot build Parquet encryption without Parquet. Set PYARROW_WITH_PARQUET=1 "
+                "or use --with-parquet-encryption."
+                )
+
 
         # enforce module dependencies
         if self.with_substrait:

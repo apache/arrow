@@ -51,13 +51,15 @@ using arrow::internal::checked_pointer_cast;
 namespace arrow {
 namespace dataset {
 
-class DatasetEncryptionTest : public ::testing::Test {
+class DatasetEncryptionTestWithColumnKeys : public ::testing::Test {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
-  // provided Parquet file write options. The dataset is partitioned using a Hive
-  // partitioning scheme. The function also checks if the written files exist in the file
-  // system.
+  // provided Parquet file write options. These include an encryption configuration
+  // which uses EncryptionConfiguration.column_keys to specify the encryption key for
+  // each column.
+  // The dataset is partitioned using a Hive partitioning scheme.
+  // The function also checks if the written files exist in the file system.
   static void SetUpTestSuite() {
 #ifdef ARROW_VALGRIND
     // Not necessary otherwise, but prevents a Valgrind leak by making sure
@@ -102,7 +104,8 @@ class DatasetEncryptionTest : public ::testing::Test {
     crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
     kms_connection_config_ = std::make_shared<parquet::encryption::KmsConnectionConfig>();
 
-    // Set write options with encryption configuration.
+    // Set write options with encryption configuration. We select which columns we encrypt
+    // using EncryptionConfiguration.column_keys
     auto encryption_config =
         std::make_shared<parquet::encryption::EncryptionConfiguration>(
             std::string(kFooterKeyName));
@@ -142,12 +145,107 @@ class DatasetEncryptionTest : public ::testing::Test {
       kms_connection_config_;
 };
 
-// This test demonstrates the process of writing a partitioned Parquet file with the same
-// encryption properties applied to each file within the dataset. The encryption
-// properties are determined based on the selected columns. After writing the dataset, the
-// test reads the data back and verifies that it can be successfully decrypted and
-// scanned.
-TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
+class DatasetEncryptionTestUniformEncryption : public ::testing::Test {
+ public:
+  // This function creates a mock file system using the current time point, creates a
+  // directory with the given base directory path, and writes a dataset to it using
+  // provided Parquet file write options. These include an encryption configuration
+  // which uses EncryptionConfiguration.column_keys to specify the encryption key for
+  // each column.
+  // The dataset is partitioned using a Hive partitioning scheme.
+  // The function also checks if the written files exist in the file system.
+  static void SetUpTestSuite() {
+#ifdef ARROW_VALGRIND
+    // Not necessary otherwise, but prevents a Valgrind leak by making sure
+    // OpenSSL initialization is done from the main thread
+    // (see GH-38304 for analysis).
+    ::parquet::encryption::EnsureBackendInitialized();
+#endif
+
+    // Creates a mock file system using the current time point.
+    EXPECT_OK_AND_ASSIGN(file_system_, fs::internal::MockFileSystem::Make(
+                                           std::chrono::system_clock::now(), {}));
+    ASSERT_OK(file_system_->CreateDir(std::string(kBaseDir)));
+
+    // Prepare table data.
+    auto table_schema = schema({field("a", int64()), field("c", int64()),
+                                field("e", int64()), field("part", utf8())});
+    table_ = TableFromJSON(table_schema, {R"([
+                          [ 0, 9, 1, "a" ],
+                          [ 1, 8, 2, "a" ],
+                          [ 2, 7, 1, "c" ],
+                          [ 3, 6, 2, "c" ],
+                          [ 4, 5, 1, "e" ],
+                          [ 5, 4, 2, "e" ],
+                          [ 6, 3, 1, "g" ],
+                          [ 7, 2, 2, "g" ],
+                          [ 8, 1, 1, "i" ],
+                          [ 9, 0, 2, "i" ]
+                        ])"});
+
+    // Use a Hive-style partitioning scheme.
+    partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
+
+    // Prepare encryption properties.
+    // We only register single key, which is the footer key, to encrypt both the footer
+    // and all the columns, and later set uniform_encryption=True
+    std::unordered_map<std::string, std::string> key_map;
+    key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
+
+    crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
+    auto kms_client_factory =
+        std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
+            /*wrap_locally=*/true, key_map);
+    crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
+    kms_connection_config_ = std::make_shared<parquet::encryption::KmsConnectionConfig>();
+
+    // Set write options with encryption configuration. We set uniform_encryption=True
+    // to encrypt both the footer and all the columns with the same key
+    auto encryption_config =
+        std::make_shared<parquet::encryption::EncryptionConfiguration>(
+            std::string(kFooterKeyName));
+    encryption_config->uniform_encryption = true;
+    auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
+
+    // Directly assign shared_ptr objects to ParquetEncryptionConfig members
+    parquet_encryption_config->crypto_factory = crypto_factory_;
+    parquet_encryption_config->kms_connection_config = kms_connection_config_;
+    parquet_encryption_config->encryption_config = std::move(encryption_config);
+
+    auto file_format = std::make_shared<ParquetFileFormat>();
+    auto parquet_file_write_options =
+        checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
+    parquet_file_write_options->parquet_encryption_config =
+        std::move(parquet_encryption_config);
+
+    // Write dataset.
+    auto dataset = std::make_shared<InMemoryDataset>(table_);
+    EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+    EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+    FileSystemDatasetWriteOptions write_options;
+    write_options.file_write_options = parquet_file_write_options;
+    write_options.filesystem = file_system_;
+    write_options.base_dir = kBaseDir;
+    write_options.partitioning = partitioning_;
+    write_options.basename_template = "part{i}.parquet";
+    ASSERT_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
+  }
+
+ protected:
+  inline static std::shared_ptr<fs::FileSystem> file_system_;
+  inline static std::shared_ptr<Table> table_;
+  inline static std::shared_ptr<HivePartitioning> partitioning_;
+  inline static std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
+  inline static std::shared_ptr<parquet::encryption::KmsConnectionConfig>
+      kms_connection_config_;
+};
+
+void write_read_dataset_with_encryption(
+    std::shared_ptr<fs::FileSystem> file_system_, std::shared_ptr<Table> table_,
+    std::shared_ptr<HivePartitioning> partitioning_,
+    std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_,
+    std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_) {
   // Create decryption properties.
   auto decryption_config =
       std::make_shared<parquet::encryption::DecryptionConfiguration>();
@@ -188,8 +286,13 @@ TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
   AssertTablesEqual(*combined_table, *table_);
 }
 
-// Read a single parquet file with and without decryption properties.
-TEST_F(DatasetEncryptionTest, ReadSingleFile) {
+void read_single_file(
+    std::shared_ptr<fs::FileSystem> file_system_, std::shared_ptr<Table> table_,
+    std::shared_ptr<HivePartitioning> partitioning_,
+    std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_,
+    std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_) {
+  // Create decryption properties.
+
   // Open the Parquet file.
   ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile("part=a/part0.parquet"));
 
@@ -218,6 +321,38 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(0)->chunk(0))->GetView(0), 0);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(1)->chunk(0))->GetView(0), 9);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
+}
+
+// This test demonstrates the process of writing a partitioned Parquet file with the same
+// encryption properties applied to each file within the dataset. The encryption
+// properties are determined based on the selected columns. After writing the dataset, the
+// test reads the data back and verifies that it can be successfully decrypted and
+// scanned.
+TEST_F(DatasetEncryptionTestWithColumnKeys, WriteReadDatasetWithEncryption) {
+  write_read_dataset_with_encryption(file_system_, table_, partitioning_, crypto_factory_,
+                                     kms_connection_config_);
+}
+
+// Read a single parquet file with and without decryption properties.
+TEST_F(DatasetEncryptionTestWithColumnKeys, ReadSingleFile) {
+  read_single_file(file_system_, table_, partitioning_, crypto_factory_,
+                   kms_connection_config_);
+}
+
+// This test demonstrates the process of writing a partitioned Parquet file with the same
+// encryption properties applied to each file within the dataset. The encryption
+// properties are the same for all the columns. After writing the dataset, the
+// test reads the data back and verifies that it can be successfully decrypted and
+// scanned.
+TEST_F(DatasetEncryptionTestUniformEncryption, WriteReadDatasetWithEncryption) {
+  write_read_dataset_with_encryption(file_system_, table_, partitioning_, crypto_factory_,
+                                     kms_connection_config_);
+}
+
+// Read a single parquet file with and without decryption properties.
+TEST_F(DatasetEncryptionTestUniformEncryption, ReadSingleFile) {
+  read_single_file(file_system_, table_, partitioning_, crypto_factory_,
+                   kms_connection_config_);
 }
 
 }  // namespace dataset

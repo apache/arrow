@@ -20,6 +20,7 @@ import pyarrow.fs as fs
 import pyarrow as pa
 import pytest
 
+
 encryption_unavailable = False
 
 try:
@@ -73,6 +74,18 @@ def create_encryption_config():
     )
 
 
+def create_uniform_encryption_config():
+    return pe.EncryptionConfiguration(
+        footer_key=FOOTER_KEY_NAME,
+        plaintext_footer=False,
+        uniform_encryption=True,
+        encryption_algorithm="AES_GCM_V1",
+        # requires timedelta or an assertion is raised
+        cache_lifetime=timedelta(minutes=5.0),
+        data_key_length_bits=256,
+    )
+
+
 def create_decryption_config():
     return pe.DecryptionConfiguration(cache_lifetime=300)
 
@@ -93,10 +106,17 @@ def kms_factory(kms_connection_configuration):
 @pytest.mark.skipif(
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
-def test_dataset_encryption_decryption():
+@pytest.mark.parametrize(
+    "encryption_config",
+    [
+        create_encryption_config(),
+        create_uniform_encryption_config(),
+    ],
+    ids=["column_keys", "uniform_encryption"],
+)
+def test_dataset_encryption_decryption(encryption_config):
     table = create_sample_table()
 
-    encryption_config = create_encryption_config()
     decryption_config = create_decryption_config()
     kms_connection_config = create_kms_connection_config()
 
