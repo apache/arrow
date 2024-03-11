@@ -1266,7 +1266,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
     byte[] data = new byte[dataLength];
     buffer.getBytes(start, data, 0, dataLength);
-    setBytes(index, data, start, dataLength);
+    setBytes(index, data, 0, dataLength);
     lastSet = index;
   }
 
@@ -1538,7 +1538,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    // TODO: fixme
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       handleSafe(thisIndex, 0);
@@ -1554,7 +1553,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       fillHoles(thisIndex);
       BitVectorHelper.setBit(this.validityBuffer, thisIndex);
       final int copyStart = getStartOffset(thisIndex);
-      from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
+      int viewStart = fromIndex * VIEW_BUFFER_SIZE;
+      from.getDataBuffer().getBytes(viewStart, this.valueBuffer, viewStart, VIEW_BUFFER_SIZE);
       offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
     }
     lastSet = thisIndex;
