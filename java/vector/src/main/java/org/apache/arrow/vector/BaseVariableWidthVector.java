@@ -992,6 +992,7 @@ public abstract class BaseVariableWidthVector extends AbstractVariableWidthVecto
    *
    * @param index target index
    */
+  @Override
   public void fillEmpties(int index) {
     handleSafe(index, emptyByteArray.length);
     fillHoles(index);
