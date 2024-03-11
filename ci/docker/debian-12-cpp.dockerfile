@@ -16,38 +16,33 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/debian:11
+FROM ${arch}/debian:12
 ARG arch
 
 ENV DEBIAN_FRONTEND noninteractive
 
 ARG llvm
-# We can't use LLVM 14 or later from apt.llvm.org on i386 because LLVM
-# 14 or later dropped support for i386.
 RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        dpkg-dev && \
-    latest_available_llvm_i386=13 && \
-    if [ $(dpkg-architecture -qDEB_HOST_ARCH) = "i386" -a \
-         "${llvm}" -gt "${latest_available_llvm_i386}" ]; then \
-        available_llvm="${latest_available_llvm_i386}"; \
-    else \
-        available_llvm="${llvm}"; \
-    fi && \
-    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         gnupg \
+        lsb-release \
         wget && \
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    echo "deb https://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-${available_llvm} main" > \
-        /etc/apt/sources.list.d/llvm.list && \
+    if [ ${llvm} -ge 17 ]; then \
+      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
+          gpg \
+              --import - \
+              --keyring /usr/share/keyrings/llvm-snapshot.gpg \
+              --no-default-keyring && \
+      echo "deb[keyring=/usr/share/keyrings/llvm-snapshot.gpg] https://apt.llvm.org/$(lsb_release --codename --short)/ llvm-toolchain-$(lsb_release --codename --short)-${available_llvm} main" > \
+          /etc/apt/sources.list.d/llvm.list; \
+    fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
         ccache \
-        clang-${available_llvm} \
+        clang-${llvm} \
         cmake \
         curl \
         g++ \
@@ -55,7 +50,8 @@ RUN apt-get update -y -q && \
         gdb \
         git \
         libbenchmark-dev \
-        libboost-all-dev \
+        libboost-filesystem-dev \
+        libboost-system-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
@@ -64,22 +60,35 @@ RUN apt-get update -y -q && \
         libgmock-dev \
         libgoogle-glog-dev \
         libgrpc++-dev \
+        libidn2-dev \
+        libkrb5-dev \
+        libldap-dev \
         liblz4-dev \
+        libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \
+        libpsl-dev \
         libre2-dev \
+        librtmp-dev \
         libsnappy-dev \
+        libsqlite3-dev \
+        libssh-dev \
+        libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
-        llvm-${available_llvm}-dev \
+        llvm-${llvm}-dev \
         make \
         ninja-build \
         nlohmann-json3-dev \
+        npm \
         pkg-config \
         protobuf-compiler-grpc \
+        python3-dev \
         python3-pip \
+        python3-venv \
         rapidjson-dev \
         rsync \
         tzdata \
@@ -93,18 +102,24 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-ENV absl_SOURCE=BUNDLED \
-    ARROW_ACERO=ON \
+ENV ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=/usr/local \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -113,15 +128,14 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
-    ARROW_WITH_OPENTELEMETRY=OFF \
+    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
-    CC=gcc \
-    CXX=g++ \
+    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
+    PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

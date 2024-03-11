@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-ARG node=16
+ARG node=18
 FROM ${arch}/node:${node}
 
 ENV NODE_NO_WARNINGS=1
