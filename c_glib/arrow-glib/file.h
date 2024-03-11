@@ -26,18 +26,16 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_FILE (garrow_file_get_type())
-G_DECLARE_INTERFACE(GArrowFile,
-                    garrow_file,
-                    GARROW,
-                    FILE,
-                    GObject)
+G_DECLARE_INTERFACE(GArrowFile, garrow_file, GARROW, FILE, GObject)
 
-gboolean garrow_file_close(GArrowFile *file,
-                           GError **error);
+gboolean
+garrow_file_close(GArrowFile *file, GError **error);
 GARROW_AVAILABLE_IN_0_13
-gboolean garrow_file_is_closed(GArrowFile *file);
-gint64 garrow_file_tell(GArrowFile *file,
-                           GError **error);
-GArrowFileMode garrow_file_get_mode(GArrowFile *file);
+gboolean
+garrow_file_is_closed(GArrowFile *file);
+gint64
+garrow_file_tell(GArrowFile *file, GError **error);
+GArrowFileMode
+garrow_file_get_mode(GArrowFile *file);
 
 G_END_DECLS

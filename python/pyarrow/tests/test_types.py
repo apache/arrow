@@ -955,11 +955,12 @@ def test_bit_and_byte_width():
         (pa.date32(), 32, 4),
         (pa.decimal128(19, 4), 128, 16),
         (pa.decimal256(76, 38), 256, 32),
-        (pa.binary(42), 42 * 8, 42)
+        (pa.binary(42), 42 * 8, 42),
+        (pa.binary(0), 0, 0),
     ]:
         assert ty.bit_width == expected_bit_width
 
-        if expected_byte_width == 0:
+        if 0 < expected_bit_width < 8:
             with pytest.raises(ValueError, match="Less than one byte"):
                 ty.byte_width
         else:

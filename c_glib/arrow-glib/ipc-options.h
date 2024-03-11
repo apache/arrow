@@ -25,11 +25,8 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_READ_OPTIONS (garrow_read_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowReadOptions,
-                         garrow_read_options,
-                         GARROW,
-                         READ_OPTIONS,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowReadOptions, garrow_read_options, GARROW, READ_OPTIONS, GObject)
 struct _GArrowReadOptionsClass
 {
   GObjectClass parent_class;
@@ -40,8 +37,7 @@ GArrowReadOptions *
 garrow_read_options_new(void);
 GARROW_AVAILABLE_IN_1_0
 int *
-garrow_read_options_get_included_fields(GArrowReadOptions *options,
-                                        gsize *n_fields);
+garrow_read_options_get_included_fields(GArrowReadOptions *options, gsize *n_fields);
 GARROW_AVAILABLE_IN_1_0
 void
 garrow_read_options_set_included_fields(GArrowReadOptions *options,
@@ -49,11 +45,8 @@ garrow_read_options_set_included_fields(GArrowReadOptions *options,
                                         gsize n_fields);
 
 #define GARROW_TYPE_WRITE_OPTIONS (garrow_write_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowWriteOptions,
-                         garrow_write_options,
-                         GARROW,
-                         WRITE_OPTIONS,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowWriteOptions, garrow_write_options, GARROW, WRITE_OPTIONS, GObject)
 struct _GArrowWriteOptionsClass
 {
   GObjectClass parent_class;

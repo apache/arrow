@@ -53,7 +53,6 @@ G_BEGIN_DECLS
  * Since: 5.0.0
  */
 
-
 /**
  * GAFlightHeaderFunc:
  * @name: A header name.
@@ -68,8 +67,8 @@ G_BEGIN_DECLS
  * Since: 9.0.0
  */
 
-
-typedef struct GAFlightCriteriaPrivate_ {
+typedef struct GAFlightCriteriaPrivate_
+{
   arrow::flight::Criteria criteria;
   GBytes *expression;
 } GAFlightCriteriaPrivate;
@@ -78,14 +77,11 @@ enum {
   PROP_EXPRESSION = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightCriteria,
-                           gaflight_criteria,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightCriteria, gaflight_criteria, G_TYPE_OBJECT)
 
-#define GAFLIGHT_CRITERIA_GET_PRIVATE(obj)            \
-  static_cast<GAFlightCriteriaPrivate *>(             \
-    gaflight_criteria_get_instance_private(           \
-      GAFLIGHT_CRITERIA(obj)))
+#define GAFLIGHT_CRITERIA_GET_PRIVATE(obj)                                               \
+  static_cast<GAFlightCriteriaPrivate *>(                                                \
+    gaflight_criteria_get_instance_private(GAFLIGHT_CRITERIA(obj)))
 
 static void
 gaflight_criteria_dispose(GObject *object)
@@ -127,8 +123,7 @@ gaflight_criteria_set_property(GObject *object,
     {
       gsize size;
       auto data = g_bytes_get_data(priv->expression, &size);
-      priv->criteria.expression.assign(static_cast<const char *>(data),
-                                       size);
+      priv->criteria.expression.assign(static_cast<const char *>(data), size);
     }
     break;
   default:
@@ -159,7 +154,7 @@ static void
 gaflight_criteria_init(GAFlightCriteria *object)
 {
   auto priv = GAFLIGHT_CRITERIA_GET_PRIVATE(object);
-  new(&priv->criteria) arrow::flight::Criteria;
+  new (&priv->criteria) arrow::flight::Criteria;
 }
 
 static void
@@ -201,24 +196,19 @@ GAFlightCriteria *
 gaflight_criteria_new(GBytes *expression)
 {
   return GAFLIGHT_CRITERIA(
-    g_object_new(GAFLIGHT_TYPE_CRITERIA,
-                 "expression", expression,
-                 NULL));
+    g_object_new(GAFLIGHT_TYPE_CRITERIA, "expression", expression, NULL));
 }
 
-
-typedef struct GAFlightLocationPrivate_ {
+typedef struct GAFlightLocationPrivate_
+{
   arrow::flight::Location location;
 } GAFlightLocationPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightLocation,
-                           gaflight_location,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightLocation, gaflight_location, G_TYPE_OBJECT)
 
-#define GAFLIGHT_LOCATION_GET_PRIVATE(obj)            \
-  static_cast<GAFlightLocationPrivate *>(             \
-    gaflight_location_get_instance_private(           \
-      GAFLIGHT_LOCATION(obj)))
+#define GAFLIGHT_LOCATION_GET_PRIVATE(obj)                                               \
+  static_cast<GAFlightLocationPrivate *>(                                                \
+    gaflight_location_get_instance_private(GAFLIGHT_LOCATION(obj)))
 
 static void
 gaflight_location_finalize(GObject *object)
@@ -234,7 +224,7 @@ static void
 gaflight_location_init(GAFlightLocation *object)
 {
   auto priv = GAFLIGHT_LOCATION_GET_PRIVATE(object);
-  new(&priv->location) arrow::flight::Location;
+  new (&priv->location) arrow::flight::Location;
 }
 
 static void
@@ -255,8 +245,7 @@ gaflight_location_class_init(GAFlightLocationClass *klass)
  * Since: 5.0.0
  */
 GAFlightLocation *
-gaflight_location_new(const gchar *uri,
-                      GError **error)
+gaflight_location_new(const gchar *uri, GError **error)
 {
   auto location = GAFLIGHT_LOCATION(g_object_new(GAFLIGHT_TYPE_LOCATION, NULL));
   auto flight_location = gaflight_location_get_raw(location);
@@ -316,16 +305,15 @@ gaflight_location_get_scheme(GAFlightLocation *location)
  * Since: 5.0.0
  */
 gboolean
-gaflight_location_equal(GAFlightLocation *location,
-                        GAFlightLocation *other_location)
+gaflight_location_equal(GAFlightLocation *location, GAFlightLocation *other_location)
 {
   const auto flight_location = gaflight_location_get_raw(location);
   const auto flight_other_location = gaflight_location_get_raw(other_location);
   return flight_location->Equals(*flight_other_location);
 }
 
-
-typedef struct GAFlightDescriptorPrivate_ {
+typedef struct GAFlightDescriptorPrivate_
+{
   arrow::flight::FlightDescriptor descriptor;
 } GAFlightDescriptorPrivate;
 
@@ -337,10 +325,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GAFlightDescriptor,
                                     gaflight_descriptor,
                                     G_TYPE_OBJECT)
 
-#define GAFLIGHT_DESCRIPTOR_GET_PRIVATE(obj)            \
-  static_cast<GAFlightDescriptorPrivate *>(             \
-    gaflight_descriptor_get_instance_private(           \
-      GAFLIGHT_DESCRIPTOR(obj)))
+#define GAFLIGHT_DESCRIPTOR_GET_PRIVATE(obj)                                             \
+  static_cast<GAFlightDescriptorPrivate *>(                                              \
+    gaflight_descriptor_get_instance_private(GAFLIGHT_DESCRIPTOR(obj)))
 
 static void
 gaflight_descriptor_finalize(GObject *object)
@@ -362,8 +349,8 @@ gaflight_descriptor_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_DESCRIPTOR:
-    priv->descriptor = *static_cast<arrow::flight::FlightDescriptor *>(
-      g_value_get_pointer(value));
+    priv->descriptor =
+      *static_cast<arrow::flight::FlightDescriptor *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -375,7 +362,7 @@ static void
 gaflight_descriptor_init(GAFlightDescriptor *object)
 {
   auto priv = GAFLIGHT_DESCRIPTOR_GET_PRIVATE(object);
-  new(&priv->descriptor) arrow::flight::FlightDescriptor;
+  new (&priv->descriptor) arrow::flight::FlightDescriptor;
 }
 
 static void
@@ -387,11 +374,11 @@ gaflight_descriptor_class_init(GAFlightDescriptorClass *klass)
   gobject_class->set_property = gaflight_descriptor_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("descriptor",
-                              "Descriptor",
-                              "The raw arrow::flight::FlightDescriptor",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "descriptor",
+    "Descriptor",
+    "The raw arrow::flight::FlightDescriptor",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_EXPRESSION, spec);
 }
 
@@ -427,17 +414,12 @@ gboolean
 gaflight_descriptor_equal(GAFlightDescriptor *descriptor,
                           GAFlightDescriptor *other_descriptor)
 {
-  const auto flight_descriptor =
-    gaflight_descriptor_get_raw(descriptor);
-  const auto flight_other_descriptor =
-    gaflight_descriptor_get_raw(other_descriptor);
+  const auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  const auto flight_other_descriptor = gaflight_descriptor_get_raw(other_descriptor);
   return flight_descriptor->Equals(*flight_other_descriptor);
 }
 
-
-G_DEFINE_TYPE(GAFlightPathDescriptor,
-              gaflight_path_descriptor,
-              GAFLIGHT_TYPE_DESCRIPTOR)
+G_DEFINE_TYPE(GAFlightPathDescriptor, gaflight_path_descriptor, GAFLIGHT_TYPE_DESCRIPTOR)
 
 static void
 gaflight_path_descriptor_init(GAFlightPathDescriptor *object)
@@ -460,16 +442,14 @@ gaflight_path_descriptor_class_init(GAFlightPathDescriptorClass *klass)
  * Since: 5.0.0
  */
 GAFlightPathDescriptor *
-gaflight_path_descriptor_new(const gchar **paths,
-                             gsize n_paths)
+gaflight_path_descriptor_new(const gchar **paths, gsize n_paths)
 {
   std::vector<std::string> flight_paths;
   for (gsize i = 0; i < n_paths; i++) {
     flight_paths.push_back(paths[i]);
   }
   auto flight_descriptor = arrow::flight::FlightDescriptor::Path(flight_paths);
-  return GAFLIGHT_PATH_DESCRIPTOR(
-    gaflight_descriptor_new_raw(&flight_descriptor));
+  return GAFLIGHT_PATH_DESCRIPTOR(gaflight_descriptor_new_raw(&flight_descriptor));
 }
 
 /**
@@ -502,7 +482,6 @@ gaflight_path_descriptor_get_paths(GAFlightPathDescriptor *descriptor)
   }
 }
 
-
 G_DEFINE_TYPE(GAFlightCommandDescriptor,
               gaflight_command_descriptor,
               GAFLIGHT_TYPE_DESCRIPTOR)
@@ -529,8 +508,7 @@ GAFlightCommandDescriptor *
 gaflight_command_descriptor_new(const gchar *command)
 {
   auto flight_descriptor = arrow::flight::FlightDescriptor::Command(command);
-  return GAFLIGHT_COMMAND_DESCRIPTOR(
-    gaflight_descriptor_new_raw(&flight_descriptor));
+  return GAFLIGHT_COMMAND_DESCRIPTOR(gaflight_descriptor_new_raw(&flight_descriptor));
 }
 
 /**
@@ -552,8 +530,8 @@ gaflight_command_descriptor_get_command(GAFlightCommandDescriptor *descriptor)
   return g_strdup(flight_command.c_str());
 }
 
-
-typedef struct GAFlightTicketPrivate_ {
+typedef struct GAFlightTicketPrivate_
+{
   arrow::flight::Ticket ticket;
   GBytes *data;
 } GAFlightTicketPrivate;
@@ -562,14 +540,11 @@ enum {
   PROP_DATA = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightTicket,
-                           gaflight_ticket,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightTicket, gaflight_ticket, G_TYPE_OBJECT)
 
-#define GAFLIGHT_TICKET_GET_PRIVATE(obj)            \
-  static_cast<GAFlightTicketPrivate *>(             \
-    gaflight_ticket_get_instance_private(           \
-      GAFLIGHT_TICKET(obj)))
+#define GAFLIGHT_TICKET_GET_PRIVATE(obj)                                                 \
+  static_cast<GAFlightTicketPrivate *>(                                                  \
+    gaflight_ticket_get_instance_private(GAFLIGHT_TICKET(obj)))
 
 static void
 gaflight_ticket_dispose(GObject *object)
@@ -611,8 +586,7 @@ gaflight_ticket_set_property(GObject *object,
     {
       gsize size;
       auto data = g_bytes_get_data(priv->data, &size);
-      priv->ticket.ticket.assign(static_cast<const char *>(data),
-                                 size);
+      priv->ticket.ticket.assign(static_cast<const char *>(data), size);
     }
     break;
   default:
@@ -643,7 +617,7 @@ static void
 gaflight_ticket_init(GAFlightTicket *object)
 {
   auto priv = GAFLIGHT_TICKET_GET_PRIVATE(object);
-  new(&priv->ticket) arrow::flight::Ticket;
+  new (&priv->ticket) arrow::flight::Ticket;
 }
 
 static void
@@ -685,10 +659,7 @@ gaflight_ticket_class_init(GAFlightTicketClass *klass)
 GAFlightTicket *
 gaflight_ticket_new(GBytes *data)
 {
-  return GAFLIGHT_TICKET(
-    g_object_new(GAFLIGHT_TYPE_TICKET,
-                 "data", data,
-                 NULL));
+  return GAFLIGHT_TICKET(g_object_new(GAFLIGHT_TYPE_TICKET, "data", data, NULL));
 }
 
 /**
@@ -701,16 +672,15 @@ gaflight_ticket_new(GBytes *data)
  * Since: 5.0.0
  */
 gboolean
-gaflight_ticket_equal(GAFlightTicket *ticket,
-                      GAFlightTicket *other_ticket)
+gaflight_ticket_equal(GAFlightTicket *ticket, GAFlightTicket *other_ticket)
 {
   const auto flight_ticket = gaflight_ticket_get_raw(ticket);
   const auto flight_other_ticket = gaflight_ticket_get_raw(other_ticket);
   return flight_ticket->Equals(*flight_other_ticket);
 }
 
-
-typedef struct GAFlightEndpointPrivate_ {
+typedef struct GAFlightEndpointPrivate_
+{
   arrow::flight::FlightEndpoint endpoint;
   GAFlightTicket *ticket;
   GList *locations;
@@ -720,14 +690,11 @@ enum {
   PROP_TICKET = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightEndpoint,
-                           gaflight_endpoint,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightEndpoint, gaflight_endpoint, G_TYPE_OBJECT)
 
-#define GAFLIGHT_ENDPOINT_GET_PRIVATE(obj)            \
-  static_cast<GAFlightEndpointPrivate *>(             \
-    gaflight_endpoint_get_instance_private(           \
-      GAFLIGHT_ENDPOINT(obj)))
+#define GAFLIGHT_ENDPOINT_GET_PRIVATE(obj)                                               \
+  static_cast<GAFlightEndpointPrivate *>(                                                \
+    gaflight_endpoint_get_instance_private(GAFLIGHT_ENDPOINT(obj)))
 
 static void
 gaflight_endpoint_dispose(GObject *object)
@@ -779,7 +746,7 @@ static void
 gaflight_endpoint_init(GAFlightEndpoint *object)
 {
   auto priv = GAFLIGHT_ENDPOINT_GET_PRIVATE(object);
-  new(&priv->endpoint) arrow::flight::FlightEndpoint;
+  new (&priv->endpoint) arrow::flight::FlightEndpoint;
 }
 
 static void
@@ -817,8 +784,7 @@ gaflight_endpoint_class_init(GAFlightEndpointClass *klass)
  * Since: 5.0.0
  */
 GAFlightEndpoint *
-gaflight_endpoint_new(GAFlightTicket *ticket,
-                      GList *locations)
+gaflight_endpoint_new(GAFlightTicket *ticket, GList *locations)
 {
   auto endpoint = gaflight_endpoint_new_raw(nullptr, ticket);
   auto priv = GAFLIGHT_ENDPOINT_GET_PRIVATE(endpoint);
@@ -840,8 +806,7 @@ gaflight_endpoint_new(GAFlightTicket *ticket,
  * Since: 5.0.0
  */
 gboolean
-gaflight_endpoint_equal(GAFlightEndpoint *endpoint,
-                        GAFlightEndpoint *other_endpoint)
+gaflight_endpoint_equal(GAFlightEndpoint *endpoint, GAFlightEndpoint *other_endpoint)
 {
   const auto flight_endpoint = gaflight_endpoint_get_raw(endpoint);
   const auto flight_other_endpoint = gaflight_endpoint_get_raw(other_endpoint);
@@ -867,15 +832,14 @@ gaflight_endpoint_get_locations(GAFlightEndpoint *endpoint)
   const auto flight_endpoint = gaflight_endpoint_get_raw(endpoint);
   GList *locations = NULL;
   for (const auto &flight_location : flight_endpoint->locations) {
-    auto location = gaflight_location_new(flight_location.ToString().c_str(),
-                                          nullptr);
+    auto location = gaflight_location_new(flight_location.ToString().c_str(), nullptr);
     locations = g_list_prepend(locations, location);
   }
   return g_list_reverse(locations);
 }
 
-
-typedef struct GAFlightInfoPrivate_ {
+typedef struct GAFlightInfoPrivate_
+{
   arrow::flight::FlightInfo info;
 } GAFlightInfoPrivate;
 
@@ -883,14 +847,11 @@ enum {
   PROP_INFO = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightInfo,
-                           gaflight_info,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightInfo, gaflight_info, G_TYPE_OBJECT)
 
-#define GAFLIGHT_INFO_GET_PRIVATE(obj)            \
-  static_cast<GAFlightInfoPrivate *>(             \
-    gaflight_info_get_instance_private(           \
-      GAFLIGHT_INFO(obj)))
+#define GAFLIGHT_INFO_GET_PRIVATE(obj)                                                   \
+  static_cast<GAFlightInfoPrivate *>(                                                    \
+    gaflight_info_get_instance_private(GAFLIGHT_INFO(obj)))
 
 static void
 gaflight_info_finalize(GObject *object)
@@ -913,9 +874,8 @@ gaflight_info_set_property(GObject *object,
   switch (prop_id) {
   case PROP_INFO:
     {
-      auto info =
-        static_cast<arrow::flight::FlightInfo *>(g_value_get_pointer(value));
-      new(&(priv->info)) arrow::flight::FlightInfo(*info);
+      auto info = static_cast<arrow::flight::FlightInfo *>(g_value_get_pointer(value));
+      new (&(priv->info)) arrow::flight::FlightInfo(*info);
     }
     break;
   default:
@@ -938,11 +898,11 @@ gaflight_info_class_init(GAFlightInfoClass *klass)
   gobject_class->set_property = gaflight_info_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("info",
-                              "Info",
-                              "The raw arrow::flight::FlightInfo *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "info",
+    "Info",
+    "The raw arrow::flight::FlightInfo *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_INFO, spec);
 }
 
@@ -974,15 +934,12 @@ gaflight_info_new(GArrowSchema *schema,
     auto endpoint = GAFLIGHT_ENDPOINT(node->data);
     flight_endpoints.push_back(*gaflight_endpoint_get_raw(endpoint));
   }
-  auto flight_info_result =
-    arrow::flight::FlightInfo::Make(*arrow_schema,
-                                    *flight_descriptor,
-                                    flight_endpoints,
-                                    total_records,
-                                    total_bytes);
-  if (!garrow::check(error,
-                     flight_info_result,
-                     "[flight-info][new]")) {
+  auto flight_info_result = arrow::flight::FlightInfo::Make(*arrow_schema,
+                                                            *flight_descriptor,
+                                                            flight_endpoints,
+                                                            total_records,
+                                                            total_bytes);
+  if (!garrow::check(error, flight_info_result, "[flight-info][new]")) {
     return NULL;
   }
   return gaflight_info_new_raw(&(*flight_info_result));
@@ -999,22 +956,15 @@ gaflight_info_new(GArrowSchema *schema,
  * Since: 5.0.0
  */
 gboolean
-gaflight_info_equal(GAFlightInfo *info,
-                    GAFlightInfo *other_info)
+gaflight_info_equal(GAFlightInfo *info, GAFlightInfo *other_info)
 {
   const auto flight_info = gaflight_info_get_raw(info);
   const auto flight_other_info = gaflight_info_get_raw(other_info);
-  return
-    (flight_info->serialized_schema() ==
-     flight_other_info->serialized_schema()) &&
-    (flight_info->descriptor() ==
-     flight_other_info->descriptor()) &&
-    (flight_info->endpoints() ==
-     flight_other_info->endpoints()) &&
-    (flight_info->total_records() ==
-     flight_other_info->total_records()) &&
-    (flight_info->total_bytes() ==
-     flight_other_info->total_bytes());
+  return (flight_info->serialized_schema() == flight_other_info->serialized_schema()) &&
+         (flight_info->descriptor() == flight_other_info->descriptor()) &&
+         (flight_info->endpoints() == flight_other_info->endpoints()) &&
+         (flight_info->total_records() == flight_other_info->total_records()) &&
+         (flight_info->total_bytes() == flight_other_info->total_bytes());
 }
 
 /**
@@ -1028,9 +978,7 @@ gaflight_info_equal(GAFlightInfo *info,
  * Since: 5.0.0
  */
 GArrowSchema *
-gaflight_info_get_schema(GAFlightInfo *info,
-                         GArrowReadOptions *options,
-                         GError **error)
+gaflight_info_get_schema(GAFlightInfo *info, GArrowReadOptions *options, GError **error)
 {
   const auto flight_info = gaflight_info_get_raw(info);
   arrow::Status status;
@@ -1115,7 +1063,8 @@ gaflight_info_get_total_bytes(GAFlightInfo *info)
   return flight_info->total_bytes();
 }
 
-typedef struct GAFlightStreamChunkPrivate_ {
+typedef struct GAFlightStreamChunkPrivate_
+{
   arrow::flight::FlightStreamChunk chunk;
 } GAFlightStreamChunkPrivate;
 
@@ -1123,14 +1072,11 @@ enum {
   PROP_CHUNK = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightStreamChunk,
-                           gaflight_stream_chunk,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightStreamChunk, gaflight_stream_chunk, G_TYPE_OBJECT)
 
-#define GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(obj)            \
-  static_cast<GAFlightStreamChunkPrivate *>(             \
-    gaflight_stream_chunk_get_instance_private(           \
-      GAFLIGHT_STREAM_CHUNK(obj)))
+#define GAFLIGHT_STREAM_CHUNK_GET_PRIVATE(obj)                                           \
+  static_cast<GAFlightStreamChunkPrivate *>(                                             \
+    gaflight_stream_chunk_get_instance_private(GAFLIGHT_STREAM_CHUNK(obj)))
 
 static void
 gaflight_stream_chunk_finalize(GObject *object)
@@ -1153,8 +1099,7 @@ gaflight_stream_chunk_set_property(GObject *object,
   switch (prop_id) {
   case PROP_CHUNK:
     priv->chunk =
-      *static_cast<arrow::flight::FlightStreamChunk *>(
-        g_value_get_pointer(value));
+      *static_cast<arrow::flight::FlightStreamChunk *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1176,11 +1121,11 @@ gaflight_stream_chunk_class_init(GAFlightStreamChunkClass *klass)
   gobject_class->set_property = gaflight_stream_chunk_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("chunk",
-                              "Stream chunk",
-                              "The raw arrow::flight::FlightStreamChunk *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "chunk",
+    "Stream chunk",
+    "The raw arrow::flight::FlightStreamChunk *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CHUNK, spec);
 }
 
@@ -1220,8 +1165,8 @@ gaflight_stream_chunk_get_metadata(GAFlightStreamChunk *chunk)
   }
 }
 
-
-typedef struct GAFlightRecordBatchReaderPrivate_ {
+typedef struct GAFlightRecordBatchReaderPrivate_
+{
   arrow::flight::MetadataRecordBatchReader *reader;
   bool is_owner;
 } GAFlightRecordBatchReaderPrivate;
@@ -1235,9 +1180,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GAFlightRecordBatchReader,
                            gaflight_record_batch_reader,
                            G_TYPE_OBJECT)
 
-#define GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(obj)            \
-  static_cast<GAFlightRecordBatchReaderPrivate *>(               \
-    gaflight_record_batch_reader_get_instance_private(           \
+#define GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(obj)                                    \
+  static_cast<GAFlightRecordBatchReaderPrivate *>(                                       \
+    gaflight_record_batch_reader_get_instance_private(                                   \
       GAFLIGHT_RECORD_BATCH_READER(obj)))
 
 static void
@@ -1261,8 +1206,7 @@ gaflight_record_batch_reader_set_property(GObject *object,
   switch (prop_id) {
   case PROP_READER:
     priv->reader =
-      static_cast<arrow::flight::MetadataRecordBatchReader *>(
-        g_value_get_pointer(value));
+      static_cast<arrow::flight::MetadataRecordBatchReader *>(g_value_get_pointer(value));
     break;
   case PROP_IS_OWNER:
     priv->is_owner = g_value_get_boolean(value);
@@ -1287,19 +1231,19 @@ gaflight_record_batch_reader_class_init(GAFlightRecordBatchReaderClass *klass)
   gobject_class->set_property = gaflight_record_batch_reader_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("reader",
-                              nullptr,
-                              nullptr,
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "reader",
+    nullptr,
+    nullptr,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_READER, spec);
 
-  spec = g_param_spec_boolean("is-owner",
-                              nullptr,
-                              nullptr,
-                              TRUE,
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_boolean(
+    "is-owner",
+    nullptr,
+    nullptr,
+    TRUE,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_IS_OWNER, spec);
 }
 
@@ -1314,8 +1258,7 @@ gaflight_record_batch_reader_class_init(GAFlightRecordBatchReaderClass *klass)
  * Since: 6.0.0
  */
 GAFlightStreamChunk *
-gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
-                                       GError **error)
+gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader, GError **error)
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   arrow::flight::FlightStreamChunk flight_chunk;
@@ -1341,8 +1284,7 @@ gaflight_record_batch_reader_read_next(GAFlightRecordBatchReader *reader,
  * Since: 6.0.0
  */
 GArrowTable *
-gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
-                                      GError **error)
+gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader, GError **error)
 {
   auto flight_reader = gaflight_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::Table> arrow_table;
@@ -1354,9 +1296,7 @@ gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader,
   }
 }
 
-
 G_END_DECLS
-
 
 GAFlightCriteria *
 gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria)
@@ -1364,8 +1304,8 @@ gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria)
   auto criteria = g_object_new(GAFLIGHT_TYPE_CRITERIA, NULL);
   auto priv = GAFLIGHT_CRITERIA_GET_PRIVATE(criteria);
   priv->criteria = *flight_criteria;
-  priv->expression = g_bytes_new(priv->criteria.expression.data(),
-                                 priv->criteria.expression.size());
+  priv->expression =
+    g_bytes_new(priv->criteria.expression.data(), priv->criteria.expression.size());
   return GAFLIGHT_CRITERIA(criteria);
 }
 
@@ -1384,8 +1324,7 @@ gaflight_location_get_raw(GAFlightLocation *location)
 }
 
 GAFlightDescriptor *
-gaflight_descriptor_new_raw(
-  const arrow::flight::FlightDescriptor *flight_descriptor)
+gaflight_descriptor_new_raw(const arrow::flight::FlightDescriptor *flight_descriptor)
 {
   GType gtype = GAFLIGHT_TYPE_DESCRIPTOR;
   switch (flight_descriptor->type) {
@@ -1398,9 +1337,7 @@ gaflight_descriptor_new_raw(
   default:
     break;
   }
-  return GAFLIGHT_DESCRIPTOR(g_object_new(gtype,
-                                          "descriptor", flight_descriptor,
-                                          NULL));
+  return GAFLIGHT_DESCRIPTOR(g_object_new(gtype, "descriptor", flight_descriptor, NULL));
 }
 
 arrow::flight::FlightDescriptor *
@@ -1416,8 +1353,7 @@ gaflight_ticket_new_raw(const arrow::flight::Ticket *flight_ticket)
   auto ticket = g_object_new(GAFLIGHT_TYPE_TICKET, NULL);
   auto priv = GAFLIGHT_TICKET_GET_PRIVATE(ticket);
   priv->ticket = *flight_ticket;
-  priv->data = g_bytes_new(priv->ticket.ticket.data(),
-                           priv->ticket.ticket.size());
+  priv->data = g_bytes_new(priv->ticket.ticket.data(), priv->ticket.ticket.size());
   return GAFLIGHT_TICKET(ticket);
 }
 
@@ -1432,8 +1368,7 @@ GAFlightEndpoint *
 gaflight_endpoint_new_raw(const arrow::flight::FlightEndpoint *flight_endpoint,
                           GAFlightTicket *ticket)
 {
-  auto endpoint = GAFLIGHT_ENDPOINT(g_object_new(GAFLIGHT_TYPE_ENDPOINT,
-                                                 NULL));
+  auto endpoint = GAFLIGHT_ENDPOINT(g_object_new(GAFLIGHT_TYPE_ENDPOINT, NULL));
   auto priv = GAFLIGHT_ENDPOINT_GET_PRIVATE(endpoint);
   if (ticket) {
     priv->ticket = ticket;
@@ -1463,9 +1398,7 @@ gaflight_endpoint_get_raw(GAFlightEndpoint *endpoint)
 GAFlightInfo *
 gaflight_info_new_raw(arrow::flight::FlightInfo *flight_info)
 {
-  return GAFLIGHT_INFO(g_object_new(GAFLIGHT_TYPE_INFO,
-                                    "info", flight_info,
-                                    NULL));
+  return GAFLIGHT_INFO(g_object_new(GAFLIGHT_TYPE_INFO, "info", flight_info, NULL));
 }
 
 arrow::flight::FlightInfo *
@@ -1479,9 +1412,7 @@ GAFlightStreamChunk *
 gaflight_stream_chunk_new_raw(arrow::flight::FlightStreamChunk *flight_chunk)
 {
   return GAFLIGHT_STREAM_CHUNK(
-    g_object_new(GAFLIGHT_TYPE_STREAM_CHUNK,
-                 "chunk", flight_chunk,
-                 NULL));
+    g_object_new(GAFLIGHT_TYPE_STREAM_CHUNK, "chunk", flight_chunk, NULL));
 }
 
 arrow::flight::FlightStreamChunk *

@@ -34,12 +34,10 @@ G_BEGIN_DECLS
  * readable.
  */
 
-G_DEFINE_INTERFACE(GArrowReadable,
-                   garrow_readable,
-                   G_TYPE_OBJECT)
+G_DEFINE_INTERFACE(GArrowReadable, garrow_readable, G_TYPE_OBJECT)
 
 static void
-garrow_readable_default_init (GArrowReadableInterface *iface)
+garrow_readable_default_init(GArrowReadableInterface *iface)
 {
   iface->buffer_new_raw = garrow_buffer_new_raw;
 }
@@ -54,9 +52,7 @@ garrow_readable_default_init (GArrowReadableInterface *iface)
  *   data on success, %NULL if there was an error.
  */
 GArrowBuffer *
-garrow_readable_read(GArrowReadable *readable,
-                     gint64 n_bytes,
-                     GError **error)
+garrow_readable_read(GArrowReadable *readable, gint64 n_bytes, GError **error)
 {
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
@@ -81,9 +77,7 @@ garrow_readable_read(GArrowReadable *readable,
  * Since: 0.17.0
  */
 GBytes *
-garrow_readable_read_bytes(GArrowReadable *readable,
-                           gint64 n_bytes,
-                           GError **error)
+garrow_readable_read_bytes(GArrowReadable *readable, gint64 n_bytes, GError **error)
 {
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
@@ -92,16 +86,14 @@ garrow_readable_read_bytes(GArrowReadable *readable,
     return NULL;
   }
   auto arrow_cpu_buffer_result =
-    arrow::Buffer::ViewOrCopy(*arrow_buffer_result,
-                              arrow::default_cpu_memory_manager());
+    arrow::Buffer::ViewOrCopy(*arrow_buffer_result, arrow::default_cpu_memory_manager());
   if (!garrow::check(error,
                      arrow_cpu_buffer_result,
                      "[readable][read-bytes][view-or-copy]")) {
     return NULL;
   }
   auto arrow_cpu_buffer = *arrow_cpu_buffer_result;
-  return g_bytes_new(arrow_cpu_buffer->data(),
-                     arrow_cpu_buffer->size());
+  return g_bytes_new(arrow_cpu_buffer->data(), arrow_cpu_buffer->size());
 }
 
 G_END_DECLS

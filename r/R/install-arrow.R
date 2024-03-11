@@ -251,7 +251,7 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   setwd(untar_dir)
 
   message("Repacking tar.gz file to ", dest_file)
-  tar_successful <- utils::tar(dest_file, compression = "gz") == 0
+  tar_successful <- utils::tar(dest_file, compression = "gz", extra_flags = NULL) == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")
   }
