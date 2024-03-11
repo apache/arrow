@@ -152,29 +152,18 @@ that changing their value later will have an effect.
    platforms currently do not implement any form of runtime dispatch.
 
    .. note::
-      In addition to runtime dispatch, Arrow's build system supports two
-      compile-time CMake variables for controlling SIMD: ``ARROW_SIMD_LEVEL``
-      and ``ARROW_RUNTIME_SIMD_LEVEL``.
+      In addition to runtime-selected SIMD optimizations dispatch, Arrow C++ can
+      also be compiled with SIMD optimizations that are cannot be disabled at
+      runtime.  For example, by default, SSE4.2 optimizations are enabled on x86
+      builds: therefore, with this default setting, Arrow C++ does not work at
+      all on a CPU without support for SSE4.2.  This setting can be changed
+      using the ``ARROW_SIMD_LEVEL`` CMake variable so as to either raise or
+      lower the optimization level.
 
-      The ``ARROW_SIMD_LEVEL`` variable sets the minimum supported SIMD level at
-      the compiler level. This works by passing the appropriate target
-      architecture flag, such as ``-march=haswell`` for AVX2, to the compiler.
-      Unlike runtime dispatch, compile-time SIMD optimizations cannot be changed
-      at runtime (for example, if you compile Arrow C++ with AVX512 enabled, the
-      resulting binary will only run on AVX512-enabled CPUs).  Setting
-      ``ARROW_USER_SIMD_LEVEL=NONE`` prevents the execution of explicit SIMD
-      optimization code, but it does not rule out the execution of
-      compiler-generated SIMD instructions.  E.g., on x86, Arrow is built with
-      ``ARROW_SIMD_LEVEL=SSE4_2`` by default.  The compiler may generate SSE4.2
-      instructions from any C/C++ source code.  On legacy x86 platforms which do
-      not support SSE4.2, an Arrow binary may fail with SIGILL (Illegal
-      Instruction).  In this case, one must rebuild Arrow from
-      scratch by setting the CMake configuration variable
-      ``ARROW_SIMD_LEVEL=NONE``.
-
-      The ``ARROW_RUNTIME_SIMD_LEVEL`` variable sets the maximum
-      runtime-selectable SIMD path that is compiled. For example, if set to AVX2
-      on x86, then all AVX512 code paths with be omitted from the compiled code.
+      Finally, the ``ARROW_RUNTIME_SIMD_LEVEL`` CMake variable sets a
+      compile-time upper bound to runtime-selected SIMD optimizations.  This is
+      useful in cases where a compiler reports support for an instruction set
+      but does not actually support it in full.
 
 .. envvar:: AWS_ENDPOINT_URL
 
