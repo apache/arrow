@@ -28,6 +28,19 @@ namespace arrow::util {
 template <class T>
 class span;
 
+// This trait is used to check if a type R can be used to construct a span<T>.
+// Specifically, it checks if std::data(R) and std::size(R) are valid expressions
+// that may be passed to the span(T*, size_t) constructor. The reason this trait
+// is needed rather than expressing this directly in the relevant span constructor
+// is that this check requires instantiating span<T>, which would violate the
+// C++ standard if written directly in the constructor's enable_if clause
+// because span<T> is an incomplete type at that point. By defining this trait
+// instead, we add an extra level of indirection that lets us delay the
+// evaluation of the template until the first time the associated constructor
+// is actually called, at which point span<T> is a complete type.
+//
+// Note that most compilers do support the noncompliant construct, but nvcc
+// does not. See https://github.com/apache/arrow/issues/40252
 template <class T, class R, class Enable = void>
 struct ConstructibleFromDataAndSize : std::false_type {};
 
