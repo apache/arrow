@@ -248,15 +248,15 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
-#define TYPE_CASE(type)                                 \
-  case Type::type: {                                    \
-    using T = typename TypeIdTraits<Type::type>::Type;  \
-    using CType_in = typename TypeTraits<T>::CType;     \
-    auto* in_values = data->GetValues<CType_in>(1);     \
-    for (int64_t i = 0; i < arr.length(); ++i) {        \
-      *out_values++ = static_cast<CType>(*in_values++); \
-    }                                                   \
-    break;                                              \
+#define TYPE_CASE(type)                                                    \
+  case Type::type: {                                                       \
+    using T = typename TypeIdTraits<Type::type>::Type;                     \
+    using CType_in = typename TypeTraits<T>::CType;                        \
+    auto* in_values = batch.column(i) -> data() -> GetValues<CType_in>(1); \
+    for (int64_t i = 0; i < arr.length(); ++i) {                           \
+      *out_values++ = static_cast<CType>(*in_values++);                    \
+    }                                                                      \
+    break;                                                                 \
   }
 
 template <typename DataType>
@@ -266,10 +266,9 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
 
   for (int i = 0; i < batch.num_columns(); ++i) {
     const auto& arr = *batch.column(i);
-    auto data = arr.data();
 
     // If the column is of the same type than resulting data type
-    if (TypeTraits<DataType>::type_singleton() == batch.column(0)->type()) {
+    if (TypeTraits<DataType>::type_singleton() == batch.column(i)->type()) {
       for (int i = 0; i < batch.num_columns(); ++i) {
         const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
@@ -277,9 +276,9 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
         out_values += batch.num_rows();
       }
     } else {  // If the column is different type than resulting data type
-      switch (arr.type_id()) {
+      switch (batch.column(i)->type_id()) {
         case Type::HALF_FLOAT: {
-          auto* in_values = data->GetValues<uint16_t>(1);
+          auto* in_values = batch.column(i)->data()->GetValues<uint16_t>(1);
           for (int64_t i = 0; i < arr.length(); ++i) {
             *out_values++ = static_cast<CType>(*in_values++);
           }
