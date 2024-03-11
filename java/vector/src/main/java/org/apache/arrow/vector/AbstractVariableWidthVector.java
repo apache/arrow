@@ -56,4 +56,10 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   public abstract byte[] get(int index);
 
   public abstract void read(int index, ReusableBuffer<?> buffer);
+
+  public abstract int getLastSet();
+
+  public abstract void setLastSet(int value);
+
+  public abstract int getValueLength(int index);
 }

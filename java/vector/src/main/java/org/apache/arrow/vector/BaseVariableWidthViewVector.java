@@ -1032,6 +1032,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    *
    * @param value desired index of last non-null element.
    */
+  @Override
   public void setLastSet(int value) {
     lastSet = value;
   }
@@ -1041,6 +1042,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    *
    * @return index of the last non-null element
    */
+  @Override
   public int getLastSet() {
     return lastSet;
   }
@@ -1091,6 +1093,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * @param index   position of element to get
    * @return greater than 0 length for non-null element, 0 otherwise
    */
+  @Override
   public int getValueLength(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {
