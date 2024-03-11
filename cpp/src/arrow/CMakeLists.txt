@@ -478,7 +478,7 @@ set_source_files_properties(vendored/datetime/tz.cpp
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
 # Disable DLL exports in vendored uriparser library
 foreach(ARROW_VENDORED_TARGET ${ARROW_VENDORED_TARGETS})
-  target_compile_definitions(${ARROW_VENDORED_TARGET} PUBLIC URI_STATIC_BUILD)
+  target_compile_definitions(${ARROW_VENDORED_TARGET} PRIVATE URI_STATIC_BUILD)
 endforeach()
 
 set(ARROW_UTIL_SRCS
@@ -558,6 +558,11 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
+
+# Disable DLL exports in vendored uriparser library
+foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+  target_compile_definitions(${ARROW_UTIL_TARGET} PRIVATE URI_STATIC_BUILD)
+endforeach()
 
 if(ARROW_USE_BOOST)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})

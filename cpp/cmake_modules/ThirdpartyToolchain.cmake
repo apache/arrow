@@ -5018,6 +5018,9 @@ macro(build_awssdk)
                           "ncrypt.lib"
                           "Secur32.lib"
                           "Shlwapi.lib")
+    set_property(TARGET AWS::aws-c-io
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES "crypt32.lib")
   endif()
 
   # AWSSDK is static-only build
