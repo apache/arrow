@@ -248,15 +248,15 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
-#define TYPE_CASE(type)                                                    \
-  case Type::type: {                                                       \
-    using T = typename TypeIdTraits<Type::type>::Type;                     \
-    using CType_in = typename TypeTraits<T>::CType;                        \
-    auto* in_values = batch.column(i) -> data() -> GetValues<CType_in>(1); \
-    for (int64_t i = 0; i < arr.length(); ++i) {                           \
-      *out_values++ = static_cast<CType>(*in_values++);                    \
-    }                                                                      \
-    break;                                                                 \
+#define TYPE_CASE(type)                                                \
+  case Type::type: {                                                   \
+    using T = typename TypeIdTraits<Type::type>::Type;                 \
+    using CType_in = typename TypeTraits<T>::CType;                    \
+    auto* in_values = batch.column(i)->data()->GetValues<CType_in>(1); \
+    for (int64_t i = 0; i < arr.length(); ++i) {                       \
+      *out_values++ = static_cast<CType>(*in_values++);                \
+    }                                                                  \
+    break;                                                             \
   }
 
 template <typename DataType>
