@@ -24,22 +24,15 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_ARRAY (garrow_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowArray,
-                         garrow_array,
-                         GARROW,
-                         ARRAY,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowArray, garrow_array, GARROW, ARRAY, GObject)
 struct _GArrowArrayClass
 {
   GObjectClass parent_class;
 };
 
 #define GARROW_TYPE_EXTENSION_ARRAY (garrow_extension_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowExtensionArray,
-                         garrow_extension_array,
-                         GARROW,
-                         EXTENSION_ARRAY,
-                         GArrowArray)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowExtensionArray, garrow_extension_array, GARROW, EXTENSION_ARRAY, GArrowArray)
 struct _GArrowExtensionArrayClass
 {
   GArrowArrayClass parent_class;

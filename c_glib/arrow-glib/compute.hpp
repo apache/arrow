@@ -24,21 +24,16 @@
 
 #include <arrow-glib/compute.h>
 
-
 arrow::Result<arrow::FieldRef>
 garrow_field_reference_resolve_raw(const gchar *reference);
-
 
 arrow::compute::ExecContext *
 garrow_execute_context_get_raw(GArrowExecuteContext *context);
 
-
 GArrowFunctionOptions *
-garrow_function_options_new_raw(
-  const arrow::compute::FunctionOptions *arrow_options);
+garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_options);
 arrow::compute::FunctionOptions *
 garrow_function_options_get_raw(GArrowFunctionOptions *options);
-
 
 GArrowFunctionDoc *
 garrow_function_doc_new_raw(const arrow::compute::FunctionDoc *arrow_doc);
@@ -50,101 +45,75 @@ garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_functio
 std::shared_ptr<arrow::compute::Function>
 garrow_function_get_raw(GArrowFunction *function);
 
-
 GArrowExecuteNodeOptions *
-garrow_execute_node_options_new_raw(
-  arrow::acero::ExecNodeOptions *arrow_options);
+garrow_execute_node_options_new_raw(arrow::acero::ExecNodeOptions *arrow_options);
 arrow::acero::ExecNodeOptions *
 garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options);
 
-
 GArrowExecuteNode *
-garrow_execute_node_new_raw(
-  arrow::acero::ExecNode* arrow_node,
-  GArrowExecuteNodeOptions *options);
+garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node,
+                            GArrowExecuteNodeOptions *options);
 arrow::acero::ExecNode *
 garrow_execute_node_get_raw(GArrowExecuteNode *node);
 
-
 std::shared_ptr<arrow::acero::ExecPlan>
 garrow_execute_plan_get_raw(GArrowExecutePlan *plan);
-
 
 GArrowCastOptions *
 garrow_cast_options_new_raw(const arrow::compute::CastOptions *arrow_options);
 arrow::compute::CastOptions *
 garrow_cast_options_get_raw(GArrowCastOptions *options);
 
-
 GArrowScalarAggregateOptions *
 garrow_scalar_aggregate_options_new_raw(
   const arrow::compute::ScalarAggregateOptions *arrow_options);
 arrow::compute::ScalarAggregateOptions *
-garrow_scalar_aggregate_options_get_raw(
-  GArrowScalarAggregateOptions *options);
-
+garrow_scalar_aggregate_options_get_raw(GArrowScalarAggregateOptions *options);
 
 GArrowCountOptions *
-garrow_count_options_new_raw(
-  const arrow::compute::CountOptions *arrow_options);
+garrow_count_options_new_raw(const arrow::compute::CountOptions *arrow_options);
 arrow::compute::CountOptions *
 garrow_count_options_get_raw(GArrowCountOptions *options);
 
-
 GArrowFilterOptions *
-garrow_filter_options_new_raw(
-  const arrow::compute::FilterOptions *arrow_options);
+garrow_filter_options_new_raw(const arrow::compute::FilterOptions *arrow_options);
 arrow::compute::FilterOptions *
 garrow_filter_options_get_raw(GArrowFilterOptions *options);
 
-
 GArrowTakeOptions *
-garrow_take_options_new_raw(
-  const arrow::compute::TakeOptions *arrow_options);
+garrow_take_options_new_raw(const arrow::compute::TakeOptions *arrow_options);
 arrow::compute::TakeOptions *
 garrow_take_options_get_raw(GArrowTakeOptions *options);
 
-
 GArrowArraySortOptions *
-garrow_array_sort_options_new_raw(
-  const arrow::compute::ArraySortOptions *arrow_options);
+garrow_array_sort_options_new_raw(const arrow::compute::ArraySortOptions *arrow_options);
 arrow::compute::ArraySortOptions *
 garrow_array_sort_options_get_raw(GArrowArraySortOptions *options);
-
 
 GArrowSortKey *
 garrow_sort_key_new_raw(const arrow::compute::SortKey &arrow_sort_key);
 arrow::compute::SortKey *
 garrow_sort_key_get_raw(GArrowSortKey *sort_key);
 
-
 GArrowSortOptions *
-garrow_sort_options_new_raw(
-  const arrow::compute::SortOptions *arrow_options);
+garrow_sort_options_new_raw(const arrow::compute::SortOptions *arrow_options);
 arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options);
 
-
 GArrowSetLookupOptions *
-garrow_set_lookup_options_new_raw(
-  const arrow::compute::SetLookupOptions *arrow_options);
+garrow_set_lookup_options_new_raw(const arrow::compute::SetLookupOptions *arrow_options);
 arrow::compute::SetLookupOptions *
 garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options);
 
-
 GArrowVarianceOptions *
-garrow_variance_options_new_raw(
-  const arrow::compute::VarianceOptions *arrow_options);
+garrow_variance_options_new_raw(const arrow::compute::VarianceOptions *arrow_options);
 arrow::compute::VarianceOptions *
 garrow_variance_options_get_raw(GArrowVarianceOptions *options);
 
-
 GArrowRoundOptions *
-garrow_round_options_new_raw(
-  const arrow::compute::RoundOptions *arrow_options);
+garrow_round_options_new_raw(const arrow::compute::RoundOptions *arrow_options);
 arrow::compute::RoundOptions *
 garrow_round_options_get_raw(GArrowRoundOptions *options);
-
 
 GArrowRoundToMultipleOptions *
 garrow_round_to_multiple_options_new_raw(
@@ -152,13 +121,11 @@ garrow_round_to_multiple_options_new_raw(
 arrow::compute::RoundToMultipleOptions *
 garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options);
 
-
 GArrowMatchSubstringOptions *
 garrow_match_substring_options_new_raw(
   const arrow::compute::MatchSubstringOptions *arrow_options);
 arrow::compute::MatchSubstringOptions *
 garrow_match_substring_options_get_raw(GArrowMatchSubstringOptions *options);
-
 
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new_raw(
@@ -166,26 +133,20 @@ garrow_utf8_normalize_options_new_raw(
 arrow::compute::Utf8NormalizeOptions *
 garrow_utf8_normalize_options_get_raw(GArrowUTF8NormalizeOptions *options);
 
-
 GArrowQuantileOptions *
-garrow_quantile_options_new_raw(
-  const arrow::compute::QuantileOptions *arrow_options);
+garrow_quantile_options_new_raw(const arrow::compute::QuantileOptions *arrow_options);
 arrow::compute::QuantileOptions *
 garrow_quantile_options_get_raw(GArrowQuantileOptions *options);
 
-
 GArrowIndexOptions *
-garrow_index_options_new_raw(
-  const arrow::compute::IndexOptions *arrow_options);
+garrow_index_options_new_raw(const arrow::compute::IndexOptions *arrow_options);
 arrow::compute::IndexOptions *
 garrow_index_options_get_raw(GArrowIndexOptions *options);
-
 
 GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
 arrow::compute::RankOptions *
 garrow_rank_options_get_raw(GArrowRankOptions *options);
-
 
 GArrowRunEndEncodeOptions *
 garrow_run_end_encode_options_new_raw(
@@ -194,14 +155,12 @@ arrow::compute::RunEndEncodeOptions *
 garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options);
 
 GArrowStrptimeOptions *
-garrow_strptime_options_new_raw(
-  const arrow::compute::StrptimeOptions *arrow_options);
+garrow_strptime_options_new_raw(const arrow::compute::StrptimeOptions *arrow_options);
 arrow::compute::StrptimeOptions *
 garrow_strptime_options_get_raw(GArrowStrptimeOptions *options);
 
 GArrowStrftimeOptions *
-garrow_strftime_options_new_raw(
-  const arrow::compute::StrftimeOptions *arrow_options);
+garrow_strftime_options_new_raw(const arrow::compute::StrftimeOptions *arrow_options);
 arrow::compute::StrftimeOptions *
 garrow_strftime_options_get_raw(GArrowStrftimeOptions *options);
 

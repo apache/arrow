@@ -37,33 +37,35 @@ struct _GArrowRecordBatchBuilderClass
   GObjectClass parent_class;
 };
 
-GArrowRecordBatchBuilder *garrow_record_batch_builder_new(GArrowSchema *schema,
-                                                          GError **error);
+GArrowRecordBatchBuilder *
+garrow_record_batch_builder_new(GArrowSchema *schema, GError **error);
 
-gint64 garrow_record_batch_builder_get_initial_capacity(GArrowRecordBatchBuilder *builder);
-void garrow_record_batch_builder_set_initial_capacity(GArrowRecordBatchBuilder *builder,
-                                                      gint64 capacity);
-GArrowSchema *garrow_record_batch_builder_get_schema(GArrowRecordBatchBuilder *builder);
+gint64
+garrow_record_batch_builder_get_initial_capacity(GArrowRecordBatchBuilder *builder);
+void
+garrow_record_batch_builder_set_initial_capacity(GArrowRecordBatchBuilder *builder,
+                                                 gint64 capacity);
+GArrowSchema *
+garrow_record_batch_builder_get_schema(GArrowRecordBatchBuilder *builder);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_13_FOR(garrow_record_batch_builder_get_n_columns)
-gint garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder);
+gint
+garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder);
 #endif
 GARROW_AVAILABLE_IN_0_13
 gint
 garrow_record_batch_builder_get_n_columns(GArrowRecordBatchBuilder *builder);
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_13_FOR(garrow_record_batch_builder_get_column_builder)
-GArrowArrayBuilder *garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
-                                                          gint i);
+GArrowArrayBuilder *
+garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder, gint i);
 #endif
 GARROW_AVAILABLE_IN_0_13
 GArrowArrayBuilder *
-garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder,
-                                               gint i);
+garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder, gint i);
 
-GArrowRecordBatch *garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder,
-                                                     GError **error);
-
+GArrowRecordBatch *
+garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder, GError **error);
 
 G_END_DECLS

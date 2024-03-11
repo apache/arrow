@@ -81,9 +81,7 @@ garrow_array_builder_append_values(VALUE *values,
       for (gint64 j = 0; j < n_values; ++j) {
         valid_bytes[j] = chunked_is_valids[j];
       }
-      auto status = append_function(values + offset,
-                                    n_values,
-                                    valid_bytes);
+      auto status = append_function(values + offset, n_values, valid_bytes);
       if (!garrow_error_check(error, status, context)) {
         return FALSE;
       }
@@ -174,8 +172,7 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
       if (value) {
         size_t data_size;
         auto raw_data = g_bytes_get_data(value, &data_size);
-        strings.push_back(std::string(static_cast<const char *>(raw_data),
-                                      data_size));
+        strings.push_back(std::string(static_cast<const char *>(raw_data), data_size));
         if (valid_bytes) {
           valid_bytes_buffer[j] = is_valids[offset + j];
         }
@@ -202,19 +199,17 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
 
 template <typename VALUE, typename GET_VALUE_FUNCTION>
 gboolean
-garrow_array_builder_append_values(
-  GArrowArrayBuilder *builder,
-  VALUE *values,
-  gint64 values_length,
-  const gboolean *is_valids,
-  gint64 is_valids_length,
-  GError **error,
-  const gchar *context,
-  GET_VALUE_FUNCTION get_value_function)
+garrow_array_builder_append_values(GArrowArrayBuilder *builder,
+                                   VALUE *values,
+                                   gint64 values_length,
+                                   const gboolean *is_valids,
+                                   gint64 is_valids_length,
+                                   GError **error,
+                                   const gchar *context,
+                                   GET_VALUE_FUNCTION get_value_function)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
-      garrow_array_builder_get_raw(builder));
+  auto arrow_builder = std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
+    garrow_array_builder_get_raw(builder));
   if (is_valids_length > 0 && values_length != is_valids_length) {
     g_set_error(error,
                 GARROW_ERROR,
@@ -260,9 +255,7 @@ garrow_array_builder_append_values(
         value = values[offset + j];
       }
       if (value) {
-        get_value_function(data + (value_size * j),
-                           value,
-                           value_size);
+        get_value_function(data + (value_size * j), value, value_size);
       } else {
         is_valid = false;
         if (!valid_bytes) {
@@ -347,7 +340,6 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
   }
   return TRUE;
 }
-
 
 G_BEGIN_DECLS
 
@@ -481,7 +473,8 @@ G_BEGIN_DECLS
  * #GArrowSparseUnionArray.
  */
 
-struct GArrowArrayBuilderPrivate {
+struct GArrowArrayBuilderPrivate
+{
   std::shared_ptr<arrow::ArrayBuilder> array_builder;
   GList *children;
 };
@@ -495,10 +488,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowArrayBuilder,
                                     garrow_array_builder,
                                     G_TYPE_OBJECT)
 
-#define GARROW_ARRAY_BUILDER_GET_PRIVATE(obj)         \
-  static_cast<GArrowArrayBuilderPrivate *>(           \
-     garrow_array_builder_get_instance_private(       \
-       GARROW_ARRAY_BUILDER(obj)))
+#define GARROW_ARRAY_BUILDER_GET_PRIVATE(obj)                                            \
+  static_cast<GArrowArrayBuilderPrivate *>(                                              \
+    garrow_array_builder_get_instance_private(GARROW_ARRAY_BUILDER(obj)))
 
 static void
 garrow_array_builder_finalize(GObject *object)
@@ -528,8 +520,7 @@ garrow_array_builder_set_property(GObject *object,
   switch (prop_id) {
   case PROP_ARRAY_BUILDER:
     priv->array_builder =
-      *static_cast<std::shared_ptr<arrow::ArrayBuilder> *>(
-        g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::ArrayBuilder> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -541,7 +532,7 @@ static void
 garrow_array_builder_init(GArrowArrayBuilder *builder)
 {
   auto priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(builder);
-  new(&priv->array_builder) std::shared_ptr<arrow::ArrayBuilder>;
+  new (&priv->array_builder) std::shared_ptr<arrow::ArrayBuilder>;
 }
 
 static void
@@ -549,16 +540,16 @@ garrow_array_builder_class_init(GArrowArrayBuilderClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_array_builder_finalize;
-  gobject_class->dispose      = garrow_array_builder_dispose;
+  gobject_class->finalize = garrow_array_builder_finalize;
+  gobject_class->dispose = garrow_array_builder_dispose;
   gobject_class->set_property = garrow_array_builder_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("array-builder",
-                              "Array builder",
-                              "The raw std::shared_ptr<arrow::ArrayBuilder>",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "array-builder",
+    "Array builder",
+    "The raw std::shared_ptr<arrow::ArrayBuilder>",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARRAY_BUILDER, spec);
 }
 
@@ -573,8 +564,7 @@ garrow_array_builder_new(const std::shared_ptr<arrow::DataType> &type,
   if (!garrow_error_check(error, status, context)) {
     return nullptr;
   }
-  std::shared_ptr<arrow::ArrayBuilder>
-    shared_arrow_builder(std::move(arrow_builder));
+  std::shared_ptr<arrow::ArrayBuilder> shared_arrow_builder(std::move(arrow_builder));
   return garrow_array_builder_new_raw(&shared_arrow_builder);
 }
 
@@ -700,8 +690,7 @@ garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder)
  * Since: 12.0.0
  */
 GArrowArrayBuilder *
-garrow_array_builder_get_child(GArrowArrayBuilder *builder,
-                               gint i)
+garrow_array_builder_get_child(GArrowArrayBuilder *builder, gint i)
 {
   auto children = garrow_array_builder_get_children(builder);
   auto child = g_list_nth_data(children, i);
@@ -745,9 +734,7 @@ garrow_array_builder_get_children(GArrowArrayBuilder *builder)
  * Since: 2.0.0
  */
 gboolean
-garrow_array_builder_resize(GArrowArrayBuilder *builder,
-                            gint64 capacity,
-                            GError **error)
+garrow_array_builder_resize(GArrowArrayBuilder *builder, gint64 capacity, GError **error)
 {
   auto arrow_builder = garrow_array_builder_get_raw(builder);
   auto status = arrow_builder->Resize(capacity);
@@ -784,8 +771,7 @@ garrow_array_builder_reserve(GArrowArrayBuilder *builder,
  * Since: 3.0.0
  */
 gboolean
-garrow_array_builder_append_null(GArrowArrayBuilder *builder,
-                                 GError **error)
+garrow_array_builder_append_null(GArrowArrayBuilder *builder, GError **error)
 {
   auto arrow_builder = garrow_array_builder_get_raw(builder);
   auto status = arrow_builder->AppendNull();
@@ -806,9 +792,7 @@ garrow_array_builder_append_null(GArrowArrayBuilder *builder,
  * Since: 3.0.0
  */
 gboolean
-garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
-                                  gint64 n,
-                                  GError **error)
+garrow_array_builder_append_nulls(GArrowArrayBuilder *builder, gint64 n, GError **error)
 {
   const gchar *context = "[array-builder][append-nulls]";
   if (n < 0) {
@@ -840,14 +824,11 @@ garrow_array_builder_append_nulls(GArrowArrayBuilder *builder,
  * Since: 3.0.0
  */
 gboolean
-garrow_array_builder_append_empty_value(GArrowArrayBuilder *builder,
-                                        GError **error)
+garrow_array_builder_append_empty_value(GArrowArrayBuilder *builder, GError **error)
 {
   auto arrow_builder = garrow_array_builder_get_raw(builder);
   auto status = arrow_builder->AppendEmptyValue();
-  return garrow_error_check(error,
-                            status,
-                            "[array-builder][append-empty-value]");
+  return garrow_error_check(error, status, "[array-builder][append-empty-value]");
 }
 
 /**
@@ -888,7 +869,6 @@ garrow_array_builder_append_empty_values(GArrowArrayBuilder *builder,
   return garrow_error_check(error, status, context);
 }
 
-
 G_DEFINE_TYPE(GArrowNullArrayBuilder,
               garrow_null_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -913,9 +893,8 @@ garrow_null_array_builder_class_init(GArrowNullArrayBuilderClass *klass)
 GArrowNullArrayBuilder *
 garrow_null_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::null(),
-                                          NULL,
-                                          "[null-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::null(), NULL, "[null-array-builder][new]");
   return GARROW_NULL_ARRAY_BUILDER(builder);
 }
 
@@ -932,8 +911,7 @@ garrow_null_array_builder_new(void)
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder,
-                                      GError **error)
+garrow_null_array_builder_append_null(GArrowNullArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -959,11 +937,8 @@ garrow_null_array_builder_append_nulls(GArrowNullArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowBooleanArrayBuilder,
               garrow_boolean_array_builder,
@@ -987,9 +962,8 @@ garrow_boolean_array_builder_class_init(GArrowBooleanArrayBuilderClass *klass)
 GArrowBooleanArrayBuilder *
 garrow_boolean_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::boolean(),
-                                          NULL,
-                                          "[boolean-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::boolean(), NULL, "[boolean-array-builder][new]");
   return GARROW_BOOLEAN_ARRAY_BUILDER(builder);
 }
 
@@ -1027,11 +1001,11 @@ garrow_boolean_array_builder_append_value(GArrowBooleanArrayBuilder *builder,
                                           gboolean value,
                                           GError **error)
 {
-  return garrow_array_builder_append_value<arrow::BooleanBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     static_cast<bool>(value),
-     error,
-     "[boolean-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::BooleanBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    static_cast<bool>(value),
+    error,
+    "[boolean-array-builder][append-value]");
 }
 
 /**
@@ -1065,14 +1039,14 @@ garrow_boolean_array_builder_append_values(GArrowBooleanArrayBuilder *builder,
   for (gint64 i = 0; i < values_length; ++i) {
     arrow_values[i] = values[i];
   }
-  return garrow_array_builder_append_values<arrow::BooleanBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     arrow_values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[boolean-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::BooleanBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    arrow_values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[boolean-array-builder][append-values]");
 }
 
 /**
@@ -1113,15 +1087,10 @@ garrow_boolean_array_builder_append_nulls(GArrowBooleanArrayBuilder *builder,
                                           gint64 n,
                                           GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
 
-
-G_DEFINE_TYPE(GArrowIntArrayBuilder,
-              garrow_int_array_builder,
-              GARROW_TYPE_ARRAY_BUILDER)
+G_DEFINE_TYPE(GArrowIntArrayBuilder, garrow_int_array_builder, GARROW_TYPE_ARRAY_BUILDER)
 
 static void
 garrow_int_array_builder_init(GArrowIntArrayBuilder *builder)
@@ -1144,11 +1113,10 @@ GArrowIntArrayBuilder *
 garrow_int_array_builder_new(void)
 {
   auto memory_pool = arrow::default_memory_pool();
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::ArrayBuilder>(
-      std::make_shared<arrow::AdaptiveIntBuilder>(memory_pool));
-  auto builder = garrow_array_builder_new_raw(&arrow_builder,
-                                              GARROW_TYPE_INT_ARRAY_BUILDER);
+  auto arrow_builder = std::static_pointer_cast<arrow::ArrayBuilder>(
+    std::make_shared<arrow::AdaptiveIntBuilder>(memory_pool));
+  auto builder =
+    garrow_array_builder_new_raw(&arrow_builder, GARROW_TYPE_INT_ARRAY_BUILDER);
   return GARROW_INT_ARRAY_BUILDER(builder);
 }
 
@@ -1188,11 +1156,11 @@ garrow_int_array_builder_append_value(GArrowIntArrayBuilder *builder,
                                       gint64 value,
                                       GError **error)
 {
-  return garrow_array_builder_append_value<arrow::AdaptiveIntBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[int-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::AdaptiveIntBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[int-array-builder][append-value]");
 }
 
 /**
@@ -1222,14 +1190,14 @@ garrow_int_array_builder_append_values(GArrowIntArrayBuilder *builder,
                                        gint64 is_valids_length,
                                        GError **error)
 {
-  return garrow_array_builder_append_values<arrow::AdaptiveIntBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[int-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::AdaptiveIntBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[int-array-builder][append-values]");
 }
 
 /**
@@ -1245,8 +1213,7 @@ garrow_int_array_builder_append_values(GArrowIntArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder,
-                                     GError **error)
+garrow_int_array_builder_append_null(GArrowIntArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -1272,11 +1239,8 @@ garrow_int_array_builder_append_nulls(GArrowIntArrayBuilder *builder,
                                       gint64 n,
                                       GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowUIntArrayBuilder,
               garrow_uint_array_builder,
@@ -1303,11 +1267,10 @@ GArrowUIntArrayBuilder *
 garrow_uint_array_builder_new(void)
 {
   auto memory_pool = arrow::default_memory_pool();
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::ArrayBuilder>(
-      std::make_shared<arrow::AdaptiveUIntBuilder>(memory_pool));
-  auto builder = garrow_array_builder_new_raw(&arrow_builder,
-                                              GARROW_TYPE_UINT_ARRAY_BUILDER);
+  auto arrow_builder = std::static_pointer_cast<arrow::ArrayBuilder>(
+    std::make_shared<arrow::AdaptiveUIntBuilder>(memory_pool));
+  auto builder =
+    garrow_array_builder_new_raw(&arrow_builder, GARROW_TYPE_UINT_ARRAY_BUILDER);
   return GARROW_UINT_ARRAY_BUILDER(builder);
 }
 
@@ -1347,11 +1310,11 @@ garrow_uint_array_builder_append_value(GArrowUIntArrayBuilder *builder,
                                        guint64 value,
                                        GError **error)
 {
-  return garrow_array_builder_append_value<arrow::AdaptiveUIntBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[uint-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::AdaptiveUIntBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[uint-array-builder][append-value]");
 }
 
 /**
@@ -1381,14 +1344,14 @@ garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
                                         gint64 is_valids_length,
                                         GError **error)
 {
-  return garrow_array_builder_append_values<arrow::AdaptiveUIntBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const uint64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[uint-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::AdaptiveUIntBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const uint64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[uint-array-builder][append-values]");
 }
 
 /**
@@ -1404,8 +1367,7 @@ garrow_uint_array_builder_append_values(GArrowUIntArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder,
-                                      GError **error)
+garrow_uint_array_builder_append_null(GArrowUIntArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -1431,11 +1393,8 @@ garrow_uint_array_builder_append_nulls(GArrowUIntArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowInt8ArrayBuilder,
               garrow_int8_array_builder,
@@ -1459,9 +1418,8 @@ garrow_int8_array_builder_class_init(GArrowInt8ArrayBuilderClass *klass)
 GArrowInt8ArrayBuilder *
 garrow_int8_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::int8(),
-                                          NULL,
-                                          "[int8-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::int8(), NULL, "[int8-array-builder][new]");
   return GARROW_INT8_ARRAY_BUILDER(builder);
 }
 
@@ -1499,11 +1457,11 @@ garrow_int8_array_builder_append_value(GArrowInt8ArrayBuilder *builder,
                                        gint8 value,
                                        GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Int8Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[int8-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Int8Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[int8-array-builder][append-value]");
 }
 
 /**
@@ -1533,14 +1491,14 @@ garrow_int8_array_builder_append_values(GArrowInt8ArrayBuilder *builder,
                                         gint64 is_valids_length,
                                         GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Int8Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[int8-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Int8Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[int8-array-builder][append-values]");
 }
 
 /**
@@ -1554,8 +1512,7 @@ garrow_int8_array_builder_append_values(GArrowInt8ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder,
-                                      GError **error)
+garrow_int8_array_builder_append_null(GArrowInt8ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -1581,11 +1538,8 @@ garrow_int8_array_builder_append_nulls(GArrowInt8ArrayBuilder *builder,
                                        gint64 n,
                                        GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowUInt8ArrayBuilder,
               garrow_uint8_array_builder,
@@ -1609,9 +1563,8 @@ garrow_uint8_array_builder_class_init(GArrowUInt8ArrayBuilderClass *klass)
 GArrowUInt8ArrayBuilder *
 garrow_uint8_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::uint8(),
-                                          NULL,
-                                          "[uint8-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::uint8(), NULL, "[uint8-array-builder][new]");
   return GARROW_UINT8_ARRAY_BUILDER(builder);
 }
 
@@ -1646,14 +1599,14 @@ garrow_uint8_array_builder_append(GArrowUInt8ArrayBuilder *builder,
  */
 gboolean
 garrow_uint8_array_builder_append_value(GArrowUInt8ArrayBuilder *builder,
-                                  guint8 value,
-                                  GError **error)
+                                        guint8 value,
+                                        GError **error)
 {
-  return garrow_array_builder_append_value<arrow::UInt8Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[uint8-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::UInt8Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[uint8-array-builder][append-value]");
 }
 
 /**
@@ -1683,14 +1636,14 @@ garrow_uint8_array_builder_append_values(GArrowUInt8ArrayBuilder *builder,
                                          gint64 is_valids_length,
                                          GError **error)
 {
-  return garrow_array_builder_append_values<arrow::UInt8Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[uint8-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::UInt8Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[uint8-array-builder][append-values]");
 }
 
 /**
@@ -1704,8 +1657,7 @@ garrow_uint8_array_builder_append_values(GArrowUInt8ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder,
-                                       GError **error)
+garrow_uint8_array_builder_append_null(GArrowUInt8ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -1731,11 +1683,8 @@ garrow_uint8_array_builder_append_nulls(GArrowUInt8ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowInt16ArrayBuilder,
               garrow_int16_array_builder,
@@ -1759,9 +1708,8 @@ garrow_int16_array_builder_class_init(GArrowInt16ArrayBuilderClass *klass)
 GArrowInt16ArrayBuilder *
 garrow_int16_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::int16(),
-                                          NULL,
-                                          "[int16-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::int16(), NULL, "[int16-array-builder][new]");
   return GARROW_INT16_ARRAY_BUILDER(builder);
 }
 
@@ -1799,11 +1747,11 @@ garrow_int16_array_builder_append_value(GArrowInt16ArrayBuilder *builder,
                                         gint16 value,
                                         GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Int16Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[int16-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Int16Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[int16-array-builder][append-value]");
 }
 
 /**
@@ -1833,14 +1781,14 @@ garrow_int16_array_builder_append_values(GArrowInt16ArrayBuilder *builder,
                                          gint64 is_valids_length,
                                          GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Int16Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[int16-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Int16Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[int16-array-builder][append-values]");
 }
 
 /**
@@ -1854,8 +1802,7 @@ garrow_int16_array_builder_append_values(GArrowInt16ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder,
-                                       GError **error)
+garrow_int16_array_builder_append_null(GArrowInt16ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -1881,11 +1828,8 @@ garrow_int16_array_builder_append_nulls(GArrowInt16ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowUInt16ArrayBuilder,
               garrow_uint16_array_builder,
@@ -1909,9 +1853,8 @@ garrow_uint16_array_builder_class_init(GArrowUInt16ArrayBuilderClass *klass)
 GArrowUInt16ArrayBuilder *
 garrow_uint16_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::uint16(),
-                                          NULL,
-                                          "[uint16-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::uint16(), NULL, "[uint16-array-builder][new]");
   return GARROW_UINT16_ARRAY_BUILDER(builder);
 }
 
@@ -1949,11 +1892,11 @@ garrow_uint16_array_builder_append_value(GArrowUInt16ArrayBuilder *builder,
                                          guint16 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::UInt16Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[uint16-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::UInt16Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[uint16-array-builder][append-value]");
 }
 
 /**
@@ -1983,14 +1926,14 @@ garrow_uint16_array_builder_append_values(GArrowUInt16ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::UInt16Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[uint16-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::UInt16Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[uint16-array-builder][append-values]");
 }
 
 /**
@@ -2004,8 +1947,7 @@ garrow_uint16_array_builder_append_values(GArrowUInt16ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder,
-                                        GError **error)
+garrow_uint16_array_builder_append_null(GArrowUInt16ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2031,11 +1973,8 @@ garrow_uint16_array_builder_append_nulls(GArrowUInt16ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowInt32ArrayBuilder,
               garrow_int32_array_builder,
@@ -2059,9 +1998,8 @@ garrow_int32_array_builder_class_init(GArrowInt32ArrayBuilderClass *klass)
 GArrowInt32ArrayBuilder *
 garrow_int32_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::int32(),
-                                          NULL,
-                                          "[int32-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::int32(), NULL, "[int32-array-builder][new]");
   return GARROW_INT32_ARRAY_BUILDER(builder);
 }
 
@@ -2099,11 +2037,11 @@ garrow_int32_array_builder_append_value(GArrowInt32ArrayBuilder *builder,
                                         gint32 value,
                                         GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Int32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[int32-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Int32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[int32-array-builder][append-value]");
 }
 
 /**
@@ -2133,14 +2071,14 @@ garrow_int32_array_builder_append_values(GArrowInt32ArrayBuilder *builder,
                                          gint64 is_valids_length,
                                          GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Int32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[int32-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Int32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[int32-array-builder][append-values]");
 }
 
 /**
@@ -2154,8 +2092,7 @@ garrow_int32_array_builder_append_values(GArrowInt32ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder,
-                                       GError **error)
+garrow_int32_array_builder_append_null(GArrowInt32ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2181,11 +2118,8 @@ garrow_int32_array_builder_append_nulls(GArrowInt32ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowUInt32ArrayBuilder,
               garrow_uint32_array_builder,
@@ -2209,9 +2143,8 @@ garrow_uint32_array_builder_class_init(GArrowUInt32ArrayBuilderClass *klass)
 GArrowUInt32ArrayBuilder *
 garrow_uint32_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::uint32(),
-                                          NULL,
-                                          "[uint32-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::uint32(), NULL, "[uint32-array-builder][new]");
   return GARROW_UINT32_ARRAY_BUILDER(builder);
 }
 
@@ -2249,11 +2182,11 @@ garrow_uint32_array_builder_append_value(GArrowUInt32ArrayBuilder *builder,
                                          guint32 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::UInt32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[uint32-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::UInt32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[uint32-array-builder][append-value]");
 }
 
 /**
@@ -2283,14 +2216,14 @@ garrow_uint32_array_builder_append_values(GArrowUInt32ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::UInt32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[uint32-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::UInt32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[uint32-array-builder][append-values]");
 }
 
 /**
@@ -2304,8 +2237,7 @@ garrow_uint32_array_builder_append_values(GArrowUInt32ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder,
-                                        GError **error)
+garrow_uint32_array_builder_append_null(GArrowUInt32ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2331,11 +2263,8 @@ garrow_uint32_array_builder_append_nulls(GArrowUInt32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowInt64ArrayBuilder,
               garrow_int64_array_builder,
@@ -2359,9 +2288,8 @@ garrow_int64_array_builder_class_init(GArrowInt64ArrayBuilderClass *klass)
 GArrowInt64ArrayBuilder *
 garrow_int64_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::int64(),
-                                          NULL,
-                                          "[int64-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::int64(), NULL, "[int64-array-builder][new]");
   return GARROW_INT64_ARRAY_BUILDER(builder);
 }
 
@@ -2399,11 +2327,11 @@ garrow_int64_array_builder_append_value(GArrowInt64ArrayBuilder *builder,
                                         gint64 value,
                                         GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Int64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[int64-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Int64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[int64-array-builder][append-value]");
 }
 
 /**
@@ -2433,14 +2361,14 @@ garrow_int64_array_builder_append_values(GArrowInt64ArrayBuilder *builder,
                                          gint64 is_valids_length,
                                          GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Int64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[int64-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Int64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[int64-array-builder][append-values]");
 }
 
 /**
@@ -2454,8 +2382,7 @@ garrow_int64_array_builder_append_values(GArrowInt64ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder,
-                                       GError **error)
+garrow_int64_array_builder_append_null(GArrowInt64ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2481,11 +2408,8 @@ garrow_int64_array_builder_append_nulls(GArrowInt64ArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowUInt64ArrayBuilder,
               garrow_uint64_array_builder,
@@ -2509,9 +2433,8 @@ garrow_uint64_array_builder_class_init(GArrowUInt64ArrayBuilderClass *klass)
 GArrowUInt64ArrayBuilder *
 garrow_uint64_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::uint64(),
-                                          NULL,
-                                          "[uint64-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::uint64(), NULL, "[uint64-array-builder][new]");
   return GARROW_UINT64_ARRAY_BUILDER(builder);
 }
 
@@ -2528,8 +2451,8 @@ garrow_uint64_array_builder_new(void)
  */
 gboolean
 garrow_uint64_array_builder_append(GArrowUInt64ArrayBuilder *builder,
-                                  guint64 value,
-                                  GError **error)
+                                   guint64 value,
+                                   GError **error)
 {
   return garrow_uint64_array_builder_append_value(builder, value, error);
 }
@@ -2549,11 +2472,11 @@ garrow_uint64_array_builder_append_value(GArrowUInt64ArrayBuilder *builder,
                                          guint64 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::UInt64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[uint64-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::UInt64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[uint64-array-builder][append-value]");
 }
 
 /**
@@ -2583,14 +2506,14 @@ garrow_uint64_array_builder_append_values(GArrowUInt64ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::UInt64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const uint64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[uint64-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::UInt64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const uint64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[uint64-array-builder][append-values]");
 }
 
 /**
@@ -2604,8 +2527,7 @@ garrow_uint64_array_builder_append_values(GArrowUInt64ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder,
-                                        GError **error)
+garrow_uint64_array_builder_append_null(GArrowUInt64ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2631,11 +2553,8 @@ garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowHalfFloatArrayBuilder,
               garrow_half_float_array_builder,
@@ -2647,8 +2566,7 @@ garrow_half_float_array_builder_init(GArrowHalfFloatArrayBuilder *builder)
 }
 
 static void
-garrow_half_float_array_builder_class_init(
-  GArrowHalfFloatArrayBuilderClass *klass)
+garrow_half_float_array_builder_class_init(GArrowHalfFloatArrayBuilderClass *klass)
 {
 }
 
@@ -2679,16 +2597,15 @@ garrow_half_float_array_builder_new(void)
  * Since: 11.0.0
  */
 gboolean
-garrow_half_float_array_builder_append_value(
-  GArrowHalfFloatArrayBuilder *builder,
-  guint16 value,
-  GError **error)
+garrow_half_float_array_builder_append_value(GArrowHalfFloatArrayBuilder *builder,
+                                             guint16 value,
+                                             GError **error)
 {
-  return garrow_array_builder_append_value<arrow::HalfFloatBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[half-float-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::HalfFloatBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[half-float-array-builder][append-value]");
 }
 
 /**
@@ -2711,24 +2628,22 @@ garrow_half_float_array_builder_append_value(
  * Since: 11.0.0
  */
 gboolean
-garrow_half_float_array_builder_append_values(
-  GArrowHalfFloatArrayBuilder *builder,
-  const guint16 *values,
-  gint64 values_length,
-  const gboolean *is_valids,
-  gint64 is_valids_length,
-  GError **error)
+garrow_half_float_array_builder_append_values(GArrowHalfFloatArrayBuilder *builder,
+                                              const guint16 *values,
+                                              gint64 values_length,
+                                              const gboolean *is_valids,
+                                              gint64 is_valids_length,
+                                              GError **error)
 {
-  return garrow_array_builder_append_values<arrow::HalfFloatBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[half-float-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::HalfFloatBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[half-float-array-builder][append-values]");
 }
-
 
 G_DEFINE_TYPE(GArrowFloatArrayBuilder,
               garrow_float_array_builder,
@@ -2752,9 +2667,8 @@ garrow_float_array_builder_class_init(GArrowFloatArrayBuilderClass *klass)
 GArrowFloatArrayBuilder *
 garrow_float_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::float32(),
-                                          NULL,
-                                          "[float-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::float32(), NULL, "[float-array-builder][new]");
   return GARROW_FLOAT_ARRAY_BUILDER(builder);
 }
 
@@ -2792,11 +2706,11 @@ garrow_float_array_builder_append_value(GArrowFloatArrayBuilder *builder,
                                         gfloat value,
                                         GError **error)
 {
-  return garrow_array_builder_append_value<arrow::FloatBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[float-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::FloatBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[float-array-builder][append-value]");
 }
 
 /**
@@ -2826,14 +2740,14 @@ garrow_float_array_builder_append_values(GArrowFloatArrayBuilder *builder,
                                          gint64 is_valids_length,
                                          GError **error)
 {
-  return garrow_array_builder_append_values<arrow::FloatBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[float-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::FloatBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[float-array-builder][append-values]");
 }
 
 /**
@@ -2847,8 +2761,7 @@ garrow_float_array_builder_append_values(GArrowFloatArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder,
-                                       GError **error)
+garrow_float_array_builder_append_null(GArrowFloatArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -2874,11 +2787,8 @@ garrow_float_array_builder_append_nulls(GArrowFloatArrayBuilder *builder,
                                         gint64 n,
                                         GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowDoubleArrayBuilder,
               garrow_double_array_builder,
@@ -2902,9 +2812,8 @@ garrow_double_array_builder_class_init(GArrowDoubleArrayBuilderClass *klass)
 GArrowDoubleArrayBuilder *
 garrow_double_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::float64(),
-                                          NULL,
-                                          "[double-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::float64(), NULL, "[double-array-builder][new]");
   return GARROW_DOUBLE_ARRAY_BUILDER(builder);
 }
 
@@ -2942,11 +2851,11 @@ garrow_double_array_builder_append_value(GArrowDoubleArrayBuilder *builder,
                                          gdouble value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::DoubleBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[double-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::DoubleBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[double-array-builder][append-value]");
 }
 
 /**
@@ -2976,14 +2885,14 @@ garrow_double_array_builder_append_values(GArrowDoubleArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::DoubleBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[double-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::DoubleBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[double-array-builder][append-values]");
 }
 
 /**
@@ -2997,8 +2906,7 @@ garrow_double_array_builder_append_values(GArrowDoubleArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder,
-                                        GError **error)
+garrow_double_array_builder_append_null(GArrowDoubleArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -3024,11 +2932,8 @@ garrow_double_array_builder_append_nulls(GArrowDoubleArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowBinaryArrayBuilder,
               garrow_binary_array_builder,
@@ -3052,9 +2957,8 @@ garrow_binary_array_builder_class_init(GArrowBinaryArrayBuilderClass *klass)
 GArrowBinaryArrayBuilder *
 garrow_binary_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::binary(),
-                                          NULL,
-                                          "[binary-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::binary(), NULL, "[binary-array-builder][new]");
   return GARROW_BINARY_ARRAY_BUILDER(builder);
 }
 
@@ -3096,13 +3000,10 @@ garrow_binary_array_builder_append_value(GArrowBinaryArrayBuilder *builder,
                                          gint32 length,
                                          GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append(value, length);
-  return garrow_error_check(error,
-                            status,
-                            "[binary-array-builder][append-value]");
+  return garrow_error_check(error, status, "[binary-array-builder][append-value]");
 }
 
 /**
@@ -3120,16 +3021,12 @@ garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder
                                                GBytes *value,
                                                GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   gsize size;
   auto data = g_bytes_get_data(value, &size);
-  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
-                                      size);
-  return garrow_error_check(error,
-                            status,
-                            "[binary-array-builder][append-value-bytes]");
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data), size);
+  return garrow_error_check(error, status, "[binary-array-builder][append-value-bytes]");
 }
 
 /**
@@ -3159,14 +3056,14 @@ garrow_binary_array_builder_append_values(GArrowBinaryArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::BinaryBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[binary-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::BinaryBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[binary-array-builder][append-values]");
 }
 
 /**
@@ -3180,8 +3077,7 @@ garrow_binary_array_builder_append_values(GArrowBinaryArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder,
-                                        GError **error)
+garrow_binary_array_builder_append_null(GArrowBinaryArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -3204,11 +3100,8 @@ garrow_binary_array_builder_append_nulls(GArrowBinaryArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowLargeBinaryArrayBuilder,
               garrow_large_binary_array_builder,
@@ -3257,13 +3150,10 @@ garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBuilder *bu
                                                gint64 length,
                                                GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::LargeBinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::LargeBinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append(value, length);
-  return garrow_error_check(error,
-                            status,
-                            "[large-binary-array-builder][append-value]");
+  return garrow_error_check(error, status, "[large-binary-array-builder][append-value]");
 }
 
 /**
@@ -3277,17 +3167,14 @@ garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBuilder *bu
  * Since: 0.16.0
  */
 gboolean
-garrow_large_binary_array_builder_append_value_bytes(GArrowLargeBinaryArrayBuilder *builder,
-                                                     GBytes *value,
-                                                     GError **error)
+garrow_large_binary_array_builder_append_value_bytes(
+  GArrowLargeBinaryArrayBuilder *builder, GBytes *value, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::LargeBinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::LargeBinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   gsize size;
   gconstpointer data = g_bytes_get_data(value, &size);
-  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
-                                      size);
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data), size);
   return garrow_error_check(error,
                             status,
                             "[large-binary-array-builder][append-value-bytes]");
@@ -3320,14 +3207,14 @@ garrow_large_binary_array_builder_append_values(GArrowLargeBinaryArrayBuilder *b
                                                 gint64 is_valids_length,
                                                 GError **error)
 {
-  return garrow_array_builder_append_values<arrow::LargeBinaryBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[large-binary-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::LargeBinaryBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[large-binary-array-builder][append-values]");
 }
 
 /**
@@ -3367,11 +3254,8 @@ garrow_large_binary_array_builder_append_nulls(GArrowLargeBinaryArrayBuilder *bu
                                                gint64 n,
                                                GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowStringArrayBuilder,
               garrow_string_array_builder,
@@ -3395,9 +3279,8 @@ garrow_string_array_builder_class_init(GArrowStringArrayBuilderClass *klass)
 GArrowStringArrayBuilder *
 garrow_string_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::utf8(),
-                                          NULL,
-                                          "[string-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::utf8(), NULL, "[string-array-builder][new]");
   return GARROW_STRING_ARRAY_BUILDER(builder);
 }
 
@@ -3456,11 +3339,10 @@ garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
                                           const gchar *value,
                                           GError **error)
 {
-  return garrow_string_array_builder_append_string_len(
-    builder,
-    value,
-    static_cast<gint32>(strlen(value)),
-    error);
+  return garrow_string_array_builder_append_string_len(builder,
+                                                       value,
+                                                       static_cast<gint32>(strlen(value)),
+                                                       error);
 }
 
 /**
@@ -3480,13 +3362,10 @@ garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
                                               gint32 length,
                                               GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append(value, length);
-  return garrow_error_check(error,
-                            status,
-                            "[string-array-builder][append-string]");
+  return garrow_error_check(error, status, "[string-array-builder][append-string]");
 }
 
 /**
@@ -3554,16 +3433,15 @@ garrow_string_array_builder_append_strings(GArrowStringArrayBuilder *builder,
                                            gint64 is_valids_length,
                                            GError **error)
 {
-  return garrow_array_builder_append_values<arrow::StringBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[string-array-builder][append-strings]");
+  return garrow_array_builder_append_values<arrow::StringBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[string-array-builder][append-strings]");
 }
-
 
 G_DEFINE_TYPE(GArrowLargeStringArrayBuilder,
               garrow_large_string_array_builder,
@@ -3628,15 +3506,15 @@ garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *b
  *
  * Since: 8.0.0
  */
-gboolean garrow_large_string_array_builder_append_string_len(
+gboolean
+garrow_large_string_array_builder_append_string_len(
   GArrowLargeStringArrayBuilder *builder,
   const gchar *value,
   gint64 length,
   GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::LargeStringBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::LargeStringBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append(value, length);
   return garrow_error_check(error,
                             status,
@@ -3670,24 +3548,22 @@ garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *
                                                  gint64 is_valids_length,
                                                  GError **error)
 {
-  return garrow_array_builder_append_values<arrow::LargeStringBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[large-string-array-builder][append-strings]");
+  return garrow_array_builder_append_values<arrow::LargeStringBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[large-string-array-builder][append-strings]");
 }
-
 
 G_DEFINE_TYPE(GArrowFixedSizeBinaryArrayBuilder,
               garrow_fixed_size_binary_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_fixed_size_binary_array_builder_init(
-  GArrowFixedSizeBinaryArrayBuilder *builder)
+garrow_fixed_size_binary_array_builder_init(GArrowFixedSizeBinaryArrayBuilder *builder)
 {
 }
 
@@ -3704,14 +3580,12 @@ garrow_fixed_size_binary_array_builder_class_init(
  * Returns: A newly created #GArrowFixedSizeBinaryArrayBuilder.
  */
 GArrowFixedSizeBinaryArrayBuilder *
-garrow_fixed_size_binary_array_builder_new(
-  GArrowFixedSizeBinaryDataType *data_type)
+garrow_fixed_size_binary_array_builder_new(GArrowFixedSizeBinaryDataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder =
-    garrow_array_builder_new(arrow_data_type,
-                             NULL,
-                             "[fixed-size-binary-array-builder][new]");
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          NULL,
+                                          "[fixed-size-binary-array-builder][new]");
   return GARROW_FIXED_SIZE_BINARY_ARRAY_BUILDER(builder);
 }
 
@@ -3734,9 +3608,8 @@ garrow_fixed_size_binary_array_builder_append_value(
   GError **error)
 {
   const gchar *context = "[fixed-size-binary-array-builder][append-value]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   arrow::Status status;
   if (value) {
     if (arrow_builder->byte_width() != length) {
@@ -3768,14 +3641,11 @@ garrow_fixed_size_binary_array_builder_append_value(
  */
 gboolean
 garrow_fixed_size_binary_array_builder_append_value_bytes(
-  GArrowFixedSizeBinaryArrayBuilder *builder,
-  GBytes *value,
-  GError **error)
+  GArrowFixedSizeBinaryArrayBuilder *builder, GBytes *value, GError **error)
 {
   const gchar *context = "[fixed-size-binary-array-builder][append-value-bytes]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::FixedSizeBinaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   gsize size;
   auto data = g_bytes_get_data(value, &size);
@@ -3865,15 +3735,14 @@ garrow_fixed_size_binary_array_builder_append_values_packed(
   gint64 is_valids_length,
   GError **error)
 {
-  return garrow_array_builder_append_values<arrow::FixedSizeBinaryBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     is_valids,
-     is_valids_length,
-     error,
-     "[fixed-size-binary-array-builder][append-values-packed]");
+  return garrow_array_builder_append_values<arrow::FixedSizeBinaryBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    is_valids,
+    is_valids_length,
+    error,
+    "[fixed-size-binary-array-builder][append-values-packed]");
 }
-
 
 G_DEFINE_TYPE(GArrowDate32ArrayBuilder,
               garrow_date32_array_builder,
@@ -3899,9 +3768,8 @@ garrow_date32_array_builder_class_init(GArrowDate32ArrayBuilderClass *klass)
 GArrowDate32ArrayBuilder *
 garrow_date32_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::date32(),
-                                          NULL,
-                                          "[date32-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::date32(), NULL, "[date32-array-builder][new]");
   return GARROW_DATE32_ARRAY_BUILDER(builder);
 }
 
@@ -3941,11 +3809,11 @@ garrow_date32_array_builder_append_value(GArrowDate32ArrayBuilder *builder,
                                          gint32 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Date32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[date32-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Date32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[date32-array-builder][append-value]");
 }
 
 /**
@@ -3976,14 +3844,14 @@ garrow_date32_array_builder_append_values(GArrowDate32ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Date32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[date32-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Date32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[date32-array-builder][append-values]");
 }
 
 /**
@@ -3999,8 +3867,7 @@ garrow_date32_array_builder_append_values(GArrowDate32ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder,
-                                        GError **error)
+garrow_date32_array_builder_append_null(GArrowDate32ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -4026,11 +3893,8 @@ garrow_date32_array_builder_append_nulls(GArrowDate32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowDate64ArrayBuilder,
               garrow_date64_array_builder,
@@ -4056,9 +3920,8 @@ garrow_date64_array_builder_class_init(GArrowDate64ArrayBuilderClass *klass)
 GArrowDate64ArrayBuilder *
 garrow_date64_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::date64(),
-                                          NULL,
-                                          "[date64-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::date64(), NULL, "[date64-array-builder][new]");
   return GARROW_DATE64_ARRAY_BUILDER(builder);
 }
 
@@ -4098,11 +3961,11 @@ garrow_date64_array_builder_append_value(GArrowDate64ArrayBuilder *builder,
                                          gint64 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Date64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[date64-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Date64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[date64-array-builder][append-value]");
 }
 
 /**
@@ -4133,14 +3996,14 @@ garrow_date64_array_builder_append_values(GArrowDate64ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Date64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[date64-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Date64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[date64-array-builder][append-values]");
 }
 
 /**
@@ -4156,8 +4019,7 @@ garrow_date64_array_builder_append_values(GArrowDate64ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder,
-                                        GError **error)
+garrow_date64_array_builder_append_null(GArrowDate64ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -4183,11 +4045,8 @@ garrow_date64_array_builder_append_nulls(GArrowDate64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowTimestampArrayBuilder,
               garrow_timestamp_array_builder,
@@ -4215,9 +4074,8 @@ GArrowTimestampArrayBuilder *
 garrow_timestamp_array_builder_new(GArrowTimestampDataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          NULL,
-                                          "[timestamp-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[timestamp-array-builder][new]");
   return GARROW_TIMESTAMP_ARRAY_BUILDER(builder);
 }
 
@@ -4257,11 +4115,11 @@ garrow_timestamp_array_builder_append_value(GArrowTimestampArrayBuilder *builder
                                             gint64 value,
                                             GError **error)
 {
-  return garrow_array_builder_append_value<arrow::TimestampBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[timestamp-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::TimestampBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[timestamp-array-builder][append-value]");
 }
 
 /**
@@ -4292,14 +4150,14 @@ garrow_timestamp_array_builder_append_values(GArrowTimestampArrayBuilder *builde
                                              gint64 is_valids_length,
                                              GError **error)
 {
-  return garrow_array_builder_append_values<arrow::TimestampBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[timestamp-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::TimestampBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[timestamp-array-builder][append-values]");
 }
 
 /**
@@ -4342,11 +4200,8 @@ garrow_timestamp_array_builder_append_nulls(GArrowTimestampArrayBuilder *builder
                                             gint64 n,
                                             GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowTime32ArrayBuilder,
               garrow_time32_array_builder,
@@ -4374,9 +4229,8 @@ GArrowTime32ArrayBuilder *
 garrow_time32_array_builder_new(GArrowTime32DataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          NULL,
-                                          "[time32-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[time32-array-builder][new]");
   return GARROW_TIME32_ARRAY_BUILDER(builder);
 }
 
@@ -4416,11 +4270,11 @@ garrow_time32_array_builder_append_value(GArrowTime32ArrayBuilder *builder,
                                          gint32 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Time32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[time32-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Time32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[time32-array-builder][append-value]");
 }
 
 /**
@@ -4451,14 +4305,14 @@ garrow_time32_array_builder_append_values(GArrowTime32ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Time32Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[time32-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Time32Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[time32-array-builder][append-values]");
 }
 
 /**
@@ -4474,8 +4328,7 @@ garrow_time32_array_builder_append_values(GArrowTime32ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder,
-                                        GError **error)
+garrow_time32_array_builder_append_null(GArrowTime32ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -4501,11 +4354,8 @@ garrow_time32_array_builder_append_nulls(GArrowTime32ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowTime64ArrayBuilder,
               garrow_time64_array_builder,
@@ -4533,9 +4383,8 @@ GArrowTime64ArrayBuilder *
 garrow_time64_array_builder_new(GArrowTime64DataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          NULL,
-                                          "[time64-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[time64-array-builder][new]");
   return GARROW_TIME64_ARRAY_BUILDER(builder);
 }
 
@@ -4575,11 +4424,11 @@ garrow_time64_array_builder_append_value(GArrowTime64ArrayBuilder *builder,
                                          gint64 value,
                                          GError **error)
 {
-  return garrow_array_builder_append_value<arrow::Time64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[time64-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::Time64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[time64-array-builder][append-value]");
 }
 
 /**
@@ -4610,14 +4459,14 @@ garrow_time64_array_builder_append_values(GArrowTime64ArrayBuilder *builder,
                                           gint64 is_valids_length,
                                           GError **error)
 {
-  return garrow_array_builder_append_values<arrow::Time64Builder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int64_t *>(values),
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[time64-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::Time64Builder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[time64-array-builder][append-values]");
 }
 
 /**
@@ -4633,8 +4482,7 @@ garrow_time64_array_builder_append_values(GArrowTime64ArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder,
-                                        GError **error)
+garrow_time64_array_builder_append_null(GArrowTime64ArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -4660,19 +4508,15 @@ garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
                                          gint64 n,
                                          GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
-
 
 G_DEFINE_TYPE(GArrowMonthIntervalArrayBuilder,
               garrow_month_interval_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_month_interval_array_builder_init(
-  GArrowMonthIntervalArrayBuilder *builder)
+garrow_month_interval_array_builder_init(GArrowMonthIntervalArrayBuilder *builder)
 {
 }
 
@@ -4709,16 +4553,15 @@ garrow_month_interval_array_builder_new(void)
  * Since: 8.0.0
  */
 gboolean
-garrow_month_interval_array_builder_append_value(
-  GArrowMonthIntervalArrayBuilder *builder,
-  gint32 value,
-  GError **error)
+garrow_month_interval_array_builder_append_value(GArrowMonthIntervalArrayBuilder *builder,
+                                                 gint32 value,
+                                                 GError **error)
 {
-  return garrow_array_builder_append_value<arrow::MonthIntervalBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     value,
-     error,
-     "[month-interval-array-builder][append-value]");
+  return garrow_array_builder_append_value<arrow::MonthIntervalBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[month-interval-array-builder][append-value]");
 }
 
 /**
@@ -4749,24 +4592,22 @@ garrow_month_interval_array_builder_append_values(
   gint64 is_valids_length,
   GError **error)
 {
-  return garrow_array_builder_append_values<arrow::MonthIntervalBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     values,
-     values_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[month-interval-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::MonthIntervalBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[month-interval-array-builder][append-values]");
 }
-
 
 G_DEFINE_TYPE(GArrowDayTimeIntervalArrayBuilder,
               garrow_day_time_interval_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_day_time_interval_array_builder_init(
-  GArrowDayTimeIntervalArrayBuilder *builder)
+garrow_day_time_interval_array_builder_init(GArrowDayTimeIntervalArrayBuilder *builder)
 {
 }
 
@@ -4804,20 +4645,17 @@ garrow_day_time_interval_array_builder_new(void)
  */
 gboolean
 garrow_day_time_interval_array_builder_append_value(
-  GArrowDayTimeIntervalArrayBuilder *builder,
-  GArrowDayMillisecond *value,
-  GError **error)
+  GArrowDayTimeIntervalArrayBuilder *builder, GArrowDayMillisecond *value, GError **error)
 {
   if (value) {
     auto arrow_day_millisecond = garrow_day_millisecond_get_raw(value);
-    return garrow_array_builder_append_value<arrow::DayTimeIntervalBuilder>
-      (GARROW_ARRAY_BUILDER(builder),
-       *arrow_day_millisecond,
-       error,
-       "[day-time-interval-array-builder][append-value]");
+    return garrow_array_builder_append_value<arrow::DayTimeIntervalBuilder>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_day_millisecond,
+      error,
+      "[day-time-interval-array-builder][append-value]");
   } else {
-    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
-                                            error);
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
   }
 }
 
@@ -4849,9 +4687,8 @@ garrow_day_time_interval_array_builder_append_values(
   gint64 is_valids_length,
   GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::DayTimeIntervalBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::DayTimeIntervalBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   return garrow_array_builder_append_values(
     values,
@@ -4880,7 +4717,6 @@ garrow_day_time_interval_array_builder_append_values(
     });
 }
 
-
 G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArrayBuilder,
               garrow_month_day_nano_interval_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -4907,10 +4743,9 @@ garrow_month_day_nano_interval_array_builder_class_init(
 GArrowMonthDayNanoIntervalArrayBuilder *
 garrow_month_day_nano_interval_array_builder_new(void)
 {
-  auto builder =
-    garrow_array_builder_new(arrow::month_day_nano_interval(),
-                             NULL,
-                             "[month-day-nano-interval-array-builder][new]");
+  auto builder = garrow_array_builder_new(arrow::month_day_nano_interval(),
+                                          NULL,
+                                          "[month-day-nano-interval-array-builder][new]");
   return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER(builder);
 }
 
@@ -4938,8 +4773,7 @@ garrow_month_day_nano_interval_array_builder_append_value(
       error,
       "[month-day-nano-interval-array-builder][append-value]");
   } else {
-    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
-                                            error);
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
   }
 }
 
@@ -4971,9 +4805,8 @@ garrow_month_day_nano_interval_array_builder_append_values(
   gint64 is_valids_length,
   GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::MonthDayNanoIntervalBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::MonthDayNanoIntervalBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   return garrow_array_builder_append_values(
     values,
@@ -5002,7 +4835,6 @@ garrow_month_day_nano_interval_array_builder_append_values(
     });
 }
 
-
 G_DEFINE_TYPE(GArrowBinaryDictionaryArrayBuilder,
               garrow_binary_dictionary_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -5013,10 +4845,10 @@ garrow_binary_dictionary_array_builder_init(GArrowBinaryDictionaryArrayBuilder *
 }
 
 static void
-garrow_binary_dictionary_array_builder_class_init(GArrowBinaryDictionaryArrayBuilderClass *klass)
+garrow_binary_dictionary_array_builder_class_init(
+  GArrowBinaryDictionaryArrayBuilderClass *klass)
 {
 }
-
 
 /**
  * garrow_binary_dictionary_array_builder_new:
@@ -5029,7 +4861,8 @@ GArrowBinaryDictionaryArrayBuilder *
 garrow_binary_dictionary_array_builder_new(void)
 {
   // We can use arrow:int8() for the index type of the following arrow_dict_type
-  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  // because arrow::MakeBuilder creates a dictionary builder with
+  // arrow::AdaptiveIntBuilder.
   auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::binary());
   auto builder = garrow_array_builder_new(arrow_dict_type,
                                           nullptr,
@@ -5050,8 +4883,8 @@ garrow_binary_dictionary_array_builder_new(void)
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                   GError **error)
+garrow_binary_dictionary_array_builder_append_null(
+  GArrowBinaryDictionaryArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -5068,14 +4901,14 @@ garrow_binary_dictionary_array_builder_append_null(GArrowBinaryDictionaryArrayBu
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_value(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                    const guint8 *value,
-                                                    gint32 length,
-                                                    GError **error)
+garrow_binary_dictionary_array_builder_append_value(
+  GArrowBinaryDictionaryArrayBuilder *builder,
+  const guint8 *value,
+  gint32 length,
+  GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append(value, length);
   return garrow_error_check(error,
                             status,
@@ -5093,17 +4926,14 @@ garrow_binary_dictionary_array_builder_append_value(GArrowBinaryDictionaryArrayB
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                          GBytes *value,
-                                                          GError **error)
+garrow_binary_dictionary_array_builder_append_value_bytes(
+  GArrowBinaryDictionaryArrayBuilder *builder, GBytes *value, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   gsize size;
   auto data = g_bytes_get_data(value, &size);
-  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
-                                      size);
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data), size);
   return garrow_error_check(error,
                             status,
                             "[binary-dictionary-array-builder][append-value-bytes]");
@@ -5120,13 +4950,11 @@ garrow_binary_dictionary_array_builder_append_value_bytes(GArrowBinaryDictionary
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                    GArrowBinaryArray *array,
-                                                    GError **error)
+garrow_binary_dictionary_array_builder_append_array(
+  GArrowBinaryDictionaryArrayBuilder *builder, GArrowBinaryArray *array, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto arrow_array = garrow_array_get_raw<arrow::BinaryType>(GARROW_ARRAY(array));
   auto status = arrow_builder->AppendArray(*arrow_array);
   return garrow_error_check(error,
@@ -5153,25 +4981,28 @@ garrow_binary_dictionary_array_builder_append_array(GArrowBinaryDictionaryArrayB
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                      const gint64 *values,
-                                                      gint64 values_length,
-                                                      const gboolean *is_valids,
-                                                      gint64 is_valids_length,
-                                                      GError **error)
+garrow_binary_dictionary_array_builder_append_indices(
+  GArrowBinaryDictionaryArrayBuilder *builder,
+  const gint64 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
 {
   static const char *context = "[binary-dictionary-array-builder][append-indices]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-  auto append_function = [&arrow_builder](
-      const gint64 *values,
-      gint64 values_length,
-      const uint8_t *valid_bytes) -> arrow::Status {
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto append_function = [&arrow_builder](const gint64 *values,
+                                          gint64 values_length,
+                                          const uint8_t *valid_bytes) -> arrow::Status {
     return arrow_builder->AppendIndices(values, values_length, valid_bytes);
   };
-  return garrow_array_builder_append_values(values, values_length, is_valids,
-                                            is_valids_length, error, context,
+  return garrow_array_builder_append_values(values,
+                                            values_length,
+                                            is_valids,
+                                            is_valids_length,
+                                            error,
+                                            context,
                                             append_function);
 }
 
@@ -5183,11 +5014,12 @@ garrow_binary_dictionary_array_builder_append_indices(GArrowBinaryDictionaryArra
  *
  * Since: 2.0.0
  */
-gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinaryDictionaryArrayBuilder *builder)
+gint64
+garrow_binary_dictionary_array_builder_get_dictionary_length(
+  GArrowBinaryDictionaryArrayBuilder *builder)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   return arrow_builder->dictionary_length();
 }
 
@@ -5203,15 +5035,15 @@ gint64 garrow_binary_dictionary_array_builder_get_dictionary_length(GArrowBinary
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayBuilder* builder,
-                                                    GArrowArray **out_indices,
-                                                    GArrowArray **out_delta,
-                                                    GError **error)
+garrow_binary_dictionary_array_builder_finish_delta(
+  GArrowBinaryDictionaryArrayBuilder *builder,
+  GArrowArray **out_indices,
+  GArrowArray **out_delta,
+  GError **error)
 {
   static const char *context = "[binary-dictionary-array-builder][finish-delta]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
   auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
   if (!garrow_error_check(error, status, context)) {
@@ -5233,13 +5065,11 @@ garrow_binary_dictionary_array_builder_finish_delta(GArrowBinaryDictionaryArrayB
  * Since: 2.0.0
  */
 gboolean
-garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionaryArrayBuilder *builder,
-                                                          GArrowBinaryArray *values,
-                                                          GError **error)
+garrow_binary_dictionary_array_builder_insert_memo_values(
+  GArrowBinaryDictionaryArrayBuilder *builder, GArrowBinaryArray *values, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto arrow_array = garrow_array_get_raw<arrow::BinaryType>(GARROW_ARRAY(values));
   auto status = arrow_builder->InsertMemoValues(*arrow_array);
   return garrow_error_check(error,
@@ -5256,14 +5086,13 @@ garrow_binary_dictionary_array_builder_insert_memo_values(GArrowBinaryDictionary
  * Since: 2.0.0
  */
 void
-garrow_binary_dictionary_array_builder_reset_full(GArrowBinaryDictionaryArrayBuilder *builder)
+garrow_binary_dictionary_array_builder_reset_full(
+  GArrowBinaryDictionaryArrayBuilder *builder)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BinaryDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   arrow_builder->ResetFull();
 }
-
 
 G_DEFINE_TYPE(GArrowStringDictionaryArrayBuilder,
               garrow_string_dictionary_array_builder,
@@ -5275,10 +5104,10 @@ garrow_string_dictionary_array_builder_init(GArrowStringDictionaryArrayBuilder *
 }
 
 static void
-garrow_string_dictionary_array_builder_class_init(GArrowStringDictionaryArrayBuilderClass *klass)
+garrow_string_dictionary_array_builder_class_init(
+  GArrowStringDictionaryArrayBuilderClass *klass)
 {
 }
-
 
 /**
  * garrow_string_dictionary_array_builder_new:
@@ -5291,7 +5120,8 @@ GArrowStringDictionaryArrayBuilder *
 garrow_string_dictionary_array_builder_new(void)
 {
   // We can use arrow:int8() for the index type of the following arrow_dict_type
-  // because arrow::MakeBuilder creates a dictionary builder with arrow::AdaptiveIntBuilder.
+  // because arrow::MakeBuilder creates a dictionary builder with
+  // arrow::AdaptiveIntBuilder.
   auto arrow_dict_type = arrow::dictionary(arrow::int8(), arrow::utf8());
   auto builder = garrow_array_builder_new(arrow_dict_type,
                                           nullptr,
@@ -5312,8 +5142,8 @@ garrow_string_dictionary_array_builder_new(void)
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBuilder *builder,
-                                                   GError **error)
+garrow_string_dictionary_array_builder_append_null(
+  GArrowStringDictionaryArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -5329,15 +5159,12 @@ garrow_string_dictionary_array_builder_append_null(GArrowStringDictionaryArrayBu
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArrayBuilder *builder,
-                                                     const gchar *value,
-                                                     GError **error)
+garrow_string_dictionary_array_builder_append_string(
+  GArrowStringDictionaryArrayBuilder *builder, const gchar *value, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-  auto status = arrow_builder->Append(value,
-                                      static_cast<guint32>(strlen(value)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto status = arrow_builder->Append(value, static_cast<guint32>(strlen(value)));
   return garrow_error_check(error,
                             status,
                             "[string-dictionary-array-builder][append-string]");
@@ -5354,13 +5181,11 @@ garrow_string_dictionary_array_builder_append_string(GArrowStringDictionaryArray
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayBuilder *builder,
-                                                    GArrowStringArray *array,
-                                                    GError **error)
+garrow_string_dictionary_array_builder_append_array(
+  GArrowStringDictionaryArrayBuilder *builder, GArrowStringArray *array, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(array));
   auto status = arrow_builder->AppendArray(*arrow_array);
   return garrow_error_check(error,
@@ -5387,25 +5212,28 @@ garrow_string_dictionary_array_builder_append_array(GArrowStringDictionaryArrayB
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArrayBuilder *builder,
-                                                      const gint64 *values,
-                                                      gint64 values_length,
-                                                      const gboolean *is_valids,
-                                                      gint64 is_valids_length,
-                                                      GError **error)
+garrow_string_dictionary_array_builder_append_indices(
+  GArrowStringDictionaryArrayBuilder *builder,
+  const gint64 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
 {
   static const char *context = "[string-dictionary-array-builder][append-indices]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-  auto append_function = [&arrow_builder](
-      const gint64 *values,
-      gint64 values_length,
-      const uint8_t *valid_bytes) -> arrow::Status {
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto append_function = [&arrow_builder](const gint64 *values,
+                                          gint64 values_length,
+                                          const uint8_t *valid_bytes) -> arrow::Status {
     return arrow_builder->AppendIndices(values, values_length, valid_bytes);
   };
-  return garrow_array_builder_append_values(values, values_length, is_valids,
-                                            is_valids_length, error, context,
+  return garrow_array_builder_append_values(values,
+                                            values_length,
+                                            is_valids,
+                                            is_valids_length,
+                                            error,
+                                            context,
                                             append_function);
 }
 
@@ -5417,11 +5245,12 @@ garrow_string_dictionary_array_builder_append_indices(GArrowStringDictionaryArra
  *
  * Since: 2.0.0
  */
-gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowStringDictionaryArrayBuilder *builder)
+gint64
+garrow_string_dictionary_array_builder_get_dictionary_length(
+  GArrowStringDictionaryArrayBuilder *builder)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   return arrow_builder->dictionary_length();
 }
 
@@ -5437,15 +5266,15 @@ gint64 garrow_string_dictionary_array_builder_get_dictionary_length(GArrowString
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayBuilder* builder,
-                                                    GArrowArray **out_indices,
-                                                    GArrowArray **out_delta,
-                                                    GError **error)
+garrow_string_dictionary_array_builder_finish_delta(
+  GArrowStringDictionaryArrayBuilder *builder,
+  GArrowArray **out_indices,
+  GArrowArray **out_delta,
+  GError **error)
 {
   static const char *context = "[string-dictionary-array-builder][finish-delta]";
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   std::shared_ptr<arrow::Array> arrow_indices, arrow_delta;
   auto status = arrow_builder->FinishDelta(&arrow_indices, &arrow_delta);
   if (!garrow_error_check(error, status, context)) {
@@ -5467,13 +5296,11 @@ garrow_string_dictionary_array_builder_finish_delta(GArrowStringDictionaryArrayB
  * Since: 2.0.0
  */
 gboolean
-garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionaryArrayBuilder *builder,
-                                                          GArrowStringArray *values,
-                                                          GError **error)
+garrow_string_dictionary_array_builder_insert_memo_values(
+  GArrowStringDictionaryArrayBuilder *builder, GArrowStringArray *values, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto arrow_array = garrow_array_get_raw<arrow::StringType>(GARROW_ARRAY(values));
   auto status = arrow_builder->InsertMemoValues(*arrow_array);
   return garrow_error_check(error,
@@ -5490,16 +5317,16 @@ garrow_string_dictionary_array_builder_insert_memo_values(GArrowStringDictionary
  * Since: 2.0.0
  */
 void
-garrow_string_dictionary_array_builder_reset_full(GArrowStringDictionaryArrayBuilder *builder)
+garrow_string_dictionary_array_builder_reset_full(
+  GArrowStringDictionaryArrayBuilder *builder)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StringDictionaryBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StringDictionaryBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   arrow_builder->ResetFull();
 }
 
-
-typedef struct GArrowListArrayBuilderPrivate_ {
+typedef struct GArrowListArrayBuilderPrivate_
+{
   GArrowArrayBuilder *value_builder;
 } GArrowListArrayBuilderPrivate;
 
@@ -5507,10 +5334,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowListArrayBuilder,
                            garrow_list_array_builder,
                            GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)         \
-  static_cast<GArrowListArrayBuilderPrivate *>(            \
-     garrow_list_array_builder_get_instance_private(       \
-       GARROW_LIST_ARRAY_BUILDER(obj)))
+#define GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)                                       \
+  static_cast<GArrowListArrayBuilderPrivate *>(                                          \
+    garrow_list_array_builder_get_instance_private(GARROW_LIST_ARRAY_BUILDER(obj)))
 
 static void
 garrow_list_array_builder_dispose(GObject *object)
@@ -5548,8 +5374,7 @@ garrow_list_array_builder_class_init(GArrowListArrayBuilderClass *klass)
  * Returns: A newly created #GArrowListArrayBuilder.
  */
 GArrowListArrayBuilder *
-garrow_list_array_builder_new(GArrowListDataType *data_type,
-                              GError **error)
+garrow_list_array_builder_new(GArrowListDataType *data_type, GError **error)
 {
   if (!GARROW_IS_LIST_DATA_TYPE(data_type)) {
     g_set_error(error,
@@ -5559,11 +5384,9 @@ garrow_list_array_builder_new(GArrowListDataType *data_type,
     return NULL;
   }
 
-  auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          error,
-                                          "[list-array-builder][new]");
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, error, "[list-array-builder][new]");
   return GARROW_LIST_ARRAY_BUILDER(builder);
 }
 
@@ -5614,8 +5437,7 @@ garrow_list_array_builder_new(GArrowListDataType *data_type,
  *   Use garrow_list_array_builder_append_value() instead.
  */
 gboolean
-garrow_list_array_builder_append(GArrowListArrayBuilder *builder,
-                                 GError **error)
+garrow_list_array_builder_append(GArrowListArrayBuilder *builder, GError **error)
 {
   return garrow_list_array_builder_append_value(builder, error);
 }
@@ -5666,12 +5488,10 @@ garrow_list_array_builder_append(GArrowListArrayBuilder *builder,
  * Since: 0.12.0
  */
 gboolean
-garrow_list_array_builder_append_value(GArrowListArrayBuilder *builder,
-                                       GError **error)
+garrow_list_array_builder_append_value(GArrowListArrayBuilder *builder, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::ListBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::ListBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append();
   return garrow_error_check(error, status, "[list-array-builder][append-value]");
 }
@@ -5689,8 +5509,7 @@ garrow_list_array_builder_append_value(GArrowListArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
-                                      GError **error)
+garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -5706,17 +5525,16 @@ garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder)
 {
   auto priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->value_builder) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::ListBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_builder = std::static_pointer_cast<arrow::ListBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
   }
   return priv->value_builder;
 }
 
-
-typedef struct GArrowLargeListArrayBuilderPrivate_ {
+typedef struct GArrowLargeListArrayBuilderPrivate_
+{
   GArrowArrayBuilder *value_builder;
 } GArrowLargeListArrayBuilderPrivate;
 
@@ -5724,10 +5542,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowLargeListArrayBuilder,
                            garrow_large_list_array_builder,
                            GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)        \
-  static_cast<GArrowLargeListArrayBuilderPrivate *>(            \
-     garrow_large_list_array_builder_get_instance_private(      \
-       GARROW_LARGE_LIST_ARRAY_BUILDER(obj)))
+#define GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)                                 \
+  static_cast<GArrowLargeListArrayBuilderPrivate *>(                                     \
+    garrow_large_list_array_builder_get_instance_private(                                \
+      GARROW_LARGE_LIST_ARRAY_BUILDER(obj)))
 
 static void
 garrow_large_list_array_builder_dispose(GObject *object)
@@ -5765,8 +5583,7 @@ garrow_large_list_array_builder_class_init(GArrowLargeListArrayBuilderClass *kla
  * Since: 0.16.0
  */
 GArrowLargeListArrayBuilder *
-garrow_large_list_array_builder_new(GArrowLargeListDataType *data_type,
-                                    GError **error)
+garrow_large_list_array_builder_new(GArrowLargeListDataType *data_type, GError **error)
 {
   if (!GARROW_IS_LARGE_LIST_DATA_TYPE(data_type)) {
     g_set_error(error,
@@ -5776,11 +5593,9 @@ garrow_large_list_array_builder_new(GArrowLargeListDataType *data_type,
     return NULL;
   }
 
-  auto arrow_data_type =
-    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          error,
-                                          "[large-list-array-builder][new]");
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, error, "[large-list-array-builder][new]");
   return GARROW_LARGE_LIST_ARRAY_BUILDER(builder);
 }
 
@@ -5803,9 +5618,8 @@ gboolean
 garrow_large_list_array_builder_append_value(GArrowLargeListArrayBuilder *builder,
                                              GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::LargeListBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::LargeListBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append();
   return garrow_error_check(error, status, "[large-list-array-builder][append-value]");
 }
@@ -5844,24 +5658,21 @@ garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *b
 {
   auto priv = GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->value_builder) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::LargeListBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_builder = std::static_pointer_cast<arrow::LargeListBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
   }
   return priv->value_builder;
 }
 
-
 G_DEFINE_TYPE(GArrowStructArrayBuilder,
               garrow_struct_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(obj)         \
-  static_cast<GArrowStructArrayBuilderPrivate *>(            \
-     garrow_struct_array_builder_get_instance_private(       \
-       GARROW_STRUCT_ARRAY_BUILDER(obj)))
+#define GARROW_STRUCT_ARRAY_BUILDER_GET_PRIVATE(obj)                                     \
+  static_cast<GArrowStructArrayBuilderPrivate *>(                                        \
+    garrow_struct_array_builder_get_instance_private(GARROW_STRUCT_ARRAY_BUILDER(obj)))
 
 static void
 garrow_struct_array_builder_init(GArrowStructArrayBuilder *builder)
@@ -5881,8 +5692,7 @@ garrow_struct_array_builder_class_init(GArrowStructArrayBuilderClass *klass)
  * Returns: A newly created #GArrowStructArrayBuilder.
  */
 GArrowStructArrayBuilder *
-garrow_struct_array_builder_new(GArrowStructDataType *data_type,
-                                GError **error)
+garrow_struct_array_builder_new(GArrowStructDataType *data_type, GError **error)
 {
   if (!GARROW_IS_STRUCT_DATA_TYPE(data_type)) {
     g_set_error(error,
@@ -5893,9 +5703,8 @@ garrow_struct_array_builder_new(GArrowStructDataType *data_type,
   }
 
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          error,
-                                          "[struct-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, error, "[struct-array-builder][new]");
   return GARROW_STRUCT_ARRAY_BUILDER(builder);
 }
 
@@ -5921,8 +5730,7 @@ garrow_struct_array_builder_new(GArrowStructDataType *data_type,
  *   Use garrow_struct_array_builder_append_value() instead.
  */
 gboolean
-garrow_struct_array_builder_append(GArrowStructArrayBuilder *builder,
-                                   GError **error)
+garrow_struct_array_builder_append(GArrowStructArrayBuilder *builder, GError **error)
 {
   return garrow_struct_array_builder_append_value(builder, error);
 }
@@ -5951,13 +5759,10 @@ gboolean
 garrow_struct_array_builder_append_value(GArrowStructArrayBuilder *builder,
                                          GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::StructBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::StructBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append();
-  return garrow_error_check(error,
-                            status,
-                            "[struct-array-builder][append-value]");
+  return garrow_error_check(error, status, "[struct-array-builder][append-value]");
 }
 
 /**
@@ -5973,8 +5778,7 @@ garrow_struct_array_builder_append_value(GArrowStructArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
-                                        GError **error)
+garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -5990,8 +5794,7 @@ garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *builder,
  *   Use garrow_array_builder_get_child() instead.
  */
 GArrowArrayBuilder *
-garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
-                                              gint i)
+garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder, gint i)
 {
   return garrow_array_builder_get_child(GARROW_ARRAY_BUILDER(builder), i);
 }
@@ -6012,8 +5815,8 @@ garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder
   return garrow_array_builder_get_children(GARROW_ARRAY_BUILDER(builder));
 }
 
-
-typedef struct GArrowMapArrayBuilderPrivate_ {
+typedef struct GArrowMapArrayBuilderPrivate_
+{
   GArrowArrayBuilder *key_builder;
   GArrowArrayBuilder *item_builder;
   GArrowArrayBuilder *value_builder;
@@ -6023,10 +5826,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowMapArrayBuilder,
                            garrow_map_array_builder,
                            GARROW_TYPE_ARRAY_BUILDER)
 
-#define GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(object)      \
-  static_cast<GArrowMapArrayBuilderPrivate *>(            \
-     garrow_map_array_builder_get_instance_private(       \
-       GARROW_MAP_ARRAY_BUILDER(object)))
+#define GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(object)                                     \
+  static_cast<GArrowMapArrayBuilderPrivate *>(                                           \
+    garrow_map_array_builder_get_instance_private(GARROW_MAP_ARRAY_BUILDER(object)))
 
 static void
 garrow_map_array_builder_dispose(GObject *object)
@@ -6075,8 +5877,7 @@ garrow_map_array_builder_class_init(GArrowMapArrayBuilderClass *klass)
  * Since: 0.17.0
  */
 GArrowMapArrayBuilder *
-garrow_map_array_builder_new(GArrowMapDataType *data_type,
-                             GError **error)
+garrow_map_array_builder_new(GArrowMapDataType *data_type, GError **error)
 {
   if (!GARROW_IS_MAP_DATA_TYPE(data_type)) {
     g_set_error(error,
@@ -6087,9 +5888,8 @@ garrow_map_array_builder_new(GArrowMapDataType *data_type,
   }
 
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          error,
-                                          "[map-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, error, "[map-array-builder][new]");
   if (builder) {
     return GARROW_MAP_ARRAY_BUILDER(builder);
   } else {
@@ -6107,16 +5907,12 @@ garrow_map_array_builder_new(GArrowMapDataType *data_type,
  * Since: 0.17.0
  */
 gboolean
-garrow_map_array_builder_append_value(GArrowMapArrayBuilder *builder,
-                                      GError **error)
+garrow_map_array_builder_append_value(GArrowMapArrayBuilder *builder, GError **error)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::MapBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::MapBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto status = arrow_builder->Append();
-  return garrow::check(error,
-                       status,
-                       "[map-array-builder][append-value]");
+  return garrow::check(error, status, "[map-array-builder][append-value]");
 }
 
 /**
@@ -6146,14 +5942,14 @@ garrow_map_array_builder_append_values(GArrowMapArrayBuilder *builder,
                                        gint64 is_valids_length,
                                        GError **error)
 {
-  return garrow_array_builder_append_values<arrow::MapBuilder>
-    (GARROW_ARRAY_BUILDER(builder),
-     reinterpret_cast<const int32_t *>(offsets),
-     offsets_length,
-     is_valids,
-     is_valids_length,
-     error,
-     "[map-array-builder][append-values]");
+  return garrow_array_builder_append_values<arrow::MapBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int32_t *>(offsets),
+    offsets_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[map-array-builder][append-values]");
 }
 
 /**
@@ -6169,8 +5965,7 @@ garrow_map_array_builder_append_values(GArrowMapArrayBuilder *builder,
  *   Use garrow_array_builder_append_null() instead.
  */
 gboolean
-garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder,
-                                     GError **error)
+garrow_map_array_builder_append_null(GArrowMapArrayBuilder *builder, GError **error)
 {
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
@@ -6196,9 +5991,7 @@ garrow_map_array_builder_append_nulls(GArrowMapArrayBuilder *builder,
                                       gint64 n,
                                       GError **error)
 {
-  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder),
-                                           n,
-                                           error);
+  return garrow_array_builder_append_nulls(GARROW_ARRAY_BUILDER(builder), n, error);
 }
 
 /**
@@ -6214,9 +6007,8 @@ garrow_map_array_builder_get_key_builder(GArrowMapArrayBuilder *builder)
 {
   auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->key_builder) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::MapBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_builder = std::static_pointer_cast<arrow::MapBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_key_builder = arrow_builder->key_builder();
     priv->key_builder = garrow_array_builder_new_raw(arrow_key_builder);
   }
@@ -6236,9 +6028,8 @@ garrow_map_array_builder_get_item_builder(GArrowMapArrayBuilder *builder)
 {
   auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->item_builder) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::MapBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_builder = std::static_pointer_cast<arrow::MapBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_item_builder = arrow_builder->item_builder();
     priv->item_builder = garrow_array_builder_new_raw(arrow_item_builder);
   }
@@ -6261,15 +6052,13 @@ garrow_map_array_builder_get_value_builder(GArrowMapArrayBuilder *builder)
 {
   auto priv = GARROW_MAP_ARRAY_BUILDER_GET_PRIVATE(builder);
   if (!priv->value_builder) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::MapBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_builder = std::static_pointer_cast<arrow::MapBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
   }
   return priv->value_builder;
 }
-
 
 G_DEFINE_TYPE(GArrowDecimal128ArrayBuilder,
               garrow_decimal128_array_builder,
@@ -6297,9 +6086,8 @@ GArrowDecimal128ArrayBuilder *
 garrow_decimal128_array_builder_new(GArrowDecimal128DataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          NULL,
-                                          "[decimal128-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[decimal128-array-builder][new]");
   return GARROW_DECIMAL128_ARRAY_BUILDER(builder);
 }
 
@@ -6341,14 +6129,13 @@ garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *build
 {
   if (value) {
     auto arrow_decimal = garrow_decimal128_get_raw(value);
-    return garrow_array_builder_append_value<arrow::Decimal128Builder>
-      (GARROW_ARRAY_BUILDER(builder),
-       *arrow_decimal,
-       error,
-       "[decimal128-array-builder][append-value]");
+    return garrow_array_builder_append_value<arrow::Decimal128Builder>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_decimal,
+      error,
+      "[decimal128-array-builder][append-value]");
   } else {
-    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
-                                            error);
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
   }
 }
 
@@ -6372,13 +6159,12 @@ garrow_decimal128_array_builder_append_value(GArrowDecimal128ArrayBuilder *build
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal128_array_builder_append_values(
-  GArrowDecimal128ArrayBuilder *builder,
-  GArrowDecimal128 **values,
-  gint64 values_length,
-  const gboolean *is_valids,
-  gint64 is_valids_length,
-  GError **error)
+garrow_decimal128_array_builder_append_values(GArrowDecimal128ArrayBuilder *builder,
+                                              GArrowDecimal128 **values,
+                                              gint64 values_length,
+                                              const gboolean *is_valids,
+                                              gint64 is_valids_length,
+                                              GError **error)
 {
   return garrow_array_builder_append_values(
     GARROW_ARRAY_BUILDER(builder),
@@ -6415,7 +6201,6 @@ garrow_decimal128_array_builder_append_null(GArrowDecimal128ArrayBuilder *builde
   return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
 }
 
-
 G_DEFINE_TYPE(GArrowDecimal256ArrayBuilder,
               garrow_decimal256_array_builder,
               GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY_BUILDER)
@@ -6442,9 +6227,8 @@ GArrowDecimal256ArrayBuilder *
 garrow_decimal256_array_builder_new(GArrowDecimal256DataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto builder = garrow_array_builder_new(arrow_data_type,
-                                          NULL,
-                                          "[decimal256-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[decimal256-array-builder][new]");
   return GARROW_DECIMAL256_ARRAY_BUILDER(builder);
 }
 
@@ -6465,14 +6249,13 @@ garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *build
 {
   if (value) {
     auto arrow_decimal = garrow_decimal256_get_raw(value);
-    return garrow_array_builder_append_value<arrow::Decimal256Builder>
-      (GARROW_ARRAY_BUILDER(builder),
-       *arrow_decimal,
-       error,
-       "[decimal256-array-builder][append-value]");
+    return garrow_array_builder_append_value<arrow::Decimal256Builder>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_decimal,
+      error,
+      "[decimal256-array-builder][append-value]");
   } else {
-    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
-                                            error);
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder), error);
   }
 }
 
@@ -6496,13 +6279,12 @@ garrow_decimal256_array_builder_append_value(GArrowDecimal256ArrayBuilder *build
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal256_array_builder_append_values(
-  GArrowDecimal256ArrayBuilder *builder,
-  GArrowDecimal256 **values,
-  gint64 values_length,
-  const gboolean *is_valids,
-  gint64 is_valids_length,
-  GError **error)
+garrow_decimal256_array_builder_append_values(GArrowDecimal256ArrayBuilder *builder,
+                                              GArrowDecimal256 **values,
+                                              gint64 values_length,
+                                              const gboolean *is_valids,
+                                              gint64 is_valids_length,
+                                              GError **error)
 {
   return garrow_array_builder_append_values(
     GARROW_ARRAY_BUILDER(builder),
@@ -6517,7 +6299,6 @@ garrow_decimal256_array_builder_append_values(
       arrow_decimal->ToBytes(output);
     });
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GArrowUnionArrayBuilder,
                        garrow_union_array_builder,
@@ -6548,9 +6329,8 @@ garrow_union_array_builder_append_child(GArrowUnionArrayBuilder *builder,
                                         GArrowArrayBuilder *child,
                                         const gchar *field_name)
 {
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::BasicUnionBuilder>(
-      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto arrow_builder = std::static_pointer_cast<arrow::BasicUnionBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
   auto arrow_child = garrow_array_builder_get_raw(child);
   if (!field_name) {
     field_name = "";
@@ -6584,8 +6364,7 @@ garrow_union_array_builder_append_value(GArrowUnionArrayBuilder *builder,
                                         gint8 value,
                                         GError **error)
 {
-  auto arrow_builder =
-    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder));
+  auto arrow_builder = garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder));
   arrow::Status status;
   if (GARROW_IS_DENSE_UNION_ARRAY_BUILDER(builder)) {
     auto arrow_union_builder =
@@ -6596,11 +6375,8 @@ garrow_union_array_builder_append_value(GArrowUnionArrayBuilder *builder,
       std::static_pointer_cast<arrow::SparseUnionBuilder>(arrow_builder);
     status = arrow_union_builder->Append(value);
   }
-  return garrow_error_check(error,
-                            status,
-                            "[union-array-builder][append-value]");
+  return garrow_error_check(error, status, "[union-array-builder][append-value]");
 }
-
 
 G_END_DECLS
 template <typename BUILDER>
@@ -6615,9 +6391,8 @@ garrow_union_array_builder_new(GArrowUnionDataType *data_type,
     return garrow_array_builder_new(arrow_data_type, error, context);
   } else {
     auto memory_pool = arrow::default_memory_pool();
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::ArrayBuilder>(
-        std::make_shared<BUILDER>(memory_pool));
+    auto arrow_builder = std::static_pointer_cast<arrow::ArrayBuilder>(
+      std::make_shared<BUILDER>(memory_pool));
     return garrow_array_builder_new_raw(&arrow_builder, builder_gtype);
   }
 }
@@ -6651,21 +6426,18 @@ garrow_dense_union_array_builder_class_init(GArrowDenseUnionArrayBuilderClass *k
  * Since: 12.0.0
  */
 GArrowDenseUnionArrayBuilder *
-garrow_dense_union_array_builder_new(GArrowDenseUnionDataType *data_type,
-                                     GError **error)
+garrow_dense_union_array_builder_new(GArrowDenseUnionDataType *data_type, GError **error)
 {
-  auto builder =
-    garrow_union_array_builder_new<arrow::DenseUnionBuilder>(
-      GARROW_UNION_DATA_TYPE(data_type),
-      GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER,
-      "[dense-union-array-builder][new]",
-      error);
+  auto builder = garrow_union_array_builder_new<arrow::DenseUnionBuilder>(
+    GARROW_UNION_DATA_TYPE(data_type),
+    GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER,
+    "[dense-union-array-builder][new]",
+    error);
   if (!builder) {
     return nullptr;
   }
   return GARROW_DENSE_UNION_ARRAY_BUILDER(builder);
 }
-
 
 G_DEFINE_TYPE(GArrowSparseUnionArrayBuilder,
               garrow_sparse_union_array_builder,
@@ -6696,20 +6468,18 @@ garrow_sparse_union_array_builder_class_init(GArrowSparseUnionArrayBuilderClass 
  */
 GArrowSparseUnionArrayBuilder *
 garrow_sparse_union_array_builder_new(GArrowSparseUnionDataType *data_type,
-                                     GError **error)
+                                      GError **error)
 {
-  auto builder =
-    garrow_union_array_builder_new<arrow::SparseUnionBuilder>(
-      GARROW_UNION_DATA_TYPE(data_type),
-      GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER,
-      "[sparse-union-array-builder][new]",
-      error);
+  auto builder = garrow_union_array_builder_new<arrow::SparseUnionBuilder>(
+    GARROW_UNION_DATA_TYPE(data_type),
+    GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER,
+    "[sparse-union-array-builder][new]",
+    error);
   if (!builder) {
     return nullptr;
   }
   return GARROW_SPARSE_UNION_ARRAY_BUILDER(builder);
 }
-
 
 G_END_DECLS
 
@@ -6818,18 +6588,17 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
     case arrow::Type::type::DICTIONARY:
       {
         auto dict_type =
-          std::static_pointer_cast<arrow::DictionaryType>(
-            (*arrow_builder)->type());
+          std::static_pointer_cast<arrow::DictionaryType>((*arrow_builder)->type());
         switch (dict_type->value_type()->id()) {
-          case arrow::Type::type::BINARY:
-            type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
-            break;
-          case arrow::Type::type::STRING:
-            type = GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER;
-            break;
-          default:
-            type = GARROW_TYPE_ARRAY_BUILDER;
-            break;
+        case arrow::Type::type::BINARY:
+          type = GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER;
+          break;
+        case arrow::Type::type::STRING:
+          type = GARROW_TYPE_STRING_DICTIONARY_ARRAY_BUILDER;
+          break;
+        default:
+          type = GARROW_TYPE_ARRAY_BUILDER;
+          break;
         }
       }
       break;
@@ -6846,18 +6615,18 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
   }
 
   auto builder =
-    GARROW_ARRAY_BUILDER(g_object_new(type,
-                                      "array-builder", arrow_builder,
-                                      NULL));
+    GARROW_ARRAY_BUILDER(g_object_new(type, "array-builder", arrow_builder, NULL));
   return builder;
 }
 
 GArrowArrayBuilder *
-garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
-                             GType type)
+garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder, GType type)
 {
-  struct NothingDeleter {
-    void operator()(arrow::ArrayBuilder *arrow_builder) {
+  struct NothingDeleter
+  {
+    void
+    operator()(arrow::ArrayBuilder *arrow_builder)
+    {
     }
   };
   std::shared_ptr<arrow::ArrayBuilder> arrow_shared_builder(arrow_builder,
