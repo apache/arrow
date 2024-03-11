@@ -35,8 +35,8 @@ RUN apt-get update -y && \
         automake \
         curl \
         doxygen \
+        gi-docgen \
         gobject-introspection \
-        gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
         libfribidi-dev \

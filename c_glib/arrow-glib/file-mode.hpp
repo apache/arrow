@@ -23,5 +23,7 @@
 
 #include <arrow-glib/file-mode.h>
 
-GArrowFileMode garrow_file_mode_from_raw(arrow::io::FileMode::type mode);
-arrow::io::FileMode::type garrow_file_mode_to_raw(GArrowFileMode mode);
+GArrowFileMode
+garrow_file_mode_from_raw(arrow::io::FileMode::type mode);
+arrow::io::FileMode::type
+garrow_file_mode_to_raw(GArrowFileMode mode);

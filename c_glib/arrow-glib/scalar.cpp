@@ -130,7 +130,8 @@ G_BEGIN_DECLS
  * scalar.
  */
 
-typedef struct GArrowScalarPrivate_ {
+typedef struct GArrowScalarPrivate_
+{
   std::shared_ptr<arrow::Scalar> scalar;
   GArrowDataType *data_type;
 } GArrowScalarPrivate;
@@ -140,14 +141,11 @@ enum {
   PROP_DATA_TYPE,
 };
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowScalar,
-                                    garrow_scalar,
-                                    G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowScalar, garrow_scalar, G_TYPE_OBJECT)
 
-#define GARROW_SCALAR_GET_PRIVATE(obj)            \
-  static_cast<GArrowScalarPrivate *>(             \
-    garrow_scalar_get_instance_private(           \
-      GARROW_SCALAR(obj)))
+#define GARROW_SCALAR_GET_PRIVATE(obj)                                                   \
+  static_cast<GArrowScalarPrivate *>(                                                    \
+    garrow_scalar_get_instance_private(GARROW_SCALAR(obj)))
 
 static void
 garrow_scalar_dispose(GObject *object)
@@ -198,7 +196,7 @@ static void
 garrow_scalar_init(GArrowScalar *object)
 {
   auto priv = GARROW_SCALAR_GET_PRIVATE(object);
-  new(&priv->scalar) std::shared_ptr<arrow::Scalar>;
+  new (&priv->scalar) std::shared_ptr<arrow::Scalar>;
 }
 
 static void
@@ -206,16 +204,16 @@ garrow_scalar_class_init(GArrowScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_scalar_dispose;
-  gobject_class->finalize     = garrow_scalar_finalize;
+  gobject_class->dispose = garrow_scalar_dispose;
+  gobject_class->finalize = garrow_scalar_finalize;
   gobject_class->set_property = garrow_scalar_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("scalar",
-                              "Scalar",
-                              "The raw std::shared<arrow::Scalar> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "scalar",
+    "Scalar",
+    "The raw std::shared<arrow::Scalar> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCALAR, spec);
 
   /**
@@ -225,12 +223,12 @@ garrow_scalar_class_init(GArrowScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("data-type",
-                             "Data type",
-                             "The data type of the scalar",
-                             GARROW_TYPE_DATA_TYPE,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "data-type",
+    "Data type",
+    "The data type of the scalar",
+    GARROW_TYPE_DATA_TYPE,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
 }
 
@@ -254,14 +252,15 @@ garrow_scalar_parse(GArrowDataType *data_type,
                     GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_data = std::string_view(reinterpret_cast<const char *>(data),
-                                     size);
+  auto arrow_data = std::string_view(reinterpret_cast<const char *>(data), size);
   auto arrow_scalar_result = arrow::Scalar::Parse(arrow_data_type, arrow_data);
   if (garrow::check(error, arrow_scalar_result, "[scalar][parse]")) {
     auto arrow_scalar = *arrow_scalar_result;
     return garrow_scalar_new_raw(&arrow_scalar,
-                                 "scalar", &arrow_scalar,
-                                 "data-type", data_type,
+                                 "scalar",
+                                 &arrow_scalar,
+                                 "data-type",
+                                 data_type,
                                  NULL);
   } else {
     return NULL;
@@ -312,8 +311,7 @@ garrow_scalar_is_valid(GArrowScalar *scalar)
  * Since: 5.0.0
  */
 gboolean
-garrow_scalar_equal(GArrowScalar *scalar,
-                    GArrowScalar *other_scalar)
+garrow_scalar_equal(GArrowScalar *scalar, GArrowScalar *other_scalar)
 {
   return garrow_scalar_equal_options(scalar, other_scalar, NULL);
 }
@@ -391,18 +389,17 @@ garrow_scalar_cast(GArrowScalar *scalar,
   if (garrow::check(error, arrow_casted_scalar_result, "[scalar][cast]")) {
     auto arrow_casted_scalar = (*arrow_casted_scalar_result).scalar();
     return garrow_scalar_new_raw(&arrow_casted_scalar,
-                                 "scalar", &arrow_casted_scalar,
-                                 "data-type", data_type,
+                                 "scalar",
+                                 &arrow_casted_scalar,
+                                 "data-type",
+                                 data_type,
                                  NULL);
   } else {
     return NULL;
   }
 }
 
-
-G_DEFINE_TYPE(GArrowNullScalar,
-              garrow_null_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowNullScalar, garrow_null_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_null_scalar_init(GArrowNullScalar *object)
@@ -425,15 +422,11 @@ GArrowNullScalar *
 garrow_null_scalar_new(void)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::NullScalar>());
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::NullScalar>());
   return GARROW_NULL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
-
-G_DEFINE_TYPE(GArrowBooleanScalar,
-              garrow_boolean_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowBooleanScalar, garrow_boolean_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_boolean_scalar_init(GArrowBooleanScalar *object)
@@ -456,9 +449,8 @@ garrow_boolean_scalar_class_init(GArrowBooleanScalarClass *klass)
 GArrowBooleanScalar *
 garrow_boolean_scalar_new(gboolean value)
 {
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::BooleanScalar>(value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::BooleanScalar>(value));
   return GARROW_BOOLEAN_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -473,16 +465,12 @@ garrow_boolean_scalar_new(gboolean value)
 gboolean
 garrow_boolean_scalar_get_value(GArrowBooleanScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::BooleanScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::BooleanScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowInt8Scalar,
-              garrow_int8_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowInt8Scalar, garrow_int8_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_int8_scalar_init(GArrowInt8Scalar *object)
@@ -506,8 +494,7 @@ GArrowInt8Scalar *
 garrow_int8_scalar_new(gint8 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Int8Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Int8Scalar>(value));
   return GARROW_INT8_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -522,16 +509,12 @@ garrow_int8_scalar_new(gint8 value)
 gint8
 garrow_int8_scalar_get_value(GArrowInt8Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Int8Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Int8Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowInt16Scalar,
-              garrow_int16_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowInt16Scalar, garrow_int16_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_int16_scalar_init(GArrowInt16Scalar *object)
@@ -555,8 +538,7 @@ GArrowInt16Scalar *
 garrow_int16_scalar_new(gint16 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Int16Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Int16Scalar>(value));
   return GARROW_INT16_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -571,16 +553,12 @@ garrow_int16_scalar_new(gint16 value)
 gint16
 garrow_int16_scalar_get_value(GArrowInt16Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Int16Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Int16Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowInt32Scalar,
-              garrow_int32_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowInt32Scalar, garrow_int32_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_int32_scalar_init(GArrowInt32Scalar *object)
@@ -604,8 +582,7 @@ GArrowInt32Scalar *
 garrow_int32_scalar_new(gint32 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Int32Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Int32Scalar>(value));
   return GARROW_INT32_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -620,16 +597,12 @@ garrow_int32_scalar_new(gint32 value)
 gint32
 garrow_int32_scalar_get_value(GArrowInt32Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Int32Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Int32Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowInt64Scalar,
-              garrow_int64_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowInt64Scalar, garrow_int64_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_int64_scalar_init(GArrowInt64Scalar *object)
@@ -653,8 +626,7 @@ GArrowInt64Scalar *
 garrow_int64_scalar_new(gint64 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Int64Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Int64Scalar>(value));
   return GARROW_INT64_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -669,16 +641,12 @@ garrow_int64_scalar_new(gint64 value)
 gint64
 garrow_int64_scalar_get_value(GArrowInt64Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Int64Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Int64Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowUInt8Scalar,
-              garrow_uint8_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowUInt8Scalar, garrow_uint8_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_uint8_scalar_init(GArrowUInt8Scalar *object)
@@ -702,8 +670,7 @@ GArrowUInt8Scalar *
 garrow_uint8_scalar_new(guint8 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::UInt8Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::UInt8Scalar>(value));
   return GARROW_UINT8_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -718,16 +685,12 @@ garrow_uint8_scalar_new(guint8 value)
 guint8
 garrow_uint8_scalar_get_value(GArrowUInt8Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::UInt8Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::UInt8Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowUInt16Scalar,
-              garrow_uint16_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowUInt16Scalar, garrow_uint16_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_uint16_scalar_init(GArrowUInt16Scalar *object)
@@ -751,8 +714,7 @@ GArrowUInt16Scalar *
 garrow_uint16_scalar_new(guint16 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::UInt16Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::UInt16Scalar>(value));
   return GARROW_UINT16_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -767,16 +729,12 @@ garrow_uint16_scalar_new(guint16 value)
 guint16
 garrow_uint16_scalar_get_value(GArrowUInt16Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::UInt16Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::UInt16Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowUInt32Scalar,
-              garrow_uint32_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowUInt32Scalar, garrow_uint32_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_uint32_scalar_init(GArrowUInt32Scalar *object)
@@ -800,8 +758,7 @@ GArrowUInt32Scalar *
 garrow_uint32_scalar_new(guint32 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::UInt32Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::UInt32Scalar>(value));
   return GARROW_UINT32_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -816,16 +773,12 @@ garrow_uint32_scalar_new(guint32 value)
 guint32
 garrow_uint32_scalar_get_value(GArrowUInt32Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::UInt32Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::UInt32Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowUInt64Scalar,
-              garrow_uint64_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowUInt64Scalar, garrow_uint64_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_uint64_scalar_init(GArrowUInt64Scalar *object)
@@ -849,8 +802,7 @@ GArrowUInt64Scalar *
 garrow_uint64_scalar_new(guint64 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::UInt64Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::UInt64Scalar>(value));
   return GARROW_UINT64_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -865,16 +817,12 @@ garrow_uint64_scalar_new(guint64 value)
 guint64
 garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::UInt64Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::UInt64Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowHalfFloatScalar,
-              garrow_half_float_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowHalfFloatScalar, garrow_half_float_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_half_float_scalar_init(GArrowHalfFloatScalar *object)
@@ -897,9 +845,8 @@ garrow_half_float_scalar_class_init(GArrowHalfFloatScalarClass *klass)
 GArrowHalfFloatScalar *
 garrow_half_float_scalar_new(guint16 value)
 {
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::HalfFloatScalar>(value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::HalfFloatScalar>(value));
   return GARROW_HALF_FLOAT_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -914,16 +861,12 @@ garrow_half_float_scalar_new(guint16 value)
 guint16
 garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::HalfFloatScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::HalfFloatScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowFloatScalar,
-              garrow_float_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowFloatScalar, garrow_float_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_float_scalar_init(GArrowFloatScalar *object)
@@ -947,8 +890,7 @@ GArrowFloatScalar *
 garrow_float_scalar_new(gfloat value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::FloatScalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::FloatScalar>(value));
   return GARROW_FLOAT_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -963,16 +905,12 @@ garrow_float_scalar_new(gfloat value)
 gfloat
 garrow_float_scalar_get_value(GArrowFloatScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::FloatScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::FloatScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowDoubleScalar,
-              garrow_double_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowDoubleScalar, garrow_double_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_double_scalar_init(GArrowDoubleScalar *object)
@@ -996,8 +934,7 @@ GArrowDoubleScalar *
 garrow_double_scalar_new(gdouble value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::DoubleScalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::DoubleScalar>(value));
   return GARROW_DOUBLE_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -1012,14 +949,13 @@ garrow_double_scalar_new(gdouble value)
 gdouble
 garrow_double_scalar_get_value(GArrowDoubleScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::DoubleScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::DoubleScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-typedef struct GArrowBaseBinaryScalarPrivate_ {
+typedef struct GArrowBaseBinaryScalarPrivate_
+{
   GArrowBuffer *value;
 } GArrowBaseBinaryScalarPrivate;
 
@@ -1031,10 +967,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowBaseBinaryScalar,
                                     garrow_base_binary_scalar,
                                     GARROW_TYPE_SCALAR)
 
-#define GARROW_BASE_BINARY_SCALAR_GET_PRIVATE(obj)            \
-  static_cast<GArrowBaseBinaryScalarPrivate *>(               \
-    garrow_base_binary_scalar_get_instance_private(           \
-      GARROW_BASE_BINARY_SCALAR(obj)))
+#define GARROW_BASE_BINARY_SCALAR_GET_PRIVATE(obj)                                       \
+  static_cast<GArrowBaseBinaryScalarPrivate *>(                                          \
+    garrow_base_binary_scalar_get_instance_private(GARROW_BASE_BINARY_SCALAR(obj)))
 
 static void
 garrow_base_binary_scalar_dispose(GObject *object)
@@ -1076,7 +1011,7 @@ static void
 garrow_base_binary_scalar_class_init(GArrowBaseBinaryScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose      = garrow_base_binary_scalar_dispose;
+  gobject_class->dispose = garrow_base_binary_scalar_dispose;
   gobject_class->set_property = garrow_base_binary_scalar_set_property;
 
   GParamSpec *spec;
@@ -1087,27 +1022,28 @@ garrow_base_binary_scalar_class_init(GArrowBaseBinaryScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The value of the scalar",
-                             GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    GARROW_TYPE_BUFFER,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
 G_END_DECLS
-template<typename ArrowBinaryScalarType>
+template <typename ArrowBinaryScalarType>
 GArrowScalar *
 garrow_base_binary_scalar_new(GArrowBuffer *value)
 {
   auto arrow_value = garrow_buffer_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<ArrowBinaryScalarType>(arrow_value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<ArrowBinaryScalarType>(arrow_value));
   return garrow_scalar_new_raw(&arrow_scalar,
-                               "scalar", &arrow_scalar,
-                               "value", value,
+                               "scalar",
+                               &arrow_scalar,
+                               "value",
+                               value,
                                NULL);
 }
 G_BEGIN_DECLS
@@ -1125,18 +1061,14 @@ garrow_base_binary_scalar_get_value(GArrowBaseBinaryScalar *scalar)
 {
   auto priv = GARROW_BASE_BINARY_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    const auto arrow_scalar =
-      std::static_pointer_cast<arrow::BaseBinaryScalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    const auto arrow_scalar = std::static_pointer_cast<arrow::BaseBinaryScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     priv->value = garrow_buffer_new_raw(&(arrow_scalar->value));
   }
   return priv->value;
 }
 
-
-G_DEFINE_TYPE(GArrowBinaryScalar,
-              garrow_binary_scalar,
-              GARROW_TYPE_BASE_BINARY_SCALAR)
+G_DEFINE_TYPE(GArrowBinaryScalar, garrow_binary_scalar, GARROW_TYPE_BASE_BINARY_SCALAR)
 
 static void
 garrow_binary_scalar_init(GArrowBinaryScalar *object)
@@ -1159,14 +1091,10 @@ garrow_binary_scalar_class_init(GArrowBinaryScalarClass *klass)
 GArrowBinaryScalar *
 garrow_binary_scalar_new(GArrowBuffer *value)
 {
-  return GARROW_BINARY_SCALAR(
-    garrow_base_binary_scalar_new<arrow::BinaryScalar>(value));
+  return GARROW_BINARY_SCALAR(garrow_base_binary_scalar_new<arrow::BinaryScalar>(value));
 }
 
-
-G_DEFINE_TYPE(GArrowStringScalar,
-              garrow_string_scalar,
-              GARROW_TYPE_BASE_BINARY_SCALAR)
+G_DEFINE_TYPE(GArrowStringScalar, garrow_string_scalar, GARROW_TYPE_BASE_BINARY_SCALAR)
 
 static void
 garrow_string_scalar_init(GArrowStringScalar *object)
@@ -1189,10 +1117,8 @@ garrow_string_scalar_class_init(GArrowStringScalarClass *klass)
 GArrowStringScalar *
 garrow_string_scalar_new(GArrowBuffer *value)
 {
-  return GARROW_STRING_SCALAR(
-    garrow_base_binary_scalar_new<arrow::StringScalar>(value));
+  return GARROW_STRING_SCALAR(garrow_base_binary_scalar_new<arrow::StringScalar>(value));
 }
-
 
 G_DEFINE_TYPE(GArrowLargeBinaryScalar,
               garrow_large_binary_scalar,
@@ -1223,7 +1149,6 @@ garrow_large_binary_scalar_new(GArrowBuffer *value)
     garrow_base_binary_scalar_new<arrow::LargeBinaryScalar>(value));
 }
 
-
 G_DEFINE_TYPE(GArrowLargeStringScalar,
               garrow_large_string_scalar,
               GARROW_TYPE_BASE_BINARY_SCALAR)
@@ -1253,7 +1178,6 @@ garrow_large_string_scalar_new(GArrowBuffer *value)
     garrow_base_binary_scalar_new<arrow::LargeStringScalar>(value));
 }
 
-
 G_DEFINE_TYPE(GArrowFixedSizeBinaryScalar,
               garrow_fixed_size_binary_scalar,
               GARROW_TYPE_BASE_BINARY_SCALAR)
@@ -1264,8 +1188,7 @@ garrow_fixed_size_binary_scalar_init(GArrowFixedSizeBinaryScalar *object)
 }
 
 static void
-garrow_fixed_size_binary_scalar_class_init(
-  GArrowFixedSizeBinaryScalarClass *klass)
+garrow_fixed_size_binary_scalar_class_init(GArrowFixedSizeBinaryScalarClass *klass)
 {
 }
 
@@ -1284,22 +1207,19 @@ garrow_fixed_size_binary_scalar_new(GArrowFixedSizeBinaryDataType *data_type,
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_value = garrow_buffer_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::FixedSizeBinaryScalar>(
-        arrow_value, arrow_data_type));
-  return GARROW_FIXED_SIZE_BINARY_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar,
-                          "scalar", &arrow_scalar,
-                          "data-type", data_type,
-                          "value", value,
-                          NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::FixedSizeBinaryScalar>(arrow_value, arrow_data_type));
+  return GARROW_FIXED_SIZE_BINARY_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                               "scalar",
+                                                               &arrow_scalar,
+                                                               "data-type",
+                                                               data_type,
+                                                               "value",
+                                                               value,
+                                                               NULL));
 }
 
-
-G_DEFINE_TYPE(GArrowDate32Scalar,
-              garrow_date32_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowDate32Scalar, garrow_date32_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_date32_scalar_init(GArrowDate32Scalar *object)
@@ -1323,8 +1243,7 @@ GArrowDate32Scalar *
 garrow_date32_scalar_new(gint32 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Date32Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Date32Scalar>(value));
   return GARROW_DATE32_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -1339,16 +1258,12 @@ garrow_date32_scalar_new(gint32 value)
 gint32
 garrow_date32_scalar_get_value(GArrowDate32Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Date32Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Date32Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowDate64Scalar,
-              garrow_date64_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowDate64Scalar, garrow_date64_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_date64_scalar_init(GArrowDate64Scalar *object)
@@ -1372,8 +1287,7 @@ GArrowDate64Scalar *
 garrow_date64_scalar_new(gint64 value)
 {
   auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Date64Scalar>(value));
+    std::static_pointer_cast<arrow::Scalar>(std::make_shared<arrow::Date64Scalar>(value));
   return GARROW_DATE64_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -1388,16 +1302,12 @@ garrow_date64_scalar_new(gint64 value)
 gint64
 garrow_date64_scalar_get_value(GArrowDate64Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Date64Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Date64Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowTime32Scalar,
-              garrow_time32_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowTime32Scalar, garrow_time32_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_time32_scalar_init(GArrowTime32Scalar *object)
@@ -1419,18 +1329,17 @@ garrow_time32_scalar_class_init(GArrowTime32ScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowTime32Scalar *
-garrow_time32_scalar_new(GArrowTime32DataType *data_type,
-                         gint32 value)
+garrow_time32_scalar_new(GArrowTime32DataType *data_type, gint32 value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Time32Scalar>(value, arrow_data_type));
-  return GARROW_TIME32_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar,
-                          "scalar", &arrow_scalar,
-                          "data-type", data_type,
-                          NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::Time32Scalar>(value, arrow_data_type));
+  return GARROW_TIME32_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                    "scalar",
+                                                    &arrow_scalar,
+                                                    "data-type",
+                                                    data_type,
+                                                    NULL));
 }
 
 /**
@@ -1444,16 +1353,12 @@ garrow_time32_scalar_new(GArrowTime32DataType *data_type,
 gint32
 garrow_time32_scalar_get_value(GArrowTime32Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Time32Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Time32Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowTime64Scalar,
-              garrow_time64_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowTime64Scalar, garrow_time64_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_time64_scalar_init(GArrowTime64Scalar *object)
@@ -1475,18 +1380,17 @@ garrow_time64_scalar_class_init(GArrowTime64ScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowTime64Scalar *
-garrow_time64_scalar_new(GArrowTime64DataType *data_type,
-                         gint64 value)
+garrow_time64_scalar_new(GArrowTime64DataType *data_type, gint64 value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Time64Scalar>(value, arrow_data_type));
-  return GARROW_TIME64_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar,
-                          "scalar", &arrow_scalar,
-                          "data-type", data_type,
-                          NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::Time64Scalar>(value, arrow_data_type));
+  return GARROW_TIME64_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                    "scalar",
+                                                    &arrow_scalar,
+                                                    "data-type",
+                                                    data_type,
+                                                    NULL));
 }
 
 /**
@@ -1500,16 +1404,12 @@ garrow_time64_scalar_new(GArrowTime64DataType *data_type,
 gint64
 garrow_time64_scalar_get_value(GArrowTime64Scalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::Time64Scalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::Time64Scalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowTimestampScalar,
-              garrow_timestamp_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowTimestampScalar, garrow_timestamp_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_timestamp_scalar_init(GArrowTimestampScalar *object)
@@ -1531,18 +1431,17 @@ garrow_timestamp_scalar_class_init(GArrowTimestampScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowTimestampScalar *
-garrow_timestamp_scalar_new(GArrowTimestampDataType *data_type,
-                            gint64 value)
+garrow_timestamp_scalar_new(GArrowTimestampDataType *data_type, gint64 value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::TimestampScalar>(value, arrow_data_type));
-  return GARROW_TIMESTAMP_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar,
-                          "scalar", &arrow_scalar,
-                          "data-type", data_type,
-                          NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::TimestampScalar>(value, arrow_data_type));
+  return GARROW_TIMESTAMP_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                       "scalar",
+                                                       &arrow_scalar,
+                                                       "data-type",
+                                                       data_type,
+                                                       NULL));
 }
 
 /**
@@ -1556,16 +1455,12 @@ garrow_timestamp_scalar_new(GArrowTimestampDataType *data_type,
 gint64
 garrow_timestamp_scalar_get_value(GArrowTimestampScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::TimestampScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::TimestampScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-G_DEFINE_TYPE(GArrowMonthIntervalScalar,
-              garrow_month_interval_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowMonthIntervalScalar, garrow_month_interval_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_month_interval_scalar_init(GArrowMonthIntervalScalar *object)
@@ -1588,9 +1483,8 @@ garrow_month_interval_scalar_class_init(GArrowMonthIntervalScalarClass *klass)
 GArrowMonthIntervalScalar *
 garrow_month_interval_scalar_new(gint32 value)
 {
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::MonthIntervalScalar>(value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::MonthIntervalScalar>(value));
   return GARROW_MONTH_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -1605,14 +1499,13 @@ garrow_month_interval_scalar_new(gint32 value)
 gint32
 garrow_month_interval_scalar_get_value(GArrowMonthIntervalScalar *scalar)
 {
-  const auto arrow_scalar =
-    std::static_pointer_cast<arrow::MonthIntervalScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto arrow_scalar = std::static_pointer_cast<arrow::MonthIntervalScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
 
-
-typedef struct GArrowDayTimeIntervalScalarPrivate_ {
+typedef struct GArrowDayTimeIntervalScalarPrivate_
+{
   GArrowDayMillisecond *value;
 } GArrowDayTimeIntervalScalarPrivate;
 
@@ -1620,9 +1513,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayTimeIntervalScalar,
                            garrow_day_time_interval_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
-  static_cast<GArrowDayTimeIntervalScalarPrivate *>(             \
-    garrow_day_time_interval_scalar_get_instance_private(        \
+#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)                                 \
+  static_cast<GArrowDayTimeIntervalScalarPrivate *>(                                     \
+    garrow_day_time_interval_scalar_get_instance_private(                                \
       GARROW_DAY_TIME_INTERVAL_SCALAR(obj)))
 
 static void
@@ -1631,8 +1524,7 @@ garrow_day_time_interval_scalar_init(GArrowDayTimeIntervalScalar *object)
 }
 
 static void
-garrow_day_time_interval_scalar_class_init(
-  GArrowDayTimeIntervalScalarClass *klass)
+garrow_day_time_interval_scalar_class_init(GArrowDayTimeIntervalScalarClass *klass)
 {
 }
 
@@ -1648,9 +1540,8 @@ GArrowDayTimeIntervalScalar *
 garrow_day_time_interval_scalar_new(GArrowDayMillisecond *value)
 {
   auto arrow_value = garrow_day_millisecond_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::DayTimeIntervalScalar>(*arrow_value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::DayTimeIntervalScalar>(*arrow_value));
   return GARROW_DAY_TIME_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
@@ -1667,9 +1558,8 @@ garrow_day_time_interval_scalar_get_value(GArrowDayTimeIntervalScalar *scalar)
 {
   auto priv = GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    auto arrow_scalar =
-      std::static_pointer_cast<arrow::DayTimeIntervalScalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_scalar = std::static_pointer_cast<arrow::DayTimeIntervalScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     auto arrow_value = arrow_scalar->value;
     priv->value = garrow_day_millisecond_new_raw(&arrow_value);
   }
@@ -1677,8 +1567,8 @@ garrow_day_time_interval_scalar_get_value(GArrowDayTimeIntervalScalar *scalar)
   return priv->value;
 }
 
-
-typedef struct GArrowMonthDayNanoIntervalScalarPrivate_ {
+typedef struct GArrowMonthDayNanoIntervalScalarPrivate_
+{
   GArrowMonthDayNano *value;
 } GArrowMonthDayNanoIntervalScalarPrivate;
 
@@ -1686,14 +1576,13 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNanoIntervalScalar,
                            garrow_month_day_nano_interval_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
-  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(              \
-    garrow_month_day_nano_interval_scalar_get_instance_private(        \
+#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)                           \
+  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(                                \
+    garrow_month_day_nano_interval_scalar_get_instance_private(                          \
       GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(obj)))
 
 static void
-garrow_month_day_nano_interval_scalar_init(
-  GArrowMonthDayNanoIntervalScalar *object)
+garrow_month_day_nano_interval_scalar_init(GArrowMonthDayNanoIntervalScalar *object)
 {
 }
 
@@ -1715,11 +1604,9 @@ GArrowMonthDayNanoIntervalScalar *
 garrow_month_day_nano_interval_scalar_new(GArrowMonthDayNano *value)
 {
   auto arrow_value = garrow_month_day_nano_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::MonthDayNanoIntervalScalar>(*arrow_value));
-  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::MonthDayNanoIntervalScalar>(*arrow_value));
+  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
 }
 
 /**
@@ -1735,17 +1622,16 @@ garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar
 {
   auto priv = GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    auto arrow_scalar =
-      std::static_pointer_cast<arrow::MonthDayNanoIntervalScalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_scalar = std::static_pointer_cast<arrow::MonthDayNanoIntervalScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     priv->value = garrow_month_day_nano_new_raw(&arrow_scalar->value);
   }
 
   return priv->value;
 }
 
-
-typedef struct GArrowDecimal128ScalarPrivate_ {
+typedef struct GArrowDecimal128ScalarPrivate_
+{
   GArrowDecimal128 *value;
 } GArrowDecimal128ScalarPrivate;
 
@@ -1753,10 +1639,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128Scalar,
                            garrow_decimal128_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_DECIMAL128_SCALAR_GET_PRIVATE(obj)            \
-  static_cast<GArrowDecimal128ScalarPrivate *>(              \
-    garrow_decimal128_scalar_get_instance_private(           \
-      GARROW_DECIMAL128_SCALAR(obj)))
+#define GARROW_DECIMAL128_SCALAR_GET_PRIVATE(obj)                                        \
+  static_cast<GArrowDecimal128ScalarPrivate *>(                                          \
+    garrow_decimal128_scalar_get_instance_private(GARROW_DECIMAL128_SCALAR(obj)))
 
 static void
 garrow_decimal128_scalar_dispose(GObject *object)
@@ -1799,7 +1684,7 @@ garrow_decimal128_scalar_class_init(GArrowDecimal128ScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_decimal128_scalar_dispose;
+  gobject_class->dispose = garrow_decimal128_scalar_dispose;
   gobject_class->set_property = garrow_decimal128_scalar_set_property;
 
   GParamSpec *spec;
@@ -1810,12 +1695,12 @@ garrow_decimal128_scalar_class_init(GArrowDecimal128ScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The value of the scalar",
-                             garrow_decimal128_get_type(),
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    garrow_decimal128_get_type(),
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -1829,20 +1714,20 @@ garrow_decimal128_scalar_class_init(GArrowDecimal128ScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowDecimal128Scalar *
-garrow_decimal128_scalar_new(GArrowDecimal128DataType *data_type,
-                             GArrowDecimal128 *value)
+garrow_decimal128_scalar_new(GArrowDecimal128DataType *data_type, GArrowDecimal128 *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_value = garrow_decimal128_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Decimal128Scalar>(*arrow_value, arrow_data_type));
-  return GARROW_DECIMAL128_SCALAR(
-    garrow_scalar_new_raw(&arrow_scalar,
-                          "scalar", &arrow_scalar,
-                          "data-type", data_type,
-                          "value", value,
-                          NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::Decimal128Scalar>(*arrow_value, arrow_data_type));
+  return GARROW_DECIMAL128_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                        "scalar",
+                                                        &arrow_scalar,
+                                                        "data-type",
+                                                        data_type,
+                                                        "value",
+                                                        value,
+                                                        NULL));
 }
 
 /**
@@ -1858,17 +1743,16 @@ garrow_decimal128_scalar_get_value(GArrowDecimal128Scalar *scalar)
 {
   auto priv = GARROW_DECIMAL128_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    auto arrow_scalar =
-      std::static_pointer_cast<arrow::Decimal128Scalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_scalar = std::static_pointer_cast<arrow::Decimal128Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     auto arrow_value = std::make_shared<arrow::Decimal128>(arrow_scalar->value);
     priv->value = garrow_decimal128_new_raw(&arrow_value);
   }
   return priv->value;
 }
 
-
-typedef struct GArrowDecimal256ScalarPrivate_ {
+typedef struct GArrowDecimal256ScalarPrivate_
+{
   GArrowDecimal256 *value;
 } GArrowDecimal256ScalarPrivate;
 
@@ -1876,10 +1760,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal256Scalar,
                            garrow_decimal256_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_DECIMAL256_SCALAR_GET_PRIVATE(obj)            \
-  static_cast<GArrowDecimal256ScalarPrivate *>(              \
-    garrow_decimal256_scalar_get_instance_private(           \
-      GARROW_DECIMAL256_SCALAR(obj)))
+#define GARROW_DECIMAL256_SCALAR_GET_PRIVATE(obj)                                        \
+  static_cast<GArrowDecimal256ScalarPrivate *>(                                          \
+    garrow_decimal256_scalar_get_instance_private(GARROW_DECIMAL256_SCALAR(obj)))
 
 static void
 garrow_decimal256_scalar_dispose(GObject *object)
@@ -1922,7 +1805,7 @@ garrow_decimal256_scalar_class_init(GArrowDecimal256ScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_decimal256_scalar_dispose;
+  gobject_class->dispose = garrow_decimal256_scalar_dispose;
   gobject_class->set_property = garrow_decimal256_scalar_set_property;
 
   GParamSpec *spec;
@@ -1933,12 +1816,12 @@ garrow_decimal256_scalar_class_init(GArrowDecimal256ScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The value of the scalar",
-                             garrow_decimal256_get_type(),
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    garrow_decimal256_get_type(),
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -1952,18 +1835,19 @@ garrow_decimal256_scalar_class_init(GArrowDecimal256ScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowDecimal256Scalar *
-garrow_decimal256_scalar_new(GArrowDecimal256DataType *data_type,
-                             GArrowDecimal256 *value)
+garrow_decimal256_scalar_new(GArrowDecimal256DataType *data_type, GArrowDecimal256 *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_value = garrow_decimal256_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::Decimal256Scalar>(*arrow_value, arrow_data_type));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::Decimal256Scalar>(*arrow_value, arrow_data_type));
   return GARROW_DECIMAL256_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
-                                                        "scalar", &arrow_scalar,
-                                                        "data-type", data_type,
-                                                        "value", value,
+                                                        "scalar",
+                                                        &arrow_scalar,
+                                                        "data-type",
+                                                        data_type,
+                                                        "value",
+                                                        value,
                                                         NULL));
 }
 
@@ -1980,17 +1864,16 @@ garrow_decimal256_scalar_get_value(GArrowDecimal256Scalar *scalar)
 {
   auto priv = GARROW_DECIMAL256_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    auto arrow_scalar =
-      std::static_pointer_cast<arrow::Decimal256Scalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_scalar = std::static_pointer_cast<arrow::Decimal256Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     auto arrow_value = std::make_shared<arrow::Decimal256>(arrow_scalar->value);
     priv->value = garrow_decimal256_new_raw(&arrow_value);
   }
   return priv->value;
 }
 
-
-typedef struct GArrowBaseListScalarPrivate_ {
+typedef struct GArrowBaseListScalarPrivate_
+{
   GArrowArray *value;
 } GArrowBaseListScalarPrivate;
 
@@ -1998,10 +1881,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowBaseListScalar,
                                     garrow_base_list_scalar,
                                     GARROW_TYPE_SCALAR)
 
-#define GARROW_BASE_LIST_SCALAR_GET_PRIVATE(obj)            \
-  static_cast<GArrowBaseListScalarPrivate *>(               \
-    garrow_base_list_scalar_get_instance_private(           \
-      GARROW_BASE_LIST_SCALAR(obj)))
+#define GARROW_BASE_LIST_SCALAR_GET_PRIVATE(obj)                                         \
+  static_cast<GArrowBaseListScalarPrivate *>(                                            \
+    garrow_base_list_scalar_get_instance_private(GARROW_BASE_LIST_SCALAR(obj)))
 
 static void
 garrow_base_list_scalar_dispose(GObject *object)
@@ -2044,7 +1926,7 @@ garrow_base_list_scalar_class_init(GArrowBaseListScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_base_list_scalar_dispose;
+  gobject_class->dispose = garrow_base_list_scalar_dispose;
   gobject_class->set_property = garrow_base_list_scalar_set_property;
 
   GParamSpec *spec;
@@ -2055,29 +1937,31 @@ garrow_base_list_scalar_class_init(GArrowBaseListScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The value of the scalar",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
 G_END_DECLS
-template<typename ArrowListScalarType>
+template <typename ArrowListScalarType>
 GArrowScalar *
 garrow_base_list_scalar_new(GArrowArray *value)
 {
   auto arrow_value = garrow_array_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<ArrowListScalarType>(arrow_value));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<ArrowListScalarType>(arrow_value));
   auto data_type = garrow_array_get_value_data_type(value);
   auto scalar = garrow_scalar_new_raw(&arrow_scalar,
-                                      "scalar", &arrow_scalar,
-                                      "data-type", data_type,
-                                      "value", value,
+                                      "scalar",
+                                      &arrow_scalar,
+                                      "data-type",
+                                      data_type,
+                                      "value",
+                                      value,
                                       NULL);
   g_object_unref(data_type);
   return scalar;
@@ -2097,18 +1981,14 @@ garrow_base_list_scalar_get_value(GArrowBaseListScalar *scalar)
 {
   auto priv = GARROW_BASE_LIST_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    const auto arrow_scalar =
-      std::static_pointer_cast<arrow::BaseListScalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    const auto arrow_scalar = std::static_pointer_cast<arrow::BaseListScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     priv->value = garrow_array_new_raw(&(arrow_scalar->value));
   }
   return priv->value;
 }
 
-
-G_DEFINE_TYPE(GArrowListScalar,
-              garrow_list_scalar,
-              GARROW_TYPE_BASE_LIST_SCALAR)
+G_DEFINE_TYPE(GArrowListScalar, garrow_list_scalar, GARROW_TYPE_BASE_LIST_SCALAR)
 
 static void
 garrow_list_scalar_init(GArrowListScalar *object)
@@ -2134,7 +2014,6 @@ garrow_list_scalar_new(GArrowListArray *value)
   return GARROW_LIST_SCALAR(
     garrow_base_list_scalar_new<arrow::ListScalar>(GARROW_ARRAY(value)));
 }
-
 
 G_DEFINE_TYPE(GArrowLargeListScalar,
               garrow_large_list_scalar,
@@ -2165,10 +2044,7 @@ garrow_large_list_scalar_new(GArrowLargeListArray *value)
     garrow_base_list_scalar_new<arrow::LargeListScalar>(GARROW_ARRAY(value)));
 }
 
-
-G_DEFINE_TYPE(GArrowMapScalar,
-              garrow_map_scalar,
-              GARROW_TYPE_BASE_LIST_SCALAR)
+G_DEFINE_TYPE(GArrowMapScalar, garrow_map_scalar, GARROW_TYPE_BASE_LIST_SCALAR)
 
 static void
 garrow_map_scalar_init(GArrowMapScalar *object)
@@ -2195,19 +2071,16 @@ garrow_map_scalar_new(GArrowStructArray *value)
     garrow_base_list_scalar_new<arrow::MapScalar>(GARROW_ARRAY(value)));
 }
 
-
-typedef struct GArrowStructScalarPrivate_ {
+typedef struct GArrowStructScalarPrivate_
+{
   GList *value;
 } GArrowStructScalarPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructScalar,
-                           garrow_struct_scalar,
-                           GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowStructScalar, garrow_struct_scalar, GARROW_TYPE_SCALAR)
 
-#define GARROW_STRUCT_SCALAR_GET_PRIVATE(obj)             \
-  static_cast<GArrowStructScalarPrivate *>(               \
-    garrow_struct_scalar_get_instance_private(            \
-      GARROW_STRUCT_SCALAR(obj)))
+#define GARROW_STRUCT_SCALAR_GET_PRIVATE(obj)                                            \
+  static_cast<GArrowStructScalarPrivate *>(                                              \
+    garrow_struct_scalar_get_instance_private(GARROW_STRUCT_SCALAR(obj)))
 
 static void
 garrow_struct_scalar_dispose(GObject *object)
@@ -2244,8 +2117,7 @@ garrow_struct_scalar_class_init(GArrowStructScalarClass *klass)
  * Since: 5.0.0
  */
 GArrowStructScalar *
-garrow_struct_scalar_new(GArrowStructDataType *data_type,
-                         GList *value)
+garrow_struct_scalar_new(GArrowStructDataType *data_type, GList *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   std::vector<std::shared_ptr<arrow::Scalar>> arrow_value;
@@ -2254,19 +2126,16 @@ garrow_struct_scalar_new(GArrowStructDataType *data_type,
     auto arrow_field = garrow_scalar_get_raw(field);
     arrow_value.push_back(arrow_field);
   }
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::StructScalar>(arrow_value, arrow_data_type));
-  auto scalar =
-    GARROW_STRUCT_SCALAR(
-      garrow_scalar_new_raw(&arrow_scalar,
-                            "scalar", &arrow_scalar,
-                            "data-type", data_type,
-                            NULL));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::StructScalar>(arrow_value, arrow_data_type));
+  auto scalar = GARROW_STRUCT_SCALAR(garrow_scalar_new_raw(&arrow_scalar,
+                                                           "scalar",
+                                                           &arrow_scalar,
+                                                           "data-type",
+                                                           data_type,
+                                                           NULL));
   auto priv = GARROW_STRUCT_SCALAR_GET_PRIVATE(scalar);
-  priv->value = g_list_copy_deep(value,
-                                 reinterpret_cast<GCopyFunc>(g_object_ref),
-                                 NULL);
+  priv->value = g_list_copy_deep(value, reinterpret_cast<GCopyFunc>(g_object_ref), NULL);
   return scalar;
 }
 
@@ -2284,20 +2153,18 @@ garrow_struct_scalar_get_value(GArrowStructScalar *scalar)
 {
   auto priv = GARROW_STRUCT_SCALAR_GET_PRIVATE(scalar);
   if (!priv->value) {
-    auto arrow_scalar =
-      std::static_pointer_cast<arrow::StructScalar>(
-        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_scalar = std::static_pointer_cast<arrow::StructScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
     for (auto arrow_element : arrow_scalar->value) {
-      priv->value = g_list_prepend(priv->value,
-                                   garrow_scalar_new_raw(&arrow_element));
+      priv->value = g_list_prepend(priv->value, garrow_scalar_new_raw(&arrow_element));
     }
     priv->value = g_list_reverse(priv->value);
   }
   return priv->value;
 }
 
-
-typedef struct GArrowUnionScalarPrivate_ {
+typedef struct GArrowUnionScalarPrivate_
+{
   GArrowScalar *value;
 } GArrowUnionScalarPrivate;
 
@@ -2305,10 +2172,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowUnionScalar,
                                     garrow_union_scalar,
                                     GARROW_TYPE_SCALAR)
 
-#define GARROW_UNION_SCALAR_GET_PRIVATE(obj)             \
-  static_cast<GArrowUnionScalarPrivate *>(               \
-    garrow_union_scalar_get_instance_private(            \
-      GARROW_UNION_SCALAR(obj)))
+#define GARROW_UNION_SCALAR_GET_PRIVATE(obj)                                             \
+  static_cast<GArrowUnionScalarPrivate *>(                                               \
+    garrow_union_scalar_get_instance_private(GARROW_UNION_SCALAR(obj)))
 
 static void
 garrow_union_scalar_dispose(GObject *object)
@@ -2350,7 +2216,7 @@ static void
 garrow_union_scalar_class_init(GArrowUnionScalarClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose      = garrow_union_scalar_dispose;
+  gobject_class->dispose = garrow_union_scalar_dispose;
   gobject_class->set_property = garrow_union_scalar_set_property;
 
   GParamSpec *spec;
@@ -2361,32 +2227,31 @@ garrow_union_scalar_class_init(GArrowUnionScalarClass *klass)
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The value of the scalar",
-                             GARROW_TYPE_SCALAR,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The value of the scalar",
+    GARROW_TYPE_SCALAR,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
 G_END_DECLS
-template<typename ArrowUnionScalarType>
+template <typename ArrowUnionScalarType>
 GArrowScalar *
-garrow_union_scalar_new(GArrowDataType *data_type,
-                        gint8 type_code,
-                        GArrowScalar *value)
+garrow_union_scalar_new(GArrowDataType *data_type, gint8 type_code, GArrowScalar *value)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_value = garrow_scalar_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<ArrowUnionScalarType>(arrow_value, type_code,
-                                             arrow_data_type));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<ArrowUnionScalarType>(arrow_value, type_code, arrow_data_type));
   auto scalar = garrow_scalar_new_raw(&arrow_scalar,
-                                      "scalar", &arrow_scalar,
-                                      "data-type", data_type,
-                                      "value", value,
+                                      "scalar",
+                                      &arrow_scalar,
+                                      "data-type",
+                                      data_type,
+                                      "value",
+                                      value,
                                       NULL);
   return scalar;
 }
@@ -2403,9 +2268,8 @@ G_BEGIN_DECLS
 gint8
 garrow_union_scalar_get_type_code(GArrowUnionScalar *scalar)
 {
-  const auto &arrow_scalar =
-    std::static_pointer_cast<arrow::UnionScalar>(
-      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  const auto &arrow_scalar = std::static_pointer_cast<arrow::UnionScalar>(
+    garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->type_code;
 }
 
@@ -2423,7 +2287,6 @@ garrow_union_scalar_get_value(GArrowUnionScalar *scalar)
   auto priv = GARROW_UNION_SCALAR_GET_PRIVATE(scalar);
   return priv->value;
 }
-
 
 G_DEFINE_TYPE(GArrowSparseUnionScalar,
               garrow_sparse_union_scalar,
@@ -2456,8 +2319,7 @@ garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   const auto &arrow_type_codes =
-    std::dynamic_pointer_cast<arrow::SparseUnionType>(
-      arrow_data_type)->type_codes();
+    std::dynamic_pointer_cast<arrow::SparseUnionType>(arrow_data_type)->type_codes();
   auto arrow_value = garrow_scalar_get_raw(value);
   arrow::SparseUnionScalar::ValueType arrow_field_values;
   for (int i = 0; i < arrow_data_type->num_fields(); ++i) {
@@ -2468,23 +2330,22 @@ garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
         arrow::MakeNullScalar(arrow_data_type->field(i)->type()));
     }
   }
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::SparseUnionScalar>(arrow_field_values,
-                                                 type_code,
-                                                 arrow_data_type));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::SparseUnionScalar>(arrow_field_values,
+                                               type_code,
+                                               arrow_data_type));
   auto scalar = garrow_scalar_new_raw(&arrow_scalar,
-                                      "scalar", &arrow_scalar,
-                                      "data-type", data_type,
-                                      "value", value,
+                                      "scalar",
+                                      &arrow_scalar,
+                                      "data-type",
+                                      data_type,
+                                      "value",
+                                      value,
                                       NULL);
   return GARROW_SPARSE_UNION_SCALAR(scalar);
 }
 
-
-G_DEFINE_TYPE(GArrowDenseUnionScalar,
-              garrow_dense_union_scalar,
-              GARROW_TYPE_UNION_SCALAR)
+G_DEFINE_TYPE(GArrowDenseUnionScalar, garrow_dense_union_scalar, GARROW_TYPE_UNION_SCALAR)
 
 static void
 garrow_dense_union_scalar_init(GArrowDenseUnionScalar *object)
@@ -2513,23 +2374,20 @@ garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
   auto arrow_value = garrow_scalar_get_raw(value);
-  auto arrow_scalar =
-    std::static_pointer_cast<arrow::Scalar>(
-      std::make_shared<arrow::DenseUnionScalar>(arrow_value,
-                                                type_code,
-                                                arrow_data_type));
+  auto arrow_scalar = std::static_pointer_cast<arrow::Scalar>(
+    std::make_shared<arrow::DenseUnionScalar>(arrow_value, type_code, arrow_data_type));
   auto scalar = garrow_scalar_new_raw(&arrow_scalar,
-                                      "scalar", &arrow_scalar,
-                                      "data-type", data_type,
-                                      "value", value,
+                                      "scalar",
+                                      &arrow_scalar,
+                                      "data-type",
+                                      data_type,
+                                      "value",
+                                      value,
                                       NULL);
   return GARROW_DENSE_UNION_SCALAR(scalar);
 }
 
-
-G_DEFINE_TYPE(GArrowExtensionScalar,
-              garrow_extension_scalar,
-              GARROW_TYPE_SCALAR)
+G_DEFINE_TYPE(GArrowExtensionScalar, garrow_extension_scalar, GARROW_TYPE_SCALAR)
 
 static void
 garrow_extension_scalar_init(GArrowExtensionScalar *object)
@@ -2541,15 +2399,12 @@ garrow_extension_scalar_class_init(GArrowExtensionScalarClass *klass)
 {
 }
 
-
 G_END_DECLS
 
 GArrowScalar *
 garrow_scalar_new_raw(std::shared_ptr<arrow::Scalar> *arrow_scalar)
 {
-  return garrow_scalar_new_raw(arrow_scalar,
-                               "scalar", arrow_scalar,
-                               NULL);
+  return garrow_scalar_new_raw(arrow_scalar, "scalar", arrow_scalar, NULL);
 }
 
 GArrowScalar *
@@ -2559,9 +2414,7 @@ garrow_scalar_new_raw(std::shared_ptr<arrow::Scalar> *arrow_scalar,
 {
   va_list args;
   va_start(args, first_property_name);
-  auto array = garrow_scalar_new_raw_valist(arrow_scalar,
-                                            first_property_name,
-                                            args);
+  auto array = garrow_scalar_new_raw_valist(arrow_scalar, first_property_name, args);
   va_end(args);
   return array;
 }
@@ -2665,11 +2518,11 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
   case arrow::Type::type::LARGE_LIST:
     type = GARROW_TYPE_LARGE_LIST_SCALAR;
     break;
-/*
-  case arrow::Type::type::FIXED_SIZE_LIST:
-    type = GARROW_TYPE_FIXED_SIZE_LIST_SCALAR;
-    break;
-*/
+    /*
+      case arrow::Type::type::FIXED_SIZE_LIST:
+        type = GARROW_TYPE_FIXED_SIZE_LIST_SCALAR;
+        break;
+    */
   case arrow::Type::type::MAP:
     type = GARROW_TYPE_MAP_SCALAR;
     break;
@@ -2689,9 +2542,7 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     type = GARROW_TYPE_SCALAR;
     break;
   }
-  scalar = GARROW_SCALAR(g_object_new_valist(type,
-                                             first_property_name,
-                                             args));
+  scalar = GARROW_SCALAR(g_object_new_valist(type, first_property_name, args));
   return scalar;
 }
 

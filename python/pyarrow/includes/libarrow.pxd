@@ -984,6 +984,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
 
+        CResult[shared_ptr[CTensor]] ToTensor() const
+
     cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
         shared_ptr[CRecordBatch] batch
         # The struct in C++ does not actually have these two `const` qualifiers, but
@@ -1166,7 +1168,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CScalar& other) const
         CStatus Validate() const
         CStatus ValidateFull() const
-        CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
         size_t operator()(const shared_ptr[CScalar]& scalar) const
@@ -3015,3 +3016,6 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)
+
+cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
+    CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)

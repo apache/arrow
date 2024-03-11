@@ -30,6 +30,7 @@ import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 from queue import Queue, Empty as QueueEmpty
 
+from pyarrow.lib cimport check_status, HaveLibHdfs
 from pyarrow.util import _is_path_like, _stringify_path
 
 
@@ -44,6 +45,18 @@ cdef extern from "Python.h":
 
     # Workaround https://github.com/cython/cython/issues/4707
     bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
+
+
+def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        with nogil:
+            check_status(HaveLibHdfs())
+        return True
+    except Exception:
+        return False
 
 
 def io_thread_count():

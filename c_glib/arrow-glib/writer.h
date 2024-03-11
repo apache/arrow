@@ -27,30 +27,27 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_RECORD_BATCH_WRITER         \
-  (garrow_record_batch_writer_get_type())
-#define GARROW_RECORD_BATCH_WRITER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH_WRITER,  \
+#define GARROW_TYPE_RECORD_BATCH_WRITER (garrow_record_batch_writer_get_type())
+#define GARROW_RECORD_BATCH_WRITER(obj)                                                  \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                                     \
+                              GARROW_TYPE_RECORD_BATCH_WRITER,                           \
                               GArrowRecordBatchWriter))
-#define GARROW_RECORD_BATCH_WRITER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                             \
-                           GARROW_TYPE_RECORD_BATCH_WRITER,     \
+#define GARROW_RECORD_BATCH_WRITER_CLASS(klass)                                          \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                                      \
+                           GARROW_TYPE_RECORD_BATCH_WRITER,                              \
                            GArrowRecordBatchWriterClass))
-#define GARROW_IS_RECORD_BATCH_WRITER(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH_WRITER))
-#define GARROW_IS_RECORD_BATCH_WRITER_CLASS(klass)              \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                             \
-                           GARROW_TYPE_RECORD_BATCH_WRITER))
-#define GARROW_RECORD_BATCH_WRITER_GET_CLASS(obj)               \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                             \
-                             GARROW_TYPE_RECORD_BATCH_WRITER,   \
+#define GARROW_IS_RECORD_BATCH_WRITER(obj)                                               \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RECORD_BATCH_WRITER))
+#define GARROW_IS_RECORD_BATCH_WRITER_CLASS(klass)                                       \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RECORD_BATCH_WRITER))
+#define GARROW_RECORD_BATCH_WRITER_GET_CLASS(obj)                                        \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                                      \
+                             GARROW_TYPE_RECORD_BATCH_WRITER,                            \
                              GArrowRecordBatchWriterClass))
 
-typedef struct _GArrowRecordBatchWriter         GArrowRecordBatchWriter;
+typedef struct _GArrowRecordBatchWriter GArrowRecordBatchWriter;
 #ifndef __GTK_DOC_IGNORE__
-typedef struct _GArrowRecordBatchWriterClass    GArrowRecordBatchWriterClass;
+typedef struct _GArrowRecordBatchWriterClass GArrowRecordBatchWriterClass;
 #endif
 
 /**
@@ -71,43 +68,40 @@ struct _GArrowRecordBatchWriterClass
 };
 #endif
 
-GType garrow_record_batch_writer_get_type(void) G_GNUC_CONST;
+GType
+garrow_record_batch_writer_get_type(void) G_GNUC_CONST;
 
-gboolean garrow_record_batch_writer_write_record_batch(
-  GArrowRecordBatchWriter *writer,
-  GArrowRecordBatch *record_batch,
-  GError **error);
-gboolean garrow_record_batch_writer_write_table(
-  GArrowRecordBatchWriter *writer,
-  GArrowTable *table,
-  GError **error);
-gboolean garrow_record_batch_writer_close(
-  GArrowRecordBatchWriter *writer,
-  GError **error);
+gboolean
+garrow_record_batch_writer_write_record_batch(GArrowRecordBatchWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error);
+gboolean
+garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
+                                       GArrowTable *table,
+                                       GError **error);
+gboolean
+garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer, GError **error);
 
-
-#define GARROW_TYPE_RECORD_BATCH_STREAM_WRITER          \
+#define GARROW_TYPE_RECORD_BATCH_STREAM_WRITER                                           \
   (garrow_record_batch_stream_writer_get_type())
-#define GARROW_RECORD_BATCH_STREAM_WRITER(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,   \
+#define GARROW_RECORD_BATCH_STREAM_WRITER(obj)                                           \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                                     \
+                              GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,                    \
                               GArrowRecordBatchStreamWriter))
-#define GARROW_RECORD_BATCH_STREAM_WRITER_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,      \
+#define GARROW_RECORD_BATCH_STREAM_WRITER_CLASS(klass)                                   \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                                      \
+                           GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,                       \
                            GArrowRecordBatchStreamWriterClass))
-#define GARROW_IS_RECORD_BATCH_STREAM_WRITER(obj)                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_STREAM_WRITER))
-#define GARROW_IS_RECORD_BATCH_STREAM_WRITER_CLASS(klass)            \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_RECORD_BATCH_STREAM_WRITER))
-#define GARROW_RECORD_BATCH_STREAM_WRITER_GET_CLASS(obj)             \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_RECORD_BATCH_STREAM_WRITER, \
+#define GARROW_IS_RECORD_BATCH_STREAM_WRITER(obj)                                        \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RECORD_BATCH_STREAM_WRITER))
+#define GARROW_IS_RECORD_BATCH_STREAM_WRITER_CLASS(klass)                                \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RECORD_BATCH_STREAM_WRITER))
+#define GARROW_RECORD_BATCH_STREAM_WRITER_GET_CLASS(obj)                                 \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                                      \
+                             GARROW_TYPE_RECORD_BATCH_STREAM_WRITER,                     \
                              GArrowRecordBatchStreamWriterClass))
 
-typedef struct _GArrowRecordBatchStreamWriter      GArrowRecordBatchStreamWriter;
+typedef struct _GArrowRecordBatchStreamWriter GArrowRecordBatchStreamWriter;
 #ifndef __GTK_DOC_IGNORE__
 typedef struct _GArrowRecordBatchStreamWriterClass GArrowRecordBatchStreamWriterClass;
 #endif
@@ -130,36 +124,33 @@ struct _GArrowRecordBatchStreamWriterClass
 };
 #endif
 
-GType garrow_record_batch_stream_writer_get_type(void) G_GNUC_CONST;
+GType
+garrow_record_batch_stream_writer_get_type(void) G_GNUC_CONST;
 
-GArrowRecordBatchStreamWriter *garrow_record_batch_stream_writer_new(
-  GArrowOutputStream *sink,
-  GArrowSchema *schema,
-  GError **error);
+GArrowRecordBatchStreamWriter *
+garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
+                                      GArrowSchema *schema,
+                                      GError **error);
 
-
-#define GARROW_TYPE_RECORD_BATCH_FILE_WRITER    \
-  (garrow_record_batch_file_writer_get_type())
-#define GARROW_RECORD_BATCH_FILE_WRITER(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_FILE_WRITER,     \
+#define GARROW_TYPE_RECORD_BATCH_FILE_WRITER (garrow_record_batch_file_writer_get_type())
+#define GARROW_RECORD_BATCH_FILE_WRITER(obj)                                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                                     \
+                              GARROW_TYPE_RECORD_BATCH_FILE_WRITER,                      \
                               GArrowRecordBatchFileWriter))
-#define GARROW_RECORD_BATCH_FILE_WRITER_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_FILE_WRITER,        \
+#define GARROW_RECORD_BATCH_FILE_WRITER_CLASS(klass)                                     \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                                      \
+                           GARROW_TYPE_RECORD_BATCH_FILE_WRITER,                         \
                            GArrowRecordBatchFileWriterClass))
-#define GARROW_IS_RECORD_BATCH_FILE_WRITER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_FILE_WRITER))
-#define GARROW_IS_RECORD_BATCH_FILE_WRITER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_FILE_WRITER))
-#define GARROW_RECORD_BATCH_FILE_WRITER_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
-                             GARROW_TYPE_RECORD_BATCH_FILE_WRITER,      \
+#define GARROW_IS_RECORD_BATCH_FILE_WRITER(obj)                                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RECORD_BATCH_FILE_WRITER))
+#define GARROW_IS_RECORD_BATCH_FILE_WRITER_CLASS(klass)                                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RECORD_BATCH_FILE_WRITER))
+#define GARROW_RECORD_BATCH_FILE_WRITER_GET_CLASS(obj)                                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                                      \
+                             GARROW_TYPE_RECORD_BATCH_FILE_WRITER,                       \
                              GArrowRecordBatchFileWriterClass))
 
-typedef struct _GArrowRecordBatchFileWriter      GArrowRecordBatchFileWriter;
+typedef struct _GArrowRecordBatchFileWriter GArrowRecordBatchFileWriter;
 #ifndef __GTK_DOC_IGNORE__
 typedef struct _GArrowRecordBatchFileWriterClass GArrowRecordBatchFileWriterClass;
 #endif
@@ -182,11 +173,12 @@ struct _GArrowRecordBatchFileWriterClass
 };
 #endif
 
-GType garrow_record_batch_file_writer_get_type(void) G_GNUC_CONST;
+GType
+garrow_record_batch_file_writer_get_type(void) G_GNUC_CONST;
 
-GArrowRecordBatchFileWriter *garrow_record_batch_file_writer_new(
-  GArrowOutputStream *sink,
-  GArrowSchema *schema,
-  GError **error);
+GArrowRecordBatchFileWriter *
+garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
+                                    GArrowSchema *schema,
+                                    GError **error);
 
 G_END_DECLS

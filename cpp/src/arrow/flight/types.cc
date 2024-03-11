@@ -829,6 +829,12 @@ arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   return location;
 }
 
+const Location& Location::ReuseConnection() {
+  static Location kFallback =
+      Location::Parse("arrow-flight-reuse-connection://?").ValueOrDie();
+  return kFallback;
+}
+
 arrow::Result<Location> Location::ForGrpcTcp(const std::string& host, const int port) {
   std::stringstream uri_string;
   uri_string << "grpc+tcp://" << host << ':' << port;

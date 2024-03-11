@@ -125,6 +125,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           CloseableEndpointStreamPair stream = null;
           for (Location location : endpoint.getLocations()) {
             final URI endpointUri = location.getUri();
+            if (endpointUri.getScheme().equals(LocationSchemes.REUSE_CONNECTION)) {
+              stream = new CloseableEndpointStreamPair(
+                      sqlClient.getStream(endpoint.getTicket(), getOptions()), null);
+              break;
+            }
             final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
                     .withHost(endpointUri.getHost())
                     .withPort(endpointUri.getPort())

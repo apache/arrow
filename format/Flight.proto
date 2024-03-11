@@ -369,7 +369,7 @@ message FlightInfo {
 
   /*
    * Application-defined metadata.
-   * 
+   *
    * There is no inherent or required relationship between this
    * and the app_metadata fields in the FlightEndpoints or resulting
    * FlightData messages. Since this metadata is application-defined,
@@ -440,11 +440,15 @@ message FlightEndpoint {
    * be redeemed on the current service where the ticket was
    * generated.
    *
-   * If the list is not empty, the expectation is that the ticket can
-   * be redeemed at any of the locations, and that the data returned
-   * will be equivalent. In this case, the ticket may only be redeemed
-   * at one of the given locations, and not (necessarily) on the
-   * current service.
+   * If the list is not empty, the expectation is that the ticket can be
+   * redeemed at any of the locations, and that the data returned will be
+   * equivalent. In this case, the ticket may only be redeemed at one of the
+   * given locations, and not (necessarily) on the current service. If one
+   * of the given locations is "arrow-flight-reuse-connection://?", the
+   * client may redeem the ticket on the service where the ticket was
+   * generated (i.e., the same as above), in addition to the other
+   * locations. (This URI was chosen to maximize compatibility, as 'scheme:'
+   * or 'scheme://' are not accepted by Java's java.net.URI.)
    *
    * In other words, an application can use multiple locations to
    * represent redundant and/or load balanced services.
@@ -460,7 +464,7 @@ message FlightEndpoint {
 
   /*
    * Application-defined metadata.
-   * 
+   *
    * There is no inherent or required relationship between this
    * and the app_metadata fields in the FlightInfo or resulting
    * FlightData messages. Since this metadata is application-defined,
@@ -587,7 +591,7 @@ message SetSessionOptionsResult {
   message Error {
     ErrorValue value = 1;
   }
-  
+
   map<string, Error> errors = 1;
 }
 

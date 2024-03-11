@@ -64,7 +64,7 @@ override_dh_auto_build:
 	  --						\
 	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
 	  -Darrow_cpp_build_dir=../cpp_build		\
-	  -Dgtk_doc=true				\
+	  -Ddoc=true					\
 	  -Dvapi=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\
