@@ -62,4 +62,6 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   public abstract void setLastSet(int value);
 
   public abstract int getValueLength(int index);
+
+  public abstract void fillEmpties(int index);
 }
