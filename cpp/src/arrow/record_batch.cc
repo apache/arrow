@@ -269,12 +269,10 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
 
     // If the column is of the same type than resulting data type
     if (TypeTraits<DataType>::type_singleton() == batch.column(i)->type()) {
-      for (int i = 0; i < batch.num_columns(); ++i) {
-        const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
+      const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
-        memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
-        out_values += batch.num_rows();
-      }
+      memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
+      out_values += batch.num_rows();
     } else {  // If the column is different type than resulting data type
       switch (batch.column(i)->type_id()) {
         case Type::HALF_FLOAT: {
