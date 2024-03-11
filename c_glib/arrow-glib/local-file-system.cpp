@@ -35,7 +35,8 @@ G_BEGIN_DECLS
  * that accesses files on the local machine.
  */
 
-typedef struct GArrowLocalFileSystemOptionsPrivate_ {
+typedef struct GArrowLocalFileSystemOptionsPrivate_
+{
   arrow::fs::LocalFileSystemOptions local_file_system_options;
 } GArrowLocalFileSystemOptionsPrivate;
 
@@ -47,10 +48,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowLocalFileSystemOptions,
                            garrow_local_file_system_options,
                            G_TYPE_OBJECT)
 
-#define GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(obj)       \
-  static_cast<GArrowLocalFileSystemOptionsPrivate *>(           \
-     garrow_local_file_system_options_get_instance_private(     \
-       GARROW_LOCAL_FILE_SYSTEM_OPTIONS(obj)))
+#define GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(obj)                                \
+  static_cast<GArrowLocalFileSystemOptionsPrivate *>(                                    \
+    garrow_local_file_system_options_get_instance_private(                               \
+      GARROW_LOCAL_FILE_SYSTEM_OPTIONS(obj)))
 
 static void
 garrow_local_file_system_options_finalize(GObject *object)
@@ -102,7 +103,7 @@ static void
 garrow_local_file_system_options_init(GArrowLocalFileSystemOptions *object)
 {
   auto priv = GARROW_LOCAL_FILE_SYSTEM_OPTIONS_GET_PRIVATE(object);
-  new(&priv->local_file_system_options) arrow::fs::LocalFileSystemOptions;
+  new (&priv->local_file_system_options) arrow::fs::LocalFileSystemOptions;
 }
 
 static void
@@ -112,7 +113,7 @@ garrow_local_file_system_options_class_init(GArrowLocalFileSystemOptionsClass *k
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_local_file_system_options_finalize;
+  gobject_class->finalize = garrow_local_file_system_options_finalize;
   gobject_class->set_property = garrow_local_file_system_options_set_property;
   gobject_class->get_property = garrow_local_file_system_options_get_property;
 
@@ -152,9 +153,7 @@ garrow_local_file_system_options_new(void)
 
 /* arrow::fs::LocalFileSystem */
 
-G_DEFINE_TYPE(GArrowLocalFileSystem,
-              garrow_local_file_system,
-              GARROW_TYPE_FILE_SYSTEM)
+G_DEFINE_TYPE(GArrowLocalFileSystem, garrow_local_file_system, GARROW_TYPE_FILE_SYSTEM)
 
 static void
 garrow_local_file_system_init(GArrowLocalFileSystem *file_system)
@@ -178,16 +177,13 @@ GArrowLocalFileSystem *
 garrow_local_file_system_new(GArrowLocalFileSystemOptions *options)
 {
   if (options) {
-    const auto &arrow_options =
-      garrow_local_file_system_options_get_raw(options);
-    auto arrow_local_file_system =
-      std::static_pointer_cast<arrow::fs::FileSystem>(
-        std::make_shared<arrow::fs::LocalFileSystem>(arrow_options));
+    const auto &arrow_options = garrow_local_file_system_options_get_raw(options);
+    auto arrow_local_file_system = std::static_pointer_cast<arrow::fs::FileSystem>(
+      std::make_shared<arrow::fs::LocalFileSystem>(arrow_options));
     return garrow_local_file_system_new_raw(&arrow_local_file_system);
   } else {
-    auto arrow_local_file_system =
-      std::static_pointer_cast<arrow::fs::FileSystem>(
-        std::make_shared<arrow::fs::LocalFileSystem>());
+    auto arrow_local_file_system = std::static_pointer_cast<arrow::fs::FileSystem>(
+      std::make_shared<arrow::fs::LocalFileSystem>());
     return garrow_local_file_system_new_raw(&arrow_local_file_system);
   }
 }
@@ -202,10 +198,9 @@ garrow_local_file_system_options_get_raw(GArrowLocalFileSystemOptions *options)
 }
 
 GArrowLocalFileSystem *
-garrow_local_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system)
+garrow_local_file_system_new_raw(
+  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system)
 {
   return GARROW_LOCAL_FILE_SYSTEM(
-    g_object_new(GARROW_TYPE_LOCAL_FILE_SYSTEM,
-                 "file-system", arrow_file_system,
-                 NULL));
+    g_object_new(GARROW_TYPE_LOCAL_FILE_SYSTEM, "file-system", arrow_file_system, NULL));
 }

@@ -42,18 +42,16 @@ G_BEGIN_DECLS
  * Since: 6.0.0
  */
 
-typedef struct GArrowExpressionPrivate_ {
+typedef struct GArrowExpressionPrivate_
+{
   arrow::compute::Expression expression;
 } GArrowExpressionPrivate;
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExpression,
-                                    garrow_expression,
-                                    G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExpression, garrow_expression, G_TYPE_OBJECT)
 
-#define GARROW_EXPRESSION_GET_PRIVATE(object)  \
-  static_cast<GArrowExpressionPrivate *>(      \
-    garrow_expression_get_instance_private(    \
-      GARROW_EXPRESSION(object)))
+#define GARROW_EXPRESSION_GET_PRIVATE(object)                                            \
+  static_cast<GArrowExpressionPrivate *>(                                                \
+    garrow_expression_get_instance_private(GARROW_EXPRESSION(object)))
 
 static void
 garrow_expression_finalize(GObject *object)
@@ -67,7 +65,7 @@ static void
 garrow_expression_init(GArrowExpression *object)
 {
   auto priv = GARROW_EXPRESSION_GET_PRIVATE(object);
-  new(&priv->expression) arrow::compute::Expression();
+  new (&priv->expression) arrow::compute::Expression();
 }
 
 static void
@@ -107,18 +105,14 @@ garrow_expression_to_string(GArrowExpression *expression)
  * Since: 6.0.0
  */
 gboolean
-garrow_expression_equal(GArrowExpression *expression,
-                        GArrowExpression *other_expression)
+garrow_expression_equal(GArrowExpression *expression, GArrowExpression *other_expression)
 {
   auto priv = GARROW_EXPRESSION_GET_PRIVATE(expression);
   auto other_priv = GARROW_EXPRESSION_GET_PRIVATE(other_expression);
   return priv->expression.Equals(other_priv->expression);
 }
 
-
-G_DEFINE_TYPE(GArrowLiteralExpression,
-              garrow_literal_expression,
-              GARROW_TYPE_EXPRESSION)
+G_DEFINE_TYPE(GArrowLiteralExpression, garrow_literal_expression, GARROW_TYPE_EXPRESSION)
 
 static void
 garrow_literal_expression_init(GArrowLiteralExpression *object)
@@ -146,10 +140,7 @@ garrow_literal_expression_new(GArrowDatum *datum)
   return GARROW_LITERAL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
 
-
-G_DEFINE_TYPE(GArrowFieldExpression,
-              garrow_field_expression,
-              GARROW_TYPE_EXPRESSION)
+G_DEFINE_TYPE(GArrowFieldExpression, garrow_field_expression, GARROW_TYPE_EXPRESSION)
 
 static void
 garrow_field_expression_init(GArrowFieldExpression *object)
@@ -172,23 +163,17 @@ garrow_field_expression_class_init(GArrowFieldExpressionClass *klass)
  * Since: 6.0.0
  */
 GArrowFieldExpression *
-garrow_field_expression_new(const gchar *reference,
-                            GError **error)
+garrow_field_expression_new(const gchar *reference, GError **error)
 {
   auto arrow_reference_result = garrow_field_reference_resolve_raw(reference);
-  if (!garrow::check(error,
-                     arrow_reference_result,
-                     "[field-expression][new]")) {
+  if (!garrow::check(error, arrow_reference_result, "[field-expression][new]")) {
     return NULL;
   }
   auto arrow_expression = arrow::compute::field_ref(*arrow_reference_result);
   return GARROW_FIELD_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
 
-
-G_DEFINE_TYPE(GArrowCallExpression,
-              garrow_call_expression,
-              GARROW_TYPE_EXPRESSION)
+G_DEFINE_TYPE(GArrowCallExpression, garrow_call_expression, GARROW_TYPE_EXPRESSION)
 
 static void
 garrow_call_expression_init(GArrowCallExpression *object)
@@ -225,12 +210,9 @@ garrow_call_expression_new(const gchar *function,
   if (options) {
     arrow_options.reset(garrow_function_options_get_raw(options)->Copy().release());
   }
-  auto arrow_expression = arrow::compute::call(function,
-                                               arrow_arguments,
-                                               arrow_options);
+  auto arrow_expression = arrow::compute::call(function, arrow_arguments, arrow_options);
   return GARROW_CALL_EXPRESSION(garrow_expression_new_raw(arrow_expression));
 }
-
 
 G_END_DECLS
 

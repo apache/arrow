@@ -22,95 +22,80 @@
 #include <glib-object.h>
 
 #ifndef G_DECLARE_DERIVABLE_TYPE
-#  define G_DECLARE_DERIVABLE_TYPE(ObjectName,                          \
-                                   object_name,                         \
-                                   MODULE_NAME,                         \
-                                   OBJECT_NAME,                         \
-                                   ParentName)                          \
-  typedef struct _ ## ObjectName ObjectName;                            \
-  typedef struct _ ## ObjectName ## Class ObjectName ## Class;          \
-                                                                        \
-  struct _ ## ObjectName                                                \
-  {                                                                     \
-    ParentName parent_instance;                                         \
-  };                                                                    \
-                                                                        \
-  GType object_name ## _get_type(void) G_GNUC_CONST;                    \
-                                                                        \
-  static inline ObjectName *                                            \
-  MODULE_NAME ## _ ## OBJECT_NAME(gpointer object)                      \
-  {                                                                     \
-    return G_TYPE_CHECK_INSTANCE_CAST(object,                           \
-                                      object_name ## _get_type(),       \
-                                      ObjectName);                      \
-  }                                                                     \
-                                                                        \
-  static inline ObjectName ## Class *                                   \
-  MODULE_NAME ## _ ## OBJECT_NAME ## _CLASS(gpointer klass)             \
-  {                                                                     \
-    return G_TYPE_CHECK_CLASS_CAST(klass,                               \
-                                   object_name ## _get_type(),          \
-                                   ObjectName ## Class);                \
-  }                                                                     \
-                                                                        \
-  static inline gboolean                                                \
-  MODULE_NAME ## _IS_ ## OBJECT_NAME(gpointer object)                   \
-  {                                                                     \
-    return G_TYPE_CHECK_INSTANCE_TYPE(object,                           \
-                                      object_name ## _get_type());      \
-  }                                                                     \
-                                                                        \
-  static inline gboolean                                                \
-  MODULE_NAME ## _IS_ ## OBJECT_NAME ## _CLASS(gpointer klass)          \
-  {                                                                     \
-    return G_TYPE_CHECK_CLASS_TYPE(klass,                               \
-                                   object_name ## _get_type());         \
-  }                                                                     \
-                                                                        \
-  static inline ObjectName ## Class *                                   \
-  MODULE_NAME ## _ ## ObjectName ## _GET_CLASS(gpointer object)         \
-  {                                                                     \
-    return G_TYPE_INSTANCE_GET_CLASS(object,                            \
-                                     object_name ## _get_type(),        \
-                                     ObjectName ## Class);              \
-  }
+#  define G_DECLARE_DERIVABLE_TYPE(ObjectName,                                           \
+                                   object_name,                                          \
+                                   MODULE_NAME,                                          \
+                                   OBJECT_NAME,                                          \
+                                   ParentName)                                           \
+    typedef struct _##ObjectName ObjectName;                                             \
+    typedef struct _##ObjectName##Class ObjectName##Class;                               \
+                                                                                         \
+    struct _##ObjectName                                                                 \
+    {                                                                                    \
+      ParentName parent_instance;                                                        \
+    };                                                                                   \
+                                                                                         \
+    GType object_name##_get_type(void) G_GNUC_CONST;                                     \
+                                                                                         \
+    static inline ObjectName *MODULE_NAME##_##OBJECT_NAME(gpointer object)               \
+    {                                                                                    \
+      return G_TYPE_CHECK_INSTANCE_CAST(object, object_name##_get_type(), ObjectName);   \
+    }                                                                                    \
+                                                                                         \
+    static inline ObjectName##Class *MODULE_NAME##_##OBJECT_NAME##_CLASS(gpointer klass) \
+    {                                                                                    \
+      return G_TYPE_CHECK_CLASS_CAST(klass,                                              \
+                                     object_name##_get_type(),                           \
+                                     ObjectName##Class);                                 \
+    }                                                                                    \
+                                                                                         \
+    static inline gboolean MODULE_NAME##_IS_##OBJECT_NAME(gpointer object)               \
+    {                                                                                    \
+      return G_TYPE_CHECK_INSTANCE_TYPE(object, object_name##_get_type());               \
+    }                                                                                    \
+                                                                                         \
+    static inline gboolean MODULE_NAME##_IS_##OBJECT_NAME##_CLASS(gpointer klass)        \
+    {                                                                                    \
+      return G_TYPE_CHECK_CLASS_TYPE(klass, object_name##_get_type());                   \
+    }                                                                                    \
+                                                                                         \
+    static inline ObjectName##Class *MODULE_NAME##_##ObjectName##_GET_CLASS(             \
+      gpointer object)                                                                   \
+    {                                                                                    \
+      return G_TYPE_INSTANCE_GET_CLASS(object,                                           \
+                                       object_name##_get_type(),                         \
+                                       ObjectName##Class);                               \
+    }
 #endif
 
 #ifndef G_DECLARE_INTERFACE
-#  define G_DECLARE_INTERFACE(ModuleObjectName,                         \
-                              module_object_name,                       \
-                              MODULE_NAME,                              \
-                              OBJECT_NAME,                              \
-                              PrerequisiteName)                         \
-  typedef struct                                                        \
-    _ ## ModuleObjectName                                               \
-    ModuleObjectName;                                                   \
-  typedef struct                                                        \
-    _ ## ModuleObjectName ## Interface                                  \
-    ModuleObjectName ## Interface;                                      \
-                                                                        \
-  GType module_object_name ## _get_type(void);                          \
-                                                                        \
-  static inline ModuleObjectName *                                      \
-  MODULE_NAME ## _ ## OBJECT_NAME(gpointer object)                      \
-  {                                                                     \
-   return G_TYPE_CHECK_INSTANCE_CAST(object,                            \
-                                     module_object_name ## _get_type(), \
-                                     ModuleObjectName);                 \
-  }                                                                     \
-                                                                        \
-  static inline gboolean                                                \
-  MODULE_NAME ## _IS_ ## OBJECT_NAME(gpointer object)                   \
-  {                                                                     \
-    return G_TYPE_CHECK_INSTANCE_TYPE(                                  \
-      object, module_object_name ## _get_type());                       \
-  }                                                                     \
-                                                                        \
-  static inline ModuleObjectName ## Interface *                         \
-  MODULE_NAME ## _ ## OBJECT_NAME ## _GET_IFACE(gpointer object)        \
-  {                                                                     \
-   return G_TYPE_INSTANCE_GET_INTERFACE(object,                         \
-                                        module_object_name ## _get_type(), \
-                                        ModuleObjectName ## Interface); \
-  }
+#  define G_DECLARE_INTERFACE(ModuleObjectName,                                          \
+                              module_object_name,                                        \
+                              MODULE_NAME,                                               \
+                              OBJECT_NAME,                                               \
+                              PrerequisiteName)                                          \
+    typedef struct _##ModuleObjectName ModuleObjectName;                                 \
+    typedef struct _##ModuleObjectName##Interface ModuleObjectName##Interface;           \
+                                                                                         \
+    GType module_object_name##_get_type(void);                                           \
+                                                                                         \
+    static inline ModuleObjectName *MODULE_NAME##_##OBJECT_NAME(gpointer object)         \
+    {                                                                                    \
+      return G_TYPE_CHECK_INSTANCE_CAST(object,                                          \
+                                        module_object_name##_get_type(),                 \
+                                        ModuleObjectName);                               \
+    }                                                                                    \
+                                                                                         \
+    static inline gboolean MODULE_NAME##_IS_##OBJECT_NAME(gpointer object)               \
+    {                                                                                    \
+      return G_TYPE_CHECK_INSTANCE_TYPE(object, module_object_name##_get_type());        \
+    }                                                                                    \
+                                                                                         \
+    static inline ModuleObjectName##Interface *MODULE_NAME##_##OBJECT_NAME##_GET_IFACE(  \
+      gpointer object)                                                                   \
+    {                                                                                    \
+      return G_TYPE_INSTANCE_GET_INTERFACE(object,                                       \
+                                           module_object_name##_get_type(),              \
+                                           ModuleObjectName##Interface);                 \
+    }
 #endif

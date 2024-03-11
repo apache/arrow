@@ -43,8 +43,7 @@ struct _GArrowRecordBatchReaderClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowRecordBatchReader *
-garrow_record_batch_reader_import(gpointer c_abi_array_stream,
-                                  GError **error);
+garrow_record_batch_reader_import(gpointer c_abi_array_stream, GError **error);
 
 GARROW_AVAILABLE_IN_6_0
 GArrowRecordBatchReader *
@@ -54,30 +53,27 @@ garrow_record_batch_reader_new(GList *record_batches,
 
 GARROW_AVAILABLE_IN_6_0
 gpointer
-garrow_record_batch_reader_export(GArrowRecordBatchReader *reader,
-                                  GError **error);
+garrow_record_batch_reader_export(GArrowRecordBatchReader *reader, GError **error);
 
-GArrowSchema *garrow_record_batch_reader_get_schema(
-  GArrowRecordBatchReader *reader);
+GArrowSchema *
+garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader);
 #ifndef GARROW_DISABLE_DEPRECATED
 G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
-GArrowRecordBatch *garrow_record_batch_reader_get_next_record_batch(
-  GArrowRecordBatchReader *reader,
-  GError **error);
+GArrowRecordBatch *
+garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader,
+                                                 GError **error);
 #endif
 #ifndef GARROW_DISABLE_DEPRECATED
 G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
-GArrowRecordBatch *garrow_record_batch_reader_read_next_record_batch(
-  GArrowRecordBatchReader *reader,
-  GError **error);
+GArrowRecordBatch *
+garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reader,
+                                                  GError **error);
 #endif
-GArrowRecordBatch *garrow_record_batch_reader_read_next(
-  GArrowRecordBatchReader *reader,
-  GError **error);
+GArrowRecordBatch *
+garrow_record_batch_reader_read_next(GArrowRecordBatchReader *reader, GError **error);
 GARROW_AVAILABLE_IN_6_0
 GArrowTable *
-garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
-                                    GError **error);
+garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader, GError **error);
 
 GARROW_AVAILABLE_IN_13_0
 GList *
@@ -94,36 +90,34 @@ struct _GArrowTableBatchReaderClass
   GArrowRecordBatchReaderClass parent_class;
 };
 
-GArrowTableBatchReader *garrow_table_batch_reader_new(GArrowTable *table);
+GArrowTableBatchReader *
+garrow_table_batch_reader_new(GArrowTable *table);
 
 GARROW_AVAILABLE_IN_12_0
 void
 garrow_table_batch_reader_set_max_chunk_size(GArrowTableBatchReader *reader,
                                              gint64 max_chunk_size);
 
-
-#define GARROW_TYPE_RECORD_BATCH_STREAM_READER          \
+#define GARROW_TYPE_RECORD_BATCH_STREAM_READER                                           \
   (garrow_record_batch_stream_reader_get_type())
-#define GARROW_RECORD_BATCH_STREAM_READER(obj)                          \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_STREAM_READER,   \
+#define GARROW_RECORD_BATCH_STREAM_READER(obj)                                           \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                                     \
+                              GARROW_TYPE_RECORD_BATCH_STREAM_READER,                    \
                               GArrowRecordBatchStreamReader))
-#define GARROW_RECORD_BATCH_STREAM_READER_CLASS(klass)                  \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_STREAM_READER,      \
+#define GARROW_RECORD_BATCH_STREAM_READER_CLASS(klass)                                   \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                                      \
+                           GARROW_TYPE_RECORD_BATCH_STREAM_READER,                       \
                            GArrowRecordBatchStreamReaderClass))
-#define GARROW_IS_RECORD_BATCH_STREAM_READER(obj)                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_STREAM_READER))
-#define GARROW_IS_RECORD_BATCH_STREAM_READER_CLASS(klass)               \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_STREAM_READER))
-#define GARROW_RECORD_BATCH_STREAM_READER_GET_CLASS(obj)                \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
-                             GARROW_TYPE_RECORD_BATCH_STREAM_READER,    \
+#define GARROW_IS_RECORD_BATCH_STREAM_READER(obj)                                        \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RECORD_BATCH_STREAM_READER))
+#define GARROW_IS_RECORD_BATCH_STREAM_READER_CLASS(klass)                                \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RECORD_BATCH_STREAM_READER))
+#define GARROW_RECORD_BATCH_STREAM_READER_GET_CLASS(obj)                                 \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                                      \
+                             GARROW_TYPE_RECORD_BATCH_STREAM_READER,                     \
                              GArrowRecordBatchStreamReaderClass))
 
-typedef struct _GArrowRecordBatchStreamReader      GArrowRecordBatchStreamReader;
+typedef struct _GArrowRecordBatchStreamReader GArrowRecordBatchStreamReader;
 #ifndef __GTK_DOC_IGNORE__
 typedef struct _GArrowRecordBatchStreamReaderClass GArrowRecordBatchStreamReaderClass;
 #endif
@@ -146,35 +140,31 @@ struct _GArrowRecordBatchStreamReaderClass
 };
 #endif
 
-GType garrow_record_batch_stream_reader_get_type(void) G_GNUC_CONST;
+GType
+garrow_record_batch_stream_reader_get_type(void) G_GNUC_CONST;
 
-GArrowRecordBatchStreamReader *garrow_record_batch_stream_reader_new(
-  GArrowInputStream *stream,
-  GError **error);
+GArrowRecordBatchStreamReader *
+garrow_record_batch_stream_reader_new(GArrowInputStream *stream, GError **error);
 
-
-#define GARROW_TYPE_RECORD_BATCH_FILE_READER    \
-  (garrow_record_batch_file_reader_get_type())
-#define GARROW_RECORD_BATCH_FILE_READER(obj)                            \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_FILE_READER,     \
+#define GARROW_TYPE_RECORD_BATCH_FILE_READER (garrow_record_batch_file_reader_get_type())
+#define GARROW_RECORD_BATCH_FILE_READER(obj)                                             \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),                                                     \
+                              GARROW_TYPE_RECORD_BATCH_FILE_READER,                      \
                               GArrowRecordBatchFileReader))
-#define GARROW_RECORD_BATCH_FILE_READER_CLASS(klass)                    \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_FILE_READER,        \
+#define GARROW_RECORD_BATCH_FILE_READER_CLASS(klass)                                     \
+  (G_TYPE_CHECK_CLASS_CAST((klass),                                                      \
+                           GARROW_TYPE_RECORD_BATCH_FILE_READER,                         \
                            GArrowRecordBatchFileReaderClass))
-#define GARROW_IS_RECORD_BATCH_FILE_READER(obj)                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                                    \
-                              GARROW_TYPE_RECORD_BATCH_FILE_READER))
-#define GARROW_IS_RECORD_BATCH_FILE_READER_CLASS(klass)                 \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                                     \
-                           GARROW_TYPE_RECORD_BATCH_FILE_READER))
-#define GARROW_RECORD_BATCH_FILE_READER_GET_CLASS(obj)                  \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                                     \
-                             GARROW_TYPE_RECORD_BATCH_FILE_READER,      \
+#define GARROW_IS_RECORD_BATCH_FILE_READER(obj)                                          \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_RECORD_BATCH_FILE_READER))
+#define GARROW_IS_RECORD_BATCH_FILE_READER_CLASS(klass)                                  \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_RECORD_BATCH_FILE_READER))
+#define GARROW_RECORD_BATCH_FILE_READER_GET_CLASS(obj)                                   \
+  (G_TYPE_INSTANCE_GET_CLASS((obj),                                                      \
+                             GARROW_TYPE_RECORD_BATCH_FILE_READER,                       \
                              GArrowRecordBatchFileReaderClass))
 
-typedef struct _GArrowRecordBatchFileReader      GArrowRecordBatchFileReader;
+typedef struct _GArrowRecordBatchFileReader GArrowRecordBatchFileReader;
 #ifndef __GTK_DOC_IGNORE__
 typedef struct _GArrowRecordBatchFileReaderClass GArrowRecordBatchFileReaderClass;
 #endif
@@ -197,30 +187,29 @@ struct _GArrowRecordBatchFileReaderClass
 };
 #endif
 
-GType garrow_record_batch_file_reader_get_type(void) G_GNUC_CONST;
+GType
+garrow_record_batch_file_reader_get_type(void) G_GNUC_CONST;
 
-GArrowRecordBatchFileReader *garrow_record_batch_file_reader_new(
-  GArrowSeekableInputStream *file,
-  GError **error);
+GArrowRecordBatchFileReader *
+garrow_record_batch_file_reader_new(GArrowSeekableInputStream *file, GError **error);
 
-GArrowSchema *garrow_record_batch_file_reader_get_schema(
-  GArrowRecordBatchFileReader *reader);
-guint garrow_record_batch_file_reader_get_n_record_batches(
-  GArrowRecordBatchFileReader *reader);
-GArrowMetadataVersion garrow_record_batch_file_reader_get_version(
-  GArrowRecordBatchFileReader *reader);
+GArrowSchema *
+garrow_record_batch_file_reader_get_schema(GArrowRecordBatchFileReader *reader);
+guint
+garrow_record_batch_file_reader_get_n_record_batches(GArrowRecordBatchFileReader *reader);
+GArrowMetadataVersion
+garrow_record_batch_file_reader_get_version(GArrowRecordBatchFileReader *reader);
 #ifndef GARROW_DISABLE_DEPRECATED
 G_GNUC_DEPRECATED_FOR(garrow_record_batch_file_reader_read_record_batch)
-GArrowRecordBatch *garrow_record_batch_file_reader_get_record_batch(
-  GArrowRecordBatchFileReader *reader,
-  guint i,
-  GError **error);
+GArrowRecordBatch *
+garrow_record_batch_file_reader_get_record_batch(GArrowRecordBatchFileReader *reader,
+                                                 guint i,
+                                                 GError **error);
 #endif
-GArrowRecordBatch *garrow_record_batch_file_reader_read_record_batch(
-  GArrowRecordBatchFileReader *reader,
-  guint i,
-  GError **error);
-
+GArrowRecordBatch *
+garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *reader,
+                                                  guint i,
+                                                  GError **error);
 
 #define GARROW_TYPE_FEATHER_FILE_READER (garrow_feather_file_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFeatherFileReader,
@@ -233,15 +222,13 @@ struct _GArrowFeatherFileReaderClass
   GObjectClass parent_class;
 };
 
-GArrowFeatherFileReader *garrow_feather_file_reader_new(
-  GArrowSeekableInputStream *file,
-  GError **error);
+GArrowFeatherFileReader *
+garrow_feather_file_reader_new(GArrowSeekableInputStream *file, GError **error);
 
-gint garrow_feather_file_reader_get_version(
-  GArrowFeatherFileReader *reader);
+gint
+garrow_feather_file_reader_get_version(GArrowFeatherFileReader *reader);
 GArrowTable *
-garrow_feather_file_reader_read(GArrowFeatherFileReader *reader,
-                                GError **error);
+garrow_feather_file_reader_read(GArrowFeatherFileReader *reader, GError **error);
 GArrowTable *
 garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
                                         const gint *indices,
@@ -254,24 +241,21 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
                                       GError **error);
 
 #define GARROW_TYPE_CSV_READ_OPTIONS (garrow_csv_read_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCSVReadOptions,
-                         garrow_csv_read_options,
-                         GARROW,
-                         CSV_READ_OPTIONS,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowCSVReadOptions, garrow_csv_read_options, GARROW, CSV_READ_OPTIONS, GObject)
 struct _GArrowCSVReadOptionsClass
 {
   GObjectClass parent_class;
 };
 
-GArrowCSVReadOptions *garrow_csv_read_options_new(void);
+GArrowCSVReadOptions *
+garrow_csv_read_options_new(void);
 void
 garrow_csv_read_options_add_column_type(GArrowCSVReadOptions *options,
                                         const gchar *name,
                                         GArrowDataType *data_type);
 void
-garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options,
-                                   GArrowSchema *schema);
+garrow_csv_read_options_add_schema(GArrowCSVReadOptions *options, GArrowSchema *schema);
 GHashTable *
 garrow_csv_read_options_get_column_types(GArrowCSVReadOptions *options);
 GARROW_AVAILABLE_IN_0_14
@@ -324,22 +308,18 @@ garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
                                         const gchar *column_name);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader,
-                         garrow_csv_reader,
-                         GARROW,
-                         CSV_READER,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader, garrow_csv_reader, GARROW, CSV_READER, GObject)
 struct _GArrowCSVReaderClass
 {
   GObjectClass parent_class;
 };
 
-GArrowCSVReader *garrow_csv_reader_new(GArrowInputStream *input,
-                                       GArrowCSVReadOptions *options,
-                                       GError **error);
-GArrowTable *garrow_csv_reader_read(GArrowCSVReader *reader,
-                                    GError **error);
-
+GArrowCSVReader *
+garrow_csv_reader_new(GArrowInputStream *input,
+                      GArrowCSVReadOptions *options,
+                      GError **error);
+GArrowTable *
+garrow_csv_reader_read(GArrowCSVReader *reader, GError **error);
 
 /**
  * GArrowJSONReadUnexpectedFieldBehavior:
@@ -356,36 +336,32 @@ typedef enum {
 } GArrowJSONReadUnexpectedFieldBehavior;
 
 #define GARROW_TYPE_JSON_READ_OPTIONS (garrow_json_read_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowJSONReadOptions,
-                         garrow_json_read_options,
-                         GARROW,
-                         JSON_READ_OPTIONS,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowJSONReadOptions, garrow_json_read_options, GARROW, JSON_READ_OPTIONS, GObject)
 struct _GArrowJSONReadOptionsClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_14
-GArrowJSONReadOptions *garrow_json_read_options_new(void);
+GArrowJSONReadOptions *
+garrow_json_read_options_new(void);
 
 #define GARROW_TYPE_JSON_READER (garrow_json_reader_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowJSONReader,
-                         garrow_json_reader,
-                         GARROW,
-                         JSON_READER,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowJSONReader, garrow_json_reader, GARROW, JSON_READER, GObject)
 struct _GArrowJSONReaderClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_14
-GArrowJSONReader *garrow_json_reader_new(GArrowInputStream *input,
-                                         GArrowJSONReadOptions *options,
-                                         GError **error);
+GArrowJSONReader *
+garrow_json_reader_new(GArrowInputStream *input,
+                       GArrowJSONReadOptions *options,
+                       GError **error);
 GARROW_AVAILABLE_IN_0_14
-GArrowTable *garrow_json_reader_read(GArrowJSONReader *reader,
-                                     GError **error);
+GArrowTable *
+garrow_json_reader_read(GArrowJSONReader *reader, GError **error);
 
 G_END_DECLS
