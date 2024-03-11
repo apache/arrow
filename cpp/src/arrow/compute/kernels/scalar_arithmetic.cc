@@ -590,6 +590,8 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
+  } else if (op == "floordiv") {
+    out_type = OutputType(ResolveDecimalDivisionOutput);
   } else {
     DCHECK(false);
   }
@@ -1059,6 +1061,20 @@ const FunctionDoc div_doc{
     {"dividend", "divisor"}};
 
 const FunctionDoc div_checked_doc{
+    "Divide the arguments element-wise",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc floordiv_doc{
+    "Divide the arguments element-wise",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc floordiv_checked_doc{
     "Divide the arguments element-wise",
     ("An error is returned when trying to divide by zero, or when\n"
      "integer overflow is encountered."),
@@ -1571,6 +1587,48 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto floordiv = MakeArithmeticFunctionNotNull<FloorDiv>("floordiv", floordiv_doc);
+  AddDecimalBinaryKernels<FloorDiv>("floordiv", floordiv.get());
+
+  // Add floordiv(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDiv>::Exec;
+    DCHECK_OK(
+        floordiv->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+  }
+
+  // Add floordiv(duration, duration) -> int64
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDiv>::Exec;
+    DCHECK_OK(floordiv->AddKernel({duration(unit), duration(unit)}, float64(),
+                                  std::move(exec)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(floordiv)));
+
+  // ----------------------------------------------------------------------
+  auto floordiv_checked = MakeArithmeticFunctionNotNull<FloorDivChecked>(
+      "floordiv_checked", floordiv_checked_doc);
+  AddDecimalBinaryKernels<DivideChecked>("floordiv_checked", floordiv_checked.get());
+
+  // Add divide_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDivChecked>::Exec;
+    DCHECK_OK(floordiv_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                          std::move(exec)));
+  }
+
+  // Add divide_checked(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDivChecked>::Exec;
+    DCHECK_OK(floordiv_checked->AddKernel({duration(unit), duration(unit)}, float64(),
+                                          std::move(exec)));
+  }
+
+  DCHECK_OK(registry->AddFunction(std::move(floordiv_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);

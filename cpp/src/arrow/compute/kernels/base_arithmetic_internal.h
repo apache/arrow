@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <limits>
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -462,6 +463,74 @@ struct FloatingDivideChecked {
     return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
   }
   // TODO: Add decimal
+};
+
+struct FloorDiv {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    return floor(left / right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        *st = Status::Invalid("divide by zero");
+      } else {
+        result = 0;
+      }
+    }
+    return static_cast<T>(floor(left / right));
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    if (right == Arg1()) {
+      *st = Status::Invalid("Divide by zero");
+      return T();
+    } else {
+      // auto foo = left / right;
+      return 42;
+    }
+  }
+};
+
+struct FloorDivChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    T result;
+    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        *st = Status::Invalid("divide by zero");
+      } else {
+        *st = Status::Invalid("overflow");
+      }
+    }
+    return static_cast<T>(floor(left / right));
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    if (ARROW_PREDICT_FALSE(right == 0)) {
+      *st = Status::Invalid("divide by zero");
+      return 0;
+    }
+    return floor(left / right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
+                                         Status* st) {
+    return FloorDiv::Call<T>(ctx, left, right, st);
+  }
 };
 
 struct Negate {
