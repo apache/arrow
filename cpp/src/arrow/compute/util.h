@@ -97,6 +97,9 @@ class ARROW_EXPORT TempVectorStack {
     return Status::OK();
   }
 
+  const int64_t buffer_size() const { return buffer_size_; }
+  static int64_t meta_size() { return kPadding + 2 * sizeof(uint64_t); }
+
  private:
   int64_t PaddedAllocationSize(int64_t num_bytes) {
     // Round up allocation size to multiple of 8 bytes
