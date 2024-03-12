@@ -2925,15 +2925,19 @@ public class TestValueVector {
   @Test
   public void testGetNullFromVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
-         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
+         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator);
+        final ViewVarCharVector varCharViewVector = new ViewVarCharVector("varbinary", allocator)) {
       varCharVector.allocateNew(10, 1);
       varBinaryVector.allocateNew(10, 1);
+      varCharViewVector.allocateNew(16, 1);
 
       varCharVector.setNull(0);
       varBinaryVector.setNull(0);
+      varCharViewVector.setNull(0);
 
       assertNull(varCharVector.get(0));
       assertNull(varBinaryVector.get(0));
+      assertNull(varCharViewVector.get(0));
     }
   }
 
