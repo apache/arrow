@@ -2512,36 +2512,46 @@ public class TestValueVector {
         vector.dataBuffers);
   }
 
+  private void testSetInitialCapacityHelper(AbstractVariableWidthVector vector, int defaultRecordByteCount) {
+    int defaultCapacity = BaseValueVector.INITIAL_VALUE_ALLOCATION - 1;
+    vector.setInitialCapacity(defaultCapacity);
+    vector.allocateNew();
+    assertEquals(defaultCapacity, vector.getValueCapacity());
+    assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * defaultRecordByteCount),
+        vector.getDataBuffer().capacity());
+
+    vector.setInitialCapacity(defaultCapacity, 1);
+    vector.allocateNew();
+    assertEquals(defaultCapacity, vector.getValueCapacity());
+    assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity), vector.getDataBuffer().capacity());
+
+    vector.setInitialCapacity(defaultCapacity, 0.1);
+    vector.allocateNew();
+    assertEquals(defaultCapacity, vector.getValueCapacity());
+    assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
+
+    vector.setInitialCapacity(defaultCapacity, 0.01);
+    vector.allocateNew();
+    assertEquals(defaultCapacity, vector.getValueCapacity());
+    assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
+
+    vector.setInitialCapacity(5, 0.01);
+    vector.allocateNew();
+    assertEquals(5, vector.getValueCapacity());
+    assertEquals(2, vector.getDataBuffer().capacity());
+  }
+
   @Test /* VarCharVector */
   public void testSetInitialCapacity() {
+
     try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      /* use the default `DEFAULT_RECORD_BYTE_COUNT` data bytes on average per element */
+      testSetInitialCapacityHelper(vector, /*BaseVariableWidthVector.DEFAULT_RECORD_BYTE_COUNT*/8);
+    }
 
-      /* use the default 8 data bytes on average per element */
-      int defaultCapacity = BaseValueVector.INITIAL_VALUE_ALLOCATION - 1;
-      vector.setInitialCapacity(defaultCapacity);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * 8), vector.getDataBuffer().capacity());
-
-      vector.setInitialCapacity(defaultCapacity, 1);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity), vector.getDataBuffer().capacity());
-
-      vector.setInitialCapacity(defaultCapacity, 0.1);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
-
-      vector.setInitialCapacity(defaultCapacity, 0.01);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
-
-      vector.setInitialCapacity(5, 0.01);
-      vector.allocateNew();
-      assertEquals(5, vector.getValueCapacity());
-      assertEquals(2, vector.getDataBuffer().capacity());
+    try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      /* use the default `DEFAULT_RECORD_BYTE_COUNT` data bytes on average per element */
+      testSetInitialCapacityHelper(vector, /*BaseVariableWidthViewVector.DEFAULT_RECORD_BYTE_COUNT*/16);
     }
   }
 
@@ -2856,6 +2866,35 @@ public class TestValueVector {
     }
   }
 
+  private void testGetPointerVariableWidthHelper(AbstractVariableWidthVector vec1, AbstractVariableWidthVector vec2,
+      String[] sampleData, int vectorLength) {
+    vec1.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
+    vec2.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
+
+    for (int i = 0; i < sampleData.length; i++) {
+      String str = sampleData[i];
+      if (str != null) {
+        vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+        vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+      } else {
+        vec1.setNull(i);
+
+        vec2.setNull(i);
+      }
+    }
+
+    ArrowBufPointer ptr1 = new ArrowBufPointer();
+    ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+    for (int i = 0; i < sampleData.length; i++) {
+      vec1.getDataPointer(i, ptr1);
+      vec2.getDataPointer(i, ptr2);
+
+      assertTrue(ptr1.equals(ptr2));
+      assertTrue(ptr2.equals(ptr2));
+    }
+  }
+
   @Test
   public void testGetPointerVariableWidth() {
     final String[] sampleData = new String[]{
@@ -2863,30 +2902,23 @@ public class TestValueVector {
 
     try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
          VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
-      vec1.allocateNew(sampleData.length * 10, sampleData.length);
-      vec2.allocateNew(sampleData.length * 10, sampleData.length);
+      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, 10);
+    }
 
-      for (int i = 0; i < sampleData.length; i++) {
-        String str = sampleData[i];
-        if (str != null) {
-          vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
-          vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
-        } else {
-          vec1.setNull(i);
-          vec2.setNull(i);
-        }
-      }
+    try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
+        ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
+      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, /*required length for record in ViewVarCharVector*/16);
+    }
+  }
 
-      ArrowBufPointer ptr1 = new ArrowBufPointer();
-      ArrowBufPointer ptr2 = new ArrowBufPointer();
+  @Test
+  public void testGetPointerVariableWidthViews() {
+    final String[] sampleData = new String[]{
+        "abc", "1234567890123", "def", null, "hello world java", "aaaaa", "world", "2019", null, "0717"};
 
-      for (int i = 0; i < sampleData.length; i++) {
-        vec1.getDataPointer(i, ptr1);
-        vec2.getDataPointer(i, ptr2);
-
-        assertTrue(ptr1.equals(ptr2));
-        assertTrue(ptr2.equals(ptr2));
-      }
+    try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
+        ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
+      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, /*required length for record in ViewVarCharVector*/16);
     }
   }
 
