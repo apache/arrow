@@ -21,3 +21,11 @@
 
 # Headers: top level
 arrow_install_all_headers("arrow/telemetry")
+
+set(ARROW_TELEMETRY_TEST_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+
+add_arrow_test(telemetry_test
+               SOURCES
+               telemetry_test.cc
+               EXTRA_LINK_LIBS
+               ${ARROW_TELEMETRY_TEST_LINK_LIBS})

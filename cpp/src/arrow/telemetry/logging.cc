@@ -15,22 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Pick up ARROW_WITH_OPENTELEMETRY first
-#include "arrow/util/config.h"
-
-#include <chrono>
-
-#include "arrow/result.h"
 #include "arrow/telemetry/logging.h"
+#include "arrow/telemetry/util_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
-#ifdef ARROW_WITH_OPENTELEMETRY
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4522)
 #endif
-#include "arrow/telemetry/util_internal.h"
 
 #include <google/protobuf/util/json_util.h>
 
@@ -58,29 +51,13 @@
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-#endif
 
 namespace arrow {
 namespace telemetry {
 
 namespace {
 
-class NoopLogger : public Logger {
- public:
-  void Log(const LogDescriptor&) override {}
-  bool Flush(std::chrono::microseconds) override { return true; }
-  std::string_view name() const override { return "noop"; }
-};
-
-}  // namespace
-
-std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
-
-#ifdef ARROW_WITH_OPENTELEMETRY
-
 namespace SemanticConventions = otel::sdk::resource::SemanticConventions;
-
-namespace {
 
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
 
@@ -249,6 +226,13 @@ otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
       new otel::logs::NoopLoggerProvider{});
 }
 
+class NoopLogger : public Logger {
+ public:
+  void Log(const LogDescriptor&) override {}
+  bool Flush(std::chrono::microseconds) override { return true; }
+  std::string_view name() const override { return "noop"; }
+};
+
 class OtelLogger : public Logger {
  public:
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
@@ -357,9 +341,7 @@ Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
 
 std::unique_ptr<Logger> GlobalLogger::logger_ = nullptr;
 
-#else
-
-#endif
+std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
 
 }  // namespace telemetry
 }  // namespace arrow

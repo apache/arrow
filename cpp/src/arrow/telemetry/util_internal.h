@@ -17,23 +17,17 @@
 
 #pragma once
 
-// Pick up ARROW_WITH_OPENTELEMETRY first
-#include "arrow/util/config.h"
-
 #include "arrow/telemetry/util.h"
 
-#ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/common/attribute_value.h>
 #include <opentelemetry/common/key_value_iterable.h>
 #include <opentelemetry/nostd/shared_ptr.h>
 #include <opentelemetry/nostd/span.h>
 #include <opentelemetry/nostd/string_view.h>
-#endif
 
 namespace arrow {
 namespace telemetry {
 
-#ifdef ARROW_WITH_OPENTELEMETRY
 using util::span;
 
 namespace otel = ::opentelemetry;
@@ -118,7 +112,6 @@ class OtelAttributeHolder : public otel::common::KeyValueIterable {
  private:
   const AttributeHolder* holder_;
 };
-#endif
 
 }  // namespace telemetry
 }  // namespace arrow
