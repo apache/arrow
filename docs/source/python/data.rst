@@ -240,7 +240,9 @@ ListView arrays
    nested_arr = pa.array([[], None, [1, 2], [None, 1]], type=pa.list_view(pa.int64()))
    print(nested_arr.type)
 
-ListView arrays can specify out-of-order offsets when constructed from arrays:
+ListView arrays have a different set of buffers than List arrays. The ListView array
+has both an offsets and sizes buffer, while a List array only has an offsets buffer.
+This allows for ListView arrays to specify out-of-order offsets:
 
 .. ipython:: python
 
@@ -248,7 +250,7 @@ ListView arrays can specify out-of-order offsets when constructed from arrays:
    offsets = [4, 2, 0]
    sizes = [2, 2, 2]
    arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
-   print(arr)
+   arr
 
 Struct arrays
 ~~~~~~~~~~~~~
