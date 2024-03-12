@@ -144,7 +144,6 @@ public final class ArrowBufPointer {
         return false;
       }
     }
-
     return ByteFunctionHelpers.equal(buf, offset, offset + length,
             other.buf, other.offset, other.offset + other.length) != 0;
   }

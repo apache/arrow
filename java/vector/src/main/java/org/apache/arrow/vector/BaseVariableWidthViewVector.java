@@ -1566,19 +1566,29 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   @Override
   public ArrowBufPointer getDataPointer(int index) {
-    // TODO: fixme
     return getDataPointer(index, new ArrowBufPointer());
   }
 
   @Override
   public ArrowBufPointer getDataPointer(int index, ArrowBufPointer reuse) {
-    // TODO: fixme
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
       int offset = getStartOffset(index);
       int length = getEndOffset(index) - offset;
-      reuse.set(valueBuffer, offset, length);
+      if (length < INLINE_SIZE) {
+        int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
+        reuse.set(valueBuffer, start, length);
+      } else {
+        final int bufIndex =
+            valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset =
+            valueBuffer.getInt(
+                ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        ArrowBuf dataBuf = dataBuffers.get(bufIndex);
+        reuse.set(dataBuf, 0, length);
+      }
+
     }
     return reuse;
   }
