@@ -61,13 +61,13 @@
 
 namespace arrow {
 
+class ListArray;
+class LargeListArray;
 class MemoryPool;
 
 using internal::checked_cast;
 using internal::CheckIndexBounds;
 using internal::OptionalParallelFor;
-using internal::FlattenListArray;
-using internal::FlattenListViewArray;
 
 namespace py {
 namespace {
@@ -757,10 +757,44 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
 }
 
 template <typename T>
-enable_if_list_like<T, Status> ConvertListsLikeChunks(PyObject* numpy_array,
-                                                     const ChunkedArray& data,
-                                                     PyObject** out_values) {
+enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options, const ChunkedArray& data,
+                        PyObject** out_values) {
   using ListArrayT = typename TypeTraits<T>::ArrayType;
+  // Get column of underlying value arrays
+  ArrayVector value_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
+    // values() does not account for offsets, so we need to slice into it.
+    // We can't use Flatten(), because it removes the values behind a null list
+    // value, and that makes the offsets into original list values and our
+    // flattened_values array different.
+    std::shared_ptr<Array> flattened_values = arr.values()->Slice(
+        arr.value_offset(0), arr.value_offset(arr.length()) - arr.value_offset(0));
+    if (arr.value_type()->id() == Type::EXTENSION) {
+      const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
+      value_arrays.emplace_back(arr_ext.storage());
+    } else {
+      value_arrays.emplace_back(flattened_values);
+    }
+  }
+
+  using ListArrayType = typename ListArrayT::TypeClass;
+  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
+  auto value_type = list_type.value_type();
+  if (value_type->id() == Type::EXTENSION) {
+    value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
+  }
+
+  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
+
+  options = MakeInnerOptions(std::move(options));
+
+  OwnedRefNoGIL owned_numpy_array;
+  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
+                                            owned_numpy_array.ref()));
+  PyObject* numpy_array = owned_numpy_array.obj();
+  DCHECK(PyArray_Check(numpy_array));
+
   int64_t chunk_offset = 0;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
@@ -777,6 +811,7 @@ enable_if_list_like<T, Status> ConvertListsLikeChunks(PyObject* numpy_array,
         OwnedRef end(PyLong_FromLongLong(arr.value_offset(i + 1) + chunk_offset -
                                          arr.value_offset(0)));
         OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
+
         if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
           // Fall out of loop, will return from RETURN_IF_PYERROR
           break;
@@ -798,143 +833,33 @@ enable_if_list_like<T, Status> ConvertListsLikeChunks(PyObject* numpy_array,
   return Status::OK();
 }
 
-template <typename T>
-enable_if_list_view<T, Status> ConvertListsLikeChunks(PyObject* numpy_array,
-                                                      const ChunkedArray& data,
-                                                      PyObject** out_values) {
-  using ListArrayT = typename TypeTraits<T>::ArrayType;
-  const auto& arr = static_cast<const ListArrayT&>(*data.chunk(0));
-  const bool has_nulls = data.null_count() > 0;
-  for (int64_t i = 0; i < arr.length(); ++i) {
-    if (has_nulls && arr.IsNull(i)) {
-      Py_INCREF(Py_None);
-      *out_values = Py_None;
-    } else {
-      // Need to subtract value_offset(0) since the original chunk might be a slice
-      // into another array.
-      OwnedRef start(PyLong_FromLongLong(arr.value_offset(i)));
-      OwnedRef end(PyLong_FromLongLong(arr.value_offset(i) + arr.value_length(i)));
-      OwnedRef slice(PySlice_New(start.obj(), end.obj(), nullptr));
+template <class T>
+struct ListViewConversionType;
 
-      if (ARROW_PREDICT_FALSE(slice.obj() == nullptr)) {
-        // Fall out of loop, will return from RETURN_IF_PYERROR
-        break;
-      }
-      *out_values = PyObject_GetItem(numpy_array, slice.obj());
+template <>
+struct ListViewConversionType<ListViewType> {
+  using type = ListType;
+};
 
-      if (*out_values == nullptr) {
-        // Fall out of loop, will return from RETURN_IF_PYERROR
-        break;
-      }
-    }
-    ++out_values;
-  }
-  RETURN_IF_PYERROR();
-
-  return Status::OK();
-}
-
-// template <typename T>
-// enable_if_list_like<T, Status> FlattenList(ArrayVector& value_arrays, const ChunkedArray& data, PandasOptions options) {
-//   using ListArrayT = typename TypeTraits<T>::ArrayType;
-//   for (int c = 0; c < data.num_chunks(); c++) {
-//     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-//     std::shared_ptr<Array> flattened_values = arr.values()->Slice(
-//         arr.value_offset(0), arr.value_offset(arr.length()) - arr.value_offset(0));
-//     if (arr.value_type()->id() == Type::EXTENSION) {
-//       const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
-//       value_arrays.emplace_back(arr_ext.storage());
-//     } else {
-//       value_arrays.emplace_back(flattened_values);
-//     }
-//   }
-//   return Status::OK();
-// }
-
-// template <typename T>
-// enable_if_list_view<T, Status> FlattenList(ArrayVector& value_arrays, const ChunkedArray& data, PandasOptions options) {
-//   using ListArrayT = typename TypeTraits<T>::ArrayType;
-//   for (int c = 0; c < data.num_chunks(); c++) {
-//     const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-//     std::vector<std::shared_ptr<Array>> slices;
-//     for (int i = 0; i < arr.length(); i++) {
-//       slices.push_back(arr.value_slice(i));
-//     }
-//     ARROW_ASSIGN_OR_RAISE(auto flattened_values, Concatenate(slices, options.pool));
-//     if (arr.value_type()->id() == Type::EXTENSION) {
-//       const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
-//       value_arrays.emplace_back(arr_ext.storage());
-//     } else {
-//       value_arrays.emplace_back(flattened_values);
-//     }
-//   }
-//   return Status::OK();
-// }
+template <>
+struct ListViewConversionType<LargeListViewType> {
+  using type = LargeListType;
+};
 
 template <typename T>
-enable_if_list_like<T, Status> FlattenList(ArrayVector& value_arrays, const ChunkedArray& data, PandasOptions options) {
-  using ListArrayT = typename TypeTraits<T>::ArrayType;
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-    ARROW_ASSIGN_OR_RAISE(auto flattened_values, (FlattenListArray<ListArrayT, true>(arr, options.pool)));
-    if (arr.value_type()->id() == Type::EXTENSION) {
-      const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
-      value_arrays.emplace_back(arr_ext.storage());
-    } else {
-      value_arrays.emplace_back(flattened_values);
-    }
-  }
-  return Status::OK();
-}
-
-template <typename T>
-enable_if_list_view<T, Status> FlattenList(ArrayVector& value_arrays, const ChunkedArray& data, PandasOptions options) {
-  using ListArrayT = typename TypeTraits<T>::ArrayType;
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = checked_cast<const ListArrayT&>(*data.chunk(c));
-    std::shared_ptr<Array> flattened_values;
-    if (arr.null_count() > 0) {
-      ARROW_ASSIGN_OR_RAISE(flattened_values, (FlattenListViewArray<ListArrayT, true, true>(arr, options.pool)));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(flattened_values, (FlattenListViewArray<ListArrayT, false, true>(arr, options.pool)));
-    }
-    if (arr.value_type()->id() == Type::EXTENSION) {
-      const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
-      value_arrays.emplace_back(arr_ext.storage());
-    } else {
-      value_arrays.emplace_back(flattened_values);
-    }
-  }
-  return Status::OK();
-}
-
-template <typename T>
-Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
+enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options, const ChunkedArray& data,
                         PyObject** out_values) {
-  // values() does not account for offsets, so we need to slice into it.
-  // We can't use <ArrayType>.Flatten(), because it removes the values behind a null list
-  // value, and that makes the offsets into original list values and our
-  // flattened_values array different.
-  ArrayVector value_arrays;
-  RETURN_NOT_OK(FlattenList<T>(value_arrays, data, options));
-
-  using ListArrayType = typename TypeTraits<T>::ArrayType::TypeClass;
-  const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
-  auto value_type = list_type.value_type();
-  if (value_type->id() == Type::EXTENSION) {
-    value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
+  using ListViewArrayType = typename TypeTraits<T>::ArrayType;
+  using ConversionType = typename ListViewConversionType<T>::type;
+  using ConversionClass = typename TypeTraits<ConversionType>::ArrayType;
+  ArrayVector list_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
+    ARROW_ASSIGN_OR_RAISE(auto converted_array, ConversionClass::FromListView(arr, options.pool));
+    list_arrays.emplace_back(converted_array);
   }
-
-  auto flat_column = std::make_shared<ChunkedArray>(value_arrays, value_type);
-  options = MakeInnerOptions(std::move(options));
-
-  OwnedRefNoGIL owned_numpy_array;
-  RETURN_NOT_OK(ConvertChunkedArrayToPandas(options, flat_column, nullptr,
-                                            owned_numpy_array.ref()));
-  PyObject* numpy_array = owned_numpy_array.obj();
-  DCHECK(PyArray_Check(numpy_array));
-
-  return ConvertListsLikeChunks<T>(numpy_array, data, out_values);
+  auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
+  return ConvertListsLike<ConversionType>(options, *chunked_array, out_values);
 }
 
 template <typename F1, typename F2, typename F3>

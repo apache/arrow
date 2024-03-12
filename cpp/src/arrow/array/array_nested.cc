@@ -216,6 +216,141 @@ static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t 
   return array.Slice(begin, end - begin);
 }
 
+template <typename ListArrayT>
+Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
+                                                MemoryPool* memory_pool) {
+  const int64_t list_array_length = list_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_array.values();
+
+  // Shortcut: if a ListArray does not contain nulls, then simply slice its
+  // value array with the first and the last offsets.
+  if (list_array.null_count() == 0) {
+    return SliceArrayWithOffsets(*value_array, list_array.value_offset(0),
+                                 list_array.value_offset(list_array_length));
+  }
+
+  // Second shortcut: if the list array is *all* nulls, then just return
+  // an empty array.
+  if (list_array.null_count() == list_array.length()) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  // The ListArray contains nulls: there may be a non-empty sub-list behind
+  // a null and it must not be contained in the result.
+  std::vector<std::shared_ptr<Array>> non_null_fragments;
+  int64_t valid_begin = 0;
+  while (valid_begin < list_array_length) {
+    int64_t valid_end = valid_begin;
+    while (valid_end < list_array_length &&
+           (list_array.IsValid(valid_end) || list_array.value_length(valid_end) == 0)) {
+      ++valid_end;
+    }
+    if (valid_begin < valid_end) {
+      non_null_fragments.push_back(
+          SliceArrayWithOffsets(*value_array, list_array.value_offset(valid_begin),
+                                list_array.value_offset(valid_end)));
+    }
+    valid_begin = valid_end + 1;  // skip null entry
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  if (non_null_fragments.size() == 1) {
+    return non_null_fragments[0];
+  } else if (non_null_fragments.size() == 0) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  return Concatenate(non_null_fragments, memory_pool);
+}
+
+template <typename ListViewArrayT, bool HasNulls>
+Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
+                                                    MemoryPool* memory_pool) {
+  using offset_type = typename ListViewArrayT::offset_type;
+  const int64_t list_view_array_offset = list_view_array.offset();
+  const int64_t list_view_array_length = list_view_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_view_array.values();
+
+  if (list_view_array_length == 0) {
+    return SliceArrayWithOffsets(*value_array, 0, 0);
+  }
+
+  // If the list array is *all* nulls, then just return an empty array.
+  if constexpr (HasNulls) {
+    if (list_view_array.null_count() == list_view_array.length()) {
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    }
+  }
+
+  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
+  const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
+  const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
+
+  auto is_null_or_empty = [&](int64_t i) {
+    if (HasNulls && !bit_util::GetBit(validity, list_view_array_offset + i)) {
+      return true;
+    }
+    return sizes[i] == 0;
+  };
+
+  // Index of the first valid, non-empty list-view.
+  int64_t first_i = 0;
+  for (; first_i < list_view_array_length; first_i++) {
+    if (!is_null_or_empty(first_i)) {
+      break;
+    }
+  }
+  // If all list-views are empty, return an empty array.
+  if (first_i == list_view_array_length) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  std::vector<std::shared_ptr<Array>> slices;
+  {
+    int64_t i = first_i;
+    auto begin_offset = offsets[i];
+    auto end_offset = offsets[i] + sizes[i];
+    i += 1;
+    // Inductive invariant: slices and the always non-empty values slice
+    // [begin_offset, end_offset) contains all the maximally contiguous slices of the
+    // values array that are covered by all the list-views before list-view i.
+    for (; i < list_view_array_length; i++) {
+      if (is_null_or_empty(i)) {
+        // The invariant is preserved by simply preserving the current set of slices.
+      } else {
+        if (offsets[i] == end_offset) {
+          end_offset += sizes[i];
+          // The invariant is preserved because since the non-empty list-view i
+          // starts at end_offset, the current range can be extended to end at
+          // offsets[i] + sizes[i] (the same as end_offset + sizes[i]).
+        } else {
+          // The current slice can't be extended because the list-view i either
+          // shares values with the current slice or starts after the position
+          // immediately after the end of the current slice.
+          slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+          begin_offset = offsets[i];
+          end_offset = offsets[i] + sizes[i];
+          // The invariant is preserved because a maximally contiguous slice of
+          // the values array (i.e. one that can't be extended) was added to slices
+          // and [begin_offset, end_offset) is non-empty and contains the
+          // current list-view i.
+        }
+      }
+    }
+    slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  switch (slices.size()) {
+    case 0:
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    case 1:
+      return slices[0];
+  }
+
+  return Concatenate(slices, memory_pool);
+}
+
 std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
                                   const ArrayData& data) {
   const int64_t num_offsets =
@@ -334,170 +469,6 @@ inline void SetListData(VarLengthListLikeArray<TYPE>* self,
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 
-template <typename ListArrayT, bool IncludeNulls>
-Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
-                                                MemoryPool* memory_pool) {
-  const int64_t list_array_length = list_array.length();
-  std::shared_ptr<arrow::Array> value_array = list_array.values();
-
-  // Shortcut: if a ListArray does not contain nulls, then simply slice its
-  // value array with the first and the last offsets.
-  if (list_array.null_count() == 0) {
-    return SliceArrayWithOffsets(*value_array, list_array.value_offset(0),
-                                 list_array.value_offset(list_array_length));
-  }
-
-  // Second shortcut: if the list array is *all* nulls, then just return
-  // an empty array.
-  if (list_array.null_count() == list_array.length()) {
-    return MakeEmptyArray(value_array->type(), memory_pool);
-  }
-
-  // The ListArray contains nulls: there may be a non-empty sub-list behind
-  // a null and it must not be contained in the result.
-  std::vector<std::shared_ptr<Array>> non_null_fragments;
-  int64_t valid_begin = 0;
-  while (valid_begin < list_array_length) {
-    int64_t valid_end = valid_begin;
-    while (valid_end < list_array_length &&
-           (list_array.IsValid(valid_end) || list_array.value_length(valid_end) == 0)) {
-      ++valid_end;
-    }
-    if (valid_begin < valid_end) {
-      non_null_fragments.push_back(
-          SliceArrayWithOffsets(*value_array, list_array.value_offset(valid_begin),
-                                list_array.value_offset(valid_end)));
-    }
-    valid_begin = valid_end + 1;  // skip null entry
-  }
-
-  // Final attempt to avoid invoking Concatenate().
-  if (non_null_fragments.size() == 1) {
-    return non_null_fragments[0];
-  } else if (non_null_fragments.size() == 0) {
-    return MakeEmptyArray(value_array->type(), memory_pool);
-  }
-
-  return Concatenate(non_null_fragments, memory_pool);
-}
-
-template <typename ListViewArrayT, bool HasNulls, bool IncludeNulls>
-Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
-                                                    MemoryPool* memory_pool) {
-  using offset_type = typename ListViewArrayT::offset_type;
-  const int64_t list_view_array_offset = list_view_array.offset();
-  const int64_t list_view_array_length = list_view_array.length();
-  std::shared_ptr<arrow::Array> value_array = list_view_array.values();
-
-  if (list_view_array_length == 0) {
-    return SliceArrayWithOffsets(*value_array, 0, 0);
-  }
-
-  if constexpr (HasNulls) {
-    if (list_view_array.null_count() == list_view_array.length()) {
-      if constexpr (IncludeNulls) {
-        return MakeArrayOfNull(value_array->type(), list_view_array_length, memory_pool);
-      } else {
-        // If the list array is *all* nulls, then just return an empty array.
-        return MakeEmptyArray(value_array->type(), memory_pool);
-      }
-    }
-  }
-
-  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
-  const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
-  const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
-
-  auto is_null_or_empty = [&](int64_t i) {
-    if (HasNulls && !bit_util::GetBit(validity, list_view_array_offset + i)) {
-      return true;
-    }
-    return sizes[i] == 0;
-  };
-
-  int64_t first_i = 0;
-  if constexpr (!IncludeNulls) {
-    // Index of the first valid, non-empty list-view.
-    for (; first_i < list_view_array_length; first_i++) {
-      if (!is_null_or_empty(first_i)) {
-        break;
-      }
-    }
-    // If all list-views are empty, return an empty array.
-    if (first_i == list_view_array_length) {
-      return MakeEmptyArray(value_array->type(), memory_pool);
-    }
-  }
-
-  std::vector<std::shared_ptr<Array>> slices;
-  {
-    int64_t i = first_i;
-    auto begin_offset = offsets[i];
-    auto end_offset = offsets[i] + sizes[i];
-    i += 1;
-    // Inductive invariant: slices and the always non-empty values slice
-    // [begin_offset, end_offset) contains all the maximally contiguous slices of the
-    // values array that are covered by all the list-views before list-view i.
-    for (; i < list_view_array_length; i++) {
-      if (is_null_or_empty(i)) {
-        if constexpr (IncludeNulls) {
-          ARROW_ASSIGN_OR_RAISE(auto null_slice,
-                                MakeArrayOfNull(value_array->type(), sizes[i], memory_pool));
-          slices.push_back(null_slice);
-        } else {
-          // The invariant is preserved by simply preserving the current set of slices.
-        }
-      } else {
-        if (offsets[i] == end_offset) {
-          end_offset += sizes[i];
-          // The invariant is preserved because since the non-empty list-view i
-          // starts at end_offset, the current range can be extended to end at
-          // offsets[i] + sizes[i] (the same as end_offset + sizes[i]).
-        } else {
-          // The current slice can't be extended because the list-view i either
-          // shares values with the current slice or starts after the position
-          // immediately after the end of the current slice.
-          slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
-          begin_offset = offsets[i];
-          end_offset = offsets[i] + sizes[i];
-          // The invariant is preserved because a maximally contiguous slice of
-          // the values array (i.e. one that can't be extended) was added to slices
-          // and [begin_offset, end_offset) is non-empty and contains the
-          // current list-view i.
-        }
-      }
-    }
-    slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
-  }
-
-  // Final attempt to avoid invoking Concatenate().
-  switch (slices.size()) {
-    case 0:
-      return MakeEmptyArray(value_array->type(), memory_pool);
-    case 1:
-      return slices[0];
-  }
-
-  return Concatenate(slices, memory_pool);
-}
-
-void InstantiateFlattenListArray() {
-  (void)FlattenListArray<ListArray, false>;
-  (void)FlattenListArray<ListArray, true>;
-  (void)FlattenListArray<LargeListArray, false>;
-  (void)FlattenListArray<LargeListArray, true>;
-  (void)FlattenListArray<FixedSizeListArray, false>;
-  (void)FlattenListArray<FixedSizeListArray, true>;
-  (void)FlattenListViewArray<ListViewArray, false, false>;
-  (void)FlattenListViewArray<ListViewArray, false, true>;
-  (void)FlattenListViewArray<ListViewArray, true, false>;
-  (void)FlattenListViewArray<ListViewArray, true, true>;
-  (void)FlattenListViewArray<LargeListViewArray, false, false>;
-  (void)FlattenListViewArray<LargeListViewArray, false, true>;
-  (void)FlattenListViewArray<LargeListViewArray, true, false>;
-  (void)FlattenListViewArray<LargeListViewArray, true, true>;
-}
-
 }  // namespace internal
 
 // ----------------------------------------------------------------------
@@ -552,7 +523,7 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
 }
 
 Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
-  return internal::FlattenListArray<ListArray, false>(*this, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
 std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *data_); }
@@ -611,7 +582,7 @@ Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
 }
 
 Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
-  return internal::FlattenListArray<LargeListArray, false>(*this, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListArray::offsets() const {
@@ -682,9 +653,9 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromList(
 
 Result<std::shared_ptr<Array>> ListViewArray::Flatten(MemoryPool* memory_pool) const {
   if (null_count() > 0) {
-    return internal::FlattenListViewArray<ListViewArray, true, false>(*this, memory_pool);
+    return FlattenListViewArray<ListViewArray, true>(*this, memory_pool);
   }
-  return internal::FlattenListViewArray<ListViewArray, false, false>(*this, memory_pool);
+  return FlattenListViewArray<ListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> ListViewArray::offsets() const {
@@ -743,9 +714,9 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
 Result<std::shared_ptr<Array>> LargeListViewArray::Flatten(
     MemoryPool* memory_pool) const {
   if (null_count() > 0) {
-    return internal::FlattenListViewArray<LargeListViewArray, true, false>(*this, memory_pool);
+    return FlattenListViewArray<LargeListViewArray, true>(*this, memory_pool);
   }
-  return internal::FlattenListViewArray<LargeListViewArray, false, false>(*this, memory_pool);
+  return FlattenListViewArray<LargeListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListViewArray::offsets() const {
@@ -963,7 +934,7 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
     MemoryPool* memory_pool) const {
-  return internal::FlattenListArray<FixedSizeListArray, false>(*this, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
 // ----------------------------------------------------------------------
