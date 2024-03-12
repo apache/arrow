@@ -3460,25 +3460,34 @@ public class TestValueVector {
     }
   }
 
+  private void testUnloadVariableWidthVectorHelper(AbstractVariableWidthVector vector) {
+    vector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
+
+    List<ArrowBuf> bufs = vector.getFieldBuffers();
+    assertEquals(3, bufs.size());
+
+    ArrowBuf offsetBuf = bufs.get(1);
+    ArrowBuf dataBuf = bufs.get(2);
+
+    assertEquals(12, offsetBuf.writerIndex());
+    assertEquals(4, offsetBuf.getInt(4));
+    assertEquals(4, offsetBuf.getInt(8));
+
+    assertEquals(4, dataBuf.writerIndex());
+  }
+
   @Test
   public void testUnloadVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("var char", allocator)) {
       varCharVector.allocateNew(5, 2);
       varCharVector.setValueCount(2);
+      testUnloadVariableWidthVectorHelper(varCharVector);
+    }
 
-      varCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
-
-      List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
-      assertEquals(3, bufs.size());
-
-      ArrowBuf offsetBuf = bufs.get(1);
-      ArrowBuf dataBuf = bufs.get(2);
-
-      assertEquals(12, offsetBuf.writerIndex());
-      assertEquals(4, offsetBuf.getInt(4));
-      assertEquals(4, offsetBuf.getInt(8));
-
-      assertEquals(4, dataBuf.writerIndex());
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("view var char", allocator)) {
+      viewVarCharVector.allocateNew(/*required length for record in ViewVarCharVector * 2*/32, 2);
+      viewVarCharVector.setValueCount(2);
+      testUnloadVariableWidthVectorHelper(viewVarCharVector);
     }
   }
 
