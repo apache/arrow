@@ -153,7 +153,7 @@ that changing their value later will have an effect.
 
    .. note::
       In addition to runtime-selected SIMD optimizations dispatch, Arrow C++ can
-      also be compiled with SIMD optimizations that are cannot be disabled at
+      also be compiled with SIMD optimizations that cannot be disabled at
       runtime.  For example, by default, SSE4.2 optimizations are enabled on x86
       builds: therefore, with this default setting, Arrow C++ does not work at
       all on a CPU without support for SSE4.2.  This setting can be changed
