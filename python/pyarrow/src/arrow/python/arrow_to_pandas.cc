@@ -755,8 +755,9 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
 }
 
 template <typename T>
-enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options, const ChunkedArray& data,
-                        PyObject** out_values) {
+enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
   using ListArrayT = typename TypeTraits<T>::ArrayType;
   // Get column of underlying value arrays
   ArrayVector value_arrays;
@@ -845,15 +846,17 @@ struct ListViewConversionType<LargeListViewType> {
 };
 
 template <typename T>
-enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options, const ChunkedArray& data,
-                        PyObject** out_values) {
+enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
   using ListViewArrayType = typename TypeTraits<T>::ArrayType;
   using ConversionType = typename ListViewConversionType<T>::type;
   using ConversionClass = typename TypeTraits<ConversionType>::ArrayType;
   ArrayVector list_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
-    ARROW_ASSIGN_OR_RAISE(auto converted_array, ConversionClass::FromListView(arr, options.pool));
+    ARROW_ASSIGN_OR_RAISE(auto converted_array,
+                          ConversionClass::FromListView(arr, options.pool));
     list_arrays.emplace_back(converted_array);
   }
   auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
@@ -1376,8 +1379,8 @@ struct ObjectWriterVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status>
-  Visit(const T& type) {
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& type) {
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
