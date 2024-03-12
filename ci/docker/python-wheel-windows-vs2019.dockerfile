@@ -89,7 +89,8 @@ RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
 # TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
-RUN python -m pip install -r arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
+RUN python -m pip install numpy -U --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
 
 # ENV CLCACHE_DIR="C:\clcache"
 # ENV CLCACHE_COMPRESS=1
