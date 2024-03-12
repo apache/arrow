@@ -24,7 +24,6 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
-import pathlib
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -82,9 +81,6 @@ class build_ext(_build_ext):
 
     def build_extensions(self):
         numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
-        print("NumPy include dir: ", numpy_incl)
-        path = pathlib.Path(numpy_incl)
-        print(list((path / "numpy").iterdir()))
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']
