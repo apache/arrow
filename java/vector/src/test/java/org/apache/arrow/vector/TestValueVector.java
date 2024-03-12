@@ -3343,6 +3343,16 @@ public class TestValueVector {
 
       assertEquals(0, varChVec.hashCode(0));
     }
+
+    try (ViewVarCharVector varChVec = new ViewVarCharVector("view var char vector", allocator)) {
+      varChVec.allocateNew(100, 1);
+      varChVec.setValueCount(1);
+
+      varChVec.set(0, "abc".getBytes(StandardCharsets.UTF_8));
+      varChVec.setNull(0);
+
+      assertEquals(0, varChVec.hashCode(0));
+    }
   }
 
   @Test
