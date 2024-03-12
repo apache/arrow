@@ -97,7 +97,9 @@ struct EventId {
 struct LogDescriptor {
   LogLevel severity = kDefaultSeverity;
 
-  std::optional<std::string_view> body = std::nullopt;
+  std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::now();
+
+  std::string_view body = "";
 
   EventId event_id = EventId::Invalid();
 
@@ -188,6 +190,23 @@ class ARROW_EXPORT GlobalLogger {
 
  private:
   static std::unique_ptr<Logger> logger_;
+};
+
+class ARROW_EXPORT LogMessage {
+ public:
+  explicit LogMessage(LogLevel, Logger*);
+
+  std::ostream& Stream();
+
+  template <typename T>
+  LogMessage& operator<<(const T& t) {
+    Stream() << t;
+    return *this;
+  }
+
+ private:
+  class Impl;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace telemetry

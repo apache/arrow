@@ -50,6 +50,7 @@ class OtelEnvironment : public ::testing::Environment {
     auto provider_options = LoggerProviderOptions::Defaults();
     ASSERT_OK(GlobalLoggerProvider::Initialize(provider_options));
     auto logging_options = LoggingOptions::Defaults();
+    logging_options.severity_threshold = LogLevel::ARROW_TRACE;
     logging_options.flush_severity = LogLevel::ARROW_TRACE;
     ASSERT_OK_AND_ASSIGN(
         auto logger,
@@ -90,6 +91,8 @@ TEST_F(TestLogging, Basics) {
   Log(LogLevel::ARROW_WARNING, "baz bal",
       AttributeList{Attribute{"intAttr", 24}, Attribute{"boolAttr", true},
                     Attribute{"strAttr", std::string("ab") + "c"}});
+  LogMessage(LogLevel::ARROW_INFO, GlobalLogger::Get()) << "This is a "
+                                                        << "log message";
 }
 
 }  // namespace telemetry

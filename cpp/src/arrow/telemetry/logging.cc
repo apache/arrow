@@ -243,9 +243,6 @@ class OtelLogger : public Logger {
       return;
     }
 
-    const auto timestamp =
-        otel::common::SystemTimestamp(std::chrono::system_clock::now());
-
     auto log = logger_->CreateLogRecord();
     if (log == nullptr) {
       return;
@@ -262,7 +259,7 @@ class OtelLogger : public Logger {
 
     // We set the remaining attributes AFTER the custom attributes in AttributeHolder
     // because, in the event of key collisions, these should take precedence.
-    log->SetTimestamp(timestamp);
+    log->SetTimestamp(otel::common::SystemTimestamp(desc.timestamp));
     log->SetSeverity(ToOtelSeverity(desc.severity));
 
     auto span_ctx = otel::trace::Tracer::GetCurrentSpan()->GetContext();
@@ -270,10 +267,7 @@ class OtelLogger : public Logger {
     log->SetTraceId(span_ctx.trace_id());
     log->SetTraceFlags(span_ctx.trace_flags());
 
-    if (desc.body) {
-      auto body = *desc.body;
-      log->SetBody(ToOtel(body));
-    }
+    log->SetBody(ToOtel(desc.body));
 
     if (const auto& event = desc.event_id; event.is_valid()) {
       log->SetEventId(event.id, ToOtel(event.name));
@@ -342,6 +336,30 @@ Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
 std::unique_ptr<Logger> GlobalLogger::logger_ = nullptr;
 
 std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
+
+class LogMessage::Impl {
+ public:
+  Impl(LogLevel severity, Logger* logger) : logger(logger), severity(severity) {}
+
+  ~Impl() {
+    if (logger) {
+      auto body = stream.str();
+      LogDescriptor desc;
+      desc.body = body;
+      desc.severity = severity;
+      logger->Log(desc);
+    }
+  }
+
+  Logger* logger;
+  LogLevel severity;
+  std::stringstream stream;
+};
+
+LogMessage::LogMessage(LogLevel severity, Logger* logger)
+    : impl_(std::make_shared<Impl>(severity, logger)) {}
+
+std::ostream& LogMessage::Stream() { return impl_->stream; }
 
 }  // namespace telemetry
 }  // namespace arrow
