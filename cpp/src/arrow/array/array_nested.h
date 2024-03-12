@@ -58,6 +58,16 @@ void SetListData(VarLengthListLikeArray<TYPE>* self,
                  const std::shared_ptr<ArrayData>& data,
                  Type::type expected_type_id = TYPE::type_id);
 
+// Private helper for [Large]List[View]Array::Flatten when IncludeNulls = true.
+// The primary use case is to avoid duplicating this logic in PyArrow when converting
+// to pandas.
+template <typename ListViewArrayT, bool HasNulls, bool IncludeNulls>
+Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
+                                                    MemoryPool* memory_pool);
+template <typename ListArrayT, bool IncludeNulls>
+Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
+                                                MemoryPool* memory_pool);
+
 }  // namespace internal
 
 /// Base class for variable-sized list and list-view arrays, regardless of offset size.
