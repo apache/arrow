@@ -1019,8 +1019,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
 
-  auto func = std::make_shared<ScalarAggregateFunction>("count_all", Arity::Nullary(),
-                                                        count_all_doc, NULLPTR);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "count_all", Arity::Nullary(), count_all_doc, NULLPTR, /*is_impure=*/true);
 
   // Takes no input (counts all rows), outputs int64 scalar
   AddAggKernel(KernelSignature::Make({}, int64()), CountAllInit, func.get());
