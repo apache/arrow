@@ -48,6 +48,7 @@
 #cmakedefine ARROW_ORC
 #cmakedefine ARROW_PARQUET
 #cmakedefine ARROW_SUBSTRAIT
+#cmakedefine ARROW_TELEMETRY
 
 #cmakedefine ARROW_AZURE
 #cmakedefine ARROW_ENABLE_THREADING
