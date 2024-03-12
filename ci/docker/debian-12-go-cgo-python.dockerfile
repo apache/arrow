@@ -30,5 +30,5 @@ RUN apt-get update -y -q && \
 
 ENV ARROW_PYTHON_VENV /arrow-dev
 RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
-    . {ARROW_PYTHON_VENV}/bin/activate && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
     pip install pyarrow cffi --only-binary pyarrow
