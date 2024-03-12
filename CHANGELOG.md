@@ -1,4 +1,15 @@
 
+# Apache Arrow 15.0.2 (2024-03-12)
+
+## Bug Fixes
+
+* [GH-39919](https://github.com/apache/arrow/issues/39919) - [C++][Dataset] Add missing Protobuf static link dependency (#40015)
+* [GH-39943](https://github.com/apache/arrow/issues/39943) - [CI][Python] Update manylinux images to avoid GPG problems downloading packages (#39944)
+* [GH-40386](https://github.com/apache/arrow/issues/40386) - [Python] Fix except clauses (#40387)
+* [GH-40485](https://github.com/apache/arrow/issues/40485) - [Python][CI] Skip failing test_dateutil_tzinfo_to_string (#40486)
+
+
+
 # Apache Arrow 15.0.1 (2024-02-23)
 
 ## Bug Fixes
