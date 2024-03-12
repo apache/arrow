@@ -61,8 +61,6 @@
 
 namespace arrow {
 
-class ListArray;
-class LargeListArray;
 class MemoryPool;
 
 using internal::checked_cast;

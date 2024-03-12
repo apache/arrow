@@ -2522,6 +2522,55 @@ class TestConvertListTypes:
             else:
                 npt.assert_array_equal(left, right)
 
+    def test_list_view_to_pandas_with_in_order_offsets(self):
+        arr = pa.ListViewArray.from_arrays(
+            offsets=pa.array([0, 2, 4]),
+            sizes=pa.array([2, 2, 2]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, 2], [3, 4], [5, 6]])
+
+        tm.assert_series_equal(actual, expected)
+
+    def test_list_view_to_pandas_with_out_of_order_offsets(self):
+        arr = pa.ListViewArray.from_arrays(
+            offsets=pa.array([2, 4, 0]),
+            sizes=pa.array([2, 2, 2]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[3, 4], [5, 6], [1, 2]])
+
+        tm.assert_series_equal(actual, expected)
+
+    def test_list_view_to_pandas_with_overlapping_offsets(self):
+        arr = pa.ListViewArray.from_arrays(
+            offsets=pa.array([0, 1, 2]),
+            sizes=pa.array([4, 4, 4]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]])
+
+        tm.assert_series_equal(actual, expected)
+
+    def test_list_view_to_pandas_with_null_values(self):
+        arr = pa.ListViewArray.from_arrays(
+            offsets=pa.array([0, 2, 2]),
+            sizes=pa.array([2, 0, 0]),
+            values=pa.array([1, None]),
+            mask=pa.array([False, False, True])
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, None], [], None])
+
+        tm.assert_series_equal(actual, expected)
+
 
 class TestConvertStructTypes:
     """
