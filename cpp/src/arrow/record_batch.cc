@@ -253,7 +253,7 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
     using T = typename TypeIdTraits<Type::type>::Type;                 \
     using CType_in = typename TypeTraits<T>::CType;                    \
     auto* in_values = batch.column(i)->data()->GetValues<CType_in>(1); \
-    for (int64_t i = 0; i < arr.length(); ++i) {                       \
+    for (int64_t i = 0; i < length; ++i) {                             \
       *out_values++ = static_cast<CType>(*in_values++);                \
     }                                                                  \
     break;                                                             \
@@ -263,21 +263,20 @@ template <typename DataType>
 inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
+  int64_t length = batch.num_rows();
 
   for (int i = 0; i < batch.num_columns(); ++i) {
-    const auto& arr = *batch.column(i);
-
     // If the column is of the same type than resulting data type
     if (TypeTraits<DataType>::type_singleton() == batch.column(i)->type()) {
       const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
 
-      memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
-      out_values += batch.num_rows();
+      memcpy(out_values, in_values, sizeof(CType) * length);
+      out_values += length;
     } else {  // If the column is different type than resulting data type
       switch (batch.column(i)->type_id()) {
         case Type::HALF_FLOAT: {
           auto* in_values = batch.column(i)->data()->GetValues<uint16_t>(1);
-          for (int64_t i = 0; i < arr.length(); ++i) {
+          for (int64_t i = 0; i < length; ++i) {
             *out_values++ = static_cast<CType>(*in_values++);
           }
           break;
