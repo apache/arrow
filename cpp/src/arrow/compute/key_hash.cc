@@ -383,19 +383,21 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
+  const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
 
-  auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, num_rows);
+  auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
   uint32_t* hash_temp = hash_temp_buf.mutable_data();
 
-  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, num_rows);
+  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
   uint16_t* null_indices = null_indices_buf.mutable_data();
   int num_null_indices;
 
-  auto null_hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, num_rows);
+  auto null_hash_temp_buf =
+      util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
   uint32_t* null_hash_temp = null_hash_temp_buf.mutable_data();
 
   for (uint32_t first_row = 0; first_row < num_rows;) {
-    uint32_t batch_size_next = std::min(num_rows - first_row, max_batch_size);
+    uint32_t batch_size_next = std::min(num_rows - first_row, alloc_batch_size);
 
     for (size_t icol = 0; icol < cols.size(); ++icol) {
       if (cols[icol].metadata().is_null_type) {
@@ -490,8 +492,9 @@ Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
     auto estimate_alloc_size = estimate_size();
     ARROW_CHECK_GE(temp_stack->buffer_size(), estimate_alloc_size)
         << "TempVectorStack's init"
-           " size is not enough. ("
-        << temp_stack->buffer_size() << "," << estimate_alloc_size << ")";
+           " size is not enough. (actual "
+        << temp_stack->buffer_size() << "Bytes, expect " << estimate_alloc_size
+        << "Bytes)";
     ctx.stack = temp_stack;
   }
 
@@ -849,16 +852,18 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
+  const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
 
-  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, num_rows);
+  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
   uint16_t* null_indices = null_indices_buf.mutable_data();
   int num_null_indices;
 
-  auto null_hash_temp_buf = util::TempVectorHolder<uint64_t>(ctx->stack, num_rows);
+  auto null_hash_temp_buf =
+      util::TempVectorHolder<uint64_t>(ctx->stack, alloc_batch_size);
   uint64_t* null_hash_temp = null_hash_temp_buf.mutable_data();
 
   for (uint32_t first_row = 0; first_row < num_rows;) {
-    uint32_t batch_size_next = std::min(num_rows - first_row, max_batch_size);
+    uint32_t batch_size_next = std::min(num_rows - first_row, alloc_batch_size);
 
     for (size_t icol = 0; icol < cols.size(); ++icol) {
       if (cols[icol].metadata().is_null_type) {
@@ -950,8 +955,9 @@ Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
     auto estimate_alloc_size = estimate_size();
     ARROW_CHECK_GE(temp_stack->buffer_size(), estimate_alloc_size)
         << "TempVectorStack's init"
-           " size is not enough. ("
-        << temp_stack->buffer_size() << "," << estimate_alloc_size << ")";
+           " size is not enough. (actual "
+        << temp_stack->buffer_size() << "Bytes, expect " << estimate_alloc_size
+        << "Bytes)";
     ctx.stack = temp_stack;
   }
 
