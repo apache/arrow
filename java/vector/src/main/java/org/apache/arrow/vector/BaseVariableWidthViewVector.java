@@ -1604,9 +1604,21 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
-    final int start = getStartOffset(index);
-    final int end = getEndOffset(index);
-    return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
+    final int startOffset = getStartOffset(index);
+    final int endOffset = getEndOffset(index);
+    final int length = endOffset - startOffset;
+    if (length < INLINE_SIZE) {
+      int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
+      return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
+    } else {
+      final int bufIndex =
+          valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      final int dataOffset =
+          valueBuffer.getInt(
+              ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      ArrowBuf dataBuf = dataBuffers.get(bufIndex);
+      return ByteFunctionHelpers.hash(hasher, dataBuf, dataOffset, dataOffset + length);
+    }
   }
 
   @Override
