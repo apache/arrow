@@ -51,6 +51,7 @@ public final class ${className} implements ValueHolder{
     <#if minor.class == "ViewVarChar">
     public HolderCallback callBack;
     public List<ArrowBuf> dataBuffers;
+    public ArrowBuf outputBuffer;
     </#if>
 
     public static final int WIDTH = ${type.width};

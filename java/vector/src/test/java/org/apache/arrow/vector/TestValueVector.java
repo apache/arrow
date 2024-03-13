@@ -1875,28 +1875,23 @@ public class TestValueVector {
     }
   }
 
-  public void testFillEmptiesNotOverfillHelper(AbstractVariableWidthVector vector) {
-    vector.setInitialCapacity(4095);
-    vector.allocateNew();
-
-    int initialCapacity = vector.getValueCapacity();
-    assertTrue(initialCapacity >= 4095);
-
-    vector.setSafe(4094, "hello".getBytes(StandardCharsets.UTF_8), 0, 5);
-    /* the above set method should NOT have triggered a realloc */
-    assertEquals(initialCapacity, vector.getValueCapacity());
-
-    long bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
-    vector.setValueCount(initialCapacity);
-    assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
-    assertEquals(initialCapacity, vector.getValueCapacity());
-
-  }
-
   @Test
   public void testFillEmptiesNotOverfill() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      testFillEmptiesNotOverfillHelper(vector);
+      vector.setInitialCapacity(4095);
+      vector.allocateNew();
+
+      int initialCapacity = vector.getValueCapacity();
+      assertTrue(initialCapacity >= 4095);
+
+      vector.setSafe(4094, "hello".getBytes(StandardCharsets.UTF_8), 0, 5);
+      /* the above set method should NOT have triggered a realloc */
+      assertEquals(initialCapacity, vector.getValueCapacity());
+
+      long bufSizeBefore = vector.getFieldBuffers().get(1).capacity();
+      vector.setValueCount(initialCapacity);
+      assertEquals(bufSizeBefore, vector.getFieldBuffers().get(1).capacity());
+      assertEquals(initialCapacity, vector.getValueCapacity());
     }
   }
 
