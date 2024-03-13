@@ -1598,7 +1598,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add floordiv(duration, duration) -> int64
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDiv>::Exec;
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloorDiv>::Exec;
     DCHECK_OK(floordiv->AddKernel({duration(unit), duration(unit)}, float64(),
                                   std::move(exec)));
   }
@@ -1619,7 +1619,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add divide_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
     auto exec =
-        ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDivChecked>::Exec;
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloorDivChecked>::Exec;
     DCHECK_OK(floordiv_checked->AddKernel({duration(unit), duration(unit)}, float64(),
                                           std::move(exec)));
   }
