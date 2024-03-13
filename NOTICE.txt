@@ -82,3 +82,8 @@ its NOTICE file:
 
   This product includes software developed by Hewlett-Packard:
   (c) Copyright [2014-2015] Hewlett-Packard Development Company, L.P
+
+---------------------------------------------------------------------------------
+
+This product includes software from The MathWorks, Inc. (Apache 2.0)
+  * Copyright (C) 2024 The MathWorks, Inc.
