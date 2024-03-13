@@ -16,9 +16,27 @@
   specific language governing permissions and limitations
   under the License.
 -->
-<!ENTITY package "@PACKAGE@">
-<!ENTITY package_bugreport "@PACKAGE_BUGREPORT@">
-<!ENTITY package_name "@PACKAGE_NAME@">
-<!ENTITY package_string "@PACKAGE_STRING@">
-<!ENTITY package_url "@PACKAGE_URL@">
-<!ENTITY package_version "@PACKAGE_VERSION@">
+
+(c-glib)=
+# Apache Arrow GLib (C)
+
+Apache Arrow GLib is a wrapper library for Apache Arrow C++. Apache Arrow GLib provides C API.
+
+Apache Arrow GLib supports [GObject Introspection][gobject-introspection]. It means that you can create language bindings at runtime or compile time automatically.
+
+## API reference manuals
+
+```{toctree}
+:maxdepth: 1
+
+Apache Arrow GLib <arrow-glib/index>
+Apache Arrow CUDA GLib <arrow-cuda-glib/index>
+Apache Arrow Dataset <arrow-dataset-glib/index>
+Apache Arrow Flight GLib <arrow-flight-glib/index>
+Apache Arrow Flight SQL GLib <arrow-flight-sql-glib/index>
+Apache Parquet GLib <parquet-glib/index>
+Gandiva GLib <gandiva-glib/index>
+```
+
+[gobject-introspection]: https://gi.readthedocs.io/en/latest/
+

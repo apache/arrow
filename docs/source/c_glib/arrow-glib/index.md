@@ -16,9 +16,8 @@
   specific language governing permissions and limitations
   under the License.
 -->
-<!ENTITY package "@PACKAGE@">
-<!ENTITY package_bugreport "@PACKAGE_BUGREPORT@">
-<!ENTITY package_name "@PACKAGE_NAME@">
-<!ENTITY package_string "@PACKAGE_STRING@">
-<!ENTITY package_url "@PACKAGE_URL@">
-<!ENTITY package_version "@PACKAGE_VERSION@">
+
+(arrow-glib)=
+# Apache Arrow GLib
+
+Stub page for the Apache Arrow GLib docs; actual source is located in c_glib/ sub-directory.

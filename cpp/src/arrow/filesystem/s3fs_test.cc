@@ -935,6 +935,10 @@ TEST_F(TestS3FS, CreateDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket//somedir"));
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket/somedir//newdir"));
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -994,6 +998,10 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket//newdir"));
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket/newdir//newsub"));
 }
 
 TEST_F(TestS3FS, DeleteDirContents) {

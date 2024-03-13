@@ -96,7 +96,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.7</version>
+            <version>2.15.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -157,7 +157,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>properties-maven-plugin</artifactId>
-                <version>1.1.0</version>
+                <version>1.2.1</version>
                 <executions>
                     <execution>
                         <id>write-project-properties-to-file</id>

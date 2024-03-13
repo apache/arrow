@@ -24,17 +24,14 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_WRITABLE (garrow_writable_get_type())
-G_DECLARE_INTERFACE(GArrowWritable,
-                    garrow_writable,
-                    GARROW,
-                    WRITABLE,
-                    GObject)
+G_DECLARE_INTERFACE(GArrowWritable, garrow_writable, GARROW, WRITABLE, GObject)
 
-gboolean garrow_writable_write(GArrowWritable *writable,
-                               const guint8 *data,
-                               gint64 n_bytes,
-                               GError **error);
-gboolean garrow_writable_flush(GArrowWritable *writable,
-                               GError **error);
+gboolean
+garrow_writable_write(GArrowWritable *writable,
+                      const guint8 *data,
+                      gint64 n_bytes,
+                      GError **error);
+gboolean
+garrow_writable_flush(GArrowWritable *writable, GError **error);
 
 G_END_DECLS

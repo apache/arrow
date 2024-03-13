@@ -260,6 +260,9 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
+message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
+message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
+
 include(UseCython)
 
 # PyArrow C++

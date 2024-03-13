@@ -20,7 +20,7 @@ FROM ${base}
 
 RUN apt-get update -y -q && \
     apt-get install -y -q \
-        gtk-doc-tools \
+        gi-docgen \
         libgirepository1.0-dev \
         libglib2.0-doc \
         lsb-release \

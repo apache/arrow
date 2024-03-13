@@ -71,6 +71,7 @@ download()
   local output=$1
   local url=$2
 
+  mkdir -p $(dirname ${output})
   if type wget > /dev/null 2>&1; then
     wget -nv --output-document ${output} ${url}
   else
