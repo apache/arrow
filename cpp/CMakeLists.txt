@@ -692,18 +692,21 @@ if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
-  set(ARROW_TEST_LINK_LIBS arrow_testing_shared ${ARROW_GTEST_GMOCK}
-                           ${ARROW_GTEST_GTEST_MAIN})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_shared)
   set(ARROW_EXAMPLE_LINK_LIBS arrow_shared)
 else()
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_STATIC)
     message(FATAL_ERROR "If using static linkage for unit tests, must also \
 pass ARROW_BUILD_STATIC=on")
   endif()
-  set(ARROW_TEST_LINK_LIBS arrow_testing_static ${ARROW_GTEST_GMOCK}
-                           ${ARROW_GTEST_GTEST_MAIN})
+  set(ARROW_TEST_LINK_LIBS arrow_testing_static)
   set(ARROW_EXAMPLE_LINK_LIBS arrow_static)
 endif()
+# arrow::flatbuffers isn't needed for all tests but we specify it as
+# the first link library. It's for prioritizing bundled FlatBuffers
+# than system FlatBuffers.
+list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
