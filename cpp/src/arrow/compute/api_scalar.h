@@ -654,7 +654,7 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise quotient
 ARROW_EXPORT
-Result<Datum> FloorDiv(const Datum& left, const Datum& right,
+Result<Datum> Floordiv(const Datum& left, const Datum& right,
                        ArithmeticOptions options = ArithmeticOptions(),
                        ExecContext* ctx = NULLPTR);
 

@@ -465,7 +465,7 @@ struct FloatingDivideChecked {
   // TODO: Add decimal
 };
 
-struct FloorDiv {
+struct Floordiv {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
@@ -490,7 +490,7 @@ struct FloorDiv {
   // TODO: Add decimal
 };
 
-struct FloorDivChecked {
+struct FloordivChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
