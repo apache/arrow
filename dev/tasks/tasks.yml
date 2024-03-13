@@ -82,6 +82,7 @@ groups:
 
   python:
     - test-*python*
+    - example-*python*
 
   r:
     - test*-r-*
