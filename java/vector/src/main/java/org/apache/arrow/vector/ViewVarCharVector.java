@@ -165,15 +165,28 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   }
 
   public static class HolderCallback {
+
     /**
-     * Get the variable length element at specified index and sets the state.
+     * Create Holder callback with given parameters.
      * @param index position of element.
      * @param dataLength length of the buffer.
      * @param input input buffer.
      * @param dataBufs list of data buffers.
      * @param output output buffer.
+     */
+    public HolderCallback(int index, int dataLength, ArrowBuf input, List<ArrowBuf> dataBufs, ArrowBuf output) {
+      this.index = index;
+      this.dataLength = dataLength;
+      this.input = input;
+      this.dataBufs = dataBufs;
+      this.output = output;
+    }
+
+
+    /**
+    * Get data from the buffer.
     */
-    public void getData(int index, int dataLength, ArrowBuf input, List<ArrowBuf> dataBufs, ArrowBuf output) {
+    public void getData() {
       if (dataLength > INLINE_SIZE) {
         // data is in the inline buffer
         // get buffer index
@@ -190,6 +203,12 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
             (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
       }
     }
+
+    private int index;
+    private int dataLength;
+    private ArrowBuf input;
+    private List<ArrowBuf> dataBufs;
+    private ArrowBuf output;
   }
 
   /**
@@ -210,7 +229,9 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
     holder.dataBuffers = dataBuffers;
-    holder.callBack = new HolderCallback();
+    holder.outputBuffer = allocator.buffer(holder.end - holder.start);
+    holder.callBack = new HolderCallback(index, holder.end - holder.start, valueBuffer, dataBuffers,
+        holder.outputBuffer);
   }
 
 

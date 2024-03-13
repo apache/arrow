@@ -24,6 +24,7 @@ import java.util.Random;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -86,8 +87,6 @@ public class TestVarCharViewVector {
           StandardCharsets.UTF_8), str2);
       Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
           StandardCharsets.UTF_8), str3);
-      // TODO: assert length, offset, and values per each view
-      // refer to testSetLastSetUsage
     }
   }
 
@@ -132,8 +131,6 @@ public class TestVarCharViewVector {
           StandardCharsets.UTF_8), str3);
       Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
           StandardCharsets.UTF_8), str4);
-      // TODO: assert length, offset, and values per each view
-      // refer to testSetLastSetUsage
     }
   }
 
@@ -178,8 +175,6 @@ public class TestVarCharViewVector {
           StandardCharsets.UTF_8), str3);
       Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
           StandardCharsets.UTF_8), str4);
-      // TODO: assert length, offset, and values per each view
-      // refer to testSetLastSetUsage
     }
   }
 
@@ -237,32 +232,49 @@ public class TestVarCharViewVector {
           StandardCharsets.UTF_8), str1);
       Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
           StandardCharsets.UTF_8), str6);
-      // TODO: assert length, offset, and values per each view
-      // refer to testSetLastSetUsage
     }
   }
 
   @Test(expected = IndexOutOfBoundsException.class)
   public void testAllocationIndexOutOfBounds() {
-    try (final ViewVarCharVector largeVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-      largeVarCharVector.allocateNew(32, 3);
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(32, 3);
       final int valueCount = 3;
-      largeVarCharVector.set(0, STR1);
-      largeVarCharVector.set(1, STR2);
-      largeVarCharVector.set(2, STR2);
-      largeVarCharVector.setValueCount(valueCount);
+      viewVarCharVector.set(0, STR1);
+      viewVarCharVector.set(1, STR2);
+      viewVarCharVector.set(2, STR2);
+      viewVarCharVector.setValueCount(valueCount);
     }
   }
 
-  public static void setBytes(int index, byte[] bytes, LargeVarCharVector vector) {
-    final long currentOffset =
-        vector.offsetBuffer.getLong((long) index * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+  private void holderRetrievalHelper(ViewVarCharVector viewVarCharVector, byte[] str, int index) {
+    NullableViewVarCharHolder holder = new NullableViewVarCharHolder();
+    viewVarCharVector.get(index, holder);
+    holder.callBack.getData();
+    byte[] data = new byte[holder.end - holder.start];
+    holder.outputBuffer.getBytes(0, data);
 
-    BitVectorHelper.setBit(vector.validityBuffer, index);
-    vector.offsetBuffer.setLong(
-        (long) (index + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
-        currentOffset + bytes.length);
-    vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
+    Assert.assertEquals(holder.isSet, viewVarCharVector.isSet(index));
+    Assert.assertEquals(holder.start, viewVarCharVector.getStartOffset(index));
+    Assert.assertEquals(holder.end, viewVarCharVector.getEndOffset(index));
+    Assert.assertArrayEquals(str, data);
+    holder.outputBuffer.close();
+  }
+
+  @Test
+  public void testHolderRetrieval() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(48, 3);
+      final int valueCount = 3;
+      viewVarCharVector.set(0, STR1);
+      viewVarCharVector.set(1, STR2);
+      viewVarCharVector.set(2, STR3);
+      viewVarCharVector.setValueCount(valueCount);
+
+      holderRetrievalHelper(viewVarCharVector, STR1, 0);
+      holderRetrievalHelper(viewVarCharVector, STR2, 1);
+      holderRetrievalHelper(viewVarCharVector, STR3, 2);
+    }
   }
 
   private String generateRandomString(int length) {
