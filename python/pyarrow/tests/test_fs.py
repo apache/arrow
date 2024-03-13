@@ -292,6 +292,35 @@ _minio_limited_policy = """{
 
 
 @pytest.fixture
+def azurefs(request, azure_server):
+    request.config.pyarrow.requires('azure')
+    from pyarrow.fs import AzureFileSystem
+
+    host, port, account_name, account_key = azure_server['connection']
+    azurite_authority = f"{host}:{port}"
+    azurite_scheme = "http"
+
+    container = 'pyarrow-filesystem/'
+
+    fs = AzureFileSystem(account_name=account_name,
+                         account_key=account_key,
+                         blob_storage_authority=azurite_authority,
+                         dfs_storage_authority=azurite_authority,
+                         blob_storage_scheme=azurite_scheme,
+                         dfs_storage_scheme=azurite_scheme)
+
+    fs.create_dir(container)
+
+    yield dict(
+        fs=fs,
+        pathfn=container.__add__,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+    fs.delete_dir(container)
+
+
+@pytest.fixture
 def hdfs(request, hdfs_connection):
     request.config.pyarrow.requires('hdfs')
     if not pa.have_libhdfs():
@@ -384,6 +413,11 @@ def py_fsspec_s3fs(request, s3_server):
         marks=pytest.mark.gcs
     ),
     pytest.param(
+        'azurefs',
+        id='AzureFileSystem',
+        marks=pytest.mark.azure
+    ),
+    pytest.param(
         'hdfs',
         id='HadoopFileSystem',
         marks=pytest.mark.hdfs
@@ -465,6 +499,11 @@ def check_mtime_or_absent(file_info):
 def skip_fsspec_s3fs(fs):
     if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
+
+
+def skip_azure(fs, reason):
+    if fs.type_name == "abfs":
+        pytest.skip(reason=reason)
 
 
 @pytest.mark.s3
@@ -857,6 +896,9 @@ def test_copy_file(fs, pathfn):
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
+    # TODO(GH-40025): Stop skipping this test
+    skip_azure(fs, "Not implemented yet in for Azure. See GH-40025")
+
     # move directory (doesn't work with S3)
     s = pathfn('source-dir/')
     t = pathfn('target-dir/')
@@ -877,6 +919,9 @@ def test_move_file(fs, pathfn):
     # s3fs moving a file with recursive=True on latest 0.5 version
     # (https://github.com/dask/s3fs/issues/394)
     skip_fsspec_s3fs(fs)
+
+    # TODO(GH-40025): Stop skipping this test
+    skip_azure(fs, "Not implemented yet in for Azure. See GH-40025")
 
     s = pathfn('test-move-source-file')
     t = pathfn('test-move-target-file')
@@ -1029,7 +1074,11 @@ def test_open_output_stream_metadata(fs, pathfn):
         assert f.read() == data
         got_metadata = f.metadata()
 
-    if fs.type_name in ['s3', 'gcs'] or 'mock' in fs.type_name:
+    if fs.type_name in ['s3', 'gcs', 'abfs'] or 'mock' in fs.type_name:
+        # TODO(GH-40026): Stop skipping this test
+        skip_azure(
+            fs, "Azure filesystem currently only returns system metadata not user "
+            "metadata. See GH-40026")
         for k, v in metadata.items():
             assert got_metadata[k] == v.encode()
     else:
@@ -1377,6 +1426,33 @@ def test_s3fs_wrong_region():
 
     fs = S3FileSystem(region='us-east-2', anonymous=True)
     fs.get_file_info("voltrondata-labs-datasets")
+
+
+@pytest.mark.azure
+def test_azurefs_options(pickle_module):
+    from pyarrow.fs import AzureFileSystem
+
+    fs1 = AzureFileSystem(account_name='fake-account-name')
+    assert isinstance(fs1, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs1)) == fs1
+
+    fs2 = AzureFileSystem(account_name='fake-account-name',
+                          account_key='fakeaccountkey')
+    assert isinstance(fs2, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs2)) == fs2
+    assert fs2 != fs1
+
+    fs3 = AzureFileSystem(account_name='fake-account', account_key='fakeaccount',
+                          blob_storage_authority='fake-blob-authority',
+                          dfs_storage_authority='fake-dfs-authority',
+                          blob_storage_scheme='fake-blob-scheme',
+                          dfs_storage_scheme='fake-dfs-scheme')
+    assert isinstance(fs3, AzureFileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs3)) == fs3
+    assert fs3 != fs2
+
+    with pytest.raises(TypeError):
+        AzureFileSystem()
 
 
 @pytest.mark.hdfs

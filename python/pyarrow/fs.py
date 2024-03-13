@@ -39,6 +39,10 @@ from pyarrow._fs import (  # noqa
 FileStats = FileInfo
 
 _not_imported = []
+try:
+    from pyarrow._azurefs import AzureFileSystem  # noqa
+except ImportError:
+    _not_imported.append("AzureFileSystem")
 
 try:
     from pyarrow._hdfs import HadoopFileSystem  # noqa
