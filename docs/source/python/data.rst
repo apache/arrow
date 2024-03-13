@@ -230,6 +230,28 @@ like lists:
    nested_arr = pa.array([[], None, [1, 2], [None, 1]])
    print(nested_arr.type)
 
+ListView arrays
+~~~~~~~~~~~
+
+``pyarrow.array`` can create an alternate list type called ListView:
+
+.. ipython:: python
+
+   nested_arr = pa.array([[], None, [1, 2], [None, 1]], type=pa.list_view(pa.int64()))
+   print(nested_arr.type)
+
+ListView arrays have a different set of buffers than List arrays. The ListView array
+has both an offsets and sizes buffer, while a List array only has an offsets buffer.
+This allows for ListView arrays to specify out-of-order offsets:
+
+.. ipython:: python
+
+   values = [1, 2, 3, 4, 5, 6]
+   offsets = [4, 2, 0]
+   sizes = [2, 2, 2]
+   arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
+   arr
+
 Struct arrays
 ~~~~~~~~~~~~~
 
@@ -240,7 +262,7 @@ dictionaries:
 
    pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
 
-Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples, 
+Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples,
 you must explicitly pass the type:
 
 .. ipython:: python
@@ -282,10 +304,10 @@ the type is explicitly passed into :meth:`array`:
    ty = pa.map_(pa.string(), pa.int64())
    pa.array(data, type=ty)
 
-MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the 
+MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the
 starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
-properties give the *flattened* keys and items. To keep the keys and items associated to 
-their row, use the :meth:`ListArray.from_arrays` constructor with the 
+properties give the *flattened* keys and items. To keep the keys and items associated to
+their row, use the :meth:`ListArray.from_arrays` constructor with the
 :attr:`MapArray.offsets` property.
 
 .. ipython:: python

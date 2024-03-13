@@ -255,7 +255,8 @@ Status SetBufferBase(PyArrayObject* arr, const std::shared_ptr<Buffer>& buffer) 
 }
 
 inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr* out) {
-  auto metadata = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+  auto metadata =
+      reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(out));
   if (type == NPY_DATETIME) {
     if (datatype->id() == Type::TIMESTAMP) {
       const auto& timestamp_type = checked_cast<const TimestampType&>(*datatype);
@@ -276,7 +277,7 @@ Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr, MemoryP
   //
   // * Track allocations
   // * Get better performance through custom allocators
-  int64_t total_size = descr->elsize;
+  int64_t total_size = PyDataType_ELSIZE(descr);
   for (int i = 0; i < nd; ++i) {
     total_size *= dims[i];
   }
@@ -537,8 +538,9 @@ class PandasWriter {
 
   void SetDatetimeUnit(NPY_DATETIMEUNIT unit) {
     PyAcquireGIL lock;
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
-        PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))->c_metadata);
+    auto date_dtype =
+        reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(PyDataType_C_METADATA(
+            PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))));
     date_dtype->meta.base = unit;
   }
 

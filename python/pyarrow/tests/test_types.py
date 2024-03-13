@@ -346,6 +346,11 @@ def test_pytz_tzinfo_to_string():
 
 
 def test_dateutil_tzinfo_to_string():
+    if sys.platform == 'win32':
+        # Skip due to new release of python-dateutil
+        # https://github.com/apache/arrow/issues/40485
+        pytest.skip('Skip on Win due to new release of python-dateutil')
+
     pytest.importorskip("dateutil")
     import dateutil.tz
 
@@ -955,11 +960,12 @@ def test_bit_and_byte_width():
         (pa.date32(), 32, 4),
         (pa.decimal128(19, 4), 128, 16),
         (pa.decimal256(76, 38), 256, 32),
-        (pa.binary(42), 42 * 8, 42)
+        (pa.binary(42), 42 * 8, 42),
+        (pa.binary(0), 0, 0),
     ]:
         assert ty.bit_width == expected_bit_width
 
-        if expected_byte_width == 0:
+        if 0 < expected_bit_width < 8:
             with pytest.raises(ValueError, match="Less than one byte"):
                 ty.byte_width
         else:

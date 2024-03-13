@@ -167,8 +167,8 @@ def list_types(item_strategy=primitive_types):
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
-        ),
-        st.builds(pa.list_view, item_strategy),
+        ) |
+        st.builds(pa.list_view, item_strategy) |
         st.builds(pa.large_list_view, item_strategy)
     )
 
@@ -322,6 +322,10 @@ def arrays(draw, type, size=None, nullable=True):
         value = _pylist(ty.value_type, size=size, nullable=nullable)
     elif pa.types.is_fixed_size_list(ty):
         value = _pylist(ty.value_type, size=ty.list_size, nullable=nullable)
+    elif pa.types.is_list_view(ty):
+        value = _pylist(ty.value_type, size=size, nullable=nullable)
+    elif pa.types.is_large_list_view(ty):
+        value = _pylist(ty.value_type, size=size, nullable=nullable)
     elif pa.types.is_dictionary(ty):
         values = _pylist(ty.value_type, size=size, nullable=nullable)
         return pa.array(draw(values), type=ty)

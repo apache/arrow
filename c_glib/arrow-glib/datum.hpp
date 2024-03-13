@@ -29,17 +29,12 @@ GArrowDatum *
 garrow_datum_new_raw(arrow::Datum *arrow_datum);
 
 GArrowScalarDatum *
-garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum,
-                            GArrowScalar *value);
+garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum, GArrowScalar *value);
 GArrowArrayDatum *
-garrow_array_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowArray *value);
+garrow_array_datum_new_raw(arrow::Datum *arrow_datum, GArrowArray *value);
 GArrowChunkedArrayDatum *
-garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum,
-                                   GArrowChunkedArray *value);
+garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum, GArrowChunkedArray *value);
 GArrowRecordBatchDatum *
-garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum,
-                                  GArrowRecordBatch *value);
+garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum, GArrowRecordBatch *value);
 GArrowTableDatum *
-garrow_table_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowTable *value);
+garrow_table_datum_new_raw(arrow::Datum *arrow_datum, GArrowTable *value);
