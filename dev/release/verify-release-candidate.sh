@@ -20,7 +20,7 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.3.9
+# - Maven >= 3.8.8
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 18
