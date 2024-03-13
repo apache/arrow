@@ -2730,6 +2730,7 @@ public class TestValueVector {
       stringHolder1.end = str1.length();
       stringHolder1.buffer = buf1;
 
+
       String str2 = "hello universe";
       ArrowBuf buf2 = allocator.buffer(16);
       buf2.setBytes(0, str2.getBytes(StandardCharsets.UTF_8));
