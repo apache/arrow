@@ -393,7 +393,8 @@ length of the string and can be used to determine how the rest of the view
 should be interpreted.
 
 In the short string case the string's bytes are inlined — stored inside the
-view itself, in the twelve bytes which follow the length.
+view itself, in the twelve bytes which follow the length. Any remaining bytes
+after the string itself are padded with `0`.
 
 In the long string case, a buffer index indicates which data buffer
 stores the data bytes and an offset indicates where in that buffer the
