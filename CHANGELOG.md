@@ -1,4 +1,24 @@
 
+# Apache Arrow 15.0.2 (2024-03-13)
+
+## Bug Fixes
+
+* [GH-39582](https://github.com/apache/arrow/issues/39582) - [C++][Acero] Increase size of Acero TempStack (#40007)
+* [GH-39919](https://github.com/apache/arrow/issues/39919) - [C++][Dataset] Add missing Protobuf static link dependency (#40015)
+* [GH-39943](https://github.com/apache/arrow/issues/39943) - [CI][Python] Update manylinux images to avoid GPG problems downloading packages (#39944)
+* [GH-40018](https://github.com/apache/arrow/issues/40018) - [CI][Archery] Archery linking should also check for undefined symbols
+* [GH-40068](https://github.com/apache/arrow/issues/40068) - [C++] Possible data race when reading metadata of a parquet file (#40111)
+* [GH-40252](https://github.com/apache/arrow/issues/40252) - [C++] Make span SFINAE standards-conforming to enable compilation with nvcc (#40253)
+* [GH-40386](https://github.com/apache/arrow/issues/40386) - [Python] Fix except clauses (#40387)
+* [GH-40485](https://github.com/apache/arrow/issues/40485) - [Python][CI] Skip failing test_dateutil_tzinfo_to_string (#40486)
+
+
+## New Features and Improvements
+
+* [GH-40248](https://github.com/apache/arrow/issues/40248) - [R] fallback to the correct libtool when we find a GNU one (#40259)
+
+
+
 # Apache Arrow 15.0.1 (2024-02-23)
 
 ## Bug Fixes
