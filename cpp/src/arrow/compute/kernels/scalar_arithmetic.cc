@@ -1596,9 +1596,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
         floordiv->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
 
-  // Add floordiv(duration, duration) -> int64
+  // Add floordiv(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloorDiv>::Exec;
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingFloordiv>::Exec;
     DCHECK_OK(floordiv->AddKernel({duration(unit), duration(unit)}, float64(),
                                   std::move(exec)));
   }
@@ -1608,7 +1609,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto floordiv_checked = MakeArithmeticFunctionNotNull<FloorDivChecked>(
       "floordiv_checked", floordiv_checked_doc);
 
-  // Add divide_checked(duration, int64) -> duration
+  // Add floordiv_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
     auto exec =
         ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloorDivChecked>::Exec;
@@ -1616,10 +1617,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                           std::move(exec)));
   }
 
-  // Add divide_checked(duration, duration) -> float64
+  // Add floordiv_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloorDivChecked>::Exec;
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingFloordivChecked>::Exec;
     DCHECK_OK(floordiv_checked->AddKernel({duration(unit), duration(unit)}, float64(),
                                           std::move(exec)));
   }
