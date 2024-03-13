@@ -475,7 +475,7 @@ as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
 #' @param obj a Dataset or RecordBatchReader
 #' @return A string containing a formatted representation of the schema of `obj`
 #' @keywords internal
-format_schema <- function(obj){
+format_schema <- function(obj) {
   assert_is(obj, c("Dataset", "RecordBatchReader"))
   n_fields_out <- paste0(length(obj$schema$fields), " columns", "\n")
   schema <- obj$schema$ToString(truncate = TRUE)
