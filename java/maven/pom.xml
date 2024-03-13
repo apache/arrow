@@ -17,7 +17,7 @@
   -->
   <groupId>org.apache.arrow.maven.plugins</groupId>
   <artifactId>arrow-maven-plugins</artifactId>
-  <version>15.0.1</version>
+  <version>15.0.2</version>
   <name>Arrow Maven Plugins</name>
   <packaging>pom</packaging>
 
