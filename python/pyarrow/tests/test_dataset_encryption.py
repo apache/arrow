@@ -20,14 +20,16 @@ from datetime import timedelta
 import numpy as np
 import pyarrow.fs as fs
 import pyarrow as pa
-import pyarrow.parquet as pq
+
 import pytest
 
 encryption_unavailable = False
 
 try:
+    import pyarrow.parquet as pq
     import pyarrow.dataset as ds
 except ImportError:
+    pq = None
     ds = None
 
 try:
