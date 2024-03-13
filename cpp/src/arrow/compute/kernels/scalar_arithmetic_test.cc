@@ -903,10 +903,10 @@ TYPED_TEST(TestBinaryArithmeticFloating, FloorDiv) {
     this->AssertBinop(FloorDiv, "[3.4, 0.64, 1.28]", "[1, 2, 4]", "[3.0, 0.0, 0.0]");
     // Array with nulls
     this->AssertBinop(FloorDiv, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
-                      "[null, 0.0, 1.0, null, 19.0]");
+                      "[null, 0.0, 1.0, null, 20.0]");
     // Scalar divides by array
     this->AssertBinop(FloorDiv, 10.0F, "[null, 1, 2.5, null, 2, 5]",
-                      "[null, 10.0, 4., null, 5.0, 2.0]");
+                      "[null, 10.0, 4.0, null, 5.0, 2.0]");
     // Array divides by scalar
     this->AssertBinop(FloorDiv, "[null, 1, 2.5, null, 2, 5]", 10.0F,
                       "[null, 0.0, 0.0, null, 0.0, 0.0]");

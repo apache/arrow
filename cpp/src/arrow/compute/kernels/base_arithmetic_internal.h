@@ -469,7 +469,7 @@ struct FloorDiv {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status*) {
-    return floor(left / right);
+    return static_cast<T>(floor(left / right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -482,8 +482,9 @@ struct FloorDiv {
       } else {
         result = 0;
       }
+      return 0;
     }
-    return static_cast<T>(floor(left / right));
+    return floor(static_cast<double>(left) / right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -511,17 +512,18 @@ struct FloorDivChecked {
       } else {
         *st = Status::Invalid("overflow");
       }
+      return 0;
     }
-    return static_cast<T>(floor(left / right));
+    return static_cast<T>(floor(static_cast<double>(left) / right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                           Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (ARROW_PREDICT_FALSE(right == 0)) {
+    if (ARROW_PREDICT_FALSE(right == 0.0)) {
       *st = Status::Invalid("divide by zero");
-      return 0;
+      return 0.0;
     }
     return floor(left / right);
   }
