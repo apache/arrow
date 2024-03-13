@@ -254,10 +254,17 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int dataLength = holder.end - holder.start;
     final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+    if (holder.isSet != 0) {
+      final int dataLength = holder.end - holder.start;
+      byte[] data = new byte[dataLength];
+      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      setBytes(index, data, 0, dataLength);
+    } else {
+      byte[] data = new byte[0];
+      setBytes(index, data, 0, 0);
+      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset);
+    }
     lastSet = index;
   }
 
@@ -272,14 +279,17 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   public void setSafe(int index, ViewVarCharHolder holder) {
     // TODO: fix this
     assert index >= 0;
-    final int dataLength = holder.end - holder.start;
-    handleSafe(index, dataLength);
-    fillHoles(index);
-
-    BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = getStartOffset(index);
-    offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
+    if (holder.isSet != 0) {
+      final int dataLength = holder.end - holder.start;
+      handleSafe(index, dataLength);
+      fillHoles(index);
+      byte[] data = new byte[dataLength];
+      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      setBytes(index, data, 0, dataLength);
+    } else {
+      fillEmpties(index + 1);
+    }
+    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
     lastSet = index;
   }
 
@@ -298,7 +308,9 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     if (holder.isSet != 0) {
       final int dataLength = holder.end - holder.start;
       byte[] data = new byte[dataLength];
-      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      holder.callBack.getData();
+      // holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      holder.outputBuffer.getBytes(0, data, 0, dataLength);
       setBytes(index, data, holder.start, dataLength);
     } else {
       byte[] data = new byte[0];
@@ -323,7 +335,9 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
       handleSafe(index, dataLength);
       fillHoles(index);
       byte[] data = new byte[dataLength];
-      holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      holder.callBack.getData();
+      // holder.buffer.getBytes(holder.start, data, 0, dataLength);
+      holder.outputBuffer.getBytes(0, data, 0, dataLength);
       setBytes(index, data, holder.start, dataLength);
     } else {
       fillEmpties(index + 1);

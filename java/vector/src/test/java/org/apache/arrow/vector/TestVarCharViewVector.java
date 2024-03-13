@@ -277,6 +277,35 @@ public class TestVarCharViewVector {
     }
   }
 
+  @Test
+  public void testHolderSet() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(128, 5);
+      final int valueCount = 5;
+      viewVarCharVector.set(0, STR1);
+      viewVarCharVector.set(1, STR2);
+      viewVarCharVector.set(2, STR3);
+      viewVarCharVector.setValueCount(valueCount);
+
+      NullableViewVarCharHolder holder = new NullableViewVarCharHolder();
+      viewVarCharVector.get(0, holder);
+
+      viewVarCharVector.set(3, holder);
+      System.out.println(new String(viewVarCharVector.get(3), StandardCharsets.UTF_8));
+      holder.outputBuffer.close();
+      Assert.assertArrayEquals(viewVarCharVector.get(3), STR1);
+
+      // set safe
+      NullableViewVarCharHolder holderSafe = new NullableViewVarCharHolder();
+      viewVarCharVector.get(1, holderSafe);
+
+      viewVarCharVector.set(4, holderSafe);
+      System.out.println(new String(viewVarCharVector.get(4), StandardCharsets.UTF_8));
+      holderSafe.outputBuffer.close();
+      Assert.assertArrayEquals(viewVarCharVector.get(4), STR2);
+    }
+  }
+
   private String generateRandomString(int length) {
     Random random = new Random();
     StringBuilder sb = new StringBuilder(length);
