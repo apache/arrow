@@ -22,7 +22,6 @@ import pyarrow.fs as fs
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-import tempfile
 
 encryption_unavailable = False
 
@@ -197,16 +196,20 @@ def test_large_row_encryption_decryption():
     write_options = file_format.make_write_options(encryption_config=pqe_config)
     file_decryption_properties = crypto_factory.file_decryption_properties(kms_config)
 
-    with tempfile.TemporaryDirectory() as tempdir:
-        path = tempdir + "/test-dataset"
-        ds.write_dataset(table, path, format=file_format, file_options=write_options)
+    mockfs = fs._MockFileSystem()
+    mockfs.create_dir("/")
 
-        file_path = path + "/part-0.parquet"
-        new_table = pq.ParquetFile(
-            file_path, decryption_properties=file_decryption_properties
-        ).read()
-        assert table == new_table
+    path = "large-row-test-dataset"
+    ds.write_dataset(table, path, format=file_format,
+                     file_options=write_options, filesystem=mockfs)
 
-        dataset = ds.dataset(path, format=file_format)
-        new_table = dataset.to_table()
-        assert table == new_table
+    file_path = path + "/part-0.parquet"
+    new_table = pq.ParquetFile(
+        file_path, decryption_properties=file_decryption_properties,
+        filesystem=mockfs
+    ).read()
+    assert table == new_table
+
+    dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
+    new_table = dataset.to_table()
+    assert table == new_table
