@@ -15,15 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG go=1.19
-ARG staticcheck=v0.4.5
-FROM ${arch}/golang:${go}-bullseye
+ARG base
+FROM ${base}
 
-# FROM collects all the args, get back the staticcheck version arg
-ARG staticcheck
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@${staticcheck}
+ENV DEBIAN_FRONTEND noninteractive
 
-# Copy the go.mod and go.sum over and pre-download all the dependencies
-COPY go/ /arrow/go
-RUN cd /arrow/go && go mod download
+# Install python3 and pip so we can install pyarrow to test the C data interface.
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        python3 \
+        python3-pip \
+        python3-venv && \
+    apt-get clean
+
+ENV ARROW_PYTHON_VENV /arrow-dev
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install pyarrow cffi --only-binary pyarrow
