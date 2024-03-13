@@ -590,8 +590,6 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
   } else if (op == "divide") {
     out_type = OutputType(ResolveDecimalDivisionOutput);
-  } else if (op == "floordiv") {
-    out_type = OutputType(ResolveDecimalDivisionOutput);
   } else {
     DCHECK(false);
   }
@@ -1590,7 +1588,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // ----------------------------------------------------------------------
   auto floordiv = MakeArithmeticFunctionNotNull<FloorDiv>("floordiv", floordiv_doc);
-  AddDecimalBinaryKernels<FloorDiv>("floordiv", floordiv.get());
 
   // Add floordiv(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -1610,7 +1607,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto floordiv_checked = MakeArithmeticFunctionNotNull<FloorDivChecked>(
       "floordiv_checked", floordiv_checked_doc);
-  AddDecimalBinaryKernels<DivideChecked>("floordiv_checked", floordiv_checked.get());
 
   // Add divide_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {

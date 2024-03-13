@@ -487,17 +487,7 @@ struct FloorDiv {
     return floor(static_cast<double>(left) / right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    if (right == Arg1()) {
-      *st = Status::Invalid("Divide by zero");
-      return T();
-    } else {
-      // auto foo = left / right;
-      return 42;
-    }
-  }
+  // TODO: Add decimal
 };
 
 struct FloorDivChecked {
@@ -528,11 +518,7 @@ struct FloorDivChecked {
     return floor(left / right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
-                                         Status* st) {
-    return FloorDiv::Call<T>(ctx, left, right, st);
-  }
+  // TODO: Add decimal
 };
 
 struct Negate {
