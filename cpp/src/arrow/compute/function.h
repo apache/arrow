@@ -233,17 +233,16 @@ class ARROW_EXPORT Function {
   ///
   /// For impure functions like 'random', we should skip any simplification
   /// for this function except it's arguments.
-  bool is_impure() const { return is_impure_; }
+  virtual bool is_impure() const { return false; }
 
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
-           const FunctionOptions* default_options, bool is_impure)
+           const FunctionOptions* default_options)
       : name_(std::move(name)),
         kind_(kind),
         arity_(arity),
         doc_(std::move(doc)),
-        default_options_(default_options),
-        is_impure_(is_impure) {}
+        default_options_(default_options) {}
 
   Status CheckArity(size_t num_args) const;
 
@@ -252,8 +251,6 @@ class ARROW_EXPORT Function {
   Arity arity_;
   const FunctionDoc doc_;
   const FunctionOptions* default_options_ = NULLPTR;
-
-  bool is_impure_ = false;
 };
 
 namespace detail {
@@ -274,9 +271,8 @@ class FunctionImpl : public Function {
 
  protected:
   FunctionImpl(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
-               const FunctionOptions* default_options, bool is_impure)
-      : Function(std::move(name), kind, arity, std::move(doc), default_options,
-                 is_impure) {}
+               const FunctionOptions* default_options)
+      : Function(std::move(name), kind, arity, std::move(doc), default_options) {}
 
   std::vector<KernelType> kernels_;
 };
@@ -303,7 +299,8 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options, is_impure) {}
+                                           std::move(doc), default_options),
+        is_impure_(is_impure) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -314,6 +311,13 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
+
+  /// \brief Impure property for expression simplification only takes
+  /// effect in ScalarFunction.
+  bool is_impure() const override { return is_impure_; }
+
+ private:
+  bool is_impure_;
 };
 
 /// \brief A function that executes general array operations that may yield
@@ -325,9 +329,9 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
   using KernelType = VectorKernel;
 
   VectorFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
+                 const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity,
-                                           std::move(doc), default_options, is_impure) {}
+                                           std::move(doc), default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
   /// state initialization, no data preallocation, and no preallocation of the
@@ -346,11 +350,10 @@ class ARROW_EXPORT ScalarAggregateFunction
   using KernelType = ScalarAggregateKernel;
 
   ScalarAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                          const FunctionOptions* default_options = NULLPTR,
-                          bool is_impure = false)
-      : detail::FunctionImpl<ScalarAggregateKernel>(
-            std::move(name), Function::SCALAR_AGGREGATE, arity, std::move(doc),
-            default_options, is_impure) {}
+                          const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
+                                                    Function::SCALAR_AGGREGATE, arity,
+                                                    std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -363,11 +366,10 @@ class ARROW_EXPORT HashAggregateFunction
   using KernelType = HashAggregateKernel;
 
   HashAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                        const FunctionOptions* default_options = NULLPTR,
-                        bool is_impure = false)
-      : detail::FunctionImpl<HashAggregateKernel>(
-            std::move(name), Function::HASH_AGGREGATE, arity, std::move(doc),
-            default_options, is_impure) {}
+                        const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<HashAggregateKernel>(std::move(name),
+                                                  Function::HASH_AGGREGATE, arity,
+                                                  std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -395,9 +397,9 @@ class ARROW_EXPORT MetaFunction : public Function {
                                     ExecContext* ctx) const = 0;
 
   MetaFunction(std::string name, const Arity& arity, FunctionDoc doc,
-               const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
-      : Function(std::move(name), Function::META, arity, std::move(doc), default_options,
-                 is_impure) {}
+               const FunctionOptions* default_options = NULLPTR)
+      : Function(std::move(name), Function::META, arity, std::move(doc),
+                 default_options) {}
 };
 
 /// @}
