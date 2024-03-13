@@ -706,8 +706,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
   const int64_t f32_size = sizeof(float);
   std::vector<int64_t> f_strides = {f32_size, f32_size * shape[0]};
   std::shared_ptr<Tensor> tensor_expected = TensorFromJSON(
-      float32(), shape,
-      "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]", f_strides);
+      float32(), "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]",
+      shape, f_strides);
 
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
   EXPECT_TRUE(tensor_expected->Equals(*tensor, EqualOptions().nans_equal(true)));
@@ -748,10 +748,10 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
   std::vector<int64_t> shape = {9, 3};
   std::vector<int64_t> f_strides = {unit_size, unit_size * shape[0]};
   std::shared_ptr<Tensor> tensor_expected = TensorFromJSON(
-      TypeTraits<DataType>::type_singleton(), shape,
+      TypeTraits<DataType>::type_singleton(),
       "[1,   2,   3,   4,   5,   6,   7,   8,   9, 10,  20,  30,  40,  50,  60,  70,  "
       "80,  90, 100, 100, 100, 100, 100, 100, 100, 100, 100]",
-      f_strides);
+      shape, f_strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
   CheckTensor<DataType>(tensor, 27, shape, f_strides);
@@ -765,10 +765,10 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
   std::vector<int64_t> shape_sliced = {8, 3};
   std::vector<int64_t> f_strides_sliced = {unit_size, unit_size * shape_sliced[0]};
   std::shared_ptr<Tensor> tensor_expected_sliced =
-      TensorFromJSON(TypeTraits<DataType>::type_singleton(), shape_sliced,
+      TensorFromJSON(TypeTraits<DataType>::type_singleton(),
                      "[2,   3,   4,   5,   6,   7,   8,   9, 20,  30,  40,  50,  60,  "
                      "70,  80,  90, 100, 100, 100, 100, 100, 100, 100, 100]",
-                     f_strides_sliced);
+                     shape_sliced, f_strides_sliced);
 
   EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
   CheckTensor<DataType>(tensor_expected_sliced, 24, shape_sliced, f_strides_sliced);
@@ -781,8 +781,9 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
   std::vector<int64_t> shape_sliced_1 = {5, 3};
   std::vector<int64_t> f_strides_sliced_1 = {unit_size, unit_size * shape_sliced_1[0]};
   std::shared_ptr<Tensor> tensor_expected_sliced_1 = TensorFromJSON(
-      TypeTraits<DataType>::type_singleton(), shape_sliced_1,
-      "[2, 3, 4, 5, 6, 20, 30, 40, 50, 60, 100, 100, 100, 100, 100]", f_strides_sliced_1);
+      TypeTraits<DataType>::type_singleton(),
+      "[2, 3, 4, 5, 6, 20, 30, 40, 50, 60, 100, 100, 100, 100, 100]",
+      shape_sliced_1, f_strides_sliced_1);
 
   EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
   CheckTensor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1, f_strides_sliced_1);
