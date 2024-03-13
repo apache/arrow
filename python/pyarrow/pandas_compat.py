@@ -742,6 +742,67 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     return block
 
 
+def _reconstruct_sub_dataframe(item, columns=None, extension_columns=None):
+    """
+    Construct a pandas Block from the `item` dictionary coming from pyarrow's
+    serialization or returned by arrow::python::ConvertTableToPandas.
+
+    This function takes care of converting dictionary types to pandas
+    categorical, Timestamp-with-timezones to the proper pandas Block, and
+    conversion to pandas ExtensionBlock
+
+    Parameters
+    ----------
+    item : dict
+        For basic types, this is a dictionary in the form of
+        {'block': np.ndarray of values, 'placement': pandas block placement}.
+        Additional keys are present for other types (dictionary, timezone,
+        object).
+    columns :
+        Column names of the table being constructed, used for extension types
+    extension_columns : dict
+        Dictionary of {column_name: pandas_dtype} that includes all columns
+        and corresponding dtypes that will be converted to a pandas
+        ExtensionBlock.
+
+    Returns
+    -------
+    pandas Block
+
+    """
+    from pandas import DataFrame
+
+    block_arr = item.get('block', None)
+    placement = item['placement']
+    if 'dictionary' in item:
+        block_arr = _pandas_api.categorical_type.from_codes(
+            block_arr, categories=item['dictionary'],
+            ordered=item['ordered'])
+    elif 'timezone' in item:
+        unit, _ = np.datetime_data(block_arr.dtype)
+        dtype = make_datetimetz(unit, item['timezone'])
+        block_arr = _pandas_api.pd.array(
+            block_arr.view("int64"), dtype=dtype, copy=False
+        )
+    elif 'py_array' in item:
+        # create ExtensionBlock
+        arr = item['py_array']
+        assert len(placement) == 1
+        name = columns[placement[0]]
+        pandas_dtype = extension_columns[name]
+        if not hasattr(pandas_dtype, '__from_arrow__'):
+            raise ValueError("This column does not support to be converted "
+                             "to a pandas ExtensionArray")
+        block_arr = pandas_dtype.__from_arrow__(arr)
+    else:
+        # 2d block
+        df = DataFrame(block_arr.T, copy=False, dtype=block_arr.dtype)
+        return df, placement
+
+    df = DataFrame(block_arr, copy=False)
+    return df, placement
+
+
 def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
@@ -753,7 +814,7 @@ def table_to_dataframe(
     options, table, categories=None, ignore_metadata=False, types_mapper=None
 ):
     from pandas.core.internals import BlockManager
-    from pandas import DataFrame
+    from pandas import DataFrame, concat
 
     all_columns = []
     column_indexes = []
@@ -774,15 +835,34 @@ def table_to_dataframe(
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
-    blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
-    axes = [columns, index]
-    mgr = BlockManager(blocks, axes)
-    if _pandas_api.is_ge_v21():
-        df = DataFrame._from_mgr(mgr, mgr.axes)
+    if options["use_blocks"]:
+        blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
+
+        axes = [columns, index]
+        mgr = BlockManager(blocks, axes)
+        if _pandas_api.is_ge_v21():
+            df = DataFrame._from_mgr(mgr, mgr.axes)
+        else:
+            df = DataFrame(mgr)
+        return df
     else:
-        df = DataFrame(mgr)
-    return df
+        table_columns = table.column_names
+        extension_columns = list(ext_columns_dtypes.keys())
+        result = pa.lib.table_to_blocks(options, table, categories, extension_columns)
+        if not result:
+            return DataFrame(index=index, columns=columns)
+
+        dfs, placements = zip(*[
+            _reconstruct_sub_dataframe(item, table_columns, ext_columns_dtypes)
+                for item in result])
+        
+        df = concat(dfs, axis=1, copy=False, ignore_index=True)
+        indexer = np.concatenate(placements).argsort()
+        df = df.take(indexer, axis=1)
+        df.index = index
+        df.columns = columns
+        return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
@@ -1101,7 +1181,6 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
 def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
-
     # Convert an arrow table to Block from the internal pandas API
     columns = block_table.column_names
     result = pa.lib.table_to_blocks(options, block_table, categories,
