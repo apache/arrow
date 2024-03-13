@@ -37,8 +37,8 @@ class CryptoFactoryFileKeyRetriever : public DecryptionKeyRetriever {
   CryptoFactoryFileKeyRetriever(
       std::shared_ptr<KeyToolkit> key_toolkit,
       const KmsConnectionConfig& kms_connection_config, double cache_lifetime_seconds,
-      const std::string& file_path = "",
-      const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR)
+      const std::string& file_path,
+      const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
       : file_key_unwrapper_(key_toolkit.get(), kms_connection_config,
                             cache_lifetime_seconds, file_path, file_system) {
     key_toolkit_ = std::move(key_toolkit);

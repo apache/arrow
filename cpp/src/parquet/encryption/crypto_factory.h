@@ -100,8 +100,6 @@ struct PARQUET_EXPORT DecryptionConfiguration {
 /// level parameters.
 class PARQUET_EXPORT CryptoFactory {
  public:
-  CryptoFactory() : key_toolkit_{std::make_shared<KeyToolkit>()} {}
-
   /// a KmsClientFactory object must be registered via this method before calling any of
   /// GetFileEncryptionProperties()/GetFileDecryptionProperties() methods.
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
@@ -148,7 +146,7 @@ class PARQUET_EXPORT CryptoFactory {
       int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
 
   /// Key utilities object for kms client initialization and cache control
-  std::shared_ptr<KeyToolkit> key_toolkit_;
+  std::shared_ptr<KeyToolkit> key_toolkit_ = std::make_shared<KeyToolkit>();
 };
 
 }  // namespace parquet::encryption
