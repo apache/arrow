@@ -384,6 +384,15 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
   const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
+  const int64_t estimate_alloc_size = EstimateBatchStackSize<uint32_t>(alloc_batch_size);
+
+  util::TempVectorStack temp_stack;
+  if (!ctx->stack) {
+    ARROW_CHECK_OK(temp_stack.Init(default_memory_pool(), estimate_alloc_size));
+    ctx->stack = &temp_stack;
+  } else {
+    ctx->stack->CheckAllocSizeValid(estimate_alloc_size);
+  }
 
   auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
   uint32_t* hash_temp = hash_temp_buf.mutable_data();
@@ -473,30 +482,7 @@ Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
 
   LightContext ctx;
   ctx.hardware_flags = hardware_flags;
-
-  const int64_t alloc_entry_length = column_arrays[0].length();
-  auto estimate_size = [&] {
-    // An estimate TempVectorStack usage size for Hashing32::HashMultiColumm.
-    const int64_t alloc_size1 =
-        2 * (alloc_entry_length * sizeof(uint32_t) + util::TempVectorStack::meta_size());
-    const int64_t alloc_size2 =
-        alloc_entry_length * sizeof(uint16_t) + util::TempVectorStack::meta_size();
-    return alloc_size1 + alloc_size2;
-  };
-
-  if (!temp_stack) {
-    util::TempVectorStack stack;
-    RETURN_NOT_OK(stack.Init(default_memory_pool(), estimate_size()));
-    ctx.stack = std::move(&stack);
-  } else {
-    auto estimate_alloc_size = estimate_size();
-    ARROW_CHECK_GE(temp_stack->buffer_size(), estimate_alloc_size)
-        << "TempVectorStack's init"
-           " size is not enough. (actual "
-        << temp_stack->buffer_size() << "Bytes, expect " << estimate_alloc_size
-        << "Bytes)";
-    ctx.stack = temp_stack;
-  }
+  ctx.stack = temp_stack;
 
   HashMultiColumn(column_arrays, &ctx, hashes);
   return Status::OK();
@@ -853,6 +839,15 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
   const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
+  const uint64_t estimate_alloc_size = EstimateBatchStackSize<uint64_t>(alloc_batch_size);
+
+  util::TempVectorStack temp_stack;
+  if (!ctx->stack) {
+    ARROW_CHECK_OK(temp_stack.Init(default_memory_pool(), estimate_alloc_size));
+    ctx->stack = &temp_stack;
+  } else {
+    ctx->stack->CheckAllocSizeValid(estimate_alloc_size);
+  }
 
   auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
   uint16_t* null_indices = null_indices_buf.mutable_data();
@@ -936,30 +931,7 @@ Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
 
   LightContext ctx;
   ctx.hardware_flags = hardware_flags;
-
-  const int64_t alloc_entry_length = column_arrays[0].length();
-  auto estimate_size = [&] {
-    // An estimate TempVectorStack usage size for Hashing64::HashMultiColumm.
-    const int64_t alloc_size1 =
-        alloc_entry_length * sizeof(uint64_t) + util::TempVectorStack::meta_size();
-    const int64_t alloc_size2 =
-        alloc_entry_length * sizeof(uint16_t) + util::TempVectorStack::meta_size();
-    return alloc_size1 + alloc_size2;
-  };
-
-  if (!temp_stack) {
-    util::TempVectorStack stack;
-    RETURN_NOT_OK(stack.Init(default_memory_pool(), estimate_size()));
-    ctx.stack = std::move(&stack);
-  } else {
-    auto estimate_alloc_size = estimate_size();
-    ARROW_CHECK_GE(temp_stack->buffer_size(), estimate_alloc_size)
-        << "TempVectorStack's init"
-           " size is not enough. (actual "
-        << temp_stack->buffer_size() << "Bytes, expect " << estimate_alloc_size
-        << "Bytes)";
-    ctx.stack = temp_stack;
-  }
+  ctx.stack = temp_stack;
 
   HashMultiColumn(column_arrays, &ctx, hashes);
   return Status::OK();

@@ -219,5 +219,24 @@ class ARROW_EXPORT Hashing64 {
                       const uint8_t* keys, uint64_t* hashes);
 };
 
+template <typename T = uint32_t>
+static int64_t EstimateBatchStackSize(int32_t batch_size) {
+  if (sizeof(T) == sizeof(uint32_t)) {
+    const int64_t alloc_for_hash_temp_buf =
+        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint32_t));
+    const int64_t alloc_for_null_hash_temp_buf = alloc_for_hash_temp_buf;
+    const int64_t alloc_for_null_indices_buf =
+        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint16_t));
+    return alloc_for_hash_temp_buf + alloc_for_null_hash_temp_buf +
+           alloc_for_null_indices_buf;
+  } else {
+    const int64_t alloc_for_null_hash_temp_buf =
+        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint64_t));
+    const int64_t alloc_for_null_indices_buf =
+        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint16_t));
+    return alloc_for_null_hash_temp_buf + alloc_for_null_indices_buf;
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow
