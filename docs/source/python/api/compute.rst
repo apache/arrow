@@ -509,6 +509,7 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   adjoin_as_list
    fill_null
    fill_null_backward
    fill_null_forward
@@ -536,6 +537,7 @@ Compute Options
 .. autosummary::
    :toctree: ../generated/
 
+   AdjoinAsListOptions
    ArraySortOptions
    AssumeTimezoneOptions
    CastOptions

@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/concatenate.h"
+#include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
@@ -24,10 +26,12 @@
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/type.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
+#include "gmock/gmock.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
   return type.id() == Type::LIST ? int32() : int64();
@@ -960,5 +964,262 @@ TEST(MakeStruct, ChunkedArrayDifferentChunking) {
   ASSERT_RAISES(Invalid, MakeStructor({i32->Slice(1), str}, field_names));
 }
 
-}  // namespace compute
-}  // namespace arrow
+template <typename ArrowListType>
+class TestAdjoinAsList : public ::testing ::Test {
+ protected:
+  std::shared_ptr<DataType> MakeListType(const std::shared_ptr<DataType>& value_type,
+                                         int batch_size) const {
+    if constexpr (std::is_same_v<ArrowListType, FixedSizeListType>) {
+      return std::make_shared<ArrowListType>(value_type, batch_size);
+    } else {
+      return std::make_shared<ArrowListType>(value_type);
+    }
+  }
+
+  const AdjoinAsListOptions& Options() {
+    static AdjoinAsListOptions options(ArrowListType::type_id == Type::LIST
+                                           ? AdjoinAsListOptions::LIST
+                                       : ArrowListType::type_id == Type::LARGE_LIST
+                                           ? AdjoinAsListOptions::LARGE_LIST
+                                           : AdjoinAsListOptions::FIXED_SIZE_LIST);
+    return options;
+  }
+};
+
+TEST(TestAdjoinAsList, ErrorHandling) {
+  AdjoinAsListOptions options;
+  // Empty input
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      "Invalid: VarArgs function 'adjoin_as_list' needs at least 1 arguments but only 0 "
+      "passed",
+      CallFunction("adjoin_as_list", std::vector<Datum>{}, &options));
+
+  // Different types
+  ASSERT_RAISES_WITH_MESSAGE(
+      NotImplemented,
+      "NotImplemented: Function 'adjoin_as_list' has no kernel matching input types "
+      "(int32, int64)",
+      CallFunction("adjoin_as_list",
+                   {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int64(), R"([1])")},
+                   &options));
+
+  // Different lengths
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Array arguments must all be the same length",
+      CallFunction("adjoin_as_list",
+                   {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[1, 2]")},
+                   &options));
+}
+
+TYPED_TEST_SUITE(TestAdjoinAsList, ListArrowTypes);
+
+TYPED_TEST(TestAdjoinAsList, EmptyInputs) {
+  // primitive
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(int32(), "[]"), ArrayFromJSON(int32(), "[]"),
+               ArrayFromJSON(int32(), "[]")},
+              ArrayFromJSON(this->MakeListType(int32(), 3), "[]"), &this->Options());
+
+  // nested
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(list(int32()), "[]"), ArrayFromJSON(list(int32()), "[]"),
+               ArrayFromJSON(list(int32()), "[]")},
+              ArrayFromJSON(this->MakeListType(list(int32()), 3), "[]"),
+              &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, NullType) {
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(null(), "[null, null, null, null]"),
+               ArrayFromJSON(null(), "[null, null, null, null]"),
+               ArrayFromJSON(null(), "[null, null, null, null]")},
+              ArrayFromJSON(this->MakeListType(null(), 3),
+                            "[[null, null, null], [null, null, null], [null, null, "
+                            "null], [null, null, null]]"),
+              &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, BooleanType) {
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(boolean(), "[true, null, false, null]"),
+               ArrayFromJSON(boolean(), "[false, false, true, null]"),
+               ArrayFromJSON(boolean(), "[null, true, true, true]")},
+              ArrayFromJSON(this->MakeListType(boolean(), 3),
+                            "[[true, false, null], [null, false, true], [false, true, "
+                            "true], [null, null, true]]"),
+              &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, NumericTypes) {
+  for (const auto& ty : NumericTypes()) {
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, "[1, null, 3, null]"), ArrayFromJSON(ty, "[4, 5, 6, null]"),
+         ArrayFromJSON(ty, "[null, 7, 8, 9]")},
+        ArrayFromJSON(this->MakeListType(ty, 3),
+                      "[[1, 4, null], [null, 5, 7], [3, 6, 8], [null, null, 9]]"),
+        &this->Options());
+  }
+}
+
+TYPED_TEST(TestAdjoinAsList, TemporalTypes) {
+  for (const auto& tys : {TemporalTypes(), IntervalTypes(), DurationTypes()}) {
+    for (const auto& ty : tys) {
+      if (ty->Equals(date64())) {
+        CheckScalar(
+            "adjoin_as_list",
+            {ArrayFromJSON(ty, "[86400000, null, 259200000, null]"),
+             ArrayFromJSON(ty, "[432000000, 345600000, 259200000, null]"),
+             ArrayFromJSON(ty, "[null, 345600000, 259200000, 432000000]")},
+            ArrayFromJSON(this->MakeListType(ty, 3),
+                          "[[86400000, 432000000, null], [null, 345600000, 345600000], "
+                          "[259200000, 259200000, 259200000], [null, null, 432000000]]"),
+            &this->Options());
+      } else if (ty->Equals(day_time_interval())) {
+        CheckScalar("adjoin_as_list",
+                    {ArrayFromJSON(ty, "[[1, 1], null, [3, 3], null]"),
+                     ArrayFromJSON(ty, "[[4, 4], [5, 5], [6, 6], null]"),
+                     ArrayFromJSON(ty, "[null, [7, 7], [8, 8], [9, 9]]")},
+                    ArrayFromJSON(this->MakeListType(ty, 3),
+                                  "[[[1, 1], [4, 4], null], [null, [5, 5], [7, 7]], [[3, "
+                                  "3], [6, 6], [8, 8]], [null, null, [9, 9]]]"),
+                    &this->Options());
+      } else if (ty->Equals(month_day_nano_interval())) {
+        CheckScalar(
+            "adjoin_as_list",
+            {ArrayFromJSON(ty, "[[1, 1, 1], null, [3, 3, 3], null]"),
+             ArrayFromJSON(ty, "[[4, 4, 4], [5, 5, 5], [6, 6, 6], null]"),
+             ArrayFromJSON(ty, "[null, [7, 7, 7], [8, 8, 8], [9, 9, 9]]")},
+            ArrayFromJSON(
+                this->MakeListType(ty, 3),
+                "[[[1, 1, 1], [4, 4, 4], null], [null, [5, 5, 5], [7, 7, 7]], [[3, "
+                "3, 3], [6, 6, 6], [8, 8, 8]], [null, null, [9, 9, 9]]]"),
+            &this->Options());
+      } else {
+        CheckScalar(
+            "adjoin_as_list",
+            {ArrayFromJSON(ty, "[1, null, 3, null]"),
+             ArrayFromJSON(ty, "[4, 5, 6, null]"), ArrayFromJSON(ty, "[null, 7, 8, 9]")},
+            ArrayFromJSON(this->MakeListType(ty, 3),
+                          "[[1, 4, null], [null, 5, 7], [3, 6, 8], [null, null, 9]]"),
+            &this->Options());
+      }
+    }
+  }
+}
+
+TYPED_TEST(TestAdjoinAsList, BinaryTypes) {
+  for (const auto& tys : {StringTypes(), BinaryTypes()}) {
+    for (const auto& ty : tys) {
+      CheckScalar(
+          "adjoin_as_list",
+          {ArrayFromJSON(ty, R"(["abc", null, "de", "f"])"),
+           ArrayFromJSON(ty, R"(["apple", "banana", null, "pear"])"),
+           ArrayFromJSON(ty, R"([null, null, null, null])")},
+          ArrayFromJSON(
+              this->MakeListType(ty, 3),
+              R"([["abc", "apple", null], [null, "banana", null], ["de", null, null], ["f", "pear", null]])"),
+          &this->Options());
+    }
+  }
+
+  CheckScalar(
+      "adjoin_as_list",
+      {ArrayFromJSON(fixed_size_binary(3), R"([null, "abc", "def", "ghi"])"),
+       ArrayFromJSON(fixed_size_binary(3), R"(["app", "ban", "pea", null])")},
+      ArrayFromJSON(this->MakeListType(fixed_size_binary(3), 2),
+                    R"( [[null, "app"], ["abc", "ban"], ["def", "pea"], ["ghi", null]])"),
+      &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, DecimalTypes) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, R"(["1.23", null, "4.56", "7.89"])"),
+         ArrayFromJSON(ty, R"(["0.12", "3.45", null, "6.78"])"),
+         ArrayFromJSON(ty, R"([null, null, null, null])")},
+        ArrayFromJSON(
+            this->MakeListType(ty, 3),
+            R"([["1.23", "0.12", null], [null, "3.45", null], ["4.56", null, null], ["7.89", "6.78", null]])"),
+        &this->Options());
+  }
+}
+
+TYPED_TEST(TestAdjoinAsList, ListTypes) {
+  for (const auto& vty : NumericTypes()) {
+    for (const auto& ty : {list(vty), large_list(vty), fixed_size_list(vty, 2)}) {
+      CheckScalar(
+          "adjoin_as_list",
+          {ArrayFromJSON(ty, "[[1, 2], null, [3, 4], [5, 6]]"),
+           ArrayFromJSON(ty, "[[7, 8], [9, 10], null, [11, 12]]"),
+           ArrayFromJSON(ty, "[null, null, null, null]")},
+          ArrayFromJSON(
+              this->MakeListType(ty, 3),
+              "[[[1, 2], [7, 8], null], [null, [9, 10], null], [[3, 4], null, null], "
+              "[[5, 6], [11, 12], null]]"),
+          &this->Options());
+    }
+  }
+
+  // nested list
+  auto ty = fixed_size_list(fixed_size_list(int32(), 2), 3);
+  CheckScalar(
+      "adjoin_as_list",
+      {ArrayFromJSON(ty, "[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]"),
+       ArrayFromJSON(ty,
+                     "[[[13, 14], [15, 16], [17, 18]], [[19, 20], [21, 22], [23, 24]]]")},
+      ArrayFromJSON(this->MakeListType(ty, 2),
+                    "[[[[1, 2], [3, 4], [5, 6]], [[13, 14], [15, 16], [17, 18]]], "
+                    "[[[7, 8], [9, 10], [11, 12]], [[19, 20], [21, 22], [23, 24]]]]"),
+      &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, StructTypes) {
+  auto ty = struct_({field("a", int32()), field("b", int64())});
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(ty, "[[1, 2], null, [3, 4], [5, 6]]"),
+               ArrayFromJSON(ty, "[[7, 8], [9, 10], null, [11, 12]]"),
+               ArrayFromJSON(ty, "[null, null, null, null]")},
+              ArrayFromJSON(
+                  this->MakeListType(ty, 3),
+                  "[[[1, 2], [7, 8], null], [null, [9, 10], null], [[3, 4], null, null], "
+                  "[[5, 6], [11, 12], null]]"),
+              &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, UnionTypes) {
+  for (auto ty : {sparse_union({field("a", int32()), field("b", utf8())}),
+                  dense_union({field("a", int32()), field("b", utf8())})}) {
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, R"([[0, 1], [1, "a"], null])"),
+         ArrayFromJSON(ty, R"([[0, 2], null, [1, "b"]])"),
+         ArrayFromJSON(ty, R"([[1, "c"], [0, 3], null])")},
+        ArrayFromJSON(
+            this->MakeListType(ty, 3),
+            R"([[[0, 1], [0, 2], [1, "c"]], [[1, "a"], null, [0, 3]], [null, [1, "b"], null]])"),
+        &this->Options());
+  }
+}
+
+TYPED_TEST(TestAdjoinAsList, DictionaryTypes) {
+  auto ty = dictionary(int32(), utf8());
+  auto expected = ArrayFromJSON(
+      this->MakeListType(ty, 3),
+      R"([["abc", "apple", null], [null, "banana", null], ["de", null, null], ["f", "pear", null]])");
+  Datum actual = *CallFunction("adjoin_as_list",
+                               {ArrayFromJSON(ty, R"(["abc", null, "de", "f"])"),
+                                ArrayFromJSON(ty, R"(["apple", "banana", null, "pear"])"),
+                                ArrayFromJSON(ty, R"([null, null, null, null])")},
+                               &this->Options());
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  ASSERT_TRUE(actual.make_array()->type()->Equals(this->MakeListType(ty, 3)));
+
+  auto decoded_type = this->MakeListType(utf8(), 3);
+
+  // we test the equivalence, not equality for dictionary arrays
+  AssertDatumsEqual(*Cast(expected, decoded_type), *Cast(actual, decoded_type), true);
+}
+}  // namespace arrow::compute

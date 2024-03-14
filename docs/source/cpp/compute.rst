@@ -1783,40 +1783,48 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
 +=====================+============+=====================================+==================+==============================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
+| adjoin_as_list      | Varargs    | Any                                 | List of input    | :struct:`AdjoinAsListOptions`| \(1)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(2)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
+| list_flatten        | Unary      | List-like                           | List value type  |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_slice          | Unary      | List-like                           | List-like        | :struct:`ListSliceOptions`   | \(4)   |
+| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(5)   |
+| list_slice          | Unary      | List-like                           | List-like        | :struct:`ListSliceOptions`   | \(5)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(6)   |
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(6)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(7)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
-* \(1) Output is an array of the same length as the input list array. The
+* \(1) Combine multiple arrays row-wise as a list array. The input 
+  arrays must have the same type and length. For *N* arrays each with length 
+  *M*, the output list array will have length *M* and each list will have *N* 
+  elements. The output list type can be specified in 
+  :member:`AdjoinAsListOptions::list_type`. Sparse union is not supported.
+
+* \(2) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
 
-* \(2) The top level of nesting is removed: all values in the list child array,
+* \(3) The top level of nesting is removed: all values in the list child array,
   including nulls, are appended to the output.  However, nulls in the parent
   list array are discarded.
 
-* \(3) For each value in the list child array, the index at which it is found
+* \(4) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) For each list element, compute the slice of that list element, then
+* \(5) For each list element, compute the slice of that list element, then
   return another list-like array of those slices. Can return either a
   fixed or variable size list-like array, as determined by options provided.
 
-* \(5) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+* \(6) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
   map whose key match the given query key passed via options.
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(6) Extract a child value based on a sequence of indices passed in
+* \(7) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:

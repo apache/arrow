@@ -29,6 +29,7 @@ from pyarrow._compute import (  # noqa
     VectorFunction,
     VectorKernel,
     # Option classes
+    AdjoinAsListOptions,
     ArraySortOptions,
     AssumeTimezoneOptions,
     CastOptions,

@@ -34,4 +34,13 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays,
                                            MemoryPool* pool = default_memory_pool());
 
+/// \brief Concatenate arrays
+///
+/// \param[in] arrays a vector of arrays to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return the concatenated array
+ARROW_EXPORT
+Result<std::shared_ptr<ArrayData>> Concatenate(const ArrayDataVector& arrays,
+                                               MemoryPool* pool = default_memory_pool());
+
 }  // namespace arrow

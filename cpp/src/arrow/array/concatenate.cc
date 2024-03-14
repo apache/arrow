@@ -821,4 +821,23 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   return MakeArray(std::move(out_data));
 }
 
+Result<std::shared_ptr<ArrayData>> Concatenate(const ArrayDataVector& arrays,
+                                               MemoryPool* pool) {
+  if (arrays.size() == 0) {
+    return Status::Invalid("Must pass at least one array");
+  }
+
+  for (size_t i = 0; i < arrays.size(); ++i) {
+    if (!arrays[i]->type->Equals(*arrays[0]->type)) {
+      return Status::Invalid("arrays to be concatenated must be identically typed, but ",
+                             *arrays[0]->type, " and ", *arrays[i]->type,
+                             " were encountered.");
+    }
+  }
+
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(ConcatenateImpl(arrays, pool).Concatenate(&out_data));
+  return out_data;
+}
+
 }  // namespace arrow

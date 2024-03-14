@@ -576,6 +576,25 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
   Occurrence occurrence;
 };
 
+/// Options for adjoin_as_list function
+class ARROW_EXPORT AdjoinAsListOptions : public FunctionOptions {
+ public:
+  enum OutputListType {
+    LIST,
+    LARGE_LIST,
+    FIXED_SIZE_LIST,
+  };
+
+  explicit AdjoinAsListOptions(OutputListType list_type);
+  AdjoinAsListOptions();
+
+  constexpr static char const kTypeName[] = "AdjoinAsListOptions";
+  static AdjoinAsListOptions Defaults() { return AdjoinAsListOptions(); }
+
+  // The list type to convert to
+  OutputListType list_type;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.
