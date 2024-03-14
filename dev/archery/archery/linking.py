@@ -108,6 +108,8 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
                 f"Disallowed shared dependency found in {dylib.path}: `{dep}`"
             )
     # Check for undefined symbols
+    result = _nm.run('--version', stdout=subprocess.PIPE)
+    print(result.stdout.decode('utf-8'))
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(path, True)
     print(len(undefined_symbols))
     expected_lib_paths = dylib.find_library_paths(allowed)
