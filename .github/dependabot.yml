@@ -23,6 +23,12 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
+  - package-ecosystem: "gomod"
+    directory: "/go/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "MINOR: [Go] "
   - package-ecosystem: "maven"
     directory: "/java/"
     schedule:
