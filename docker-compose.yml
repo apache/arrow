@@ -1979,4 +1979,4 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
-        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+        USE_CONDA=1 /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
