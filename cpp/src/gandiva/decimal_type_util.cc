@@ -30,9 +30,10 @@ constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
 
 // Implementation of decimal rules.
 // In addition to having a precision beyond 38, it is compatible with
-// **Redshift's decimal promotion rules**.
+// **Redshift's decimal promotion rules** if enable use_redshift_rules.
 Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_types,
-                                      Decimal128TypePtr* out_type) {
+                                      Decimal128TypePtr* out_type,
+                                      bool use_redshift_rules) {
   DCHECK_EQ(in_types.size(), 2);
 
   *out_type = nullptr;
@@ -61,7 +62,8 @@ Status DecimalTypeUtil::GetResultType(Op op, const Decimal128TypeVector& in_type
       break;
 
     case kOpDivide:
-      result_scale = std::max(4, s1 + p2 - s2 + 1);
+      result_scale = use_redshift_rules ? std::max(4, s1 + p2 - s2 + 1)
+                                        : std::max(kMinAdjustedScale, s1 + p2 + 1);
       result_precision = p1 - s1 + s2 + result_scale;
       break;
 

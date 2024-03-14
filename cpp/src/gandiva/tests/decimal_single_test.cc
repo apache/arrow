@@ -49,7 +49,8 @@ class TestDecimalOps : public ::testing::Test {
   ArrayPtr MakeDecimalVector(const DecimalScalar128& in);
 
   void Verify(DecimalTypeUtil::Op, const std::string& function, const DecimalScalar128& x,
-              const DecimalScalar128& y, const DecimalScalar128& expected);
+              const DecimalScalar128& y, const DecimalScalar128& expected,
+              bool use_redshift_rules = false);
 
   void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
                     const DecimalScalar128& expected) {
@@ -67,8 +68,9 @@ class TestDecimalOps : public ::testing::Test {
   }
 
   void DivideAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                       const DecimalScalar128& expected) {
-    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected);
+                       const DecimalScalar128& expected,
+                       bool use_redshift_rules = false) {
+    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected, use_redshift_rules);
   }
 
   void ModAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
@@ -91,7 +93,7 @@ ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
 
 void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
                             const DecimalScalar128& x, const DecimalScalar128& y,
-                            const DecimalScalar128& expected) {
+                            const DecimalScalar128& expected, bool use_redshift_rules) {
   auto x_type = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto y_type = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   auto field_x = field("x", x_type);
@@ -99,7 +101,8 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
   auto schema = arrow::schema({field_x, field_y});
 
   Decimal128TypePtr output_type;
-  auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type);
+  auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type,
+                                               use_redshift_rules);
   ARROW_EXPECT_OK(status);
 
   // output fields
@@ -283,9 +286,14 @@ TEST_F(TestDecimalOps, TestMultiply) {
 }
 
 TEST_F(TestDecimalOps, TestDivide) {
-  DivideAndVerify(decimal_literal("201", 10, 3),            // x
-                  decimal_literal("301", 10, 2),            // y
-                  decimal_literal("66777408638", 21, 12));  // expected
+  DivideAndVerify(decimal_literal("201", 10, 3),              // x
+                  decimal_literal("301", 10, 2),              // y
+                  decimal_literal("6677740863787", 23, 14));  // expected
+
+  DivideAndVerify(decimal_literal("201", 10, 3),  // x
+                  decimal_literal("301", 10, 2),  // y
+                  decimal_literal("66777408638", 21, 12),
+                  /*use_redshift_rules=*/true);  // expected
 
   DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
                   DecimalScalar128(std::string(35, '9'), 38, 20),  // x

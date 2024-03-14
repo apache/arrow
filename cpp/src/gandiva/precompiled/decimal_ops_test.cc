@@ -340,10 +340,10 @@ TEST_F(TestDecimalSql, Multiply) {
 }
 
 TEST_F(TestDecimalSql, Divide) {
-  DivideAndVerifyAllSign(DecimalScalar128{"201", 10, 3},           // x
-                         DecimalScalar128{"301", 10, 2},           // y
-                         DecimalScalar128{"66777408638", 21, 12},  // expected
-                         false);                                   // overflow
+  DivideAndVerifyAllSign(DecimalScalar128{"201", 10, 3},             // x
+                         DecimalScalar128{"301", 10, 2},             // y
+                         DecimalScalar128{"6677740863787", 23, 14},  // expected
+                         false);                                     // overflow
 
   DivideAndVerifyAllSign(DecimalScalar128{"201", 20, 3},                  // x
                          DecimalScalar128{"301", 20, 2},                  // y

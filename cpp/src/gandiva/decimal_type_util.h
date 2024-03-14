@@ -60,7 +60,8 @@ class GANDIVA_EXPORT DecimalTypeUtil {
   // For specified operation and input scale/precision, determine the output
   // scale/precision.
   static Status GetResultType(Op op, const Decimal128TypeVector& in_types,
-                              Decimal128TypePtr* out_type);
+                              Decimal128TypePtr* out_type,
+                              bool use_redshift_rules = false);
 
   static Decimal128TypePtr MakeType(int32_t precision, int32_t scale) {
     return std::dynamic_pointer_cast<arrow::Decimal128Type>(
