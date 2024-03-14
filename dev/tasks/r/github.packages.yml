@@ -209,7 +209,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-11, name: "macOS x86_64"}
+          - { runs_on: macos-12, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
