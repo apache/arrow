@@ -195,3 +195,13 @@ if(ARROW_GANDIVA)
   endif()
   add_arrow_example(gandiva_example EXTRA_LINK_LIBS ${GANDIVA_EXAMPLE_LINK_LIBS})
 endif()
+
+if(ARROW_FILESYSTEM)
+  add_library(filesystem_definition_example MODULE filesystem_definition_example.cc)
+  target_link_libraries(filesystem_definition_example ${ARROW_EXAMPLE_LINK_LIBS})
+
+  add_arrow_example(filesystem_usage_example)
+  target_compile_definitions(filesystem-usage-example
+                             PUBLIC FILESYSTEM_EXAMPLE_LIBPATH="$<TARGET_FILE:filesystem_definition_example>"
+  )
+endif()

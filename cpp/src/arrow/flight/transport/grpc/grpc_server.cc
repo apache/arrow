@@ -575,8 +575,7 @@ class GrpcServerTransport : public internal::ServerTransport {
         new GrpcServerTransport(base, std::move(memory_manager)));
   }
 
-  Status Init(const FlightServerOptions& options,
-              const arrow::internal::Uri& uri) override {
+  Status Init(const FlightServerOptions& options, const arrow::util::Uri& uri) override {
     grpc_service_.reset(
         new GrpcServiceHandler(options.auth_handler, options.middleware, this));
 
@@ -588,7 +587,7 @@ class GrpcServerTransport : public internal::ServerTransport {
     int port = 0;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
       std::stringstream address;
-      address << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+      address << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
       std::shared_ptr<::grpc::ServerCredentials> creds;
       if (scheme == kSchemeGrpcTls) {
@@ -635,12 +634,10 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     if (scheme == kSchemeGrpcTls) {
       ARROW_ASSIGN_OR_RAISE(
-          location_,
-          Location::ForGrpcTls(arrow::internal::UriEncodeHost(uri.host()), port));
+          location_, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
       ARROW_ASSIGN_OR_RAISE(
-          location_,
-          Location::ForGrpcTcp(arrow::internal::UriEncodeHost(uri.host()), port));
+          location_, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
     }
     return Status::OK();
   }

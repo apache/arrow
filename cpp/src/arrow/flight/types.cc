@@ -821,7 +821,7 @@ arrow::Result<CloseSessionResult> CloseSessionResult::Deserialize(
   return out;
 }
 
-Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
+Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
 
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;

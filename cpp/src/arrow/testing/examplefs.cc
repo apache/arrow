@@ -15,56 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/filesystem_library.h"
+#include "arrow/result.h"
+#include "arrow/util/uri.h"
 
-namespace arrow {
+#include <gtest/gtest.h>
 
-namespace internal {
-struct Empty;
-}  // namespace internal
+namespace arrow::fs {
 
-template <typename T = internal::Empty>
-class WeakFuture;
-class FutureWaiter;
-
-class TimestampParser;
-
-namespace internal {
-
-class Executor;
-class TaskGroup;
-class ThreadPool;
-class CpuInfo;
-
-namespace tracing {
-
-struct Scope;
-
-}  // namespace tracing
-}  // namespace internal
-
-struct Compression {
-  /// \brief Compression algorithm
-  enum type {
-    UNCOMPRESSED,
-    SNAPPY,
-    GZIP,
-    BROTLI,
-    ZSTD,
-    LZ4,
-    LZ4_FRAME,
-    LZO,
-    BZ2,
-    LZ4_HADOOP
-  };
+FileSystemRegistrar kExampleFileSystemModule{
+    "example",
+    [](const Uri& uri, const io::IOContext& io_context,
+       std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
+      constexpr std::string_view kScheme = "example";
+      EXPECT_EQ(uri.scheme(), kScheme);
+      auto local_uri = "file" + uri.ToString().substr(kScheme.size());
+      return FileSystemFromUri(local_uri, io_context, out_path);
+    },
 };
 
-namespace util {
-class AsyncTaskScheduler;
-class Compressor;
-class Decompressor;
-class Codec;
-class Uri;
-}  // namespace util
-
-}  // namespace arrow
+}  // namespace arrow::fs
