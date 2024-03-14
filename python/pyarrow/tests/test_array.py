@@ -3580,8 +3580,8 @@ def test_run_end_encoded_from_buffers():
 
 
 def test_run_end_encoded_from_array_with_type():
-    run_ends = pa.array([1, 3, 6], type=pa.int32())
-    values = pa.array([1, 2, 3], type=pa.int64())
+    run_ends = [1, 3, 6]
+    values = [1, 2, 3]
     ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
     expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
                                                  ree_type)
@@ -3601,8 +3601,8 @@ def test_run_end_encoded_from_array_with_type():
                                                    ree_type_2)
     assert result.equals(expected_2)
 
-    run_ends = pa.array([1, 3, 5, 6], type=pa.int32())
-    values = pa.array([1, 2, 3, None], type=pa.int64())
+    run_ends = [1, 3, 5, 6]
+    values = [1, 2, 3, None]
     expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
                                                  ree_type)
 
@@ -3610,8 +3610,8 @@ def test_run_end_encoded_from_array_with_type():
     result = pa.array(arr, type=ree_type)
     assert result.equals(expected)
 
-    run_ends = pa.array([1, 3, 4, 5, 6], type=pa.int32())
-    values = pa.array([1, 2, None, 3, None], type=pa.int64())
+    run_ends = [1, 3, 4, 5, 6]
+    values = [1, 2, None, 3, None]
     expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
                                                  ree_type)
 
