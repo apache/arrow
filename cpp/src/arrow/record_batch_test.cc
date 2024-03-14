@@ -749,11 +749,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   std::vector<int64_t> shape = {9, 1};
   const int64_t uint16_size = sizeof(uint16_t);
   std::vector<int64_t> f_strides = {uint16_size, uint16_size * shape[0]};
-  std::vector<uint16_t> f_values = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-  auto data = Buffer::Wrap(f_values);
-
-  std::shared_ptr<Tensor> tensor_expected;
-  ASSERT_OK_AND_ASSIGN(tensor_expected, Tensor::Make(uint16(), data, shape, f_strides));
+  std::shared_ptr<Tensor> tensor_expected =
+      TensorFromJSON(uint16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]", shape, f_strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
   CheckTensor<UInt16Type>(tensor, 9, shape, f_strides);
@@ -769,13 +766,9 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   std::vector<int64_t> shape1 = {9, 2};
   const int64_t int32_size = sizeof(int32_t);
   std::vector<int64_t> f_strides_1 = {int32_size, int32_size * shape1[0]};
-  std::vector<int32_t> f_values_1 = {1,  2,  3,  4,  5,  6,  7,  8,  9,
-                                     10, 20, 30, 40, 50, 60, 70, 80, 90};
-  auto data1 = Buffer::Wrap(f_values_1);
-
-  std::shared_ptr<Tensor> tensor_expected_1;
-  ASSERT_OK_AND_ASSIGN(tensor_expected_1,
-                       Tensor::Make(int32(), data1, shape1, f_strides_1));
+  std::shared_ptr<Tensor> tensor_expected_1 = TensorFromJSON(
+      int32(), "[1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 20, 30, 40, 50, 60, 70, 80, 90]",
+      shape1, f_strides_1);
 
   EXPECT_TRUE(tensor_expected_1->Equals(*tensor1));
 
@@ -798,15 +791,11 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   std::vector<int64_t> shape2 = {9, 3};
   const int64_t f64_size = sizeof(double);
   std::vector<int64_t> f_strides_2 = {f64_size, f64_size * shape2[0]};
-  std::vector<double> f_values_2 = {
-      1,   2,   3,   4,   5,  6,  7,  8,   9,   10,  20,
-      30,  40,  50,  60,  70, 80, 90, 100, 200, 300, static_cast<float>(NAN),
-      500, 600, 700, 800, 900};
-  auto data2 = Buffer::Wrap(f_values_2);
-
-  std::shared_ptr<Tensor> tensor_expected_2;
-  ASSERT_OK_AND_ASSIGN(tensor_expected_2,
-                       Tensor::Make(float64(), data2, shape2, f_strides_2));
+  std::shared_ptr<Tensor> tensor_expected_2 =
+      TensorFromJSON(float64(),
+                     "[1,   2,   3,   4,   5,  6,  7,  8,   9,   10,  20, 30,  40,  50,  "
+                     "60,  70, 80, 90, 100, 200, 300, NaN, 500, 600, 700, 800, 900]",
+                     shape2, f_strides_2);
 
   EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
   EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
