@@ -65,12 +65,14 @@ class DynamicLibrary:
         return names
 
     def list_symbols_for_dependency(self, dependency):
-        result = _nm.run('--format=just-symbols', '-D', dependency, stdout=subprocess.PIPE)
+        result = _nm.run('--format=just-symbols', '-D',
+                         dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         return lines
 
     def list_undefined_symbols_for_dependency(self, dependency):
-        result = _nm.run('--format=just-symbols', '-u', dependency, stdout=subprocess.PIPE)
+        result = _nm.run('--format=just-symbols', '-u',
+                         dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         return lines
 
