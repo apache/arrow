@@ -21,6 +21,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -132,6 +133,42 @@ TEST_F(TestAssertContainsNaN, DatumEqual) {
                                                             "[NaN]",
                                                         });
   AssertDatumsEqual(expected_chunked, actual_chunked);
+}
+
+class TestTensorFromJSON : public ::testing::Test {};
+
+TEST_F(TestTensorFromJSON, FromJSONAndArray) {
+  std::vector<int64_t> shape = {9, 2};
+  const int64_t i64_size = sizeof(int64_t);
+  std::vector<int64_t> f_strides = {i64_size, i64_size * shape[0]};
+  std::vector<int64_t> f_values = {1,  2,  3,  4,  5,  6,  7,  8,  9,
+                                   10, 20, 30, 40, 50, 60, 70, 80, 90};
+  auto data = Buffer::Wrap(f_values);
+
+  std::shared_ptr<Tensor> tensor_expected;
+  ASSERT_OK_AND_ASSIGN(tensor_expected, Tensor::Make(int64(), data, shape, f_strides));
+
+  std::shared_ptr<Tensor> result = TensorFromJSON(
+      int64(), "[1, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90]",
+      shape, f_strides);
+
+  EXPECT_TRUE(tensor_expected->Equals(*result));
+}
+
+TEST_F(TestTensorFromJSON, FromJSON) {
+  std::vector<int64_t> shape = {9, 2};
+  std::vector<int64_t> values = {1,  2,  3,  4,  5,  6,  7,  8,  9,
+                                 10, 20, 30, 40, 50, 60, 70, 80, 90};
+  auto data = Buffer::Wrap(values);
+
+  std::shared_ptr<Tensor> tensor_expected;
+  ASSERT_OK_AND_ASSIGN(tensor_expected, Tensor::Make(int64(), data, shape));
+
+  std::shared_ptr<Tensor> result = TensorFromJSON(
+      int64(), "[1, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90]",
+      "[9, 2]");
+
+  EXPECT_TRUE(tensor_expected->Equals(*result));
 }
 
 }  // namespace arrow
