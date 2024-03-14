@@ -944,7 +944,7 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-13"
+      github_runner: "macos-12"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -960,7 +960,7 @@ tasks:
     template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
-      github_runner: "macos-13"
+      github_runner: "macos-12"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -983,7 +983,7 @@ tasks:
       github_runner: "macos-14"
   {% endfor %}
 
-  {% for macos_version in ["11", "12", "13"] %}
+  {% for macos_version in ["11", "12"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.yml
