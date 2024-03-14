@@ -992,13 +992,13 @@ tasks:
       target: "wheels"
   {% endfor %}
 
-  verify-rc-binaries-wheels-macos-11-arm64:
+  verify-rc-binaries-wheels-macos-14-arm64:
     ci: github
     template: verify-rc/github.macos.arm64.yml
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: ["self-hosted", "macOS", "arm64"]
+      github_runner: "macos-14" 
       target: "wheels"
 
   ######################## Windows verification ##############################
