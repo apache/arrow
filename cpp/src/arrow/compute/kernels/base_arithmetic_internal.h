@@ -484,7 +484,7 @@ struct Floordiv {
       }
       return 0;
     }
-    return floor(static_cast<double>(left) / right);
+    return static_cast<T>(floor(static_cast<double>(left) / right));
   }
 
   // TODO: Add decimal
