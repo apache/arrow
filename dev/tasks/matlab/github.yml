@@ -53,7 +53,7 @@ jobs:
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: matlab-arrow-ubuntu.tar.gz
           path: matlab-arrow-ubuntu.tar.gz
@@ -90,7 +90,7 @@ jobs:
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: matlab-arrow-macos.tar.gz
           path: matlab-arrow-macos.tar.gz
@@ -118,7 +118,7 @@ jobs:
         shell: bash
         run: tar -cvzf matlab-arrow-windows.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: matlab-arrow-windows.tar.gz
           path: matlab-arrow-windows.tar.gz
