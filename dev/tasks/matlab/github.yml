@@ -59,7 +59,7 @@ jobs:
           path: matlab-arrow-ubuntu.tar.gz
 
   macos:
-    name: AMD64 macOS 11 MATLAB
+    name: AMD64 macOS 12 MATLAB
     runs-on: macos-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
