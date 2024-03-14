@@ -393,21 +393,38 @@ tasks:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 {% endfor %}
 
-{############################## Wheel OSX ####################################}
+{############################## Wheel macOS ####################################}
 
 {% for macos_version, macos_codename in [("10.15", "catalina")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
     ci: github
-    template: python-wheels/github.osx.amd64.yml
+    template: python-wheels/github.osx.yml
     params:
+      arch: "x86_64"
+      arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
+      runs_on: "macos-latest"
+      vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
 {% endfor %}
+
+  wheel-macos-big-sur-{{ python_tag }}-arm64:
+    ci: github
+    template: python-wheels/github.osx.yml
+    params:
+      arch: "arm64"
+      arrow_jemalloc: "OFF"
+      python_version: "{{ python_version }}"
+      macos_deployment_target: "11.0"
+      runs_on: "macos-14"
+      vcpkg_arch: "arm64"
+    artifacts:
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
 
 {############################## Wheel Windows ################################}
 
@@ -419,35 +436,6 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-{% endfor %}
-
-{############################## Wheel OSX M1 #################################}
-
-  # The python 3.8 universal2 installer has been built with macos deployment
-  # target 11.0, so we cannot build binaries with earlier deployment target
-  # otherwise distutils will raise a deployment target version mismatch error.
-  wheel-macos-big-sur-cp38-arm64:
-    ci: github
-    template: python-wheels/github.osx.arm64.yml
-    params:
-      arch: arm64
-      arrow_simd_level: "DEFAULT"
-      python_version: "3.8"
-      macos_deployment_target: "11.0"
-
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-macosx_11_0_arm64.whl
-
-{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310"), ("3.11", "cp311"), ("3.12", "cp312")] %}
-  wheel-macos-big-sur-{{ python_tag }}-arm64:
-    ci: github
-    template: python-wheels/github.osx.arm64.yml
-    params:
-      arch: arm64
-      python_version: "{{ python_version }}"
-      macos_deployment_target: "11.0"
-    artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -992,7 +980,7 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      github_runner: ["self-hosted", "macOS", "arm64"]
+      github_runner: "macos-14"
   {% endfor %}
 
   {% for macos_version in ["11", "12"] %}

@@ -66,16 +66,14 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["self-hosted", "macos-10.13"], arch: "x86_64" }
-
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
+          - { runs_on: macos-13, arch: "x86_64" }
+          - { runs_on: macos-14, arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'macos-10.13') }}" }}
         run: |
           brew install sccache ninja
           brew install openssl@{{ '${{ matrix.openssl }}' }}
@@ -204,50 +202,30 @@ jobs:
 
   r-packages:
     needs: [source, windows-cpp, macos-cpp]
-    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-11 , name: "macOS Big Sur"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur (M1)" }
+          - { runs_on: macos-11, name: "macOS x86_64"}
+          - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
       - uses: r-lib/actions/setup-r@v2
-        # expression marker prevents the ! being parsed as yaml tag
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         with:
           r-version: {{ '${{ matrix.r_version }}' }}
-      - name: Setup R Self-Hosted
-        if: contains(matrix.platform.runs_on, 'self-hosted')
-        run: |
-          # rig is a system utility that allows for switching
-          # between pre-installed R version on the self-hosted runners
-          # rig add {{ '${{ matrix.r_version }}' }} #uncomment this to install latest release/oldrel
-          rig default {{ '${{ matrix.r_version }}' }}
-
-          rig system setup-user-lib
       {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
       - name: Install dependencies
-        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install dependencies self-hosted
-        if: {{ "${{ contains(matrix.platform.runs_on, 'self-hosted') }}" }}
-        shell: Rscript {0}
-        run: |
-          if (!requireNamespace("devtools", quietly = TRUE)) {
-            install.packages("devtools")
-          }
-          devtools::install_dev_deps('./arrow')
       - name: Set CRAN like openssl
         if: contains(matrix.platform.runs_on, 'arm64')
         run: |
