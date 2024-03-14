@@ -46,9 +46,8 @@ public final class ZeroVector extends NullVector {
    * @param name      name of the vector
    * @param fieldType type of Field materialized by this vector.
    */
-  @Deprecated
   public ZeroVector(String name, FieldType fieldType) {
-    this(name);
+    super(name, fieldType);
   }
 
   /**
@@ -56,9 +55,8 @@ public final class ZeroVector extends NullVector {
    *
    * @param field field materialized by this vector.
    */
-  @Deprecated
   public ZeroVector(Field field) {
-    this(field.getName());
+    super(field);
   }
 
   @Deprecated

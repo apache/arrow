@@ -54,7 +54,7 @@ public class NullVector implements FieldVector {
    * @param name name of the vector
    */
   public NullVector(String name) {
-    this(name, 0);
+    this(name, FieldType.nullable(Types.MinorType.NULL.getType()));
   }
 
   /**
@@ -64,8 +64,7 @@ public class NullVector implements FieldVector {
    * @param valueCount number of values (i.e., nulls) in this vector.
    */
   public NullVector(String name, int valueCount) {
-    this.field = new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null);
-    this.valueCount = valueCount;
+    this(new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null), valueCount);
   }
 
   /**
@@ -74,9 +73,8 @@ public class NullVector implements FieldVector {
    * @param name      name of the vector
    * @param fieldType type of Field materialized by this vector.
    */
-  @Deprecated
   public NullVector(String name, FieldType fieldType) {
-    this(name);
+    this(new Field(name, fieldType, null));
   }
 
   /**
@@ -84,9 +82,8 @@ public class NullVector implements FieldVector {
    *
    * @param field field materialized by this vector.
    */
-  @Deprecated
   public NullVector(Field field) {
-    this(field.getName());
+    this(field, 0);
   }
 
   /**
@@ -95,14 +92,14 @@ public class NullVector implements FieldVector {
    * @param field field materialized by this vector.
    * @param valueCount number of values (i.e., nulls) in this vector.
    */
-  @Deprecated
   public NullVector(Field field, int valueCount) {
-    this(field.getName(), valueCount);
+    this.field = field;
+    this.valueCount = valueCount;
   }
 
   @Deprecated
   public NullVector() {
-    this(DATA_VECTOR_NAME);
+    this(new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null));
   }
 
   @Override
