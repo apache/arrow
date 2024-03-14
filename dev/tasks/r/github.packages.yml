@@ -383,7 +383,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-11" , name: "macOS"}
+          - {runs_on: "macos-12" , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2
