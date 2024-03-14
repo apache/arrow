@@ -212,7 +212,7 @@ public abstract class FlightSqlServer : FlightServer
 
     protected FlightSqlServer(ILoggerFactory? factory = null)
     {
-        Logger = factory?.CreateLogger<FlightSqlServer>();
+        Logger = factory?.CreateLogger(typeof(FlightSqlServer));
     }
 
     /// <summary>
