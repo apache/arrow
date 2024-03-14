@@ -65,13 +65,13 @@ class DynamicLibrary:
         return names
 
     def list_symbols_for_dependency(self, dependency):
-        result = _nm.run('--format=just-symbols', '-D',
+        result = _nm.run('--format=bsd', '-D',
                          dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         return lines
 
     def list_undefined_symbols_for_dependency(self, dependency):
-        result = _nm.run('--format=just-symbols', '-u',
+        result = _nm.run('--format=bsd', '-u',
                          dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         return lines
@@ -103,13 +103,14 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
             )
     # Check for undefined symbols
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(path)
+    print(len(undefined_symbols))
     expected_lib_paths = dylib.find_library_paths(allowed)
     for lb_path in expected_lib_paths.values():
         expected_symbols = dylib.list_symbols_for_dependency(lb_path)
         for exp_sym in expected_symbols:
             if exp_sym in undefined_symbols:
                 undefined_symbols.remove(exp_sym)
-
+    print(len(undefined_symbols))
     if undefined_symbols:
         undefined_symbols_str = '\n'.join(undefined_symbols)
         raise DependencyError(
