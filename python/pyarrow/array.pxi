@@ -339,7 +339,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if type and type.id == _Type_RUN_END_ENCODED:
                 arr = _ndarray_to_array(
                     values, mask, type.value_type, c_from_pandas, safe, pool)
-                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type)
+                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                              memory_pool=pool)
             else:
                 result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                            pool)
@@ -347,7 +348,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         if type and type.id == _Type_RUN_END_ENCODED:
             arr = _sequence_to_array(
                 obj, mask, size, type.value_type, pool, from_pandas)
-            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type)
+            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                          memory_pool=pool)
         # ConvertPySequence does strict conversion if type is explicitly passed
         else:
             result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
