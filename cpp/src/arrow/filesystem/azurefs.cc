@@ -216,8 +216,7 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   return Status::OK();
 }
 
-Result<AzureOptions> AzureOptions::FromUri(const Uri& uri,
-                                           std::string* out_path) {
+Result<AzureOptions> AzureOptions::FromUri(const Uri& uri, std::string* out_path) {
   AzureOptions options;
   options.ExtractFromUriSchemeAndHierPart(uri, out_path);
   RETURN_NOT_OK(options.ExtractFromUriQuery(uri));
