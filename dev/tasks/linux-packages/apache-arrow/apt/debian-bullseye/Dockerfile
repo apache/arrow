@@ -23,6 +23,10 @@ RUN \
     debconf-set-selections
 
 RUN \
+  echo "deb http://deb.debian.org/debian bullseye-backports main" > \
+    /etc/apt/sources.list.d/backports.list
+
+RUN \
   echo 'APT::Install-Recommends "false";' > \
     /etc/apt/apt.conf.d/disable-install-recommends
 
@@ -39,7 +43,6 @@ RUN \
     debhelper \
     devscripts \
     git \
-    gtk-doc-tools \
     libboost-filesystem-dev \
     libboost-system-dev \
     libbrotli-dev \
@@ -63,7 +66,6 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
-    meson \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
@@ -77,5 +79,9 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
+  apt install -y -V -t bullseye-backports ${quiet} \
+    meson && \
+  pip3 install gi-docgen && \
+  ln -fs /usr/local/bin/gi-docgen /usr/bin && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

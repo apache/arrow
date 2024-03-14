@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-bom</artifactId>
-  <version>15.0.0-SNAPSHOT</version>
+  <version>16.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Arrow Bill of Materials</name>
   <description>Arrow Bill of Materials</description>
@@ -80,11 +80,6 @@
       <dependency>
         <groupId>org.apache.arrow</groupId>
         <artifactId>flight-core</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.arrow</groupId>
-        <artifactId>flight-grpc</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
@@ -156,7 +151,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.7.1</version>
+        <version>3.12.1</version>
       </plugin>
     </plugins>
   </build>
@@ -171,7 +166,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.7.1</version>
+        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>

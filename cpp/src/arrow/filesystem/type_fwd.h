@@ -42,11 +42,12 @@ struct FileInfo;
 struct FileSelector;
 
 class FileSystem;
-class SubTreeFileSystem;
-class SlowFileSystem;
+class AzureFileSystem;
+class GcsFileSystem;
 class LocalFileSystem;
 class S3FileSystem;
-class GcsFileSystem;
+class SlowFileSystem;
+class SubTreeFileSystem;
 
 }  // namespace fs
 }  // namespace arrow

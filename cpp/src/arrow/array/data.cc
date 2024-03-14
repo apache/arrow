@@ -27,6 +27,7 @@
 
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -36,6 +37,7 @@
 #include "arrow/util/dict_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/util/union_util.h"
@@ -140,6 +142,43 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
   return std::make_shared<ArrayData>(std::move(type), length, null_count, offset);
 }
 
+namespace {
+template <typename Fn>
+Result<std::shared_ptr<ArrayData>> CopyToImpl(const ArrayData& data,
+                                              const std::shared_ptr<MemoryManager>& to,
+                                              Fn&& copy_fn) {
+  auto output = ArrayData::Make(data.type, data.length, data.null_count, data.offset);
+  output->buffers.resize(data.buffers.size());
+  for (auto&& [buf, out_buf] : internal::Zip(data.buffers, output->buffers)) {
+    if (buf) {
+      ARROW_ASSIGN_OR_RAISE(out_buf, copy_fn(buf, to));
+    }
+  }
+
+  output->child_data.reserve(data.child_data.size());
+  for (const auto& child : data.child_data) {
+    ARROW_ASSIGN_OR_RAISE(auto copied, CopyToImpl(*child, to, copy_fn));
+    output->child_data.push_back(std::move(copied));
+  }
+
+  if (data.dictionary) {
+    ARROW_ASSIGN_OR_RAISE(output->dictionary, CopyToImpl(*data.dictionary, to, copy_fn));
+  }
+
+  return output;
+}
+}  // namespace
+
+Result<std::shared_ptr<ArrayData>> ArrayData::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return CopyToImpl(*this, to, MemoryManager::CopyBuffer);
+}
+
+Result<std::shared_ptr<ArrayData>> ArrayData::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  return CopyToImpl(*this, to, Buffer::ViewOrCopy);
+}
+
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   ARROW_CHECK_LE(off, length) << "Slice offset (" << off
                               << ") greater than array length (" << length << ")";
@@ -221,7 +260,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->null_count = 0;
   }
 
-  // Makes sure any other buffers are seen as null / non-existent
+  // Makes sure any other buffers are seen as null / nonexistent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     this->buffers[i] = {};
   }

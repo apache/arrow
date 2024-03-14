@@ -910,6 +910,7 @@ test_that("Dataset and query print methods", {
     print(ds),
     paste(
       "FileSystemDataset with 2 Parquet files",
+      "8 columns",
       "int: int32",
       "dbl: double",
       "lgl: bool",

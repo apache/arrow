@@ -499,8 +499,9 @@ Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
   DCHECK_EQ(left_type.id(), right_type.id());
 
   int32_t precision, scale;
-  std::tie(precision, scale) = getter(left_type.precision(), left_type.scale(),
-                                      right_type.precision(), right_type.scale());
+  ARROW_ASSIGN_OR_RAISE(std::tie(precision, scale),
+                        ToResult(getter(left_type.precision(), left_type.scale(),
+                                        right_type.precision(), right_type.scale())));
   ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type.id(), precision, scale));
   return std::move(type);
 }
@@ -508,7 +509,13 @@ Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
 Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
     KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
+        if (s1 != s2) {
+          return Status::Invalid("Addition or subtraction of two decimal ",
+                                 "types scale1 != scale2. (", s1, s2, ").");
+        }
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -519,7 +526,9 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
 Result<TypeHolder> ResolveDecimalMultiplicationOutput(
     KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
         const int32_t scale = s1 + s2;
         const int32_t precision = p1 + p2 + 1;
         return std::make_pair(precision, scale);
@@ -529,7 +538,13 @@ Result<TypeHolder> ResolveDecimalMultiplicationOutput(
 Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
                                                 const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
+        if (s1 < s2) {
+          return Status::Invalid("Division of two decimal types scale1 < scale2. ", "(",
+                                 s1, s2, ").");
+        }
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
@@ -1286,12 +1301,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto absolute_value =
       MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
+
+  // abs(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    DCHECK_OK(
+        absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
       "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
+  // abs_checked(duraton)
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
+                                                OutputType(duration(unit)), exec));
+  }
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
@@ -1545,12 +1575,27 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
+
+  // Add neg(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
       "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
+
+  // Add neg_checked(duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    DCHECK_OK(
+        negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
@@ -1581,6 +1626,11 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto sign =
       MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
+  // sign(duration)
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarUnary<Int8Type, Int64Type, Sign>::Exec;
+    DCHECK_OK(sign->AddKernel({duration(unit)}, int8(), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------

@@ -18,6 +18,7 @@
 # pandas lazy-loading API shim that reduces API call and import overhead
 
 import warnings
+from threading import Lock
 
 
 cdef class _PandasAPIShim(object):
@@ -34,12 +35,13 @@ cdef class _PandasAPIShim(object):
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
-        object _array_like_types, _is_extension_array_dtype
+        object _array_like_types, _is_extension_array_dtype, _lock
         bint has_sparse
         bint _pd024
         bint _is_v1, _is_ge_v21
 
     def __init__(self):
+        self._lock = Lock()
         self._tried_importing_pandas = False
         self._have_pandas = 0
 
@@ -96,13 +98,17 @@ cdef class _PandasAPIShim(object):
         self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
-        if self._tried_importing_pandas:
-            if not self._have_pandas and raise_:
-                self._import_pandas(raise_)
-            return
+        if not self._tried_importing_pandas:
+            with self._lock:
+                if not self._tried_importing_pandas:
+                    try:
+                        self._import_pandas(raise_)
+                    finally:
+                        self._tried_importing_pandas = True
+                    return
 
-        self._tried_importing_pandas = True
-        self._import_pandas(raise_)
+        if not self._have_pandas and raise_:
+            self._import_pandas(raise_)
 
     def series(self, *args, **kwargs):
         self._check_import()

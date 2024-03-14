@@ -45,10 +45,28 @@ class DataLakeServiceClient;
 namespace arrow::fs {
 
 class TestAzureFileSystem;
+class TestAzureOptions;
 
 /// Options for the AzureFileSystem implementation.
+///
+/// By default, authentication is handled by the Azure SDK's credential chain
+/// which may read from multiple environment variables, such as:
+/// - `AZURE_TENANT_ID`
+/// - `AZURE_CLIENT_ID`
+/// - `AZURE_CLIENT_SECRET`
+/// - `AZURE_AUTHORITY_HOST`
+/// - `AZURE_CLIENT_CERTIFICATE_PATH`
+/// - `AZURE_FEDERATED_TOKEN_FILE`
+///
+/// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
-  /// \brief account name of the Azure Storage account.
+  friend class TestAzureOptions;
+
+  /// \brief The name of the Azure Storage Account being accessed.
+  ///
+  /// All service URLs will be constructed using this storage account name.
+  /// `ConfigureAccountKeyCredential` assumes the user wants to authenticate
+  /// this account.
   std::string account_name;
 
   /// \brief hostname[:port] of the Azure Blob Storage Service.
@@ -92,30 +110,83 @@ struct ARROW_EXPORT AzureOptions {
 
  private:
   enum class CredentialKind {
+    kDefault,
     kAnonymous,
-    kTokenCredential,
-    kStorageSharedKeyCredential,
-  } credential_kind_ = CredentialKind::kAnonymous;
+    kStorageSharedKey,
+    kClientSecret,
+    kManagedIdentity,
+    kWorkloadIdentity,
+  } credential_kind_ = CredentialKind::kDefault;
 
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
+  mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
   AzureOptions();
   ~AzureOptions();
 
+ private:
+  void ExtractFromUriSchemeAndHierPart(const arrow::internal::Uri& uri,
+                                       std::string* out_path);
+  Status ExtractFromUriQuery(const arrow::internal::Uri& uri);
+
+ public:
+  /// \brief Construct a new AzureOptions from an URI.
+  ///
+  /// Supported formats:
+  ///
+  /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
+  ///    [/\<container\>[/\<path\>]]
+  /// 2. abfs[s]://\<container\>[:\<password\>]@\<account\>.dfs.core.windows.net
+  ///     [/path]
+  /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
+  ///    [/\<container\>[/path]]
+  /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
+  ///
+  /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
+  ///
+  /// 3. is for Azure Blob Storage compatible service including Azurite.
+  ///
+  /// 4. is a shorter version of 1. and 2.
+  ///
+  /// Note that there is no difference between abfs and abfss. HTTPS is
+  /// used with abfs by default. You can force to use HTTP by specifying
+  /// "enable_tls=false" query.
+  ///
+  /// Supported query parameters:
+  ///
+  /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
+  /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
+  /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
+  /// * credential_kind: One of "default", "anonymous",
+  ///   "workload_identity". If "default" is specified, it's just
+  ///   ignored.  If "anonymous" is specified,
+  ///   AzureOptions::ConfigureAnonymousCredential() is called. If
+  ///   "workload_identity" is specified,
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called.
+  /// * tenant_id: You must specify "client_id" and "client_secret"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_id: If you don't specify "tenant_id" and
+  ///   "client_secret",
+  ///   AzureOptions::ConfigureManagedIdentityCredential() is
+  ///   called. If you specify "tenant_id" and "client_secret" too,
+  ///   AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_secret: You must specify "tenant_id" and "client_id"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  static Result<AzureOptions> FromUri(const arrow::internal::Uri& uri,
+                                      std::string* out_path);
+  static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
+
   Status ConfigureDefaultCredential();
-
-  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
-
-  Status ConfigureWorkloadIdentityCredential();
-
+  Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
-
   Status ConfigureClientSecretCredential(const std::string& tenant_id,
                                          const std::string& client_id,
                                          const std::string& client_secret);
+  Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureWorkloadIdentityCredential();
 
   bool Equals(const AzureOptions& other) const;
 
@@ -195,6 +266,25 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Status DeleteFile(const std::string& path) override;
 
+  /// \brief Move / rename a file or directory.
+  ///
+  /// There are no files immediately at the root directory, so paths like
+  /// "/segment" always refer to a container of the storage account and are
+  /// treated as directories.
+  ///
+  /// If `dest` exists but the operation fails for some reason, `Move`
+  /// guarantees `dest` is not lost.
+  ///
+  /// Conditions for a successful move:
+  /// 1. `src` must exist.
+  /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
+  ///    a directory can't be made a subdirectory of itself.
+  /// 3. If `dest` already exists and it's a file, `src` must also be a file.
+  ///    `dest` is then replaced by `src`.
+  /// 4. All components of `dest` must exist, except for the last.
+  /// 5. If `dest` already exists and it's a directory, `src` must also be a
+  ///    directory and `dest` must be empty. `dest` is then replaced by `src`
+  ///    and its contents.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;

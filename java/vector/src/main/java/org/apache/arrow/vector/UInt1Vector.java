@@ -136,6 +136,7 @@ public final class UInt1Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Byte getObject(int index) {
     if (isSet(index) == 0) {
       return null;

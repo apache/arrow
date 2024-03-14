@@ -25,7 +25,8 @@ import java.util.Arrays;
  * Magic header/footer helpers for {@link ArrowFileWriter} and {@link ArrowFileReader} formatted files.
  */
 class ArrowMagic {
-  private ArrowMagic(){}
+  private ArrowMagic(){
+  }
 
   private static final byte[] MAGIC = "ARROW1".getBytes(StandardCharsets.UTF_8);
 

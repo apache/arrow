@@ -18,26 +18,17 @@
 ARG base
 FROM ${base}
 
-RUN apt-get update -y -q && \
-    apt-get install -y -q \
-        python3 \
-        python3-pip \
-        python3-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
-RUN pip install -U pip setuptools wheel
-
 COPY python/requirements-build.txt \
      python/requirements-test.txt \
      /arrow/python/
 
-RUN pip install \
-    -r arrow/python/requirements-build.txt \
-    -r arrow/python/requirements-test.txt
+ENV ARROW_PYTHON_VENV /arrow-dev
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -U pip setuptools wheel && \
+    pip install \
+      -r arrow/python/requirements-build.txt \
+      -r arrow/python/requirements-test.txt
 
 ARG numba
 COPY ci/scripts/install_numba.sh /arrow/ci/scripts/

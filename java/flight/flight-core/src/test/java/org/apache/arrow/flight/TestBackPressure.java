@@ -22,6 +22,7 @@ import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -153,7 +154,7 @@ public class TestBackPressure {
             loadData.run();
           } else {
             final ExecutorService service = Executors.newSingleThreadExecutor();
-            service.submit(loadData);
+            Future<?> unused = service.submit(loadData);
             service.shutdown();
           }
         }
@@ -237,7 +238,8 @@ public class TestBackPressure {
         try {
           Thread.sleep(1);
           sleepTime.addAndGet(1L);
-        } catch (InterruptedException ignore) {
+        } catch (InterruptedException expected) {
+          // it is expected and no action needed
         }
       }
       return WaitResult.READY;

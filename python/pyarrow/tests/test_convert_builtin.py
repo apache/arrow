@@ -252,21 +252,17 @@ def test_nested_lists(seq):
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
     assert arr.to_pylist() == data
-    # With explicit type
-    arr = pa.array(seq(data), type=pa.list_(pa.int32()))
-    assert len(arr) == 3
-    assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int32())
-    assert arr.to_pylist() == data
 
 
 @parametrize_with_sequence_types
-def test_nested_large_lists(seq):
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_nested_lists_with_explicit_type(seq, factory):
     data = [[], [1, 2], None]
-    arr = pa.array(seq(data), type=pa.large_list(pa.int16()))
+    arr = pa.array(seq(data), type=factory(pa.int16()))
     assert len(arr) == 3
     assert arr.null_count == 1
-    assert arr.type == pa.large_list(pa.int16())
+    assert arr.type == factory(pa.int16())
     assert arr.to_pylist() == data
 
 
@@ -277,15 +273,22 @@ def test_list_with_non_list(seq):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
     with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.large_list(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.list_view(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.large_list_view(pa.int64()))
 
 
 @parametrize_with_sequence_types
-def test_nested_arrays(seq):
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_nested_arrays(seq, factory):
     arr = pa.array(seq([np.array([], dtype=np.int64),
-                        np.array([1, 2], dtype=np.int64), None]))
+                        np.array([1, 2], dtype=np.int64), None]),
+                   type=factory(pa.int64()))
     assert len(arr) == 3
     assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int64())
+    assert arr.type == factory(pa.int64())
     assert arr.to_pylist() == [[], [1, 2], None]
 
 
@@ -763,6 +766,16 @@ def test_sequence_unicode():
     assert arr.to_pylist() == data
 
 
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string(), pa.string_view()])
+def test_sequence_unicode_explicit_type(ty):
+    data = ['foo', 'bar', None, 'mañana']
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    assert arr.type == ty
+    assert arr.to_pylist() == data
+
+
 def check_array_mixed_unicode_bytes(binary_type, string_type):
     values = ['qux', b'foo', bytearray(b'barz')]
     b_values = [b'qux', b'foo', b'barz']
@@ -787,6 +800,7 @@ def check_array_mixed_unicode_bytes(binary_type, string_type):
 def test_array_mixed_unicode_bytes():
     check_array_mixed_unicode_bytes(pa.binary(), pa.string())
     check_array_mixed_unicode_bytes(pa.large_binary(), pa.large_string())
+    check_array_mixed_unicode_bytes(pa.binary_view(), pa.string_view())
 
 
 @pytest.mark.large_memory
@@ -818,7 +832,7 @@ def test_large_binary_value(ty):
 
 
 @pytest.mark.large_memory
-@pytest.mark.parametrize("ty", [pa.binary(), pa.string()])
+@pytest.mark.parametrize("ty", [pa.binary(), pa.string(), pa.string_view()])
 def test_string_too_large(ty):
     # Construct a binary array with a single value larger than 4GB
     s = b"0123456789abcdefghijklmnopqrstuvwxyz"
@@ -836,7 +850,7 @@ def test_sequence_bytes():
             u1.decode('utf-8'),  # unicode gets encoded,
             bytearray(b'bar'),
             None]
-    for ty in [None, pa.binary(), pa.large_binary()]:
+    for ty in [None, pa.binary(), pa.large_binary(), pa.binary_view()]:
         arr = pa.array(data, type=ty)
         assert len(arr) == 6
         assert arr.null_count == 1
@@ -844,7 +858,7 @@ def test_sequence_bytes():
         assert arr.to_pylist() == [b'foo', b'dada', b'data', u1, b'bar', None]
 
 
-@pytest.mark.parametrize("ty", [pa.string(), pa.large_string()])
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string(), pa.string_view()])
 def test_sequence_utf8_to_unicode(ty):
     # ARROW-1225
     data = [b'foo', None, b'bar']
@@ -1453,9 +1467,18 @@ def test_sequence_duration_nested_lists():
     assert arr.type == pa.list_(pa.duration('us'))
     assert arr.to_pylist() == data
 
-    arr = pa.array(data, type=pa.list_(pa.duration('ms')))
+
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_sequence_duration_nested_lists_with_explicit_type(factory):
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[td1, None], [td1, td2]]
+
+    arr = pa.array(data, type=factory(pa.duration('ms')))
     assert len(arr) == 2
-    assert arr.type == pa.list_(pa.duration('ms'))
+    assert arr.type == factory(pa.duration('ms'))
     assert arr.to_pylist() == data
 
 
@@ -2419,6 +2442,10 @@ def test_array_from_pylist_offset_overflow():
     ),
     ([[1, 2, 3]], [pa.scalar([1, 2, 3])], pa.list_(pa.int64())),
     ([["a", "b"]], [pa.scalar(["a", "b"])], pa.list_(pa.string())),
+    ([[1, 2, 3]], [pa.scalar([1, 2, 3], type=pa.list_view(pa.int64()))],
+     pa.list_view(pa.int64())),
+    ([["a", "b"]], [pa.scalar(["a", "b"], type=pa.list_view(pa.string()))],
+     pa.list_view(pa.string())),
     (
         [1, 2, None],
         [pa.scalar(1, type=pa.int8()), pa.scalar(2, type=pa.int8()), None],
@@ -2431,6 +2458,8 @@ def test_array_from_pylist_offset_overflow():
         pa.binary(3)),
     ([b"a"], [pa.scalar("a", type=pa.large_binary())], pa.large_binary()),
     (["a"], [pa.scalar("a", type=pa.large_string())], pa.large_string()),
+    ([b"a"], [pa.scalar("a", type=pa.binary_view())], pa.binary_view()),
+    (["a"], [pa.scalar("a", type=pa.string_view())], pa.string_view()),
     (
         ["a"],
         [pa.scalar("a", type=pa.dictionary(pa.int64(), pa.string()))],

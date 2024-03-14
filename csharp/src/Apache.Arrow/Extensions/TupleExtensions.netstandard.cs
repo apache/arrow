@@ -25,5 +25,12 @@ namespace Apache.Arrow
             item1 = value.Item1;
             item2 = value.Item2;
         }
+
+        public static void Deconstruct<T1, T2, T3>(this Tuple<T1, T2, T3> value, out T1 item1, out T2 item2, out T3 item3)
+        {
+            item1 = value.Item1;
+            item2 = value.Item2;
+            item3 = value.Item3;
+        }
     }
 }

@@ -35,8 +35,8 @@ RUN apt-get update -y && \
         automake \
         curl \
         doxygen \
+        gi-docgen \
         gobject-introspection \
-        gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
         libfribidi-dev \
@@ -60,7 +60,7 @@ RUN apt-get update -y && \
 
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
-ARG maven=3.5.4
+ARG maven=3.6.3
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
     "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt
@@ -96,6 +96,7 @@ RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \

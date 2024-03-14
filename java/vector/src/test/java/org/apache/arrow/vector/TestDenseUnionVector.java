@@ -349,16 +349,16 @@ public class TestDenseUnionVector {
     assertEquals(vector.getField(), field);
 
     // Union has 2 child vectors
-    assertEquals(vector.size(), 2);
+    assertEquals(2, vector.size());
 
     // Check child field 0
     VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
-    assertEquals(intChild.ordinal, 0);
+    assertEquals(0, intChild.ordinal);
     assertEquals(intChild.vector.getField(), children.get(0));
 
     // Check child field 1
     VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
-    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(1, varcharChild.ordinal);
     assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
@@ -458,8 +458,8 @@ public class TestDenseUnionVector {
       // register relative types
       byte typeId1 = unionVector.registerNewTypeId(structVector1.getField());
       byte typeId2 = unionVector.registerNewTypeId(structVector2.getField());
-      assertEquals(typeId1, 0);
-      assertEquals(typeId2, 1);
+      assertEquals(0, typeId1);
+      assertEquals(1, typeId2);
 
       // add two struct vectors to union vector
       unionVector.addVector(typeId1, structVector1);
@@ -519,8 +519,8 @@ public class TestDenseUnionVector {
       byte typeId1 = unionVector.registerNewTypeId(childVector1.getField());
       byte typeId2 = unionVector.registerNewTypeId(childVector2.getField());
 
-      assertEquals(typeId1, 0);
-      assertEquals(typeId2, 1);
+      assertEquals(0, typeId1);
+      assertEquals(1, typeId2);
 
       while (unionVector.getValueCapacity() < 5) {
         unionVector.reAlloc();

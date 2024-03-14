@@ -303,10 +303,12 @@ public class TestClientMiddleware {
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {}
+    public void onCallCompleted(CallStatus status) {
+    }
 
     @Override
-    public void onCallErrored(Throwable err) {}
+    public void onCallErrored(Throwable err) {
+    }
   }
 
   static class MultiHeaderClientMiddlewareFactory implements FlightClientMiddleware.Factory {
@@ -356,6 +358,7 @@ public class TestClientMiddleware {
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {}
+    public void onCallCompleted(CallStatus status) {
+    }
   }
 }

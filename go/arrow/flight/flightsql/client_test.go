@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -60,14 +60,29 @@ func (m *FlightServiceClientMock) AuthenticateBasicToken(_ context.Context, user
 	return args.Get(0).(context.Context), args.Error(1)
 }
 
-func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	args := m.Called(request, opts)
-	return args.Get(0).(flight.CancelFlightInfoResult), args.Error(1)
+	return args.Get(0).(*flight.CancelFlightInfoResult), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	args := m.Called(request, opts)
 	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.SetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.GetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.CloseSessionResult), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) Close() error {
@@ -384,6 +399,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
@@ -445,10 +462,14 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
 	s.NoError(err)
 	defer rec.Release()
+
+	s.Equal(string(prepared.Handle()), "query")
 
 	prepared.SetParameters(rec)
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
@@ -517,6 +538,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
+	s.Equal(string(prepared.Handle()), "query")
+
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
 	s.NoError(err)
@@ -575,6 +598,8 @@ func (s *FlightSqlClientSuite) TestPreparedStatementClose() {
 
 	err = prepared.Close(context.TODO(), s.callOpts...)
 	s.NoError(err)
+
+	s.Equal(string(prepared.Handle()), "query")
 }
 
 func (s *FlightSqlClientSuite) TestExecuteUpdate() {
@@ -629,10 +654,10 @@ func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
 	mockedCancelResult := flight.CancelFlightInfoResult{
 		Status: flight.CancelStatusCancelled,
 	}
-	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(mockedCancelResult, nil)
+	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(&mockedCancelResult, nil)
 	cancelResult, err := s.sqlClient.CancelFlightInfo(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
-	s.Equal(mockedCancelResult, cancelResult)
+	s.Equal(&mockedCancelResult, cancelResult)
 }
 
 func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
@@ -653,6 +678,36 @@ func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
 	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedRenewedEndpoint, renewedEndpoint)
+}
+
+func (s *FlightSqlClientSuite) TestPreparedStatementLoadFromResult() {
+	const query = "query"
+
+	result := &pb.ActionCreatePreparedStatementResult{
+		PreparedStatementHandle: []byte(query),
+	}
+
+	parameterSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "p_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.ParameterSchema = flight.SerializeSchema(parameterSchemaResult, memory.DefaultAllocator)
+	datasetSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "ds_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+	result.DatasetSchema = flight.SerializeSchema(datasetSchemaResult, memory.DefaultAllocator)
+
+	prepared, err := s.sqlClient.LoadPreparedStatementFromResult(result)
+	s.NoError(err)
+
+	s.Equal(string(prepared.Handle()), "query")
+
+	paramSchema := prepared.ParameterSchema()
+	paramRec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"p_id": 1}]`))
+	s.NoError(err)
+	defer paramRec.Release()
+
+	datasetSchema := prepared.DatasetSchema()
+	datasetRec, _, err := array.RecordFromJSON(memory.DefaultAllocator, datasetSchema, strings.NewReader(`[{"ds_id": 1}]`))
+	s.NoError(err)
+	defer datasetRec.Release()
+
+	s.Equal(string(prepared.Handle()), "query")
 }
 
 func TestFlightSqlClient(t *testing.T) {

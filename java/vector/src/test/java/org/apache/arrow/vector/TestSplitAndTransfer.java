@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,7 +58,7 @@ public class TestSplitAndTransfer {
   private void populateVarcharVector(final VarCharVector vector, int valueCount, String[] compareArray) {
     for (int i = 0; i < valueCount; i += 3) {
       final String s = String.format("%010d", i);
-      vector.set(i, s.getBytes());
+      vector.set(i, s.getBytes(StandardCharsets.UTF_8));
       if (compareArray != null) {
         compareArray[i] = s;
       }
@@ -86,7 +87,7 @@ public class TestSplitAndTransfer {
         for (int i = 0; i < length; i++) {
           final boolean expectedSet = ((start + i) % 3) == 0;
           if (expectedSet) {
-            final byte[] expectedValue = compareArray[start + i].getBytes();
+            final byte[] expectedValue = compareArray[start + i].getBytes(StandardCharsets.UTF_8);
             assertFalse(newVarCharVector.isNull(i));
             assertArrayEquals(expectedValue, newVarCharVector.get(i));
           } else {
@@ -141,7 +142,7 @@ public class TestSplitAndTransfer {
       for (int i = 0; i < valueCount; i++) {
         final boolean expectedSet = (i % 3) == 0;
         if (expectedSet) {
-          final byte[] expectedValue = compareArray[i].getBytes();
+          final byte[] expectedValue = compareArray[i].getBytes(StandardCharsets.UTF_8);
           assertFalse(newVarCharVector.isNull(i));
           assertArrayEquals(expectedValue, newVarCharVector.get(i));
         } else {

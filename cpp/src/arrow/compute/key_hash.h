@@ -51,10 +51,10 @@ class ARROW_EXPORT Hashing32 {
   static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
-                          int64_t offset, int64_t length);
+                          int64_t start_row, int64_t num_rows);
 
   static void HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t num_keys,
-                        uint64_t length_key, const uint8_t* keys, uint32_t* hashes,
+                        uint64_t key_length, const uint8_t* keys, uint32_t* hashes,
                         uint32_t* temp_hashes_for_combine);
 
  private:
@@ -100,7 +100,7 @@ class ARROW_EXPORT Hashing32 {
   static inline void StripeMask(int i, uint32_t* mask1, uint32_t* mask2, uint32_t* mask3,
                                 uint32_t* mask4);
   template <bool T_COMBINE_HASHES>
-  static void HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_t* keys,
+  static void HashFixedLenImp(uint32_t num_rows, uint64_t key_length, const uint8_t* keys,
                               uint32_t* hashes);
   template <typename T, bool T_COMBINE_HASHES>
   static void HashVarLenImp(uint32_t num_rows, const T* offsets,
@@ -112,7 +112,7 @@ class ARROW_EXPORT Hashing32 {
                       const uint8_t* keys, uint32_t* hashes);
   template <bool T_COMBINE_HASHES, typename T>
   static void HashIntImp(uint32_t num_keys, const T* keys, uint32_t* hashes);
-  static void HashInt(bool combine_hashes, uint32_t num_keys, uint64_t length_key,
+  static void HashInt(bool combine_hashes, uint32_t num_keys, uint64_t key_length,
                       const uint8_t* keys, uint32_t* hashes);
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -129,11 +129,11 @@ class ARROW_EXPORT Hashing32 {
                                             __m256i mask_last_stripe, const uint8_t* keys,
                                             int64_t offset_A, int64_t offset_B);
   template <bool T_COMBINE_HASHES>
-  static uint32_t HashFixedLenImp_avx2(uint32_t num_rows, uint64_t length,
+  static uint32_t HashFixedLenImp_avx2(uint32_t num_rows, uint64_t key_length,
                                        const uint8_t* keys, uint32_t* hashes,
                                        uint32_t* hashes_temp_for_combine);
   static uint32_t HashFixedLen_avx2(bool combine_hashes, uint32_t num_rows,
-                                    uint64_t length, const uint8_t* keys,
+                                    uint64_t key_length, const uint8_t* keys,
                                     uint32_t* hashes, uint32_t* hashes_temp_for_combine);
   template <typename T, bool T_COMBINE_HASHES>
   static uint32_t HashVarLenImp_avx2(uint32_t num_rows, const T* offsets,
@@ -164,9 +164,9 @@ class ARROW_EXPORT Hashing64 {
   static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
-                          int64_t offset, int64_t length);
+                          int64_t start_row, int64_t num_rows);
 
-  static void HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t length_key,
+  static void HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t key_length,
                         const uint8_t* keys, uint64_t* hashes);
 
  private:
@@ -203,7 +203,7 @@ class ARROW_EXPORT Hashing64 {
   static inline void StripeMask(int i, uint64_t* mask1, uint64_t* mask2, uint64_t* mask3,
                                 uint64_t* mask4);
   template <bool T_COMBINE_HASHES>
-  static void HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_t* keys,
+  static void HashFixedLenImp(uint32_t num_rows, uint64_t key_length, const uint8_t* keys,
                               uint64_t* hashes);
   template <typename T, bool T_COMBINE_HASHES>
   static void HashVarLenImp(uint32_t num_rows, const T* offsets,
@@ -211,11 +211,11 @@ class ARROW_EXPORT Hashing64 {
   template <bool T_COMBINE_HASHES>
   static void HashBitImp(int64_t bit_offset, uint32_t num_keys, const uint8_t* keys,
                          uint64_t* hashes);
-  static void HashBit(bool T_COMBINE_HASHES, int64_t bit_offset, uint32_t num_keys,
+  static void HashBit(bool combine_hashes, int64_t bit_offset, uint32_t num_keys,
                       const uint8_t* keys, uint64_t* hashes);
   template <bool T_COMBINE_HASHES, typename T>
   static void HashIntImp(uint32_t num_keys, const T* keys, uint64_t* hashes);
-  static void HashInt(bool T_COMBINE_HASHES, uint32_t num_keys, uint64_t length_key,
+  static void HashInt(bool combine_hashes, uint32_t num_keys, uint64_t key_length,
                       const uint8_t* keys, uint64_t* hashes);
 };
 
