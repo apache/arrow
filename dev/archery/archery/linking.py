@@ -16,6 +16,7 @@
 # under the License.
 
 import platform
+import re
 import subprocess
 
 from .utils.command import Command
@@ -23,6 +24,8 @@ from .utils.command import Command
 
 _ldd = Command("ldd")
 _otool = Command("otool")
+_nm = Command("nm")
+_ldconfig = Command('ldconfig')
 
 
 class DependencyError(Exception):
@@ -61,9 +64,32 @@ class DynamicLibrary:
             names.append(name)
         return names
 
+    def list_symbols_for_dependency(self, dependency):
+        result = _nm.run('--format=just-symbols', '-D', dependency, stdout=subprocess.PIPE)
+        lines = result.stdout.decode('utf-8').splitlines()
+        return lines
+
+    def list_undefined_symbols_for_dependency(self, dependency):
+        result = _nm.run('--format=just-symbols', '-u', dependency, stdout=subprocess.PIPE)
+        lines = result.stdout.decode('utf-8').splitlines()
+        return lines
+
+    def find_library_paths(self, libraries):
+        result = _ldconfig.run('-p', stdout=subprocess.PIPE)
+        lines = result.stdout.decode('utf-8').splitlines()
+        paths = {}
+        for lib in libraries:
+            for line in lines:
+                if lib in line:
+                    match = re.search(r' => (.*)', line)
+                    if match:
+                        paths[lib] = match.group(1)
+        return paths
+
 
 def check_dynamic_library_dependencies(path, allowed, disallowed):
     dylib = DynamicLibrary(path)
+
     for dep in dylib.list_dependency_names():
         if allowed and dep not in allowed:
             raise DependencyError(
@@ -73,3 +99,17 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
             raise DependencyError(
                 f"Disallowed shared dependency found in {dylib.path}: `{dep}`"
             )
+    # Check for undefined symbols
+    undefined_symbols = dylib.list_undefined_symbols_for_dependency(path)
+    expected_lib_paths = dylib.find_library_paths(allowed)
+    for lb_path in expected_lib_paths.values():
+        expected_symbols = dylib.list_symbols_for_dependency(lb_path)
+        for exp_sym in expected_symbols:
+            if exp_sym in undefined_symbols:
+                undefined_symbols.remove(exp_sym)
+
+    if undefined_symbols:
+        undefined_symbols_str = '\n'.join(undefined_symbols)
+        raise DependencyError(
+            f"Undefined symbols found in {dylib.path}:\n{undefined_symbols_str}"
+        )
