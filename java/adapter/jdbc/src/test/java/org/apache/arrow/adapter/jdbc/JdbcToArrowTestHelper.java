@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.AbstractMap;
@@ -399,7 +400,7 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes(StandardCharsets.UTF_8);
     }
     return valueArr;
   }
@@ -419,11 +420,12 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes(StandardCharsets.UTF_8);
     }
     return valueArr;
   }
 
+  @SuppressWarnings("StringSplitter")
   public static String[] getValues(String[] values, String dataType) {
     String value = "";
     for (String val : values) {
@@ -440,6 +442,7 @@ public class JdbcToArrowTestHelper {
     return getListValues(dataArr);
   }
 
+  @SuppressWarnings("StringSplitter")
   public static Integer[][] getListValues(String[] dataArr) {
     Integer[][] valueArr = new Integer[dataArr.length][];
     int i = 0;

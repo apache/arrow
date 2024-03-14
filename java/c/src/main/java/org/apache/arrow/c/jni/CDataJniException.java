@@ -36,10 +36,10 @@ public final class CDataJniException extends Exception {
   }
 
   @Override
-  public String toString() {
+  public String getMessage() {
     return "CDataJniException{" +
         "errno=" + errno +
-        ", message=" + getMessage() +
+        ", message=" + super.getMessage() +
         '}';
   }
 }

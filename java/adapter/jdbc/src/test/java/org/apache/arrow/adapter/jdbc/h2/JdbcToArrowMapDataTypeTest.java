@@ -45,6 +45,7 @@ public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
    * Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column
    */
   @Test
+  @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
@@ -68,6 +69,7 @@ public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
    * @param isIncludeMapVector is this dataset checks includes map column.
    *          Jdbc type to 'map' mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     assertMapVectorValues((MapVector) root.getVector(MAP), table.getRowCount(),
             getMapValues(table.getValues(), MAP));

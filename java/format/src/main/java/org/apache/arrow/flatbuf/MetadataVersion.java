@@ -48,7 +48,7 @@ public final class MetadataVersion {
    */
   public static final short V5 = 4;
 
-  public static final String[] names = { "V1", "V2", "V3", "V4", "V5", };
+  private static final String[] names = { "V1", "V2", "V3", "V4", "V5", };
 
   public static String name(int e) { return names[e]; }
 }

@@ -36,19 +36,12 @@ public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private final AbstractByteBuf wrapped;
   private final long memoryAddress;
 
-  UnsafeDirectLittleEndian(DuplicatedByteBuf buf) {
-    this(buf, true);
-  }
-
-  UnsafeDirectLittleEndian(LargeBuffer buf) {
-    this(buf, true);
-  }
-
-  UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf) {
-    this(buf, true);
-  }
-
-  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake) {
+  /**
+   * Constructs a new instance.
+   *
+   * @param buf The buffer to wrap
+   */
+  public UnsafeDirectLittleEndian(AbstractByteBuf buf) {
     super(buf);
 
     this.wrapped = buf;

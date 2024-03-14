@@ -76,6 +76,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    */
   @Before
+  @Override
   public void setUp() throws SQLException, ClassNotFoundException {
     String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8";
     String driver = "org.h2.Driver";
@@ -107,6 +108,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * the multi-byte CJK characters.
    */
   @Test
+  @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()), false);
@@ -142,6 +144,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @param isIncludeMapVector is this dataset checks includes map column.
    *          Jdbc type to 'map' mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 

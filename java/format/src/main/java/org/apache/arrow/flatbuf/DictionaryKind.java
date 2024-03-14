@@ -30,7 +30,7 @@ public final class DictionaryKind {
   private DictionaryKind() { }
   public static final short DenseArray = 0;
 
-  public static final String[] names = { "DenseArray", };
+  private static final String[] names = { "DenseArray", };
 
   public static String name(int e) { return names[e]; }
 }

@@ -48,7 +48,7 @@ import java.nio.ByteOrder;
 public final class BinaryView extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static BinaryView getRootAsBinaryView(ByteBuffer _bb) { return getRootAsBinaryView(_bb, new BinaryView()); }
-  public static BinaryView getRootAsBinaryView(ByteBuffer _bb, BinaryView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static BinaryView getRootAsBinaryView(ByteBuffer _bb, BinaryView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public BinaryView __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

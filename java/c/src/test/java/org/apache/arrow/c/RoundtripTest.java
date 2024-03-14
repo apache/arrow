@@ -495,7 +495,7 @@ public class RoundtripTest {
   @Test
   public void testVarBinaryVector() {
     try (final VarBinaryVector vector = new VarBinaryVector("v", allocator)) {
-      setVector(vector, "abc".getBytes(), "def".getBytes(), null);
+      setVector(vector, "abc".getBytes(StandardCharsets.UTF_8), "def".getBytes(StandardCharsets.UTF_8), null);
       assertTrue(roundtrip(vector, VarBinaryVector.class));
     }
   }
@@ -521,7 +521,7 @@ public class RoundtripTest {
 
       String str = "hello world";
       try (ArrowBuf buf = allocator.buffer(16)) {
-        buf.setBytes(0, str.getBytes());
+        buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
         binHolder.start = 0;
         binHolder.end = str.length();
         binHolder.buffer = buf;

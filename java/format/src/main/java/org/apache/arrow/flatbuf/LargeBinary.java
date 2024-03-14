@@ -43,7 +43,7 @@ import java.nio.ByteOrder;
 public final class LargeBinary extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static LargeBinary getRootAsLargeBinary(ByteBuffer _bb) { return getRootAsLargeBinary(_bb, new LargeBinary()); }
-  public static LargeBinary getRootAsLargeBinary(ByteBuffer _bb, LargeBinary obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static LargeBinary getRootAsLargeBinary(ByteBuffer _bb, LargeBinary obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public LargeBinary __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

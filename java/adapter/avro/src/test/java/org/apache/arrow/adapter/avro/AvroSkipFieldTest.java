@@ -20,6 +20,7 @@ package org.apache.arrow.adapter.avro;
 import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -223,7 +224,7 @@ public class AvroSkipFieldTest extends AvroTestBase {
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
-      final byte[] testBytes = ("test" + i).getBytes();
+      final byte[] testBytes = ("test" + i).getBytes(StandardCharsets.UTF_8);
       GenericRecord record = new GenericData.Record(schema);
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
@@ -257,7 +258,7 @@ public class AvroSkipFieldTest extends AvroTestBase {
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
-      final byte[] testBytes = ("test" + i).getBytes();
+      final byte[] testBytes = ("test" + i).getBytes(StandardCharsets.UTF_8);
       GenericRecord record = new GenericData.Record(schema);
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
@@ -291,7 +292,7 @@ public class AvroSkipFieldTest extends AvroTestBase {
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
-      final byte[] testBytes = ("test" + i).getBytes();
+      final byte[] testBytes = ("test" + i).getBytes(StandardCharsets.UTF_8);
       GenericRecord record = new GenericData.Record(schema);
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);
@@ -325,7 +326,7 @@ public class AvroSkipFieldTest extends AvroTestBase {
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {
-      final byte[] testBytes = ("test" + i).getBytes();
+      final byte[] testBytes = ("test" + i).getBytes(StandardCharsets.UTF_8);
       GenericRecord record = new GenericData.Record(schema);
       GenericData.Fixed fixed = new GenericData.Fixed(schema.getField("f0").schema());
       fixed.bytes(testBytes);

@@ -66,7 +66,7 @@ import java.nio.ByteOrder;
 public final class Map extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Map getRootAsMap(ByteBuffer _bb) { return getRootAsMap(_bb, new Map()); }
-  public static Map getRootAsMap(ByteBuffer _bb, Map obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Map getRootAsMap(ByteBuffer _bb, Map obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Map __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

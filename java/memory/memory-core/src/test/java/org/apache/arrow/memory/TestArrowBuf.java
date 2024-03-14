@@ -141,7 +141,7 @@ public class TestArrowBuf {
   }
 
   @Test
-  /**
+  /*
    * Test that allocation history is not recorded even though
    * assertions are enabled in tests (GH-34338).
    */

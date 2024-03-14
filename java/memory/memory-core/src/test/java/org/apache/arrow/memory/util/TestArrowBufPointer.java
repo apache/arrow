@@ -55,16 +55,16 @@ public class TestArrowBufPointer {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
         ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
-        buf1.setInt(i * 4, i * 1234);
-        buf2.setInt(i * 4, i * 1234);
+        buf1.setInt(i * 4L, i * 1234);
+        buf2.setInt(i * 4L, i * 1234);
       }
 
       ArrowBufPointer ptr1 = new ArrowBufPointer(null, 0, 100);
       ArrowBufPointer ptr2 = new ArrowBufPointer(null, 100, 5032);
       assertTrue(ptr1.equals(ptr2));
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
-        ptr1.set(buf1, i * 4, 4);
-        ptr2.set(buf2, i * 4, 4);
+        ptr1.set(buf1, i * 4L, 4);
+        ptr2.set(buf2, i * 4L, 4);
         assertTrue(ptr1.equals(ptr2));
       }
     }
@@ -76,8 +76,8 @@ public class TestArrowBufPointer {
     try (ArrowBuf buf1 = allocator.buffer(vectorLength * 4);
          ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
       for (int i = 0; i < vectorLength; i++) {
-        buf1.setInt(i * 4, i);
-        buf2.setInt(i * 4, i);
+        buf1.setInt(i * 4L, i);
+        buf2.setInt(i * 4L, i);
       }
 
       CounterHasher hasher1 = new CounterHasher();
@@ -90,8 +90,8 @@ public class TestArrowBufPointer {
       assertEquals(ArrowBufPointer.NULL_HASH_CODE, pointer2.hashCode());
 
       for (int i = 0; i < vectorLength; i++) {
-        pointer1.set(buf1, i * 4, 4);
-        pointer2.set(buf2, i * 4, 4);
+        pointer1.set(buf1, i * 4L, 4);
+        pointer2.set(buf2, i * 4L, 4);
 
         assertEquals(pointer1.hashCode(), pointer2.hashCode());
 
@@ -188,7 +188,7 @@ public class TestArrowBufPointer {
    * Hasher with a counter that increments each time a hash code is calculated.
    * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
    */
-  class CounterHasher implements ArrowBufHasher {
+  static class CounterHasher implements ArrowBufHasher {
 
     protected int counter = 0;
 
@@ -211,7 +211,7 @@ public class TestArrowBufPointer {
 
     @Override
     public boolean equals(Object o) {
-      return o != null && this.getClass() == o.getClass();
+      return o instanceof CounterHasher;
     }
   }
 }

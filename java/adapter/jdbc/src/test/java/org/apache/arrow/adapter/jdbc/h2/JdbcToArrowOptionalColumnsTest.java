@@ -70,6 +70,7 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    * Test Method to test JdbcToArrow Functionality for dealing with nullable and non-nullable columns.
    */
   @Test
+  @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
   }
@@ -82,6 +83,7 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    * @param isIncludeMapVector is this dataset checks includes map column.
    *          Jdbc type to 'map' mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 

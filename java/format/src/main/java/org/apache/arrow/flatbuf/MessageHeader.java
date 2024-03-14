@@ -38,7 +38,7 @@ public final class MessageHeader {
   public static final byte Tensor = 4;
   public static final byte SparseTensor = 5;
 
-  public static final String[] names = { "NONE", "Schema", "DictionaryBatch", "RecordBatch", "Tensor", "SparseTensor", };
+  private static final String[] names = { "NONE", "Schema", "DictionaryBatch", "RecordBatch", "Tensor", "SparseTensor", };
 
   public static String name(int e) { return names[e]; }
 }

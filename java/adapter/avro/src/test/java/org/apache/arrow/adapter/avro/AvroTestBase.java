@@ -145,7 +145,7 @@ public class AvroTestBase {
     }
   }
 
-  protected void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, VectorSchemaRoot root) {
+  protected void checkRecordResult(Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
     assertEquals(data.size(), root.getRowCount());
     assertEquals(schema.getFields().size(), root.getFieldVectors().size());
 
@@ -194,7 +194,7 @@ public class AvroTestBase {
     }
   }
 
-  protected void checkRecordResult(Schema schema, ArrayList<GenericRecord> data, List<VectorSchemaRoot> roots) {
+  protected void checkRecordResult(Schema schema, List<GenericRecord> data, List<VectorSchemaRoot> roots) {
     roots.forEach(root -> {
       assertEquals(schema.getFields().size(), root.getFieldVectors().size());
     });

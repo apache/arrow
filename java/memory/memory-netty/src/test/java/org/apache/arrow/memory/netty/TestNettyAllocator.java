@@ -39,6 +39,7 @@ import io.netty.buffer.PooledByteBufAllocatorL;
 public class TestNettyAllocator {
 
   @Test
+  @SuppressWarnings("SynchronizeOnNonFinalField")
   public void testMemoryUsage() {
     ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
     memoryLogsAppender.list = Collections.synchronizedList(memoryLogsAppender.list);

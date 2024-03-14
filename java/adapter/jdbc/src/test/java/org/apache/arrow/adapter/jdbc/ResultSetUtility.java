@@ -66,17 +66,17 @@ public class ResultSetUtility {
   }
 
   public static class MockResultSet extends ThrowingResultSet {
-    private final ArrayList<MockRow> rows;
+    private final List<MockRow> rows;
     private int index = 0;
     private boolean isClosed = false;
     private ResultSetMetaData metadata;
     private boolean wasNull;
 
-    public MockResultSet(ArrayList<MockRow> rows) throws SQLException {
+    public MockResultSet(List<MockRow> rows) throws SQLException {
       this(rows, MockResultSetMetaData.fromRows(rows));
     }
 
-    public MockResultSet(ArrayList<MockRow> rows, ResultSetMetaData metadata) {
+    public MockResultSet(List<MockRow> rows, ResultSetMetaData metadata) {
       this.rows = rows;
       this.metadata = metadata;
       this.wasNull = false;
@@ -252,8 +252,8 @@ public class ResultSetUtility {
         return this.addDataElement(new MockDataElement(val, sqlType));
       }
 
-      public Builder setMetaData(ResultSetMetaData metaData) {
-        this.metadata = metaData;
+      public Builder setMetaData(ResultSetMetaData metadata) {
+        this.metadata = metadata;
         return this;
       }
 
@@ -318,7 +318,7 @@ public class ResultSetUtility {
       return columns.get(column - 1).getTypeName();
     }
 
-    public static MockResultSetMetaData fromRows(ArrayList<MockRow> rows) throws SQLException {
+    public static MockResultSetMetaData fromRows(List<MockRow> rows) throws SQLException {
       // Note: This attempts to dynamically construct ResultSetMetaData from the first row in a given result set.
       // If there are now rows, or the result set contains no columns, this cannot be dynamically generated and
       // an exception will be thrown.
@@ -338,7 +338,6 @@ public class ResultSetUtility {
     }
 
     public static class MockColumnMetaData {
-      private int index;
       private int sqlType;
       private int precision;
       private int scale;
@@ -385,7 +384,6 @@ public class ResultSetUtility {
 
       public static MockColumnMetaData fromDataElement(MockDataElement element, int i) throws SQLException {
         return MockColumnMetaData.builder()
-                .index(i)
                 .sqlType(element.getSqlType())
                 .precision(element.getPrecision())
                 .scale(element.getScale())
@@ -402,11 +400,6 @@ public class ResultSetUtility {
 
       public static class Builder {
         private MockColumnMetaData columnMetaData = new MockColumnMetaData();
-
-        public Builder index(int index) {
-          this.columnMetaData.index = index;
-          return this;
-        }
 
         public Builder label(String label) {
           this.columnMetaData.label = label;
@@ -453,9 +446,9 @@ public class ResultSetUtility {
   }
 
   public static class MockRow {
-    private final ArrayList<MockDataElement> dataElements;
+    private final List<MockDataElement> dataElements;
 
-    public MockRow(ArrayList<MockDataElement> elements) {
+    public MockRow(List<MockDataElement> elements) {
       this.dataElements = elements;
     }
 

@@ -87,10 +87,8 @@ public class AvroToArrowTest extends AvroTestBase {
     Schema schema = getSchema("attrs/test_fixed_attr.avsc");
 
     List<GenericData.Fixed> data = new ArrayList<>();
-    List<byte[]> expected = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       byte[] value = ("value" + i).getBytes(StandardCharsets.UTF_8);
-      expected.add(value);
       GenericData.Fixed fixed = new GenericData.Fixed(schema);
       fixed.bytes(value);
       data.add(fixed);

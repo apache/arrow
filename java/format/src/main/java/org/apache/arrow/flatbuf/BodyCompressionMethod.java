@@ -37,7 +37,7 @@ public final class BodyCompressionMethod {
    */
   public static final byte BUFFER = 0;
 
-  public static final String[] names = { "BUFFER", };
+  private static final String[] names = { "BUFFER", };
 
   public static String name(int e) { return names[e]; }
 }

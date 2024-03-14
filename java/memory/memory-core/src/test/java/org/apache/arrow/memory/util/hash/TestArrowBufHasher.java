@@ -66,8 +66,8 @@ public class TestArrowBufHasher {
          ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       // prepare data
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
-        buf1.setFloat(i * 4, i / 10.0f);
-        buf2.setFloat(i * 4, i / 10.0f);
+        buf1.setFloat(i * 4L, i / 10.0f);
+        buf2.setFloat(i * 4L, i / 10.0f);
       }
 
       verifyHashCodesEqual(buf1, 0, 100, buf2, 0, 100);
@@ -95,7 +95,7 @@ public class TestArrowBufHasher {
     try (ArrowBuf buf = allocator.buffer(BUFFER_LENGTH)) {
       // prepare data
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
-        buf.setFloat(i * 4, i / 10.0f);
+        buf.setFloat(i * 4L, i / 10.0f);
       }
 
       assertThrows(IllegalArgumentException.class, () -> {
@@ -120,13 +120,13 @@ public class TestArrowBufHasher {
       buf2.writeBytes("bar2".getBytes(StandardCharsets.UTF_8));
 
       for (int i = 1; i <= 4; i ++) {
-        verifyHashCodeNotEqual(buf1, 0, i, buf2, 0, i);
+        verifyHashCodeNotEqual(buf1, i, buf2, i);
       }
     }
   }
 
-  private void verifyHashCodeNotEqual(ArrowBuf buf1, int offset1, int length1,
-                                      ArrowBuf buf2, int offset2, int length2) {
+  private void verifyHashCodeNotEqual(ArrowBuf buf1, int length1,
+                                      ArrowBuf buf2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, 0, length1);
     int hashCode2 = hasher.hashCode(buf2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);

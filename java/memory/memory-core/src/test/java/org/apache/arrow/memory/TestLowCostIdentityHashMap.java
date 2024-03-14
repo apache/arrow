@@ -147,7 +147,7 @@ public class TestLowCostIdentityHashMap {
     assertTrue(hashMap.isEmpty());
   }
 
-  private class StringWithKey implements ValueWithKeyIncluded<String> {
+  private static class StringWithKey implements ValueWithKeyIncluded<String> {
 
     private String myValue;
     private String myKey;

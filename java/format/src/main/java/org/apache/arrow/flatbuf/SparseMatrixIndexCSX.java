@@ -42,7 +42,7 @@ import java.nio.ByteOrder;
 public final class SparseMatrixIndexCSX extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static SparseMatrixIndexCSX getRootAsSparseMatrixIndexCSX(ByteBuffer _bb) { return getRootAsSparseMatrixIndexCSX(_bb, new SparseMatrixIndexCSX()); }
-  public static SparseMatrixIndexCSX getRootAsSparseMatrixIndexCSX(ByteBuffer _bb, SparseMatrixIndexCSX obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static SparseMatrixIndexCSX getRootAsSparseMatrixIndexCSX(ByteBuffer _bb, SparseMatrixIndexCSX obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public SparseMatrixIndexCSX __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

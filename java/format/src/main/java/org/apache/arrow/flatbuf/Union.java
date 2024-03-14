@@ -45,7 +45,7 @@ import java.nio.ByteOrder;
 public final class Union extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Union getRootAsUnion(ByteBuffer _bb) { return getRootAsUnion(_bb, new Union()); }
-  public static Union getRootAsUnion(ByteBuffer _bb, Union obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Union getRootAsUnion(ByteBuffer _bb, Union obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Union __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

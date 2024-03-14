@@ -68,11 +68,9 @@ public class NettyAllocationManager extends AllocationManager {
   /**
    * The cut-off value for switching allocation strategies.
    */
-  private final int allocationCutOffValue;
 
   NettyAllocationManager(BufferAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
     super(accountingAllocator);
-    this.allocationCutOffValue = allocationCutOffValue;
 
     if (requestedSize > allocationCutOffValue) {
       this.memoryChunk = null;
@@ -92,7 +90,7 @@ public class NettyAllocationManager extends AllocationManager {
   /**
    * Get the underlying memory chunk managed by this AllocationManager.
    * @return the underlying memory chunk if the request size is not greater than the
-   *   {@link NettyAllocationManager#allocationCutOffValue}, or null otherwise.
+   *          cutoff value provided in the constructor , or null otherwise.
    *
    * @deprecated this method will be removed in a future release.
    */
