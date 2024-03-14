@@ -30,7 +30,7 @@ static void BatchToTensorSimple(benchmark::State& state) {
   RegressionArgs args(state);
   std::shared_ptr<DataType> ty = TypeTraits<ValueType>::type_singleton();
 
-  const int64_t kNumRows = args.size * 8;
+  const int64_t kNumRows = args.size;
   arrow::random::RandomArrayGenerator gen_{42};
 
   std::vector<std::shared_ptr<Field>> fields = {};
@@ -52,7 +52,9 @@ static void BatchToTensorSimple(benchmark::State& state) {
 }
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
-  BenchmarkSetArgsWithSizes(bench, {kL1Size, kL2Size});
+  for (int64_t size : {kL1Size, kL2Size}) {
+    bench->Arg(size);
+  }
 }
 
 BENCHMARK_TEMPLATE(BatchToTensorSimple, UInt8Type)->Apply(SetArgs);
