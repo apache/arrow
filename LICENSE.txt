@@ -2252,13 +2252,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
---------------------------------------------------------------------------------
-
-3rdparty dependency mathworks/libmexclass is redistributed as a dynamically
-linked shared library in certain binary distributions, like the MATLAB
-distribution.
-
-Copyright: 2022-2024 The MathWorks, Inc. All rights reserved.
-Homepage: https://github.com/mathworks/libmexclass
-License: 3-clause BSD
