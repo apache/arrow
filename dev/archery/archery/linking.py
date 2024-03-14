@@ -72,7 +72,8 @@ class DynamicLibrary:
             lines = [line.split('@@', 1)[0] for line in lines]
         return lines
 
-    def list_undefined_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
+    def list_undefined_symbols_for_dependency(self, dependency,
+                                              remove_symbol_versions=False):
         result = _nm.run('--format=just-symbols', '-u',
                          dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
