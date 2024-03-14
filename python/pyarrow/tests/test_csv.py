@@ -1997,6 +1997,33 @@ def test_write_csv_decimal(tmpdir, type_factory):
     assert out.column('col').cast(type) == table.column('col')
 
 
+# GH-35901
+def test_large_binary_write_to_csv(tmpdir):
+    data_size = int(1E6)
+    file_name = tmpdir / f"fixedsize_{data_size}.csv"
+
+    nparr = np.frombuffer(np.random.randint(65, 91, data_size, 'u1'), 'S4')
+
+    fixed_arr = pa.array(nparr, pa.binary(4))
+    fixed_table = pa.Table.from_arrays([fixed_arr], names=['fixedsize'])
+
+    write_options = WriteOptions(include_header=True, batch_size=2048)
+    write_csv(fixed_table, file_name, write_options=write_options)
+
+    assert os.path.exists(file_name)
+
+    parse_options = ParseOptions()
+    convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)},
+                                     quoted_strings_can_be_null=False)
+    read_options = ReadOptions(block_size=2048)
+
+    res_table = read_csv(file_name, parse_options=parse_options,
+                         convert_options=convert_options,
+                         read_options=read_options)
+
+    assert res_table.equals(fixed_table)
+
+
 def test_read_csv_gil_deadlock():
     # GH-38676
     # This test depends on several preconditions:

@@ -2104,6 +2104,15 @@ TEST(Cast, BinaryToString) {
     // ARROW-16757: we no longer zero copy, but the contents are equal
     ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
     ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+
+    // GH-35901: check that casting a sliced array
+    // when first buffer's data is a `nullptr`
+    auto fixed_array_null = ArrayFromJSON(from_type, "[\"123\", \"245\", \"345\"]");
+    fixed_array_null = fixed_array_null->Slice(1, 1);
+    fixed_array_null->data()->buffers[0] = std::make_shared<Buffer>(nullptr, 0);
+
+    ASSERT_OK(fixed_array_null->ValidateFull());
+    CheckCast(fixed_array_null, ArrayFromJSON(string_type, "[\"245\"]"));
   }
 }
 
