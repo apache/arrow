@@ -137,6 +137,7 @@ endif()
 if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS Threads::Threads)
   list(APPEND ARROW_STATIC_LINK_LIBS Threads::Threads)
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Threads::Threads)
 endif()
 
 if(NOT MSVC_TOOLCHAIN)
@@ -144,11 +145,10 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GMOCK}
-                              ${ARROW_GTEST_GTEST_MAIN})
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
+set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 if(NOT MSVC)
   list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
@@ -477,7 +477,7 @@ set_source_files_properties(vendored/datetime/tz.cpp
 arrow_add_object_library(ARROW_VENDORED ${ARROW_VENDORED_SRCS})
 # Disable DLL exports in vendored uriparser library
 foreach(ARROW_VENDORED_TARGET ${ARROW_VENDORED_TARGETS})
-  target_compile_definitions(${ARROW_VENDORED_TARGET} PUBLIC URI_STATIC_BUILD)
+  target_compile_definitions(${ARROW_VENDORED_TARGET} PRIVATE URI_STATIC_BUILD)
 endforeach()
 
 set(ARROW_UTIL_SRCS
@@ -557,6 +557,11 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
+
+# Disable DLL exports in vendored uriparser library
+foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})
+  target_compile_definitions(${ARROW_UTIL_TARGET} PRIVATE URI_STATIC_BUILD)
+endforeach()
 
 if(ARROW_USE_BOOST)
   foreach(ARROW_UTIL_TARGET ${ARROW_UTIL_TARGETS})

@@ -75,8 +75,8 @@ namespace fs {
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::ToChars;
-using ::arrow::internal::UriEscape;
 using ::arrow::internal::Zip;
+using ::arrow::util::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -935,6 +935,10 @@ TEST_F(TestS3FS, CreateDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket//somedir"));
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket/somedir//newdir"));
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -994,6 +998,10 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket//newdir"));
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket/newdir//newsub"));
 }
 
 TEST_F(TestS3FS, DeleteDirContents) {

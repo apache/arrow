@@ -49,6 +49,9 @@ case "$(uname)" in
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    # TODO: https://github.com/apache/arrow/issues/40410
+    exclude_tests="arrow-s3fs-test"
+    ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}

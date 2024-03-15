@@ -79,14 +79,12 @@ jobs:
       matrix:
         platform:
           - { runs_on: ["macos-latest"], arch: "x86_64"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
+          - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
-        if: |
-          !contains(matrix.platform.runs_on, 'self-hosted')
         uses: actions/setup-python@v4
         with:
           cache: 'pip'
@@ -134,9 +132,7 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          if [ "{{ arch }}" = "aarch_64" ]; then
-            export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
-          fi
+          export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \

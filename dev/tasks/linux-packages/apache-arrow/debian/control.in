@@ -5,9 +5,10 @@ Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
 Build-Depends:
   cmake,
   debhelper (>= 12),
+# TODO: Enable this after we drop support for Ubuntu 20.04.
+#  gi-docgen,
   git,
   gobject-introspection,
-  gtk-doc-tools,
   libboost-filesystem-dev,
   libboost-system-dev,
   libbrotli-dev,

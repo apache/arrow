@@ -845,6 +845,8 @@ Result<Expression> FoldConstants(Expression expr) {
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
+        if (call->function->is_impure()) return expr;
+
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
           // all arguments are literal; we can evaluate this subexpression *now*
@@ -861,10 +863,6 @@ Result<Expression> FoldConstants(Expression expr) {
         if (GetNullHandling(*call) == compute::NullHandling::INTERSECTION) {
           // kernels which always produce intersected validity can be resolved
           // to null *now* if any of their inputs is a null literal
-          if (!call->type.type) {
-            return Status::Invalid("Cannot fold constants for unbound expression ",
-                                   expr.ToString());
-          }
           for (const Expression& argument : call->arguments) {
             if (argument.IsNullLiteral()) {
               if (argument.type()->Equals(*call->type.type)) {
@@ -1087,6 +1085,7 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
       [&AlreadyCanonicalized, exec_context](Expression expr) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
+        if (call->function->is_impure()) return expr;
 
         if (AlreadyCanonicalized(expr)) return expr;
 

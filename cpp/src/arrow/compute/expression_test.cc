@@ -895,8 +895,10 @@ TEST(Expression, ExecuteCallWithNoArguments) {
 
   Expression random_expr = call("random", {}, random_options);
   ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
+  ASSERT_OK_AND_ASSIGN(auto simplify_expr,
+                       SimplifyWithGuarantee(random_expr, input.guarantee));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(random_expr, input));
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(simplify_expr, input));
   compute::ExecContext* exec_context = default_exec_context();
   ASSERT_OK_AND_ASSIGN(auto function,
                        exec_context->func_registry()->GetFunction("random"));
@@ -1394,6 +1396,36 @@ TEST(Expression, SingleComparisonGuarantees) {
       }
     }
   }
+}
+
+static Status RegisterMyRandom() {
+  const std::string name = "my_random";
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), FunctionDoc::Empty(),
+                                               nullptr, /*is_impure=*/true);
+
+  auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
+                      ExecResult* /*out*/) -> Status { return Status::OK(); };
+
+  ScalarKernel kernel({int32()}, float64(), func_exec);
+  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
+
+  auto registry = GetFunctionRegistry();
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+
+  return Status::OK();
+}
+
+TEST(Expression, SimplifyImpureFunctionCall) {
+  // skip simplification for impure function with no arguments
+  auto impure_expr = call("random", {});
+  Simplify{impure_expr}.WithGuarantee(literal("")).Expect(impure_expr);
+
+  // simplify impure function's arguments
+  ASSERT_OK(RegisterMyRandom());
+  auto pure_expr = call("add", {field_ref("i32"), literal(3)});
+  Simplify{call("my_random", {pure_expr})}
+      .WithGuarantee(equal(field_ref("i32"), literal(1)))
+      .Expect(call("my_random", {literal(4)}));
 }
 
 TEST(Expression, SimplifyWithGuarantee) {

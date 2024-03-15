@@ -34,7 +34,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-clang)
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
     packages+=(${MINGW_PACKAGE_PREFIX}-double-conversion)
-    packages+=(${MINGW_PACKAGE_PREFIX}-flatbuffers)
     packages+=(${MINGW_PACKAGE_PREFIX}-gflags)
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)
@@ -68,7 +67,6 @@ esac
 case "${target}" in
   c_glib|ruby)
     packages+=(${MINGW_PACKAGE_PREFIX}-gobject-introspection)
-    packages+=(${MINGW_PACKAGE_PREFIX}-gtk-doc)
     packages+=(${MINGW_PACKAGE_PREFIX}-meson)
     packages+=(${MINGW_PACKAGE_PREFIX}-vala)
     ;;

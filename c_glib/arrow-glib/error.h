@@ -37,8 +37,10 @@ G_BEGIN_DECLS
  * @GARROW_ERROR_SERIALIZATION: Serialization error.
  * @GARROW_ERROR_CODE_GENERATION: Error generating code for expression evaluation
  *   in Gandiva.
- * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code generation.
- * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a record batch.
+ * @GARROW_ERROR_EXPRESSION_VALIDATION: Validation errors in expression given for code
+ * generation.
+ * @GARROW_ERROR_EXECUTION: Execution error while evaluating the expression against a
+ * record batch.
  * @GARROW_ERROR_ALREADY_EXISTS: Item already exists error.
  *
  * The error codes are used by all arrow-glib functions.
@@ -64,6 +66,7 @@ typedef enum {
 
 #define GARROW_ERROR garrow_error_quark()
 
-GQuark garrow_error_quark(void);
+GQuark
+garrow_error_quark(void);
 
 G_END_DECLS
