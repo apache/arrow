@@ -385,6 +385,10 @@ void GenericFileSystemTest::TestDeleteFiles(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
+  if (!allow_move_file()) {
+    GTEST_SKIP() << "Filesystem doesn't allow moving files";
+  }
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   ASSERT_OK(fs->CreateDir("EF"));
   CreateFile(fs, "abc", "data");
@@ -922,7 +926,11 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
     ASSERT_OK_AND_EQ("x-arrow/filesystem-test", got_metadata->Get("Content-Type"));
   } else {
     if (got_metadata) {
-      ASSERT_EQ(got_metadata->size(), 0);
+      if (have_default_file_metadata()) {
+        ASSERT_GT(got_metadata->size(), 0);
+      } else {
+        ASSERT_EQ(got_metadata->size(), 0);
+      }
     }
   }
 

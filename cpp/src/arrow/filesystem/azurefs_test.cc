@@ -377,10 +377,13 @@ class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSys
   bool allow_write_file_over_dir() const override { return true; }
   bool allow_read_dir_as_file() const override { return true; }
   bool allow_move_dir() const override { return false; }
+  // Azurite doesn't support moving files over containers.
+  bool allow_move_file() const override { return false; }
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return false; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
-  bool have_file_metadata() const override { return true; }
+  bool have_file_metadata() const override { return false; }
+  bool have_default_file_metadata() const override { return true; }
 
   std::shared_ptr<AzureFileSystem> azure_fs_;
   std::shared_ptr<FileSystem> fs_;
@@ -1100,9 +1103,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
     auto path2 = data.Path("directory2");
     ASSERT_OK(fs()->OpenOutputStream(path2));
-    // CreateDir returns OK even if there is already a file or directory at this
-    // location. Whether or not this is the desired behaviour is debatable.
-    ASSERT_OK(fs()->CreateDir(path2));
+    ASSERT_RAISES(IOError, fs()->CreateDir(path2));
     AssertFileInfo(fs(), path2, FileType::File);
   }
 

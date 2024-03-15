@@ -1591,7 +1591,9 @@ class AzureFileSystem::Impl {
     if (info.type() == FileType::NotFound) {
       return PathNotFound(location);
     }
-    DCHECK_EQ(info.type(), FileType::Directory);
+    if (info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     return Status::OK();
   }
 
@@ -1818,8 +1820,45 @@ class AzureFileSystem::Impl {
                            const AzureLocation& location, bool recursive) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    // Non-recursive CreateDir calls require the parent directory to exist.
-    if (!recursive) {
+    if (recursive) {
+      std::vector<AzureLocation> target_locations;
+      // Recursive CreateDir calls require there is no file in parents.
+      auto parent = location;
+      while (!parent.path.empty()) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, parent));
+        if (info.type() == FileType::File) {
+          return NotADir(parent);
+        }
+        if (info.type() == FileType::NotFound) {
+          target_locations.push_back(parent);
+        }
+        parent = parent.parent();
+        if (parent.path.empty() && info.type() == FileType::NotFound) {
+          // parent is container and may not exist
+          ARROW_ASSIGN_OR_RAISE(info,
+                                GetContainerPropsAsFileInfo(parent, container_client));
+          if (info.type() == FileType::NotFound) {
+            try {
+              container_client.CreateIfNotExists();
+            } catch (const Storage::StorageException& exception) {
+              return ExceptionToStatus(exception, "Failed to create directory '",
+                                       location.all, "': ", container_client.GetUrl());
+            }
+          }
+        }
+      }
+      for (size_t i = target_locations.size(); i > 0; --i) {
+        const auto& target_location = target_locations[i - 1];
+        try {
+          create_if_not_exists(container_client, target_location);
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      return Status::OK();
+    } else {
+      // Non-recursive CreateDir calls require the parent directory to exist.
       auto parent = location.parent();
       if (!parent.path.empty()) {
         RETURN_NOT_OK(CheckDirExists(container_client, parent));
@@ -1827,28 +1866,17 @@ class AzureFileSystem::Impl {
       // If the parent location is just the container, we don't need to check if it
       // exists because the operation we perform below will fail if the container
       // doesn't exist and we can handle that error according to the recursive flag.
-    }
-    try {
-      create_if_not_exists(container_client, location);
-      return Status::OK();
-    } catch (const Storage::StorageException& exception) {
-      if (IsContainerNotFound(exception)) {
-        try {
-          if (recursive) {
-            container_client.CreateIfNotExists();
-            create_if_not_exists(container_client, location);
-            return Status::OK();
-          } else {
-            auto parent = location.parent();
-            return PathNotFound(parent);
-          }
-        } catch (const Storage::StorageException& second_exception) {
-          return ExceptionToStatus(second_exception, "Failed to create directory '",
-                                   location.all, "': ", container_client.GetUrl());
+      try {
+        create_if_not_exists(container_client, location);
+        return Status::OK();
+      } catch (const Storage::StorageException& exception) {
+        if (IsContainerNotFound(exception)) {
+          auto parent = location.parent();
+          return PathNotFound(parent);
         }
+        return ExceptionToStatus(exception, "Failed to create directory '", location.all,
+                                 "': ", container_client.GetUrl());
       }
-      return ExceptionToStatus(exception, "Failed to create directory '", location.all,
-                               "': ", container_client.GetUrl());
     }
   }
 
@@ -2016,8 +2044,15 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
-      if (require_dir_to_exist && list_response.Blobs.empty()) {
-        return PathNotFound(location);
+      if (list_response.Blobs.empty()) {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        } else {
+          ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, location));
+          if (info.type() == FileType::File) {
+            return NotADir(location);
+          }
+        }
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         if (list_response.Blobs.empty()) {
@@ -2732,6 +2767,16 @@ class AzureFileSystem::Impl {
     }
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     auto src_url = GetBlobClient(src.container, src.path).GetUrl();
+    if (!dest.path.empty()) {
+      auto dest_parent = dest.parent();
+      if (!dest_parent.path.empty()) {
+        auto dest_container_client = GetBlobContainerClient(dest_parent.container);
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest_container_client, dest_parent));
+        if (info.type() == FileType::File) {
+          return NotADir(dest_parent);
+        }
+      }
+    }
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {
