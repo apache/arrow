@@ -5094,16 +5094,16 @@ cdef class Table(_Tabular):
             The table to join to the current one, acting as the right table
             in the join operation.
         on : str
-            The column from current table that should be used as the on key
+            The column from current table that should be used as the "on" key
             of the join operation left side.
 
-            An inexact match is used on the "on” key.i.e., a row is considered a
-            match iff left_on - tolerance <= right_on <= left_on.
+            An inexact match is used on the "on" key, i.e. a row is considered a
+            match if and only if left_on - tolerance <= right_on <= left_on.
 
-            The input dataset must be sorted by the "on” key. Must be a single
+            The input dataset must be sorted by the "on" key. Must be a single
             field of a common type.
 
-            Currently, the "on” key must be an integer, date, or timestamp type.
+            Currently, the "on" key must be an integer, date, or timestamp type.
         by : str or list[str]
             The columns from current table that should be used as the keys
             of the join operation left side. The join operation is then done
@@ -5133,20 +5133,15 @@ cdef class Table(_Tabular):
 
         Example
         --------
-        >>> import pandas as pd
         >>> import pyarrow as pa
-        >>> df1 = pd.DataFrame({'id': [1, 2, 3, 3, 3],
-        ...                     'year': [2020, 2022, 2021, 2022, 2023]})
-        >>> df2 = pd.DataFrame({'id': [3, 4],
-        ...                     'year': [2020, 2021],
-        ...                     'n_legs': [5, 100],
-        ...                     'animal': ["Brittle stars", "Centipede"]})
-        >>> t1 = pa.Table.from_pandas(df1).sort_by('year')
-        >>> t2 = pa.Table.from_pandas(df2).sort_by('year')
+        >>> t1 = pa.table({'id': [1, 3, 2, 3, 3],
+        ...                'year': [2020, 2021, 2022, 2022, 2023]})
+        >>> t2 = pa.table({'id': [3, 4],
+        ...                'year': [2020, 2021],
+        ...                'n_legs': [5, 100],
+        ...                'animal': ["Brittle stars", "Centipede"]})
 
-        >>> t1.join_asof(
-        ...     t2, on='year', by='id', tolerance=-2
-        ... ).combine_chunks().sort_by('year')
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
         pyarrow.Table
         id: int64
         year: int64
