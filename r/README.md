@@ -17,7 +17,7 @@ To learn more about the Apache Arrow project, see the parent documentation of th
 ## Installation
 
 The latest release of arrow can be installed from CRAN. In most cases installing the latest release should work without requiring any additional system dependencies, especially if you are using
-Windows or a Mac.
+Windows or macOS.
 
 ```r
 install.packages("arrow")
