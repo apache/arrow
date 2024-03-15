@@ -260,6 +260,9 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
+message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
+message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
+
 include(UseCython)
 
 # PyArrow C++
@@ -550,6 +553,10 @@ set(CYTHON_EXTENSIONS
 set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 
 set(LINK_LIBS arrow_python)
+
+if(PYARROW_BUILD_AZURE)
+  list(APPEND CYTHON_EXTENSIONS _azurefs)
+endif()
 
 if(PYARROW_BUILD_GCS)
   list(APPEND CYTHON_EXTENSIONS _gcsfs)

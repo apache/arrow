@@ -45,6 +45,7 @@ class DataLakeServiceClient;
 namespace arrow::fs {
 
 class TestAzureFileSystem;
+class TestAzureOptions;
 
 /// Options for the AzureFileSystem implementation.
 ///
@@ -59,6 +60,8 @@ class TestAzureFileSystem;
 ///
 /// Functions are provided for explicit configuration of credentials if that is preferred.
 struct ARROW_EXPORT AzureOptions {
+  friend class TestAzureOptions;
+
   /// \brief The name of the Azure Storage Account being accessed.
   ///
   /// All service URLs will be constructed using this storage account name.
@@ -122,6 +125,57 @@ struct ARROW_EXPORT AzureOptions {
  public:
   AzureOptions();
   ~AzureOptions();
+
+ private:
+  void ExtractFromUriSchemeAndHierPart(const Uri& uri, std::string* out_path);
+  Status ExtractFromUriQuery(const Uri& uri);
+
+ public:
+  /// \brief Construct a new AzureOptions from an URI.
+  ///
+  /// Supported formats:
+  ///
+  /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
+  ///    [/\<container\>[/\<path\>]]
+  /// 2. abfs[s]://\<container\>[:\<password\>]@\<account\>.dfs.core.windows.net
+  ///     [/path]
+  /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
+  ///    [/\<container\>[/path]]
+  /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
+  ///
+  /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
+  ///
+  /// 3. is for Azure Blob Storage compatible service including Azurite.
+  ///
+  /// 4. is a shorter version of 1. and 2.
+  ///
+  /// Note that there is no difference between abfs and abfss. HTTPS is
+  /// used with abfs by default. You can force to use HTTP by specifying
+  /// "enable_tls=false" query.
+  ///
+  /// Supported query parameters:
+  ///
+  /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
+  /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
+  /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
+  /// * credential_kind: One of "default", "anonymous",
+  ///   "workload_identity". If "default" is specified, it's just
+  ///   ignored.  If "anonymous" is specified,
+  ///   AzureOptions::ConfigureAnonymousCredential() is called. If
+  ///   "workload_identity" is specified,
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called.
+  /// * tenant_id: You must specify "client_id" and "client_secret"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_id: If you don't specify "tenant_id" and
+  ///   "client_secret",
+  ///   AzureOptions::ConfigureManagedIdentityCredential() is
+  ///   called. If you specify "tenant_id" and "client_secret" too,
+  ///   AzureOptions::ConfigureClientSecretCredential() is called.
+  /// * client_secret: You must specify "tenant_id" and "client_id"
+  ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
+  static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
@@ -196,15 +250,23 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   bool Equals(const FileSystem& other) const override;
 
+  /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
+  /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
 
   Status DeleteRootDirContents() override;
 
@@ -246,11 +308,11 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 };
 
 }  // namespace arrow::fs

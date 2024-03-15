@@ -132,8 +132,8 @@ namespace arrow {
 
 using internal::TaskGroup;
 using internal::ToChars;
-using internal::Uri;
 using io::internal::SubmitIO;
+using util::Uri;
 
 namespace fs {
 

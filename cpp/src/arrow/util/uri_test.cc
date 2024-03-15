@@ -26,8 +26,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::util {
 
 TEST(UriEscape, Basics) {
   ASSERT_EQ(UriEscape(""), "");
@@ -371,5 +370,4 @@ TEST(UriFromAbsolutePath, Basics) {
 #endif
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::util

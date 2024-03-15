@@ -356,7 +356,7 @@ bool IsLikelyUri(std::string_view v) {
     // with 36 characters.
     return false;
   }
-  return ::arrow::internal::IsValidUriScheme(v.substr(0, pos));
+  return ::arrow::util::IsValidUriScheme(v.substr(0, pos));
 }
 
 struct Globber::Impl {

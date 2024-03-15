@@ -19,8 +19,9 @@
 
 #pragma once
 
+#include <glib-object.h>
+
 #include <arrow-glib/file-mode.h>
-#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/version.h>
 
 G_BEGIN_DECLS

@@ -27,7 +27,6 @@ brotli
 bzip2
 c-ares
 cmake
-flatbuffers
 gflags
 glog
 gmock>=1.10.0
