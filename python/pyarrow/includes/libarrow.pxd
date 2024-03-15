@@ -961,8 +961,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
+        CResult[shared_ptr[CRecordBatch]] AddColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+        CResult[shared_ptr[CRecordBatch]] RemoveColumn(int i)
+        CResult[shared_ptr[CRecordBatch]] SetColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+
         const vector[shared_ptr[CArray]]& columns()
 
+        CResult[shared_ptr[CRecordBatch]] RenameColumns(const vector[c_string]&)
         CResult[shared_ptr[CRecordBatch]] SelectColumns(const vector[int]&)
 
         int num_columns()
