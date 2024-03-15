@@ -2151,6 +2151,7 @@ cdef class _Tabular(_PandasConvertible):
         return '\n'.join(pieces)
 
     def remove_column(self, int i):
+        # implemented in RecordBatch/Table subclasses
         raise NotImplementedError
 
     def drop_columns(self, columns):
@@ -2215,6 +2216,10 @@ cdef class _Tabular(_PandasConvertible):
             res = res.remove_column(idx)
 
         return res
+
+    def add_column(self, int i, field_, column):
+        # implemented in RecordBatch/Table subclasses
+        raise NotImplementedError
 
     def append_column(self, field_, column):
         """
