@@ -27,6 +27,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/map.h"
@@ -191,9 +192,13 @@ class DatasetWriterFileQueue {
   }
 
   Result<int64_t> PopAndDeliverStagedBatch() {
+    util::tracing::Span span;
+    START_SPAN(span, "DatasetWriter::Pop");
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
     int64_t rows_popped = next_batch->num_rows();
     rows_currently_staged_ -= next_batch->num_rows();
+    ATTRIBUTE_ON_CURRENT_SPAN("batch.size_rows", next_batch->num_rows());
+    ATTRIBUTE_ON_CURRENT_SPAN("rows_currently_staged", rows_currently_staged_);
     ScheduleBatch(std::move(next_batch));
     return rows_popped;
   }
@@ -202,7 +207,15 @@ class DatasetWriterFileQueue {
   Status Push(std::shared_ptr<RecordBatch> batch) {
     uint64_t delta_staged = batch->num_rows();
     rows_currently_staged_ += delta_staged;
-    staged_batches_.push_back(std::move(batch));
+    {
+      util::tracing::Span span;
+      START_SPAN(span, "DatasetWriter::Push",
+                 {{"batch.size_rows", batch->num_rows()},
+                  {"rows_currently_staged", rows_currently_staged_},
+                  {"options_.min_rows_per_group", options_.min_rows_per_group},
+                  {"max_rows_staged", writer_state_->max_rows_staged}});
+      staged_batches_.push_back(std::move(batch));
+    }
     while (!staged_batches_.empty() &&
            (writer_state_->StagingFull() ||
             rows_currently_staged_ >= options_.min_rows_per_group)) {
@@ -233,6 +246,18 @@ class DatasetWriterFileQueue {
     return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
         [self = this, batch = std::move(next)]() {
           int64_t rows_to_release = batch->num_rows();
+#ifdef ARROW_WITH_OPENTELEMETRY
+          uint64_t size_bytes = util::TotalBufferSize(*batch);
+          uint64_t num_buffers = 0;
+          for (auto column : batch->columns()) {
+            num_buffers += column->data()->buffers.size();
+          }
+          util::tracing::Span span;
+          START_SPAN(span, "DatasetWriter::WriteNext",
+                     {{"threadpool", "IO"},
+                      {"batch.size_bytes", size_bytes},
+                      {"batch.num_buffers", num_buffers}});
+#endif
           Status status = self->writer_->Write(batch);
           self->writer_state_->rows_in_flight_throttle.Release(rows_to_release);
           return status;
@@ -259,11 +284,6 @@ class DatasetWriterFileQueue {
   std::deque<std::shared_ptr<RecordBatch>> staged_batches_;
   uint64_t rows_currently_staged_ = 0;
   util::AsyncTaskScheduler* file_tasks_ = nullptr;
-};
-
-struct WriteTask {
-  std::string filename;
-  uint64_t num_rows;
 };
 
 class DatasetWriterDirectoryQueue {
@@ -301,7 +321,6 @@ class DatasetWriterDirectoryQueue {
 
   Status StartWrite(const std::shared_ptr<RecordBatch>& batch) {
     rows_written_ += batch->num_rows();
-    WriteTask task{current_filename_, static_cast<uint64_t>(batch->num_rows())};
     if (!latest_open_file_) {
       ARROW_RETURN_NOT_OK(OpenFileQueue(current_filename_));
     }
@@ -351,6 +370,8 @@ class DatasetWriterDirectoryQueue {
     latest_open_file_tasks_ = util::MakeThrottledAsyncTaskGroup(
         scheduler_, 1, /*queue=*/nullptr, std::move(file_finish_task));
     if (init_future_.is_valid()) {
+      util::tracing::Span span;
+      START_SPAN(span, "arrow::dataset::WaitForDirectoryInit");
       latest_open_file_tasks_->AddSimpleTask(
           [init_future = init_future_]() { return init_future; },
           "DatasetWriter::WaitForDirectoryInit"sv);
@@ -362,6 +383,8 @@ class DatasetWriterDirectoryQueue {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::dataset::SubmitPrepareDirectoryTask");
     if (directory_.empty() || !write_options_.create_dir) {
       return;
     }
@@ -383,6 +406,8 @@ class DatasetWriterDirectoryQueue {
     if (write_options_.existing_data_behavior ==
         ExistingDataBehavior::kDeleteMatchingPartitions) {
       init_task = [this, create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
+        util::tracing::Span span;
+        START_SPAN(span, "arrow::dataset::PrepareDirectory");
         return write_options_.filesystem
             ->DeleteDirContentsAsync(directory_,
                                      /*missing_dir_ok=*/true)
@@ -623,12 +648,14 @@ class DatasetWriter::DatasetWriterImpl {
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
+        EVENT(scheduler_->span(), "DatasetWriter::Backpressure::TooManyRowsQueued");
         EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyRowsQueued");
         break;
       }
       if (will_open_file) {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
+          EVENT(scheduler_->span(), "DatasetWriter::Backpressure::TooManyOpenFiles");
           EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
           writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
           RETURN_NOT_OK(TryCloseLargestFile());

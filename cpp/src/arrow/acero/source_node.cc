@@ -133,6 +133,8 @@ struct SourceNode : ExecNode, public TracedNode {
     plan_->query_context()->ScheduleTask(
         [this, morsel_length, use_legacy_batching, initial_batch_index, morsel,
          has_ordering = !ordering_.is_unordered()]() {
+          arrow::util::tracing::Span span;
+          START_SPAN(span, "SourceNode::ProcessMorsel");
           int64_t offset = 0;
           int batch_index = initial_batch_index;
           do {
@@ -163,6 +165,7 @@ struct SourceNode : ExecNode, public TracedNode {
 
   Status StartProducing() override {
     NoteStartProducing(ToStringExtra());
+
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -184,6 +187,9 @@ struct SourceNode : ExecNode, public TracedNode {
     options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
                                                   "SourceNode::DatasetScan"));
+    arrow::util::tracing::Span span;
+    START_SPAN(span, "SourceNode::DatasetScan");
+
     if (!scan_task.is_valid()) {
       // Plan has already been aborted, no need to start scanning
       return Status::OK();
@@ -195,9 +201,6 @@ struct SourceNode : ExecNode, public TracedNode {
       }
       lock.unlock();
 
-      arrow::util::tracing::Span fetch_batch_span;
-      auto fetch_batch_scope =
-          START_SCOPED_SPAN(fetch_batch_span, "SourceNode::ReadBatch");
       return generator_().Then(
           [this](
               const std::optional<ExecBatch>& morsel_or_end) -> Future<ControlFlow<int>> {
