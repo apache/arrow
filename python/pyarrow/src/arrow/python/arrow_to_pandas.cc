@@ -832,7 +832,7 @@ enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
   return Status::OK();
 }
 
-// TODO GH-40579: optimize ListView conversion to avoid unecessary copies
+// TODO GH-40579: optimize ListView conversion to avoid unnecessary copies
 template <typename T>
 enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
                                                 const ChunkedArray& data,
