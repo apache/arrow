@@ -5109,10 +5109,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, list, Arrow-compatible table
-        A DataFrame, list of arrays or chunked arrays, or a tabular object
-        implementing the Arrow PyCapsule Protocol (has an
-        ``__arrow_c_array__`` method).
+    data : dict, list, pandas.DataFrame, Arrow-compatible table
+        A mapping of strings to Arrays or Python lists, a list of Arrays,
+        a pandas DataFame, or any tabular object implementing the
+        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5137,6 +5137,24 @@ def record_batch(data, names=None, schema=None, metadata=None):
     >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
     >>> names = ["n_legs", "animals"]
 
+    Construct a RecordBatch from a python dictionary:
+
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals})
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals}).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
     Creating a RecordBatch from a list of arrays with names:
 
     >>> pa.record_batch([n_legs, animals], names=names)
@@ -5146,14 +5164,6 @@ def record_batch(data, names=None, schema=None, metadata=None):
     ----
     n_legs: [2,2,4,4,5,100]
     animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
-    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
-       n_legs        animals
-    0       2       Flamingo
-    1       2         Parrot
-    2       4            Dog
-    3       4          Horse
-    4       5  Brittle stars
-    5     100      Centipede
 
     Creating a RecordBatch from a list of arrays with names and metadata:
 
@@ -5231,6 +5241,11 @@ def record_batch(data, names=None, schema=None, metadata=None):
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
+    elif isinstance(data, dict):
+        if names is not None:
+            raise ValueError(
+                "The 'names' argument is not valid when passing a dictionary")
+        return RecordBatch.from_pydict(data, schema=schema, metadata=metadata)
     elif hasattr(data, "__arrow_c_array__"):
         if schema is not None:
             requested_schema = schema.__arrow_c_schema__()
@@ -5241,7 +5256,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
         if schema is not None and batch.schema != schema:
             # __arrow_c_array__ coerces schema with best effort, so we might
             # need to cast it if the producer wasn't able to cast to exact schema.
-            batch = Table.from_batches([batch]).cast(schema).to_batches()[0]
+            batch = batch.cast(schema)
         return batch
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
@@ -5255,9 +5270,11 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, dict, list
-        A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays.
+    data : dict, list, pandas.DataFrame, Arrow-compatible table
+        A mapping of strings to Arrays or Python lists, a list of arrays or
+        chunked arrays, a pandas DataFame, or any tabular object implementing
+        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
+        ``__arrow_c_stream__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5289,6 +5306,16 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     >>> n_legs = pa.array([2, 4, 5, 100])
     >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
     >>> names = ["n_legs", "animals"]
+
+    Construct a Table from a python dictionary:
+
+    >>> pa.table({"n_legs": n_legs, "animals": animals})
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
 
     Construct a Table from arrays:
 
