@@ -832,35 +832,24 @@ enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
   return Status::OK();
 }
 
-template <class T>
-struct ListViewConversionType;
-
-template <>
-struct ListViewConversionType<ListViewType> {
-  using type = ListType;
-};
-
-template <>
-struct ListViewConversionType<LargeListViewType> {
-  using type = LargeListType;
-};
-
+// TODO GH-40579: optimize ListView conversion to avoid unecessary copies
 template <typename T>
 enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
                                                 const ChunkedArray& data,
                                                 PyObject** out_values) {
   using ListViewArrayType = typename TypeTraits<T>::ArrayType;
-  using ConversionType = typename ListViewConversionType<T>::type;
-  using ConversionClass = typename TypeTraits<ConversionType>::ArrayType;
+  using NonViewType = std::conditional_t<T::type_id == Type::LIST_VIEW,
+                                         ListType, LargeListType>;
+  using NonViewClass = typename TypeTraits<NonViewType>::ArrayType;
   ArrayVector list_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
     ARROW_ASSIGN_OR_RAISE(auto converted_array,
-                          ConversionClass::FromListView(arr, options.pool));
+                          NonViewClass::FromListView(arr, options.pool));
     list_arrays.emplace_back(converted_array);
   }
   auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
-  return ConvertListsLike<ConversionType>(options, *chunked_array, out_values);
+  return ConvertListsLike<NonViewType>(options, *chunked_array, out_values);
 }
 
 template <typename F1, typename F2, typename F3>
