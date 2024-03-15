@@ -65,6 +65,19 @@ Additional features include:
 - Fine control over column types to work seamlessly with databases and data warehouses
 - Toolkit for building connectors to other applications and services that use Arrow
 
+## What is Apache Arrow?
+
+Apache Arrow is a cross-language development platform for in-memory and
+larger-than-memory data. It specifies a standardized language-independent
+columnar memory format for flat and hierarchical data, organized for efficient
+analytic operations on modern hardware. It also provides computational libraries
+and zero-copy streaming, messaging, and interprocess communication.
+
+This package exposes an interface to the Arrow C++ library, enabling access to
+many of its features in R. It provides low-level access to the Arrow C++ library
+API and higher-level access through a dplyr backend and familiar R functions.
+
+
 ## Arrow resources
 
 There are a few additional resources that you may find useful for getting started with arrow:
