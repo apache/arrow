@@ -274,6 +274,123 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
+namespace {
+Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
+  AzureOptions options;
+  options.account_name = env->account_name();
+  switch (env->backend()) {
+    case AzureBackend::kAzurite:
+      options.blob_storage_authority = "127.0.0.1:10000";
+      options.dfs_storage_authority = "127.0.0.1:10000";
+      options.blob_storage_scheme = "http";
+      options.dfs_storage_scheme = "http";
+      break;
+    case AzureBackend::kAzure:
+      // Use the default values
+      break;
+  }
+  ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
+  return options;
+}
+}  // namespace
+
+struct PreexistingData {
+ public:
+  using RNG = random::pcg32_fast;
+
+ public:
+  const std::string container_name;
+  static constexpr char const* kObjectName = "test-object-name";
+
+  static constexpr char const* kLoremIpsum = R"""(
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.
+)""";
+
+ public:
+  explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
+
+  // Creates a path by concatenating the container name and the stem.
+  std::string ContainerPath(std::string_view stem) const { return Path(stem); }
+
+  // Short alias to ContainerPath()
+  std::string Path(std::string_view stem) const {
+    return ConcatAbstractPath(container_name, stem);
+  }
+
+  std::string ObjectPath() const { return ContainerPath(kObjectName); }
+  std::string NotFoundObjectPath() const { return ContainerPath("not-found"); }
+
+  std::string RandomDirectoryPath(RNG& rng) const {
+    return ContainerPath(RandomChars(32, rng));
+  }
+
+  // Utilities
+  static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
+
+  static std::string RandomChars(int count, RNG& rng) {
+    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
+    std::string s;
+    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
+    return s;
+  }
+
+  static int RandomIndex(int end, RNG& rng) {
+    return std::uniform_int_distribution<int>(0, end - 1)(rng);
+  }
+
+  static std::string RandomLine(int lineno, int width, RNG& rng) {
+    auto line = std::to_string(lineno) + ":    ";
+    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
+    line += '\n';
+    return line;
+  }
+};
+
+class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+    random::pcg32_fast rng((std::random_device()()));
+    container_name_ = PreexistingData::RandomContainerName(rng);
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    ASSERT_OK_AND_ASSIGN(azure_fs_, AzureFileSystem::Make(options));
+    ASSERT_OK(azure_fs_->CreateDir(container_name_, true));
+    fs_ = std::make_shared<SubTreeFileSystem>(container_name_, azure_fs_);
+  }
+
+  void TearDown() override {
+    if (azure_fs_) {
+      ASSERT_OK(azure_fs_->DeleteDir(container_name_));
+    }
+  }
+
+ protected:
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
+
+  bool have_implicit_directories() const override { return true; }
+  bool allow_write_file_over_dir() const override { return true; }
+  bool allow_read_dir_as_file() const override { return true; }
+  bool allow_move_dir() const override { return false; }
+  bool allow_append_to_file() const override { return true; }
+  bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override { return false; }
+  bool have_file_metadata() const override { return true; }
+
+  std::shared_ptr<AzureFileSystem> azure_fs_;
+  std::shared_ptr<FileSystem> fs_;
+
+ private:
+  std::string container_name_;
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestAzureFileSystemGeneric);
+
 TEST(AzureFileSystem, InitializingFilesystemWithoutAccountNameFails) {
   AzureOptions options;
   ASSERT_RAISES(Invalid, options.ConfigureAccountKeyCredential("account_key"));
@@ -532,64 +649,6 @@ TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
 }
 
-struct PreexistingData {
- public:
-  using RNG = random::pcg32_fast;
-
- public:
-  const std::string container_name;
-  static constexpr char const* kObjectName = "test-object-name";
-
-  static constexpr char const* kLoremIpsum = R"""(
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
-)""";
-
- public:
-  explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
-
-  // Creates a path by concatenating the container name and the stem.
-  std::string ContainerPath(std::string_view stem) const { return Path(stem); }
-
-  // Short alias to ContainerPath()
-  std::string Path(std::string_view stem) const {
-    return ConcatAbstractPath(container_name, stem);
-  }
-
-  std::string ObjectPath() const { return ContainerPath(kObjectName); }
-  std::string NotFoundObjectPath() const { return ContainerPath("not-found"); }
-
-  std::string RandomDirectoryPath(RNG& rng) const {
-    return ContainerPath(RandomChars(32, rng));
-  }
-
-  // Utilities
-  static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
-
-  static std::string RandomChars(int count, RNG& rng) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
-    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
-    std::string s;
-    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
-    return s;
-  }
-
-  static int RandomIndex(int end, RNG& rng) {
-    return std::uniform_int_distribution<int>(0, end - 1)(rng);
-  }
-
-  static std::string RandomLine(int lineno, int width, RNG& rng) {
-    auto line = std::to_string(lineno) + ":    ";
-    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
-    line += '\n';
-    return line;
-  }
-};
-
 class TestAzureFileSystem : public ::testing::Test {
  protected:
   // Set in constructor
@@ -619,24 +678,6 @@ class TestAzureFileSystem : public ::testing::Test {
   FileSystem* fs() const {
     EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     return fs(CachedHNSSupport(*env));
-  }
-
-  static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
-    AzureOptions options;
-    options.account_name = env->account_name();
-    switch (env->backend()) {
-      case AzureBackend::kAzurite:
-        options.blob_storage_authority = "127.0.0.1:10000";
-        options.dfs_storage_authority = "127.0.0.1:10000";
-        options.blob_storage_scheme = "http";
-        options.dfs_storage_scheme = "http";
-        break;
-      case AzureBackend::kAzure:
-        // Use the default values
-        break;
-    }
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
-    return options;
   }
 
   void SetUp() override {
