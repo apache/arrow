@@ -635,4 +635,136 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
   execution_context_.Reset();
 }
 
+class TestRegexpLikeHolder : public ::testing::Test {
+ protected:
+  ExecutionContext execution_context_;
+};
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeUseNonParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder, RegexpLikeHolder::Make("ast", false, ""));
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "fast";
+
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+
+  source_string = "FAST";
+  ret = regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(!ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexLikeHolderUseIParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder, RegexpLikeHolder::Make("ast", true, "i"));
+
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "FAST";
+
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseCParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder, RegexpLikeHolder::Make("ast", true, "c"));
+
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "FAST";
+
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(!ret);
+
+  std::string lower_source_string = "fast";
+  ret = regexp_like(lower_source_string.c_str(),
+                    static_cast<int32_t>(lower_source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseICParameter) {
+  // In Oracle, if specify multiple contradictory values in regexp_like, Oracle uses the
+  // last value.
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder,
+                       RegexpLikeHolder::Make("ast", true, "ci"));
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "FAST";
+
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseNParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder,
+                       RegexpLikeHolder::Make("^H.llo$", false, ""));
+
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "H\nllo";
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(!ret);
+
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder_use_n_parameter,
+                       RegexpLikeHolder::Make("^H.llo$", true, "n"))
+  auto& regexp_like_use_parameter = *regexp_like_holder_use_n_parameter;
+  ret = regexp_like_use_parameter(source_string.c_str(),
+                                  static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseMParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder,
+                       RegexpLikeHolder::Make("^c.*t$", false, ""));
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "apple\nbanana\ncat\ndog\nzebra\n";
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(!ret);
+
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder_use_m_parameter,
+                       RegexpLikeHolder::Make("^c.*t$", true, "m"));
+  auto& regexp_like_use_parameter = *regexp_like_holder_use_m_parameter;
+  ret = regexp_like_use_parameter(source_string.c_str(),
+                                  static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseMNParameter) {
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder,
+                       RegexpLikeHolder::Make("^cat.*dog$", false, ""));
+
+  auto& regexp_like = *regexp_like_holder;
+  std::string source_string = "apple\nbanana\ncat\ndog\nzebra\n";
+  auto ret =
+      regexp_like(source_string.c_str(), static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(!ret);
+
+  EXPECT_OK_AND_ASSIGN(auto regexp_like_holder_use_m_parameter,
+                       RegexpLikeHolder::Make("^cat.*dog$", true, "nm"));
+  auto& regexp_like_use_parameter = *regexp_like_holder_use_m_parameter;
+  ret = regexp_like_use_parameter(source_string.c_str(),
+                                  static_cast<int32_t>(source_string.length()));
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseUnPOSIXRegexExpression) {
+  auto regexp_like_holder = RegexpLikeHolder::Make("\\b\\w+(?=ing\\b)", false, "");
+  auto status = regexp_like_holder.status();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid: Building Posix regular expression '\\b\\w+(?=ing\\b)' "
+          "failed with: invalid escape sequence: \\b"),
+      regexp_like_holder.status());
+}
+
+TEST_F(TestRegexpLikeHolder, TestRegexpLikeHolderUseNonicmnOption) {
+  auto regexp_like_holder = RegexpLikeHolder::Make("ast", true, "x");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid match parameter 'x':Only 'i', 'c', 'n', 'm' are allowed"),
+      regexp_like_holder.status());
+}
+
 }  // namespace gandiva

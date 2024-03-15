@@ -384,4 +384,15 @@ const char* mask_utf8_utf8(int64_t context, const char* in, int32_t length,
 
 GANDIVA_EXPORT
 const char* mask_utf8(int64_t context, const char* in, int32_t length, int32_t* out_len);
+
+GANDIVA_EXPORT
+bool gdv_fn_regexp_like_utf8_uft8(int64_t holder_ptr, const char* source_string,
+                                  int32_t source_len, const char* pattern,
+                                  int32_t pattern_len);
+
+GANDIVA_EXPORT
+bool gdv_fn_regexp_like_utf8_uft8_utf8(int64_t holder_ptr, const char* source_string,
+                                       int32_t source_len, const char* pattern,
+                                       int32_t pattern_len, const char* match_parameter,
+                                       int32_t parameter_len);
 }

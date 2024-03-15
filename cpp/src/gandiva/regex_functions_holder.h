@@ -150,4 +150,27 @@ class GANDIVA_EXPORT ExtractHolder : public FunctionHolder {
   int32_t num_groups_pattern_;  // number of groups that user defined inside the regex
 };
 
+class GANDIVA_EXPORT RegexpLikeHolder : public FunctionHolder {
+ public:
+  ~RegexpLikeHolder() override = default;
+
+  static Result<std::shared_ptr<RegexpLikeHolder>> Make(const FunctionNode& node);
+
+  static Result<std::shared_ptr<RegexpLikeHolder>> Make(
+      const std::string& regex_pattern, bool used_match_parameter,
+      const std::string& match_parameter);
+
+  bool operator()(const char* source_string, int32_t source_string_len) {
+    std::string source_str(source_string, source_string_len);
+    return RE2::PartialMatch(source_str, regexp_);
+  }
+
+ private:
+  explicit RegexpLikeHolder(const std::string& pattern, RE2::Options regex_op)
+      : regex_pattern_(pattern), regexp_(pattern, regex_op) {}
+
+  std::string regex_pattern_;
+  RE2 regexp_;
+};
+
 }  // namespace gandiva

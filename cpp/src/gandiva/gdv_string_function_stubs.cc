@@ -755,6 +755,23 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   *out_len = result_len;
   return result;
 }
+
+bool gdv_fn_regexp_like_utf8_uft8(int64_t holder_ptr, const char* source_string,
+                                  int32_t source_len, const char* pattern,
+                                  int32_t pattern_len) {
+  gandiva::RegexpLikeHolder* holder =
+      reinterpret_cast<gandiva::RegexpLikeHolder*>(holder_ptr);
+  return (*holder)(source_string, source_len);
+}
+
+bool gdv_fn_regexp_like_utf8_uft8_utf8(int64_t holder_ptr, const char* source_string,
+                                       int32_t source_len, const char* pattern,
+                                       int32_t pattern_len, const char* match_parameter,
+                                       int32_t parameter_len) {
+  gandiva::RegexpLikeHolder* holder =
+      reinterpret_cast<gandiva::RegexpLikeHolder*>(holder_ptr);
+  return (*holder)(source_string, source_len);
+}
 }
 
 namespace gandiva {
@@ -986,6 +1003,32 @@ arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+
+  // gdv_fn_regexp_like_utf8_utf8
+  args = {
+      types->i64_type(),     // int64_t holder_ptr
+      types->i8_ptr_type(),  // const char* source_string
+      types->i32_type(),     // int source_string_len
+      types->i8_ptr_type(),  // const char* pattern
+      types->i32_type()      // int pattern_len
+  };
+  engine->AddGlobalMappingForFunc("gdv_fn_regexp_like_utf8_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_regexp_like_utf8_uft8));
+
+  // gdv_fn_regexp_like_utf8_utf8_utf8
+  args = {
+      types->i64_type(),     // int64_t holder_ptr
+      types->i8_ptr_type(),  // const char* source_string
+      types->i32_type(),     // int source_string_len
+      types->i8_ptr_type(),  // const char* pattern
+      types->i32_type(),     // int pattern_len
+      types->i8_ptr_type(),  // const char* match_parameter
+      types->i32_type()      // int pattern_len
+  };
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_regexp_like_utf8_utf8_utf8", types->i1_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_regexp_like_utf8_uft8_utf8));
   return arrow::Status::OK();
 }
 }  // namespace gandiva
