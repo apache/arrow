@@ -611,10 +611,10 @@ TEST_F(TestUtf8, TestConvertUtf8) {
 
   // Create a row-batch with some sample data
   int num_records = 3;
-  auto array_a = MakeArrowArrayUtf8({"ok-\xf8\x28"
-                                     "-a",
-                                     "all-valid", "ok-\xa0\xa1-valid"},
-                                    {true, true, true});
+  auto array_a = MakeArrowArrayBinary({"ok-\xf8\x28"
+                                       "-a",
+                                       "all-valid", "ok-\xa0\xa1-valid"},
+                                      {true, true, true});
 
   auto array_b =
       MakeArrowArrayUtf8({"ok-z(-a", "all-valid", "ok-zz-valid"}, {true, true, true});
