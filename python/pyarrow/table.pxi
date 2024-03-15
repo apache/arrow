@@ -5333,6 +5333,92 @@ cdef class Table(_Tabular):
             output_type=Table
         )
 
+    def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
+        """
+        Perform an asof join between this table and another one.
+
+        This is similar to a left-join except that we match on nearest key rather
+        than equal keys. Both tables must be sorted by the key. This type of join
+        is most useful for time series data that are not perfectly aligned.
+
+        Optionally match on equivalent keys with "by" before searching with "on".
+
+        Result of the join will be a new Table, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_table : Table
+            The table to join to the current one, acting as the right table
+            in the join operation.
+        on : str
+            The column from current table that should be used as the "on" key
+            of the join operation left side.
+
+            An inexact match is used on the "on" key, i.e. a row is considered a
+            match if and only if left_on - tolerance <= right_on <= left_on.
+
+            The input dataset must be sorted by the "on" key. Must be a single
+            field of a common type.
+
+            Currently, the "on" key must be an integer, date, or timestamp type.
+        by : str or list[str]
+            The columns from current table that should be used as the keys
+            of the join operation left side. The join operation is then done
+            only for the matches in these columns.
+        tolerance : int
+            The tolerance for inexact "on" key matching. A right row is considered
+            a match with the left row ``right.on - left.on <= tolerance``. The
+            ``tolerance`` may be:
+
+            - negative, in which case a past-as-of-join occurs;
+            - or positive, in which case a future-as-of-join occurs;
+            - or zero, in which case an exact-as-of-join occurs.
+
+            The tolerance is interpreted in the same units as the "on" key.
+        right_on : str or list[str], default None
+            The columns from the right_table that should be used as the on key
+            on the join operation right side.
+            When ``None`` use the same key name as the left table.
+        right_by : str or list[str], default None
+            The columns from the right_table that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left table.
+
+        Returns
+        -------
+        Table
+
+        Example
+        --------
+        >>> import pyarrow as pa
+        >>> t1 = pa.table({'id': [1, 3, 2, 3, 3],
+        ...                'year': [2020, 2021, 2022, 2022, 2023]})
+        >>> t2 = pa.table({'id': [3, 4],
+        ...                'year': [2020, 2021],
+        ...                'n_legs': [5, 100],
+        ...                'animal': ["Brittle stars", "Centipede"]})
+
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[1,3,2,3,3]]
+        year: [[2020,2021,2022,2022,2023]]
+        n_legs: [[null,5,null,5,null]]
+        animal: [[null,"Brittle stars",null,"Brittle stars",null]]
+        """
+        if right_on is None:
+            right_on = on
+        if right_by is None:
+            right_by = by
+        return _pac()._perform_join_asof(self, on, by,
+                                         right_table, right_on, right_by,
+                                         tolerance, output_type=Table)
+
     def __arrow_c_stream__(self, requested_schema=None):
         """
         Export the table as an Arrow C stream PyCapsule.

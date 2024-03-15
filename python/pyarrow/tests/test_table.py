@@ -2780,6 +2780,169 @@ def test_table_join_many_columns():
     })
 
 
+@pytest.mark.dataset
+def test_table_join_asof():
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+
+    r = t1.join_asof(
+        t2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
+    assert r.combine_chunks() == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_multiple_by():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_empty_by():
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+
+    result = t1.join_asof(
+        t2, on="on", by=[], tolerance=1
+    )
+    assert result == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
+def test_table_join_asof_collisions():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
+    with pytest.raises(ValueError, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
+
+
+@pytest.mark.dataset
+def test_table_join_asof_by_length_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = "inconsistent size of by-key across inputs"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+def test_table_join_asof_by_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99., 2., 1.],
+        "on": [2, 3, 4],
+    })
+
+    msg = "Expected by-key type int64 but got double for field colA in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+def test_table_join_asof_on_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2., 3., 4.],
+    })
+
+    msg = "Expected on-key type int64 but got double for field on in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
 @pytest.mark.parametrize(
     ('cls'),
     [
