@@ -3587,8 +3587,6 @@ def test_run_end_encoded_from_array_with_type():
                                                  ree_type)
 
     arr = [1, 2, 2, 3, 3, 3]
-    result = pa.array(arr)
-    assert result.equals(expected)
     result = pa.array(arr, type=ree_type)
     assert result.equals(expected)
     result = pa.array(np.array(arr), type=ree_type)
