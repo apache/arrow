@@ -36,6 +36,9 @@
 #define ARROW_DLLIMPORT __declspec(dllimport)
 #endif
 
+// _declspec(dllexport) even when the #included by a non-arrow source
+#define ARROW_FORCE_EXPORT ARROW_DLLEXPORT
+
 #ifdef ARROW_STATIC
 #define ARROW_EXPORT
 #define ARROW_FRIEND_EXPORT
@@ -76,5 +79,8 @@
 
 #define ARROW_FRIEND_EXPORT
 #define ARROW_TEMPLATE_EXPORT
+
+// [[gnu::visibility("default")]] even when #included by a non-arrow source
+#define ARROW_FORCE_EXPORT [[gnu::visibility("default")]]
 
 #endif  // Non-Windows

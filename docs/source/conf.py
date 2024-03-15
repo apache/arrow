@@ -114,6 +114,7 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'myst_parser',
     'numpydoc',
     'sphinx_design',
     'sphinx_copybutton',
@@ -149,6 +150,24 @@ copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
+
+# MyST-Parser configuration
+myst_enable_extensions = [
+    'amsmath',
+    'attrs_inline',
+    # 'colon_fence',
+    'deflist',
+    'dollarmath',
+    'fieldlist',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    # 'replacements',
+    # 'smartquotes',
+    'strikethrough',
+    'substitution',
+    'tasklist',
+]
 
 # numpydoc configuration
 numpydoc_xref_param_type = True
@@ -188,7 +207,10 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_suffix = ['.rst']
+source_suffix = {
+    '.md': 'markdown',
+    '.rst': 'restructuredtext',
+}
 
 autosummary_generate = True
 

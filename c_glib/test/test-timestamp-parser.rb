@@ -15,22 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+class TestTimestampParser < Test::Unit::TestCase
+  sub_test_case("strptime") do
+    def setup
+      @parser = Arrow::StrptimeTimestampParser.new("%Y-%m-%d")
+    end
 
-ENV DEBIAN_FRONTEND noninteractive
+    def test_kind
+      assert_equal("strptime", @parser.kind)
+    end
 
-# Install python3 and pip so we can install pyarrow to test the C data interface.
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        python3 \
-        python3-pip && \
-    apt-get clean
+    def test_format
+      assert_equal("%Y-%m-%d", @parser.format)
+    end
+  end
 
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
+  sub_test_case("ISO8601") do
+    def setup
+      @parser = Arrow::ISO8601TimestampParser.new
+    end
 
-# Need a newer pip than Debian's to install manylinux201x wheels
-RUN pip install -U pip
-
-RUN pip install pyarrow cffi --only-binary pyarrow
+    def test_kind
+      assert_equal("iso8601", @parser.kind)
+    end
+  end
+end

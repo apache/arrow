@@ -145,7 +145,8 @@ def show_info():
         print(f"  {module: <20}: {status: <8}")
 
     print("\nFilesystems:")
-    filesystems = ["GcsFileSystem", "HadoopFileSystem", "S3FileSystem"]
+    filesystems = ["AzureFileSystem", "GcsFileSystem",
+                   "HadoopFileSystem", "S3FileSystem"]
     for fs in filesystems:
         status = "Enabled" if _filesystem_is_available(fs) else "-"
         print(f"  {fs: <20}: {status: <8}")

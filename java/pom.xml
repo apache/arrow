@@ -450,7 +450,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <version>3.5.1</version>
+          <version>3.5.2</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -1038,7 +1038,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.1</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>cdata-cmake</id>
@@ -1099,7 +1099,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.1</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
@@ -1214,7 +1214,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.1</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>

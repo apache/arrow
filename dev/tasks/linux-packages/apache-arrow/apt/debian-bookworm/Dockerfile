@@ -69,6 +69,7 @@ RUN \
     llvm-dev \
     lsb-release \
     meson \
+    mold \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \

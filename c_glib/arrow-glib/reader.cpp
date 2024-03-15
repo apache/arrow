@@ -136,7 +136,7 @@ garrow_record_batch_reader_class_init(GArrowRecordBatchReaderClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->finalize = garrow_record_batch_reader_finalize;
-  gobject_class->finalize = garrow_record_batch_reader_dispose;
+  gobject_class->dispose = garrow_record_batch_reader_dispose;
   gobject_class->set_property = garrow_record_batch_reader_set_property;
 
   GParamSpec *spec;
@@ -187,7 +187,7 @@ garrow_record_batch_reader_import(gpointer c_abi_array_stream, GError **error)
  * @schema: (nullable): A #GArrowSchema to confirm to.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: The schema in the stream on success, %NULL on error.
+ * Returns: A newly created #GArrowRecordBatchReader.
  *
  * Since: 6.0.0
  */

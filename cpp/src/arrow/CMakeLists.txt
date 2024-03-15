@@ -145,11 +145,10 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GMOCK}
-                              ${ARROW_GTEST_GTEST_MAIN})
-set(ARROW_TEST_STATIC_LINK_LIBS arrow_testing_static arrow_static
+set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
-set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
+set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 if(NOT MSVC)
   list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})

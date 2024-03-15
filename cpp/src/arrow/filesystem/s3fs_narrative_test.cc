@@ -48,8 +48,7 @@ DEFINE_string(region, "", "AWS region");
 DEFINE_string(endpoint, "", "Endpoint override (e.g. '127.0.0.1:9000')");
 DEFINE_string(scheme, "https", "Connection scheme");
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 #define ASSERT_RAISES_PRINT(context_msg, error_type, expr) \
   do {                                                     \
@@ -247,8 +246,7 @@ void TestMain(int argc, char** argv) {
   ASSERT_OK(FinalizeS3());
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
 
 int main(int argc, char** argv) {
   std::stringstream ss;

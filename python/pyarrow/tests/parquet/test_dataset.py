@@ -107,9 +107,9 @@ def test_filters_equivalency(tempdir):
     df = pd.DataFrame({
         'integer': np.array(integer_keys, dtype='i4').repeat(15),
         'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
-        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
-                           3),
-    }, columns=['integer', 'string', 'boolean'])
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5), 3),
+        'values': np.arange(30),
+    })
 
     _generate_partition_directories(local, base_path, partition_spec, df)
 
@@ -312,9 +312,9 @@ def test_filters_inclusive_set(tempdir):
     df = pd.DataFrame({
         'integer': np.array(integer_keys, dtype='i4').repeat(15),
         'string': np.tile(np.tile(np.array(string_keys, dtype=object), 5), 2),
-        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5),
-                           3),
-    }, columns=['integer', 'string', 'boolean'])
+        'boolean': np.tile(np.tile(np.array(boolean_keys, dtype='bool'), 5), 3),
+        'values': np.arange(30),
+    })
 
     _generate_partition_directories(local, base_path, partition_spec, df)
 

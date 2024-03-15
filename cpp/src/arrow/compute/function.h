@@ -229,6 +229,12 @@ class ARROW_EXPORT Function {
 
   virtual Status Validate() const;
 
+  /// \brief Returns the pure property for this function.
+  ///
+  /// For impure functions like 'random', we should skip any simplification
+  /// for this function except it's arguments.
+  virtual bool is_impure() const { return false; }
+
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
            const FunctionOptions* default_options)
@@ -291,9 +297,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   using KernelType = ScalarKernel;
 
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR)
+                 const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options) {}
+                                           std::move(doc), default_options),
+        is_impure_(is_impure) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -304,6 +311,13 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
+
+  /// \brief Impure property for expression simplification only takes
+  /// effect in ScalarFunction.
+  bool is_impure() const override { return is_impure_; }
+
+ private:
+  bool is_impure_;
 };
 
 /// \brief A function that executes general array operations that may yield
