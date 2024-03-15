@@ -76,6 +76,9 @@ RUN apt-get purge -y npm && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
+# Expose ARROW_PYTHON_VENV from BASE
+ENV ARROW_PYTHON_VENV /arrow-dev
+
 COPY docs/requirements.txt /arrow/docs/
 RUN pip install -r arrow/docs/requirements.txt meson
 
