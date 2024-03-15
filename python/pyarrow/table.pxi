@@ -2150,6 +2150,117 @@ cdef class _Tabular(_PandasConvertible):
                 pieces.append('...')
         return '\n'.join(pieces)
 
+    def remove_column(self, int i):
+        # implemented in RecordBatch/Table subclasses
+        raise NotImplementedError
+
+    def drop_columns(self, columns):
+        """
+        Drop one or more columns and return a new Table or RecordBatch.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Raises
+        ------
+        KeyError
+            If any of the passed column names do not exist.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object without the column(s).
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Drop one column:
+
+        >>> table.drop_columns("animals")
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop one or more columns:
+
+        >>> table.drop_columns(["n_legs", "animals"])
+        pyarrow.Table
+        ...
+        ----
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column {!r} not found".format(col))
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        res = self
+        for idx in indices:
+            res = res.remove_column(idx)
+
+        return res
+
+    def add_column(self, int i, field_, column):
+        # implemented in RecordBatch/Table subclasses
+        raise NotImplementedError
+
+    def append_column(self, field_, column):
+        """
+        Append column at end of columns.
+
+        Parameters
+        ----------
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        Table or RecordBatch
+            New table or record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Append column at the end:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.append_column('year', [year])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        year: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        year: [[2021,2022,2019,2021]]
+        """
+        return self.add_column(self.num_columns, field_, column)
+
 
 cdef class RecordBatch(_Tabular):
     """
@@ -2483,6 +2594,214 @@ cdef class RecordBatch(_Tabular):
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
 
+    def add_column(self, int i, field_, column):
+        """
+        Add column to RecordBatch at position i.
+
+        A new record batch is returned with the column added, the original record batch
+        object is left unchanged.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Add column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.add_column(0,"year", year)
+        pyarrow.RecordBatch
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [2021,2022,2019,2021]
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+
+        Original record batch is left unchanged:
+
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.AddColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def remove_column(self, int i):
+        """
+        Create new RecordBatch with the indicated column removed.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to remove.
+
+        Returns
+        -------
+        Table
+            New record batch without the column.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.remove_column(1)
+        pyarrow.RecordBatch
+        n_legs: int64
+        ----
+        n_legs: [2,4,5,100]
+        """
+        cdef shared_ptr[CRecordBatch] c_batch
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RemoveColumn(i))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def set_column(self, int i, field_, column):
+        """
+        Replace column in RecordBatch at position.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column set.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Replace a column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.set_column(1,'year', year)
+        pyarrow.RecordBatch
+        n_legs: int64
+        year: int64
+        ----
+        n_legs: [2,4,5,100]
+        year: [2021,2022,2019,2021]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SetColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def rename_columns(self, names):
+        """
+        Create new record batch with columns renamed to provided names.
+
+        Parameters
+        ----------
+        names : list of str
+            List of new column names.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> new_names = ["n", "name"]
+        >>> batch.rename_columns(new_names)
+        pyarrow.RecordBatch
+        n: int64
+        name: string
+        ----
+        n: [2,4,5,100]
+        name: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[c_string] c_names
+
+        for name in names:
+            c_names.push_back(tobytes(name))
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RenameColumns(move(c_names)))
+
+        return pyarrow_wrap_batch(c_batch)
+
     def serialize(self, memory_pool=None):
         """
         Write RecordBatch to Buffer as encapsulated IPC message, which does not
@@ -2744,7 +3063,7 @@ cdef class RecordBatch(_Tabular):
 
     def cast(self, Schema target_schema, safe=None, options=None):
         """
-        Cast batch values to another schema.
+        Cast record batch values to another schema.
 
         Parameters
         ----------
@@ -2758,12 +3077,52 @@ cdef class RecordBatch(_Tabular):
         Returns
         -------
         RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
+
+        Define new schema and cast batch values:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.duration('s')),
+        ...     pa.field('animals', pa.string())]
+        ...     )
+        >>> batch.cast(target_schema=my_schema)
+        pyarrow.RecordBatch
+        n_legs: duration[s]
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
         """
-        # Wrap the more general Table cast implementation
-        tbl = Table.from_batches([self])
-        casted_tbl = tbl.cast(target_schema, safe=safe, options=options)
-        casted_batch, = casted_tbl.to_batches()
-        return casted_batch
+        cdef:
+            Array column, casted
+            Field field
+            list newcols = []
+
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             "the record batch's field names: {!r}, {!r}"
+                             .format(self.schema.names, target_schema.names))
+
+        for column, field in zip(self.itercolumns(), target_schema):
+            if not field.nullable and column.null_count > 0:
+                raise ValueError("Casting field {!r} with null values to non-nullable"
+                                 .format(field.name))
+            casted = column.cast(field.type, safe=safe, options=options)
+            newcols.append(casted)
+
+        return RecordBatch.from_arrays(newcols, schema=target_schema)
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -4664,46 +5023,6 @@ cdef class Table(_Tabular):
 
         return pyarrow_wrap_table(c_table)
 
-    def append_column(self, field_, column):
-        """
-        Append column at end of columns.
-
-        Parameters
-        ----------
-        field_ : str or Field
-            If a string is passed then the type is deduced from the column
-            data.
-        column : Array, list of Array, or values coercible to arrays
-            Column data.
-
-        Returns
-        -------
-        Table
-            New table with the passed column added.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Append column at the end:
-
-        >>> year = [2021, 2022, 2019, 2021]
-        >>> table.append_column('year', [year])
-        pyarrow.Table
-        n_legs: int64
-        animals: string
-        year: int64
-        ----
-        n_legs: [[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        year: [[2021,2022,2019,2021]]
-        """
-        return self.add_column(self.num_columns, field_, column)
-
     def remove_column(self, int i):
         """
         Create new Table with the indicated column removed.
@@ -4837,67 +5156,6 @@ cdef class Table(_Tabular):
             c_table = GetResultValue(self.table.RenameColumns(move(c_names)))
 
         return pyarrow_wrap_table(c_table)
-
-    def drop_columns(self, columns):
-        """
-        Drop one or more columns and return a new table.
-
-        Parameters
-        ----------
-        columns : str or list[str]
-            Field name(s) referencing existing column(s).
-
-        Raises
-        ------
-        KeyError
-            If any of the passed column names do not exist.
-
-        Returns
-        -------
-        Table
-            New table without the column(s).
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Drop one column:
-
-        >>> table.drop_columns("animals")
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
-
-        Drop one or more columns:
-
-        >>> table.drop_columns(["n_legs", "animals"])
-        pyarrow.Table
-        ...
-        ----
-        """
-        if isinstance(columns, str):
-            columns = [columns]
-
-        indices = []
-        for col in columns:
-            idx = self.schema.get_field_index(col)
-            if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
-            indices.append(idx)
-
-        indices.sort()
-        indices.reverse()
-
-        table = self
-        for idx in indices:
-            table = table.remove_column(idx)
-
-        return table
 
     def drop(self, columns):
         """
@@ -5258,8 +5516,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
             # need to cast it if the producer wasn't able to cast to exact schema.
             batch = batch.cast(schema)
         return batch
+
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
+
     else:
         raise TypeError("Expected pandas DataFrame or list of arrays")
 

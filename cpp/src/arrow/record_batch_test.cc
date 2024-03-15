@@ -315,6 +315,32 @@ TEST_F(TestRecordBatch, RemoveColumn) {
   AssertBatchesEqual(*new_batch, *batch4);
 }
 
+TEST_F(TestRecordBatch, RenameColumns) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto schema1 = ::arrow::schema({field1, field2, field3});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
+
+  auto batch = RecordBatch::Make(schema1, length, {array1, array2, array3});
+  EXPECT_THAT(batch->ColumnNames(), testing::ElementsAre("f1", "f2", "f3"));
+
+  ASSERT_OK_AND_ASSIGN(auto renamed, batch->RenameColumns({"zero", "one", "two"}));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+  EXPECT_THAT(renamed->columns(), testing::ElementsAre(array1, array2, array3));
+  ASSERT_OK(renamed->ValidateFull());
+
+  ASSERT_RAISES(Invalid, batch->RenameColumns({"hello", "world"}));
+}
+
 TEST_F(TestRecordBatch, SelectColumns) {
   const int length = 10;
 
