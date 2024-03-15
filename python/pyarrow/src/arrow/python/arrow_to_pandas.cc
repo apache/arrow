@@ -838,8 +838,8 @@ enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
                                                 const ChunkedArray& data,
                                                 PyObject** out_values) {
   using ListViewArrayType = typename TypeTraits<T>::ArrayType;
-  using NonViewType = std::conditional_t<T::type_id == Type::LIST_VIEW,
-                                         ListType, LargeListType>;
+  using NonViewType =
+      std::conditional_t<T::type_id == Type::LIST_VIEW, ListType, LargeListType>;
   using NonViewClass = typename TypeTraits<NonViewType>::ArrayType;
   ArrayVector list_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
