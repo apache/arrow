@@ -59,3 +59,26 @@ repos:
         name: C/GLib Format
         files: >-
           ^c_glib/
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        name: CMake Format
+        files: >-
+          (
+          ?^ci/.*/.*\.cmake$|
+          ?^cpp/.*/.*\.cmake\.in$|
+          ?^cpp/.*/.*\.cmake$|
+          ?^cpp/.*/CMakeLists\.txt$|
+          ?^go/.*/CMakeLists\.txt$|
+          ?^java/.*/CMakeLists\.txt$|
+          ?^matlab/.*/CMakeLists\.txt$|
+          ?^python/.*/CMakeLists\.txt$|
+          )
+        exclude: >-
+          (
+          ?^cpp/cmake_modules/FindNumPy\.cmake$|
+          ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
+          ?^cpp/cmake_modules/UseCython\.cmake$|
+          ?^cpp/src/arrow/util/config\.h\.cmake$|
+          )
