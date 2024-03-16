@@ -1809,7 +1809,7 @@ message DoPutPreparedStatementResult {
   // Represents a (potentially updated) opaque handle for the prepared statement on the server.
   // Because the handle could potentially be updated, any previous handles for this prepared
   // statement should be considered invalid, and all subsequent requests for this prepared
-  // statement must use this new handle, if specified.
+  // statement must use this new handle.
   // The updated handle allows implementing query parameters with stateless services.
   // 
   // When an updated handle is not provided by the server, clients should contiue
