@@ -5754,8 +5754,9 @@ class ParquetBloomFilterRoundTripTest : public ::testing::Test,
 
         auto bloom_filter = row_group_reader->GetColumnBloomFilter(col);
         if (expect_no_bloom_filter) {
-          ASSERT_EQ(bloom_filter, nullptr);
+          ASSERT_EQ(nullptr, bloom_filter);
         } else {
+          ASSERT_NE(nullptr, bloom_filter);
           bloom_filters_.push_back(std::move(bloom_filter));
         }
       }

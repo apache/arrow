@@ -161,7 +161,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                                             ? column_properties.codec_options().get()
                                             : nullptr;
     BloomFilter* bloom_filter =
-        bloom_filter_builder_ && column_properties.page_index_enabled()
+        bloom_filter_builder_ && column_properties.bloom_filter_enabled()
             ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
             : nullptr;
 
