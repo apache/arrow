@@ -2005,6 +2005,9 @@ struct PlainSubstringReplacer {
       // Special-case empty input as s.data() may not be a valid pointer
       return Status::OK();
     }
+    if (options_.pattern.empty()) {
+      return Status::Invalid("Pattern is empty");
+    }
     const char* i = s.data();
     const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
