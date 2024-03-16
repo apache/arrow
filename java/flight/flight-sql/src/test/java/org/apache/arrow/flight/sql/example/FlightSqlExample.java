@@ -882,7 +882,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             while (binder.next()) {
               preparedStatement.addBatch();
             }
-            int[] recordCounts = preparedStatement.executeBatch();
+            final int[] recordCounts = preparedStatement.executeBatch();
             recordCount = Arrays.stream(recordCounts).sum();
           }
 
@@ -895,6 +895,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           }
         }
       } catch (SQLException e) {
+        ackStream.onError(CallStatus.INTERNAL.withDescription("Failed to execute update: " + e).toRuntimeException());
+        return;
+      } catch (IOException e) {
         ackStream.onError(CallStatus.INTERNAL.withDescription("Failed to execute update: " + e).toRuntimeException());
         return;
       }
@@ -911,11 +914,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return () -> {
       assert statementContext != null;
       PreparedStatement preparedStatement = statementContext.getStatement();
+      JdbcParameterBinder binder = null;
 
       try {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
-          final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
+          binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
           while (binder.next()) {
             // Do not execute() - will be done in a getStream call
           }
@@ -927,6 +931,24 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .withCause(e)
             .toRuntimeException());
         return;
+      } catch (IOException e) {
+        ackStream.onError(CallStatus.INTERNAL
+                .withDescription("Failed to bind parameters: " + e.getMessage())
+                .withCause(e)
+                .toRuntimeException());
+        return;
+      }
+
+      if (binder != null && binder.getBindersAsByteArray() != null) {
+        final byte[] byteArray = binder.getBindersAsByteArray();
+        final DoPutPreparedStatementResult build =
+                DoPutPreparedStatementResult.newBuilder()
+                        .setPreparedStatementHandle(ByteString.copyFrom(ByteBuffer.wrap(byteArray))).build();
+
+        try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
+          buffer.writeBytes(build.toByteArray());
+          ackStream.onNext(PutResult.metadata(buffer));
+        }
       }
       ackStream.onCompleted();
     };

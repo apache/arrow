@@ -17,6 +17,11 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -38,6 +43,7 @@ public class JdbcParameterBinder {
   private final ColumnBinder[] binders;
   private final int[] parameterIndices;
   private int nextRowIndex;
+  private byte[] bindersAsByteArray;
 
   /**
    * Create a new parameter binder.
@@ -51,7 +57,8 @@ public class JdbcParameterBinder {
       final PreparedStatement statement,
       final VectorSchemaRoot root,
       final ColumnBinder[] binders,
-      int[] parameterIndices) {
+      int[] parameterIndices,
+      byte[] bindersAsByteArray) {
     Preconditions.checkArgument(
         binders.length == parameterIndices.length,
         "Number of column binders (%s) must equal number of parameter indices (%s)",
@@ -61,6 +68,7 @@ public class JdbcParameterBinder {
     this.binders = binders;
     this.parameterIndices = parameterIndices;
     this.nextRowIndex = 0;
+    this.bindersAsByteArray = bindersAsByteArray;
   }
 
   /**
@@ -137,7 +145,7 @@ public class JdbcParameterBinder {
     }
 
     /** Build the binder. */
-    public JdbcParameterBinder build() {
+    public JdbcParameterBinder build() throws IOException {
       ColumnBinder[] binders = new ColumnBinder[bindings.size()];
       int[] parameterIndices = new int[bindings.size()];
       int index = 0;
@@ -146,7 +154,20 @@ public class JdbcParameterBinder {
         parameterIndices[index] = entry.getKey();
         index++;
       }
-      return new JdbcParameterBinder(statement, root, binders, parameterIndices);
+
+      // Convert parameters to byte array
+      ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+      try (ObjectOutputStream outObject = new ObjectOutputStream(outStream)) {
+        outObject.writeObject(bindings.toString().getBytes(UTF_8));
+        outObject.flush();
+      }
+
+      //      return new JdbcParameterBinder(statement, root, binders, parameterIndices, outStream.toByteArray());
+      return new JdbcParameterBinder(statement, root, binders, parameterIndices, outStream.toByteArray());
     }
+  }
+
+  public byte[] getBindersAsByteArray() {
+    return bindersAsByteArray;
   }
 }
