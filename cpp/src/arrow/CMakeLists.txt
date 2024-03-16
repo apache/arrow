@@ -136,13 +136,7 @@ endif()
 
 if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS Threads::Threads)
-  list(APPEND ARROW_STATIC_LINK_LIBS Threads::Threads)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Threads::Threads)
-endif()
-
-if(NOT MSVC_TOOLCHAIN)
-  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
@@ -150,8 +144,13 @@ set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_st
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
-if(NOT MSVC)
+
+if(CMAKE_DL_LIBS)
+  list(APPEND ARROW_SHARED_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${CMAKE_DL_LIBS})
   list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_TEST_STATIC_LINK_LIBS ${CMAKE_DL_LIBS})
+  string(APPEND ARROW_PC_LIBS_PRIVATE " -l${CMAKE_DL_LIBS}")
 endif()
 
 # ----------------------------------------------------------------------
