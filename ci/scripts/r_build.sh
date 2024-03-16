@@ -31,9 +31,6 @@ ${R_BIN} CMD build .
 ${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
 
 if [ "${BUILD_DOCS_R}" == "ON" ]; then
-  if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
-    RETICULATE_PYTHON_ENV=${ARROW_PYTHON_VENV}
-  fi
   ${R_BIN} -e "pkgdown::build_site(install = FALSE)"
   rsync -a ${source_dir}/docs/ ${build_dir}/docs/r
 fi
