@@ -183,6 +183,7 @@ set(PARQUET_SRCS
     printer.cc
     properties.cc
     schema.cc
+    size_statistics.cc
     statistics.cc
     stream_reader.cc
     stream_writer.cc

@@ -36,6 +36,7 @@ namespace parquet {
 class ColumnDescriptor;
 class EncodedStatistics;
 class FileCryptoMetaData;
+class SizeStatistics;
 class Statistics;
 class SchemaDescriptor;
 
@@ -159,6 +160,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
+  std::unique_ptr<SizeStatistics> size_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -454,6 +456,7 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   void set_file_path(const std::string& path);
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
+  void SetSizeStatistics(const SizeStatistics& size_stats);
   // get the column descriptor
   const ColumnDescriptor* descr() const;
 
