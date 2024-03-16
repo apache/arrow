@@ -1706,8 +1706,7 @@ class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
   }
 
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriterWithBloomFilter(
-      int64_t output_size = SMALL_SIZE,
-      const ColumnProperties& column_properties = ColumnProperties());
+      int64_t output_size, const ColumnProperties& column_properties);
 
   std::unique_ptr<BloomFilterBuilder> builder_;
   BloomFilter* bloom_filter_;
@@ -1761,7 +1760,7 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
   this->GenerateData(SMALL_SIZE);
   ColumnProperties column_properties;
   BloomFilterOptions options;
-  options.ndv = 10;
+  options.ndv = SMALL_SIZE;
   column_properties.set_bloom_filter_options(options);
 
   auto writer = this->BuildWriterWithBloomFilter(SMALL_SIZE, column_properties);

@@ -28,7 +28,7 @@
 namespace parquet::test {
 
 TEST(BloomFilterReader, ReadBloomFilter) {
-  std::string dir_string(parquet::test::get_data_dir());
+  std::string dir_string(get_data_dir());
   std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
   auto reader = ParquetFileReader::OpenFile(path, false);
   auto file_metadata = reader->metadata();
@@ -59,7 +59,7 @@ TEST(BloomFilterReader, ReadBloomFilter) {
 TEST(BloomFilterReader, FileNotHaveBloomFilter) {
   // Can still get a BloomFilterReader and a RowGroupBloomFilter
   // reader, but cannot get a non-null BloomFilter.
-  std::string dir_string(parquet::test::get_data_dir());
+  std::string dir_string(get_data_dir());
   std::string path = dir_string + "/alltypes_plain.parquet";
   auto reader = ParquetFileReader::OpenFile(path, false);
   auto file_metadata = reader->metadata();
