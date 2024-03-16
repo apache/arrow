@@ -121,8 +121,7 @@ endforeach()
 if(ARROW_TESTING)
   # test_nodes.cc isn't used by all tests but link to it for simple
   # CMakeLists.txt.
-  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc
-                                         ../extension/tensor_extension_array_test.cc)
+  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
