@@ -47,6 +47,16 @@ namespace parquet {
 /// DataPageV2 at all.
 enum class ParquetDataPageVersion { V1, V2 };
 
+/// Controls the level of size statistics that are written to the file.
+enum class SizeStatisticsLevel : uint8_t {
+  // No size statistics are written.
+  None = 0,
+  // Only column chunk size statistics are written.
+  ColumnChunk,
+  // Both size statistics in the column chunk and page index are written.
+  PageAndColumnChunk
+};
+
 /// Align the default buffer size to a small multiple of a page size.
 constexpr int64_t kDefaultBufferSize = 4096 * 4;
 
@@ -247,7 +257,8 @@ class PARQUET_EXPORT WriterProperties {
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
-          page_checksum_enabled_(false) {}
+          page_checksum_enabled_(false),
+          size_statistics_level_(SizeStatisticsLevel::None) {}
 
     explicit Builder(const WriterProperties& properties)
         : pool_(properties.memory_pool()),
@@ -649,6 +660,16 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_write_page_index(path->ToDotString());
     }
 
+    /// \brief Set the level to write size statistics for all columns. Default is None.
+    ///
+    /// \param level The level to write size statistics. Note that if page index is not
+    /// enabled, page level size statistics will not be written even if the level
+    /// is set to PageAndColumnChunk.
+    Builder* set_size_statistics_level(SizeStatisticsLevel level) {
+      size_statistics_level_ = level;
+      return this;
+    }
+
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
@@ -675,9 +696,9 @@ class PARQUET_EXPORT WriterProperties {
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, page_checksum_enabled_,
-          std::move(file_encryption_properties_), default_column_properties_,
-          column_properties, data_page_version_, store_decimal_as_integer_,
-          std::move(sorting_columns_)));
+          size_statistics_level_, std::move(file_encryption_properties_),
+          default_column_properties_, column_properties, data_page_version_,
+          store_decimal_as_integer_, std::move(sorting_columns_)));
     }
 
    private:
@@ -691,6 +712,7 @@ class PARQUET_EXPORT WriterProperties {
     std::string created_by_;
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
+    SizeStatisticsLevel size_statistics_level_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -728,6 +750,10 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline SizeStatisticsLevel size_statistics_level() const {
+    return size_statistics_level_;
+  }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -822,6 +848,7 @@ class PARQUET_EXPORT WriterProperties {
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
       const std::string& created_by, bool page_write_checksum_enabled,
+      SizeStatisticsLevel size_statistics_level,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
@@ -837,6 +864,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
         page_checksum_enabled_(page_write_checksum_enabled),
+        size_statistics_level_(size_statistics_level),
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
@@ -852,6 +880,7 @@ class PARQUET_EXPORT WriterProperties {
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;
   bool page_checksum_enabled_;
+  SizeStatisticsLevel size_statistics_level_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
