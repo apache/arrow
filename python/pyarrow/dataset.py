@@ -97,6 +97,15 @@ except ImportError:
     pass
 
 
+try:
+    from pyarrow._dataset_parquet_encryption import (  # noqa
+        ParquetDecryptionConfig,
+        ParquetEncryptionConfig,
+    )
+except ImportError:
+    pass
+
+
 def __getattr__(name):
     if name == "OrcFileFormat" and not _orc_available:
         raise ImportError(_orc_msg)
@@ -160,7 +169,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
-        The partioning scheme
+        The partitioning scheme
 
     Examples
     --------
@@ -283,8 +292,8 @@ def _ensure_partitioning(scheme):
     elif isinstance(scheme, (Partitioning, PartitioningFactory)):
         pass
     else:
-        ValueError("Expected Partitioning or PartitioningFactory, got {}"
-                   .format(type(scheme)))
+        raise ValueError("Expected Partitioning or PartitioningFactory, got {}"
+                         .format(type(scheme)))
     return scheme
 
 
@@ -447,11 +456,22 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     -------
     FileSystemDataset
     """
+    from pyarrow.fs import LocalFileSystem, _ensure_filesystem, FileInfo
+
     format = _ensure_format(format or 'parquet')
     partitioning = _ensure_partitioning(partitioning)
 
     if isinstance(source, (list, tuple)):
-        fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
+        if source and isinstance(source[0], FileInfo):
+            if filesystem is None:
+                # fall back to local file system as the default
+                fs = LocalFileSystem()
+            else:
+                # construct a filesystem if it is a valid URI
+                fs = _ensure_filesystem(filesystem)
+            paths_or_selector = source
+        else:
+            fs, paths_or_selector = _ensure_multiple_sources(source, filesystem)
     else:
         fs, paths_or_selector = _ensure_single_source(source, filesystem)
 
@@ -502,7 +522,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
                     partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
-    `pyarrrow.parquet.write_metadata`.
+    `pyarrow.parquet.write_metadata`.
 
     Parameters
     ----------
@@ -525,7 +545,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -621,7 +641,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     partitioning : Partitioning, PartitioningFactory, str, list of str
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
-        field names a DirectionaryPartitioning will be inferred.
+        field names a DirectoryPartitioning will be inferred.
     partition_base_dir : str, optional
         For the purposes of applying the partitioning, paths will be
         stripped of the partition_base_dir. Files not matching the
@@ -758,6 +778,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     ...     dataset("local/path/to/data", format="ipc")
     ... ]) # doctest: +SKIP
     """
+    from pyarrow.fs import FileInfo
     # collect the keyword arguments for later reuse
     kwargs = dict(
         schema=schema,
@@ -772,7 +793,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):
-        if all(_is_path_like(elem) for elem in source):
+        if all(_is_path_like(elem) or isinstance(elem, FileInfo) for elem in source):
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)

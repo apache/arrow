@@ -299,7 +299,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Request and poll a long running query
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request or a descriptor returned by a
-  /// prioir PollFlightInfo call
+  /// prior PollFlightInfo call
   /// \return Arrow result with the PollInfo describing the status of
   /// the requested query
   arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
@@ -382,6 +382,27 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   arrow::Result<DoExchangeResult> DoExchange(const FlightDescriptor& descriptor) {
     return DoExchange({}, descriptor);
   }
+
+  /// \brief Set server session option(s) by name/value. Sessions are generally
+  /// persisted via HTTP cookies.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The server session options to set
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request);
+
+  /// \brief Get the current server session options. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The (empty) GetSessionOptions request object.
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request);
+
+  /// \brief Close/invalidate the current server session. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The (empty) CloseSession request object.
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
+                                                   const CloseSessionRequest& request);
 
   /// \brief Explicitly shut down and clean up the client.
   ///

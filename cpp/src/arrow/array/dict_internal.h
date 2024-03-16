@@ -151,6 +151,32 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
 };
 
 template <typename T>
+struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
+  using MemoTableType = typename HashTraits<T>::MemoTableType;
+
+  static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
+
+  // Instead of defining a custom memo table for StringView we reuse BinaryType's,
+  // then convert to views when we copy data out of the memo table.
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset) {
+    DCHECK(type->id() == Type::STRING_VIEW || type->id() == Type::BINARY_VIEW);
+
+    BinaryViewBuilder builder(pool);
+    RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));
+    RETURN_NOT_OK(builder.ReserveData(memo_table.values_size()));
+    memo_table.VisitValues(static_cast<int32_t>(start_offset),
+                           [&](std::string_view s) { builder.UnsafeAppend(s); });
+
+    std::shared_ptr<ArrayData> out;
+    RETURN_NOT_OK(builder.FinishInternal(&out));
+    out->type = type;
+    return out;
+  }
+};
+
+template <typename T>
 struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 

@@ -142,7 +142,7 @@ public class ArrowFlightJdbcDriverTest {
              driver.connect("jdbc:arrow-flight://" +
                      dataSource.getConfig().getHost() + ":" +
                      dataSource.getConfig().getPort() + "?" +
-                     "UseEncryptiOn=false",
+                     "UseEncryptIon=false",
                  dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
       assertTrue(connection.isValid(300));
     }
@@ -150,7 +150,7 @@ public class ArrowFlightJdbcDriverTest {
              driver.connect("jdbc:arrow-flight-sql://" +
                      dataSource.getConfig().getHost() + ":" +
                      dataSource.getConfig().getPort() + "?" +
-                     "UseEncryptiOn=false",
+                     "UseEncryptIon=false",
                  dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()))) {
       assertTrue(connection.isValid(300));
     }
@@ -162,7 +162,7 @@ public class ArrowFlightJdbcDriverTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     Properties properties =
         dataSource.getProperties(dataSource.getConfig().getUser(), dataSource.getConfig().getPassword());
-    properties.put("UseEncryptiOn", "false");
+    properties.put("UseEncryptIon", "false");
 
     try (Connection connection =
              driver.connect("jdbc:arrow-flight://" +
@@ -181,6 +181,8 @@ public class ArrowFlightJdbcDriverTest {
   /**
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
+   *
+   * @throws SQLException If an error occurs.
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl() throws SQLException {
@@ -194,7 +196,7 @@ public class ArrowFlightJdbcDriverTest {
    * Tests whether an exception is thrown upon attempting to connect to a
    * malformed URI.
    *
-   * @throws Exception If an error occurs.
+   * @throws SQLException If an error occurs.
    */
   @Test(expected = SQLException.class)
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {

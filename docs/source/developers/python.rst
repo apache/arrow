@@ -405,6 +405,12 @@ set the ``PYARROW_PARALLEL`` environment variable.
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
+By default, PyArrow will be built in release mode even if Arrow C++ has been
+built in debug mode. To create a debug build of PyArrow, run
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
+build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
+similarly.
+
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
@@ -434,6 +440,9 @@ Debugging
 
 Since pyarrow depends on the Arrow C++ libraries, debugging can
 frequently involve crossing between Python and C++ shared libraries.
+For the best experience, make sure you've built both Arrow C++
+(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow (``export PYARROW_BUILD_TYPE=debug``)
+in debug mode.
 
 Using gdb on Linux
 ~~~~~~~~~~~~~~~~~~

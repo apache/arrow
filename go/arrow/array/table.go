@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
 )
 
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated
@@ -99,7 +99,7 @@ type simpleTable struct {
 //
 // NewTable panics if the columns and schema are inconsistent.
 // NewTable panics if rows is larger than the height of the columns.
-func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTable {
+func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) arrow.Table {
 	tbl := simpleTable{
 		refCount: 1,
 		rows:     rows,
@@ -136,12 +136,12 @@ func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTabl
 //   - len(schema.Fields) != len(data)
 //   - the total length of each column's array slice (ie: number of rows
 //     in the column) aren't the same for all columns.
-func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable {
-	if len(data) != len(schema.Fields()) {
+func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) arrow.Table {
+	if len(data) != schema.NumFields() {
 		panic("array/table: mismatch in number of columns and data for creating a table")
 	}
 
-	cols := make([]arrow.Column, len(schema.Fields()))
+	cols := make([]arrow.Column, schema.NumFields())
 	for i, arrs := range data {
 		field := schema.Field(i)
 		chunked := arrow.NewChunked(field.Type, arrs)
@@ -175,9 +175,9 @@ func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable 
 // NewTableFromRecords returns a new basic, non-lazy in-memory table.
 //
 // NewTableFromRecords panics if the records and schema are inconsistent.
-func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable {
+func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) arrow.Table {
 	arrs := make([]arrow.Array, len(recs))
-	cols := make([]arrow.Column, len(schema.Fields()))
+	cols := make([]arrow.Column, schema.NumFields())
 
 	defer func(cols []arrow.Column) {
 		for i := range cols {
@@ -224,7 +224,7 @@ func (tbl *simpleTable) NumCols() int64             { return int64(len(tbl.cols)
 func (tbl *simpleTable) Column(i int) *arrow.Column { return &tbl.cols[i] }
 
 func (tbl *simpleTable) validate() {
-	if len(tbl.cols) != len(tbl.schema.Fields()) {
+	if len(tbl.cols) != tbl.schema.NumFields() {
 		panic(errors.New("arrow/array: table schema mismatch"))
 	}
 	for i, col := range tbl.cols {

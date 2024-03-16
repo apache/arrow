@@ -221,6 +221,38 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
   </#if>
 
+  <#if minor.class?ends_with("VarBinary")>
+  @Override
+  public void write${minor.class}(byte[] value) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value);
+  }
+
+  @Override
+  public void write${minor.class}(byte[] value, int offset, int length) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value, offset, length);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value, offset, length);
+  }
+  <#elseif minor.class?ends_with("VarChar")>
+  @Override
+  public void write${minor.class}(Text value) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value);
+  }
+
+  @Override
+  public void write${minor.class}(String value) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(value);
+  }
+  </#if>
+
   </#list></#list>
   public void writeNull() {
   }

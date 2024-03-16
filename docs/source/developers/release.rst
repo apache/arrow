@@ -183,7 +183,7 @@ Build source and binaries and submit them
     
     # Sign and upload the Java artifacts
     #
-    # Note that you need to press the "Close" button manually by Web interfacec
+    # Note that you need to press the "Close" button manually by Web interface
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
@@ -199,6 +199,8 @@ Verify the Release
     # Once the automatic verification has passed start the vote thread
     # on dev@arrow.apache.org. To regenerate the email template use
     SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
+
+See :ref:`release_verification` for details.
 
 Voting and approval
 ===================
@@ -383,7 +385,7 @@ Be sure to go through on the following checklist:
       cd -
 
       # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACAKGES_FORK>
+      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -419,7 +421,7 @@ Be sure to go through on the following checklist:
 
    The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
 
-   When you have access, you can publish releases to npm by running the the following script:
+   When you have access, you can publish releases to npm by running the following script:
 
    .. code-block:: Bash
 
@@ -567,6 +569,9 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
+      # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
+      # this will avoid default pushing to main and pushing the tag
+      # but you will require to push manually after reviewing the commits.
       # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
       dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 

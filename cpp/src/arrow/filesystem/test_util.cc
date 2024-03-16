@@ -126,6 +126,12 @@ void SortInfos(std::vector<FileInfo>* infos) {
   std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
 }
 
+std::vector<FileInfo> SortedInfos(const std::vector<FileInfo>& infos) {
+  auto sorted = infos;
+  SortInfos(&sorted);
+  return sorted;
+}
+
 void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos) {
   auto fut = CollectAsyncGenerator(gen);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto nested_infos, fut);

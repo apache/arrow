@@ -100,7 +100,7 @@ classdef StructArray < arrow.array.Array
         end
 
         function nullSubVal = get.NullSubstitutionValue(obj)
-            % Return a cell array containing each field's type-specifc
+            % Return a cell array containing each field's type-specific
             % "null" value. For example, NaN is the type-specific null
             % value for Float32Arrays and Float64Arrays
             numFields = obj.NumFields;
@@ -133,7 +133,7 @@ classdef StructArray < arrow.array.Array
 
             validateArrayLengths(arrowArrays);
             validateColumnNames(opts.FieldNames, numel(arrowArrays));
-            validElements = parseValid(opts, arrowArrays{1}.Length);
+            validElements = parseValid(opts, arrowArrays{1}.NumElements);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
             args = struct(ArrayProxyIDs=arrayProxyIDs, ...

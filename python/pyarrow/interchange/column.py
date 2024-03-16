@@ -372,7 +372,7 @@ class _PyArrowColumn:
         """
         # In case of no missing values, we need to set ColumnNullType to
         # non nullable as in the current __dataframe__ protocol bit/byte masks
-        # can not be None
+        # cannot be None
         if self.null_count == 0:
             return ColumnNullType.NON_NULLABLE, None
         else:

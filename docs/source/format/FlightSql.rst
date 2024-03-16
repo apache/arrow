@@ -120,6 +120,23 @@ the ``type`` should be ``ClosePreparedStatement``).
 ``ActionCreatePreparedStatementRequest``
     Create a new prepared statement for a SQL query.
 
+    The response will contain an opaque handle used to identify the
+    prepared statement.  It may also contain two optional schemas: the
+    Arrow schema of the result set, and the Arrow schema of the bind
+    parameters (if any).  Because the schema of the result set may
+    depend on the bind parameters, the schemas may not necessarily be
+    provided here as a result, or if provided, they may not be accurate.
+    Clients should not assume the schema provided here will be the
+    schema of any data actually returned by executing the prepared
+    statement.
+
+    Some statements may have bind parameters without any specific type.
+    (As a trivial example for SQL, consider ``SELECT ?``.)  It is
+    not currently specified how this should be handled in the bind
+    parameter schema above.  We suggest either using a union type to
+    enumerate the possible types, or using the NA (null) type as a
+    wildcard/placeholder.
+
 ``CommandPreparedStatementQuery``
     Execute a previously created prepared statement and get the results.
 
@@ -127,6 +144,10 @@ the ``type`` should be ``ClosePreparedStatement``).
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
+
+    When used with GetSchema: get the expected Arrow schema of the
+    result set.  If the client has bound parameter values with DoPut
+    previously, the server should take those values into account.
 
 ``CommandPreparedStatementUpdate``
     Execute a previously created prepared statement that does not
@@ -148,6 +169,47 @@ the ``type`` should be ``ClosePreparedStatement``).
 
     When used with DoPut: execute the query and return the number of
     affected rows.
+
+Flight Server Session Management
+--------------------------------
+
+Flight SQL provides commands to set and update server session variables
+which affect the server behaviour in various ways.  Common options may
+include (depending on the server implementation) ``catalog`` and
+``schema``, indicating the currently-selected catalog and schema for
+queries to be run against.
+
+Clients should prefer, where possible, setting options prior to issuing
+queries and other commands, as some server implementations may require
+these options be set exactly once and prior to any other activity which
+may trigger their implicit setting.
+
+For compatibility with Database Connectivity drivers (JDBC, ODBC, and
+others), it is strongly recommended that server implementations accept
+string representations of all option values which may be provided to the
+driver as part of a server connection string and passed through to the
+server without further conversion.  For ease of use it is also recommended
+to accept and convert other numeric types to the preferred type for an
+option value, however this is not required.
+
+Sessions are persisted between the client and server using an
+implementation-defined mechanism, which is typically RFC 6265 cookies.
+Servers may also combine other connection state opaquely with the
+session token:  Consider that the lifespan and semantics of a session
+should make sense for any additional uses, e.g. CloseSession would also
+invalidate any authentication context persisted via the session context.
+A session may be initiated upon a nonempty (or empty) SetSessionOptions
+call, or at any other time of the server's choosing.
+
+``SetSessionOptions``
+Set server session option(s) by name/value.
+
+``GetSessionOptions``
+Get the current server session options, including those set by the client
+and any defaulted or implicitly set by the server.
+
+``CloseSession``
+Close and invalidate the current session context.
 
 Sequence Diagrams
 =================

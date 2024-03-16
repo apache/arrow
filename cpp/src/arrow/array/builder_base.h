@@ -349,7 +349,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
 }
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
-/// with a pre-existing dictionary
+/// with a preexisting dictionary
 /// \param[in] pool the MemoryPool to use for allocations
 /// \param[in] type the dictionary type to create the builder for
 /// \param[in] dictionary the initial dictionary, if any. May be nullptr

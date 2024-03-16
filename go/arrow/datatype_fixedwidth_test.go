@@ -17,10 +17,11 @@
 package arrow_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -178,6 +179,30 @@ func TestTimestampType_GetToTimeFunc(t *testing.T) {
 	ts := arrow.Timestamp(11865225600000)
 	assert.Equal(t, "2345-12-30T00:00:00Z", toTimeUTC(ts).Format(time.RFC3339))
 	assert.Equal(t, "2345-12-29T19:00:00-05:00", toTimeNY(ts).Format(time.RFC3339))
+}
+
+// Test race condition from GH-38795
+func TestGetToTimeFuncRace(t *testing.T) {
+	var (
+		wg         sync.WaitGroup
+		w          = make(chan bool)
+		routineNum = 10
+	)
+
+	wg.Add(routineNum)
+	for i := 0; i < routineNum; i++ {
+		go func() {
+			defer wg.Done()
+
+			<-w
+
+			_, _ = arrow.FixedWidthTypes.Timestamp_s.(*arrow.TimestampType).GetToTimeFunc()
+		}()
+	}
+
+	close(w)
+
+	wg.Wait()
 }
 
 func TestTime32Type(t *testing.T) {
@@ -402,4 +427,14 @@ func TestMonthIntervalType(t *testing.T) {
 	if got, want := dt.String(), "month_interval"; got != want {
 		t.Fatalf("invalid type stringer: got=%q, want=%q", got, want)
 	}
+}
+
+func TestDateFromTime(t *testing.T) {
+	loc, _ := time.LoadLocation("Asia/Hong_Kong")
+	tm := time.Date(2024, time.January, 18, 3, 0, 0, 0, loc)
+
+	wantD32 := time.Date(2024, time.January, 17, 0, 0, 0, 0, time.UTC).Truncate(24*time.Hour).Unix() / int64((time.Hour * 24).Seconds())
+	wantD64 := time.Date(2024, time.January, 17, 0, 0, 0, 0, time.UTC).UnixMilli()
+	assert.EqualValues(t, wantD64, arrow.Date64FromTime(tm))
+	assert.EqualValues(t, wantD32, arrow.Date32FromTime(tm))
 }

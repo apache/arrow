@@ -20,7 +20,7 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
 
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
+    @registry = Gandiva::FunctionRegistry.default
     @not = lookup("not", [boolean_data_type], boolean_data_type)
     @isnull = lookup("isnull", [int8_data_type], boolean_data_type)
   end
@@ -59,7 +59,7 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
                  modulo.to_s)
   end
 
-  sub_test_case("get_result_nullbale_type") do
+  sub_test_case("get_result_nullable_type") do
     def test_if_null
       assert_equal(Gandiva::ResultNullableType::IF_NULL,
                    @not.result_nullable_type)

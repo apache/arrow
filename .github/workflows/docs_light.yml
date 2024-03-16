@@ -47,19 +47,19 @@ jobs:
       PYTHON: "3.9"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build

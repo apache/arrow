@@ -106,7 +106,7 @@ public interface OutboundStreamListener {
   void completed();
 
   /**
-   * Toggle whether to ues the zero-copy write optimization.
+   * Toggle whether to use the zero-copy write optimization.
    *
    * <p>By default or when disabled, Arrow may copy data into a buffer for the underlying implementation to
    * send. When enabled, Arrow will instead try to directly enqueue the Arrow buffer for sending. Not all
@@ -119,5 +119,6 @@ public interface OutboundStreamListener {
    * <p>The default value can be toggled globally by setting the JVM property arrow.flight.enable_zero_copy_write
    * or the environment variable ARROW_FLIGHT_ENABLE_ZERO_COPY_WRITE.
    */
-  default void setUseZeroCopy(boolean enabled) {}
+  default void setUseZeroCopy(boolean enabled) {
+  }
 }

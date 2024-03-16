@@ -126,7 +126,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSQLiteQuery(
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
+      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
@@ -305,7 +305,7 @@ class SQLiteFlightSqlServer::Impl {
     ARROW_ASSIGN_OR_RAISE(auto ticket,
                           EncodeTransactionQuery(query, command.transaction_id));
     std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{std::move(ticket), {}, std::nullopt}};
+        FlightEndpoint{std::move(ticket), {}, std::nullopt, ""}};
     // TODO: Set true only when "ORDER BY" is used in a main "SELECT"
     // in the given query.
     const bool ordered = false;
@@ -389,7 +389,7 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const GetTables& command,
       const FlightDescriptor& descriptor) {
     std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
+        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
 
     bool include_schema = command.include_schema;
     ARROW_LOG(INFO) << "GetTables include_schema=" << include_schema;
@@ -598,7 +598,7 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const GetPrimaryKeys& command) {
     std::stringstream table_query;
 
-    // The field key_name can not be recovered by the sqlite, so it is being set
+    // The field key_name cannot be recovered by the sqlite, so it is being set
     // to null following the same pattern for catalog_name and schema_name.
     table_query << "SELECT null as catalog_name, null as schema_name, table_name, "
                    "name as column_name,  pk as key_sequence, null as key_name\n"

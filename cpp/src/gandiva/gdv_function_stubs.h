@@ -74,8 +74,10 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char*
                                        bool in2_validity, int32_t suppress_errors,
                                        bool in3_validity, bool* out_valid);
 
+GANDIVA_EXPORT
 void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg);
 
+GANDIVA_EXPORT
 uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t data_len);
 
 void gdv_fn_context_arena_reset(int64_t context_ptr);
@@ -340,11 +342,12 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                                      int32_t to_len, int32_t* out_len);
 
 GANDIVA_EXPORT
-gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_milliseconds,
                                         const char* timezone, int32_t length);
 
 GANDIVA_EXPORT
-gdv_timestamp from_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+gdv_timestamp from_utc_timezone_timestamp(int64_t context,
+                                          gdv_timestamp time_milliseconds,
                                           const char* timezone, int32_t length);
 
 GANDIVA_EXPORT

@@ -79,7 +79,8 @@ install_arrow <- function(nightly = FALSE,
     # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
     apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
     # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    if (on_rosetta()) {
+    rosetta <- on_rosetta()
+    if (rosetta) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
     }
     if (apple_m1 || rosetta) {
@@ -250,7 +251,7 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   setwd(untar_dir)
 
   message("Repacking tar.gz file to ", dest_file)
-  tar_successful <- utils::tar(dest_file, compression = "gz") == 0
+  tar_successful <- utils::tar(dest_file, compression = "gz", extra_flags = NULL) == 0
   if (!tar_successful) {
     stop("Failed to create new tar.gz file")
   }
@@ -266,4 +267,16 @@ wslify_path <- function(path) {
   wslified_drive <- paste0("/mnt/", tolower(drive_letter))
   end_path <- strsplit(path, drive_expr)[[1]][-1]
   file.path(wslified_drive, end_path)
+}
+
+on_rosetta <- function() {
+  # make sure to suppress warnings and ignore the stderr so that this is silent where proc_translated doesn't exist
+  sysctl_out <- tryCatch(
+    suppressWarnings(system("sysctl -n sysctl.proc_translated", intern = TRUE, ignore.stderr = TRUE)),
+    error = function(e) {
+      # If this has errored, we assume that this is not on rosetta
+      return("0")
+    }
+  )
+  identical(tolower(Sys.info()[["sysname"]]), "darwin") && identical(sysctl_out, "1")
 }

@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -285,6 +286,13 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return std::nullopt;
   }
 
+  inline std::optional<int64_t> bloom_filter_length() const {
+    if (column_metadata_->__isset.bloom_filter_length) {
+      return column_metadata_->bloom_filter_length;
+    }
+    return std::nullopt;
+  }
+
   inline bool has_dictionary_page() const {
     return column_metadata_->__isset.dictionary_page_offset;
   }
@@ -396,6 +404,10 @@ bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
 std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
   return impl_->bloom_filter_offset();
+}
+
+std::optional<int64_t> ColumnChunkMetaData::bloom_filter_length() const {
+  return impl_->bloom_filter_length();
 }
 
 bool ColumnChunkMetaData::has_dictionary_page() const {
@@ -749,7 +761,7 @@ class FileMetaData::FileMetaDataImpl {
     return metadata_->row_groups[i];
   }
 
-  void AppendRowGroups(const std::unique_ptr<FileMetaDataImpl>& other) {
+  void AppendRowGroups(FileMetaDataImpl* other) {
     std::ostringstream diff_output;
     if (!schema()->Equals(*other->schema(), &diff_output)) {
       auto msg = "AppendRowGroups requires equal schemas.\n" + diff_output.str();
@@ -788,6 +800,7 @@ class FileMetaData::FileMetaDataImpl {
     metadata->schema = metadata_->schema;
 
     metadata->row_groups.resize(row_groups.size());
+
     int i = 0;
     for (int selected_index : row_groups) {
       metadata->num_rows += row_group(selected_index).num_rows;
@@ -810,7 +823,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-    file_decryptor_ = file_decryptor;
+    file_decryptor_ = std::move(file_decryptor);
   }
 
  private:
@@ -874,13 +887,14 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
     const void* metadata, uint32_t* metadata_len,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::shared_ptr<FileMetaData>(new FileMetaData(
-      metadata, metadata_len, default_reader_properties(), file_decryptor));
+      metadata, metadata_len, default_reader_properties(), std::move(file_decryptor)));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
                            const ReaderProperties& properties,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
-    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties, file_decryptor)) {}
+    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
+                                 std::move(file_decryptor))) {}
 
 FileMetaData::FileMetaData() : impl_(new FileMetaDataImpl()) {}
 
@@ -930,7 +944,7 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 
 void FileMetaData::set_file_decryptor(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  impl_->set_file_decryptor(file_decryptor);
+  impl_->set_file_decryptor(std::move(file_decryptor));
 }
 
 ParquetVersion::type FileMetaData::version() const {
@@ -963,7 +977,7 @@ const std::shared_ptr<const KeyValueMetadata>& FileMetaData::key_value_metadata(
 void FileMetaData::set_file_path(const std::string& path) { impl_->set_file_path(path); }
 
 void FileMetaData::AppendRowGroups(const FileMetaData& other) {
-  impl_->AppendRowGroups(other.impl_);
+  impl_->AppendRowGroups(other.impl_.get());
 }
 
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
@@ -1501,8 +1515,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       thrift_encoding_stats.push_back(data_enc_stat);
       add_encoding(data_encoding);
     }
-    column_chunk_->meta_data.__set_encodings(thrift_encodings);
-    column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
+    column_chunk_->meta_data.__set_encodings(std::move(thrift_encodings));
+    column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
@@ -1521,7 +1535,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
       }
-      column_chunk_->__set_crypto_metadata(ccmd);
+      column_chunk_->__set_crypto_metadata(std::move(ccmd));
 
       bool encrypted_footer =
           properties_->file_encryption_properties()->encrypted_footer();
@@ -1601,16 +1615,13 @@ std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column)
-    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(std::move(props), column))} {}
+    : impl_{std::make_unique<ColumnChunkMetaDataBuilderImpl>(std::move(props), column)} {}
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column,
     void* contents)
-    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(
-              std::move(props), column,
-              reinterpret_cast<format::ColumnChunk*>(contents)))} {}
+    : impl_{std::make_unique<ColumnChunkMetaDataBuilderImpl>(
+          std::move(props), column, reinterpret_cast<format::ColumnChunk*>(contents))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() = default;
 
@@ -1857,7 +1868,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   std::unique_ptr<FileMetaData> Finish(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     int64_t total_rows = 0;
-    for (auto row_group : row_groups_) {
+    for (const auto& row_group : row_groups_) {
       total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
@@ -1876,7 +1887,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         format::KeyValue kv_pair;
         kv_pair.__set_key(key_value_metadata_->key(i));
         kv_pair.__set_value(key_value_metadata_->value(i));
-        metadata_->key_value_metadata.push_back(kv_pair);
+        metadata_->key_value_metadata.push_back(std::move(kv_pair));
       }
       metadata_->__isset.key_value_metadata = true;
     }

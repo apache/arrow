@@ -261,7 +261,7 @@ Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
     return struct_arr;
   }
 
-  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
+  // The exec plan may reorder the output rows.  The tests are all setup to expect output
   // in ascending order of keys.  So we need to sort the result by the key columns.  To do
   // that we create a table using the key columns, calculate the sort indices from that
   // table (sorting on all fields) and then use those indices to calculate our result.
@@ -1689,6 +1689,42 @@ TEST_P(GroupBy, SumMeanProductScalar) {
       [1, 4, 1.333333, 2],
       [2, 4, 2,        3],
       [3, 5, 2.5,      4]
+    ])");
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, MeanOverflow) {
+  BatchesWithSchema input;
+  // would overflow if intermediate sum is integer
+  input.batches = {
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
+                        "[[9223372036854775805, 1], [9223372036854775805, 1], "
+                        "[9223372036854775805, 2], [9223372036854775805, 3]]"),
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+                        "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
+      ExecBatchFromJSON({int64(), int64()},
+                        "[[9223372036854775805, 1], [9223372036854775805, 2], "
+                        "[9223372036854775805, 3]]"),
+  };
+  input.schema = schema({field("argument", int64()), field("key", int64())});
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"key"},
+                                    {
+                                        {"hash_mean", nullptr, "argument", "hash_mean"},
+                                    },
+                                    use_threads));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("key", int64()),
+                                       field("hash_mean", float64()),
+                                   }),
+                                   R"([
+      [1, 9223372036854775805],
+      [2, 9223372036854775805],
+      [3, 9223372036854775805]
     ])");
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }

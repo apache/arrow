@@ -57,7 +57,7 @@ in the background, without blocking (default \code{TRUE})
 buckets if \verb{$CreateDir()} is called on the bucket level (default \code{FALSE}).
 \item \code{allow_bucket_deletion}: logical, if TRUE, the filesystem will delete
 buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE}).
-\item \code{request_timeout}: Socket read time on Windows and MacOS in seconds. If
+\item \code{request_timeout}: Socket read time on Windows and macOS in seconds. If
 negative, the AWS SDK default (typically 3 seconds).
 \item \code{connect_timeout}: Socket connection timeout in seconds. If negative, AWS
 SDK default is used (typically 1 second).
@@ -149,5 +149,13 @@ it does not pass any non-default settings. In AWS S3, the bucket and all
 objects will be not publicly visible, and will have no bucket policies
 and no resource tags. To have more control over how buckets are created,
 use a different API to create them.
+
+On S3FileSystem, output is only produced for fatal errors or when printing
+return values. For troubleshooting, the log level can be set using the
+environment variable \code{ARROW_S3_LOG_LEVEL} (e.g.,
+\code{Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")}). The log level must be set prior
+to running any code that interacts with S3. Possible values include 'FATAL'
+(the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+'OFF'.
 }
 

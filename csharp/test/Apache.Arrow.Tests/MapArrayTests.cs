@@ -62,9 +62,9 @@ namespace Apache.Arrow.Tests
             var keyBuilder = builder.KeyBuilder as StringArray.Builder;
             var valueBuilder = builder.ValueBuilder as Int32Array.Builder;
 
-            KeyValuePair<string, int?> kv0 = KeyValuePair.Create("test", (int?)1);
-            KeyValuePair<string, int?> kv1 = KeyValuePair.Create("other", (int?)123);
-            KeyValuePair<string, int?> kv2 = KeyValuePair.Create("kv", (int?)null);
+            KeyValuePair<string, int?> kv0 = new KeyValuePair<string, int?>("test", (int?)1);
+            KeyValuePair<string, int?> kv1 = new KeyValuePair<string, int?>("other", (int?)123);
+            KeyValuePair<string, int?> kv2 = new KeyValuePair<string, int?>("kv", (int?)null);
 
             builder.Append();
             keyBuilder.Append("test");

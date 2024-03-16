@@ -269,7 +269,7 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
 }
 
 // Tests skipping around page boundaries.
-TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
+TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundaries) {
   int levels_per_page = 100;
   int num_pages = 7;
   max_def_level_ = 0;
@@ -372,7 +372,7 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   InitReader(&descr);
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 
-  // Vecotrs to hold read values, definition levels, and repetition levels.
+  // Vectors to hold read values, definition levels, and repetition levels.
   std::vector<int32_t> read_vals(4, -1);
   std::vector<int16_t> read_defs(4, -1);
   std::vector<int16_t> read_reps(4, -1);
@@ -902,7 +902,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
 }
 
 // Tests reading a nullable repeated field. Tests reading null values at
-// differnet levels and reading an empty list.
+// different levels and reading an empty list.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   NodePtr column = GroupNode::Make(
       "p", Repetition::OPTIONAL,
@@ -1240,7 +1240,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
     ASSERT_EQ(records_skipped, 12);
     CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/12,
                /*levels_position=*/0);
-    // Everthing is empty because we reset the reader before this skip.
+    // Everything is empty because we reset the reader before this skip.
     CheckReadValues(/*expected_values=*/{}, /*expected_def_levels=*/{},
                     /*expected_rep_levels=*/{});
   }
@@ -1395,7 +1395,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitveTypeTests, RecordReaderPrimitiveTypeTest,
+INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitiveTypeTests, RecordReaderPrimitiveTypeTest,
                          ::testing::Values(/*read_dense_for_nullable=*/true, false),
                          testing::PrintToStringParamName());
 
@@ -1587,8 +1587,8 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
 };
 
 // Tests reading and skipping a ByteArray field.
-// The binary readers only differ in DeocdeDense and DecodeSpaced functions, so
-// testing optional is sufficient in excercising those code paths.
+// The binary readers only differ in DecodeDense and DecodeSpaced functions, so
+// testing optional is sufficient in exercising those code paths.
 TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
   MakeRecordReader(/*levels_per_page=*/90, /*num_pages=*/1);
 
@@ -1607,9 +1607,36 @@ TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
   record_reader_->Reset();
 }
 
+// Test skipping buffered records when reading/skipping more than kMinLevelBatchSize
+// levels at a time.
+TEST_P(ByteArrayRecordReaderTest, ReadAndBatchSkipOptional) {
+  MakeRecordReader(/*levels_per_page=*/9000, /*num_pages=*/1);
+
+  // Read 100 records and buffer some records.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/100), 100);
+  CheckReadValues(0, 100);
+  record_reader_->Reset();
+
+  // Skip 3000 records. The buffered records will be skipped.
+  ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3000), 3000);
+
+  // Read 900 records and buffer some records again.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/900), 900);
+  CheckReadValues(3100, 4000);
+  record_reader_->Reset();
+
+  // Skip 3000 records. The buffered records will be skipped.
+  ASSERT_EQ(record_reader_->SkipRecords(/*num_records=*/3000), 3000);
+
+  // Read 3000 records. Only 2000 records are left to be read.
+  ASSERT_EQ(record_reader_->ReadRecords(/*num_records=*/3000), 2000);
+  CheckReadValues(7000, 9000);
+  record_reader_->Reset();
+}
+
 // Tests reading and skipping an optional FLBA field.
-// The binary readers only differ in DeocdeDense and DecodeSpaced functions, so
-// testing optional is sufficient in excercising those code paths.
+// The binary readers only differ in DecodeDense and DecodeSpaced functions, so
+// testing optional is sufficient in exercising those code paths.
 TEST_P(FLBARecordReaderTest, ReadAndSkipOptional) {
   MakeRecordReader(/*levels_per_page=*/90, /*num_pages=*/1, /*FLBA_type_length=*/4);
 
@@ -1710,7 +1737,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
 
   // The levels_index and values_index are over the original vectors that have
   // all the rep/def values for all the records. In the following loop, we will
-  // read/skip a numebr of records and Reset the reader after each iteration.
+  // read/skip a number of records and Reset the reader after each iteration.
   // This is on-par with how the record reader is used.
   size_t levels_index = 0;
   size_t values_index = 0;

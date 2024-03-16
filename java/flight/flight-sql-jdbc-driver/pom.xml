@@ -16,37 +16,36 @@
     <parent>
         <artifactId>arrow-flight</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>14.0.0-SNAPSHOT</version>
+        <version>16.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>flight-sql-jdbc-driver</artifactId>
     <name>Arrow Flight SQL JDBC Driver</name>
-    <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
+    <description>A JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest-core -->
+        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
         <dependency>
             <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-            <version>1.3</version>
+            <artifactId>hamcrest</artifactId>
+            <version>2.2</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-sql-jdbc-core</artifactId>
-            <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.61</version>
+            <version>1.70</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -54,35 +53,32 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
-            <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-sql</artifactId>
-            <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>4.11.0</version>
+            <version>${mockito.core.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-inline</artifactId>
-            <version>4.11.0</version>
+            <version>${mockito.inline.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-core</artifactId>
-            <version>${project.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
@@ -111,14 +107,14 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <version>2.10.14</version>
+            <version>2.12.6</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.calcite.avatica</groupId>
             <artifactId>avatica</artifactId>
-            <version>1.18.0</version>
+            <version>1.24.0</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -131,7 +127,6 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>${project.version}</version>
             <classifier>${arrow.vector.classifier}</classifier>
             <scope>runtime</scope>
         </dependency>
@@ -145,7 +140,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.7</version>
+            <version>2.15.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -164,7 +159,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

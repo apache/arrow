@@ -36,52 +36,8 @@
 namespace arrow {
 namespace compute {
 
-/// \defgroup compute-functions Abstract compute function API
-///
+/// \addtogroup compute-functions
 /// @{
-
-/// \brief Extension point for defining options outside libarrow (but
-/// still within this project).
-class ARROW_EXPORT FunctionOptionsType {
- public:
-  virtual ~FunctionOptionsType() = default;
-
-  virtual const char* type_name() const = 0;
-  virtual std::string Stringify(const FunctionOptions&) const = 0;
-  virtual bool Compare(const FunctionOptions&, const FunctionOptions&) const = 0;
-  virtual Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const;
-  virtual Result<std::unique_ptr<FunctionOptions>> Deserialize(
-      const Buffer& buffer) const;
-  virtual std::unique_ptr<FunctionOptions> Copy(const FunctionOptions&) const = 0;
-};
-
-/// \brief Base class for specifying options configuring a function's behavior,
-/// such as error handling.
-class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOptions> {
- public:
-  virtual ~FunctionOptions() = default;
-
-  const FunctionOptionsType* options_type() const { return options_type_; }
-  const char* type_name() const { return options_type()->type_name(); }
-
-  bool Equals(const FunctionOptions& other) const;
-  std::string ToString() const;
-  std::unique_ptr<FunctionOptions> Copy() const;
-  /// \brief Serialize an options struct to a buffer.
-  Result<std::shared_ptr<Buffer>> Serialize() const;
-  /// \brief Deserialize an options struct from a buffer.
-  /// Note: this will only look for `type_name` in the default FunctionRegistry;
-  /// to use a custom FunctionRegistry, look up the FunctionOptionsType, then
-  /// call FunctionOptionsType::Deserialize().
-  static Result<std::unique_ptr<FunctionOptions>> Deserialize(
-      const std::string& type_name, const Buffer& buffer);
-
- protected:
-  explicit FunctionOptions(const FunctionOptionsType* type) : options_type_(type) {}
-  const FunctionOptionsType* options_type_;
-};
-
-ARROW_EXPORT void PrintTo(const FunctionOptions&, std::ostream*);
 
 /// \brief Contains the number of required arguments for the function.
 ///
@@ -273,6 +229,12 @@ class ARROW_EXPORT Function {
 
   virtual Status Validate() const;
 
+  /// \brief Returns the pure property for this function.
+  ///
+  /// For impure functions like 'random', we should skip any simplification
+  /// for this function except it's arguments.
+  virtual bool is_impure() const { return false; }
+
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
            const FunctionOptions* default_options)
@@ -335,9 +297,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   using KernelType = ScalarKernel;
 
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR)
+                 const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options) {}
+                                           std::move(doc), default_options),
+        is_impure_(is_impure) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -348,6 +311,13 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
+
+  /// \brief Impure property for expression simplification only takes
+  /// effect in ScalarFunction.
+  bool is_impure() const override { return is_impure_; }
+
+ private:
+  bool is_impure_;
 };
 
 /// \brief A function that executes general array operations that may yield

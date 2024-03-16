@@ -23,6 +23,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
+#include "arrow/matlab/tabular/get_row_as_string.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
@@ -52,11 +53,13 @@ namespace arrow::matlab::tabular::proxy {
 
     RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch) : record_batch{record_batch} {
         REGISTER_METHOD(RecordBatch, toString);
+        REGISTER_METHOD(RecordBatch, getNumRows);
         REGISTER_METHOD(RecordBatch, getNumColumns);
         REGISTER_METHOD(RecordBatch, getColumnNames);
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
         REGISTER_METHOD(RecordBatch, getColumnByName);
         REGISTER_METHOD(RecordBatch, getSchema);
+        REGISTER_METHOD(RecordBatch, getRowAsString);
     }
 
     std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
@@ -102,6 +105,14 @@ namespace arrow::matlab::tabular::proxy {
         auto record_batch_proxy = std::make_shared<arrow::matlab::tabular::proxy::RecordBatch>(record_batch);
 
         return record_batch_proxy;
+    }
+
+    void RecordBatch::getNumRows(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+        const auto num_rows = record_batch->num_rows();
+        auto num_rows_mda = factory.createScalar(num_rows);
+        context.outputs[0] = num_rows_mda;
     }
 
     void RecordBatch::getNumColumns(libmexclass::proxy::method::Context& context) {
@@ -207,6 +218,22 @@ namespace arrow::matlab::tabular::proxy {
         const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
 
         context.outputs[0] = schema_proxy_id_mda;
+    }
+
+    void RecordBatch::getRowAsString(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int64_t> index_mda = args[0]["Index"];
+        const auto matlab_row_index = int64_t(index_mda[0]);
+
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf8, arrow::matlab::tabular::get_row_as_string(record_batch, matlab_row_index), 
+                                            context, error::TABULAR_GET_ROW_AS_STRING_FAILED);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf16, arrow::util::UTF8StringToUTF16(row_str_utf8),
+                                            context, error::UNICODE_CONVERSION_ERROR_ID);
+        context.outputs[0] = factory.createScalar(row_str_utf16);
     }
 
 }

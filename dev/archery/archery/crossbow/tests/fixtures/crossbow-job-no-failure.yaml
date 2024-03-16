@@ -1,7 +1,7 @@
 !Job
 target: !Target
   head: f766a1d615dd1b7ee706d05102e579195951a61c
-  email: unkown
+  email: unknown
   branch: refs/pull/4435/merge
   remote: https://github.com/apache/arrow
   version: 0.13.0.dev306

@@ -183,7 +183,7 @@ public abstract class AbstractJdbcToArrowTest {
    */
   public VectorSchemaRoot sqlToArrow(Connection connection, String query, BufferAllocator allocator)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
+    Preconditions.checkNotNull(allocator, "Memory allocator object cannot be null");
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
@@ -212,8 +212,8 @@ public abstract class AbstractJdbcToArrowTest {
       BufferAllocator allocator,
       Calendar calendar) throws SQLException, IOException {
 
-    Preconditions.checkNotNull(allocator, "Memory allocator object can not be null");
-    Preconditions.checkNotNull(calendar, "Calendar object can not be null");
+    Preconditions.checkNotNull(allocator, "Memory allocator object cannot be null");
+    Preconditions.checkNotNull(calendar, "Calendar object cannot be null");
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
@@ -237,8 +237,8 @@ public abstract class AbstractJdbcToArrowTest {
    */
   public static VectorSchemaRoot sqlToArrow(Connection connection, String query, JdbcToArrowConfig config)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(connection, "JDBC connection object can not be null");
-    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query can not be null or empty");
+    Preconditions.checkNotNull(connection, "JDBC connection object cannot be null");
+    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query cannot be null or empty");
 
     try (Statement stmt = connection.createStatement()) {
       return sqlToArrow(stmt.executeQuery(query), config);
@@ -256,7 +256,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet) throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
 
     return sqlToArrow(resultSet, JdbcToArrowUtils.getUtcCalendar());
   }
@@ -273,7 +273,7 @@ public abstract class AbstractJdbcToArrowTest {
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, BufferAllocator allocator)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+    Preconditions.checkNotNull(allocator, "Memory Allocator object cannot be null");
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
@@ -292,7 +292,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
@@ -316,7 +316,7 @@ public abstract class AbstractJdbcToArrowTest {
       BufferAllocator allocator,
       Calendar calendar)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+    Preconditions.checkNotNull(allocator, "Memory Allocator object cannot be null");
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
         .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
@@ -336,7 +336,7 @@ public abstract class AbstractJdbcToArrowTest {
    */
   public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, JdbcToArrowConfig config)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
     Preconditions.checkNotNull(config, "The configuration cannot be null");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(

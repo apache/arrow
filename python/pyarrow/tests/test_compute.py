@@ -561,7 +561,8 @@ def test_slice_compatibility():
 
 
 def test_binary_slice_compatibility():
-    arr = pa.array([b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"])
+    data = [b"", b"a", b"a\xff", b"ab\x00", b"abc\xfb", b"ab\xf2de"]
+    arr = pa.array(data)
     for start, stop, step in itertools.product(range(-6, 6),
                                                range(-6, 6),
                                                range(-3, 4)):
@@ -574,6 +575,13 @@ def test_binary_slice_compatibility():
         assert expected.equals(result)
         # Positional options
         assert pc.binary_slice(arr, start, stop, step) == result
+        # Fixed size binary input / output
+        for item in data:
+            fsb_scalar = pa.scalar(item, type=pa.binary(len(item)))
+            expected = item[start:stop:step]
+            actual = pc.binary_slice(fsb_scalar, start, stop, step)
+            assert actual.type == pa.binary(len(expected))
+            assert actual.as_py() == expected
 
 
 def test_split_pattern():
@@ -1781,6 +1789,7 @@ def test_dictionary_decode():
 
     assert array == dictionary_array_decode
     assert array == pc.dictionary_decode(array)
+    assert pc.dictionary_encode(dictionary_array) == dictionary_array
 
 
 def test_cast():
@@ -2254,6 +2263,19 @@ def test_extract_datetime_components():
             _check_datetime_components(timestamps, timezone)
 
 
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_iso_calendar_longer_array(unit):
+    # https://github.com/apache/arrow/issues/38655
+    # ensure correct result for array length > 32
+    arr = pa.array([datetime.datetime(2022, 1, 2, 9)]*50, pa.timestamp(unit))
+    result = pc.iso_calendar(arr)
+    expected = pa.StructArray.from_arrays(
+        [[2021]*50, [52]*50, [7]*50],
+        names=['iso_year', 'iso_week', 'iso_day_of_week']
+    )
+    assert result.equals(expected)
+
+
 @pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
@@ -2351,10 +2373,10 @@ def _check_temporal_rounding(ts, values, unit):
     unit_shorthand = {
         "nanosecond": "ns",
         "microsecond": "us",
-        "millisecond": "L",
+        "millisecond": "ms",
         "second": "s",
         "minute": "min",
-        "hour": "H",
+        "hour": "h",
         "day": "D"
     }
     greater_unit = {
@@ -2362,7 +2384,7 @@ def _check_temporal_rounding(ts, values, unit):
         "microsecond": "ms",
         "millisecond": "s",
         "second": "min",
-        "minute": "H",
+        "minute": "h",
         "hour": "d",
     }
     ta = pa.array(ts)
@@ -2385,7 +2407,7 @@ def _check_temporal_rounding(ts, values, unit):
 
         # Check rounding with calendar_based_origin=True.
         # Note: rounding to month is not supported in Pandas so we can't
-        # approximate this functionallity and exclude unit == "day".
+        # approximate this functionality and exclude unit == "day".
         if unit != "day":
             options = pc.RoundTemporalOptions(
                 value, unit, calendar_based_origin=True)
@@ -3192,8 +3214,7 @@ def test_list_element():
 
 
 def test_count_distinct():
-    seed = datetime.datetime.now()
-    samples = [seed.replace(year=y) for y in range(1992, 2092)]
+    samples = [datetime.datetime(year=y, month=1, day=1) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
     assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())
 
@@ -3501,7 +3522,7 @@ def test_expression_call_function():
     assert str(pc.add(field, 1)) == "add(field, 1)"
     assert str(pc.add(field, pa.scalar(1))) == "add(field, 1)"
 
-    # Invalid pc.scalar input gives original erorr message
+    # Invalid pc.scalar input gives original error message
     msg = "only other expressions allowed as arguments"
     with pytest.raises(TypeError, match=msg):
         pc.add(field, object)

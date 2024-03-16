@@ -15,13 +15,14 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Apache.Arrow
 {
-    public class StringArray: BinaryArray
+    public class StringArray: BinaryArray, IReadOnlyList<string>
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
@@ -72,11 +73,11 @@ namespace Apache.Arrow
 
         public string GetString(int index, Encoding encoding = default)
         {
-            encoding = encoding ?? DefaultEncoding;
+            encoding ??= DefaultEncoding;
 
-            ReadOnlySpan<byte> bytes = GetBytes(index);
+            ReadOnlySpan<byte> bytes = GetBytes(index, out bool isNull);
 
-            if (bytes == default)
+            if (isNull)
             {
                 return null;
             }
@@ -91,5 +92,19 @@ namespace Apache.Arrow
                     return encoding.GetString(data, bytes.Length);
             }
         }
+
+        int IReadOnlyCollection<string>.Count => Length;
+
+        string IReadOnlyList<string>.this[int index] => GetString(index);
+
+        IEnumerator<string> IEnumerable<string>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetString(index);
+            };
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
     }
 }

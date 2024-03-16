@@ -110,7 +110,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public long getValidityBufferAddress() {
-    return (validityBuffer.memoryAddress());
+    return validityBuffer.memoryAddress();
   }
 
   /**
@@ -120,7 +120,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   @Override
   public long getDataBufferAddress() {
-    return (valueBuffer.memoryAddress());
+    return valueBuffer.memoryAddress();
   }
 
   /**
@@ -298,6 +298,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param valueCount the desired number of elements in the vector
    * @throws org.apache.arrow.memory.OutOfMemoryException on error
    */
+  @Override
   public void allocateNew(int valueCount) {
     computeAndCheckBufferSize(valueCount);
 
@@ -478,7 +479,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
     if (!children.isEmpty()) {
-      throw new IllegalArgumentException("primitive type vector can not have children");
+      throw new IllegalArgumentException("primitive type vector cannot have children");
     }
   }
 
@@ -521,6 +522,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @return the inner buffers.
    */
+  @Override
   public List<ArrowBuf> getFieldBuffers() {
     List<ArrowBuf> result = new ArrayList<>(2);
     setReaderAndWriterIndex();
@@ -571,6 +573,18 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @param callBack not used
+   * @return TransferPair
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
+  }
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
@@ -585,6 +599,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
@@ -593,10 +608,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
+  @Override
   public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
-   * Transfer this vector'data to another vector. The memory associated
+   * Transfer this vector's data to another vector. The memory associated
    * with this vector is transferred to the allocator of target vector
    * for accounting and management purposes.
    * @param target destination vector for transfer
@@ -899,6 +915,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    *
    * @param index position of element
    */
+  @Override
   public void setNull(int index) {
     handleSafe(index);
     // not really needed to set the bit to 0 as long as

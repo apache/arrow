@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>14.0.0-SNAPSHOT</version>
+  <version>16.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -30,22 +30,25 @@
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
-    <dep.slf4j.version>1.7.25</dep.slf4j.version>
-    <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.96.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.56.0</dep.grpc-bom.version>
+    <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
+    <dep.slf4j.version>2.0.11</dep.slf4j.version>
+    <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
+    <dep.netty-bom.version>4.1.106.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.61.1</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
-    <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <dep.fbs.version>1.12.0</dep.fbs.version>
-    <dep.avro.version>1.10.0</dep.avro.version>
+    <dep.jackson-bom.version>2.16.1</dep.jackson-bom.version>
+    <dep.hadoop.version>3.3.6</dep.hadoop.version>
+    <dep.fbs.version>23.5.26</dep.fbs.version>
+    <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.16</error_prone_core.version>
-    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <error_prone_core.version>2.24.0</error_prone_core.version>
+    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
+    <mockito.core.version>5.5.0</mockito.core.version>
+    <mockito.inline.version>5.2.0</mockito.inline.version>
+    <checker.framework.version>3.42.0</checker.framework.version>
   </properties>
 
   <scm>
@@ -93,7 +96,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.0</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
 
@@ -301,12 +304,12 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.19</version>
+            <version>8.29</version>
           </dependency>
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.5</version>
+            <version>${dep.slf4j.version}</version>
           </dependency>
         </dependencies>
         <executions>
@@ -319,6 +322,7 @@
           </execution>
         </executions>
         <configuration>
+          <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
@@ -351,6 +355,7 @@
                 <!-- source annotations (not kept in compiled code) -->
                 <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
                 <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                <ignoredDependency>org.checkerframework:checker-qual</ignoredDependency>
               </ignoredDependencies>
             </configuration>
           </execution>
@@ -359,7 +364,7 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.6</version>
+        <version>2.7.11</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -369,6 +374,34 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.12.1</version>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -376,39 +409,52 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.0.1</version>
+          <!--
+            This appears to report a false positive with versions
+            greater than 3.1.2 (tested up to 3.6.0) when compiling
+            arrow-tools about Jackson being only used for tests.
+          -->
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
-          <version>0.13</version>
+          <version>0.16.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-resources-plugin</artifactId>
-          <version>2.6</version>
+          <version>3.3.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
+            <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
                 <groupId>org.immutables</groupId>
                 <artifactId>value</artifactId>
-                <version>2.8.2</version>
+                <version>2.10.0</version>
               </path>
             </annotationProcessorPaths>
           </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.0.0-M2</version>
+          <version>3.4.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.5.2</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.0.0-M7</version>
+          <version>3.2.3</version>
           <dependencies>
             <dependency>
               <groupId>org.junit.jupiter</groupId>
@@ -418,7 +464,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.0.0-M7</version>
+              <version>3.2.5</version>
             </dependency>
           </dependencies>
           <configuration>
@@ -438,7 +484,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.0.0-M7</version>
+          <version>3.2.5</version>
           <configuration>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
@@ -450,7 +496,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.7</version>
+          <version>0.8.11</version>
         </plugin>
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
@@ -533,12 +579,51 @@
             </lifecycleMappingMetadata>
           </configuration>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.6.3</version>
+          <configuration>
+            <source>8</source>
+            <sourceFileExcludes>
+              <sourceFileExclude>**/module-info.java</sourceFileExclude>
+            </sourceFileExcludes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.12.1</version>
+        </plugin>
       </plugins>
     </pluginManagement>
   </build>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Utilize the bill of materials in sub-modules -->
+      <dependency>
+        <groupId>org.apache.arrow</groupId>
+        <artifactId>arrow-bom</artifactId>
+        <version>${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>${checker.framework.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
@@ -562,13 +647,13 @@
       <dependency>
         <groupId>org.assertj</groupId>
         <artifactId>assertj-core</artifactId>
-        <version>3.23.1</version>
+        <version>3.25.3</version>
         <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>org.immutables</groupId>
         <artifactId>value</artifactId>
-        <version>2.8.2</version>
+        <version>2.10.0</version>
         <scope>provided</scope>
       </dependency>
       <dependency>
@@ -665,7 +750,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13.1</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -677,13 +762,13 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>de.huxhorn.lilith</groupId>
       <artifactId>de.huxhorn.lilith.logback.appender.multiplex-classic</artifactId>
-      <version>0.9.44</version>
+      <version>8.3.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -694,7 +779,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.0.0-M1</version>
+        <version>3.6.3</version>
         <reportSets>
           <reportSet><!-- by default, id = "default" -->
             <reports><!-- select non-aggregate reports -->
@@ -709,11 +794,28 @@
             </reports>
           </reportSet>
         </reportSets>
+        <configuration>
+          <sourceFileExcludes>
+            <sourceFileExclude>**/module-info.java</sourceFileExclude>
+          </sourceFileExcludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>
 
   <modules>
+    <module>maven</module>
+    <module>bom</module>
     <module>format</module>
     <module>memory</module>
     <module>vector</module>
@@ -795,7 +897,7 @@
                 <path>
                   <groupId>com.google.errorprone</groupId>
                   <artifactId>error_prone_core</artifactId>
-                  <version>2.4.0</version>
+                  <version>2.10.0</version>
                 </path>
               </annotationProcessorPaths>
             </configuration>
@@ -848,7 +950,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
             </configuration>
           </plugin>
         </plugins>
@@ -891,7 +993,7 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.7</version>
+            <version>0.8.11</version>
             <reportSets>
               <reportSet>
                 <inherited>false</inherited><!-- don't run aggregate in child modules -->
@@ -936,7 +1038,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>cdata-cmake</id>
@@ -953,7 +1055,6 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
@@ -998,7 +1099,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
@@ -1026,7 +1127,6 @@
                     -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
                   </commandlineArgs>
@@ -1067,7 +1167,6 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                     -DProtobuf_USE_STATIC_LIBS=ON
@@ -1115,7 +1214,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.0</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
@@ -1146,7 +1245,6 @@
                     -DARROW_WITH_ZLIB=ON
                     -DARROW_WITH_ZSTD=ON
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
                     -GNinja
@@ -1188,7 +1286,6 @@
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                   </commandlineArgs>
@@ -1214,7 +1311,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>

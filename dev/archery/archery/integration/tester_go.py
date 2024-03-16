@@ -18,7 +18,6 @@
 import contextlib
 import functools
 import os
-import sys
 import subprocess
 
 from . import cdata
@@ -43,17 +42,10 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-if sys.platform == "darwin":
-    _dll_suffix = ".dylib"
-elif os.name == "nt":
-    _dll_suffix = ".dll"
-else:
-    _dll_suffix = ".so"
-
 _DLL_PATH = os.path.join(
     ARROW_ROOT_DEFAULT,
     "go/arrow/internal/cdata_integration")
-_INTEGRATION_DLL = os.path.join(_DLL_PATH, "arrow_go_integration" + _dll_suffix)
+_INTEGRATION_DLL = os.path.join(_DLL_PATH, "arrow_go_integration" + cdata.dll_suffix)
 
 
 class GoTester(Tester):
@@ -167,6 +159,9 @@ _go_c_data_entrypoints = """
 
 @functools.lru_cache
 def _load_ffi(ffi, lib_path=_INTEGRATION_DLL):
+    # NOTE that setting Go environment variables here (such as GODEBUG)
+    # would be ignored by the Go runtime. The environment variables need
+    # to be set from the process calling Archery.
     ffi.cdef(_go_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
     return dll
@@ -200,9 +195,6 @@ class _CDataBase:
             finally:
                 self.dll.ArrowGo_FreeError(go_error)
 
-    def _run_gc(self):
-        self.dll.ArrowGo_RunGC()
-
 
 class GoCDataExporter(CDataExporter, _CDataBase):
     # Note: the Arrow Go C Data export functions expect their output
@@ -225,14 +217,10 @@ class GoCDataExporter(CDataExporter, _CDataBase):
         return True
 
     def record_allocation_state(self):
-        self._run_gc()
         return self.dll.ArrowGo_BytesAllocated()
 
-    def compare_allocation_state(self, recorded, gc_until):
-        def pred():
-            return self.record_allocation_state() == recorded
-
-        return gc_until(pred)
+    # Note: no need to call the Go GC anywhere thanks to Arrow Go's
+    # explicit refcounting.
 
 
 class GoCDataImporter(CDataImporter, _CDataBase):
@@ -252,10 +240,3 @@ class GoCDataImporter(CDataImporter, _CDataBase):
     @property
     def supports_releasing_memory(self):
         return True
-
-    def gc_until(self, predicate):
-        for i in range(10):
-            if predicate():
-                return True
-            self._run_gc()
-        return False

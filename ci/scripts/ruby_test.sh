@@ -26,7 +26,9 @@ export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
 rake -f ${source_dir}/Rakefile BUILD_DIR=${build_dir} USE_BUNDLER=yes

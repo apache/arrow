@@ -64,7 +64,7 @@ public class InNode implements TreeNode {
    *
    * @param node      Node with the 'IN' clause.
    * @param intValues Int values to build the IN node.
-   * @retur InNode referring to tree node.
+   * @return InNode referring to tree node.
    */
   public static InNode makeIntInExpr(TreeNode node, Set<Integer> intValues) {
     return new InNode(intValues,
@@ -77,7 +77,7 @@ public class InNode implements TreeNode {
    *
    * @param node      Node with the 'IN' clause.
    * @param longValues Long values to build the IN node.
-   * @retur InNode referring to tree node.
+   * @return InNode referring to tree node.
    */
   public static InNode makeLongInExpr(TreeNode node, Set<Long> longValues) {
     return new InNode(null, longValues,
@@ -90,7 +90,7 @@ public class InNode implements TreeNode {
    *
    * @param node      Node with the 'IN' clause.
    * @param floatValues Float values to build the IN node.
-   * @retur InNode referring to tree node.
+   * @return InNode referring to tree node.
    */
   public static InNode makeFloatInExpr(TreeNode node, Set<Float> floatValues) {
     return new InNode(null, null, null, null, null, null,
@@ -102,7 +102,7 @@ public class InNode implements TreeNode {
    *
    * @param node      Node with the 'IN' clause.
    * @param doubleValues Double values to build the IN node.
-   * @retur InNode referring to tree node.
+   * @return InNode referring to tree node.
    */
   public static InNode makeDoubleInExpr(TreeNode node, Set<Double> doubleValues) {
     return new InNode(null, null, null, null, null,

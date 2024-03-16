@@ -177,6 +177,16 @@ std::string TypeToString(Type::type t) {
   }
 }
 
+std::string TypeToString(Type::type t, int type_length) {
+  auto s = TypeToString(t);
+  if (t == Type::FIXED_LEN_BYTE_ARRAY) {
+    s += '(';
+    s += std::to_string(type_length);
+    s += ')';
+  }
+  return s;
+}
+
 std::string ConvertedTypeToString(ConvertedType::type t) {
   switch (t) {
     case ConvertedType::NONE:
@@ -345,15 +355,25 @@ std::shared_ptr<const LogicalType> LogicalType::FromConvertedType(
     case ConvertedType::DATE:
       return DateLogicalType::Make();
     case ConvertedType::TIME_MILLIS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MILLIS);
+      // ConvertedType::TIME_{*} are deprecated in favor of LogicalType::Time, the
+      // compatibility for ConvertedType::TIME_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-time-convertedtype
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MILLIS);
     case ConvertedType::TIME_MICROS:
-      return TimeLogicalType::Make(true, LogicalType::TimeUnit::MICROS);
+      return TimeLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                   LogicalType::TimeUnit::MICROS);
     case ConvertedType::TIMESTAMP_MILLIS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MILLIS,
+      // ConvertedType::TIMESTAMP_{*} are deprecated in favor of LogicalType::Timestamp,
+      // the compatibility for ConvertedType::TIMESTAMP_{*} are listed in
+      // https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#deprecated-timestamp-convertedtype
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MILLIS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::TIMESTAMP_MICROS:
-      return TimestampLogicalType::Make(true, LogicalType::TimeUnit::MICROS,
+      return TimestampLogicalType::Make(/*is_adjusted_to_utc=*/true,
+                                        LogicalType::TimeUnit::MICROS,
                                         /*is_from_converted_type=*/true,
                                         /*force_set_converted_type=*/false);
     case ConvertedType::INTERVAL:
@@ -441,6 +461,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return BSONLogicalType::Make();
   } else if (type.__isset.UUID) {
     return UUIDLogicalType::Make();
+  } else if (type.__isset.FLOAT16) {
+    return Float16LogicalType::Make();
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
@@ -493,6 +515,10 @@ std::shared_ptr<const LogicalType> LogicalType::JSON() { return JSONLogicalType:
 std::shared_ptr<const LogicalType> LogicalType::BSON() { return BSONLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Float16() {
+  return Float16LogicalType::Make();
+}
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
@@ -575,6 +601,7 @@ class LogicalType::Impl {
   class JSON;
   class BSON;
   class UUID;
+  class Float16;
   class No;
   class Undefined;
 
@@ -644,6 +671,9 @@ bool LogicalType::is_null() const { return impl_->type() == LogicalType::Type::N
 bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::JSON; }
 bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
+bool LogicalType::is_float16() const {
+  return impl_->type() == LogicalType::Type::FLOAT16;
+}
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
   return impl_->type() != LogicalType::Type::UNDEFINED;
@@ -1556,6 +1586,22 @@ class LogicalType::Impl::UUID final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(UUID)
+
+class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::TypeLengthApplicable {
+ public:
+  friend class Float16LogicalType;
+
+  OVERRIDE_TOSTRING(Float16)
+  OVERRIDE_TOTHRIFT(Float16Type, FLOAT16)
+
+ private:
+  Float16()
+      : LogicalType::Impl(LogicalType::Type::FLOAT16, SortOrder::SIGNED),
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 2) {}
+};
+
+GENERATE_MAKE(Float16)
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

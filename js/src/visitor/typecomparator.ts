@@ -21,7 +21,7 @@ import { Visitor } from '../visitor.js';
 import { Schema, Field } from '../schema.js';
 import {
     DataType, TypeMap, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -53,7 +53,9 @@ export interface TypeComparator extends Visitor {
     visitFloat32<T extends Float32>(type: T, other?: DataType | null): other is T;
     visitFloat64<T extends Float64>(type: T, other?: DataType | null): other is T;
     visitUtf8<T extends Utf8>(type: T, other?: DataType | null): other is T;
+    visitLargeUtf8<T extends LargeUtf8>(type: T, other?: DataType | null): other is T;
     visitBinary<T extends Binary>(type: T, other?: DataType | null): other is T;
+    visitLargeBinary<T extends LargeBinary>(type: T, other?: DataType | null): other is T;
     visitFixedSizeBinary<T extends FixedSizeBinary>(type: T, other?: DataType | null): other is T;
     visitDate<T extends Date_>(type: T, other?: DataType | null): other is T;
     visitDateDay<T extends DateDay>(type: T, other?: DataType | null): other is T;
@@ -249,7 +251,9 @@ TypeComparator.prototype.visitFloat16 = compareFloat;
 TypeComparator.prototype.visitFloat32 = compareFloat;
 TypeComparator.prototype.visitFloat64 = compareFloat;
 TypeComparator.prototype.visitUtf8 = compareAny;
+TypeComparator.prototype.visitLargeUtf8 = compareAny;
 TypeComparator.prototype.visitBinary = compareAny;
+TypeComparator.prototype.visitLargeBinary = compareAny;
 TypeComparator.prototype.visitFixedSizeBinary = compareFixedSizeBinary;
 TypeComparator.prototype.visitDate = compareDate;
 TypeComparator.prototype.visitDateDay = compareDate;

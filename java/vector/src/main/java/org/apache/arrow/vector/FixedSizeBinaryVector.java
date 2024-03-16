@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.FixedSizeBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -114,6 +115,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     final byte[] dst = new byte[byteWidth];
     valueBuffer.getBytes((long) index * byteWidth, dst, 0, byteWidth);
     return dst;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param buffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> buffer) {
+    final int startOffset = index * byteWidth;
+    buffer.set(valueBuffer, startOffset, byteWidth);
   }
 
   /**

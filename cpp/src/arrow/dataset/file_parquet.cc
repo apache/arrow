@@ -24,8 +24,10 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
@@ -38,6 +40,9 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/encryption/crypto_factory.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/kms_client.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -54,10 +59,13 @@ using parquet::arrow::SchemaField;
 using parquet::arrow::SchemaManifest;
 using parquet::arrow::StatisticsAsScalars;
 
+using compute::Cast;
+
 namespace {
 
 parquet::ReaderProperties MakeReaderProperties(
     const ParquetFileFormat& format, ParquetFragmentScanOptions* parquet_scan_options,
+    const std::string& path = "", std::shared_ptr<fs::FileSystem> filesystem = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   // Can't mutate pool after construction
   parquet::ReaderProperties properties(pool);
@@ -67,12 +75,36 @@ parquet::ReaderProperties MakeReaderProperties(
     properties.disable_buffered_stream();
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  auto parquet_decrypt_config = parquet_scan_options->parquet_decryption_config;
+
+  if (parquet_decrypt_config != nullptr) {
+    auto file_decryption_prop =
+        parquet_decrypt_config->crypto_factory->GetFileDecryptionProperties(
+            *parquet_decrypt_config->kms_connection_config,
+            *parquet_decrypt_config->decryption_config, path, filesystem);
+
+    parquet_scan_options->reader_properties->file_decryption_properties(
+        std::move(file_decryption_prop));
+  }
+#else
+  if (parquet_scan_options->parquet_decryption_config != nullptr) {
+    parquet::ParquetException::NYI("Encryption is not supported in this build.");
+  }
+#endif
+
   properties.file_decryption_properties(
       parquet_scan_options->reader_properties->file_decryption_properties());
+
   properties.set_thrift_string_size_limit(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
   properties.set_thrift_container_size_limit(
       parquet_scan_options->reader_properties->thrift_container_size_limit());
+
+  properties.set_page_checksum_verification(
+      parquet_scan_options->reader_properties->page_checksum_verification());
+
   return properties;
 }
 
@@ -129,7 +161,8 @@ bool IsNan(const Scalar& value) {
 }
 
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
-    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+    const FieldRef& field_ref, const SchemaField& schema_field,
+    const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
   // avoid an optimization which breaks the computation. Second, allow the
@@ -148,7 +181,8 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     return std::nullopt;
   }
 
-  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, field_ref,
+                                                             *statistics);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -328,8 +362,9 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }  // namespace
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
-    const Field& field, const parquet::Statistics& statistics) {
-  auto field_expr = compute::field_ref(field.name());
+    const Field& field, const FieldRef& field_ref,
+    const parquet::Statistics& statistics) {
+  auto field_expr = compute::field_ref(field_ref);
 
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0 && statistics.null_count() > 0) {
@@ -341,12 +376,12 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return std::nullopt;
   }
 
-  auto maybe_min = min->CastTo(field.type());
-  auto maybe_max = max->CastTo(field.type());
+  auto maybe_min = Cast(min, field.type());
+  auto maybe_max = Cast(max, field.type());
 
   if (maybe_min.ok() && maybe_max.ok()) {
-    min = maybe_min.MoveValueUnsafe();
-    max = maybe_max.MoveValueUnsafe();
+    min = maybe_min.MoveValueUnsafe().scalar();
+    max = maybe_max.MoveValueUnsafe().scalar();
 
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
@@ -384,6 +419,13 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return in_range;
   }
   return std::nullopt;
+}
+
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
+    const Field& field, const parquet::Statistics& statistics) {
+  const auto field_name = field.name();
+  return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
+                                        statistics);
 }
 
 ParquetFileFormat::ParquetFileFormat()
@@ -438,7 +480,7 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
                                                          default_fragment_scan_options));
   auto properties =
-      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
+      MakeReaderProperties(*this, parquet_scan_options.get(), "", nullptr, options->pool);
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   // `parquet::ParquetFileReader::Open` will not wrap the exception as status,
   // so using `open_parquet_file` to wrap it.
@@ -477,9 +519,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       auto parquet_scan_options,
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
                                                          default_fragment_scan_options));
-  auto properties =
-      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
-
+  auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), source.path(),
+                                         source.filesystem(), options->pool);
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
   return source.OpenAsync().Then(
@@ -666,10 +707,40 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
   auto parquet_options = checked_pointer_cast<ParquetFileWriteOptions>(options);
 
   std::unique_ptr<parquet::arrow::FileWriter> parquet_writer;
-  ARROW_ASSIGN_OR_RAISE(parquet_writer, parquet::arrow::FileWriter::Open(
-                                            *schema, default_memory_pool(), destination,
-                                            parquet_options->writer_properties,
-                                            parquet_options->arrow_writer_properties));
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  auto parquet_encrypt_config = parquet_options->parquet_encryption_config;
+
+  if (parquet_encrypt_config != nullptr) {
+    auto file_encryption_prop =
+        parquet_encrypt_config->crypto_factory->GetFileEncryptionProperties(
+            *parquet_encrypt_config->kms_connection_config,
+            *parquet_encrypt_config->encryption_config, destination_locator.path,
+            destination_locator.filesystem);
+
+    auto writer_properties =
+        parquet::WriterProperties::Builder(*parquet_options->writer_properties)
+            .encryption(std::move(file_encryption_prop))
+            ->build();
+
+    ARROW_ASSIGN_OR_RAISE(
+        parquet_writer, parquet::arrow::FileWriter::Open(
+                            *schema, writer_properties->memory_pool(), destination,
+                            writer_properties, parquet_options->arrow_writer_properties));
+  }
+#else
+  if (parquet_options->parquet_encryption_config != nullptr) {
+    return Status::NotImplemented("Encryption is not supported in this build.");
+  }
+#endif
+
+  if (parquet_writer == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(parquet_writer,
+                          parquet::arrow::FileWriter::Open(
+                              *schema, parquet_options->writer_properties->memory_pool(),
+                              destination, parquet_options->writer_properties,
+                              parquet_options->arrow_writer_properties));
+  }
 
   return std::shared_ptr<FileWriter>(
       new ParquetFileWriter(std::move(destination), std::move(parquet_writer),
@@ -708,6 +779,11 @@ ParquetFileFragment::ParquetFileFragment(FileSource source,
       parquet_format_(checked_cast<ParquetFileFormat&>(*format_)),
       row_groups_(std::move(row_groups)) {}
 
+std::shared_ptr<parquet::FileMetaData> ParquetFileFragment::metadata() {
+  auto lock = physical_schema_mutex_.Lock();
+  return metadata_;
+}
+
 Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* reader) {
   auto lock = physical_schema_mutex_.Lock();
   if (metadata_ != nullptr) {
@@ -742,14 +818,20 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::shared_ptr<parquet::FileMetaData> original_metadata) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  original_metadata_ = original_metadata ? std::move(original_metadata) : metadata_;
+  // The SchemaDescriptor needs to be owned by a FileMetaData instance,
+  // because SchemaManifest only stores a raw pointer (GH-39562).
+  DCHECK_EQ(manifest_->descr, original_metadata_->schema())
+      << "SchemaDescriptor should be owned by the original FileMetaData";
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
-  statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
+  statistics_expressions_complete_.resize(manifest_->descr->num_columns(), false);
 
   for (int row_group : *row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
@@ -775,7 +857,8 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_,
+                                        /*original_metadata=*/original_metadata_));
     fragments[i++] = std::move(fragment);
   }
 
@@ -839,16 +922,25 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*physical_schema_));
 
     if (match.empty()) continue;
-    if (statistics_expressions_complete_[match[0]]) continue;
-    statistics_expressions_complete_[match[0]] = true;
+    const SchemaField* schema_field = &manifest_->schema_fields[match[0]];
 
-    const SchemaField& schema_field = manifest_->schema_fields[match[0]];
+    for (size_t i = 1; i < match.indices().size(); ++i) {
+      if (schema_field->field->type()->id() != Type::STRUCT) {
+        return Status::Invalid("nested paths only supported for structs");
+      }
+      schema_field = &schema_field->children[match[i]];
+    }
+
+    if (!schema_field->is_leaf()) continue;
+    if (statistics_expressions_complete_[schema_field->column_index]) continue;
+    statistics_expressions_complete_[schema_field->column_index] = true;
+
     int i = 0;
     for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
 
-      if (auto minmax =
-              ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
+      if (auto minmax = ColumnChunkStatisticsAsExpression(ref, *schema_field,
+                                                          *row_group_metadata)) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
         ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
                               statistics_expressions_[i].Bind(*physical_schema_));
@@ -1026,7 +1118,8 @@ ParquetDatasetFactory::CollectParquetFragments(const Partitioning& partitioning)
         format_->MakeFragment({path, filesystem_}, std::move(partition_expression),
                               physical_schema_, std::move(row_groups)));
 
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_));
+    RETURN_NOT_OK(fragment->SetMetadata(metadata_subset, manifest_,
+                                        /*original_metadata=*/metadata_));
     fragments[i++] = std::move(fragment);
   }
 

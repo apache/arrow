@@ -27,8 +27,8 @@
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
-r_vec_size RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
-  return r_vec_size(x->num_columns());
+int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
+  return x->num_columns();
 }
 
 // [[arrow::export]]
@@ -80,7 +80,7 @@ cpp11::list RecordBatch__columns(const std::shared_ptr<arrow::RecordBatch>& batc
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> RecordBatch__column(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   arrow::r::validate_index(i, batch->num_columns());
   return batch->column(i);
 }
@@ -106,7 +106,7 @@ bool RecordBatch__Equals(const std::shared_ptr<arrow::RecordBatch>& self,
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__AddColumn(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::RecordBatch>& batch, int i,
     const std::shared_ptr<arrow::Field>& field,
     const std::shared_ptr<arrow::Array>& column) {
   return ValueOrStop(batch->AddColumn(i, field, column));
@@ -114,7 +114,7 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__AddColumn(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__SetColumn(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i,
+    const std::shared_ptr<arrow::RecordBatch>& batch, int i,
     const std::shared_ptr<arrow::Field>& field,
     const std::shared_ptr<arrow::Array>& column) {
   return ValueOrStop(batch->SetColumn(i, field, column));
@@ -122,14 +122,14 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__SetColumn(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__RemoveColumn(
-    const std::shared_ptr<arrow::RecordBatch>& batch, R_xlen_t i) {
+    const std::shared_ptr<arrow::RecordBatch>& batch, int i) {
   arrow::r::validate_index(i, batch->num_columns());
   return ValueOrStop(batch->RemoveColumn(i));
 }
 
 // [[arrow::export]]
 std::string RecordBatch__column_name(const std::shared_ptr<arrow::RecordBatch>& batch,
-                                     R_xlen_t i) {
+                                     int i) {
   arrow::r::validate_index(i, batch->num_columns());
   return batch->column_name(i);
 }

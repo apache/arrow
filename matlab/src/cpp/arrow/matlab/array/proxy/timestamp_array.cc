@@ -49,7 +49,7 @@ namespace arrow::matlab::array::proxy {
        const std::u16string& u16_timeunit = units_mda[0];
        MATLAB_ASSIGN_OR_ERROR(const auto time_unit,
                               arrow::matlab::type::timeUnitFromString(u16_timeunit),
-                              error::UKNOWN_TIME_UNIT_ERROR_ID)
+                              error::UNKNOWN_TIME_UNIT_ERROR_ID)
 
        // create the timestamp_type
        auto data_type = arrow::timestamp(time_unit, timezone);

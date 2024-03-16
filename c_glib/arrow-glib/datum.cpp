@@ -45,7 +45,8 @@ G_BEGIN_DECLS
  * #GArrowTableDatum is a class to hold an #GArrowTable.
  */
 
-typedef struct GArrowDatumPrivate_ {
+typedef struct GArrowDatumPrivate_
+{
   arrow::Datum datum;
 } GArrowDatumPrivate;
 
@@ -55,10 +56,8 @@ enum {
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowDatum, garrow_datum, G_TYPE_OBJECT)
 
-#define GARROW_DATUM_GET_PRIVATE(obj)         \
-  static_cast<GArrowDatumPrivate *>(          \
-    garrow_datum_get_instance_private(        \
-      GARROW_DATUM(obj)))
+#define GARROW_DATUM_GET_PRIVATE(obj)                                                    \
+  static_cast<GArrowDatumPrivate *>(garrow_datum_get_instance_private(GARROW_DATUM(obj)))
 
 static void
 garrow_datum_finalize(GObject *object)
@@ -92,7 +91,7 @@ static void
 garrow_datum_init(GArrowDatum *object)
 {
   auto priv = GARROW_DATUM_GET_PRIVATE(object);
-  new(&priv->datum) arrow::Datum;
+  new (&priv->datum) arrow::Datum;
 }
 
 static void
@@ -100,15 +99,15 @@ garrow_datum_class_init(GArrowDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_datum_finalize;
+  gobject_class->finalize = garrow_datum_finalize;
   gobject_class->set_property = garrow_datum_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("datum",
-                              "Datum",
-                              "The raw arrow::Datum *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "datum",
+    "Datum",
+    "The raw arrow::Datum *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATUM, spec);
 }
 
@@ -211,8 +210,8 @@ garrow_datum_to_string(GArrowDatum *datum)
   return g_strdup(string.c_str());
 }
 
-
-typedef struct GArrowArrayDatumPrivate_ {
+typedef struct GArrowArrayDatumPrivate_
+{
   GArrowArray *value;
 } GArrowArrayDatumPrivate;
 
@@ -220,14 +219,11 @@ enum {
   PROP_VALUE = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowArrayDatum,
-                           garrow_array_datum,
-                           GARROW_TYPE_DATUM)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowArrayDatum, garrow_array_datum, GARROW_TYPE_DATUM)
 
-#define GARROW_ARRAY_DATUM_GET_PRIVATE(obj)         \
-  static_cast<GArrowArrayDatumPrivate *>(           \
-    garrow_array_datum_get_instance_private(        \
-      GARROW_ARRAY_DATUM(obj)))
+#define GARROW_ARRAY_DATUM_GET_PRIVATE(obj)                                              \
+  static_cast<GArrowArrayDatumPrivate *>(                                                \
+    garrow_array_datum_get_instance_private(GARROW_ARRAY_DATUM(obj)))
 
 static void
 garrow_array_datum_dispose(GObject *object)
@@ -288,17 +284,17 @@ garrow_array_datum_class_init(GArrowArrayDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_array_datum_dispose;
+  gobject_class->dispose = garrow_array_datum_dispose;
   gobject_class->set_property = garrow_array_datum_set_property;
   gobject_class->get_property = garrow_array_datum_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The array held by this datum",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The array held by this datum",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -318,19 +314,16 @@ garrow_array_datum_new(GArrowArray *value)
   return garrow_array_datum_new_raw(&arrow_datum, value);
 }
 
-
-typedef struct GArrowScalarDatumPrivate_ {
+typedef struct GArrowScalarDatumPrivate_
+{
   GArrowScalar *value;
 } GArrowScalarDatumPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowScalarDatum,
-                           garrow_scalar_datum,
-                           GARROW_TYPE_DATUM)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowScalarDatum, garrow_scalar_datum, GARROW_TYPE_DATUM)
 
-#define GARROW_SCALAR_DATUM_GET_PRIVATE(obj)         \
-  static_cast<GArrowScalarDatumPrivate *>(           \
-    garrow_scalar_datum_get_instance_private(        \
-      GARROW_SCALAR_DATUM(obj)))
+#define GARROW_SCALAR_DATUM_GET_PRIVATE(obj)                                             \
+  static_cast<GArrowScalarDatumPrivate *>(                                               \
+    garrow_scalar_datum_get_instance_private(GARROW_SCALAR_DATUM(obj)))
 
 static void
 garrow_scalar_datum_dispose(GObject *object)
@@ -391,17 +384,17 @@ garrow_scalar_datum_class_init(GArrowScalarDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_scalar_datum_dispose;
+  gobject_class->dispose = garrow_scalar_datum_dispose;
   gobject_class->set_property = garrow_scalar_datum_set_property;
   gobject_class->get_property = garrow_scalar_datum_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The scalar held by this datum",
-                             GARROW_TYPE_SCALAR,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The scalar held by this datum",
+    GARROW_TYPE_SCALAR,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -421,8 +414,8 @@ garrow_scalar_datum_new(GArrowScalar *value)
   return garrow_scalar_datum_new_raw(&arrow_datum, value);
 }
 
-
-typedef struct GArrowChunkedArrayDatumPrivate_ {
+typedef struct GArrowChunkedArrayDatumPrivate_
+{
   GArrowChunkedArray *value;
 } GArrowChunkedArrayDatumPrivate;
 
@@ -430,10 +423,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowChunkedArrayDatum,
                            garrow_chunked_array_datum,
                            GARROW_TYPE_DATUM)
 
-#define GARROW_CHUNKED_ARRAY_DATUM_GET_PRIVATE(obj)     \
-  static_cast<GArrowChunkedArrayDatumPrivate *>(        \
-    garrow_chunked_array_datum_get_instance_private(    \
-      GARROW_CHUNKED_ARRAY_DATUM(obj)))
+#define GARROW_CHUNKED_ARRAY_DATUM_GET_PRIVATE(obj)                                      \
+  static_cast<GArrowChunkedArrayDatumPrivate *>(                                         \
+    garrow_chunked_array_datum_get_instance_private(GARROW_CHUNKED_ARRAY_DATUM(obj)))
 
 static void
 garrow_chunked_array_datum_dispose(GObject *object)
@@ -494,17 +486,17 @@ garrow_chunked_array_datum_class_init(GArrowChunkedArrayDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_chunked_array_datum_dispose;
+  gobject_class->dispose = garrow_chunked_array_datum_dispose;
   gobject_class->set_property = garrow_chunked_array_datum_set_property;
   gobject_class->get_property = garrow_chunked_array_datum_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The chunked array held by this datum",
-                             GARROW_TYPE_CHUNKED_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The chunked array held by this datum",
+    GARROW_TYPE_CHUNKED_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -524,8 +516,8 @@ garrow_chunked_array_datum_new(GArrowChunkedArray *value)
   return garrow_chunked_array_datum_new_raw(&arrow_datum, value);
 }
 
-
-typedef struct GArrowRecordBatchDatumPrivate_ {
+typedef struct GArrowRecordBatchDatumPrivate_
+{
   GArrowRecordBatch *value;
 } GArrowRecordBatchDatumPrivate;
 
@@ -533,10 +525,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchDatum,
                            garrow_record_batch_datum,
                            GARROW_TYPE_DATUM)
 
-#define GARROW_RECORD_BATCH_DATUM_GET_PRIVATE(obj)     \
-  static_cast<GArrowRecordBatchDatumPrivate *>(        \
-    garrow_record_batch_datum_get_instance_private(    \
-      GARROW_RECORD_BATCH_DATUM(obj)))
+#define GARROW_RECORD_BATCH_DATUM_GET_PRIVATE(obj)                                       \
+  static_cast<GArrowRecordBatchDatumPrivate *>(                                          \
+    garrow_record_batch_datum_get_instance_private(GARROW_RECORD_BATCH_DATUM(obj)))
 
 static void
 garrow_record_batch_datum_dispose(GObject *object)
@@ -597,17 +588,17 @@ garrow_record_batch_datum_class_init(GArrowRecordBatchDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_record_batch_datum_dispose;
+  gobject_class->dispose = garrow_record_batch_datum_dispose;
   gobject_class->set_property = garrow_record_batch_datum_set_property;
   gobject_class->get_property = garrow_record_batch_datum_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The chunked array held by this datum",
-                             GARROW_TYPE_RECORD_BATCH,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The chunked array held by this datum",
+    GARROW_TYPE_RECORD_BATCH,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -627,19 +618,16 @@ garrow_record_batch_datum_new(GArrowRecordBatch *value)
   return garrow_record_batch_datum_new_raw(&arrow_datum, value);
 }
 
-
-typedef struct GArrowTableDatumPrivate_ {
+typedef struct GArrowTableDatumPrivate_
+{
   GArrowTable *value;
 } GArrowTableDatumPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowTableDatum,
-                           garrow_table_datum,
-                           GARROW_TYPE_DATUM)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowTableDatum, garrow_table_datum, GARROW_TYPE_DATUM)
 
-#define GARROW_TABLE_DATUM_GET_PRIVATE(obj)         \
-  static_cast<GArrowTableDatumPrivate *>(           \
-    garrow_table_datum_get_instance_private(        \
-      GARROW_TABLE_DATUM(obj)))
+#define GARROW_TABLE_DATUM_GET_PRIVATE(obj)                                              \
+  static_cast<GArrowTableDatumPrivate *>(                                                \
+    garrow_table_datum_get_instance_private(GARROW_TABLE_DATUM(obj)))
 
 static void
 garrow_table_datum_dispose(GObject *object)
@@ -700,17 +688,17 @@ garrow_table_datum_class_init(GArrowTableDatumClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_table_datum_dispose;
+  gobject_class->dispose = garrow_table_datum_dispose;
   gobject_class->set_property = garrow_table_datum_set_property;
   gobject_class->get_property = garrow_table_datum_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("value",
-                             "Value",
-                             "The table held by this datum",
-                             GARROW_TYPE_TABLE,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value",
+    "Value",
+    "The table held by this datum",
+    GARROW_TYPE_TABLE,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE, spec);
 }
 
@@ -729,7 +717,6 @@ garrow_table_datum_new(GArrowTable *value)
   arrow::Datum arrow_datum(arrow_value);
   return garrow_table_datum_new_raw(&arrow_datum, value);
 }
-
 
 G_END_DECLS
 
@@ -793,51 +780,44 @@ garrow_datum_new_raw(arrow::Datum *arrow_datum)
 }
 
 GArrowScalarDatum *
-garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum,
-                            GArrowScalar *value)
+garrow_scalar_datum_new_raw(arrow::Datum *arrow_datum, GArrowScalar *value)
 {
-  return GARROW_SCALAR_DATUM(g_object_new(GARROW_TYPE_SCALAR_DATUM,
-                                         "datum", arrow_datum,
-                                         "value", value,
-                                         NULL));
+  return GARROW_SCALAR_DATUM(
+    g_object_new(GARROW_TYPE_SCALAR_DATUM, "datum", arrow_datum, "value", value, NULL));
 }
 
 GArrowArrayDatum *
-garrow_array_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowArray *value)
+garrow_array_datum_new_raw(arrow::Datum *arrow_datum, GArrowArray *value)
 {
-  return GARROW_ARRAY_DATUM(g_object_new(GARROW_TYPE_ARRAY_DATUM,
-                                         "datum", arrow_datum,
-                                         "value", value,
-                                         NULL));
+  return GARROW_ARRAY_DATUM(
+    g_object_new(GARROW_TYPE_ARRAY_DATUM, "datum", arrow_datum, "value", value, NULL));
 }
 
 GArrowChunkedArrayDatum *
-garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum,
-                                   GArrowChunkedArray *value)
+garrow_chunked_array_datum_new_raw(arrow::Datum *arrow_datum, GArrowChunkedArray *value)
 {
   return GARROW_CHUNKED_ARRAY_DATUM(g_object_new(GARROW_TYPE_CHUNKED_ARRAY_DATUM,
-                                                 "datum", arrow_datum,
-                                                 "value", value,
+                                                 "datum",
+                                                 arrow_datum,
+                                                 "value",
+                                                 value,
                                                  NULL));
 }
 
 GArrowRecordBatchDatum *
-garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum,
-                                  GArrowRecordBatch *value)
+garrow_record_batch_datum_new_raw(arrow::Datum *arrow_datum, GArrowRecordBatch *value)
 {
   return GARROW_RECORD_BATCH_DATUM(g_object_new(GARROW_TYPE_RECORD_BATCH_DATUM,
-                                                "datum", arrow_datum,
-                                                "value", value,
+                                                "datum",
+                                                arrow_datum,
+                                                "value",
+                                                value,
                                                 NULL));
 }
 
 GArrowTableDatum *
-garrow_table_datum_new_raw(arrow::Datum *arrow_datum,
-                           GArrowTable *value)
+garrow_table_datum_new_raw(arrow::Datum *arrow_datum, GArrowTable *value)
 {
-  return GARROW_TABLE_DATUM(g_object_new(GARROW_TYPE_TABLE_DATUM,
-                                         "datum", arrow_datum,
-                                         "value", value,
-                                         NULL));
+  return GARROW_TABLE_DATUM(
+    g_object_new(GARROW_TYPE_TABLE_DATUM, "datum", arrow_datum, "value", value, NULL));
 }

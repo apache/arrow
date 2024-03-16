@@ -1722,12 +1722,12 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
   }
 
   // div(duration, duration) -> float64
-  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4]");
-  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, 300, 20, 1]");
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, -3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, -300, 20, 1]");
   auto expected_left_by_right =
-      ArrayFromJSON(float64(), "[0.25, 6.666666666666667, 150, 4000]");
+      ArrayFromJSON(float64(), "[0.25, -6.666666666666667, -150, 4000]");
   auto expected_right_by_left =
-      ArrayFromJSON(float64(), "[4, 0.15, 0.006666666666666667, 0.00025]");
+      ArrayFromJSON(float64(), "[4, -0.15, -0.006666666666666667, 0.00025]");
   CheckScalarBinary("divide", left, right, expected_left_by_right);
   CheckScalarBinary("divide_checked", left, right, expected_left_by_right);
   CheckScalarBinary("divide", right, left, expected_right_by_left);
@@ -2101,9 +2101,9 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
-  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "non-existent"), seconds);
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "nonexistent"), seconds);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Cannot locate timezone 'non-existent'"),
+      Invalid, testing::HasSubstr("Cannot locate timezone 'nonexistent'"),
       Strftime(arr, StrftimeOptions()));
 }
 
@@ -2159,12 +2159,12 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
-  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
+  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "nonexistent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Cannot find locale 'non-existent'"),
+                                  testing::HasSubstr("Cannot find locale 'nonexistent'"),
                                   Strftime(arr, options));
 }
 
@@ -2601,7 +2601,7 @@ TEST_F(ScalarTemporalTestStrictCeil, TestCeilTemporalStrictCeil) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilUTC) {
   std::string op = "ceil_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* ceil_15_nanosecond =
@@ -2989,7 +2989,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorUTC) {
   std::string op = "floor_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* floor_15_nanosecond =
@@ -3402,7 +3402,7 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundUTC) {
   std::string op = "round_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* round_15_nanosecond =
@@ -3665,5 +3665,17 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalDate) {
   CheckScalarUnary("ceil_temporal", arr_ns, arr_ns, &round_to_2_hours);
 }
 
+TEST_F(ScalarTemporalTest, DurationUnaryArithmetics) {
+  auto arr = ArrayFromJSON(duration(TimeUnit::SECOND), "[2, -1, null, 3, 0]");
+  CheckScalarUnary("negate", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("negate_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[-2, 1, null, -3, 0]"));
+  CheckScalarUnary("abs", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("abs_checked", arr,
+                   ArrayFromJSON(duration(TimeUnit::SECOND), "[2, 1, null, 3, 0]"));
+  CheckScalarUnary("sign", arr, ArrayFromJSON(int8(), "[1, -1, null, 1, 0]"));
+}
 }  // namespace compute
 }  // namespace arrow

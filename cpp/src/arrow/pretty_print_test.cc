@@ -259,6 +259,25 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
   }
 }
 
+TEST_F(TestPrettyPrint, ArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<int32_t> values = {1, 2, 3, 4, 5};
+  static const char* expected = R"expected({
+  1,
+  2,
+  null,
+  4,
+  null
+})expected";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, Int8) {
   static const char* expected = R"expected([
   0,
@@ -331,10 +350,10 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
     std::vector<int64_t> values = {
         0, 1, 2, 678 + 1000000 * (5 + 60 * (4 + 60 * (3 + 24 * int64_t(1)))), 4};
     static const char* expected = R"expected([
-  1970-01-01 00:00:00.000000,
-  1970-01-01 00:00:00.000001,
+  1970-01-01 00:00:00.000000Z,
+  1970-01-01 00:00:00.000001Z,
   null,
-  1970-01-02 03:04:05.000678,
+  1970-01-02 03:04:05.000678Z,
   null
 ])expected";
     CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO, "Transylvania"),
@@ -755,8 +774,11 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
-TEST_F(TestPrettyPrint, ListType) {
-  auto list_type = list(int64());
+template <typename TypeClass>
+void TestPrettyPrintVarLengthListLike() {
+  using LargeTypeClass = typename TypeTraits<TypeClass>::LargeType;
+  auto var_list_type = std::make_shared<TypeClass>(int64());
+  auto var_large_list_type = std::make_shared<LargeTypeClass>(int64());
 
   static const char* ex = R"expected([
   [
@@ -817,7 +839,7 @@ TEST_F(TestPrettyPrint, ListType) {
   ]
 ])expected";
 
-  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  auto array = ArrayFromJSON(var_list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
   auto make_options = [](int indent, int window, int container_window) {
     auto options = PrettyPrintOptions(indent, window);
     options.container_window = container_window;
@@ -831,8 +853,7 @@ TEST_F(TestPrettyPrint, ListType) {
               ex_3);
   CheckArray(*array, {0, 10}, ex_4);
 
-  list_type = large_list(int64());
-  array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  array = ArrayFromJSON(var_large_list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/5),
               ex);
   CheckStream(*array, make_options(/*indent=*/2, /*window=*/10, /*container_window=*/5),
@@ -840,6 +861,93 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/1),
               ex_3);
   CheckArray(*array, {0, 10}, ex_4);
+}
+
+TEST_F(TestPrettyPrint, ListType) { TestPrettyPrintVarLengthListLike<arrow::ListType>(); }
+
+template <typename ListViewType>
+void TestListViewSpecificPrettyPrinting() {
+  using ArrayType = typename TypeTraits<ListViewType>::ArrayType;
+  using OffsetType = typename TypeTraits<ListViewType>::OffsetType;
+
+  auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+  auto int32_values = ArrayFromJSON(int32(), "[1, 20, 3]");
+  auto int16_values = ArrayFromJSON(int16(), "[10, 2, 30]");
+
+  auto Offsets = [](std::string_view json) {
+    return ArrayFromJSON(TypeTraits<OffsetType>::type_singleton(), json);
+  };
+  auto Sizes = Offsets;
+
+  ASSERT_OK_AND_ASSIGN(auto int_list_view_array,
+                       ArrayType::FromArrays(*Offsets("[0, 0, 1, 2]"),
+                                             *Sizes("[2, 1, 1, 1]"), *int32_values));
+  ASSERT_OK(int_list_view_array->ValidateFull());
+  static const char* ex1 =
+      "[\n"
+      "  [\n"
+      "    1,\n"
+      "    20\n"
+      "  ],\n"
+      "  [\n"
+      "    1\n"
+      "  ],\n"
+      "  [\n"
+      "    20\n"
+      "  ],\n"
+      "  [\n"
+      "    3\n"
+      "  ]\n"
+      "]";
+  CheckStream(*int_list_view_array, {}, ex1);
+
+  ASSERT_OK_AND_ASSIGN(auto string_list_view_array,
+                       ArrayType::FromArrays(*Offsets("[0, 0, 1, 2]"),
+                                             *Sizes("[2, 1, 1, 1]"), *string_values));
+  ASSERT_OK(string_list_view_array->ValidateFull());
+  static const char* ex2 =
+      "[\n"
+      "  [\n"
+      "    \"Hello\",\n"
+      "    \"World\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"Hello\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"World\"\n"
+      "  ],\n"
+      "  [\n"
+      "    null\n"
+      "  ]\n"
+      "]";
+  CheckStream(*string_list_view_array, {}, ex2);
+
+  auto sliced_array = string_list_view_array->Slice(1, 2);
+  static const char* ex3 =
+      "[\n"
+      "  [\n"
+      "    \"Hello\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"World\"\n"
+      "  ]\n"
+      "]";
+  CheckStream(*sliced_array, {}, ex3);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto empty_array,
+      ArrayType::FromArrays(*Offsets("[]"), *Sizes("[]"), *int16_values));
+  ASSERT_OK(empty_array->ValidateFull());
+  static const char* ex4 = "[]";
+  CheckStream(*empty_array, {}, ex4);
+}
+
+TEST_F(TestPrettyPrint, ListViewType) {
+  TestPrettyPrintVarLengthListLike<arrow::ListViewType>();
+
+  TestListViewSpecificPrettyPrinting<arrow::ListViewType>();
+  TestListViewSpecificPrettyPrinting<arrow::LargeListViewType>();
 }
 
 TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
@@ -1126,6 +1234,60 @@ TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
     null
   ]
 ])expected";
+
+    CheckStream(chunked_array, options, expected);
+  }
+}
+
+TEST_F(TestPrettyPrint, ChunkedArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+  // Use a custom opening ChunkedArray delimiter of "<", rather than the default "]".
+  options.chunked_array_delimiters.open = "<";
+  // Use a custom closing ChunkedArray delimiter of ">", rather than the default "]".
+  options.chunked_array_delimiters.close = ">";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+    const ChunkedArray chunked_array(chunk);
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
+    CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+    const ChunkedArray chunked_array({chunk, chunk});
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  },
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
 
     CheckStream(chunked_array, options, expected);
   }

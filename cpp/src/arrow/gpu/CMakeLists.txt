@@ -59,8 +59,8 @@ add_arrow_lib(arrow_cuda
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
               ${ARROW_CUDA_LINK_LIBS}
+              arrow_shared
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared
@@ -100,9 +100,10 @@ if(ARROW_BUILD_TESTS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(cuda_benchmark PREFIX "arrow-gpu")
-  target_link_libraries(arrow-gpu-cuda-benchmark
-                        PUBLIC ${ARROW_CUDA_LIBRARY} ${ARROW_GTEST_GTEST}
-                               ${ARROW_BENCHMARK_LINK_LIBS})
+  add_arrow_benchmark(cuda_benchmark
+                      PREFIX
+                      "arrow-gpu"
+                      EXTRA_LINK_LIBS
+                      ${ARROW_CUDA_LIBRARY})
   add_dependencies(arrow_cuda-benchmarks arrow-gpu-cuda-benchmark)
 endif()

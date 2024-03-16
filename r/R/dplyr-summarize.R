@@ -42,6 +42,13 @@ register_bindings_aggregate <- function() {
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+  register_binding_agg("base::prod", function(..., na.rm = FALSE) {
+    list(
+      fun = "product",
+      data = ensure_one_arg(list2(...), "prod"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
   register_binding_agg("base::any", function(..., na.rm = FALSE) {
     list(
       fun = "any",

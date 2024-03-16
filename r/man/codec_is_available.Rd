@@ -8,7 +8,7 @@ codec_is_available(type)
 }
 \arguments{
 \item{type}{A string, one of "uncompressed", "snappy", "gzip", "brotli",
-"zstd", "lz4", "lzo", or "bz2", case insensitive.}
+"zstd", "lz4", "lzo", or "bz2", case-insensitive.}
 }
 \value{
 Logical: is \code{type} available?

@@ -16,7 +16,6 @@
 # under the License.
 
 from contextlib import contextmanager
-import gc
 import os
 
 from . import cdata
@@ -39,6 +38,7 @@ def _load_clr():
     global _clr_loaded
     if not _clr_loaded:
         _clr_loaded = True
+        os.environ['DOTNET_GCHeapHardLimit'] = '0xC800000'  # 200 MiB
         import pythonnet
         pythonnet.load("coreclr")
         import clr
@@ -78,9 +78,11 @@ class _CDataBase:
     def _read_batch_from_json(self, json_path, num_batch):
         from Apache.Arrow.IntegrationTest import CDataInterface
 
-        jf = CDataInterface.ParseJsonFile(json_path)
-        schema = jf.Schema.ToArrow()
-        return schema, jf.Batches[num_batch].ToArrow(schema)
+        return CDataInterface.ParseJsonFile(json_path).ToArrow(num_batch)
+
+    def _run_gc(self):
+        from Apache.Arrow.IntegrationTest import CDataInterface
+        CDataInterface.RunGC()
 
 
 class CSharpCDataExporter(CDataExporter, _CDataBase):
@@ -104,6 +106,9 @@ class CSharpCDataExporter(CDataExporter, _CDataBase):
     def supports_releasing_memory(self):
         # XXX the C# GC doesn't give reliable allocation measurements
         return False
+
+    def run_gc(self):
+        self._run_gc()
 
 
 class CSharpCDataImporter(CDataImporter, _CDataBase):
@@ -134,15 +139,8 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
     def supports_releasing_memory(self):
         return True
 
-    def gc_until(self, predicate):
-        from Apache.Arrow.IntegrationTest import CDataInterface
-        for i in range(3):
-            if predicate():
-                return True
-            # Collect any C# objects hanging around through Python
-            gc.collect()
-            CDataInterface.RunGC()
-        return predicate()
+    def run_gc(self):
+        self._run_gc()
 
 
 class CSharpTester(Tester):

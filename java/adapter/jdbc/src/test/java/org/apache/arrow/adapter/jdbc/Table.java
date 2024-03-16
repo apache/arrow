@@ -129,7 +129,7 @@ public class Table {
   }
 
   public byte[][] getBinaryValues() {
-    return getHexToByteArray(values);
+    return getByteArray(values);
   }
 
   public byte[][] getVarCharValues() {
@@ -137,7 +137,7 @@ public class Table {
   }
 
   public byte[][] getBlobValues() {
-    return getBinaryValues();
+    return getByteArray(values);
   }
 
   public byte[][] getClobValues() {
@@ -220,24 +220,5 @@ public class Table {
       byteArr[i] = data[i].getBytes(StandardCharsets.UTF_8);
     }
     return byteArr;
-  }
-
-  static byte[][] getHexToByteArray(String[] data) {
-    byte[][] byteArr = new byte[data.length][];
-
-    for (int i = 0; i < data.length; i++) {
-      byteArr[i] = hexStringToByteArray(data[i]);
-    }
-    return byteArr;
-  }
-
-  static byte[] hexStringToByteArray(String s) {
-    int len = s.length();
-    byte[] data = new byte[len / 2];
-    for (int i = 0; i < len; i += 2) {
-      data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) +
-              Character.digit(s.charAt(i + 1), 16));
-    }
-    return data;
   }
 }

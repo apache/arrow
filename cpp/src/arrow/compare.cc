@@ -38,6 +38,7 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -261,6 +262,25 @@ class RangeDataEqualsImpl {
   // Also matches StringType
   Status Visit(const BinaryType& type) { return CompareBinary(type); }
 
+  // Also matches StringViewType
+  Status Visit(const BinaryViewType& type) {
+    auto* left_values = left_.GetValues<BinaryViewType::c_type>(1) + left_start_idx_;
+    auto* right_values = right_.GetValues<BinaryViewType::c_type>(1) + right_start_idx_;
+
+    auto* left_buffers = left_.buffers.data() + 2;
+    auto* right_buffers = right_.buffers.data() + 2;
+    VisitValidRuns([&](int64_t i, int64_t length) {
+      for (auto end_i = i + length; i < end_i; ++i) {
+        if (!util::EqualBinaryView(left_values[i], right_values[i], left_buffers,
+                                   right_buffers)) {
+          return false;
+        }
+      }
+      return true;
+    });
+    return Status::OK();
+  }
+
   // Also matches LargeStringType
   Status Visit(const LargeBinaryType& type) { return CompareBinary(type); }
 
@@ -287,6 +307,10 @@ class RangeDataEqualsImpl {
   Status Visit(const ListType& type) { return CompareList(type); }
 
   Status Visit(const LargeListType& type) { return CompareList(type); }
+
+  Status Visit(const ListViewType& type) { return CompareListView(type); }
+
+  Status Visit(const LargeListViewType& type) { return CompareListView(type); }
 
   Status Visit(const FixedSizeListType& type) {
     const auto list_size = type.list_size();
@@ -473,6 +497,38 @@ class RangeDataEqualsImpl {
     return Status::OK();
   }
 
+  template <typename TypeClass>
+  Status CompareListView(const TypeClass& type) {
+    const ArrayData& left_values = *left_.child_data[0];
+    const ArrayData& right_values = *right_.child_data[0];
+
+    using offset_type = typename TypeClass::offset_type;
+    const auto* left_offsets = left_.GetValues<offset_type>(1) + left_start_idx_;
+    const auto* right_offsets = right_.GetValues<offset_type>(1) + right_start_idx_;
+    const auto* left_sizes = left_.GetValues<offset_type>(2) + left_start_idx_;
+    const auto* right_sizes = right_.GetValues<offset_type>(2) + right_start_idx_;
+
+    auto compare_view = [&](int64_t i, int64_t length) -> bool {
+      for (int64_t j = i; j < i + length; ++j) {
+        if (left_sizes[j] != right_sizes[j]) {
+          return false;
+        }
+        const offset_type size = left_sizes[j];
+        if (size == 0) {
+          continue;
+        }
+        RangeDataEqualsImpl impl(options_, floating_approximate_, left_values,
+                                 right_values, left_offsets[j], right_offsets[j], size);
+        if (!impl.Compare()) {
+          return false;
+        }
+      }
+      return true;
+    };
+    VisitValidRuns(std::move(compare_view));
+    return Status::OK();
+  }
+
   template <typename RunEndCType>
   Status CompareRunEndEncoded() {
     auto left_span = ArraySpan(left_);
@@ -632,6 +688,11 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewType&) {
+    result_ = true;
+    return Status::OK();
+  }
+
   template <typename T>
   enable_if_interval<T, Status> Visit(const T& left) {
     const auto& right = checked_cast<const IntervalType&>(right_);
@@ -674,7 +735,8 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_like_type<T>::value, Status> Visit(const T& left) {
+  enable_if_t<is_list_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& left) {
     std::shared_ptr<Field> left_field = left.field(0);
     std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
     bool equal_names = !check_metadata_ || (left_field->name() == right_field->name());
@@ -802,8 +864,7 @@ class ScalarEqualsVisitor {
   Status Visit(const DoubleScalar& left) { return CompareFloating(left); }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
-  Visit(const T& left) {
+  enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
@@ -829,6 +890,18 @@ class ScalarEqualsVisitor {
 
   Status Visit(const LargeListScalar& left) {
     const auto& right = checked_cast<const LargeListScalar&>(right_);
+    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewScalar& left) {
+    const auto& right = checked_cast<const ListViewScalar&>(right_);
+    result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewScalar& left) {
+    const auto& right = checked_cast<const LargeListViewScalar&>(right_);
     result_ = ArrayEquals(*left.value, *right.value, options_, floating_approximate_);
     return Status::OK();
   }

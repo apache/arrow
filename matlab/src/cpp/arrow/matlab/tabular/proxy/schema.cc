@@ -129,7 +129,7 @@ namespace arrow::matlab::tabular::proxy {
         std::vector<std::u16string> field_names_utf16;
         field_names_utf16.reserve(num_fields);
 
-        // Conver the field names from UTF-8 to UTF-16.
+        // Convert the field names from UTF-8 to UTF-16.
         for (const auto& field_name_utf8 : field_names_utf8) {
             MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto field_name_utf16, arrow::util::UTF8StringToUTF16(field_name_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
             field_names_utf16.push_back(field_name_utf16);

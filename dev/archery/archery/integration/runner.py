@@ -158,7 +158,6 @@ class IntegrationRunner(object):
                 skip_testers.add("JS")
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
-                skip_testers.add("C#")
                 skip_testers.add("JS")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
@@ -193,6 +192,8 @@ class IntegrationRunner(object):
         ``case_runner`` ran against ``test_cases``
         """
         def case_wrapper(test_case):
+            if serial:
+                return case_runner(test_case)
             with printer.cork():
                 return case_runner(test_case)
 
@@ -421,17 +422,18 @@ class IntegrationRunner(object):
         # Serial execution is required for proper memory accounting
         serial = True
 
-        exporter = producer.make_c_data_exporter()
-        importer = consumer.make_c_data_importer()
+        with producer.make_c_data_exporter() as exporter:
+            with consumer.make_c_data_importer() as importer:
+                case_runner = partial(self._run_c_schema_test_case,
+                                      producer, consumer,
+                                      exporter, importer)
+                self._run_test_cases(case_runner, self.json_files, serial=serial)
 
-        case_runner = partial(self._run_c_schema_test_case, producer, consumer,
-                              exporter, importer)
-        self._run_test_cases(case_runner, self.json_files, serial=serial)
-
-        if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
-            case_runner = partial(self._run_c_array_test_cases, producer, consumer,
-                                  exporter, importer)
-            self._run_test_cases(case_runner, self.json_files, serial=serial)
+                if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
+                    case_runner = partial(self._run_c_array_test_cases,
+                                          producer, consumer,
+                                          exporter, importer)
+                    self._run_test_cases(case_runner, self.json_files, serial=serial)
 
     def _run_c_schema_test_case(self,
                                 producer: Tester, consumer: Tester,
@@ -607,6 +609,16 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
+            "location:reuse_connection",
+            description="Ensure arrow-flight-reuse-connection is accepted.",
+            skip_testers={"JS", "C#", "Rust"},
+        ),
+        Scenario(
+            "session_options",
+            description="Ensure Flight SQL Sessions work as expected.",
+            skip_testers={"JS", "C#", "Rust"}
+        ),
+        Scenario(
             "poll_flight_info",
             description="Ensure PollFlightInfo is supported.",
             skip_testers={"JS", "C#", "Rust"}
@@ -614,7 +626,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "app_metadata_flight_info_endpoint",
             description="Ensure support FlightInfo and Endpoint app_metadata",
-            skip_testers={"JS", "C#", "Rust", "Java"}
+            skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
             "flight_sql",

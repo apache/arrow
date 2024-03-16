@@ -33,7 +33,7 @@ jobs:
     if: github.event.issue.pull_request == null
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             let split_body = context.payload.issue.body.split('### Component(s)');
@@ -64,7 +64,7 @@ jobs:
               "per_page": 100,
             });
 
-            // this removes non-existent labels
+            // this removes nonexistent labels
             component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
@@ -78,6 +79,12 @@ public class TestBasicOperation {
     Assertions.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
   }
 
+  @Test
+  public void fallbackLocation() {
+    Assertions.assertEquals("arrow-flight-reuse-connection://?",
+            Location.reuseConnection().getUri().toString());
+  }
+
   /**
    * ARROW-6017: we should be able to construct locations for unknown schemes.
    */
@@ -113,10 +120,13 @@ public class TestBasicOperation {
         Field.nullable("a", new ArrowType.Int(32, true)),
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
-    final FlightInfo info1 = new FlightInfo(schema, FlightDescriptor.path(), Collections.emptyList(), -1, -1);
+    final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8)).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
-        Collections.singletonList(new FlightEndpoint(
-            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))), 200, 500);
+        Collections.singletonList(
+                FlightEndpoint.builder(new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))
+                        .setAppMetadata("bar".getBytes(StandardCharsets.UTF_8)).build()
+        ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
@@ -157,7 +167,7 @@ public class TestBasicOperation {
   public void getDescriptors() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(Criteria.ALL)) {
+      for (FlightInfo unused : c.listFlights(Criteria.ALL)) {
         count += 1;
       }
       Assertions.assertEquals(1, count);
@@ -168,7 +178,8 @@ public class TestBasicOperation {
   public void getDescriptorsWithCriteria() throws Exception {
     test(c -> {
       int count = 0;
-      for (FlightInfo i : c.listFlights(new Criteria(new byte[]{1}))) {
+      for (FlightInfo unused : c.listFlights(new Criteria(new byte[]{1}))) {
+
         count += 1;
       }
       Assertions.assertEquals(0, count);

@@ -128,7 +128,7 @@ read_parquet <- function(file,
 #'  - A named vector, to specify the value for the named columns, the default
 #'    value for the setting is used when not supplied
 #'
-#' The `compression` argument can be any of the following (case insensitive):
+#' The `compression` argument can be any of the following (case-insensitive):
 #' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 #' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
 #' are almost always included. See [codec_is_available()].

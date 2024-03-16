@@ -435,7 +435,7 @@ class [[nodiscard]] Future {
     return MakeFinished(E::ToResult(std::move(s)));
   }
 
-  struct WrapResultyOnComplete {
+  struct WrapResultOnComplete {
     template <typename OnComplete>
     struct Callback {
       void operator()(const FutureImpl& impl) && {
@@ -461,7 +461,7 @@ class [[nodiscard]] Future {
   template <typename OnComplete>
   using WrapOnComplete = typename std::conditional<
       detail::first_arg_is_status<OnComplete>::value, WrapStatusyOnComplete,
-      WrapResultyOnComplete>::type::template Callback<OnComplete>;
+      WrapResultOnComplete>::type::template Callback<OnComplete>;
 
   /// \brief Consumer API: Register a callback to run when this future completes
   ///

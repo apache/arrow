@@ -29,6 +29,6 @@ namespace arrow::matlab::type::proxy {
         ~StructType() {}
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-};
+    };
 
 }

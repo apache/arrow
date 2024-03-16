@@ -49,6 +49,8 @@ function arrowArray = array(data, varargin)
             arrowArray = arrow.array.Time64Array.fromMATLAB(data, varargin{:});
         case "table"
             arrowArray = arrow.array.StructArray.fromMATLAB(data, varargin{:});
+        case "cell"
+            arrowArray = arrow.array.ListArray.fromMATLAB(data, varargin{:});
         otherwise
             errid = "arrow:array:UnsupportedMATLABType";
             msg = join(["Unable to convert MATLAB type" classname "to arrow array."]);

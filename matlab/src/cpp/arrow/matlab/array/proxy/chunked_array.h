@@ -35,7 +35,7 @@ class ChunkedArray : public libmexclass::proxy::Proxy {
 
     protected:
 
-        void getLength(libmexclass::proxy::method::Context& context);
+        void getNumElements(libmexclass::proxy::method::Context& context);
 
         void getNumChunks(libmexclass::proxy::method::Context& context);
 

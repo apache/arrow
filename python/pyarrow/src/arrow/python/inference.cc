@@ -468,10 +468,7 @@ class TypeInferrer {
     if (numpy_dtype_count_ > 0) {
       // All NumPy scalars and Nones/nulls
       if (numpy_dtype_count_ + none_count_ == total_count_) {
-        std::shared_ptr<DataType> type;
-        RETURN_NOT_OK(NumPyDtypeToArrow(numpy_unifier_.current_dtype(), &type));
-        *out = type;
-        return Status::OK();
+        return NumPyDtypeToArrow(numpy_unifier_.current_dtype()).Value(out);
       }
 
       // The "bad path": data contains a mix of NumPy scalars and
@@ -623,7 +620,7 @@ class TypeInferrer {
 
     // XXX(wesm): In ARROW-4324 I added accounting to check whether
     // all of the non-null values have NumPy dtypes, but the
-    // total_count not not being properly incremented here
+    // total_count not being properly incremented here
     ++(*list_inferrer_).total_count_;
     return list_inferrer_->VisitDType(dtype, keep_going);
   }

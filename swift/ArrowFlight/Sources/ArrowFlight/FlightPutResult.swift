@@ -22,11 +22,11 @@ public class FlightPutResult {
     public init(_ appMetadata: Data = Data()) {
         self.appMetadata = appMetadata
     }
-    
+
     init(_ putResult: Arrow_Flight_Protocol_PutResult) {
         self.appMetadata = putResult.appMetadata
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_PutResult {
         var putResult = Arrow_Flight_Protocol_PutResult()
         putResult.appMetadata = self.appMetadata

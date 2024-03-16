@@ -23,4 +23,7 @@ namespace arrow::matlab::index {
 
     arrow::Status validateNonEmptyContainer(const int32_t num_fields);
     arrow::Status validateInRange(const int32_t matlab_index, const int32_t num_fields);
+    arrow::Status validateSliceOffset(const int64_t matlab_offset);
+    arrow::Status validateSliceLength(const int64_t length);
+
 }

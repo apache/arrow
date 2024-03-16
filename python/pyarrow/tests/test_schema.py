@@ -681,7 +681,8 @@ def test_schema_sizeof():
         pa.field('bar', pa.string()),
     ])
 
-    assert sys.getsizeof(schema) > 30
+    # Note: pa.schema is twice as large on 64-bit systems
+    assert sys.getsizeof(schema) > (30 if sys.maxsize > 2**32 else 15)
 
     schema2 = schema.with_metadata({"key": "some metadata"})
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)
@@ -717,12 +718,15 @@ def test_schema_merge():
     ])
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         pa.unify_schemas([b, d])
 
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    result = pa.unify_schemas([b, d], promote_options="permissive")
+    assert result.equals(d)
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):

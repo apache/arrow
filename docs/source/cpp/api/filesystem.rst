@@ -19,6 +19,8 @@
 Filesystems
 ===========
 
+.. _cpp-api-filesystems:
+
 Interface
 =========
 
@@ -33,10 +35,20 @@ Interface
 .. doxygenclass:: arrow::fs::FileSystem
    :members:
 
-High-level factory function
-===========================
+.. doxygenfunction:: arrow::fs::EnsureFinalized()
+
+.. _filesystem-factory-functions:
+
+High-level factory functions
+============================
 
 .. doxygengroup:: filesystem-factories
+   :content-only:
+
+Factory registration functions
+==============================
+
+.. doxygengroup:: filesystem-factory-registration
    :content-only:
 
 Concrete implementations
@@ -65,6 +77,8 @@ S3 filesystem
 
 .. doxygenclass:: arrow::fs::S3FileSystem
    :members:
+
+.. doxygenfunction:: arrow::fs::InitializeS3(const S3GlobalOptions& options)
 
 Hadoop filesystem
 -----------------
