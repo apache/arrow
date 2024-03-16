@@ -860,13 +860,11 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
 
-  std::vector<int64_t> shape = {2, 3, 1};
   std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 1,
                                   sizeof(int64_t) * 1};
-  std::vector<int64_t> values = {1, 1, 2, 3, 4, 5};
-  auto data_buffer = Buffer::Wrap(values);
-  ASSERT_OK_AND_ASSIGN(tensor,
-                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+  tensor = TensorFromJSON(int64(), R"([1,1,2,3,4,5])", {2, 3, 1}, strides,
+                          dim_names_);
+
   ASSERT_TRUE(tensor->Equals(*t));
 
   ASSERT_OK_AND_ASSIGN(scalar, ext_array->GetScalar(1));
@@ -881,12 +879,9 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{3, 1, 3}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 24, 8}));
 
-  shape = {3, 1, 3};
   strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 3, sizeof(int64_t) * 1};
-  values = {10, 11, 12, 13, 14, 15, 16, 17, 18};
-  data_buffer = Buffer::Wrap(values);
-  ASSERT_OK_AND_ASSIGN(tensor,
-                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+  tensor = TensorFromJSON(int64(), R"([10,11,12,13,14,15,16,17,18])", {3, 1, 3}, strides,
+                          dim_names_);
 
   ASSERT_EQ(tensor->strides(), t->strides());
   ASSERT_EQ(tensor->shape(), t->shape());
@@ -908,12 +903,9 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_TRUE(tensor->Equals(*t));
 
   // Null value in VariableShapeTensorArray produces a tensor with shape {0, 0, 0}
-  shape = {0, 0, 0};
   strides = {sizeof(int64_t), sizeof(int64_t), sizeof(int64_t)};
-  values = {};
-  data_buffer = Buffer::Wrap(values);
-  ASSERT_OK_AND_ASSIGN(tensor,
-                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+  tensor = TensorFromJSON(int64(), R"([10,11,12,13,14,15,16,17,18])", {0, 0, 0}, strides,
+                          dim_names_);
 
   ASSERT_OK_AND_ASSIGN(sc, ext_arr->GetScalar(3));
   ASSERT_OK_AND_ASSIGN(
