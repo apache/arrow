@@ -1853,8 +1853,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
               const auto& bloom_filter_location = row_group_bloom_filter_location[i];
               if (bloom_filter_location.has_value()) {
                 column_metadata.__set_bloom_filter_offset(bloom_filter_location->offset);
-                // TODO(mwish): GH-38181: Allow this after Parquet 2.10 is released.
-                // column_metadata.__set_bloom_filter_length(bloom_filter_location->length);
+                // bloom_filter_length is added in Parquet 2.10
+                column_metadata.__set_bloom_filter_length(bloom_filter_location->length);
               }
             }
           }

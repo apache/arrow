@@ -91,9 +91,7 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
   const ColumnDescriptor* column_descr = schema_->Column(column_ordinal);
-  if (column_descr->physical_type() == Type::BOOLEAN) {
-    return nullptr;
-  }
+  DCHECK_NE(column_descr->physical_type(), Type::BOOLEAN);
   auto bloom_filter_options_opt = properties_.bloom_filter_options(column_descr->path());
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;

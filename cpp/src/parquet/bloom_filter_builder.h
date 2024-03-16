@@ -35,20 +35,21 @@ struct BloomFilterLocation;
 ///   bloom_filter_builder->AppendRowGroup();
 ///   auto* bloom_filter =
 ///   bloom_filter_builder->GetOrCreateBloomFilter(bloom_filter_column);
-///   // Add bloom filter entries.
+///   // Add bloom filter entries in `bloom_filter`.
 ///   // ...
 /// }
 /// bloom_filter_builder->WriteTo(sink, location);
 /// ```
 class PARQUET_EXPORT BloomFilterBuilder {
  public:
-  /// \brief API convenience to create a BloomFilterBuilder.
+  /// \brief API to create a BloomFilterBuilder.
   static std::unique_ptr<BloomFilterBuilder> Make(const SchemaDescriptor* schema,
                                                   const WriterProperties& properties);
 
   /// Append a new row group to host all incoming bloom filters.
   ///
-  /// This method must be called before WriteTo.
+  /// This method must be called before `GetOrCreateBloomFilter`
+  /// in a row group.
   virtual void AppendRowGroup() = 0;
 
   /// \brief Get the BloomFilter from column ordinal.
@@ -57,8 +58,13 @@ class PARQUET_EXPORT BloomFilterBuilder {
   ///
   /// \return BloomFilter for the column and its memory ownership belongs to the
   /// BloomFilterBuilder. It will throw an exception if the BloomFilter is already
-  /// Finished or column_ordinal is out of bound. It will return nullptr if bloom filter
-  /// is not enabled for the column.
+  /// Finished or column_ordinal is out of bound.
+  ///
+  /// It will return nullptr if bloom filter is not enabled for the column.
+  ///
+  /// It will throw exception when BloomFilter BloomFilterBuilder is called with
+  /// out-of-order `column_ordinal`, without calling `AppendRowGroup` before
+  /// `GetOrCreateBloomFilter`.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// \brief Write the bloom filter to sink.
