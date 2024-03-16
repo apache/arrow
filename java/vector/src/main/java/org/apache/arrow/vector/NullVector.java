@@ -93,6 +93,7 @@ public class NullVector implements FieldVector {
    * @param valueCount number of values (i.e., nulls) in this vector.
    */
   public NullVector(Field field, int valueCount) {
+    Preconditions.checkArgument(field.getFieldType().getType() == Types.MinorType.NULL.getType(), "NullVector must have null type.");
     this.field = field;
     this.valueCount = valueCount;
   }
