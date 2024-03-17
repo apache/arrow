@@ -50,9 +50,11 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -61,6 +63,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
+
+#include <rapidjson/document.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
@@ -423,6 +429,43 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
   return *Table::FromRecordBatches(schema, std::move(batches));
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides,
+                                       std::string_view dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+
+  rj::Document json_shape;
+  json_shape.Parse(shape.data(), shape.length());
+  std::vector<int64_t> shape_vector;
+  for (auto& x : json_shape.GetArray()) {
+    shape_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_strides;
+  json_strides.Parse(strides.data(), strides.length());
+  std::vector<int64_t> strides_vector;
+  for (auto& x : json_strides.GetArray()) {
+    strides_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_dim_names;
+  json_dim_names.Parse(dim_names.data(), dim_names.length());
+  std::vector<std::string> dim_names_vector;
+  for (auto& x : json_dim_names.GetArray()) {
+    dim_names_vector.emplace_back(x.GetString());
+  }
+  return *Tensor::Make(type, array->data()->buffers[1], shape_vector, strides_vector,
+                       dim_names_vector);
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides,
+                                       const std::vector<std::string>& dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+  return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(

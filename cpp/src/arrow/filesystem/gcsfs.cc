@@ -760,7 +760,7 @@ GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_obj
   return options;
 }
 
-Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
+Result<GcsOptions> GcsOptions::FromUri(const arrow::util::Uri& uri,
                                        std::string* out_path) {
   const auto bucket = uri.host();
   auto path = uri.path();
@@ -824,7 +824,7 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
 
 Result<GcsOptions> GcsOptions::FromUri(const std::string& uri_string,
                                        std::string* out_path) {
-  arrow::internal::Uri uri;
+  arrow::util::Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
 }

@@ -1242,7 +1242,7 @@ class AsofJoinNode : public ExecNode {
         if (by_key_type[k] == NULLPTR) {
           by_key_type[k] = by_field[k]->type().get();
         } else if (*by_key_type[k] != *by_field[k]->type()) {
-          return Status::Invalid("Expected on-key type ", *by_key_type[k], " but got ",
+          return Status::Invalid("Expected by-key type ", *by_key_type[k], " but got ",
                                  *by_field[k]->type(), " for field ", by_field[k]->name(),
                                  " in input ", j);
         }

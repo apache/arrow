@@ -20,7 +20,6 @@
 #pragma once
 
 #include <arrow-glib/array-builder.h>
-#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 

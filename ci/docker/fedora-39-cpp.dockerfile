@@ -32,7 +32,6 @@ RUN dnf update -y && \
         cmake \
         curl \
         curl-devel \
-        flatbuffers-devel \
         gcc \
         gcc-c++ \
         gflags-devel \

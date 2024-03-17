@@ -34,7 +34,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-clang)
     packages+=(${MINGW_PACKAGE_PREFIX}-cmake)
     packages+=(${MINGW_PACKAGE_PREFIX}-double-conversion)
-    packages+=(${MINGW_PACKAGE_PREFIX}-flatbuffers)
     packages+=(${MINGW_PACKAGE_PREFIX}-gflags)
     packages+=(${MINGW_PACKAGE_PREFIX}-grpc)
     packages+=(${MINGW_PACKAGE_PREFIX}-gtest)

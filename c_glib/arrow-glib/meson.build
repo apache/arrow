@@ -94,7 +94,6 @@ c_headers = files(
   'error.h',
   'expression.h',
   'field.h',
-  'gobject-type.h',
   'interval.h',
   'memory-pool.h',
   'record-batch.h',
