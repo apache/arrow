@@ -5,7 +5,7 @@
 
 /* Version number in navbar */
 .nav-text, .text-muted {
-  color: white !important;
+  color: #d9d9d9 !important;
 }
 
 /* Placeholder of search input in navbar */
