@@ -5824,7 +5824,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
   auto origin_schema = ::arrow::schema(
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8())),
+      {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
        ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
   bloom_filters_.clear();
   BloomFilterOptions options;
@@ -5836,11 +5836,11 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
                                ->build();
   std::vector<std::string> contents = {R"([
         [1,     "a"],
-        [2,     "a"],
-        [1,     "c"],
+        [2,     "b"],
+        [3,     "c"],
         [null,  "d"],
         [5,     null],
-        [6,     "d"]
+        [6,     "f"]
   ])"};
   auto table = ::arrow::TableFromJSON(schema, contents);
   auto non_dict_table = ::arrow::TableFromJSON(origin_schema, contents);
@@ -5854,13 +5854,15 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
   for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
     {
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
+      auto col = non_dict_table->column(0)->Slice(current_row,
+                                                  row_group_row_count[row_group_id]);
       VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
       ++bloom_filter_idx;
     }
     {
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
-      auto col = table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
+      auto col = non_dict_table->column(1)->Slice(current_row,
+                                                  row_group_row_count[row_group_id]);
       VerifyBloomFilter<::arrow::StringType>(bloom_filters_[bloom_filter_idx].get(),
                                              *col);
       ++bloom_filter_idx;

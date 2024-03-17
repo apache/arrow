@@ -165,20 +165,15 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
             ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
             : nullptr;
 
-    std::unique_ptr<PageWriter> pager;
+    CodecOptions default_codec_options;
     if (!codec_options) {
-      pager = PageWriter::Open(
-          sink_, column_properties.compression(), col_meta, row_group_ordinal_,
-          static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
-          /*buffered_row_group=*/false, meta_encryptor, data_encryptor,
-          properties_->page_checksum_enabled(), ci_builder, oi_builder, CodecOptions());
-    } else {
-      pager = PageWriter::Open(
-          sink_, column_properties.compression(), col_meta, row_group_ordinal_,
-          static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
-          /*buffered_row_group=*/false, meta_encryptor, data_encryptor,
-          properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
+      codec_options = &default_codec_options;
     }
+    std::unique_ptr<PageWriter> pager = PageWriter::Open(
+        sink_, column_properties.compression(), col_meta, row_group_ordinal_,
+        static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+        /*buffered_row_group=*/false, meta_encryptor, data_encryptor,
+        properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
     column_writers_[0] =
         ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter);
     return column_writers_[0].get();
@@ -322,20 +317,15 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
           bloom_filter_builder_ && column_properties.bloom_filter_enabled()
               ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
               : nullptr;
-      std::unique_ptr<PageWriter> pager;
+      CodecOptions default_codec_options;
       if (!codec_options) {
-        pager = PageWriter::Open(
-            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
-            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
-            buffered_row_group_, meta_encryptor, data_encryptor,
-            properties_->page_checksum_enabled(), ci_builder, oi_builder, CodecOptions());
-      } else {
-        pager = PageWriter::Open(
-            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
-            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
-            buffered_row_group_, meta_encryptor, data_encryptor,
-            properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
+        codec_options = &default_codec_options;
       }
+      std::unique_ptr<PageWriter> pager = PageWriter::Open(
+          sink_, properties_->compression(path), col_meta, row_group_ordinal_,
+          static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+          buffered_row_group_, meta_encryptor, data_encryptor,
+          properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter));
     }
