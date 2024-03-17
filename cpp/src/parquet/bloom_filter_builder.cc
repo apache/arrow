@@ -74,7 +74,10 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   bool finished_ = false;
 
   using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
-  std::vector<RowGroupBloomFilters> file_bloom_filters_;
+  // Using unique_ptr because the `std::unique_ptr<BloomFilter>` is not copyable.
+  // MSVC has the issue below: https://github.com/microsoft/STL/issues/1036
+  // So we use `std::unique_ptr<std::map<>>` to avoid the issue.
+  std::vector<std::unique_ptr<RowGroupBloomFilters>> file_bloom_filters_;
 };
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
@@ -87,7 +90,7 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
     throw ParquetException(
         "Cannot call AppendRowGroup() to finished BloomFilterBuilder.");
   }
-  file_bloom_filters_.emplace_back();
+  file_bloom_filters_.emplace_back(std::make_unique<RowGroupBloomFilters>());
 }
 
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
@@ -99,7 +102,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
     return nullptr;
   }
   BloomFilterOptions bloom_filter_options = *bloom_filter_options_opt;
-  auto& row_group_bloom_filter = file_bloom_filters_.back();
+  RowGroupBloomFilters& row_group_bloom_filter = *file_bloom_filters_.back();
   auto iter = row_group_bloom_filter.find(column_ordinal);
   if (iter == row_group_bloom_filter.end()) {
     auto block_split_bloom_filter =
@@ -124,7 +127,8 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
 
   for (size_t row_group_ordinal = 0; row_group_ordinal < file_bloom_filters_.size();
        ++row_group_ordinal) {
-    const auto& row_group_bloom_filters = file_bloom_filters_[row_group_ordinal];
+    RowGroupBloomFilters& row_group_bloom_filters =
+        *file_bloom_filters_[row_group_ordinal];
     // the whole row group has no bloom filter
     if (row_group_bloom_filters.empty()) {
       continue;
