@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
@@ -28,31 +29,41 @@
 namespace parquet::test {
 
 TEST(BloomFilterReader, ReadBloomFilter) {
-  std::string dir_string(get_data_dir());
-  std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
-  auto reader = ParquetFileReader::OpenFile(path, false);
-  auto file_metadata = reader->metadata();
-  EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
-  auto& bloom_filter_reader = reader->GetBloomFilterReader();
-  auto row_group_0 = bloom_filter_reader.RowGroup(0);
-  ASSERT_NE(nullptr, row_group_0);
-  EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
-  auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
-  ASSERT_NE(nullptr, bloom_filter);
-  EXPECT_THROW(row_group_0->GetColumnBloomFilter(1), ParquetException);
+  std::vector<std::string> files = {"data_index_bloom_encoding_stats.parquet",
+                                    "data_index_bloom_encoding_with_length.parquet"};
+  for (const auto& test_file : files) {
+    std::string dir_string(get_data_dir());
+    std::string path = dir_string + "/" + test_file;
+    auto reader = ParquetFileReader::OpenFile(path, /*memory_map=*/false);
+    auto file_metadata = reader->metadata();
+    EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
+    auto& bloom_filter_reader = reader->GetBloomFilterReader();
+    auto row_group_0 = bloom_filter_reader.RowGroup(0);
+    ASSERT_NE(nullptr, row_group_0);
+    EXPECT_THROW_THAT(
+        [&]() { bloom_filter_reader.RowGroup(1); }, ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("Invalid row group ordinal")));
+    auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
+    ASSERT_NE(nullptr, bloom_filter);
+    EXPECT_THROW_THAT([&]() { row_group_0->GetColumnBloomFilter(1); }, ParquetException,
+                      ::testing::Property(&ParquetException::what,
+                                          ::testing::HasSubstr(
+                                              "Invalid column index at column ordinal")));
 
-  // assert exists
-  {
-    std::string_view sv = "Hello";
-    ByteArray ba{sv};
-    EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
-  }
+    // assert exists
+    {
+      std::string_view sv = "Hello";
+      ByteArray ba{sv};
+      EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    }
 
-  // no exists
-  {
-    std::string_view sv = "NOT_EXISTS";
-    ByteArray ba{sv};
-    EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    // no exists
+    {
+      std::string_view sv = "NOT_EXISTS";
+      ByteArray ba{sv};
+      EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    }
   }
 }
 
@@ -84,36 +95,62 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   auto writer_properties = properties_builder.build();
   auto builder = BloomFilterBuilder::Make(&schema, *writer_properties);
-  builder->AppendRowGroup();
-  auto bloom_filter = builder->GetOrCreateBloomFilter(0);
-  ASSERT_NE(nullptr, bloom_filter);
-  ASSERT_EQ(bloom_filter->GetBitsetSize(),
-            BlockSplitBloomFilter::OptimalNumOfBytes(bloom_filter_options.ndv,
-                                                     bloom_filter_options.fpp));
-  std::vector<uint64_t> insert_hashes = {100, 200};
-  for (uint64_t hash : insert_hashes) {
-    bloom_filter->InsertHash(hash);
-  }
+
+  auto append_values_to_bloom_filter = [&](const std::vector<uint64_t>& insert_hashes) {
+    builder->AppendRowGroup();
+    auto bloom_filter = builder->GetOrCreateBloomFilter(0);
+    ASSERT_NE(nullptr, bloom_filter);
+    ASSERT_EQ(bloom_filter->GetBitsetSize(),
+              BlockSplitBloomFilter::OptimalNumOfBytes(bloom_filter_options.ndv,
+                                                       bloom_filter_options.fpp));
+    for (uint64_t hash : insert_hashes) {
+      bloom_filter->InsertHash(hash);
+    }
+  };
+  // First row-group
+  append_values_to_bloom_filter({100, 200});
+  // Second row-group
+  append_values_to_bloom_filter({300, 400});
   auto sink = CreateOutputStream();
   BloomFilterLocation location;
   builder->WriteTo(sink.get(), &location);
-  EXPECT_EQ(1, location.bloom_filter_location.size());
-  EXPECT_EQ(2, location.bloom_filter_location[0].size());
-  EXPECT_TRUE(location.bloom_filter_location[0][0].has_value());
-  EXPECT_FALSE(location.bloom_filter_location[0][1].has_value());
+  EXPECT_EQ(2, location.bloom_filter_location.size());
+  for (auto& [row_group_id, row_group_bloom_filter] : location.bloom_filter_location) {
+    EXPECT_EQ(2, row_group_bloom_filter.size());
+    EXPECT_TRUE(row_group_bloom_filter[0].has_value());
+    EXPECT_FALSE(row_group_bloom_filter[1].has_value());
+  }
 
-  int64_t bloom_filter_offset = location.bloom_filter_location[0][0]->offset;
-  int32_t bloom_filter_length = location.bloom_filter_location[0][0]->length;
+  struct RowGroupBloomFilterCase {
+    int32_t row_group_id;
+    std::vector<uint64_t> exists_hashes;
+    std::vector<uint64_t> unexists_hashes;
+  };
 
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-  ReaderProperties reader_properties;
-  ::arrow::io::BufferReader reader(
-      ::arrow::SliceBuffer(buffer, bloom_filter_offset, bloom_filter_length));
-  auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
-  for (uint64_t hash : insert_hashes) {
-    EXPECT_TRUE(bloom_filter->FindHash(hash));
+
+  std::vector<RowGroupBloomFilterCase> cases = {
+      RowGroupBloomFilterCase{/*row_group_id=*/0, /*exists_hashes=*/{100, 200},
+                              /*unexists_hashes=*/{300, 400}},
+      RowGroupBloomFilterCase{/*row_group_id=*/1, /*exists_hashes=*/{300, 400},
+                              /*unexists_hashes=*/{100, 200}}};
+  for (const auto& c : cases) {
+    int64_t bloom_filter_offset =
+        location.bloom_filter_location[c.row_group_id][0]->offset;
+    int32_t bloom_filter_length =
+        location.bloom_filter_location[c.row_group_id][0]->length;
+
+    ReaderProperties reader_properties;
+    ::arrow::io::BufferReader reader(
+        ::arrow::SliceBuffer(buffer, bloom_filter_offset, bloom_filter_length));
+    auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
+    for (uint64_t hash : c.exists_hashes) {
+      EXPECT_TRUE(filter.FindHash(hash));
+    }
+    for (uint64_t hash : c.unexists_hashes) {
+      EXPECT_FALSE(filter.FindHash(hash));
+    }
   }
-  EXPECT_FALSE(filter.FindHash(300));
 }
 
 TEST(BloomFilterBuilderTest, InvalidOperations) {
