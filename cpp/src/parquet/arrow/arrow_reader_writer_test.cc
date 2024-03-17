@@ -5737,7 +5737,8 @@ class ParquetBloomFilterRoundTripTest : public ::testing::Test,
   void ReadBloomFilters(int expect_num_row_groups,
                         const std::set<int>& expect_columns_without_filter = {}) {
     auto read_properties = default_arrow_reader_properties();
-    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+    auto reader =
+        ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_), read_properties);
 
     auto metadata = reader->metadata();
     ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
