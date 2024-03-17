@@ -49,6 +49,9 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   /// deletes all bloom filters after they have been flushed.
   void WriteTo(::arrow::io::OutputStream* sink, BloomFilterLocation* location) override;
 
+  BloomFilterBuilderImpl(const BloomFilterBuilderImpl&) = delete;
+  BloomFilterBuilderImpl(BloomFilterBuilderImpl&&) = default;
+
  private:
   /// Make sure column ordinal is not out of bound and the builder is in good state.
   void CheckState(int32_t column_ordinal) const {
@@ -70,7 +73,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   WriterProperties properties_;
   bool finished_ = false;
 
-  using RowGroupBloomFilters = std::vector<std::unique_ptr<BloomFilter>>;
+  using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
   std::vector<RowGroupBloomFilters> file_bloom_filters_;
 };
 
@@ -84,8 +87,7 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
     throw ParquetException(
         "Cannot call AppendRowGroup() to finished BloomFilterBuilder.");
   }
-  RowGroupBloomFilters row_group_bloom_filters(schema_->num_columns());
-  file_bloom_filters_.emplace_back(std::move(row_group_bloom_filters));
+  file_bloom_filters_.emplace_back();
 }
 
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
@@ -96,16 +98,21 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }
-  BloomFilterOptions& bloom_filter_options = *bloom_filter_options_opt;
-  std::unique_ptr<BloomFilter>& bloom_filter = file_bloom_filters_.back()[column_ordinal];
-  if (bloom_filter == nullptr) {
+  BloomFilterOptions bloom_filter_options = *bloom_filter_options_opt;
+  auto& row_group_bloom_filter = file_bloom_filters_.back();
+  auto iter = row_group_bloom_filter.find(column_ordinal);
+  if (iter == row_group_bloom_filter.end()) {
     auto block_split_bloom_filter =
         std::make_unique<BlockSplitBloomFilter>(properties_.memory_pool());
     block_split_bloom_filter->Init(BlockSplitBloomFilter::OptimalNumOfBytes(
         bloom_filter_options.ndv, bloom_filter_options.fpp));
-    bloom_filter = std::move(block_split_bloom_filter);
+    auto insert_result = row_group_bloom_filter.emplace(
+        column_ordinal, std::move(block_split_bloom_filter));
+    ARROW_CHECK(insert_result.second);
+    iter = insert_result.first;
   }
-  return bloom_filter.get();
+  ARROW_CHECK(iter->second != nullptr);
+  return iter->second.get();
 }
 
 void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
@@ -127,11 +134,8 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
 
     // serialize bloom filter in ascending order of column id
-    for (int column_id = 0; column_id < num_columns; ++column_id) {
-      auto& filter = row_group_bloom_filters[column_id];
-      if (filter == nullptr) {
-        continue;
-      }
+    for (auto& [column_id, filter] : row_group_bloom_filters) {
+      ARROW_CHECK(filter != nullptr);
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
       filter->WriteTo(sink);
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
