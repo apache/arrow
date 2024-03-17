@@ -862,8 +862,7 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
 
   std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 1,
                                   sizeof(int64_t) * 1};
-  tensor = TensorFromJSON(int64(), R"([1,1,2,3,4,5])", {2, 3, 1}, strides,
-                          dim_names_);
+  tensor = TensorFromJSON(int64(), R"([1,1,2,3,4,5])", {2, 3, 1}, strides, dim_names_);
 
   ASSERT_TRUE(tensor->Equals(*t));
 
