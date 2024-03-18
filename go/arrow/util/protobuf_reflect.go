@@ -10,13 +10,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"reflect"
-	"strconv"
 )
-
-type Column interface {
-	getArrowField() arrow.Field
-	getDataType() arrow.DataType
-}
 
 type SchemaOptions struct {
 	exclusionPolicy    func(pfr ProtobufFieldReflection) bool
@@ -225,33 +219,6 @@ func (psr ProtobufStructReflection) getFieldByName(n string) ProtobufFieldReflec
 				n = string(fd.ContainingOneof().Name())
 			}
 			fv = fv.FieldByName(xstrings.ToCamelCase(n))
-			for fv.Kind() == reflect.Ptr {
-				fv = fv.Elem()
-			}
-		}
-	}
-	return ProtobufFieldReflection{
-		fd,
-		psr.message.Get(fd),
-		fv,
-		psr.SchemaOptions,
-	}
-}
-func (psr ProtobufStructReflection) getFieldByMetadata(md arrow.Metadata) ProtobufFieldReflection {
-	index, _ := md.GetValue("Index")
-	i, _ := strconv.Atoi(index)
-	return psr.getFieldByNumber(i)
-}
-
-func (psr ProtobufStructReflection) getFieldByNumber(i int) ProtobufFieldReflection {
-	fd := psr.descriptor.Fields().Get(i)
-	fv := psr.rValue
-	if fv.IsValid() {
-		if !fv.IsZero() {
-			for fv.Kind() == reflect.Ptr || fv.Kind() == reflect.Interface {
-				fv = fv.Elem()
-			}
-			fv = fv.Field(i)
 			for fv.Kind() == reflect.Ptr {
 				fv = fv.Elem()
 			}
