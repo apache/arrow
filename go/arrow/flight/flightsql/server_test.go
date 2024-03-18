@@ -179,12 +179,16 @@ func (*testServer) CloseSession(ctx context.Context, req *flight.CloseSessionReq
 }
 
 func (*testServer) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
-	var nRecords int64
+	var maxRows int64 = 50
+	var nRows int64
 	for rdr.Next() {
 		rec := rdr.Record()
-		nRecords += rec.NumRows()
+		if nRows+rec.NumRows() > maxRows {
+			return nRows, fmt.Errorf("ingested rows exceeded maximum of %d", maxRows)
+		}
+		nRows += rec.NumRows()
 	}
-	return nRecords, nil
+	return nRows, nil
 }
 
 type FlightSqlServerSuite struct {
@@ -335,6 +339,36 @@ func (s *FlightSqlServerSuite) TestExecuteIngest() {
 	s.NoError(err)
 
 	nRowsExpected := int64(nRecords * nRowsPerRecord)
+	s.Equal(nRowsExpected, nRowsIngested)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngestWithServerError() {
+	nRecords := 11 // intentionally exceed maximum number of rows the server can ingest
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
+	for _, rec := range reclist {
+		defer rec.Release()
+	}
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
+	nRowsIngested, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
+	s.Error(err)
+	s.ErrorContains(err, "ingested rows exceeded maximum")
+
+	nRowsExpected := int64(50) // max rows the server can ingest
 	s.Equal(nRowsExpected, nRowsIngested)
 }
 

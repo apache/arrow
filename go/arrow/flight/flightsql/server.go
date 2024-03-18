@@ -1004,17 +1004,25 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		}
 		return stream.Send(out)
 	case *pb.CommandStatementIngest:
-		recordCount, err := f.srv.DoPutCommandStatementIngest(stream.Context(), cmd, rdr)
-		if err != nil {
-			return err
-		}
+		// Even if there was an error, the server may have ingested some records.
+		// For this reason we send PutResult{recordCount} no matter what, potentially followed by an error
+		// if there was one.
+		recordCount, rpcErr := f.srv.DoPutCommandStatementIngest(stream.Context(), cmd, rdr)
 
 		result := pb.DoPutUpdateResult{RecordCount: recordCount}
 		out := &flight.PutResult{}
 		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
 			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
-		return stream.Send(out)
+
+		// If we fail to send the recordCount, just return an error outright
+		if err := stream.Send(out); err != nil {
+			return err
+		}
+
+		// We successfully sent the recordCount.
+		// Send the error if one occurred in the RPC, otherwise this is nil.
+		return rpcErr
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid")
 	}

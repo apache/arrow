@@ -287,9 +287,8 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 		rec := rdr.Record()
 		err = wr.Write(rec)
 		if errors.Is(err, flight.ErrDataStreamClosed) {
-			// The stream was closed by the server, so we clean up and stop writing.
+			// The stream was closed by the server, so we stop writing.
 			// The specific error will be retrieved in the server response.
-			rec.Release()
 			break
 		}
 		if err != nil {
@@ -309,17 +308,21 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 		return 0, err
 	}
 
-	// Drain the stream, ensuring only a single result was sent by the server.
-	// Flight RPC allows multiple server results, so the check may be removed if Flight SQL ingestion defines semanatics for this scenario.
-	if _, err = stream.Recv(); err != io.EOF {
-		return 0, ErrTooManyPutResults
-	}
-
 	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
 		return 0, err
 	}
 
-	return updateResult.GetRecordCount(), nil
+	// Drain the stream. If ingestion was successful, no more messages should arrive.
+	// If there was a failure, the next message contains the error and the DoPutUpdateResult
+	// we recieved indicates a partial ingestion if the RecordCount is non-zero.
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return updateResult.GetRecordCount(), nil
+		} else if err != nil {
+			return updateResult.GetRecordCount(), err
+		}
+	}
 }
 
 // GetCatalogs requests the list of catalogs from the server and
