@@ -203,6 +203,11 @@ Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("sum", {value}, &options, ctx);
 }
 
+Result<Datum> SumChecked(const Datum& value, const ScalarAggregateOptions& options,
+                         ExecContext* ctx) {
+  return CallFunction("sum_checked", {value}, &options, ctx);
+}
+
 Result<Datum> First(const Datum& value, const ScalarAggregateOptions& options,
                     ExecContext* ctx) {
   return CallFunction("first", {value}, &options, ctx);

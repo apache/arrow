@@ -42,6 +42,7 @@ Aggregations
    quantile
    stddev
    sum
+   sum_checked
    tdigest
    variance
 

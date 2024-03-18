@@ -133,6 +133,8 @@ add_arrow_compute_test(aggregate_test
                        arrow_compute_kernels_testing
                        Boost::headers)
 
+add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+
 # ----------------------------------------------------------------------
 # Utilities
 

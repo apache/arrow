@@ -60,16 +60,21 @@ struct VarStdState {
     if (count == 0 || (!this->all_valid && !options.skip_nulls)) {
       return;
     }
-
+    Status status;
     using SumType = typename internal::GetSumType<T>::SumType;
-    SumType sum = internal::SumArray<CType, SumType, SimdLevel::NONE>(array);
+    SumType sum = internal::SumArray<CType, SumType, SimdLevel::NONE, /*Checked=*/false>(
+        array, &status);
 
     const double mean = ToDouble(sum) / count;
-    const double m2 = internal::SumArray<CType, double, SimdLevel::NONE>(
-        array, [this, mean](CType value) {
-          const double v = ToDouble(value);
-          return (v - mean) * (v - mean);
-        });
+    const double m2 =
+        internal::SumArray<CType, double, SimdLevel::NONE, /*Checked=*/false>(
+            array,
+            [this, mean](CType value) {
+              const double v = ToDouble(value);
+              return (v - mean) * (v - mean);
+            },
+            &status);
+    ARROW_CHECK_OK(status);
 
     ThisType state(decimal_scale, options);
     state.count = count;
