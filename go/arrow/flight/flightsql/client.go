@@ -248,8 +248,9 @@ var ErrTooManyPutResults = fmt.Errorf("%w: server sent multiple PutResults, expe
 // ExecuteIngest is for executing a bulk ingestion and only returns the number of affected rows.
 // The provided RecordReader will be retained for the duration of the call, but it is the caller's
 // responsibility to release the original reference.
-func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqOptions *ExecuteIngestOpts, opts ...grpc.CallOption) (n int64, err error) {
+func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqOptions *ExecuteIngestOpts, opts ...grpc.CallOption) (int64, error) {
 	var (
+		err          error
 		desc         *flight.FlightDescriptor
 		stream       pb.FlightService_DoPutClient
 		wr           *flight.Writer
@@ -270,11 +271,11 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 
 	cmd := (*pb.CommandStatementIngest)(reqOptions)
 	if desc, err = descForCommand(cmd); err != nil {
-		return
+		return 0, err
 	}
 
 	if stream, err = c.Client.DoPut(ctx, opts...); err != nil {
-		return
+		return 0, err
 	}
 
 	wr = flight.NewRecordWriter(stream, ipc.WithAllocator(c.Alloc), ipc.WithSchema(rdr.Schema()))
@@ -285,20 +286,20 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 	for rdr.Next() {
 		rec := rdr.Record()
 		if err = wr.Write(rec); err != nil {
-			return
+			return 0, err
 		}
 	}
 
 	if err = rdr.Err(); err != nil {
-		return
+		return 0, err
 	}
 
 	if err = stream.CloseSend(); err != nil {
-		return
+		return 0, err
 	}
 
 	if res, err = stream.Recv(); err != nil {
-		return
+		return 0, err
 	}
 
 	// Drain the stream, ensuring only a single result was sent by the server.
@@ -308,7 +309,7 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 	}
 
 	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
-		return
+		return 0, err
 	}
 
 	return updateResult.GetRecordCount(), nil
