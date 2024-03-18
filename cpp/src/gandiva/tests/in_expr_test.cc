@@ -161,17 +161,6 @@ TEST_F(TestIn, TestInDouble) {
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
-
-  std::shared_ptr<SelectionVector> selection_vector;
-  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
-  EXPECT_TRUE(status.ok());
-
-  // Evaluate expression
-  status = filter->Evaluate(*in_batch, selection_vector);
-  EXPECT_TRUE(status.ok());
-
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
 TEST_F(TestIn, TestInDecimal) {
@@ -193,10 +182,6 @@ TEST_F(TestIn, TestInDecimal) {
   auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
-  std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
-  EXPECT_TRUE(status.ok());
-
   // Create a row-batch with some sample data
   int num_records = 5;
   auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"});
@@ -208,16 +193,34 @@ TEST_F(TestIn, TestInDecimal) {
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  std::shared_ptr<SelectionVector> selection_vector;
-  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  {
+    std::shared_ptr<Filter> filter;
+    auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+    EXPECT_TRUE(status.ok());
+    std::shared_ptr<SelectionVector> selection_vector;
+    status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+    EXPECT_TRUE(status.ok());
+
+    // Evaluate expression
+    status = filter->Evaluate(*in_batch, selection_vector);
+    EXPECT_TRUE(status.ok());
+
+    // Validate results
+    EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+  }
+
+  std::shared_ptr<Filter> new_filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &new_filter);
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(new_filter->GetBuiltFromCache());
+
+  std::shared_ptr<SelectionVector> selection_vector_new;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector_new);
   EXPECT_TRUE(status.ok());
 
-  // Evaluate expression
-  status = filter->Evaluate(*in_batch, selection_vector);
+  status = new_filter->Evaluate(*in_batch, selection_vector_new);
   EXPECT_TRUE(status.ok());
-
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector_new->ToArray());
 }
 
 TEST_F(TestIn, TestInString) {
