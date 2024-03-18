@@ -36,9 +36,13 @@ namespace internal {
 // Helper tracking memory statistics
 
 class MemoryPoolStats {
- public:
-  MemoryPoolStats() : bytes_allocated_(0), max_memory_(0) {}
+ private:
+  std::atomic<int64_t> bytes_allocated_{0};
+  std::atomic<int64_t> max_memory_{0};
+  std::atomic<int64_t> total_allocated_bytes_{0};
+  std::atomic<int64_t> num_allocs_{0};
 
+ public:
   int64_t max_memory() const { return max_memory_.load(); }
 
   int64_t bytes_allocated() const { return bytes_allocated_.load(); }
@@ -67,12 +71,6 @@ class MemoryPoolStats {
       num_allocs_ += 1;
     }
   }
-
- protected:
-  std::atomic<int64_t> bytes_allocated_ = 0;
-  std::atomic<int64_t> max_memory_ = 0;
-  std::atomic<int64_t> total_allocated_bytes_ = 0;
-  std::atomic<int64_t> num_allocs_ = 0;
 };
 
 }  // namespace internal
