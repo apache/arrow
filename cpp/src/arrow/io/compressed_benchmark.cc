@@ -26,13 +26,13 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/io/compressed.h"
 #include "arrow/io/memory.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "compressed.h"
 
 namespace arrow::io {
 
