@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table
+from pyarrow.lib import Table, RecordBatch, RecordBatchReader
 from pyarrow.compute import Expression, field
 
 try:
@@ -30,6 +30,7 @@ try:
         Declaration,
         ExecNodeOptions,
         TableSourceNodeOptions,
+        RecordBatchReaderSourceNodeOptions,
         FilterNodeOptions,
         ProjectNodeOptions,
         AggregateNodeOptions,
@@ -91,11 +92,11 @@ def _perform_join(join_type, left_operand, left_keys,
     ----------
     join_type : str
         One of supported join types.
-    left_operand : Table or Dataset
+    left_operand : Table, RecordBatch, or Dataset
         The left operand for the join operation.
     left_keys : str or list[str]
         The left key (or keys) on which the join operation should be performed.
-    right_operand : Table or Dataset
+    right_operand : Table, RecordBatch, or Dataset
         The right operand for the join operation.
     right_keys : str or list[str]
         The right key (or keys) on which the join operation should be performed.
@@ -117,10 +118,12 @@ def _perform_join(join_type, left_operand, left_keys,
     -------
     result_table : Table or InMemoryDataset
     """
-    if not isinstance(left_operand, (Table, ds.Dataset)):
-        raise TypeError(f"Expected Table or Dataset, got {type(left_operand)}")
-    if not isinstance(right_operand, (Table, ds.Dataset)):
-        raise TypeError(f"Expected Table or Dataset, got {type(right_operand)}")
+    if not isinstance(left_operand, (Table, RecordBatch, ds.Dataset)):
+        raise TypeError(
+            f"Expected Table, RecordBatch, or Dataset, got {type(left_operand)}")
+    if not isinstance(right_operand, (Table, RecordBatch, ds.Dataset)):
+        raise TypeError(
+            f"Expected Table, RecordBatch, or Dataset, got {type(right_operand)}")
 
     # Prepare left and right tables Keys to send them to the C++ function
     left_keys_order = {}
@@ -167,13 +170,29 @@ def _perform_join(join_type, left_operand, left_keys,
     # Add the join node to the execplan
     if isinstance(left_operand, ds.Dataset):
         left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
-    else:
+    elif isinstance(left_operand, Table):
         left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
+    else:
+        left_source = Declaration(
+            "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(
+                RecordBatchReader.from_batches(
+                    left_operand.schema, [left_operand]
+                ),
+            ),
+        )
     if isinstance(right_operand, ds.Dataset):
         right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
-    else:
+    elif isinstance(right_operand, Table):
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)
+        )
+    else:
+        right_source = Declaration(
+            "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(
+                RecordBatchReader.from_batches(
+                    right_operand.schema, [right_operand],
+                ),
+            ),
         )
 
     if coalesce_keys:
@@ -259,19 +278,19 @@ def _perform_join_asof(left_operand, left_on, left_by,
                        tolerance, use_threads=True,
                        output_type=Table):
     """
-    Perform asof join of two tables or datasets.
+    Perform asof join of two tables, record batches, or datasets.
 
     The result will be an output table with the result of the join operation
 
     Parameters
     ----------
-    left_operand : Table or Dataset
+    left_operand : Table, RecordBatch, or Dataset
         The left operand for the join operation.
     left_on : str
         The left key (or keys) on which the join operation should be performed.
     left_by: str or list[str]
         The left key (or keys) on which the join operation should be performed.
-    right_operand : Table or Dataset
+    right_operand : Table, RecordBatch, or Dataset
         The right operand for the join operation.
     right_on : str or list[str]
         The right key (or keys) on which the join operation should be performed.
@@ -285,12 +304,14 @@ def _perform_join_asof(left_operand, left_on, left_by,
 
     Returns
     -------
-    result_table : Table or InMemoryDataset
+    result_table : Table, RecordBatchReader, or InMemoryDataset
     """
-    if not isinstance(left_operand, (Table, ds.Dataset)):
-        raise TypeError(f"Expected Table or Dataset, got {type(left_operand)}")
-    if not isinstance(right_operand, (Table, ds.Dataset)):
-        raise TypeError(f"Expected Table or Dataset, got {type(right_operand)}")
+    if not isinstance(left_operand, (Table, RecordBatch, ds.Dataset)):
+        raise TypeError(
+            f"Expected Table, RecordBatch, or Dataset, got {type(left_operand)}")
+    if not isinstance(right_operand, (Table, RecordBatch, ds.Dataset)):
+        raise TypeError(
+            f"Expected Table, RecordBatch, or Dataset, got {type(right_operand)}")
 
     if not isinstance(left_by, (tuple, list)):
         left_by = [left_by]
@@ -312,15 +333,29 @@ def _perform_join_asof(left_operand, left_on, left_by,
     # Add the join node to the execplan
     if isinstance(left_operand, ds.Dataset):
         left_source = _dataset_to_decl(left_operand, use_threads=use_threads)
+    elif isinstance(left_operand, Table):
+        left_source = Declaration("table_source", TableSourceNodeOptions(left_operand))
     else:
         left_source = Declaration(
-            "table_source", TableSourceNodeOptions(left_operand),
+            "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(
+                RecordBatchReader.from_batches(
+                    left_operand.schema, [left_operand],
+                ),
+            ),
         )
     if isinstance(right_operand, ds.Dataset):
         right_source = _dataset_to_decl(right_operand, use_threads=use_threads)
-    else:
+    elif isinstance(right_operand, Table):
         right_source = Declaration(
             "table_source", TableSourceNodeOptions(right_operand)
+        )
+    else:
+        right_source = Declaration(
+            "record_batch_reader_source", RecordBatchReaderSourceNodeOptions(
+                RecordBatchReader.from_batches(
+                    right_operand.schema, [right_operand],
+                ),
+            ),
         )
 
     join_opts = AsofJoinNodeOptions(
