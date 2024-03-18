@@ -102,6 +102,9 @@ else
 fi
 
 %changelog
+* Wed Mar 13 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.2-1
+- New upstream release.
+
 * Fri Feb 23 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.1-1
 - New upstream release.
 
