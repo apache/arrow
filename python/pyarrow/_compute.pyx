@@ -952,12 +952,13 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 cdef class _RoundTemporalOptions(FunctionOptions):
     def _set_options(self, multiple, unit, week_starts_monday,
-                     ceil_is_strictly_greater, calendar_based_origin):
+                     ceil_is_strictly_greater, calendar_based_origin,
+                     preserve_wall_time_order):
         self.wrapped.reset(
             new CRoundTemporalOptions(
                 multiple, unwrap_round_temporal_unit(unit),
                 week_starts_monday, ceil_is_strictly_greater,
-                calendar_based_origin)
+                calendar_based_origin, preserve_wall_time_order)
         )
 
 
@@ -1002,15 +1003,17 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         YYYY-mm-dd 20:00:00. On the other hand YYYY-mm-dd+1 00:00:00 will
         ceil, round and floor to YYYY-mm-dd+1 00:00:00. This can break the
         order of an already ordered array.
+    preserve_wall_time_order: bool, default False
+        If True, wall time will be preserved when rounding.
 
     """
 
     def __init__(self, multiple=1, unit="day", *, week_starts_monday=True,
-                 ceil_is_strictly_greater=False,
-                 calendar_based_origin=False):
+                 ceil_is_strictly_greater=False, calendar_based_origin=False,
+                 preserve_wall_time_order=False):
         self._set_options(multiple, unit, week_starts_monday,
-                          ceil_is_strictly_greater,
-                          calendar_based_origin)
+                          ceil_is_strictly_greater, calendar_based_origin,
+                          preserve_wall_time_order)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):
