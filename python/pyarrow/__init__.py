@@ -145,7 +145,8 @@ def show_info():
         print(f"  {module: <20}: {status: <8}")
 
     print("\nFilesystems:")
-    filesystems = ["GcsFileSystem", "HadoopFileSystem", "S3FileSystem"]
+    filesystems = ["AzureFileSystem", "GcsFileSystem",
+                   "HadoopFileSystem", "S3FileSystem"]
     for fs in filesystems:
         status = "Enabled" if _filesystem_is_available(fs) else "-"
         print(f"  {fs: <20}: {status: <8}")
@@ -166,7 +167,8 @@ from pyarrow.lib import (null, bool_,
                          binary, string, utf8, binary_view, string_view,
                          large_binary, large_string, large_utf8,
                          decimal128, decimal256,
-                         list_, large_list, map_, struct,
+                         list_, large_list, list_view, large_list_view,
+                         map_, struct,
                          union, sparse_union, dense_union,
                          dictionary,
                          run_end_encoded,
@@ -174,8 +176,9 @@ from pyarrow.lib import (null, bool_,
                          field,
                          type_for_alias,
                          DataType, DictionaryType, StructType,
-                         ListType, LargeListType, MapType, FixedSizeListType,
-                         UnionType, SparseUnionType, DenseUnionType,
+                         ListType, LargeListType, FixedSizeListType,
+                         ListViewType, LargeListViewType,
+                         MapType, UnionType, SparseUnionType, DenseUnionType,
                          TimestampType, Time32Type, Time64Type, DurationType,
                          FixedSizeBinaryType, Decimal128Type, Decimal256Type,
                          BaseExtensionType, ExtensionType,
@@ -201,8 +204,9 @@ from pyarrow.lib import (null, bool_,
                          Int32Array, UInt32Array,
                          Int64Array, UInt64Array,
                          HalfFloatArray, FloatArray, DoubleArray,
-                         ListArray, LargeListArray, MapArray,
-                         FixedSizeListArray, UnionArray,
+                         ListArray, LargeListArray, FixedSizeListArray,
+                         ListViewArray, LargeListViewArray,
+                         MapArray, UnionArray,
                          BinaryArray, StringArray,
                          LargeBinaryArray, LargeStringArray,
                          BinaryViewArray, StringViewArray,
@@ -220,6 +224,7 @@ from pyarrow.lib import (null, bool_,
                          HalfFloatScalar, FloatScalar, DoubleScalar,
                          Decimal128Scalar, Decimal256Scalar,
                          ListScalar, LargeListScalar, FixedSizeListScalar,
+                         ListViewScalar, LargeListViewScalar,
                          Date32Scalar, Date64Scalar,
                          Time32Scalar, Time64Scalar,
                          TimestampScalar, DurationScalar,
@@ -251,9 +256,8 @@ from pyarrow.lib import (NativeFile, PythonFile,
                          BufferReader, BufferOutputStream,
                          OSFile, MemoryMappedFile, memory_map,
                          create_memory_map, MockOutputStream,
-                         input_stream, output_stream)
-
-from pyarrow._hdfsio import HdfsFile, have_libhdfs
+                         input_stream, output_stream,
+                         have_libhdfs)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,
@@ -272,52 +276,10 @@ from pyarrow.lib import (ArrowCancelled,
                          ArrowTypeError,
                          ArrowSerializationError)
 
-import pyarrow.hdfs as hdfs
-
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
 
 import pyarrow.types as types
-
-
-# deprecated top-level access
-
-
-from pyarrow.filesystem import FileSystem as _FileSystem
-from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
-from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
-
-
-_localfs = _LocalFileSystem._get_instance()
-
-
-_msg = (
-    "pyarrow.{0} is deprecated as of 2.0.0, please use pyarrow.fs.{1} instead."
-)
-
-_serialization_msg = (
-    "'pyarrow.{0}' is deprecated and will be removed in a future version. "
-    "Use pickle or the pyarrow IPC functionality instead."
-)
-
-_deprecated = {
-    "localfs": (_localfs, "LocalFileSystem"),
-    "FileSystem": (_FileSystem, "FileSystem"),
-    "LocalFileSystem": (_LocalFileSystem, "LocalFileSystem"),
-    "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
-}
-
-
-def __getattr__(name):
-    if name in _deprecated:
-        obj, new_name = _deprecated[name]
-        _warnings.warn(_msg.format(name, new_name),
-                       FutureWarning, stacklevel=2)
-        return obj
-
-    raise AttributeError(
-        "module 'pyarrow' has no attribute '{0}'".format(name)
-    )
 
 
 # ----------------------------------------------------------------------

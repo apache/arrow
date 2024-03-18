@@ -100,7 +100,6 @@ def assert_dataset_fragment_convenience_methods(dataset):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def mockfs():
     mockfs = fs._MockFileSystem()
 
@@ -221,7 +220,6 @@ def multisourcefs(request):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
@@ -2692,7 +2690,6 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module)
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
@@ -2725,6 +2722,16 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
     # passing filesystem object
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset_reader.to_table(dataset).equals(table)
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_fileinfos(s3_example_simple, dataset_reader):
+    table, path, filesystem, uri, _, _, _, _ = s3_example_simple
+    selector = fs.FileSelector("mybucket")
+    finfos = filesystem.get_file_info(selector)
+    dataset = ds.dataset(finfos, format="parquet", filesystem=filesystem)
     assert dataset_reader.to_table(dataset).equals(table)
 
 
@@ -5066,6 +5073,120 @@ def test_dataset_join_collisions(tempdir):
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof(tempdir):
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_multiple_by(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_empty_by(tempdir):
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=[], tolerance=1
+    )
+    assert result.to_table() == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_collisions(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
+    with pytest.raises(ValueError, match=msg):
+        ds1.join_asof(
+            ds2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
 
 
 @pytest.mark.parametrize('dstype', [

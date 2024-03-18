@@ -58,8 +58,10 @@ that changing their value later will have an effect.
    - ``abort`` exits the processus with a non-zero return value;
    - ``trap`` issues a platform-specific debugger breakpoint / trap instruction;
    - ``warn`` prints a warning on stderr and continues execution;
+   - ``none`` disables memory checks;
 
-   If this variable is not set, or has empty an value, memory checks are disabled.
+   If this variable is not set, or has an empty value, it has the same effect
+   as the value ``none`` - memory checks are disabled.
 
    .. note::
       While this functionality can be useful and has little overhead, it

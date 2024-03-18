@@ -26,8 +26,10 @@
 
 #include <arrow-glib/input-stream.h>
 
-GArrowInputStream *garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input_stream);
-std::shared_ptr<arrow::io::InputStream> garrow_input_stream_get_raw(GArrowInputStream *input_stream);
+GArrowInputStream *
+garrow_input_stream_new_raw(std::shared_ptr<arrow::io::InputStream> *arrow_input_stream);
+std::shared_ptr<arrow::io::InputStream>
+garrow_input_stream_get_raw(GArrowInputStream *input_stream);
 
 GArrowSeekableInputStream *
 garrow_seekable_input_stream_new_raw(
@@ -36,24 +38,22 @@ std::shared_ptr<arrow::io::RandomAccessFile>
 garrow_seekable_input_stream_get_raw(GArrowSeekableInputStream *input_stream);
 
 GArrowBufferInputStream *
-garrow_buffer_input_stream_new_raw(std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader,
-                                   GArrowBuffer *buffer);
-std::shared_ptr<arrow::io::BufferReader> garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *input_stream);
-
+garrow_buffer_input_stream_new_raw(
+  std::shared_ptr<arrow::io::BufferReader> *arrow_buffer_reader, GArrowBuffer *buffer);
+std::shared_ptr<arrow::io::BufferReader>
+garrow_buffer_input_stream_get_raw(GArrowBufferInputStream *input_stream);
 
 GArrowFileInputStream *
-garrow_file_input_stream_new_raw(
-  std::shared_ptr<arrow::io::ReadableFile> *arrow_stream);
-
+garrow_file_input_stream_new_raw(std::shared_ptr<arrow::io::ReadableFile> *arrow_stream);
 
 GArrowMemoryMappedInputStream *
 garrow_memory_mapped_input_stream_new_raw(
   std::shared_ptr<arrow::io::MemoryMappedFile> *arrow_stream);
 
-
 GArrowCompressedInputStream *
-garrow_compressed_input_stream_new_raw(std::shared_ptr<arrow::io::CompressedInputStream> *arrow_raw,
-                                       GArrowCodec *codec,
-                                       GArrowInputStream *raw);
+garrow_compressed_input_stream_new_raw(
+  std::shared_ptr<arrow::io::CompressedInputStream> *arrow_raw,
+  GArrowCodec *codec,
+  GArrowInputStream *raw);
 std::shared_ptr<arrow::io::InputStream>
 garrow_compressed_input_stream_get_raw(GArrowCompressedInputStream *stream);

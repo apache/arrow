@@ -120,6 +120,16 @@ cdef class LargeListType(DataType):
         const CLargeListType* list_type
 
 
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
+
+
 cdef class MapType(DataType):
     cdef:
         const CMapType* map_type
@@ -285,6 +295,8 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
+        bytes _ssize_t_shape
+        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
@@ -422,6 +434,14 @@ cdef class ListArray(BaseListArray):
 
 
 cdef class LargeListArray(BaseListArray):
+    pass
+
+
+cdef class ListViewArray(Array):
+    pass
+
+
+cdef class LargeListViewArray(Array):
     pass
 
 

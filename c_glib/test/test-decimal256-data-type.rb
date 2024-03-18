@@ -41,7 +41,7 @@ class TestDecimal256DataType < Test::Unit::TestCase
     assert_equal(2, data_type.scale)
   end
 
-  def test_deciaml_data_type_new
+  def test_decimal_data_type_new
     assert_equal(Arrow::Decimal256DataType.new(39, 1),
                  Arrow::DecimalDataType.new(39, 1))
   end

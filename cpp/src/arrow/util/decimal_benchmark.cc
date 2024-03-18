@@ -131,7 +131,7 @@ static void BinaryMathOpAggregate(
 
   for (auto _ : state) {
     BasicDecimal128 result;
-    for (int x = 0; x < 100; x++) {
+    for (int x = 0; x < kValueSize; x++) {
       result += v[x];
     }
     benchmark::DoNotOptimize(result);

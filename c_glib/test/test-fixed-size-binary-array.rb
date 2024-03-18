@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestFixedSizeBinaryrray < Test::Unit::TestCase
+class TestFixedSizeBinaryArray < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup

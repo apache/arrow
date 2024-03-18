@@ -450,6 +450,31 @@ func (c *Client) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts 
 	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
+func (c *Client) LoadPreparedStatementFromResult(result *CreatePreparedStatementResult) (*PreparedStatement, error) {
+	var (
+		err                   error
+		dsSchema, paramSchema *arrow.Schema
+	)
+	if result.DatasetSchema != nil {
+		dsSchema, err = flight.DeserializeSchema(result.DatasetSchema, c.Alloc)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if result.ParameterSchema != nil {
+		paramSchema, err = flight.DeserializeSchema(result.ParameterSchema, c.Alloc)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &PreparedStatement{
+		client:        c,
+		handle:        result.PreparedStatementHandle,
+		datasetSchema: dsSchema,
+		paramSchema:   paramSchema,
+	}, nil
+}
+
 func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.FlightService_DoActionClient) (*PreparedStatement, error) {
 	if err := results.CloseSend(); err != nil {
 		return nil, err
@@ -559,12 +584,24 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 	return
 }
 
-func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	return c.Client.CancelFlightInfo(ctx, request, opts...)
 }
 
 func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
+}
+
+func (c *Client) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	return c.Client.SetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	return c.Client.GetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	return c.Client.CloseSession(ctx, request, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
@@ -1025,6 +1062,46 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 	}
 
 	return p.client.getFlightInfo(ctx, desc, opts...)
+}
+
+// ExecutePut calls DoPut for the prepared statement on the server. If SetParameters
+// has been called then the parameter bindings will be sent before execution.
+//
+// Will error if already closed.
+func (p *PreparedStatement) ExecutePut(ctx context.Context, opts ...grpc.CallOption) error {
+	if p.closed {
+		return errors.New("arrow/flightsql: prepared statement already closed")
+	}
+
+	cmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+
+	desc, err := descForCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	if p.hasBindParameters() {
+		pstream, err := p.client.Client.DoPut(ctx, opts...)
+		if err != nil {
+			return err
+		}
+
+		wr, err := p.writeBindParameters(pstream, desc)
+		if err != nil {
+			return err
+		}
+		if err = wr.Close(); err != nil {
+			return err
+		}
+		pstream.CloseSend()
+
+		// wait for the server to ack the result
+		if _, err = pstream.Recv(); err != nil && err != io.EOF {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExecutePoll executes the prepared statement on the server and returns a PollInfo

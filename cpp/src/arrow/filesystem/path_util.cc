@@ -137,6 +137,18 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
+Status ValidateAbstractPath(std::string_view path) {
+  auto pos = path.find_first_of(kSep);
+  while (pos != path.npos) {
+    ++pos;
+    if (path.length() > pos && path[pos] == kSep) {
+      return Status::Invalid("Empty path component");
+    }
+    pos = path.find_first_of(kSep, pos);
+  }
+  return Status::OK();
+}
+
 std::string ConcatAbstractPath(std::string_view base, std::string_view stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
@@ -344,7 +356,7 @@ bool IsLikelyUri(std::string_view v) {
     // with 36 characters.
     return false;
   }
-  return ::arrow::internal::IsValidUriScheme(v.substr(0, pos));
+  return ::arrow::util::IsValidUriScheme(v.substr(0, pos));
 }
 
 struct Globber::Impl {

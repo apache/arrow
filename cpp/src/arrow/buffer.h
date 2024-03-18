@@ -269,7 +269,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Return the buffer's mutable data as a span
   template <typename T>
-  util::span<T> mutable_span_as() const {
+  util::span<T> mutable_span_as() {
     return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
@@ -359,7 +359,7 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 
-  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() { return NULLPTR; }
+  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() const { return NULLPTR; }
 
  protected:
   bool is_mutable_;

@@ -40,8 +40,9 @@ _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                     lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
 _UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
-                 lib.Type_MAP} | _UNION_TYPES
+_NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
+                 lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
+                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
 @doc(datatype="null")
@@ -149,6 +150,16 @@ def is_large_list(t):
 @doc(is_null, datatype="fixed size list")
 def is_fixed_size_list(t):
     return t.id == lib.Type_FIXED_SIZE_LIST
+
+
+@doc(is_null, datatype="list view")
+def is_list_view(t):
+    return t.id == lib.Type_LIST_VIEW
+
+
+@doc(is_null, datatype="large list view")
+def is_large_list_view(t):
+    return t.id == lib.Type_LARGE_LIST_VIEW
 
 
 @doc(is_null, datatype="struct")

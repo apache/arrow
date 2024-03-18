@@ -156,25 +156,26 @@ class ChunkedArraySorter : public TypeVisitor {
   template <typename ArrayType>
   void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
+    using ArrowType = typename ArrayType::TypeClass;
     const ChunkedArrayResolver left_resolver(arrays);
     const ChunkedArrayResolver right_resolver(arrays);
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   return chunk_left.Value() < chunk_right.Value();
+                   const auto chunk_left = left_resolver.Resolve(left);
+                   const auto chunk_right = right_resolver.Resolve(right);
+                   return chunk_left.Value<ArrowType>() < chunk_right.Value<ArrowType>();
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
+                   const auto chunk_left = left_resolver.Resolve(left);
+                   const auto chunk_right = right_resolver.Resolve(right);
                    // We don't use 'left > right' here to reduce required
                    // operator. If we use 'right < left' here, '<' is only
                    // required.
-                   return chunk_right.Value() < chunk_left.Value();
+                   return chunk_right.Value<ArrowType>() < chunk_left.Value<ArrowType>();
                  });
     }
     // Copy back temp area into main buffer
@@ -647,8 +648,7 @@ class TableSorter {
 
   Status SortInternal() {
     // Sort each batch independently and merge to sorted indices.
-    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, BatchesFromTable(table_));
-    const int64_t num_batches = static_cast<int64_t>(batches.size());
+    const int64_t num_batches = static_cast<int64_t>(batches_.size());
     if (num_batches == 0) {
       return Status::OK();
     }
@@ -659,7 +659,7 @@ class TableSorter {
     int64_t end_offset = 0;
     int64_t null_count = 0;
     for (int64_t i = 0; i < num_batches; ++i) {
-      const auto& batch = *batches[i];
+      const auto& batch = *batches_[i];
       end_offset += batch.num_rows();
       RadixRecordBatchSorter sorter(indices_begin_ + begin_offset,
                                     indices_begin_ + end_offset, batch, options_);
@@ -744,8 +744,6 @@ class TableSorter {
                                                             uint64_t* nulls_end,
                                                             uint64_t* temp_indices,
                                                             int64_t null_count) {
-    using ArrayType = typename TypeTraits<Type>::ArrayType;
-
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
@@ -755,11 +753,11 @@ class TableSorter {
                [&](uint64_t left, uint64_t right) {
                  // First column is either null or nan
                  left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
-                 auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
-                 auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
+                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
+                 right_loc =
+                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
+                 auto chunk_left = first_sort_key.GetChunk(left_loc);
+                 auto chunk_right = first_sort_key.GetChunk(right_loc);
                  const auto left_is_null = chunk_left.IsNull();
                  const auto right_is_null = chunk_right.IsNull();
                  if (left_is_null == right_is_null) {
@@ -794,9 +792,9 @@ class TableSorter {
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
                  left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
+                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
+                 right_loc =
+                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
                  return comparator.Compare(left_loc, right_loc, 1);
                });
     // Copy back temp area into main buffer
@@ -811,8 +809,6 @@ class TableSorter {
                                                         uint64_t* range_middle,
                                                         uint64_t* range_end,
                                                         uint64_t* temp_indices) {
-    using ArrayType = typename TypeTraits<Type>::ArrayType;
-
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
@@ -822,15 +818,15 @@ class TableSorter {
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.
                  left_loc =
-                     left_resolver_.ResolveWithChunkIndexHint(left, left_loc.chunk_index);
-                 right_loc = right_resolver_.ResolveWithChunkIndexHint(
-                     right, right_loc.chunk_index);
-                 auto chunk_left = first_sort_key.GetChunk<ArrayType>(left_loc);
-                 auto chunk_right = first_sort_key.GetChunk<ArrayType>(right_loc);
+                     left_resolver_.ResolveWithChunkIndexHint(left, /*hint=*/left_loc);
+                 right_loc =
+                     right_resolver_.ResolveWithChunkIndexHint(right, /*hint=*/right_loc);
+                 auto chunk_left = first_sort_key.GetChunk(left_loc);
+                 auto chunk_right = first_sort_key.GetChunk(right_loc);
                  DCHECK(!chunk_left.IsNull());
                  DCHECK(!chunk_right.IsNull());
-                 auto value_left = chunk_left.Value();
-                 auto value_right = chunk_right.Value();
+                 auto value_left = chunk_left.Value<Type>();
+                 auto value_right = chunk_right.Value<Type>();
                  if (value_left == value_right) {
                    // If the left value equals to the right value,
                    // we need to compare the second and following

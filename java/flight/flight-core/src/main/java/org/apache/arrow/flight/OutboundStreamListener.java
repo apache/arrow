@@ -119,5 +119,6 @@ public interface OutboundStreamListener {
    * <p>The default value can be toggled globally by setting the JVM property arrow.flight.enable_zero_copy_write
    * or the environment variable ARROW_FLIGHT_ENABLE_ZERO_COPY_WRITE.
    */
-  default void setUseZeroCopy(boolean enabled) {}
+  default void setUseZeroCopy(boolean enabled) {
+  }
 }

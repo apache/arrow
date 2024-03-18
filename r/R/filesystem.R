@@ -486,7 +486,7 @@ default_s3_options <- list(
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
-#' Sys.setenv("ARROW_S3_LOG_LEVEL", "DEBUG")
+#' Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
 #'
 #' @export

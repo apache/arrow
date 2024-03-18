@@ -64,7 +64,8 @@ def docker(ctx, src, dry_run):
 
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
-    compose = DockerCompose(config_path, params=os.environ)
+    compose = DockerCompose(config_path, params=os.environ,
+                            debug=ctx.obj.get('debug', False))
     if dry_run:
         _mock_compose_calls(compose)
     ctx.obj['compose'] = compose
@@ -214,7 +215,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     archery docker run --no-cache conda-python
 
     # pass a docker-compose parameter, like the python version
-    PYTHON=3.8 archery docker run conda-python
+    PYTHON=3.12 archery docker run conda-python
 
     # disable the cache only for the leaf image
     PANDAS=upstream_devel archery docker run --no-leaf-cache \

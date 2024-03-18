@@ -19,10 +19,10 @@
 
 #include "gtest/gtest.h"
 
-#include <arrow/dataset/dataset.h>
-#include <arrow/dataset/file_base.h>
-#include <arrow/dataset/file_parquet.h>
 #include "arrow/array.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/file_base.h"
+#include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/filesystem/mockfs.h"
@@ -30,10 +30,10 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
-#include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
@@ -51,14 +51,14 @@ using arrow::internal::checked_pointer_cast;
 namespace arrow {
 namespace dataset {
 
-class DatasetEncryptionTest : public ::testing::Test {
+// Base class to test writing and reading encrypted dataset.
+class DatasetEncryptionTestBase : public ::testing::Test {
  public:
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
-  // provided Parquet file write options. The dataset is partitioned using a Hive
-  // partitioning scheme. The function also checks if the written files exist in the file
-  // system.
-  static void SetUpTestSuite() {
+  // provided Parquet file write options. The function also checks if the written files
+  // exist in the file system.
+  void SetUp() override {
 #ifdef ARROW_VALGRIND
     // Not necessary otherwise, but prevents a Valgrind leak by making sure
     // OpenSSL initialization is done from the main thread
@@ -71,24 +71,8 @@ class DatasetEncryptionTest : public ::testing::Test {
                                            std::chrono::system_clock::now(), {}));
     ASSERT_OK(file_system_->CreateDir(std::string(kBaseDir)));
 
-    // Prepare table data.
-    auto table_schema = schema({field("a", int64()), field("c", int64()),
-                                field("e", int64()), field("part", utf8())});
-    table_ = TableFromJSON(table_schema, {R"([
-                          [ 0, 9, 1, "a" ],
-                          [ 1, 8, 2, "a" ],
-                          [ 2, 7, 1, "c" ],
-                          [ 3, 6, 2, "c" ],
-                          [ 4, 5, 1, "e" ],
-                          [ 5, 4, 2, "e" ],
-                          [ 6, 3, 1, "g" ],
-                          [ 7, 2, 2, "g" ],
-                          [ 8, 1, 1, "i" ],
-                          [ 9, 0, 2, "i" ]
-                        ])"});
-
-    // Use a Hive-style partitioning scheme.
-    partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
+    // Init dataset and partitioning.
+    ASSERT_NO_FATAL_FAILURE(PrepareTableAndPartitioning());
 
     // Prepare encryption properties.
     std::unordered_map<std::string, std::string> key_map;
@@ -133,13 +117,81 @@ class DatasetEncryptionTest : public ::testing::Test {
     ASSERT_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
   }
 
+  virtual void PrepareTableAndPartitioning() = 0;
+
+  void TestScanDataset() {
+    // Create decryption properties.
+    auto decryption_config =
+        std::make_shared<parquet::encryption::DecryptionConfiguration>();
+    auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
+    parquet_decryption_config->crypto_factory = crypto_factory_;
+    parquet_decryption_config->kms_connection_config = kms_connection_config_;
+    parquet_decryption_config->decryption_config = std::move(decryption_config);
+
+    // Set scan options.
+    auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+    parquet_scan_options->parquet_decryption_config =
+        std::move(parquet_decryption_config);
+
+    auto file_format = std::make_shared<ParquetFileFormat>();
+    file_format->default_fragment_scan_options = std::move(parquet_scan_options);
+
+    // Get FileInfo objects for all files under the base directory
+    fs::FileSelector selector;
+    selector.base_dir = kBaseDir;
+    selector.recursive = true;
+
+    FileSystemFactoryOptions factory_options;
+    factory_options.partitioning = partitioning_;
+    factory_options.partition_base_dir = kBaseDir;
+    ASSERT_OK_AND_ASSIGN(auto dataset_factory,
+                         FileSystemDatasetFactory::Make(file_system_, selector,
+                                                        file_format, factory_options));
+
+    // Read dataset into table
+    ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
+    ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+    ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
+
+    // Verify the data was read correctly
+    ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
+    // Validate the table
+    ASSERT_OK(combined_table->ValidateFull());
+    AssertTablesEqual(*combined_table, *table_);
+  }
+
  protected:
-  inline static std::shared_ptr<fs::FileSystem> file_system_;
-  inline static std::shared_ptr<Table> table_;
-  inline static std::shared_ptr<HivePartitioning> partitioning_;
-  inline static std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
-  inline static std::shared_ptr<parquet::encryption::KmsConnectionConfig>
-      kms_connection_config_;
+  std::shared_ptr<fs::FileSystem> file_system_;
+  std::shared_ptr<Table> table_;
+  std::shared_ptr<Partitioning> partitioning_;
+  std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory_;
+  std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config_;
+};
+
+class DatasetEncryptionTest : public DatasetEncryptionTestBase {
+ public:
+  // The dataset is partitioned using a Hive partitioning scheme.
+  void PrepareTableAndPartitioning() override {
+    // Prepare table data.
+    auto table_schema = schema({field("a", int64()), field("c", int64()),
+                                field("e", int64()), field("part", utf8())});
+    table_ = TableFromJSON(table_schema, {R"([
+                          [ 0, 9, 1, "a" ],
+                          [ 1, 8, 2, "a" ],
+                          [ 2, 7, 1, "c" ],
+                          [ 3, 6, 2, "c" ],
+                          [ 4, 5, 1, "e" ],
+                          [ 5, 4, 2, "e" ],
+                          [ 6, 3, 1, "g" ],
+                          [ 7, 2, 2, "g" ],
+                          [ 8, 1, 1, "i" ],
+                          [ 9, 0, 2, "i" ]
+                        ])"});
+
+    // Use a Hive-style partitioning scheme.
+    partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
+  }
 };
 
 // This test demonstrates the process of writing a partitioned Parquet file with the same
@@ -148,44 +200,7 @@ class DatasetEncryptionTest : public ::testing::Test {
 // test reads the data back and verifies that it can be successfully decrypted and
 // scanned.
 TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
-  // Create decryption properties.
-  auto decryption_config =
-      std::make_shared<parquet::encryption::DecryptionConfiguration>();
-  auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
-  parquet_decryption_config->crypto_factory = crypto_factory_;
-  parquet_decryption_config->kms_connection_config = kms_connection_config_;
-  parquet_decryption_config->decryption_config = std::move(decryption_config);
-
-  // Set scan options.
-  auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
-  parquet_scan_options->parquet_decryption_config = std::move(parquet_decryption_config);
-
-  auto file_format = std::make_shared<ParquetFileFormat>();
-  file_format->default_fragment_scan_options = std::move(parquet_scan_options);
-
-  // Get FileInfo objects for all files under the base directory
-  fs::FileSelector selector;
-  selector.base_dir = kBaseDir;
-  selector.recursive = true;
-
-  FileSystemFactoryOptions factory_options;
-  factory_options.partitioning = partitioning_;
-  factory_options.partition_base_dir = kBaseDir;
-  ASSERT_OK_AND_ASSIGN(auto dataset_factory,
-                       FileSystemDatasetFactory::Make(file_system_, selector, file_format,
-                                                      factory_options));
-
-  // Read dataset into table
-  ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
-  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
-  ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
-
-  // Verify the data was read correctly
-  ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
-  // Validate the table
-  ASSERT_OK(combined_table->ValidateFull());
-  AssertTablesEqual(*combined_table, *table_);
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
 // Read a single parquet file with and without decryption properties.
@@ -218,6 +233,31 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(0)->chunk(0))->GetView(0), 0);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(1)->chunk(0))->GetView(0), 9);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
+}
+
+// GH-39444: This test covers the case where parquet dataset scanner crashes when
+// processing encrypted datasets over 2^15 rows in multi-threaded mode.
+class LargeRowEncryptionTest : public DatasetEncryptionTestBase {
+ public:
+  // The dataset is partitioned using a Hive partitioning scheme.
+  void PrepareTableAndPartitioning() override {
+    // Specifically chosen to be greater than batch size for triggering prefetch.
+    constexpr int kRowCount = 32769;
+
+    // Create a random floating-point array with large number of rows.
+    arrow::random::RandomArrayGenerator rand_gen(0);
+    auto array = rand_gen.Float32(kRowCount, 0.0, 1.0, false);
+    auto table_schema = schema({field("a", float32())});
+
+    // Prepare table and partitioning.
+    table_ = arrow::Table::Make(table_schema, {array});
+    partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
+  }
+};
+
+// Test for writing and reading encrypted dataset with large row count.
+TEST_F(LargeRowEncryptionTest, ReadEncryptLargeRows) {
+  ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
 }  // namespace dataset

@@ -28,6 +28,7 @@ if(ARROW_HDFS)
                  PREFIX
                  "arrow-io"
                  EXTRA_LINK_LIBS
+                 arrow::hadoop
                  Boost::filesystem
                  Boost::system)
 endif()

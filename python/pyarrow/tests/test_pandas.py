@@ -1760,6 +1760,20 @@ class TestConvertStringLikeTypes:
         _check_pandas_roundtrip(
             df, schema=pa.schema([('a', pa.large_string())]))
 
+    def test_binary_view(self):
+        s = pd.Series([b'123', b'', b'a', None])
+        _check_series_roundtrip(s, type_=pa.binary_view())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.binary_view())]))
+
+    def test_string_view(self):
+        s = pd.Series(['123', '', 'a', None])
+        _check_series_roundtrip(s, type_=pa.string_view())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.string_view())]))
+
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
         df = pd.DataFrame({'strings': values})
@@ -2608,8 +2622,9 @@ class TestConvertStructTypes:
                                        ('yy', np.bool_)])),
                        ('y', np.int16),
                        ('z', np.object_)])
-        # Note: itemsize is not a multiple of sizeof(object)
-        assert dt.itemsize == 12
+        # Note: itemsize is not necessarily a multiple of sizeof(object)
+        # object_ is 8 bytes on 64-bit systems, 4 bytes on 32-bit systems
+        assert dt.itemsize == (12 if sys.maxsize > 2**32 else 8)
         ty = pa.struct([pa.field('x', pa.struct([pa.field('xx', pa.int8()),
                                                  pa.field('yy', pa.bool_())])),
                         pa.field('y', pa.int16()),
@@ -3650,7 +3665,8 @@ def test_singleton_blocks_zero_copy():
 
     prior_allocation = pa.total_allocated_bytes()
     result = t.to_pandas()
-    assert result['f0'].values.flags.writeable
+    # access private `_values` because the public `values` is made read-only by pandas
+    assert result['f0']._values.flags.writeable
     assert pa.total_allocated_bytes() > prior_allocation
 
 

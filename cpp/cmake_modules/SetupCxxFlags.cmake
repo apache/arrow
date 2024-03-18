@@ -625,6 +625,33 @@ if(NOT WIN32 AND NOT APPLE)
   endif()
 endif()
 
+if(NOT WIN32 AND NOT APPLE)
+  if(ARROW_USE_MOLD)
+    find_program(LD_MOLD ld.mold)
+    if(LD_MOLD)
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.1.0")
+          set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=mold")
+          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=mold")
+          message(STATUS "Using optional mold linker")
+        else()
+          message(STATUS "Need GCC 12.1.0 or later to use mold linker: ${CMAKE_CXX_COMPILER_VERSION}"
+          )
+        endif()
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --ld-path=${LD_MOLD}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --ld-path=${LD_MOLD}")
+        message(STATUS "Using optional mold linker")
+      else()
+        message(STATUS "Using the default linker because compiler doesn't support mold: ${CMAKE_CXX_COMPILER_ID}"
+        )
+      endif()
+    else()
+      message(STATUS "Using the default linker because mold isn't found")
+    endif()
+  endif()
+endif()
+
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
