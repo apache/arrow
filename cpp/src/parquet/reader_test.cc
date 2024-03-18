@@ -21,6 +21,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -34,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/range.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -46,6 +48,7 @@
 #include "parquet/test_util.h"
 
 using arrow::internal::checked_pointer_cast;
+using arrow::internal::Zip;
 
 namespace parquet {
 using schema::GroupNode;
@@ -142,6 +145,23 @@ std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_
   return values;
 }
 
+template <typename ValueType>
+void AssertColumnValuesEqual(const ColumnDescriptor* descr,
+                             const std::vector<ValueType>& left_values,
+                             const std::vector<ValueType>& right_values) {
+  if constexpr (std::is_same_v<ValueType, FLBA>) {
+    // operator== for FLBA in test_util.h is unusable (it hard-codes length to 12)
+    const auto length = descr->type_length();
+    for (const auto& [left, right] : Zip(left_values, right_values)) {
+      std::string_view left_view(reinterpret_cast<const char*>(left.ptr), length);
+      std::string_view right_view(reinterpret_cast<const char*>(right.ptr), length);
+      ASSERT_EQ(left_view, right_view);
+    }
+  } else {
+    ASSERT_EQ(left_values, right_values);
+  }
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType = typename DType::c_type>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -154,9 +174,8 @@ void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   auto levels_read =
       col->ReadBatch(batch_size, nullptr, nullptr, values.data(), &values_read);
   ASSERT_EQ(expected_levels_read, levels_read);
-
-  ASSERT_EQ(expected_values, values);
   ASSERT_EQ(expected_values_read, values_read);
+  AssertColumnValuesEqual(col->descr(), expected_values, values);
 }
 
 template <typename DType, typename ValueType = typename DType::c_type>
@@ -178,13 +197,13 @@ void AssertColumnValuesEqual(std::shared_ptr<TypedColumnReader<DType>> left_col,
   ASSERT_EQ(expected_levels_read, levels_read);
   ASSERT_EQ(expected_values_read, values_read);
 
-  ASSERT_EQ(left_values, right_values);
+  AssertColumnValuesEqual(left_col->descr(), left_values, right_values);
 }
 
 template <typename DType, typename ValueType = typename DType::c_type>
 void AssertColumnValuesEqual(ParquetFileReader* file_reader, const std::string& left_col,
                              const std::string& right_col, int64_t num_rows,
-                             int64_t row_group = 0) {
+                             int row_group = 0) {
   ARROW_SCOPED_TRACE("left_col = '", left_col, "', right_col = '", right_col, "'");
 
   auto left_col_index = file_reader->metadata()->schema()->ColumnIndex(left_col);
