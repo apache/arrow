@@ -212,9 +212,16 @@ func (s *FlightSqlServerSuite) SetupTest() {
 	cl, err := flightsql.NewClient(s.s.Addr().String(), nil, nil, dialOpts...)
 	s.Require().NoError(err)
 	s.cl = cl
+
+	checked := memory.NewCheckedAllocator(s.cl.Alloc)
+	s.cl.Alloc = checked
 }
 
 func (s *FlightSqlServerSuite) TearDownTest() {
+	checked, ok := s.cl.Alloc.(*memory.CheckedAllocator)
+	s.Require().True(ok)
+	checked.AssertSize(s.T(), 0)
+
 	s.Require().NoError(s.cl.Close())
 	s.cl = nil
 }
@@ -291,6 +298,18 @@ func (s *FlightSqlServerSuite) TestExecutePoll() {
 	s.Len(poll.GetInfo().Endpoint, 2)
 }
 
+func (s *FlightSqlServerSuite) TestExecuteIngestInvalid() {
+	reclist := arrdata.Records["primitives"]
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.Require().NoError(err)
+	defer rdr.Release()
+
+	nRecords, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
+	s.Require().Error(err)
+	s.Equal(int64(0), nRecords)
+}
+
 func (s *FlightSqlServerSuite) TestExecuteIngest() {
 	var nRecordsExpected int64
 
@@ -299,10 +318,23 @@ func (s *FlightSqlServerSuite) TestExecuteIngest() {
 		nRecordsExpected += rec.NumRows()
 	}
 
-	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
-	nRecords, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
-
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
 	s.Require().NoError(err)
+	defer rdr.Release()
+
+	nRecords, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
+	s.Require().NoError(err)
+
 	s.Equal(nRecordsExpected, nRecords)
 }
 
@@ -487,7 +519,17 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
 	reclist := arrdata.Records["primitives"]
 	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
-	info, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
+	info, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
 	st, ok := status.FromError(err)
 	s.True(ok)
 	s.Equal(codes.Unimplemented, st.Code())

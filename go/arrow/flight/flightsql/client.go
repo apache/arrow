@@ -246,6 +246,8 @@ func (c *Client) ExecuteSubstraitUpdate(ctx context.Context, plan SubstraitPlan,
 var ErrTooManyPutResults = fmt.Errorf("%w: server sent multiple PutResults, expected one ", arrow.ErrInvalid)
 
 // ExecuteIngest is for executing a bulk ingestion and only returns the number of affected rows.
+// The provided RecordReader will be retained for the duration of the call, but it is the caller's
+// responsibility to release the original reference.
 func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqOptions *ExecuteIngestOpts, opts ...grpc.CallOption) (n int64, err error) {
 	var (
 		desc         *flight.FlightDescriptor
@@ -254,6 +256,17 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 		res          *pb.PutResult
 		updateResult pb.DoPutUpdateResult
 	)
+
+	// Servers cannot infer defaults for these parameters, so we validate the request to ensure they are set.
+	if reqOptions.TableDefinitionOptions == nil {
+		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, TableDefinitionOptions is required")
+	}
+	if reqOptions.Table == "" {
+		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, Table is required")
+	}
+
+	rdr.Retain()
+	defer rdr.Release()
 
 	cmd := (*pb.CommandStatementIngest)(reqOptions)
 	if desc, err = descForCommand(cmd); err != nil {
@@ -271,7 +284,13 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 
 	for rdr.Next() {
 		rec := rdr.Record()
-		wr.Write(rec)
+		if err = wr.Write(rec); err != nil {
+			return
+		}
+	}
+
+	if err = rdr.Err(); err != nil {
+		return
 	}
 
 	if err = stream.CloseSend(); err != nil {
