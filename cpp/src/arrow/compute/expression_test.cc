@@ -1401,7 +1401,7 @@ TEST(Expression, SingleComparisonGuarantees) {
 static Status RegisterMyRandom() {
   const std::string name = "my_random";
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), FunctionDoc::Empty(),
-                                               nullptr, /*is_impure=*/true);
+                                               nullptr, /*is_pure=*/false);
 
   auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
                       ExecResult* /*out*/) -> Status { return Status::OK(); };
