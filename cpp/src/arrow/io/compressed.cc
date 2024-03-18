@@ -276,17 +276,21 @@ class CompressedInputStream::Impl {
         if (compressed_for_non_zero_copy_ == nullptr) {
           ARROW_ASSIGN_OR_RAISE(compressed_for_non_zero_copy_,
                                 AllocateResizableBuffer(kChunkSize, pool_));
-        } else {
+        } else if (compressed_for_non_zero_copy_->size() != kChunkSize) {
           RETURN_NOT_OK(
               compressed_for_non_zero_copy_->Resize(kChunkSize, /*shrink_to_fit=*/false));
         }
+        // set compressed_ to nullptr to avoid `compressed_for_non_zero_copy_` being
+        // referenced twice, which would making it "immutable".
         compressed_ = nullptr;
         ARROW_ASSIGN_OR_RAISE(
             int64_t read_size,
             raw_->Read(kChunkSize,
                        compressed_for_non_zero_copy_->mutable_data_as<void>()));
-        RETURN_NOT_OK(
-            compressed_for_non_zero_copy_->Resize(read_size, /*shrink_to_fit=*/false));
+        if (read_size != compressed_for_non_zero_copy_->size()) {
+          RETURN_NOT_OK(
+              compressed_for_non_zero_copy_->Resize(read_size, /*shrink_to_fit=*/false));
+        }
         compressed_ = compressed_for_non_zero_copy_;
       } else {
         ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
