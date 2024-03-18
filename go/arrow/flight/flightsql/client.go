@@ -285,7 +285,14 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 
 	for rdr.Next() {
 		rec := rdr.Record()
-		if err = wr.Write(rec); err != nil {
+		err = wr.Write(rec)
+		if errors.Is(err, flight.ErrDataStreamClosed) {
+			// The stream was closed by the server, so we clean up and stop writing.
+			// The specific error will be retrieved in the server response.
+			rec.Release()
+			break
+		}
+		if err != nil {
 			return 0, err
 		}
 	}
