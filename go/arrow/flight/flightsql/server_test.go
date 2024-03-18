@@ -517,7 +517,7 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
-	reclist := arrdata.Records["primitives"]
+	reclist := arrdata.Records["nulls"]
 	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
 	info, err := s.cl.ExecuteIngest(
 		context.TODO(),
@@ -533,7 +533,7 @@ func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
 	st, ok := status.FromError(err)
 	s.True(ok)
 	s.Equal(codes.Unimplemented, st.Code())
-	s.Equal(st.Message(), "DoPutCommandStatementIngest not implemented")
+	s.Equal("DoPutCommandStatementIngest not implemented", st.Message())
 	s.Zero(info)
 }
 
