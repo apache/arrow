@@ -19,13 +19,12 @@
 
 #pragma once
 
+#include <arrow-glib/input-stream.h>
+#include <arrow-glib/metadata-version.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 #include <arrow-glib/table.h>
-
-#include <arrow-glib/input-stream.h>
-
-#include <arrow-glib/metadata-version.h>
+#include <arrow-glib/timestamp-parser.h>
 
 G_BEGIN_DECLS
 
@@ -239,6 +238,17 @@ GARROW_AVAILABLE_IN_0_15
 void
 garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
                                         const gchar *column_name);
+GARROW_AVAILABLE_IN_16_0
+void
+garrow_csv_read_options_set_timestamp_parsers(GArrowCSVReadOptions *options,
+                                              GList *parsers);
+GARROW_AVAILABLE_IN_16_0
+GList *
+garrow_csv_read_options_get_timestamp_parsers(GArrowCSVReadOptions *options);
+GARROW_AVAILABLE_IN_16_0
+void
+garrow_csv_read_options_add_timestamp_parser(GArrowCSVReadOptions *options,
+                                             GArrowTimestampParser *parser);
 
 #define GARROW_TYPE_CSV_READER (garrow_csv_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCSVReader, garrow_csv_reader, GARROW, CSV_READER, GObject)

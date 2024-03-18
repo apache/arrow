@@ -73,10 +73,8 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
     encode_funcs_.push_back({"simd", &ByteStreamSplitEncodeSimd<kWidth>});
     decode_funcs_.push_back({"simd", &ByteStreamSplitDecodeSimd<kWidth>});
-#endif
-#if defined(ARROW_HAVE_SSE4_2)
-    encode_funcs_.push_back({"sse2", &ByteStreamSplitEncodeSse2<kWidth>});
-    decode_funcs_.push_back({"sse2", &ByteStreamSplitDecodeSse2<kWidth>});
+    encode_funcs_.push_back({"simd128", &ByteStreamSplitEncodeSimd128<kWidth>});
+    decode_funcs_.push_back({"simd128", &ByteStreamSplitDecodeSimd128<kWidth>});
 #endif
 #if defined(ARROW_HAVE_AVX2)
     encode_funcs_.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
