@@ -26,6 +26,8 @@ set -exu
 dnf -y install 'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
+dnf -y module disable maven
+dnf -y module enable maven:3.8
 dnf -y module disable nodejs
 dnf -y module enable nodejs:18
 dnf -y module disable ruby
@@ -39,7 +41,6 @@ dnf -y install \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
-  maven \
   ncurses-devel \
   ninja-build \
   nodejs \
