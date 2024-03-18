@@ -19,7 +19,6 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
@@ -81,7 +80,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -100,7 +98,7 @@ public class JdbcParameterBinderTest {
   }
 
   @Test
-  void bindOrder() throws SQLException, IOException {
+  void bindOrder() throws SQLException {
     final Schema schema =
         new Schema(
             Arrays.asList(
@@ -161,7 +159,7 @@ public class JdbcParameterBinderTest {
   }
 
   @Test
-  void customBinder() throws SQLException, IOException {
+  void customBinder() throws SQLException {
     final Schema schema =
         new Schema(Collections.singletonList(
             Field.nullable("ints0", new ArrowType.Int(32, true))));
@@ -564,7 +562,7 @@ public class JdbcParameterBinderTest {
     try (final MockPreparedStatement statement = new MockPreparedStatement();
          final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final JdbcParameterBinder binder =
-                JdbcParameterBinder.builder(statement, root).bindAll().build();
+          JdbcParameterBinder.builder(statement, root).bindAll().build();
       assertThat(binder.next()).isFalse();
 
       @SuppressWarnings("unchecked")
@@ -607,8 +605,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
 
     // Non-nullable (since some types have a specialized binder)
@@ -651,8 +647,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
   }
 
@@ -666,10 +660,11 @@ public class JdbcParameterBinderTest {
     try (final MockPreparedStatement statement = new MockPreparedStatement();
          final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final JdbcParameterBinder binder =
-              JdbcParameterBinder.builder(statement, root).bindAll().build();
+          JdbcParameterBinder.builder(statement, root).bindAll().build();
       assertThat(binder.next()).isFalse();
 
-      @SuppressWarnings("unchecked") final V vector = (V) root.getVector(0);
+      @SuppressWarnings("unchecked")
+      final V vector = (V) root.getVector(0);
       final ColumnBinder columnBinder = ColumnBinder.forVector(vector);
       assertThat(columnBinder.getJdbcType()).isEqualTo(jdbcType);
 
@@ -708,8 +703,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
 
     // Non-nullable (since some types have a specialized binder)
@@ -755,8 +748,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
   }
 
@@ -816,8 +807,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1).toString());
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
 
     // Non-nullable (since some types have a specialized binder)
@@ -865,8 +854,6 @@ public class JdbcParameterBinderTest {
       assertThat(binder.next()).isTrue();
       assertThat(statement.getParamValue(1)).isEqualTo(values.get(1));
       assertThat(binder.next()).isFalse();
-    } catch (IOException e) {
-      Assertions.fail("Unexpected binding error.");
     }
   }
 }

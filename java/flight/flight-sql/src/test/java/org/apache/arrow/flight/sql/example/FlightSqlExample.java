@@ -124,6 +124,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -897,9 +898,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       } catch (SQLException e) {
         ackStream.onError(CallStatus.INTERNAL.withDescription("Failed to execute update: " + e).toRuntimeException());
         return;
-      } catch (IOException e) {
-        ackStream.onError(CallStatus.INTERNAL.withDescription("Failed to execute update: " + e).toRuntimeException());
-        return;
       }
       ackStream.onCompleted();
     };
@@ -923,6 +921,31 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
           while (binder.next()) {
             // Do not execute() - will be done in a getStream call
           }
+          final ByteArrayOutputStream out = new ByteArrayOutputStream();
+          try (
+                  ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out))
+          ) {
+            writer.start();
+            writer.writeBatch();
+          }
+          if (out.size() > 0) {
+            final DoPutPreparedStatementResult doPutPreparedStatementResult =
+                    DoPutPreparedStatementResult.newBuilder()
+                            .setPreparedStatementHandle(ByteString.copyFrom(ByteBuffer.wrap(out.toByteArray())))
+                            .build();
+
+            // Update prepared statement cache by storing with new handle and remove old entry.
+            preparedStatementLoadingCache.put(doPutPreparedStatementResult.getPreparedStatementHandle(),
+                    statementContext);
+            // TODO: If we invalidate old cached entry here this invalidates the statement, which is not what is needed.
+            // We need to re-cache the statementContext with a new key.
+            //            preparedStatementLoadingCache.invalidate(command.getPreparedStatementHandle());
+
+            try (final ArrowBuf buffer = rootAllocator.buffer(doPutPreparedStatementResult.getSerializedSize())) {
+              buffer.writeBytes(doPutPreparedStatementResult.toByteArray());
+              ackStream.onNext(PutResult.metadata(buffer));
+            }
+          }
         }
 
       } catch (SQLException e) {
@@ -939,17 +962,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         return;
       }
 
-      if (binder != null && binder.getBindersAsByteArray() != null) {
-        final byte[] byteArray = binder.getBindersAsByteArray();
-        final DoPutPreparedStatementResult build =
-                DoPutPreparedStatementResult.newBuilder()
-                        .setPreparedStatementHandle(ByteString.copyFrom(ByteBuffer.wrap(byteArray))).build();
-
-        try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
-          buffer.writeBytes(build.toByteArray());
-          ackStream.onNext(PutResult.metadata(buffer));
-        }
-      }
       ackStream.onCompleted();
     };
   }
