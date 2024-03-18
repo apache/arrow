@@ -65,6 +65,7 @@ std::vector<uint8_t> MakeCompressibleData(int data_size) {
   return data;
 }
 
+// Using a non-zero copy buffer reader to benchmark the non-zero copy path.
 class NonZeroCopyBufferReader final : public InputStream {
  public:
   NonZeroCopyBufferReader(std::shared_ptr<Buffer> buffer) : reader_(std::move(buffer)) {}
@@ -76,6 +77,8 @@ class NonZeroCopyBufferReader final : public InputStream {
   }
 
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    // Testing the non-zero copy path like reading from local file or Object store,
+    // so we need to allocate a buffer and copy the data.
     ARROW_ASSIGN_OR_RAISE(auto buf, ::arrow::AllocateResizableBuffer(nbytes));
     ARROW_ASSIGN_OR_RAISE(int64_t size, Read(nbytes, buf->mutable_data()));
     ARROW_RETURN_NOT_OK(buf->Resize(size));
@@ -91,9 +94,10 @@ class NonZeroCopyBufferReader final : public InputStream {
 
 template <typename BufReader, Compression::type COMPRESSION>
 static void CompressionInputBenchmark(::benchmark::State& state) {
-  auto data = MakeCompressibleData(state.range(0));
+  std::vector<uint8_t> data = MakeCompressibleData(/*data_size=*/state.range(0));
+  int64_t per_read_bytes = state.range(1);
   auto codec = ::arrow::util::Codec::Create(COMPRESSION).ValueOrDie();
-  auto max_compress_len = codec->MaxCompressedLen(data.size(), data.data());
+  int64_t max_compress_len = codec->MaxCompressedLen(data.size(), data.data());
   std::shared_ptr<::arrow::ResizableBuffer> buf =
       ::arrow::AllocateResizableBuffer(max_compress_len).ValueOrDie();
   int64_t length =
@@ -103,10 +107,16 @@ static void CompressionInputBenchmark(::benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     auto reader = std::make_shared<BufReader>(buf);
-    auto inputStream =
+    auto input_stream =
         ::arrow::io::CompressedInputStream::Make(codec.get(), reader).ValueOrDie();
+    auto read_buffer = ::arrow::AllocateBuffer(per_read_bytes).ValueOrDie();
     state.ResumeTiming();
-    ABORT_NOT_OK(inputStream->Read(data.size(), data.data()));
+    int64_t remaining_size = data.size();
+    while (remaining_size > 0) {
+      auto value = input_stream->Read(per_read_bytes, read_buffer->mutable_data());
+      ABORT_NOT_OK(value);
+      remaining_size -= value.ValueOrDie();
+    }
   }
   state.SetBytesProcessed(length * state.iterations());
 }
@@ -122,13 +132,33 @@ static void CompressionInputNonZeroCopyBenchmark(::benchmark::State& state) {
 }
 
 static void CompressedInputArguments(::benchmark::internal::Benchmark* b) {
-  b->ArgName("InputBytes")->Arg(8 * 1024)->Arg(64 * 1024)->Arg(1024 * 1024);
+  b->ArgNames({"InputBytes", "PerReadBytes"})
+      ->Args({8 * 1024, 8 * 1024})
+      ->Args({64 * 1024, 8 * 1024})
+      ->Args({64 * 1024, 64 * 1024})
+      ->Args({1024 * 1024, 8 * 1024})
+      ->Args({1024 * 1024, 64 * 1024})
+      ->Args({1024 * 1024, 1024 * 1024});
 }
 
 #ifdef ARROW_WITH_ZLIB
 BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::GZIP)
     ->Apply(CompressedInputArguments);
 BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::GZIP)
+    ->Apply(CompressedInputArguments);
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::ZSTD)
+    ->Apply(CompressedInputArguments);
+BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::ZSTD)
+    ->Apply(CompressedInputArguments);
+#endif
+
+#ifdef ARROW_WITH_LZ4
+BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::LZ4_FRAME)
+    ->Apply(CompressedInputArguments);
+BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::LZ4_FRAME)
     ->Apply(CompressedInputArguments);
 #endif
 
