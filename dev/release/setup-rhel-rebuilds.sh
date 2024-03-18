@@ -41,6 +41,7 @@ dnf -y install \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
+  maven \
   ncurses-devel \
   ninja-build \
   nodejs \
