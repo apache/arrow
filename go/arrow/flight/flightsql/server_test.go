@@ -28,7 +28,6 @@ import (
 	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
 	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
 	"github.com/apache/arrow/go/v16/arrow/flight/session"
-	"github.com/apache/arrow/go/v16/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -299,30 +298,30 @@ func (s *FlightSqlServerSuite) TestExecutePoll() {
 }
 
 func (s *FlightSqlServerSuite) TestExecuteIngestInvalid() {
-	reclist := arrdata.Records["primitives"]
-
-	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
-	s.Require().NoError(err)
+	reclist := []arrow.Record{}
+	rdr, err := array.NewRecordReader(arrow.NewSchema([]arrow.Field{}, nil), reclist)
+	s.NoError(err)
 	defer rdr.Release()
 
+	// Cannot execute ingest without specifying required options
 	nRecords, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
-	s.Require().Error(err)
+	s.Error(err)
 	s.Equal(int64(0), nRecords)
 }
 
 func (s *FlightSqlServerSuite) TestExecuteIngest() {
-	var nRecordsExpected int64
-
-	reclist := arrdata.Records["primitives"]
+	nRecords := 3
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
 	for _, rec := range reclist {
-		nRecordsExpected += rec.NumRows()
+		defer rec.Release()
 	}
 
 	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
-	s.Require().NoError(err)
+	s.NoError(err)
 	defer rdr.Release()
 
-	nRecords, err := s.cl.ExecuteIngest(
+	nRowsIngested, err := s.cl.ExecuteIngest(
 		context.TODO(),
 		rdr,
 		&flightsql.ExecuteIngestOpts{
@@ -333,9 +332,37 @@ func (s *FlightSqlServerSuite) TestExecuteIngest() {
 			Table: "test_table",
 		},
 	)
-	s.Require().NoError(err)
+	s.NoError(err)
 
-	s.Equal(nRecordsExpected, nRecords)
+	nRowsExpected := int64(nRecords * nRowsPerRecord)
+	s.Equal(nRowsExpected, nRowsIngested)
+}
+
+func generateRecords(alloc memory.Allocator, nRecords, nRowsPerRecord int) []arrow.Record {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "one", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "two", Type: arrow.BinaryTypes.String},
+			{Name: "three", Type: arrow.PrimitiveTypes.Int64},
+		},
+		nil,
+	)
+
+	bldr := array.NewRecordBuilder(alloc, schema)
+	defer bldr.Release()
+
+	var val int
+	reclist := make([]arrow.Record, nRecords)
+	for i := 0; i < nRecords; i++ {
+		for j := 0; j < nRowsPerRecord; j++ {
+			bldr.Field(0).(*array.BooleanBuilder).Append(val%2 == 0)
+			bldr.Field(1).(*array.StringBuilder).Append(fmt.Sprint(val))
+			bldr.Field(2).(*array.Int64Builder).Append(int64(val))
+			val++
+		}
+		reclist[i] = bldr.NewRecord()
+	}
+	return reclist
 }
 
 type UnimplementedFlightSqlServerSuite struct {
@@ -517,8 +544,17 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
-	reclist := arrdata.Records["nulls"]
-	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
+	nRecords := 3
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
+	for _, rec := range reclist {
+		defer rec.Release()
+	}
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
 	info, err := s.cl.ExecuteIngest(
 		context.TODO(),
 		rdr,
