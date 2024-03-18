@@ -251,6 +251,22 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CResult[shared_ptr[CGcsFileSystem]] Make(const CGcsOptions& options)
         CGcsOptions options()
 
+    cdef cppclass CAzureOptions "arrow::fs::AzureOptions":
+        c_string account_name
+        c_string blob_storage_authority
+        c_string dfs_storage_authority
+        c_string blob_storage_scheme
+        c_string dfs_storage_scheme
+
+        c_bool Equals(const CAzureOptions& other)
+        CStatus ConfigureDefaultCredential()
+        CStatus ConfigureAccountKeyCredential(c_string account_key)
+
+    cdef cppclass CAzureFileSystem "arrow::fs::AzureFileSystem":
+        @staticmethod
+        CResult[shared_ptr[CAzureFileSystem]] Make(const CAzureOptions& options)
+        CAzureOptions options()
+
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config
         int32_t buffer_size

@@ -2458,6 +2458,7 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
   ASSERT_OK(output->Close());
 
   // Verify the metadata has been set.
+  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
   auto blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
                            .GetBlockBlobClient(blob_path)
                            .GetProperties()
@@ -2470,6 +2471,7 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
                   full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
+  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
   blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
                       .GetBlockBlobClient(blob_path)
                       .GetProperties()

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/gobject-type.h>
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 

@@ -15,22 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+ARG arch=amd64
+ARG go=1.19
+ARG staticcheck=v0.4.5
+FROM ${arch}/golang:${go}-bookworm
 
-ENV DEBIAN_FRONTEND noninteractive
+# FROM collects all the args, get back the staticcheck version arg
+ARG staticcheck
+RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@${staticcheck}
 
-# Install python3 and pip so we can install pyarrow to test the C data interface.
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        python3 \
-        python3-pip && \
-    apt-get clean
-
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
-# Need a newer pip than Debian's to install manylinux201x wheels
-RUN pip install -U pip
-
-RUN pip install pyarrow cffi --only-binary pyarrow
+# Copy the go.mod and go.sum over and pre-download all the dependencies
+COPY go/ /arrow/go
+RUN cd /arrow/go && go mod download

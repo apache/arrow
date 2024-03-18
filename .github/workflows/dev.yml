@@ -55,7 +55,7 @@ jobs:
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Run pre-commit
         run: |
-          pre-commit run --show-diff-on-failure --color=always
+          pre-commit run --all-files --color=always --show-diff-on-failure
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build

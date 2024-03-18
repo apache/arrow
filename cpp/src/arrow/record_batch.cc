@@ -395,6 +395,35 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
   return RecordBatch::Make(std::move(schema), num_rows(), columns());
 }
 
+std::vector<std::string> RecordBatch::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = schema()->field(i)->name();
+  }
+  return names;
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
+    const std::vector<std::string>& names) const {
+  int n = num_columns();
+
+  if (static_cast<int>(names.size()) != n) {
+    return Status::Invalid("tried to rename a record batch of ", n, " columns but only ",
+                           names.size(), " names were provided");
+  }
+
+  ArrayVector columns(n);
+  FieldVector fields(n);
+
+  for (int i = 0; i < n; ++i) {
+    columns[i] = column(i);
+    fields[i] = schema()->field(i)->WithName(names[i]);
+  }
+
+  return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
+                           std::move(columns));
+}
+
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
     const std::vector<int>& indices) const {
   int n = static_cast<int>(indices.size());

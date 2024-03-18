@@ -145,6 +145,8 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
