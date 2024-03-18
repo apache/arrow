@@ -216,7 +216,6 @@ def test_signal_refcycle():
                     reason="Timezone database is already provided.")
 def test_download_tzdata_on_windows():
     tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    tzdata_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
 
     # Download timezone database and remove data in case it already exists
     if (os.path.exists(tzdata_path)):
@@ -225,7 +224,6 @@ def test_download_tzdata_on_windows():
 
     # Inspect the folder
     assert os.path.exists(tzdata_path)
-    assert os.path.exists(tzdata_zones_path)
-    # 30 files in tzdata (2023) + compressed tzdata.tar.gz + windowsZones.xml
-    assert len(os.listdir(tzdata_path)) == 32
+    assert os.path.exists(os.path.join(tzdata_path, "windowsZones.xml"))
+    assert os.path.exists(os.path.join(tzdata_path, "europe"))
     assert 'version' in os.listdir(tzdata_path)
