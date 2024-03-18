@@ -25,6 +25,7 @@ try:
     from pyarrow.acero import (
         Declaration,
         TableSourceNodeOptions,
+        RecordBatchReaderSourceNodeOptions,
         FilterNodeOptions,
         ProjectNodeOptions,
         AggregateNodeOptions,
@@ -95,6 +96,22 @@ def test_table_source():
     decl = Declaration("table_source", table_source)
     with pytest.raises(
         ValueError, match="TableSourceNode requires table which is not null"
+    ):
+        _ = decl.to_table()
+
+
+def test_record_batch_reader_source():
+    table = pa.table([pa.array([1, 2, 3])], ["a"])
+    with pytest.raises(TypeError):
+        RecordBatchReaderSourceNodeOptions(table)
+
+    batch_source = RecordBatchReaderSourceNodeOptions(
+        pa.RecordBatchReader.from_batches(table.schema, [None])
+    )
+    decl = Declaration("record_batch_reader_source", batch_source)
+    with pytest.raises(
+        pa.lib.ArrowTypeError,
+        match="Could not unwrap RecordBatch from Python object of type 'NoneType'",
     ):
         _ = decl.to_table()
 
