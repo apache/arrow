@@ -1812,12 +1812,17 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
-  if(ARROW_FLIGHT)
+  if(ARROW_ORC OR ARROW_WITH_OPENTELEMETRY)
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow")
+  elseif(ARROW_FLIGHT)
     set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "ArrowFlight")
     set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow-flight")
   else()
-    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "Arrow")
-    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow")
+    message(FATAL_ERROR "ARROW_WITH_PROTOBUF must be propagated in the build tooling installation."
+                        " Please extend the mappings of ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME and"
+                        " ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME for newly introduced dependencies on"
+                        " protobuf.")
   endif()
   # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
   # newer version such as 23.4. If we don't use it, 23.4 is processed
@@ -5018,6 +5023,9 @@ macro(build_awssdk)
                           "ncrypt.lib"
                           "Secur32.lib"
                           "Shlwapi.lib")
+    set_property(TARGET AWS::aws-c-io
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES "crypt32.lib")
   endif()
 
   # AWSSDK is static-only build

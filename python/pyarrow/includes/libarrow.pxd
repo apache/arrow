@@ -961,8 +961,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
+        CResult[shared_ptr[CRecordBatch]] AddColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+        CResult[shared_ptr[CRecordBatch]] RemoveColumn(int i)
+        CResult[shared_ptr[CRecordBatch]] SetColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+
         const vector[shared_ptr[CArray]]& columns()
 
+        CResult[shared_ptr[CRecordBatch]] RenameColumns(const vector[c_string]&)
         CResult[shared_ptr[CRecordBatch]] SelectColumns(const vector[int]&)
 
         int num_columns()
@@ -1161,7 +1168,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CScalar& other) const
         CStatus Validate() const
         CStatus ValidateFull() const
-        CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
         size_t operator()(const shared_ptr[CScalar]& scalar) const
@@ -3010,3 +3016,6 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)
+
+cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
+    CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)

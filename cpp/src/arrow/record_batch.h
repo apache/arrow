@@ -227,6 +227,13 @@ class ARROW_EXPORT RecordBatch {
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
 
+  /// \brief Return names of all columns
+  std::vector<std::string> ColumnNames() const;
+
+  /// \brief Rename columns with provided names
+  Result<std::shared_ptr<RecordBatch>> RenameColumns(
+      const std::vector<std::string>& names) const;
+
   /// \brief Return new record batch with specified columns
   Result<std::shared_ptr<RecordBatch>> SelectColumns(
       const std::vector<int>& indices) const;

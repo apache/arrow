@@ -67,7 +67,7 @@ get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTOR
 # detect it ourselves.
 # (https://gitlab.kitware.com/cmake/cmake/issues/20408)
 execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c"
-                        "from distutils import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+                        "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
                 RESULT_VARIABLE _PYTHON_RESULT
                 OUTPUT_VARIABLE _PYTHON_STDOUT
                 ERROR_VARIABLE _PYTHON_STDERR)

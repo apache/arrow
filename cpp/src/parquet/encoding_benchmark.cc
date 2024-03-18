@@ -417,22 +417,22 @@ BENCHMARK(BM_ByteStreamSplitEncode_Double_Scalar)->Range(MIN_RANGE, MAX_RANGE);
 #if defined(ARROW_HAVE_SSE4_2)
 static void BM_ByteStreamSplitDecode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(float)>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitDecode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitDecode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitDecodeSse2<sizeof(double)>);
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(double)>);
 }
 
 static void BM_ByteStreamSplitEncode_Float_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<float>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(float)>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(float)>);
 }
 
 static void BM_ByteStreamSplitEncode_Double_Sse2(benchmark::State& state) {
   BM_ByteStreamSplitEncode<double>(
-      state, ::arrow::util::internal::ByteStreamSplitEncodeSse2<sizeof(double)>);
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(double)>);
 }
 
 BENCHMARK(BM_ByteStreamSplitDecode_Float_Sse2)->Range(MIN_RANGE, MAX_RANGE);
@@ -466,6 +466,33 @@ BENCHMARK(BM_ByteStreamSplitDecode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitDecode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx2)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx2)->Range(MIN_RANGE, MAX_RANGE);
+#endif
+
+#if defined(ARROW_HAVE_NEON)
+static void BM_ByteStreamSplitDecode_Float_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<float>(
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitDecode_Double_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitDecode<double>(
+      state, ::arrow::util::internal::ByteStreamSplitDecodeSimd128<sizeof(double)>);
+}
+
+static void BM_ByteStreamSplitEncode_Float_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<float>(
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(float)>);
+}
+
+static void BM_ByteStreamSplitEncode_Double_Neon(benchmark::State& state) {
+  BM_ByteStreamSplitEncode<double>(
+      state, ::arrow::util::internal::ByteStreamSplitEncodeSimd128<sizeof(double)>);
+}
+
+BENCHMARK(BM_ByteStreamSplitDecode_Float_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitDecode_Double_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Float_Neon)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_ByteStreamSplitEncode_Double_Neon)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
 template <typename DType>
