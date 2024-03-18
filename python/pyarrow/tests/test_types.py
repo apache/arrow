@@ -357,6 +357,7 @@ def test_dateutil_tzinfo_to_string():
     tz = dateutil.tz.UTC
     assert pa.lib.tzinfo_to_string(tz) == 'UTC'
     tz = dateutil.tz.gettz('Europe/Paris')
+    print(tz)
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
