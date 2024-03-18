@@ -18,6 +18,7 @@
 import gc
 import os
 import signal
+import shutil
 import sys
 import textwrap
 import weakref
@@ -214,12 +215,15 @@ def test_signal_refcycle():
 @pytest.mark.skipif(sys.platform != "win32",
                     reason="Timezone database is already provided.")
 def test_download_tzdata_on_windows():
-    # Download timezone database
+    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
+    tzdata_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
+
+    # Download timezone database and remove data in case it already exists
+    if (os.path.exists(tzdata_path)):
+        shutil.rmtree(tzdata_path)
     download_tzdata_on_windows()
 
     # Inspect the folder
-    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    tzdata_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
     assert os.path.exists(tzdata_path)
     assert os.path.exists(tzdata_zones_path)
     # 30 files in tzdata (2023) + compressed tzdata.tar.gz + windowsZones.xml
