@@ -190,14 +190,17 @@ class TestIntegers : public ::testing::Test {
 TYPED_TEST_SUITE_P(TestIntegers);
 
 template <typename DataType>
-std::vector<typename DataType::c_type> TestIntegersMutateIfNeeded(std::vector<typename DataType::c_type> data) {
-    return data;
+std::vector<typename DataType::c_type> TestIntegersMutateIfNeeded(
+    std::vector<typename DataType::c_type> data) {
+  return data;
 }
 
 // TODO: This works, but is it the right way to do this?
 template <>
-std::vector<HalfFloatType::c_type> TestIntegersMutateIfNeeded<HalfFloatType>(std::vector<HalfFloatType::c_type> data) {
-  std::for_each(data.begin(), data.end(), [](HalfFloatType::c_type &value) { value = Float16(value).bits(); });
+std::vector<HalfFloatType::c_type> TestIntegersMutateIfNeeded<HalfFloatType>(
+    std::vector<HalfFloatType::c_type> data) {
+  std::for_each(data.begin(), data.end(),
+                [](HalfFloatType::c_type& value) { value = Float16(value).bits(); });
   return data;
 }
 
@@ -210,7 +213,8 @@ TYPED_TEST_P(TestIntegers, Basics) {
 
   AssertJSONArray<T>(type, "[]", {});
   AssertJSONArray<T>(type, "[4, 0, 5]", TestIntegersMutateIfNeeded<T>({4, 0, 5}));
-  AssertJSONArray<T>(type, "[4, null, 5]", {true, false, true}, TestIntegersMutateIfNeeded<T>({4, 0, 5}));
+  AssertJSONArray<T>(type, "[4, null, 5]", {true, false, true},
+                     TestIntegersMutateIfNeeded<T>({4, 0, 5}));
 
   // Test limits
   const auto min_val = std::numeric_limits<c_type>::min();
@@ -286,7 +290,7 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegers, UInt16Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegers, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegers, UInt64Type);
 // FIXME: I understand that HalfFloatType is backed by a uint16_t, but does it
-// make sense to run this test over it? 
+// make sense to run this test over it?
 // The way ConvertNumber for HalfFloatType is currently written, it allows the
 // conversion of floating point notation to a half float, which causes failures
 // in this test, one example is asserting 0.0 cannot be parsed as a half float.
