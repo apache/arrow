@@ -29,6 +29,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/timestamp-parser.hpp>
 
 #include <arrow/c/bridge.h>
 
@@ -872,12 +873,13 @@ garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
   }
 }
 
-typedef struct GArrowCSVReadOptionsPrivate_
+struct GArrowCSVReadOptionsPrivate
 {
   arrow::csv::ReadOptions read_options;
   arrow::csv::ParseOptions parse_options;
   arrow::csv::ConvertOptions convert_options;
-} GArrowCSVReadOptionsPrivate;
+  GList *timestamp_parsers;
+};
 
 enum {
   PROP_USE_THREADS = 1,
@@ -901,6 +903,17 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReadOptions, garrow_csv_read_options, G_TYPE
 #define GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object)                                      \
   static_cast<GArrowCSVReadOptionsPrivate *>(                                            \
     garrow_csv_read_options_get_instance_private(GARROW_CSV_READ_OPTIONS(object)))
+
+static void
+garrow_csv_read_options_dispose(GObject *object)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(object);
+
+  g_list_free_full(priv->timestamp_parsers, g_object_unref);
+  priv->timestamp_parsers = nullptr;
+
+  G_OBJECT_CLASS(garrow_csv_read_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_csv_read_options_set_property(GObject *object,
@@ -1032,6 +1045,7 @@ garrow_csv_read_options_class_init(GArrowCSVReadOptionsClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose = garrow_csv_read_options_dispose;
   gobject_class->set_property = garrow_csv_read_options_set_property;
   gobject_class->get_property = garrow_csv_read_options_get_property;
 
@@ -1621,6 +1635,71 @@ garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
 {
   auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
   priv->read_options.column_names.push_back(column_name);
+}
+
+/**
+ * garrow_csv_read_options_set_timestamp_parsers:
+ * @options: A #GArrowCSVReadOptions.
+ * @parsers: (element-type GArrowTimestampParser): The list of
+ *   #GArrowTimestampParser to be added.
+ *
+ * Since: 16.0.0
+ */
+void
+garrow_csv_read_options_set_timestamp_parsers(GArrowCSVReadOptions *options,
+                                              GList *parsers)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  g_list_free_full(priv->timestamp_parsers, g_object_unref);
+  priv->convert_options.timestamp_parsers.clear();
+  for (auto node = parsers; node; node = g_list_next(node)) {
+    if (!node->data) {
+      continue;
+    }
+    auto parser = GARROW_TIMESTAMP_PARSER(node->data);
+    g_object_ref(parser);
+    priv->timestamp_parsers = g_list_prepend(priv->timestamp_parsers, parser);
+    priv->convert_options.timestamp_parsers.push_back(
+      garrow_timestamp_parser_get_raw(parser));
+  }
+  priv->timestamp_parsers = g_list_reverse(priv->timestamp_parsers);
+}
+
+/**
+ * garrow_csv_read_options_get_timestamp_parsers:
+ * @options: A #GArrowCSVReadOptions.
+ *
+ * Returns: (element-type GArrowTimestampParser) (transfer none):
+ *
+ *   The list of #GArrowTimestampParsers to be used.
+ *
+ * Since: 16.0.0
+ */
+GList *
+garrow_csv_read_options_get_timestamp_parsers(GArrowCSVReadOptions *options)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  return priv->timestamp_parsers;
+}
+
+/**
+ * garrow_csv_read_options_add_timestamp_parser:
+ * @options: A #GArrowCSVReadOptions.
+ * @parser: The #GArrowTimestampParser to be added.
+ *
+ * Since: 16.0.0
+ */
+void
+garrow_csv_read_options_add_timestamp_parser(GArrowCSVReadOptions *options,
+                                             GArrowTimestampParser *parser)
+{
+  auto priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
+  if (parser) {
+    g_object_ref(parser);
+    priv->timestamp_parsers = g_list_append(priv->timestamp_parsers, parser);
+    priv->convert_options.timestamp_parsers.push_back(
+      garrow_timestamp_parser_get_raw(parser));
+  }
 }
 
 typedef struct GArrowCSVReaderPrivate_

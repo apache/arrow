@@ -138,6 +138,7 @@ module Arrow
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
+      require "arrow/timestamp-parser"
       require "arrow/union-array-builder"
       require "arrow/writable"
     end
