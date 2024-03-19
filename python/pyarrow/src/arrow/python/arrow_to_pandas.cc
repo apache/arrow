@@ -2336,7 +2336,8 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
         // ARROW_ASSIGN_OR_RAISE(
         //     Datum decoded, arrays_[column_index]->num_chunks() > 1
         //                        ? compute::RunEndDecode(arrays_[column_index])
-        //                        : compute::RunEndDecode(arrays_[column_index]->chunk(0)));
+        //                        :
+        //                        compute::RunEndDecode(arrays_[column_index]->chunk(0)));
         arrays_[column_index] = GetDecodedChunkedArray(decoded);
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
