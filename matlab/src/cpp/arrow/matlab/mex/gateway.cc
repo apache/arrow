@@ -18,13 +18,14 @@
 #include "mex.hpp"
 #include "mexAdapter.hpp"
 
-#include "libmexclass/mex/gateway.h"    
+#include "libmexclass/mex/gateway.h"
 
 #include "arrow/matlab/proxy/factory.h"
 
 class MexFunction : public matlab::mex::Function {
-    public:
-        void operator()(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs) {
-            libmexclass::mex::gateway<arrow::matlab::proxy::Factory>(inputs, outputs, getEngine());
-        }
+ public:
+  void operator()(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs) {
+    libmexclass::mex::gateway<arrow::matlab::proxy::Factory>(inputs, outputs,
+                                                             getEngine());
+  }
 };
