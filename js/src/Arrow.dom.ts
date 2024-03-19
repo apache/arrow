@@ -24,14 +24,18 @@ import { builderThroughDOMStream } from './io/whatwg/builder.js';
 import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader.js';
 import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer.js';
 
-streamAdapters.toDOMStream = toDOMStream;
-Builder['throughDOM'] = builderThroughDOMStream;
-RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
-RecordBatchFileReader['throughDOM'] = recordBatchReaderThroughDOMStream;
-RecordBatchStreamReader['throughDOM'] = recordBatchReaderThroughDOMStream;
-RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
-RecordBatchFileWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
-RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+// Override in IIFE so that bundlers don't tree-shake out this logic,
+// but also so we're still compliant with `"sideEffects": false`
+(() => {
+    streamAdapters.toDOMStream = toDOMStream;
+    Builder['throughDOM'] = builderThroughDOMStream;
+    RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
+    RecordBatchFileReader['throughDOM'] = recordBatchReaderThroughDOMStream;
+    RecordBatchStreamReader['throughDOM'] = recordBatchReaderThroughDOMStream;
+    RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+    RecordBatchFileWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+    RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+})();
 
 export type {
     TypeMap, StructRowProxy,
