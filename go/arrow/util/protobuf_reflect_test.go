@@ -5,6 +5,7 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
+	"reflect"
 	"testing"
 )
 
@@ -135,5 +136,5 @@ func TestRecordFromProtobuf(t *testing.T) {
 ]`)
 	got, err := record.MarshalJSON()
 	require.NoError(t, err)
-	require.Equal(t, string(want), string(got))
+	require.True(t, reflect.DeepEqual(got, want))
 }
