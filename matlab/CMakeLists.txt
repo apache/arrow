@@ -131,6 +131,19 @@ if(NOT Arrow_FOUND)
   build_arrow()
 endif()
 
+# Check the Build mode on Windows
+if(WIN32)
+  if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+    set(is_debug "$<CONFIG:Debug>")
+  else()
+    set(is_debug "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  endif()
+  
+  if (is_debug)
+    message(FATAL_ERROR "Building the MATLAB interface in Debug mode is not supported.")
+  endif()
+endif()
+
 # MATLAB is Required
 find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
 
