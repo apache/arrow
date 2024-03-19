@@ -2581,6 +2581,10 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
     //                                          ? compute::RunEndDecode(arr)
     //                                          : compute::RunEndDecode(arr));
     arr = GetDecodedChunkedArray(decoded);
+
+    // Because we built a new array when we decoded the RunEndEncodedArray
+    // the final resulting numpy array should own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   PandasWriter::type output_type;
