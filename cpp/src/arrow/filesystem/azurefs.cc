@@ -547,7 +547,6 @@ std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
   auto metadata = std::make_shared<KeyValueMetadata>();
   // Not supported yet:
   // * properties.ObjectReplicationSourceProperties
-  // * properties.Metadata
   //
   // They may have the same key defined in the following
   // metadata->Append() list. If we have duplicated key in metadata,
@@ -669,16 +668,33 @@ std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
     metadata->Append("Last-Accessed-On", properties.LastAccessedOn.Value().ToString());
   }
   metadata->Append("Has-Legal-Hold", FormatValue<BooleanType>(properties.HasLegalHold));
+  for (const auto& [key, value] : properties.Metadata) {
+    metadata->Append(key, value);
+  }
   return metadata;
 }
 
-Storage::Metadata ArrowMetadataToAzureMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& arrow_metadata) {
-  Storage::Metadata azure_metadata;
-  for (auto key_value : arrow_metadata->sorted_pairs()) {
-    azure_metadata[key_value.first] = key_value.second;
+void ArrowMetadataToCommitBlockListOptions(
+    const std::shared_ptr<const KeyValueMetadata>& arrow_metadata,
+    Blobs::CommitBlockListOptions& options) {
+  using ::arrow::internal::AsciiEqualsCaseInsensitive;
+  for (auto& [key, value] : arrow_metadata->sorted_pairs()) {
+    if (AsciiEqualsCaseInsensitive(key, "Content-Type")) {
+      options.HttpHeaders.ContentType = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Encoding")) {
+      options.HttpHeaders.ContentEncoding = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Language")) {
+      options.HttpHeaders.ContentLanguage = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Hash")) {
+      // Ignore: auto-generated value
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Disposition")) {
+      options.HttpHeaders.ContentDisposition = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Cache-Control")) {
+      options.HttpHeaders.CacheControl = value;
+    } else {
+      options.Metadata[key] = value;
+    }
   }
-  return azure_metadata;
 }
 
 class ObjectInputFile final : public io::RandomAccessFile {
@@ -864,9 +880,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
 
 Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_blob_client,
                        const std::vector<std::string>& block_ids,
-                       const Storage::Metadata& metadata) {
-  Blobs::CommitBlockListOptions options;
-  options.Metadata = metadata;
+                       const Blobs::CommitBlockListOptions& options) {
   try {
     // CommitBlockList puts all block_ids in the latest element. That means in the case of
     // overlapping block_ids the newly staged block ids will always replace the
@@ -891,9 +905,10 @@ class ObjectAppendStream final : public io::OutputStream {
         io_context_(io_context),
         location_(location) {
     if (metadata && metadata->size() != 0) {
-      metadata_ = ArrowMetadataToAzureMetadata(metadata);
+      ArrowMetadataToCommitBlockListOptions(metadata, commit_block_list_options_);
     } else if (options.default_metadata && options.default_metadata->size() != 0) {
-      metadata_ = ArrowMetadataToAzureMetadata(options.default_metadata);
+      ArrowMetadataToCommitBlockListOptions(options.default_metadata,
+                                            commit_block_list_options_);
     }
   }
 
@@ -996,7 +1011,7 @@ class ObjectAppendStream final : public io::OutputStream {
       // flush. This also avoids some unhandled errors when flushing in the destructor.
       return Status::OK();
     }
-    return CommitBlockList(block_blob_client_, block_ids_, metadata_);
+    return CommitBlockList(block_blob_client_, block_ids_, commit_block_list_options_);
   }
 
  private:
@@ -1053,7 +1068,7 @@ class ObjectAppendStream final : public io::OutputStream {
   bool initialised_ = false;
   int64_t pos_ = 0;
   std::vector<std::string> block_ids_;
-  Storage::Metadata metadata_;
+  Blobs::CommitBlockListOptions commit_block_list_options_;
 };
 
 bool IsDfsEmulator(const AzureOptions& options) {
