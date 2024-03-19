@@ -106,7 +106,7 @@ struct FloatingEquality<uint16_t, Flags> {
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
-    if (x == y) {
+    if (f_x == f_y) {
       return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
     }
     if (Flags::nans_equal && f_x.is_nan() && f_y.is_nan()) {
