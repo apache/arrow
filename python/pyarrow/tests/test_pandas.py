@@ -2577,7 +2577,6 @@ class TestConvertListTypes:
 
     @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
     def test_list_view_to_pandas_multiple_chunks(self, klass):
-        # ARROW-11855
         gc.collect()
         bytes_start = pa.total_allocated_bytes()
         arr1 = klass.from_arrays(
