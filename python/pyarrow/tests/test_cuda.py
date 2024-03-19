@@ -805,7 +805,7 @@ def _arr_copy_to_host(carr):
                 cbuf.address, cbuf.size, cbuf
             ).copy_to_host()
             buffers.append(buf)
-    
+
     child = pa.Array.from_buffers(carr.type.value_type, 3, buffers[2:])
     new = pa.Array.from_buffers(carr.type, 2, buffers[:2], children=[child])
     return new
@@ -901,7 +901,6 @@ def test_device_interface_batch_array():
 
     batch = make_recordbatch(10)
     schema = batch.schema
-    hbuf = batch.serialize()
     cbuf = cuda.serialize_record_batch(batch, global_context)
     cbatch = cuda.read_record_batch(cbuf, schema)
 
