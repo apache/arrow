@@ -1057,17 +1057,21 @@ public class FlightSqlClient implements AutoCloseable {
 
       if (parameterBindingRoot != null && parameterBindingRoot.getRowCount() > 0) {
         try (final SyncPutListener putListener = putParameters(descriptor, options)) {
-          final PutResult read = putListener.read();
-          if (read != null) {
-            try (final ArrowBuf metadata = read.getApplicationMetadata()) {
-              final FlightSql.DoPutPreparedStatementResult doPutPreparedStatementResult =
-                      FlightSql.DoPutPreparedStatementResult.parseFrom(metadata.nioBuffer());
-              descriptor = FlightDescriptor
-                      .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
-                                      .setPreparedStatementHandle(
-                                              doPutPreparedStatementResult.getPreparedStatementHandle())
-                                      .build())
-                              .toByteArray());
+          if (getParameterSchema().getFields().size() > 0 &&
+                  parameterBindingRoot != null &&
+                  parameterBindingRoot.getRowCount() > 0) {
+            final PutResult read = putListener.read();
+            if (read != null) {
+              try (final ArrowBuf metadata = read.getApplicationMetadata()) {
+                final FlightSql.DoPutPreparedStatementResult doPutPreparedStatementResult =
+                        FlightSql.DoPutPreparedStatementResult.parseFrom(metadata.nioBuffer());
+                descriptor = FlightDescriptor
+                        .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
+                                        .setPreparedStatementHandle(
+                                                doPutPreparedStatementResult.getPreparedStatementHandle())
+                                        .build())
+                                .toByteArray());
+              }
             }
           }
         } catch (final InterruptedException | ExecutionException e) {
