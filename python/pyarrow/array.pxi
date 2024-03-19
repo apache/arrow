@@ -22,21 +22,7 @@ import warnings
 from cython import sizeof
 
 
-def _import_device_array(in_ptr, type):
-    """
-    Import Array from a C ArrowDeviceArray struct, given its pointer
-    and the imported array type.
-
-    Parameters
-    ----------
-    in_ptr: int
-        The raw pointer to a C ArrowDeviceArray struct.
-    type: DataType or int
-        Either a DataType object, or the raw pointer to a C ArrowSchema
-        struct.
-
-    This is a low-level function intended for expert users.
-    """
+def _import_device_array_cpu(in_ptr, type):
     cdef:
         void* c_ptr = _as_c_pointer(in_ptr)
         void* c_type_ptr
@@ -62,9 +48,11 @@ def _import_device_array(in_ptr, type):
 
 
 try:
-    from pyarrow._cuda import _import_device_array
+    from pyarrow._cuda import _import_device_array_cuda
+
+    _import_device_array = _import_device_array_cuda
 except ImportError:
-    pass
+    _import_device_array = _import_device_array_cpu
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,

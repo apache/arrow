@@ -965,7 +965,8 @@ def read_record_batch(object buffer, object schema, *,
     return pyarrow_wrap_batch(batch)
 
 
-def _import_device_array(in_ptr, type):
+def _import_device_array_cuda(in_ptr, type):
+    # equivalent to the definition in array.pxi but using CudaDefaultMemoryMapper
     cdef:
         void* c_ptr = _as_c_pointer(in_ptr)
         void* c_type_ptr
@@ -978,19 +979,20 @@ def _import_device_array(in_ptr, type):
         with nogil:
             c_array = GetResultValue(
                 ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
-                                    <ArrowSchema*> c_type_ptr,
-                                    CudaDefaultMemoryMapper)
+                                  <ArrowSchema*> c_type_ptr,
+                                  CudaDefaultMemoryMapper)
             )
     else:
         with nogil:
             c_array = GetResultValue(
                 ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
-                                    CudaDefaultMemoryMapper)
+                                  CudaDefaultMemoryMapper)
             )
     return pyarrow_wrap_array(c_array)
 
 
-def _import_device_recordbatch(in_ptr, schema):
+def _import_device_recordbatch_cuda(in_ptr, schema):
+    # equivalent to the definition in table.pxi but using CudaDefaultMemoryMapper
     cdef:
         void* c_ptr = _as_c_pointer(in_ptr)
         void* c_schema_ptr
@@ -1003,11 +1005,13 @@ def _import_device_recordbatch(in_ptr, schema):
         with nogil:
             c_batch = GetResultValue(ImportDeviceRecordBatch(
                 <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
-                CudaDefaultMemoryMapper))
+                CudaDefaultMemoryMapper)
+            )
     else:
         with nogil:
             c_batch = GetResultValue(ImportDeviceRecordBatch(
-                <ArrowDeviceArray*> c_ptr, c_schema, CudaDefaultMemoryMapper))
+                <ArrowDeviceArray*> c_ptr, c_schema, CudaDefaultMemoryMapper)
+            )
     return pyarrow_wrap_batch(c_batch)
 
 

@@ -26,6 +26,8 @@ import os
 import sys
 
 from cython.operator cimport dereference as deref
+from cython cimport binding
+
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
@@ -162,6 +164,9 @@ include "pandas-shim.pxi"
 # Memory pools and allocation
 include "memory.pxi"
 
+# File IO
+include "io.pxi"
+
 # DataType, Field, Schema
 include "types.pxi"
 
@@ -182,9 +187,6 @@ include "tensor.pxi"
 
 # DLPack
 include "_dlpack.pxi"
-
-# File IO
-include "io.pxi"
 
 # IPC / Messaging
 include "ipc.pxi"

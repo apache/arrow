@@ -21,7 +21,7 @@ import warnings
 from cython import sizeof
 
 
-def _import_device_recordbatch(in_ptr, schema):
+def _import_device_recordbatch_cpu(in_ptr, schema):
     cdef:
         void* c_ptr = _as_c_pointer(in_ptr)
         void* c_schema_ptr
@@ -43,9 +43,11 @@ def _import_device_recordbatch(in_ptr, schema):
 
 
 try:
-    from pyarrow._cuda import _import_device_recordbatch
+    from pyarrow._cuda import _import_device_recordbatch_cuda
+
+    _import_device_recordbatch = _import_device_recordbatch_cuda
 except ImportError:
-    pass
+    _import_device_recordbatch = _import_device_recordbatch_cpu
 
 
 cdef class ChunkedArray(_PandasConvertible):
