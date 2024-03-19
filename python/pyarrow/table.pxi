@@ -21,7 +21,8 @@ import warnings
 from cython import sizeof
 
 # from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
-from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultMemoryMapper
+# from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultDeviceMemoryMapper
+from pyarrow.includes.libarrow_memory cimport CDefaultDeviceMemoryMapper
 
 
 cdef class ChunkedArray(_PandasConvertible):
@@ -3601,11 +3602,11 @@ cdef class RecordBatch(_Tabular):
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
                     <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
-                    DefaultMemoryMapper))
+                    CDefaultDeviceMemoryMapper))
         else:
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, c_schema, DefaultMemoryMapper))
+                    <ArrowDeviceArray*> c_ptr, c_schema, CDefaultDeviceMemoryMapper))
         return pyarrow_wrap_batch(c_batch)
 
 

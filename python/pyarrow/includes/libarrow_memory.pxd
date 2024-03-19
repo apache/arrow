@@ -24,11 +24,11 @@ cdef extern from *:
     """
     #ifdef ARROW_CUDA
       #include "arrow/gpu/cuda_api.h"
-      using DeviceMapper = arrow::cuda::DefaultMemoryMapper;
+      #define CDefaultDeviceMemoryMapper(device_type, device_id) arrow::cuda::DefaultMemoryMapper(device_typem device_id)
     #else
       #include "arrow/c/bridge.h"
-      using DeviceMapper = arrow::DefaultDeviceMapper;
+      #define CDefaultDeviceMemoryMapper(device_type, device_id) arrow::DefaultDeviceMapper(device_type, device_id)
     #endif
     """
-    CResult[shared_ptr[CMemoryManager]] DeviceMapper(
-        ArrowDeviceType device_type, int64_t device_id)
+    CResult[shared_ptr[CMemoryManager]] CDefaultDeviceMemoryMapper" CDefaultDeviceMemoryMapper"(
+        ArrowDeviceType device_type, int64_t device_id) nogil
