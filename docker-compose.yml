@@ -1211,7 +1211,7 @@ services:
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
     volumes: *conda-volumes
     # pytest is installed with an upper pin of 8.0.0 because
-    # newe version breaks cython doctesting, see:
+    # newer version breaks cython doctesting, see:
     # https://github.com/lgpage/pytest-cython/issues/58
     # Remove pip install pytest~=7 when upstream issue is resolved
     command:
