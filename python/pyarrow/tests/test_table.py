@@ -2901,6 +2901,7 @@ def test_table_join_asof_by_length_mismatch():
         )
 
 
+@pytest.mark.dataset
 def test_table_join_asof_by_type_mismatch():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2922,6 +2923,7 @@ def test_table_join_asof_by_type_mismatch():
         )
 
 
+@pytest.mark.dataset
 def test_table_join_asof_on_type_mismatch():
     t1 = pa.table({
         "colA": [1, 2, 6],
