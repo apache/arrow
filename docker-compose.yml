@@ -1210,11 +1210,15 @@ services:
       BUILD_DOCS_PYTHON: "ON"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
     volumes: *conda-volumes
+    # pytest is installed with an upper pin of 8.0.0 because
+    # newe version breaks cython doctesting, see:
+    # https://github.com/lgpage/pytest-cython/issues/58
+    # Remove pip install pytest~=7 when upstream issue is resolved
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
-        pip install pytest<8 &&
+        pip install pytest~=7 &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
