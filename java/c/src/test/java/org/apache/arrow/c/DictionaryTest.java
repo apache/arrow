@@ -128,7 +128,7 @@ public class DictionaryTest {
         ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator)) {
       // Load first batch
       reader.loadNextBatch();
-      // Producer fills consumer schema stucture
+      // Producer fills consumer schema structure
       Data.exportSchema(allocator, reader.getVectorSchemaRoot().getSchema(), reader, consumerArrowSchema);
       // Consumer loads it as an empty vector schema root
       try (CDataDictionaryProvider consumerDictionaryProvider = new CDataDictionaryProvider();

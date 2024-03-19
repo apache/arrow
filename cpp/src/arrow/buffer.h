@@ -30,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -70,7 +71,7 @@ class ARROW_EXPORT Buffer {
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
          std::shared_ptr<Buffer> parent = NULLPTR,
-         std::optional<DeviceAllocationType> device_type = std::nullopt)
+         std::optional<DeviceAllocationType> device_type_override = std::nullopt)
       : is_mutable_(false),
         data_(data),
         size_(size),
@@ -78,11 +79,11 @@ class ARROW_EXPORT Buffer {
         parent_(std::move(parent)) {
     // SetMemoryManager will also set device_type_
     SetMemoryManager(std::move(mm));
-    // if a device type is specified, use that instead. for example:
-    // CUDA_HOST. The CudaMemoryManager will set device_type_ to CUDA,
-    // but you can specify CUDA_HOST as the device type to override it.
-    if (device_type != std::nullopt) {
-      device_type_ = device_type;
+    // If a device type is specified, use that instead. Example of when this can be
+    // useful: the CudaMemoryManager can set device_type_ to kCUDA, but you can specify
+    // device_type_override=kCUDA_HOST as the device type to override it.
+    if (device_type_override != std::nullopt) {
+      device_type_ = *device_type_override;
     }
   }
 
@@ -233,6 +234,12 @@ class ARROW_EXPORT Buffer {
     return reinterpret_cast<const T*>(data());
   }
 
+  /// \brief Return the buffer's data as a span
+  template <typename T>
+  util::span<const T> span_as() const {
+    return util::span(data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
+  }
+
   /// \brief Return a writable pointer to the buffer's data
   ///
   /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
@@ -258,6 +265,12 @@ class ARROW_EXPORT Buffer {
   template <typename T>
   T* mutable_data_as() {
     return reinterpret_cast<T*>(mutable_data());
+  }
+
+  /// \brief Return the buffer's mutable data as a span
+  template <typename T>
+  util::span<T> mutable_span_as() {
+    return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
   /// \brief Return the device address of the buffer's data
@@ -296,7 +309,7 @@ class ARROW_EXPORT Buffer {
 
   const std::shared_ptr<MemoryManager>& memory_manager() const { return memory_manager_; }
 
-  std::optional<DeviceAllocationType> device_type() const { return device_type_; }
+  DeviceAllocationType device_type() const { return device_type_; }
 
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
@@ -346,7 +359,7 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 
-  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() { return NULLPTR; }
+  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() const { return NULLPTR; }
 
  protected:
   bool is_mutable_;
@@ -354,7 +367,7 @@ class ARROW_EXPORT Buffer {
   const uint8_t* data_;
   int64_t size_;
   int64_t capacity_;
-  std::optional<DeviceAllocationType> device_type_;
+  DeviceAllocationType device_type_;
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;

@@ -740,13 +740,11 @@ class HashJoinNode : public ExecNode, public TracedNode {
     // Create hash join implementation object
     // SwissJoin does not support:
     // a) 64-bit string offsets
-    // b) residual predicates
-    // c) dictionaries
+    // b) dictionaries
     //
     bool use_swiss_join;
 #if ARROW_LITTLE_ENDIAN
-    use_swiss_join = (filter == literal(true)) && !schema_mgr->HasDictionaries() &&
-                     !schema_mgr->HasLargeBinary();
+    use_swiss_join = !schema_mgr->HasDictionaries() && !schema_mgr->HasLargeBinary();
 #else
     use_swiss_join = false;
 #endif

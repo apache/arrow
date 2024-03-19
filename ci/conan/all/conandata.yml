@@ -45,21 +45,21 @@ sources:
 patches:
   "8.0.1":
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utilis installation"
+      patch_description: "enable utils installation"
       patch_type: "conan"
     - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
   "8.0.0":
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
-      patch_description: "enable utilis installation"
+      patch_description: "enable utils installation"
       patch_type: "conan"
     - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
   "7.0.0":
     - patch_file: "patches/7.0.0-0006-install-utils.patch"
-      patch_description: "enable utilis installation"
+      patch_description: "enable utils installation"
       patch_type: "conan"
     - patch_file: "patches/7.0.0-0007-fix-cmake.patch"
       patch_description: "use cci package"

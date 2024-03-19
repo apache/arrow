@@ -642,10 +642,6 @@ RowGroupWriter* ParquetFileWriter::AppendBufferedRowGroup() {
   return contents_->AppendBufferedRowGroup();
 }
 
-RowGroupWriter* ParquetFileWriter::AppendRowGroup(int64_t num_rows) {
-  return AppendRowGroup();
-}
-
 void ParquetFileWriter::AddKeyValueMetadata(
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
   if (contents_) {

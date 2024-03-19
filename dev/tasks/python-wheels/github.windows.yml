@@ -29,7 +29,7 @@ jobs:
       # this is a private repository at the moment (mostly because of licensing
       # consideration of windows images with visual studio), but anyone can
       # recreate the image by manually building it via:
-      # `archery build python-wheel-windows-vs2017`
+      # `archery build python-wheel-windows-vs2019`
       # note that we don't run docker build since there wouldn't be a cache hit
       # and rebuilding the dependencies takes a fair amount of time
       REPO: ghcr.io/ursacomputing/arrow
@@ -46,17 +46,17 @@ jobs:
         run: |
           cd arrow
           @rem We want to use only
-          @rem   archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          @rem   archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2019
           @rem but it doesn't use pulled caches.
           @rem It always build an image from scratch.
           @rem We can remove this workaround once we find a way to use
           @rem pulled caches when build an image.
           echo on
-          archery docker pull --no-ignore-pull-failures python-wheel-windows-vs2017
+          archery docker pull --no-ignore-pull-failures python-wheel-windows-vs2019
           if errorlevel 1 (
-            archery docker build --no-pull python-wheel-windows-vs2017 || exit /B 1
+            archery docker build --no-pull python-wheel-windows-vs2019 || exit /B 1
           )
-          archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+          archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2019
 
       - uses: actions/upload-artifact@v3
         with:
@@ -77,5 +77,5 @@ jobs:
         shell: cmd
         run: |
           cd arrow
-          archery docker push python-wheel-windows-vs2017
+          archery docker push python-wheel-windows-vs2019
       {% endif %}

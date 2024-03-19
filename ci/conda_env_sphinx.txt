@@ -19,8 +19,10 @@
 breathe
 doxygen
 ipython
+linkify-it-py
+myst-parser
 numpydoc
-pydata-sphinx-theme
+pydata-sphinx-theme=0.14
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton

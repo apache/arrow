@@ -22,17 +22,18 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v16/arrow"
 )
 
 // Writer wraps encoding/csv.Writer and writes arrow.Record based on a schema.
 type Writer struct {
-	boolFormatter func(bool) string
-	header        bool
-	nullValue     string
-	once          sync.Once
-	schema        *arrow.Schema
-	w             *csv.Writer
+	boolFormatter  func(bool) string
+	header         bool
+	nullValue      string
+	stringReplacer func(string) string
+	once           sync.Once
+	schema         *arrow.Schema
+	w              *csv.Writer
 }
 
 // NewWriter returns a writer that writes arrow.Records to the CSV file
@@ -45,10 +46,11 @@ func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
 	ww := &Writer{
-		boolFormatter: strconv.FormatBool, // override by passing WithBoolWriter() as an option
-		nullValue:     "NULL",             // override by passing WithNullWriter() as an option
-		schema:        schema,
-		w:             csv.NewWriter(w),
+		boolFormatter:  strconv.FormatBool,                 // override by passing WithBoolWriter() as an option
+		nullValue:      "NULL",                             // override by passing WithNullWriter() as an option
+		stringReplacer: func(x string) string { return x }, // override by passing WithStringsReplacer() as an option
+		schema:         schema,
+		w:              csv.NewWriter(w),
 	}
 	for _, opt := range opts {
 		opt(ww)
@@ -81,7 +83,7 @@ func (w *Writer) Write(record arrow.Record) error {
 	}
 
 	for j, col := range record.Columns() {
-		rows := w.transformColToStringArr(w.schema.Field(j).Type, col)
+		rows := w.transformColToStringArr(w.schema.Field(j).Type, col, w.stringReplacer)
 		for i, row := range rows {
 			recs[i][j] = row
 		}

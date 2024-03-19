@@ -280,7 +280,7 @@ class CommentBot:
             # https://developer.github.com/v4/enum/commentauthorassociation/
             # Checking  privileges here enables the bot to respond
             # without relying on the handler.
-            allowed_roles = {'OWNER', 'MEMBER', 'CONTRIBUTOR', 'COLLABORATOR'}
+            allowed_roles = {'OWNER', 'MEMBER', 'COLLABORATOR'}
             if payload['comment']['author_association'] not in allowed_roles:
                 raise EventError(
                     "Only contributors can submit requests to this bot. "
@@ -324,7 +324,7 @@ def crossbow(obj, crossbow):
     obj['crossbow_repo'] = crossbow
 
 
-def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
+def _clone_arrow_and_crossbow(dest, crossbow_repo, arrow_repo_url, pr_number):
     """
     Clone the repositories and initialize crossbow objects.
 
@@ -334,26 +334,31 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
         Filesystem path to clone the repositories to.
     crossbow_repo : str
         GitHub repository name, like kszucs/crossbow.
-    pull_request : pygithub.PullRequest
-        Object containing information about the pull request the comment bot
-        was triggered from.
+    arrow_repo_url : str
+        Target Apache Arrow repository's clone URL, such as
+        "https://github.com/apache/arrow.git".
+    pr_number : int
+        Target PR number.
     """
     arrow_path = dest / 'arrow'
     queue_path = dest / 'crossbow'
 
-    # clone arrow and checkout the pull request's branch
-    pull_request_ref = 'pull/{}/head:{}'.format(
-        pull_request.number, pull_request.head.ref
-    )
-    git.clone(pull_request.base.repo.clone_url, str(arrow_path))
-    git.fetch('origin', pull_request_ref, git_dir=arrow_path)
-    git.checkout(pull_request.head.ref, git_dir=arrow_path)
+    # we use unique branch name instead of fork's branch name to avoid
+    # branch name conflict such as 'main' (GH-39996)
+    local_branch = f'archery/pr-{pr_number}'
+    # 1. clone arrow and checkout the PR's branch
+    pr_ref = f'pull/{pr_number}/head:{local_branch}'
+    git.clone('--no-checkout', arrow_repo_url, str(arrow_path))
+    # fetch the PR's branch into the clone
+    git.fetch('origin', pr_ref, git_dir=arrow_path)
+    # checkout the PR's branch into the clone
+    git.checkout(local_branch, git_dir=arrow_path)
 
-    # clone crossbow repository
+    # 2. clone crossbow repository
     crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
     git.clone(crossbow_url, str(queue_path))
 
-    # initialize crossbow objects
+    # 3. initialize crossbow objects
     github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
     arrow = Repo(arrow_path)
     queue = Queue(queue_path, github_token=github_token, require_https=True)
@@ -385,7 +390,8 @@ def submit(obj, tasks, groups, params, arrow_version, wait):
         arrow, queue = _clone_arrow_and_crossbow(
             dest=Path(tmpdir),
             crossbow_repo=crossbow_repo,
-            pull_request=pull_request,
+            arrow_repo_url=pull_request.base.repo.clone_url,
+            pr_number=pull_request.number,
         )
         # load available tasks configuration and groups from yaml
         config = Config.load_yaml(arrow.path / "dev" / "tasks" / "tasks.yml")

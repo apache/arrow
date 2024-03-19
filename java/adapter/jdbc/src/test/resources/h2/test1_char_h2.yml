@@ -15,7 +15,7 @@ type: 'char'
 
 vector: 'CHAR_FIELD16'
 
-create: 'CREATE TABLE table1 (char_field16 CHAR(16));'
+create: 'CREATE TABLE table1 (char_field16 CHAR(14));'
 
 data:
   - 'INSERT INTO table1 VALUES (''some char text'');'

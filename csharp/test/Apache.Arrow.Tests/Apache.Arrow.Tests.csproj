@@ -7,16 +7,16 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsWindows)'=='true'">
-    <TargetFrameworks>net7.0;net472</TargetFrameworks>
+    <TargetFrameworks>net7.0;net472;net462</TargetFrameworks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsWindows)'!='true'">
     <TargetFrameworks>net7.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.6.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>

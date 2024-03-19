@@ -24,10 +24,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -51,7 +51,7 @@ func MaxRLEBufferSize(width, numValues int) int {
 	minRepeatedRunSize := 1 + int(bitutil.BytesForBits(int64(width)))
 	repeatedMaxSize := int(bitutil.BytesForBits(int64(numValues))) * minRepeatedRunSize
 
-	return utils.MaxInt(literalMaxSize, repeatedMaxSize)
+	return utils.Max(literalMaxSize, repeatedMaxSize)
 }
 
 // Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
@@ -370,7 +370,7 @@ func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run bituti
 }
 
 func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64, remain int, buf []IndexType, run bitutils.BitRun, bitRdr bitutils.BitRunReader) (int, int, bitutils.BitRun, error) {
-	batch := utils.MinInt(utils.MinInt(remain, int(r.litCount)), len(buf))
+	batch := utils.Min(utils.Min(remain, int(r.litCount)), len(buf))
 	buf = buf[:batch]
 
 	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
@@ -388,7 +388,7 @@ func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64
 	)
 	for read < batch {
 		if run.Set {
-			updateSize := utils.MinInt(batch-read, int(run.Len))
+			updateSize := utils.Min(batch-read, int(run.Len))
 			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
 				return 0, 0, run, err
 			}

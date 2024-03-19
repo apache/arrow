@@ -248,8 +248,9 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):
@@ -1326,6 +1327,67 @@ cdef class ChunkedArray(_PandasConvertible):
             result += self.chunk(i).to_pylist()
         return result
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream = NULL
+
+        if requested_schema is not None:
+            out_type = DataType._import_from_c_capsule(requested_schema)
+            if self.type != out_type:
+                raise NotImplementedError("Casting to requested_schema")
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportChunkedArray(self.sp_chunked_array, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import ChunkedArray from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CChunkedArray] c_chunked_array
+            ChunkedArray self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_chunked_array = GetResultValue(ImportChunkedArray(c_stream))
+
+        self = ChunkedArray.__new__(ChunkedArray)
+        self.init(c_chunked_array)
+        return self
+
 
 def chunked_array(arrays, type=None):
     """
@@ -2088,6 +2150,117 @@ cdef class _Tabular(_PandasConvertible):
                 pieces.append('...')
         return '\n'.join(pieces)
 
+    def remove_column(self, int i):
+        # implemented in RecordBatch/Table subclasses
+        raise NotImplementedError
+
+    def drop_columns(self, columns):
+        """
+        Drop one or more columns and return a new Table or RecordBatch.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Raises
+        ------
+        KeyError
+            If any of the passed column names do not exist.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object without the column(s).
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Drop one column:
+
+        >>> table.drop_columns("animals")
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[2,4,5,100]]
+
+        Drop one or more columns:
+
+        >>> table.drop_columns(["n_legs", "animals"])
+        pyarrow.Table
+        ...
+        ----
+        """
+        if isinstance(columns, str):
+            columns = [columns]
+
+        indices = []
+        for col in columns:
+            idx = self.schema.get_field_index(col)
+            if idx == -1:
+                raise KeyError("Column {!r} not found".format(col))
+            indices.append(idx)
+
+        indices.sort()
+        indices.reverse()
+
+        res = self
+        for idx in indices:
+            res = res.remove_column(idx)
+
+        return res
+
+    def add_column(self, int i, field_, column):
+        # implemented in RecordBatch/Table subclasses
+        raise NotImplementedError
+
+    def append_column(self, field_, column):
+        """
+        Append column at end of columns.
+
+        Parameters
+        ----------
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        Table or RecordBatch
+            New table or record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Append column at the end:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> table.append_column('year', [year])
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        year: int64
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        year: [[2021,2022,2019,2021]]
+        """
+        return self.add_column(self.num_columns, field_, column)
+
 
 cdef class RecordBatch(_Tabular):
     """
@@ -2386,8 +2559,9 @@ cdef class RecordBatch(_Tabular):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.batch))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.batch))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):
@@ -2419,6 +2593,214 @@ cdef class RecordBatch(_Tabular):
 
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
+
+    def add_column(self, int i, field_, column):
+        """
+        Add column to RecordBatch at position i.
+
+        A new record batch is returned with the column added, the original record batch
+        object is left unchanged.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column added.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Add column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.add_column(0,"year", year)
+        pyarrow.RecordBatch
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [2021,2022,2019,2021]
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+
+        Original record batch is left unchanged:
+
+        >>> batch
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.AddColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def remove_column(self, int i):
+        """
+        Create new RecordBatch with the indicated column removed.
+
+        Parameters
+        ----------
+        i : int
+            Index of column to remove.
+
+        Returns
+        -------
+        Table
+            New record batch without the column.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.remove_column(1)
+        pyarrow.RecordBatch
+        n_legs: int64
+        ----
+        n_legs: [2,4,5,100]
+        """
+        cdef shared_ptr[CRecordBatch] c_batch
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RemoveColumn(i))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def set_column(self, int i, field_, column):
+        """
+        Replace column in RecordBatch at position.
+
+        Parameters
+        ----------
+        i : int
+            Index to place the column at.
+        field_ : str or Field
+            If a string is passed then the type is deduced from the column
+            data.
+        column : Array or value coercible to array
+            Column data.
+
+        Returns
+        -------
+        RecordBatch
+            New record batch with the passed column set.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+
+        Replace a column:
+
+        >>> year = [2021, 2022, 2019, 2021]
+        >>> batch.set_column(1,'year', year)
+        pyarrow.RecordBatch
+        n_legs: int64
+        year: int64
+        ----
+        n_legs: [2,4,5,100]
+        year: [2021,2022,2019,2021]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            Field c_field
+            Array c_arr
+
+        if isinstance(column, Array):
+            c_arr = column
+        else:
+            c_arr = array(column)
+
+        if isinstance(field_, Field):
+            c_field = field_
+        else:
+            c_field = field(field_, c_arr.type)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SetColumn(
+                i, c_field.sp_field, c_arr.sp_array))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def rename_columns(self, names):
+        """
+        Create new record batch with columns renamed to provided names.
+
+        Parameters
+        ----------
+        names : list of str
+            List of new column names.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> new_names = ["n", "name"]
+        >>> batch.rename_columns(new_names)
+        pyarrow.RecordBatch
+        n: int64
+        name: string
+        ----
+        n: [2,4,5,100]
+        name: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[c_string] c_names
+
+        for name in names:
+            c_names.push_back(tobytes(name))
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.RenameColumns(move(c_names)))
+
+        return pyarrow_wrap_batch(c_batch)
 
     def serialize(self, memory_pool=None):
         """
@@ -2679,6 +3061,69 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
+    def cast(self, Schema target_schema, safe=None, options=None):
+        """
+        Cast record batch values to another schema.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+        safe : bool, default True
+            Check for overflows or other unsafe conversions.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> batch = pa.RecordBatch.from_pandas(df)
+        >>> batch.schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
+
+        Define new schema and cast batch values:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.duration('s')),
+        ...     pa.field('animals', pa.string())]
+        ...     )
+        >>> batch.cast(target_schema=my_schema)
+        pyarrow.RecordBatch
+        n_legs: duration[s]
+        animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+        """
+        cdef:
+            Array column, casted
+            Field field
+            list newcols = []
+
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             "the record batch's field names: {!r}, {!r}"
+                             .format(self.schema.names, target_schema.names))
+
+        for column, field in zip(self.itercolumns(), target_schema):
+            if not field.nullable and column.null_count > 0:
+                raise ValueError("Casting field {!r} with null values to non-nullable"
+                                 .format(field.name))
+            casted = column.cast(field.type, safe=safe, options=options)
+            newcols.append(casted)
+
+        return RecordBatch.from_arrays(newcols, schema=target_schema)
+
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
@@ -2924,6 +3369,20 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
+    def to_tensor(self):
+        """
+        Convert to a :class:`~pyarrow.Tensor`.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_record_batch
+            shared_ptr[CTensor] c_tensor
+
+        c_record_batch = pyarrow_unwrap_batch(self)
+        with nogil:
+            c_tensor = GetResultValue(
+                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor())
+        return pyarrow_wrap_tensor(c_tensor)
+
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.
@@ -3080,6 +3539,68 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_batch = GetResultValue(ImportRecordBatch(c_array, c_schema))
 
+        return pyarrow_wrap_batch(c_batch)
+
+    def _export_to_c_device(self, out_ptr, out_schema_ptr=0):
+        """
+        Export to a C ArrowDeviceArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the record batch
+        schema is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowDeviceArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
+        with nogil:
+            check_status(ExportDeviceRecordBatch(
+                deref(self.sp_batch), <shared_ptr[CSyncEvent]>NULL,
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr)
+            )
+
+    @staticmethod
+    def _import_from_c_device(in_ptr, schema):
+        """
+        Import RecordBatch from a C ArrowDeviceArray struct, given its pointer
+        and the imported schema.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        type: Schema or int
+            Either a Schema object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_schema_ptr
+            shared_ptr[CRecordBatch] c_batch
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        if c_schema == nullptr:
+            # Not a Schema object, perhaps a raw ArrowSchema pointer
+            c_schema_ptr = _as_c_pointer(schema, allow_null=True)
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+        else:
+            with nogil:
+                c_batch = GetResultValue(ImportDeviceRecordBatch(
+                    <ArrowDeviceArray*> c_ptr, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
 
@@ -3990,6 +4511,60 @@ cdef class Table(_Tabular):
         return result
 
     @staticmethod
+    def from_struct_array(struct_array):
+        """
+        Construct a Table from a StructArray.
+
+        Each field in the StructArray will become a column in the resulting
+        ``Table``.
+
+        Parameters
+        ----------
+        struct_array : StructArray or ChunkedArray
+            Array to construct the table from.
+
+        Returns
+        -------
+        pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> pa.Table.from_struct_array(struct).to_pandas()
+          animals  n_legs    year
+        0  Parrot       2     NaN
+        1    None       4  2022.0
+        """
+        if isinstance(struct_array, Array):
+            return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
+        else:
+            return Table.from_batches([
+                RecordBatch.from_struct_array(chunk)
+                for chunk in struct_array.chunks
+            ])
+
+    def to_struct_array(self, max_chunksize=None):
+        """
+        Convert to a chunked array of struct type.
+
+        Parameters
+        ----------
+        max_chunksize : int, default None
+            Maximum number of rows for ChunkedArray chunks. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        return chunked_array([
+            batch.to_struct_array()
+            for batch in self.to_batches(max_chunksize=max_chunksize)
+        ])
+
+    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
@@ -4072,8 +4647,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -4116,6 +4691,8 @@ cdef class Table(_Tabular):
         reader.reset(new TableBatchReader(deref(self.table)))
 
         if max_chunksize is not None:
+            if not max_chunksize > 0:
+                raise ValueError("'max_chunksize' should be strictly positive")
             c_max_chunksize = max_chunksize
             reader.get().set_chunksize(c_max_chunksize)
 
@@ -4140,8 +4717,8 @@ cdef class Table(_Tabular):
         Parameters
         ----------
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for each RecordBatch chunk. Individual chunks
+            may be smaller depending on the chunk layout of individual columns.
 
         Returns
         -------
@@ -4337,8 +4914,9 @@ cdef class Table(_Tabular):
         cdef:
             CResult[int64_t] c_res_buffer
 
-        c_res_buffer = ReferencedBufferSize(deref(self.table))
-        size = GetResultValue(c_res_buffer)
+        with nogil:
+            c_res_buffer = ReferencedBufferSize(deref(self.table))
+            size = GetResultValue(c_res_buffer)
         return size
 
     def get_total_buffer_size(self):
@@ -4444,46 +5022,6 @@ cdef class Table(_Tabular):
                 i, c_field.sp_field, c_arr.sp_chunked_array))
 
         return pyarrow_wrap_table(c_table)
-
-    def append_column(self, field_, column):
-        """
-        Append column at end of columns.
-
-        Parameters
-        ----------
-        field_ : str or Field
-            If a string is passed then the type is deduced from the column
-            data.
-        column : Array, list of Array, or values coercible to arrays
-            Column data.
-
-        Returns
-        -------
-        Table
-            New table with the passed column added.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Append column at the end:
-
-        >>> year = [2021, 2022, 2019, 2021]
-        >>> table.append_column('year', [year])
-        pyarrow.Table
-        n_legs: int64
-        animals: string
-        year: int64
-        ----
-        n_legs: [[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        year: [[2021,2022,2019,2021]]
-        """
-        return self.add_column(self.num_columns, field_, column)
 
     def remove_column(self, int i):
         """
@@ -4618,67 +5156,6 @@ cdef class Table(_Tabular):
             c_table = GetResultValue(self.table.RenameColumns(move(c_names)))
 
         return pyarrow_wrap_table(c_table)
-
-    def drop_columns(self, columns):
-        """
-        Drop one or more columns and return a new table.
-
-        Parameters
-        ----------
-        columns : str or list[str]
-            Field name(s) referencing existing column(s).
-
-        Raises
-        ------
-        KeyError
-            If any of the passed column names do not exist.
-
-        Returns
-        -------
-        Table
-            New table without the column(s).
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Drop one column:
-
-        >>> table.drop_columns("animals")
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,4,5,100]]
-
-        Drop one or more columns:
-
-        >>> table.drop_columns(["n_legs", "animals"])
-        pyarrow.Table
-        ...
-        ----
-        """
-        if isinstance(columns, str):
-            columns = [columns]
-
-        indices = []
-        for col in columns:
-            idx = self.schema.get_field_index(col)
-            if idx == -1:
-                raise KeyError("Column {!r} not found".format(col))
-            indices.append(idx)
-
-        indices.sort()
-        indices.reverse()
-
-        table = self
-        for idx in indices:
-            table = table.remove_column(idx)
-
-        return table
 
     def drop(self, columns):
         """
@@ -4856,6 +5333,92 @@ cdef class Table(_Tabular):
             output_type=Table
         )
 
+    def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
+        """
+        Perform an asof join between this table and another one.
+
+        This is similar to a left-join except that we match on nearest key rather
+        than equal keys. Both tables must be sorted by the key. This type of join
+        is most useful for time series data that are not perfectly aligned.
+
+        Optionally match on equivalent keys with "by" before searching with "on".
+
+        Result of the join will be a new Table, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_table : Table
+            The table to join to the current one, acting as the right table
+            in the join operation.
+        on : str
+            The column from current table that should be used as the "on" key
+            of the join operation left side.
+
+            An inexact match is used on the "on" key, i.e. a row is considered a
+            match if and only if left_on - tolerance <= right_on <= left_on.
+
+            The input dataset must be sorted by the "on" key. Must be a single
+            field of a common type.
+
+            Currently, the "on" key must be an integer, date, or timestamp type.
+        by : str or list[str]
+            The columns from current table that should be used as the keys
+            of the join operation left side. The join operation is then done
+            only for the matches in these columns.
+        tolerance : int
+            The tolerance for inexact "on" key matching. A right row is considered
+            a match with the left row ``right.on - left.on <= tolerance``. The
+            ``tolerance`` may be:
+
+            - negative, in which case a past-as-of-join occurs;
+            - or positive, in which case a future-as-of-join occurs;
+            - or zero, in which case an exact-as-of-join occurs.
+
+            The tolerance is interpreted in the same units as the "on" key.
+        right_on : str or list[str], default None
+            The columns from the right_table that should be used as the on key
+            on the join operation right side.
+            When ``None`` use the same key name as the left table.
+        right_by : str or list[str], default None
+            The columns from the right_table that should be used as keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left table.
+
+        Returns
+        -------
+        Table
+
+        Example
+        --------
+        >>> import pyarrow as pa
+        >>> t1 = pa.table({'id': [1, 3, 2, 3, 3],
+        ...                'year': [2020, 2021, 2022, 2022, 2023]})
+        >>> t2 = pa.table({'id': [3, 4],
+        ...                'year': [2020, 2021],
+        ...                'n_legs': [5, 100],
+        ...                'animal': ["Brittle stars", "Centipede"]})
+
+        >>> t1.join_asof(t2, on='year', by='id', tolerance=-2)
+        pyarrow.Table
+        id: int64
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        id: [[1,3,2,3,3]]
+        year: [[2020,2021,2022,2022,2023]]
+        n_legs: [[null,5,null,5,null]]
+        animal: [[null,"Brittle stars",null,"Brittle stars",null]]
+        """
+        if right_on is None:
+            right_on = on
+        if right_by is None:
+            right_by = by
+        return _pac()._perform_join_asof(self, on, by,
+                                         right_table, right_on, right_by,
+                                         tolerance, output_type=Table)
+
     def __arrow_c_stream__(self, requested_schema=None):
         """
         Export the table as an Arrow C stream PyCapsule.
@@ -4890,10 +5453,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, list, Arrow-compatible table
-        A DataFrame, list of arrays or chunked arrays, or a tabular object
-        implementing the Arrow PyCapsule Protocol (has an
-        ``__arrow_c_array__`` method).
+    data : dict, list, pandas.DataFrame, Arrow-compatible table
+        A mapping of strings to Arrays or Python lists, a list of Arrays,
+        a pandas DataFame, or any tabular object implementing the
+        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -4918,6 +5481,24 @@ def record_batch(data, names=None, schema=None, metadata=None):
     >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
     >>> names = ["n_legs", "animals"]
 
+    Construct a RecordBatch from a python dictionary:
+
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals})
+    pyarrow.RecordBatch
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
+    >>> pa.record_batch({"n_legs": n_legs, "animals": animals}).to_pandas()
+       n_legs        animals
+    0       2       Flamingo
+    1       2         Parrot
+    2       4            Dog
+    3       4          Horse
+    4       5  Brittle stars
+    5     100      Centipede
+
     Creating a RecordBatch from a list of arrays with names:
 
     >>> pa.record_batch([n_legs, animals], names=names)
@@ -4927,14 +5508,6 @@ def record_batch(data, names=None, schema=None, metadata=None):
     ----
     n_legs: [2,2,4,4,5,100]
     animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
-    >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
-       n_legs        animals
-    0       2       Flamingo
-    1       2         Parrot
-    2       4            Dog
-    3       4          Horse
-    4       5  Brittle stars
-    5     100      Centipede
 
     Creating a RecordBatch from a list of arrays with names and metadata:
 
@@ -5012,6 +5585,11 @@ def record_batch(data, names=None, schema=None, metadata=None):
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
+    elif isinstance(data, dict):
+        if names is not None:
+            raise ValueError(
+                "The 'names' argument is not valid when passing a dictionary")
+        return RecordBatch.from_pydict(data, schema=schema, metadata=metadata)
     elif hasattr(data, "__arrow_c_array__"):
         if schema is not None:
             requested_schema = schema.__arrow_c_schema__()
@@ -5022,10 +5600,12 @@ def record_batch(data, names=None, schema=None, metadata=None):
         if schema is not None and batch.schema != schema:
             # __arrow_c_array__ coerces schema with best effort, so we might
             # need to cast it if the producer wasn't able to cast to exact schema.
-            batch = Table.from_batches([batch]).cast(schema).to_batches()[0]
+            batch = batch.cast(schema)
         return batch
+
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
+
     else:
         raise TypeError("Expected pandas DataFrame or list of arrays")
 
@@ -5036,9 +5616,11 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, dict, list
-        A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays.
+    data : dict, list, pandas.DataFrame, Arrow-compatible table
+        A mapping of strings to Arrays or Python lists, a list of arrays or
+        chunked arrays, a pandas DataFame, or any tabular object implementing
+        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
+        ``__arrow_c_stream__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5070,6 +5652,16 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     >>> n_legs = pa.array([2, 4, 5, 100])
     >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
     >>> names = ["n_legs", "animals"]
+
+    Construct a Table from a python dictionary:
+
+    >>> pa.table({"n_legs": n_legs, "animals": animals})
+    pyarrow.Table
+    n_legs: int64
+    animals: string
+    ----
+    n_legs: [[2,4,5,100]]
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
 
     Construct a Table from arrays:
 
@@ -5145,7 +5737,17 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
+    elif _pandas_api.is_data_frame(data):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
     elif hasattr(data, "__arrow_c_stream__"):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "using Arrow PyCapsule Interface")
         if schema is not None:
             requested = schema.__arrow_c_schema__()
         else:
@@ -5159,14 +5761,12 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             table = table.cast(schema)
         return table
     elif hasattr(data, "__arrow_c_array__"):
-        batch = record_batch(data, schema)
-        return Table.from_batches([batch])
-    elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
-                "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
+                "using Arrow PyCapsule Interface")
+        batch = record_batch(data, schema)
+        return Table.from_batches([batch])
     else:
         raise TypeError(
             "Expected pandas DataFrame, python dictionary or list of arrays")

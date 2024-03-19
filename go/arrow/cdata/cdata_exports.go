@@ -45,11 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/endian"
-	"github.com/apache/arrow/go/v15/arrow/internal"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/internal"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -167,6 +167,10 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "u"
 	case *arrow.LargeStringType:
 		return "U"
+	case *arrow.BinaryViewType:
+		return "vz"
+	case *arrow.StringViewType:
+		return "vu"
 	case *arrow.Date32Type:
 		return "tdD"
 	case *arrow.Date64Type:
@@ -228,6 +232,10 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "+l"
 	case *arrow.LargeListType:
 		return "+L"
+	case *arrow.ListViewType:
+		return "+vl"
+	case *arrow.LargeListViewType:
+		return "+vL"
 	case *arrow.FixedSizeListType:
 		return fmt.Sprintf("+w:%d", dt.Len())
 	case *arrow.StructType:
@@ -328,6 +336,15 @@ func allocateBufferPtrArr(n int) (out []*C.void) {
 	return
 }
 
+func allocateBufferSizeArr(n int) (out []C.int64_t) {
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof(int64(0)))))
+	s.Len = n
+	s.Cap = n
+
+	return
+}
+
 func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.dictionary = nil
 	if exp.dict != nil {
@@ -368,15 +385,19 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		exportField(arrow.Field{Type: arr.DataType()}, outSchema)
 	}
 
-	nbuffers := len(arr.Data().Buffers())
-	buf_offset := 0
+	buffers := arr.Data().Buffers()
 	// Some types don't have validity bitmaps, but we keep them shifted
 	// to make processing easier in other contexts. This means that
 	// we have to adjust when exporting.
 	has_validity_bitmap := internal.DefaultHasValidityBitmap(arr.DataType().ID())
-	if nbuffers > 0 && !has_validity_bitmap {
-		nbuffers--
-		buf_offset++
+	if len(buffers) > 0 && !has_validity_bitmap {
+		buffers = buffers[1:]
+	}
+	nbuffers := len(buffers)
+
+	has_buffer_sizes_buffer := internal.HasBufferSizesBuffer(arr.DataType().ID())
+	if has_buffer_sizes_buffer {
+		nbuffers++
 	}
 
 	out.dictionary = nil
@@ -387,25 +408,34 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.buffers = nil
 
 	if nbuffers > 0 {
-		bufs := arr.Data().Buffers()
-		buffers := allocateBufferPtrArr(nbuffers)
-		for i, buf := range bufs[buf_offset:] {
+		cBufs := allocateBufferPtrArr(nbuffers)
+		for i, buf := range buffers {
 			if buf == nil || buf.Len() == 0 {
 				if i > 0 || !has_validity_bitmap {
 					// apache/arrow#33936: export a dummy buffer to be friendly to
 					// implementations that don't import NULL properly
-					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
+					cBufs[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
 				} else {
 					// null pointer permitted for the validity bitmap
 					// (assuming null count is 0)
-					buffers[i] = nil
+					cBufs[i] = nil
 				}
 				continue
 			}
 
-			buffers[i] = (*C.void)(unsafe.Pointer(&buf.Bytes()[0]))
+			cBufs[i] = (*C.void)(unsafe.Pointer(&buf.Bytes()[0]))
 		}
-		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&buffers[0]))
+
+		if has_buffer_sizes_buffer {
+			sizes := allocateBufferSizeArr(len(buffers[2:]))
+			for i, buf := range buffers[2:] {
+				sizes[i] = C.int64_t(buf.Len())
+			}
+			if len(sizes) > 0 {
+				cBufs[nbuffers-1] = (*C.void)(unsafe.Pointer(&sizes[0]))
+			}
+		}
+		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cBufs[0]))
 	}
 
 	arr.Data().Retain()

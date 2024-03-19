@@ -14,9 +14,7 @@
 // limitations under the License.
 
 using System;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using System.Numerics;
 
 namespace Apache.Arrow
@@ -183,7 +181,6 @@ namespace Apache.Arrow
         }
 #endif
 
-#if !NETSTANDARD1_3
         internal static SqlDecimal GetSqlDecimal128(in ArrowBuffer valueBuffer, int index, int precision, int scale)
         {
             const int byteWidth = 16;
@@ -207,7 +204,6 @@ namespace Apache.Arrow
                 return new SqlDecimal((byte)precision, (byte)scale, false, (int)(data1 & 0xffffffff), (int)(data1 >> 32), (int)(data2 & 0xffffffff), (int)(data2 >> 32));
             }
         }
-#endif
 
         private static decimal DivideByScale(BigInteger integerValue, int scale)
         {
@@ -428,7 +424,6 @@ namespace Apache.Arrow
             }
         }
 
-#if !NETSTANDARD1_3
         internal static void GetBytes(SqlDecimal value, int precision, int scale, Span<byte> bytes)
         {
             if (value.Precision != precision || value.Scale != scale)
@@ -446,6 +441,5 @@ namespace Apache.Arrow
                 longSpan[1] = (longSpan[0] == 0) ? -longSpan[1] : ~longSpan[1];
             }
         }
-#endif
     }
 }

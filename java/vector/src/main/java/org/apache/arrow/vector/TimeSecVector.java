@@ -131,6 +131,7 @@ public final class TimeSecVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Integer getObject(int index) {
     if (isSet(index) == 0) {
       return null;

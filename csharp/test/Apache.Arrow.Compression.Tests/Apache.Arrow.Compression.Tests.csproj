@@ -7,14 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.6.2" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
     <ProjectReference Include="..\..\src\Apache.Arrow.Compression\Apache.Arrow.Compression.csproj" />
+    <ProjectReference Include="..\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj" />
   </ItemGroup>
 
   <ItemGroup>

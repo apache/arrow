@@ -116,7 +116,7 @@ public class JniWrapper {
   public native void releaseBuffer(long bufferId);
 
   /**
-   * Ensure the S3 APIs are shutdown, but only if not already done. If the S3 APIs are unintialized,
+   * Ensure the S3 APIs are shutdown, but only if not already done. If the S3 APIs are uninitialized,
    * then this is a noop.
    */
   public native void ensureS3Finalized();

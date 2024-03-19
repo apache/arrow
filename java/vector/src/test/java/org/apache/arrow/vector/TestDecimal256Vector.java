@@ -40,8 +40,8 @@ public class TestDecimal256Vector {
   static {
     intValues = new long[60];
     for (int i = 0; i < intValues.length / 2; i++) {
-      intValues[i] = 1 << i + 1;
-      intValues[2 * i] = -1 * (1 << i + 1);
+      intValues[i] = 1L << (i + 1);
+      intValues[2 * i] = -1L * (1 << (i + 1));
     }
   }
 
@@ -104,7 +104,7 @@ public class TestDecimal256Vector {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
         UnsupportedOperationException ue =
             assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
-        assertEquals("BigDecimal precision can not be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
+        assertEquals("BigDecimal precision cannot be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
       }
     }
   }

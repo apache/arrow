@@ -74,6 +74,10 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 ARROW_TESTING_EXPORT
 void SortInfos(FileInfoVector* infos);
 
+// Create a copy of a FileInfo vector sorted by lexicographic path order
+ARROW_TESTING_EXPORT
+FileInfoVector SortedInfos(const FileInfoVector& infos);
+
 ARROW_TESTING_EXPORT
 void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
 

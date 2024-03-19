@@ -491,6 +491,9 @@ cdef class FileSystem(_Weakrefable):
         elif typ == 'gcs':
             from pyarrow._gcsfs import GcsFileSystem
             self = GcsFileSystem.__new__(GcsFileSystem)
+        elif typ == 'abfs':
+            from pyarrow._azurefs import AzureFileSystem
+            self = AzureFileSystem.__new__(AzureFileSystem)
         elif typ == 'hdfs':
             from pyarrow._hdfs import HadoopFileSystem
             self = HadoopFileSystem.__new__(HadoopFileSystem)
@@ -505,7 +508,7 @@ cdef class FileSystem(_Weakrefable):
     cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
-    def equals(self, FileSystem other):
+    def equals(self, FileSystem other not None):
         """
         Parameters
         ----------

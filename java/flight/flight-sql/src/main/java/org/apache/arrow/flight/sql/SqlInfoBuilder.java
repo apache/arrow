@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight.sql;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedTransaction;
@@ -32,6 +31,7 @@ import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
 
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlNullOrdering;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedElementActions;
@@ -80,7 +80,7 @@ public class SqlInfoBuilder {
    * @return a new {@link NullableVarCharHolder} with the provided input data {@code string}.
    */
   public static NullableVarCharHolder getHolderForUtf8(final String string, final ArrowBuf buf) {
-    final byte[] bytes = string.getBytes(UTF_8);
+    final byte[] bytes = string.getBytes(StandardCharsets.UTF_8);
     buf.setBytes(0, bytes);
     final NullableVarCharHolder holder = new NullableVarCharHolder();
     holder.buffer = buf;
@@ -503,6 +503,26 @@ public class SqlInfoBuilder {
   }
 
   /**
+   * Sets a value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_ALL_TABLES_ARE_SELECTABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlAllTablesAreSelectable(final boolean value) {
+    return withBooleanProvider(SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE, value);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_NULL_ORDERING} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_NULL_ORDERING} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlNullOrdering(final SqlNullOrdering value) {
+    return withBitIntProvider(SqlInfo.SQL_NULL_ORDERING_VALUE, value.getNumber());
+  }
+
+  /**
    * Sets a value SqlInf @link SqlInfo#SQL_MAX_BINARY_LITERAL_LENGTH} in the builder.
    *
    * @param value the value for {@link SqlInfo#SQL_MAX_BINARY_LITERAL_LENGTH} to be set.
@@ -570,6 +590,16 @@ public class SqlInfoBuilder {
    */
   public SqlInfoBuilder withSqlMaxColumnsInSelect(final long value) {
     return withBitIntProvider(SqlInfo.SQL_MAX_COLUMNS_IN_SELECT_VALUE, value);
+  }
+
+  /**
+   * Sets a value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} in the builder.
+   *
+   * @param value the value for {@link SqlInfo#SQL_MAX_COLUMNS_IN_TABLE} to be set.
+   * @return the SqlInfoBuilder itself.
+   */
+  public SqlInfoBuilder withSqlMaxColumnsInTable(final long value) {
+    return withBitIntProvider(SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE, value);
   }
 
   /**
@@ -1020,7 +1050,7 @@ public class SqlInfoBuilder {
     final int length = values.length;
     range(0, length)
         .forEach(i -> onCreateArrowBuf(buf -> {
-          final byte[] bytes = values[i].getBytes(UTF_8);
+          final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
           buf.setBytes(0, bytes);
           writer.writeVarChar(0, bytes.length, buf);
         }));

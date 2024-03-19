@@ -20,7 +20,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v16/parquet/internal/debug"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -108,5 +108,5 @@ func (zstdCodec) CompressBound(len int64) int64 {
 }
 
 func init() {
-	codecs[Codecs.Zstd] = zstdCodec{}
+	RegisterCodec(Codecs.Zstd, zstdCodec{})
 }

@@ -27,7 +27,7 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_TABLE_CONCATENATE_OPTIONS   \
+#define GARROW_TYPE_TABLE_CONCATENATE_OPTIONS                                            \
   (garrow_table_concatenate_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTableConcatenateOptions,
                          garrow_table_concatenate_options,
@@ -43,13 +43,8 @@ GARROW_AVAILABLE_IN_6_0
 GArrowTableConcatenateOptions *
 garrow_table_concatenate_options_new(void);
 
-
 #define GARROW_TYPE_TABLE (garrow_table_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowTable,
-                         garrow_table,
-                         GARROW,
-                         TABLE,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowTable, garrow_table, GARROW, TABLE, GObject)
 struct _GArrowTableClass
 {
   GObjectClass parent_class;
@@ -57,9 +52,7 @@ struct _GArrowTableClass
 
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
-garrow_table_new_values(GArrowSchema *schema,
-                        GList *values,
-                        GError **error);
+garrow_table_new_values(GArrowSchema *schema, GList *values, GError **error);
 GARROW_AVAILABLE_IN_0_15
 GArrowTable *
 garrow_table_new_chunked_arrays(GArrowSchema *schema,
@@ -79,40 +72,43 @@ garrow_table_new_record_batches(GArrowSchema *schema,
                                 gsize n_record_batches,
                                 GError **error);
 
-gboolean        garrow_table_equal         (GArrowTable *table,
-                                            GArrowTable *other_table);
+gboolean
+garrow_table_equal(GArrowTable *table, GArrowTable *other_table);
 GARROW_AVAILABLE_IN_0_17
 gboolean
 garrow_table_equal_metadata(GArrowTable *table,
                             GArrowTable *other_table,
                             gboolean check_metadata);
 
-GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
+GArrowSchema *
+garrow_table_get_schema(GArrowTable *table);
 GARROW_AVAILABLE_IN_0_15
 GArrowChunkedArray *
-garrow_table_get_column_data(GArrowTable *table,
-                             gint i);
+garrow_table_get_column_data(GArrowTable *table, gint i);
 
-guint           garrow_table_get_n_columns (GArrowTable *table);
-guint64         garrow_table_get_n_rows    (GArrowTable *table);
+guint
+garrow_table_get_n_columns(GArrowTable *table);
+guint64
+garrow_table_get_n_rows(GArrowTable *table);
 
 GARROW_AVAILABLE_IN_0_15
-GArrowTable    *garrow_table_add_column    (GArrowTable *table,
-                                            guint i,
-                                            GArrowField *field,
-                                            GArrowChunkedArray *chunked_array,
-                                            GError **error);
-GArrowTable    *garrow_table_remove_column (GArrowTable *table,
-                                            guint i,
-                                            GError **error);
+GArrowTable *
+garrow_table_add_column(GArrowTable *table,
+                        guint i,
+                        GArrowField *field,
+                        GArrowChunkedArray *chunked_array,
+                        GError **error);
+GArrowTable *
+garrow_table_remove_column(GArrowTable *table, guint i, GError **error);
 GARROW_AVAILABLE_IN_0_15
-GArrowTable    *garrow_table_replace_column(GArrowTable *table,
-                                            guint i,
-                                            GArrowField *field,
-                                            GArrowChunkedArray *chunked_array,
-                                            GError **error);
-gchar          *garrow_table_to_string     (GArrowTable *table,
-                                            GError **error);
+GArrowTable *
+garrow_table_replace_column(GArrowTable *table,
+                            guint i,
+                            GArrowField *field,
+                            GArrowChunkedArray *chunked_array,
+                            GError **error);
+gchar *
+garrow_table_to_string(GArrowTable *table, GError **error);
 GARROW_AVAILABLE_IN_0_14
 GArrowTable *
 garrow_table_concatenate(GArrowTable *table,
@@ -121,17 +117,12 @@ garrow_table_concatenate(GArrowTable *table,
                          GError **error);
 GARROW_AVAILABLE_IN_0_14
 GArrowTable *
-garrow_table_slice(GArrowTable *table,
-                   gint64 offset,
-                   gint64 length);
+garrow_table_slice(GArrowTable *table, gint64 offset, gint64 length);
 GARROW_AVAILABLE_IN_0_16
 GArrowTable *
-garrow_table_combine_chunks(GArrowTable *table,
-                            GError **error);
+garrow_table_combine_chunks(GArrowTable *table, GError **error);
 
-
-#define GARROW_TYPE_FEATHER_WRITE_PROPERTIES    \
-  (garrow_feather_write_properties_get_type())
+#define GARROW_TYPE_FEATHER_WRITE_PROPERTIES (garrow_feather_write_properties_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,
                          garrow_feather_write_properties,
                          GARROW,

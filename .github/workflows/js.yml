@@ -41,7 +41,7 @@ permissions:
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 18
+    name: AMD64 Debian 12 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -91,7 +91,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
@@ -121,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}

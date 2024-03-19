@@ -31,7 +31,8 @@ public final class IntervalStringUtils {
   /**
    * Constructor Method of class.
    */
-  private IntervalStringUtils( ) {}
+  private IntervalStringUtils( ) {
+  }
 
   /**
    * Formats a period similar to Oracle INTERVAL YEAR TO MONTH data type<br>.

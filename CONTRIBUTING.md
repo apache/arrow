@@ -67,5 +67,5 @@ You can also ask on the mailing-list, see above.
 
 ## Further information
 
-Please read our [development documentation](https://arrow.apache.org/docs/developers/contributing.html)
+Please read our [development documentation](https://arrow.apache.org/docs/developers/index.html)
 or look through the [New Contributor's Guide](https://arrow.apache.org/docs/developers/guide/index.html).

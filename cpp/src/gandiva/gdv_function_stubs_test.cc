@@ -73,7 +73,7 @@ TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   EXPECT_FALSE(ctx.has_error());
 
   gdv_fn_castVARBINARY_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 
   // tests for big integer values as input
@@ -122,7 +122,7 @@ TEST(TestGdvFnStubs, TestBase64Encode) {
   value = gdv_fn_base64_encode_binary(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -151,7 +151,7 @@ TEST(TestGdvFnStubs, TestBase64Decode) {
   value = gdv_fn_base64_decode_utf8(ctx_ptr, "test", -5, &out_len);
   out_value = std::string(value, out_len);
   EXPECT_EQ(out_value, "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 
@@ -323,7 +323,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromInt32) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_int32_int64(ctx_ptr, 347, -1, &out_len);
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length cannot be negative"));
   ctx.Reset();
 }
 

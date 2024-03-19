@@ -45,6 +45,7 @@ import org.apache.arrow.adapter.jdbc.consumer.BinaryConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DateConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.Decimal256Consumer;
 import org.apache.arrow.adapter.jdbc.consumer.DecimalConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
@@ -58,11 +59,13 @@ import org.apache.arrow.adapter.jdbc.consumer.TimestampConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimestampTZConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TinyIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -169,7 +172,11 @@ public class JdbcToArrowUtils {
       case Types.DECIMAL:
         int precision = fieldInfo.getPrecision();
         int scale = fieldInfo.getScale();
-        return new ArrowType.Decimal(precision, scale, 128);
+        if (precision > 38) {
+          return new ArrowType.Decimal(precision, scale, 256);
+        } else {
+          return new ArrowType.Decimal(precision, scale, 128);
+        }
       case Types.REAL:
       case Types.FLOAT:
         return new ArrowType.FloatingPoint(SINGLE);
@@ -386,6 +393,7 @@ public class JdbcToArrowUtils {
    * @param root   Arrow {@link VectorSchemaRoot} object to populate
    * @param config The configuration to use when reading the data.
    * @throws SQLException on error
+   * @throws JdbcConsumerException on error from VectorConsumer
    */
   public static void jdbcToArrowVectors(ResultSet rs, VectorSchemaRoot root, JdbcToArrowConfig config)
       throws SQLException, IOException {
@@ -430,7 +438,18 @@ public class JdbcToArrowUtils {
     }
   }
 
-  static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
+  /**
+   * Default function used for JdbcConsumerFactory. This function gets a JdbcConsumer for the
+   * given column based on the Arrow type and provided vector.
+   *
+   * @param arrowType   Arrow type for the column.
+   * @param columnIndex Column index to fetch from the ResultSet
+   * @param nullable    Whether the value is nullable or not
+   * @param vector      Vector to store the consumed value
+   * @param config      Associated JdbcToArrowConfig, used mainly for the Calendar.
+   * @return {@link JdbcConsumer}
+   */
+  public static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
       FieldVector vector, JdbcToArrowConfig config) {
     final Calendar calendar = config.getCalendar();
 
@@ -452,7 +471,12 @@ public class JdbcToArrowUtils {
         }
       case Decimal:
         final RoundingMode bigDecimalRoundingMode = config.getBigDecimalRoundingMode();
-        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
+        if (((ArrowType.Decimal) arrowType).getBitWidth() == 256) {
+          return Decimal256Consumer.createConsumer((Decimal256Vector) vector, columnIndex, nullable,
+                  bigDecimalRoundingMode);
+        } else {
+          return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable, bigDecimalRoundingMode);
+        }
       case FloatingPoint:
         switch (((ArrowType.FloatingPoint) arrowType).getPrecision()) {
           case SINGLE:

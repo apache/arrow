@@ -198,7 +198,7 @@ std::string GetListenAddress() {
     ss << "." << byte;
   }
 #else
-  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  // On macOS, only 127.0.0.1 is a valid loopback address by default.
   ss << "127.0.0.1";
 #endif
   // Append port number

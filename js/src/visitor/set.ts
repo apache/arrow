@@ -19,13 +19,14 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
+import { bigIntToNumber } from '../util/bigint.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { float64ToUint16 } from '../util/math.js';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -58,7 +59,9 @@ export interface SetVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFloat64<T extends Float64>(data: Data<T>, index: number, value: T['TValue']): void;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number, value: T['TValue']): void;
     visitBinary<T extends Binary>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDate<T extends Date_>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDateDay<T extends DateDay>(data: Data<T>, index: number, value: T['TValue']): void;
@@ -123,9 +126,10 @@ export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epo
 };
 
 /** @ignore */
-export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number, value: Uint8Array) => {
+export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
     if (index + 1 < valueOffsets.length) {
-        const { [index]: x, [index + 1]: y } = valueOffsets;
+        const x = bigIntToNumber(valueOffsets[index]);
+        const y = bigIntToNumber(valueOffsets[index + 1]);
         values.set(value.subarray(0, y - x), x);
     }
 };
@@ -162,11 +166,9 @@ export const setDateMillisecond = <T extends DateMillisecond>({ values }: Data<T
 export const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
 /** @ignore */
-const setBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
+const setBinary = <T extends Binary | LargeBinary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
 /** @ignore */
-const setUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
-    setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
-};
+const setUtf8 = <T extends Utf8 | LargeUtf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
 
 /* istanbul ignore next */
 export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T['TValue']): void => {
@@ -365,7 +367,9 @@ SetVisitor.prototype.visitFloat16 = wrapSet(setFloat16);
 SetVisitor.prototype.visitFloat32 = wrapSet(setFloat);
 SetVisitor.prototype.visitFloat64 = wrapSet(setFloat);
 SetVisitor.prototype.visitUtf8 = wrapSet(setUtf8);
+SetVisitor.prototype.visitLargeUtf8 = wrapSet(setUtf8);
 SetVisitor.prototype.visitBinary = wrapSet(setBinary);
+SetVisitor.prototype.visitLargeBinary = wrapSet(setBinary);
 SetVisitor.prototype.visitFixedSizeBinary = wrapSet(setFixedSizeBinary);
 SetVisitor.prototype.visitDate = wrapSet(setDate);
 SetVisitor.prototype.visitDateDay = wrapSet(setDateDay);
