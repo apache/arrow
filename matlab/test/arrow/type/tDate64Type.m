@@ -15,7 +15,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDate64Type < hFixedWidthType
+classdef tDate64Type < tDateTypeTest
 
     properties
         ConstructionFcn = @arrow.date64
@@ -23,6 +23,13 @@ classdef tDate64Type < hFixedWidthType
         TypeID = arrow.type.ID.Date64
         BitWidth = int32(64)
         ClassName = "arrow.type.Date64Type"
+    end
+
+    methods (Access = private)
+        function defaultUnit = getDefaultDateUnit(~)
+            % Define the default DateUnit for Date64Type
+            defaultUnit = arrow.type.DateUnit.Millisecond;
+        end
     end
 
     methods(Test)
