@@ -844,9 +844,9 @@ enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
   ArrayVector list_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
-    ARROW_ASSIGN_OR_RAISE(auto converted_array,
+    ARROW_ASSIGN_OR_RAISE(auto non_view_array,
                           NonViewClass::FromListView(arr, options.pool));
-    list_arrays.emplace_back(converted_array);
+    list_arrays.emplace_back(non_view_array);
   }
   auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
   return ConvertListsLike<NonViewType>(options, *chunked_array, out_values);
