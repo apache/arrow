@@ -1261,64 +1261,6 @@ def test_table_basics(cls):
     assert wr() is None
 
 
-def test_table_str():
-    data = [
-        pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
-    ]
-    schema = pa.schema(
-        [
-            pa.field('c0', pa.int16(), metadata={'key': 'value'}),
-            pa.field('c1', pa.int32())
-        ],
-        metadata={b'foo': b'bar'},
-    )
-    table = pa.table(data, schema)
-    assert str(table) == """pyarrow.Table
-c0: int16
-c1: int32
-----
-c0: [[0,1,2,3,4]]
-c1: [[-10,-5,0,null,10]]"""
-    assert table.to_string(show_metadata=True) == """\
-pyarrow.Table
-c0: int16
-  -- field metadata --
-  key: 'value'
-c1: int32
--- schema metadata --
-foo: 'bar'"""
-
-
-def test_record_batch_str():
-    data = [
-        pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
-    ]
-    schema = pa.schema(
-        [
-            pa.field('c0', pa.int16(), metadata={'key': 'value'}),
-            pa.field('c1', pa.int32())
-        ],
-        metadata={b'foo': b'bar'},
-    )
-    batch = pa.record_batch(data, schema)
-    assert str(batch) == """pyarrow.RecordBatch
-c0: int16
-c1: int32
-----
-c0: [0,1,2,3,4]
-c1: [-10,-5,0,null,10]"""
-    assert batch.to_string(show_metadata=True) == """\
-pyarrow.RecordBatch
-c0: int16
-  -- field metadata --
-  key: 'value'
-c1: int32
--- schema metadata --
-foo: 'bar'"""
-
-
 def test_table_dunder_init():
     with pytest.raises(TypeError, match='Table'):
         pa.Table()
@@ -2378,6 +2320,67 @@ c1: int32
 ----
 c0: [[1,2,3,4,1,...,4,1,2,3,4]]
 c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
+
+
+def test_record_batch_repr_to_string():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4], type='int16'),
+                             pa.array([10, 20, 30, 40], type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(show_metadata=True) == """\
+pyarrow.RecordBatch
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
+
+    assert batch.to_string(preview_cols=5) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(preview_cols=1) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+..."""
+
+
+def test_record_batch_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4]*10, type='int16'),
+                             pa.array([10, 20, 30, 40]*10, type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]
+c1: [10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]"""
 
 
 def test_table_function_unicode_schema():
