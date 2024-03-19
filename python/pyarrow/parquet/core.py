@@ -1299,7 +1299,7 @@ Examples
                 f"local file systems, not {type(filesystem)}"
             )
 
-        # check for single fragment dataset
+        # check for BufferReader object
         buffer_reader = None
         self._base_dir = None
         if not isinstance(path_or_paths, list):
