@@ -643,6 +643,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
 
+cdef void* _as_c_pointer(v, allow_null=*) except *
+
 #
 # Public Cython API for 3rd party code
 #

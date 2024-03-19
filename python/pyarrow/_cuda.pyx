@@ -965,6 +965,52 @@ def read_record_batch(object buffer, object schema, *,
     return pyarrow_wrap_batch(batch)
 
 
+def _import_device_array(in_ptr, type):
+    cdef:
+        void* c_ptr = _as_c_pointer(in_ptr)
+        void* c_type_ptr
+        shared_ptr[CArray] c_array
+
+    c_type = pyarrow_unwrap_data_type(type)
+    if c_type == nullptr:
+        # Not a DataType object, perhaps a raw ArrowSchema pointer
+        c_type_ptr = _as_c_pointer(type)
+        with nogil:
+            c_array = GetResultValue(
+                ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
+                                    <ArrowSchema*> c_type_ptr,
+                                    CudaDefaultMemoryMapper)
+            )
+    else:
+        with nogil:
+            c_array = GetResultValue(
+                ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
+                                    CudaDefaultMemoryMapper)
+            )
+    return pyarrow_wrap_array(c_array)
+
+
+def _import_device_recordbatch(in_ptr, schema):
+    cdef:
+        void* c_ptr = _as_c_pointer(in_ptr)
+        void* c_schema_ptr
+        shared_ptr[CRecordBatch] c_batch
+
+    c_schema = pyarrow_unwrap_schema(schema)
+    if c_schema == nullptr:
+        # Not a Schema object, perhaps a raw ArrowSchema pointer
+        c_schema_ptr = _as_c_pointer(schema, allow_null=True)
+        with nogil:
+            c_batch = GetResultValue(ImportDeviceRecordBatch(
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
+                CudaDefaultMemoryMapper))
+    else:
+        with nogil:
+            c_batch = GetResultValue(ImportDeviceRecordBatch(
+                <ArrowDeviceArray*> c_ptr, c_schema, CudaDefaultMemoryMapper))
+    return pyarrow_wrap_batch(c_batch)
+
+
 # Public API
 
 

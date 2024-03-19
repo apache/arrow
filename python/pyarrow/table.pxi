@@ -20,9 +20,32 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCap
 import warnings
 from cython import sizeof
 
-# from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
-# from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultDeviceMemoryMapper
-from pyarrow.includes.libarrow_memory cimport CDefaultDeviceMemoryMapper
+
+def _import_device_recordbatch(in_ptr, schema):
+    cdef:
+        void* c_ptr = _as_c_pointer(in_ptr)
+        void* c_schema_ptr
+        shared_ptr[CRecordBatch] c_batch
+
+    c_schema = pyarrow_unwrap_schema(schema)
+    if c_schema == nullptr:
+        # Not a Schema object, perhaps a raw ArrowSchema pointer
+        c_schema_ptr = _as_c_pointer(schema, allow_null=True)
+        with nogil:
+            c_batch = GetResultValue(ImportDeviceRecordBatch(
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
+                DefaultDeviceMapper))
+    else:
+        with nogil:
+            c_batch = GetResultValue(ImportDeviceRecordBatch(
+                <ArrowDeviceArray*> c_ptr, c_schema, DefaultDeviceMapper))
+    return pyarrow_wrap_batch(c_batch)
+
+
+try:
+    from pyarrow._cuda import _import_device_recordbatch
+except ImportError:
+    pass
 
 
 cdef class ChunkedArray(_PandasConvertible):
@@ -3590,24 +3613,7 @@ cdef class RecordBatch(_Tabular):
 
         This is a low-level function intended for expert users.
         """
-        cdef:
-            void* c_ptr = _as_c_pointer(in_ptr)
-            void* c_schema_ptr
-            shared_ptr[CRecordBatch] c_batch
-
-        c_schema = pyarrow_unwrap_schema(schema)
-        if c_schema == nullptr:
-            # Not a Schema object, perhaps a raw ArrowSchema pointer
-            c_schema_ptr = _as_c_pointer(schema, allow_null=True)
-            with nogil:
-                c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr,
-                    CDefaultDeviceMemoryMapper))
-        else:
-            with nogil:
-                c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, c_schema, CDefaultDeviceMemoryMapper))
-        return pyarrow_wrap_batch(c_batch)
+        return _import_device_recordbatch(in_ptr, schema)
 
 
 def _reconstruct_record_batch(columns, schema):

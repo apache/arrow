@@ -21,9 +21,50 @@ import os
 import warnings
 from cython import sizeof
 
-# from pyarrow.includes.libarrow_cuda cimport DefaultMemoryMapper
-# from pyarrow.includes.libarrow cimport DefaultDeviceMapper as DefaultDeviceMemoryMapper
-from pyarrow.includes.libarrow_memory cimport CDefaultDeviceMemoryMapper
+
+def _import_device_array(in_ptr, type):
+    """
+    Import Array from a C ArrowDeviceArray struct, given its pointer
+    and the imported array type.
+
+    Parameters
+    ----------
+    in_ptr: int
+        The raw pointer to a C ArrowDeviceArray struct.
+    type: DataType or int
+        Either a DataType object, or the raw pointer to a C ArrowSchema
+        struct.
+
+    This is a low-level function intended for expert users.
+    """
+    cdef:
+        void* c_ptr = _as_c_pointer(in_ptr)
+        void* c_type_ptr
+        shared_ptr[CArray] c_array
+
+    c_type = pyarrow_unwrap_data_type(type)
+    if c_type == nullptr:
+        # Not a DataType object, perhaps a raw ArrowSchema pointer
+        c_type_ptr = _as_c_pointer(type)
+        with nogil:
+            c_array = GetResultValue(
+                ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
+                                    <ArrowSchema*> c_type_ptr,
+                                    DefaultDeviceMapper)
+            )
+    else:
+        with nogil:
+            c_array = GetResultValue(
+                ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
+                                    DefaultDeviceMapper)
+            )
+    return pyarrow_wrap_array(c_array)
+
+
+try:
+    from pyarrow._cuda import _import_device_array
+except ImportError:
+    pass
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
@@ -1826,28 +1867,7 @@ cdef class Array(_PandasConvertible):
 
         This is a low-level function intended for expert users.
         """
-        cdef:
-            void* c_ptr = _as_c_pointer(in_ptr)
-            void* c_type_ptr
-            shared_ptr[CArray] c_array
-
-        c_type = pyarrow_unwrap_data_type(type)
-        if c_type == nullptr:
-            # Not a DataType object, perhaps a raw ArrowSchema pointer
-            c_type_ptr = _as_c_pointer(type)
-            with nogil:
-                c_array = GetResultValue(
-                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
-                                      <ArrowSchema*> c_type_ptr,
-                                      CDefaultDeviceMemoryMapper)
-                )
-        else:
-            with nogil:
-                c_array = GetResultValue(
-                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
-                                      CDefaultDeviceMemoryMapper)
-                )
-        return pyarrow_wrap_array(c_array)
+        return _import_device_array(in_ptr, type)
 
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.

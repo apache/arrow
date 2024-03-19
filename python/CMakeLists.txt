@@ -796,7 +796,6 @@ install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_api.h" "${ARROW_PYTHON_BINARY_DIR}
 
 if(PYARROW_BUILD_CUDA)
   target_link_libraries(_cuda PRIVATE ${CUDA_LINK_LIBS})
-  target_link_libraries(lib PRIVATE ${CUDA_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_FLIGHT)
