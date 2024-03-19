@@ -17,11 +17,13 @@
 package util
 
 import (
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/apache/arrow/go/v16/arrow/util/util_message"
 	"github.com/huandu/xstrings"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
-	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -142,15 +144,14 @@ func TestGetSchema(t *testing.T) {
 
 func TestRecordFromProtobuf(t *testing.T) {
 	msg := SetupTest()
-
 	psr := NewProtobufStructReflection(&msg)
-
 	schema := psr.GetSchema()
-	record := RecordFromProtobuf(*psr, schema, nil)
+	got := RecordFromProtobuf(*psr, schema, nil)
+	jsonStr := `[
+		{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":0,"fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
+	]`
+	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
-	want := []byte(`[{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":0,"fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
-]`)
-	got, err := record.MarshalJSON()
 	require.NoError(t, err)
-	require.True(t, reflect.DeepEqual(got, want))
+	require.True(t, array.RecordEqual(got, want))
 }
