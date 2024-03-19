@@ -252,7 +252,7 @@ This allows for ListView arrays to specify out-of-order offsets:
    arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
    arr
 
-See the format specification for more details on the :ref:`listview-layout`.
+See the format specification for more details on :ref:`listview-layout`.
 
 Struct arrays
 ~~~~~~~~~~~~~
