@@ -89,7 +89,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got)
 
-	excludeComplex := func(pfr ProtobufFieldReflection) bool {
+	excludeComplex := func(pfr protobufFieldReflection) bool {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
 
@@ -146,7 +146,7 @@ func TestRecordFromProtobuf(t *testing.T) {
 	psr := NewProtobufStructReflection(&msg)
 
 	schema := psr.GetSchema()
-	record := RecordFromProtobuf(*psr, schema)
+	record := RecordFromProtobuf(*psr, schema, nil)
 
 	want := []byte(`[{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":0,"fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
 ]`)
