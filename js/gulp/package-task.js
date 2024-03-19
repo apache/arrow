@@ -38,6 +38,11 @@ export const packageTask = ((cache) => memoizeTask(cache, function bundle(target
 
 export default packageTask;
 
+const sideEffects = (ext) => [
+    `./Arrow.dom.${ext ?? '*'}`,
+    `./Arrow.node.${ext ?? '*'}`,
+];
+
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
     bin: orig.bin,
@@ -56,7 +61,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         '.': {
             node: {
                 import: {
-                    types: `./${mainExport}.node.d.mts`,
+                    types: `./${mainExport}.node.d.ts`,
                     default: `./${mainExport}.node.mjs`,
                 },
                 require: {
@@ -65,7 +70,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
                 },
             },
             import: {
-                types: `./${mainExport}.dom.d.mts`,
+                types: `./${mainExport}.dom.d.ts`,
                 default: `./${mainExport}.dom.mjs`,
             },
             require: {
@@ -75,7 +80,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         },
         './*': {
             import: {
-                types: `./*.d.mts`,
+                types: `./*.d.ts`,
                 default: `./*.mjs`,
             },
             require: {
@@ -84,7 +89,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
             },
         },
     },
-    sideEffects: false,
+    sideEffects: sideEffects('*'),
     esm: { mode: `all`, sourceMap: true }
 });
 
@@ -96,7 +101,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
     type: 'module',
-    sideEffects: false,
+    sideEffects: sideEffects('ts'),
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/node': '*',
@@ -124,7 +129,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "module" if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: format === 'esm' ? false : undefined,
+            sideEffects: format === 'esm' ? sideEffects('js') : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" (for TypeScript/VSCode)
