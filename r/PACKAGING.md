@@ -40,7 +40,7 @@ Wait for the release candidate to be cut:
 
 ## After release candidate has been cut
 
-- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-15.0.1-r` and push to upstream
+- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-X.X.X-r` and push to upstream
 
 ## Prepare and check the .tar.gz that will be released to CRAN.
 
