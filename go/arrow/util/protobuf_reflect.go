@@ -149,6 +149,22 @@ func (plr protobufListReflection) getDataType() arrow.DataType {
 	return nil
 }
 
+type protobufDictReflection struct {
+	protobufFieldReflection
+}
+
+func (pfr protobufFieldReflection) asDictionary() protobufDictReflection {
+	return protobufDictReflection{pfr}
+}
+
+func (pdr protobufDictReflection) getDataType() arrow.DataType {
+	return &arrow.DictionaryType{
+		IndexType: arrow.PrimitiveTypes.Int32,
+		ValueType: arrow.BinaryTypes.String,
+		Ordered:   false,
+	}
+}
+
 type protobufMapReflection struct {
 	protobufFieldReflection
 }
@@ -266,6 +282,9 @@ type protobufFieldReflection struct {
 }
 
 func (pfr protobufFieldReflection) arrowType() arrow.Type {
+	if pfr.descriptor.Kind() == protoreflect.EnumKind {
+		return arrow.DICTIONARY
+	}
 	if pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice {
 		return arrow.STRUCT
 	}
@@ -338,14 +357,15 @@ func (pfr protobufFieldReflection) getDataType() arrow.DataType {
 		protoreflect.BytesKind:  arrow.BinaryTypes.Binary,
 		//Fixed Width
 		protoreflect.BoolKind: arrow.FixedWidthTypes.Boolean,
-		// Enum
-		protoreflect.EnumKind: arrow.PrimitiveTypes.Int32,
-		// Struct
+		// Special
+		protoreflect.EnumKind:    nil,
 		protoreflect.MessageKind: nil,
 	}
 	dt = typeMap[pfr.descriptor.Kind()]
 
 	switch pfr.arrowType() {
+	case arrow.DICTIONARY:
+		dt = pfr.asDictionary().getDataType()
 	case arrow.LIST:
 		dt = pfr.asList().getDataType()
 	case arrow.MAP:
@@ -405,12 +425,7 @@ func AppendValueOrNull(b array.Builder, pfr protobufFieldReflection, f arrow.Fie
 	case arrow.BINARY:
 		b.(*array.BinaryBuilder).Append(pv.Bytes())
 	case arrow.INT32:
-		switch fd.Kind() {
-		case protoreflect.EnumKind:
-			b.(*array.Int32Builder).Append(int32(pv.Enum()))
-		default:
-			b.(*array.Int32Builder).Append(int32(pv.Int()))
-		}
+		b.(*array.Int32Builder).Append(int32(pv.Int()))
 	case arrow.INT64:
 		b.(*array.Int64Builder).Append(pv.Int())
 	case arrow.FLOAT64:
@@ -421,6 +436,13 @@ func AppendValueOrNull(b array.Builder, pfr protobufFieldReflection, f arrow.Fie
 		b.(*array.Uint64Builder).Append(pv.Uint())
 	case arrow.BOOL:
 		b.(*array.BooleanBuilder).Append(pv.Bool())
+	case arrow.DICTIONARY:
+		db := b.(array.DictionaryBuilder)
+		db.AppendEmptyValue()
+		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
+		if err != nil {
+			fmt.Println(err)
+		}
 	case arrow.STRUCT:
 		psr := pfr.asStruct()
 		sb := b.(*array.StructBuilder)

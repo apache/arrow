@@ -48,7 +48,7 @@ func SetupTest() util_message.AllTheTypes {
 		Bool:        false,
 		Bytes:       []byte("Hello, world!"),
 		Double:      1.1,
-		Enum:        0,
+		Enum:        util_message.AllTheTypes_OPTION_0,
 		Message:     &msg,
 		Oneof:       &util_message.AllTheTypes_Oneofstring{Oneofstring: "World"},
 		Any:         anyMsg,
@@ -79,7 +79,7 @@ func TestGetSchema(t *testing.T) {
     - bool: type=bool, nullable
     - bytes: type=binary, nullable
     - double: type=float64, nullable
-    - enum: type=int32, nullable
+    - enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
     - message: type=struct<field1: utf8>, nullable
     - oneofstring: type=utf8, nullable
     - oneofmessage: type=struct<field1: utf8>, nullable
@@ -111,7 +111,7 @@ func TestGetSchema(t *testing.T) {
     - bool: type=bool, nullable
     - bytes: type=binary, nullable
     - double: type=float64, nullable
-    - enum: type=int32, nullable
+    - enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
     - oneofstring: type=utf8, nullable`
 
 	require.Equal(t, want, got)
@@ -136,7 +136,7 @@ func TestGetSchema(t *testing.T) {
     - Bool: type=bool, nullable
     - Bytes: type=binary, nullable
     - Double: type=float64, nullable
-    - Enum: type=int32, nullable
+    - Enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
     - Oneofstring: type=utf8, nullable`
 
 	require.Equal(t, want, got)
@@ -148,7 +148,7 @@ func TestRecordFromProtobuf(t *testing.T) {
 	schema := psr.GetSchema()
 	got := RecordFromProtobuf(*psr, schema, nil)
 	jsonStr := `[
-		{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":0,"fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
+		{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_0","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
 	]`
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
