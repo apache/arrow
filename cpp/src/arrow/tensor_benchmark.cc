@@ -48,7 +48,7 @@ static void BatchToTensorSimple(benchmark::State& state) {
     ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
   }
   state.SetItemsProcessed(state.iterations() * kNumRows * batch->num_columns());
-  state.SetBytesProcessed(state.iterations() * ty->bit_width() * kNumRows *
+  state.SetBytesProcessed(state.iterations() * ty->byte_width() * kNumRows *
                           batch->num_columns());
 }
 
