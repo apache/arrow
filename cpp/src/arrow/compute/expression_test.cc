@@ -1039,10 +1039,16 @@ TEST(Expression, FoldConstantsBoolean) {
   ExpectFoldsTo(and_(false_, whatever), false_);
   ExpectFoldsTo(and_(true_, whatever), whatever);
   ExpectFoldsTo(and_(whatever, whatever), whatever);
+  ExpectFoldsTo(call("and", {false_, whatever}), false_);
+  ExpectFoldsTo(call("and", {true_, whatever}), whatever);
+  ExpectFoldsTo(call("and", {whatever, whatever}), whatever);
 
   ExpectFoldsTo(or_(true_, whatever), true_);
   ExpectFoldsTo(or_(false_, whatever), whatever);
   ExpectFoldsTo(or_(whatever, whatever), whatever);
+  ExpectFoldsTo(call("or", {true_, whatever}), true_);
+  ExpectFoldsTo(call("or", {false_, whatever}), whatever);
+  ExpectFoldsTo(call("or", {whatever, whatever}), whatever);
 }
 
 void ExpectRemovesRefsTo(Expression expr, Expression expected,
@@ -1111,6 +1117,10 @@ TEST(Expression, ExtractKnownFieldValues) {
                     equal(field_ref("f32"), field_ref("f32_req")),
                     equal(field_ref("i32_req"), literal(1))}),
               {{"i32", Datum(3)}, {"i32_req", Datum(1)}});
+
+  ExpectKnown(call("and", {equal(field_ref("i32"), literal(3)),
+                           equal(field_ref("f32"), literal(1.5F))}),
+              {{"i32", Datum(3)}, {"f32", Datum(1.5F)}});
 }
 
 TEST(Expression, ReplaceFieldsWithKnownValues) {
