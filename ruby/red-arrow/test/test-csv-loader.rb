@@ -17,6 +17,7 @@
 
 class CSVLoaderTest < Test::Unit::TestCase
   include Helper::Fixture
+  include Helper::Omittable
 
   def load_csv(input)
     Arrow::CSVLoader.load(input, skip_lines: /^#/)
@@ -249,6 +250,7 @@ count
 
     sub_test_case(":timestamp_parsers") do
       test(":iso8601") do
+        require_glib(2, 58, 0)
         data_type = Arrow::TimestampDataType.new(:second,
                                                  GLib::TimeZone.new("UTC"))
         timestamps = [
