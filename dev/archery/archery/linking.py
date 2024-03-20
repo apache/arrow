@@ -64,29 +64,27 @@ class DynamicLibrary:
             names.append(name)
         return names
 
-    def _just_symbols(self, symbol_info):
-        return [line.split(' ')[-1] for line in symbol_info if line]
+    def _extract_symbols(self, symbol_info):
+        return [re.search(r'\S+$', line).group() for line in symbol_info if line]
 
-    def _no_weak(self, lines):
-        return [line for line in lines if ' W ' not in line and ' w ' not in line]
+    def _remove_weak_symbols(self, lines):
+        return [line for line in lines if not re.search(r'\s[Ww]\s', line)]
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
-        result = _nm.run('-D',
-                         dependency, stdout=subprocess.PIPE)
+        result = _nm.run('-D', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
-            lines = [line.split('@@', 1)[0] for line in lines]
-        return self._just_symbols(lines)
+            lines = [re.split('@@', line)[0] for line in lines]
+        return self._extract_symbols(lines)
 
     def list_undefined_symbols_for_dependency(self, dependency,
                                               remove_symbol_versions=False):
-        result = _nm.run('-u',
-                         dependency, stdout=subprocess.PIPE)
+        result = _nm.run('-u', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
-            lines = [line.split('@@', 1)[0] for line in lines]
-        lines = self._no_weak(lines)
-        return self._just_symbols(lines)
+            lines = [re.split('@@', line)[0] for line in lines]
+        lines = self._remove_weak_symbols(lines)
+        return self._extract_symbols(lines)
 
     def find_library_paths(self, libraries):
         paths = {}
