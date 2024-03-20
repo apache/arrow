@@ -67,6 +67,9 @@ class DynamicLibrary:
     def _just_symbols(self, symbol_info):
         return [line.split(' ')[-1] for line in symbol_info if line]
 
+    def _no_weak(self, lines):
+        return [line for line in lines if ' W ' not in line and ' w ' not in line]
+
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
         result = _nm.run('-D',
                          dependency, stdout=subprocess.PIPE)
@@ -82,6 +85,7 @@ class DynamicLibrary:
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
             lines = [line.split('@@', 1)[0] for line in lines]
+        lines = self._no_weak(lines)
         return self._just_symbols(lines)
 
     def find_library_paths(self, libraries):
