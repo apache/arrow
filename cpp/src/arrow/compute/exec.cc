@@ -336,7 +336,7 @@ bool CheckIfAllScalar(const ExecBatch& batch) {
       return false;
     }
   }
-  return batch.num_values() > 0;
+  return batch.num_values() > 0 || batch.IsNull();
 }
 
 }  // namespace
@@ -783,7 +783,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
     RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
 
-    if (batch.length == 0) {
+    if (batch.length == 0 && batch.num_values() != 0) {
       // For zero-length batches, we do nothing except return a zero-length
       // array of the correct output type
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
