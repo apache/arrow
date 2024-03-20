@@ -894,7 +894,7 @@ readr_to_csv_convert_options <- function(na,
 #' Write CSV file to disk
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names
