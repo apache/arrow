@@ -295,6 +295,10 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 constexpr std::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
+// Extension types that don't match 1:1 with a data type (or the data type is
+// parameterized)
+constexpr std::string_view kTimeNanosTypeName = "time_nanos";
+constexpr Id kTimeNanosId = {kArrowExtTypesUri, kTimeNanosTypeName};
 
 /// A default registry with all supported functions and data types registered
 ///
@@ -407,6 +411,13 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   ///
   /// \return An anchor that can be used to refer to the type within a plan
   Result<uint32_t> EncodeType(const DataType& type);
+
+  /// \brief Lookup the anchor for a given type alias
+  ///
+  /// Similar to \see EncodeType but this is used for cases where the data type is either
+  /// parameterized or custom in some way (e.g. we use this for Time64::Nanos).  We need
+  /// to use the Id directly since we can't have registered the type with the registry.
+  Result<uint32_t> EncodeTypeId(Id type_id);
 
   /// \brief Return a function id given an anchor
   ///

@@ -314,6 +314,12 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
 }
 
+Result<uint32_t> ExtensionSet::EncodeTypeId(Id type_id) {
+  RETURN_NOT_OK(this->AddUri(type_id));
+  auto it_success = types_map_.emplace(type_id, static_cast<uint32_t>(types_map_.size()));
+  return it_success.first->second;
+}
+
 Result<Id> ExtensionSet::DecodeFunction(uint32_t anchor) const {
   if (functions_.find(anchor) == functions_.end() || functions_.at(anchor).empty()) {
     return Status::Invalid("User defined function reference ", anchor,
@@ -1043,6 +1049,10 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
              TypeName{uint32(), "u32"},
              TypeName{uint64(), "u64"},
              TypeName{float16(), "fp16"},
+             TypeName{large_utf8(), "large_string"},
+             TypeName{large_binary(), "large_binary"},
+             TypeName{date64(), "date_millis"},
+             TypeName{time64(TimeUnit::NANO), "time_nanos"},
          }) {
       DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type)));
     }
