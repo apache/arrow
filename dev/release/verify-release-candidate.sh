@@ -76,6 +76,7 @@ esac
 # which is different from the ARROW_SOURCE_DIR set in ensure_source_directory()
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
+MAVEN_VERSION=3.8.7
 
 show_header() {
   echo ""
@@ -468,6 +469,16 @@ install_conda() {
   conda activate base
 }
 
+install_maven() {
+  show_info "Installing Maven version ${MAVEN_VERSION}..."
+  APACHE_MIRROR="http://www.apache.org/dyn/closer.cgi?action=download&filename="
+  curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+    ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+  tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+  export PATH=`pwd`/apache-maven-${MAVEN_VERSION}/bin:$PATH
+  show_info "Installed Maven version $(mvn -v)"
+}
+
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
@@ -566,6 +577,7 @@ test_package_java() {
   show_header "Build and test Java libraries"
 
   maybe_setup_conda maven openjdk
+  install_maven
 
   pushd java
 
@@ -1203,6 +1215,7 @@ test_wheels() {
 test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python
+  install_maven
 
   local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
