@@ -23,7 +23,7 @@ ArrowTabular <- R6Class("ArrowTabular",
   inherit = ArrowObject,
   public = list(
     ToString = function() {
-      sch <- unlist(strsplit(self$schema$ToString(), "\n"))
+      sch <- unlist(strsplit(self$schema$ToString(truncate = TRUE), "\n"))
       sch <- sub("(.*): (.*)", "$\\1 <\\2>", sch)
       dims <- sprintf("%s rows x %s columns", self$num_rows, self$num_columns)
       paste(c(dims, sch), collapse = "\n")

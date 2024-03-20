@@ -53,7 +53,7 @@ size_t QueryContext::max_concurrency() const { return thread_indexer_.Capacity()
 Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
   if (!tld_[thread_index].is_init) {
     RETURN_NOT_OK(tld_[thread_index].stack.Init(
-        memory_pool(), 8 * util::MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
+        memory_pool(), 32 * util::MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
     tld_[thread_index].is_init = true;
   }
   return &tld_[thread_index].stack;

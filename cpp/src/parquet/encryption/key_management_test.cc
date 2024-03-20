@@ -22,12 +22,13 @@
 #include <thread>
 #include <unordered_map>
 
-#include <arrow/io/file.h>
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/io/file.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 #include "parquet/encryption/crypto_factory.h"

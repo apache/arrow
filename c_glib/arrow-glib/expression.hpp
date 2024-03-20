@@ -23,7 +23,6 @@
 
 #include <arrow-glib/expression.h>
 
-
 GArrowExpression *
 garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression);
 arrow::compute::Expression *

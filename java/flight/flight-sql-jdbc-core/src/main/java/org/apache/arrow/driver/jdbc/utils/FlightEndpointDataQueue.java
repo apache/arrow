@@ -108,7 +108,14 @@ public class FlightEndpointDataQueue implements AutoCloseable {
         if (endpoint != null) {
           return endpoint;
         }
-      } catch (final ExecutionException | InterruptedException | CancellationException e) {
+      } catch (final ExecutionException e) {
+        // Unwrap one layer
+        final Throwable cause = e.getCause();
+        if (cause instanceof FlightRuntimeException) {
+          throw (FlightRuntimeException) cause;
+        }
+        throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
+      } catch (InterruptedException | CancellationException e) {
         throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
       }
     }

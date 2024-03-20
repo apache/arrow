@@ -20,9 +20,10 @@
 
 namespace arrow::matlab::array::proxy {
 
-    // Specialization of NumericArray::Make for arrow::Time64Type
-    template <>
-    libmexclass::proxy::MakeResult Time64Array::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        return make_time_array<arrow::Time64Type>(constructor_arguments);
-    }
+// Specialization of NumericArray::Make for arrow::Time64Type
+template <>
+libmexclass::proxy::MakeResult Time64Array::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  return make_time_array<arrow::Time64Type>(constructor_arguments);
 }
+}  // namespace arrow::matlab::array::proxy

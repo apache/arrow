@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <glib.h>
-
 /**
  * SECTION: version
  * @section_id: version-macros

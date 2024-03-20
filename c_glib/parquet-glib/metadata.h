@@ -23,8 +23,7 @@
 
 G_BEGIN_DECLS
 
-#define GPARQUET_TYPE_COLUMN_CHUNK_METADATA     \
-  (gparquet_column_chunk_metadata_get_type())
+#define GPARQUET_TYPE_COLUMN_CHUNK_METADATA (gparquet_column_chunk_metadata_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetColumnChunkMetadata,
                          gparquet_column_chunk_metadata,
                          GPARQUET,
@@ -37,30 +36,24 @@ struct _GParquetColumnChunkMetadataClass
 
 GARROW_AVAILABLE_IN_8_0
 gboolean
-gparquet_column_chunk_metadata_equal(
-  GParquetColumnChunkMetadata *metadata,
-  GParquetColumnChunkMetadata *other_metadata);
+gparquet_column_chunk_metadata_equal(GParquetColumnChunkMetadata *metadata,
+                                     GParquetColumnChunkMetadata *other_metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
-gparquet_column_chunk_metadata_get_total_size(
-  GParquetColumnChunkMetadata *metadata);
+gparquet_column_chunk_metadata_get_total_size(GParquetColumnChunkMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_column_chunk_metadata_get_total_compressed_size(
   GParquetColumnChunkMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
-gparquet_column_chunk_metadata_get_file_offset(
-  GParquetColumnChunkMetadata *metadata);
+gparquet_column_chunk_metadata_get_file_offset(GParquetColumnChunkMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gboolean
-gparquet_column_chunk_metadata_can_decompress(
-  GParquetColumnChunkMetadata *metadata);
+gparquet_column_chunk_metadata_can_decompress(GParquetColumnChunkMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 GParquetStatistics *
-gparquet_column_chunk_metadata_get_statistics(
-  GParquetColumnChunkMetadata *metadata);
-
+gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metadata);
 
 #define GPARQUET_TYPE_ROW_GROUP_METADATA (gparquet_row_group_metadata_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetRowGroupMetadata,
@@ -90,27 +83,20 @@ gint64
 gparquet_row_group_metadata_get_n_rows(GParquetRowGroupMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
-gparquet_row_group_metadata_get_total_size(
-  GParquetRowGroupMetadata *metadata);
+gparquet_row_group_metadata_get_total_size(GParquetRowGroupMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
-gparquet_row_group_metadata_get_total_compressed_size(
-  GParquetRowGroupMetadata *metadata);
+gparquet_row_group_metadata_get_total_compressed_size(GParquetRowGroupMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gint64
-gparquet_row_group_metadata_get_file_offset(
-  GParquetRowGroupMetadata *metadata);
+gparquet_row_group_metadata_get_file_offset(GParquetRowGroupMetadata *metadata);
 GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_row_group_metadata_can_decompress(GParquetRowGroupMetadata *metadata);
 
-
 #define GPARQUET_TYPE_FILE_METADATA (gparquet_file_metadata_get_type())
-G_DECLARE_DERIVABLE_TYPE(GParquetFileMetadata,
-                         gparquet_file_metadata,
-                         GPARQUET,
-                         FILE_METADATA,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GParquetFileMetadata, gparquet_file_metadata, GPARQUET, FILE_METADATA, GObject)
 struct _GParquetFileMetadataClass
 {
   GObjectClass parent_class;

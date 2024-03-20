@@ -179,6 +179,7 @@ test_that("RBR methods", {
   expect_output(
     print(reader),
     "RecordBatchStreamReader
+2 columns
 x: int32
 y: string"
   )

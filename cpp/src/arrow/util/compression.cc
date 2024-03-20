@@ -24,6 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compression_internal.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

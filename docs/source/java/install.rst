@@ -136,11 +136,6 @@ every module. An alternative to the above would be:
         <dependencies>
             <dependency>
                 <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-bom</artifactId>
-                <version>${arrow.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-vector</artifactId>
             </dependency>
             <dependency>
@@ -148,6 +143,17 @@ every module. An alternative to the above would be:
                 <artifactId>arrow-memory-netty</artifactId>
             </dependency>
         </dependencies>
+        <dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-bom</artifactId>
+                    <version>${arrow.version}</version>
+                    <type>pom</type>
+                    <scope>import</scope>
+                </dependency>
+            </dependencies>
+        </dependencyManagement>
     </project>
 
 To use the Arrow Flight dependencies, also add the ``os-maven-plugin``

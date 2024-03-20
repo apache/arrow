@@ -146,8 +146,7 @@ struct ARROW_EXPORT GcsOptions {
   static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
 
   /// Initialize from URIs such as "gs://bucket/object".
-  static Result<GcsOptions> FromUri(const arrow::internal::Uri& uri,
-                                    std::string* out_path);
+  static Result<GcsOptions> FromUri(const arrow::util::Uri& uri, std::string* out_path);
   static Result<GcsOptions> FromUri(const std::string& uri, std::string* out_path);
 };
 

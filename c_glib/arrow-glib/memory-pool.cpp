@@ -30,7 +30,8 @@ G_BEGIN_DECLS
  * #GArrowMemoryPool is a class for memory allocation.
  */
 
-typedef struct GArrowMemoryPoolPrivate_ {
+typedef struct GArrowMemoryPoolPrivate_
+{
   arrow::MemoryPool *memory_pool;
 } GArrowMemoryPoolPrivate;
 
@@ -40,10 +41,9 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowMemoryPool, garrow_memory_pool, G_TYPE_OBJECT)
 
-#define GARROW_MEMORY_POOL_GET_PRIVATE(obj)        \
-  static_cast<GArrowMemoryPoolPrivate *>(          \
-     garrow_memory_pool_get_instance_private(      \
-       GARROW_MEMORY_POOL(obj)))
+#define GARROW_MEMORY_POOL_GET_PRIVATE(obj)                                              \
+  static_cast<GArrowMemoryPoolPrivate *>(                                                \
+    garrow_memory_pool_get_instance_private(GARROW_MEMORY_POOL(obj)))
 
 static void
 garrow_memory_pool_set_property(GObject *object,
@@ -55,8 +55,7 @@ garrow_memory_pool_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_MEMORY_POOL:
-    priv->memory_pool =
-      static_cast<arrow::MemoryPool *>(g_value_get_pointer(value));
+    priv->memory_pool = static_cast<arrow::MemoryPool *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -78,11 +77,11 @@ garrow_memory_pool_class_init(GArrowMemoryPoolClass *klass)
 
   gobject_class->set_property = garrow_memory_pool_set_property;
 
-  spec = g_param_spec_pointer("memory-pool",
-                              "Memory Pool",
-                              "The raw arrow::MemoryPool *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "memory-pool",
+    "Memory Pool",
+    "The raw arrow::MemoryPool *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_MEMORY_POOL, spec);
 }
 
@@ -158,9 +157,8 @@ G_END_DECLS
 GArrowMemoryPool *
 garrow_memory_pool_new_raw(arrow::MemoryPool *memory_pool)
 {
-  return GARROW_MEMORY_POOL(g_object_new(GARROW_TYPE_MEMORY_POOL,
-                            "memory-pool", memory_pool,
-                            NULL));
+  return GARROW_MEMORY_POOL(
+    g_object_new(GARROW_TYPE_MEMORY_POOL, "memory-pool", memory_pool, NULL));
 }
 
 arrow::MemoryPool *

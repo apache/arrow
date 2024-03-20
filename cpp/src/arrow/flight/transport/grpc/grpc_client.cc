@@ -684,13 +684,13 @@ class GrpcClientImpl : public internal::ClientTransport {
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
-              const arrow::internal::Uri& uri) override {
+              const arrow::util::Uri& uri) override {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
     std::shared_ptr<::grpc::ChannelCredentials> creds;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
-      grpc_uri << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+      grpc_uri << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
       if (scheme == kSchemeGrpcTls) {
         if (options.disable_server_verification) {

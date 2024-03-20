@@ -28,11 +28,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_DATA_TYPE (garrow_data_type_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowDataType,
-                         garrow_data_type,
-                         GARROW,
-                         DATA_TYPE,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowDataType, garrow_data_type, GARROW, DATA_TYPE, GObject)
 struct _GArrowDataTypeClass
 {
   GObjectClass parent_class;
@@ -40,22 +36,21 @@ struct _GArrowDataTypeClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowDataType *
-garrow_data_type_import(gpointer c_abi_schema,
-                        GError **error);
+garrow_data_type_import(gpointer c_abi_schema, GError **error);
 
 GARROW_AVAILABLE_IN_6_0
 gpointer
-garrow_data_type_export(GArrowDataType *data_type,
-                        GError **error);
+garrow_data_type_export(GArrowDataType *data_type, GError **error);
 
-gboolean   garrow_data_type_equal     (GArrowDataType *data_type,
-                                       GArrowDataType *other_data_type);
-gchar     *garrow_data_type_to_string (GArrowDataType *data_type);
-GArrowType garrow_data_type_get_id    (GArrowDataType *data_type);
+gboolean
+garrow_data_type_equal(GArrowDataType *data_type, GArrowDataType *other_data_type);
+gchar *
+garrow_data_type_to_string(GArrowDataType *data_type);
+GArrowType
+garrow_data_type_get_id(GArrowDataType *data_type);
 GARROW_AVAILABLE_IN_3_0
 gchar *
 garrow_data_type_get_name(GArrowDataType *data_type);
-
 
 #define GARROW_TYPE_FIXED_WIDTH_DATA_TYPE (garrow_fixed_width_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFixedWidthDataType,
@@ -68,26 +63,23 @@ struct _GArrowFixedWidthDataTypeClass
   GArrowDataTypeClass parent_class;
 };
 
-gint garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type);
+gint
+garrow_fixed_width_data_type_get_bit_width(GArrowFixedWidthDataType *data_type);
 /* TODO:
-GList *garrow_fixed_width_data_type_get_buffer_layout(GArrowFixedWidthDataType *data_type);
+GList *garrow_fixed_width_data_type_get_buffer_layout(GArrowFixedWidthDataType
+*data_type);
 */
 
-
-#define GARROW_TYPE_NULL_DATA_TYPE              \
-  (garrow_null_data_type_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowNullDataType,
-                         garrow_null_data_type,
-                         GARROW,
-                         NULL_DATA_TYPE,
-                         GArrowDataType)
+#define GARROW_TYPE_NULL_DATA_TYPE (garrow_null_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowNullDataType, garrow_null_data_type, GARROW, NULL_DATA_TYPE, GArrowDataType)
 struct _GArrowNullDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GArrowNullDataType *garrow_null_data_type_new      (void);
-
+GArrowNullDataType *
+garrow_null_data_type_new(void);
 
 #define GARROW_TYPE_BOOLEAN_DATA_TYPE (garrow_boolean_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowBooleanDataType,
@@ -100,8 +92,8 @@ struct _GArrowBooleanDataTypeClass
   GArrowFixedWidthDataTypeClass parent_class;
 };
 
-GArrowBooleanDataType *garrow_boolean_data_type_new      (void);
-
+GArrowBooleanDataType *
+garrow_boolean_data_type_new(void);
 
 #define GARROW_TYPE_NUMERIC_DATA_TYPE (garrow_numeric_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowNumericDataType,
@@ -113,7 +105,6 @@ struct _GArrowNumericDataTypeClass
 {
   GArrowFixedWidthDataTypeClass parent_class;
 };
-
 
 #define GARROW_TYPE_INTEGER_DATA_TYPE (garrow_integer_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowIntegerDataType,
@@ -127,7 +118,8 @@ struct _GArrowIntegerDataTypeClass
 };
 
 GARROW_AVAILABLE_IN_0_16
-gboolean garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type);
+gboolean
+garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type);
 
 #define GARROW_TYPE_INT8_DATA_TYPE (garrow_int8_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt8DataType,
@@ -140,8 +132,8 @@ struct _GArrowInt8DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowInt8DataType   *garrow_int8_data_type_new      (void);
-
+GArrowInt8DataType *
+garrow_int8_data_type_new(void);
 
 #define GARROW_TYPE_UINT8_DATA_TYPE (garrow_uint8_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUInt8DataType,
@@ -154,8 +146,8 @@ struct _GArrowUInt8DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowUInt8DataType  *garrow_uint8_data_type_new      (void);
-
+GArrowUInt8DataType *
+garrow_uint8_data_type_new(void);
 
 #define GARROW_TYPE_INT16_DATA_TYPE (garrow_int16_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt16DataType,
@@ -168,8 +160,8 @@ struct _GArrowInt16DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowInt16DataType  *garrow_int16_data_type_new      (void);
-
+GArrowInt16DataType *
+garrow_int16_data_type_new(void);
 
 #define GARROW_TYPE_UINT16_DATA_TYPE (garrow_uint16_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUInt16DataType,
@@ -182,8 +174,8 @@ struct _GArrowUInt16DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowUInt16DataType *garrow_uint16_data_type_new      (void);
-
+GArrowUInt16DataType *
+garrow_uint16_data_type_new(void);
 
 #define GARROW_TYPE_INT32_DATA_TYPE (garrow_int32_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt32DataType,
@@ -196,8 +188,8 @@ struct _GArrowInt32DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowInt32DataType  *garrow_int32_data_type_new      (void);
-
+GArrowInt32DataType *
+garrow_int32_data_type_new(void);
 
 #define GARROW_TYPE_UINT32_DATA_TYPE (garrow_uint32_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUInt32DataType,
@@ -210,8 +202,8 @@ struct _GArrowUInt32DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowUInt32DataType *garrow_uint32_data_type_new      (void);
-
+GArrowUInt32DataType *
+garrow_uint32_data_type_new(void);
 
 #define GARROW_TYPE_INT64_DATA_TYPE (garrow_int64_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt64DataType,
@@ -224,8 +216,8 @@ struct _GArrowInt64DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowInt64DataType  *garrow_int64_data_type_new      (void);
-
+GArrowInt64DataType *
+garrow_int64_data_type_new(void);
 
 #define GARROW_TYPE_UINT64_DATA_TYPE (garrow_uint64_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUInt64DataType,
@@ -238,11 +230,10 @@ struct _GArrowUInt64DataTypeClass
   GArrowIntegerDataTypeClass parent_class;
 };
 
-GArrowUInt64DataType *garrow_uint64_data_type_new      (void);
+GArrowUInt64DataType *
+garrow_uint64_data_type_new(void);
 
-
-#define GARROW_TYPE_FLOATING_POINT_DATA_TYPE    \
-  (garrow_floating_point_data_type_get_type())
+#define GARROW_TYPE_FLOATING_POINT_DATA_TYPE (garrow_floating_point_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatingPointDataType,
                          garrow_floating_point_data_type,
                          GARROW,
@@ -252,7 +243,6 @@ struct _GArrowFloatingPointDataTypeClass
 {
   GArrowNumericDataTypeClass parent_class;
 };
-
 
 #define GARROW_TYPE_HALF_FLOAT_DATA_TYPE (garrow_half_float_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatDataType,
@@ -266,8 +256,8 @@ struct _GArrowHalfFloatDataTypeClass
 };
 
 GARROW_AVAILABLE_IN_11_0
-GArrowHalfFloatDataType *garrow_half_float_data_type_new(void);
-
+GArrowHalfFloatDataType *
+garrow_half_float_data_type_new(void);
 
 #define GARROW_TYPE_FLOAT_DATA_TYPE (garrow_float_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatDataType,
@@ -280,8 +270,8 @@ struct _GArrowFloatDataTypeClass
   GArrowFloatingPointDataTypeClass parent_class;
 };
 
-GArrowFloatDataType *garrow_float_data_type_new      (void);
-
+GArrowFloatDataType *
+garrow_float_data_type_new(void);
 
 #define GARROW_TYPE_DOUBLE_DATA_TYPE (garrow_double_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDoubleDataType,
@@ -294,24 +284,22 @@ struct _GArrowDoubleDataTypeClass
   GArrowFloatingPointDataTypeClass parent_class;
 };
 
-GArrowDoubleDataType *garrow_double_data_type_new      (void);
-
+GArrowDoubleDataType *
+garrow_double_data_type_new(void);
 
 #define GARROW_TYPE_BINARY_DATA_TYPE (garrow_binary_data_type_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowBinaryDataType,
-                         garrow_binary_data_type,
-                         GARROW,
-                         BINARY_DATA_TYPE,
-                         GArrowDataType)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowBinaryDataType, garrow_binary_data_type, GARROW, BINARY_DATA_TYPE, GArrowDataType)
 struct _GArrowBinaryDataTypeClass
 {
   GArrowDataTypeClass parent_class;
 };
 
-GArrowBinaryDataType *garrow_binary_data_type_new      (void);
+GArrowBinaryDataType *
+garrow_binary_data_type_new(void);
 
-
-#define GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE (garrow_fixed_size_binary_data_type_get_type())
+#define GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE                                          \
+  (garrow_fixed_size_binary_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryDataType,
                          garrow_fixed_size_binary_data_type,
                          GARROW,
@@ -327,8 +315,8 @@ GArrowFixedSizeBinaryDataType *
 garrow_fixed_size_binary_data_type_new(gint32 byte_width);
 GARROW_AVAILABLE_IN_0_12
 gint32
-garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType *data_type);
-
+garrow_fixed_size_binary_data_type_get_byte_width(
+  GArrowFixedSizeBinaryDataType *data_type);
 
 #define GARROW_TYPE_LARGE_BINARY_DATA_TYPE (garrow_large_binary_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowLargeBinaryDataType,
@@ -342,8 +330,8 @@ struct _GArrowLargeBinaryDataTypeClass
 };
 
 GARROW_AVAILABLE_IN_0_17
-GArrowLargeBinaryDataType *garrow_large_binary_data_type_new(void);
-
+GArrowLargeBinaryDataType *
+garrow_large_binary_data_type_new(void);
 
 #define GARROW_TYPE_STRING_DATA_TYPE (garrow_string_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStringDataType,
@@ -356,8 +344,8 @@ struct _GArrowStringDataTypeClass
   GArrowBinaryDataTypeClass parent_class;
 };
 
-GArrowStringDataType *garrow_string_data_type_new      (void);
-
+GArrowStringDataType *
+garrow_string_data_type_new(void);
 
 #define GARROW_TYPE_LARGE_STRING_DATA_TYPE (garrow_large_string_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringDataType,
@@ -371,8 +359,8 @@ struct _GArrowLargeStringDataTypeClass
 };
 
 GARROW_AVAILABLE_IN_0_17
-GArrowLargeStringDataType *garrow_large_string_data_type_new(void);
-
+GArrowLargeStringDataType *
+garrow_large_string_data_type_new(void);
 
 #define GARROW_TYPE_TEMPORAL_DATA_TYPE (garrow_temporal_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTemporalDataType,
@@ -385,7 +373,6 @@ struct _GArrowTemporalDataTypeClass
   GArrowFixedWidthDataTypeClass parent_class;
 };
 
-
 #define GARROW_TYPE_DATE32_DATA_TYPE (garrow_date32_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDate32DataType,
                          garrow_date32_data_type,
@@ -397,8 +384,8 @@ struct _GArrowDate32DataTypeClass
   GArrowTemporalDataTypeClass parent_class;
 };
 
-GArrowDate32DataType *garrow_date32_data_type_new      (void);
-
+GArrowDate32DataType *
+garrow_date32_data_type_new(void);
 
 #define GARROW_TYPE_DATE64_DATA_TYPE (garrow_date64_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDate64DataType,
@@ -411,8 +398,8 @@ struct _GArrowDate64DataTypeClass
   GArrowTemporalDataTypeClass parent_class;
 };
 
-GArrowDate64DataType *garrow_date64_data_type_new      (void);
-
+GArrowDate64DataType *
+garrow_date64_data_type_new(void);
 
 #define GARROW_TYPE_TIMESTAMP_DATA_TYPE (garrow_timestamp_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTimestampDataType,
@@ -426,11 +413,9 @@ struct _GArrowTimestampDataTypeClass
 };
 
 GArrowTimestampDataType *
-garrow_timestamp_data_type_new(GArrowTimeUnit unit,
-                               GTimeZone *time_zone);
+garrow_timestamp_data_type_new(GArrowTimeUnit unit, GTimeZone *time_zone);
 GArrowTimeUnit
 garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *data_type);
-
 
 #define GARROW_TYPE_TIME_DATA_TYPE (garrow_time_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTimeDataType,
@@ -443,8 +428,8 @@ struct _GArrowTimeDataTypeClass
   GArrowTemporalDataTypeClass parent_class;
 };
 
-GArrowTimeUnit garrow_time_data_type_get_unit (GArrowTimeDataType *time_data_type);
-
+GArrowTimeUnit
+garrow_time_data_type_get_unit(GArrowTimeDataType *time_data_type);
 
 #define GARROW_TYPE_TIME32_DATA_TYPE (garrow_time32_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTime32DataType,
@@ -457,9 +442,8 @@ struct _GArrowTime32DataTypeClass
   GArrowTimeDataTypeClass parent_class;
 };
 
-GArrowTime32DataType *garrow_time32_data_type_new      (GArrowTimeUnit unit,
-                                                        GError **error);
-
+GArrowTime32DataType *
+garrow_time32_data_type_new(GArrowTimeUnit unit, GError **error);
 
 #define GARROW_TYPE_TIME64_DATA_TYPE (garrow_time64_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTime64DataType,
@@ -472,9 +456,8 @@ struct _GArrowTime64DataTypeClass
   GArrowTimeDataTypeClass parent_class;
 };
 
-GArrowTime64DataType *garrow_time64_data_type_new      (GArrowTimeUnit unit,
-                                                        GError **error);
-
+GArrowTime64DataType *
+garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error);
 
 #define GARROW_TYPE_INTERVAL_DATA_TYPE (garrow_interval_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowIntervalDataType,
@@ -491,9 +474,7 @@ GARROW_AVAILABLE_IN_7_0
 GArrowIntervalType
 garrow_interval_data_type_get_interval_type(GArrowIntervalDataType *type);
 
-
-#define GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE   \
-  (garrow_month_interval_data_type_get_type())
+#define GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE (garrow_month_interval_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalDataType,
                          garrow_month_interval_data_type,
                          GARROW,
@@ -508,8 +489,7 @@ GARROW_AVAILABLE_IN_7_0
 GArrowMonthIntervalDataType *
 garrow_month_interval_data_type_new(void);
 
-
-#define GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE         \
+#define GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE                                          \
   (garrow_day_time_interval_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalDataType,
                          garrow_day_time_interval_data_type,
@@ -525,8 +505,7 @@ GARROW_AVAILABLE_IN_7_0
 GArrowDayTimeIntervalDataType *
 garrow_day_time_interval_data_type_new(void);
 
-
-#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE \
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE                                    \
   (garrow_month_day_nano_interval_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalDataType,
                          garrow_month_day_nano_interval_data_type,
@@ -542,7 +521,6 @@ GARROW_AVAILABLE_IN_7_0
 GArrowMonthDayNanoIntervalDataType *
 garrow_month_day_nano_interval_data_type_new(void);
 
-
 #define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
                          garrow_decimal_data_type,
@@ -556,9 +534,10 @@ struct _GArrowDecimalDataTypeClass
 
 GArrowDecimalDataType *
 garrow_decimal_data_type_new(gint32 precision, gint32 scale, GError **error);
-gint32 garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type);
-gint32 garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
-
+gint32
+garrow_decimal_data_type_get_precision(GArrowDecimalDataType *decimal_data_type);
+gint32
+garrow_decimal_data_type_get_scale(GArrowDecimalDataType *decimal_data_type);
 
 #define GARROW_TYPE_DECIMAL128_DATA_TYPE (garrow_decimal128_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal128DataType,
@@ -578,7 +557,6 @@ garrow_decimal128_data_type_max_precision();
 GARROW_AVAILABLE_IN_0_12
 GArrowDecimal128DataType *
 garrow_decimal128_data_type_new(gint32 precision, gint32 scale, GError **error);
-
 
 #define GARROW_TYPE_DECIMAL256_DATA_TYPE (garrow_decimal256_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimal256DataType,
@@ -648,8 +626,7 @@ GArrowChunkedArray *
 garrow_extension_data_type_wrap_chunked_array(GArrowExtensionDataType *data_type,
                                               GArrowChunkedArray *storage);
 
-
-#define GARROW_TYPE_EXTENSION_DATA_TYPE_REGISTRY        \
+#define GARROW_TYPE_EXTENSION_DATA_TYPE_REGISTRY                                         \
   (garrow_extension_data_type_registry_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowExtensionDataTypeRegistry,
                          garrow_extension_data_type_registry,
@@ -667,20 +644,17 @@ garrow_extension_data_type_registry_default(void);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean
-garrow_extension_data_type_registry_register(
-  GArrowExtensionDataTypeRegistry *registry,
-  GArrowExtensionDataType *data_type,
-  GError **error);
+garrow_extension_data_type_registry_register(GArrowExtensionDataTypeRegistry *registry,
+                                             GArrowExtensionDataType *data_type,
+                                             GError **error);
 GARROW_AVAILABLE_IN_3_0
 gboolean
-garrow_extension_data_type_registry_unregister(
-  GArrowExtensionDataTypeRegistry *registry,
-  const gchar *name,
-  GError **error);
+garrow_extension_data_type_registry_unregister(GArrowExtensionDataTypeRegistry *registry,
+                                               const gchar *name,
+                                               GError **error);
 GARROW_AVAILABLE_IN_3_0
 GArrowExtensionDataType *
-garrow_extension_data_type_registry_lookup(
-  GArrowExtensionDataTypeRegistry *registry,
-  const gchar *name);
+garrow_extension_data_type_registry_lookup(GArrowExtensionDataTypeRegistry *registry,
+                                           const gchar *name);
 
 G_END_DECLS

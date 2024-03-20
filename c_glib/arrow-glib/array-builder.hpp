@@ -24,9 +24,9 @@
 
 GArrowArrayBuilder *
 garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder,
-                             GType type=G_TYPE_INVALID);
+                             GType type = G_TYPE_INVALID);
 GArrowArrayBuilder *
 garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
-                             GType type=G_TYPE_INVALID);
+                             GType type = G_TYPE_INVALID);
 std::shared_ptr<arrow::ArrayBuilder>
 garrow_array_builder_get_raw(GArrowArrayBuilder *builder);

@@ -23,17 +23,14 @@
 
 #include <arrow-flight-glib/server.h>
 
-
 arrow::flight::FlightDataStream *
 gaflight_data_stream_get_raw(GAFlightDataStream *stream);
 
 GAFlightMessageReader *
-gaflight_message_reader_new_raw(
-  arrow::flight::FlightMessageReader *flight_reader,
-  gboolean is_owner);
+gaflight_message_reader_new_raw(arrow::flight::FlightMessageReader *flight_reader,
+                                gboolean is_owner);
 arrow::flight::FlightMessageReader *
 gaflight_message_reader_get_raw(GAFlightMessageReader *reader);
-
 
 GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(
@@ -42,14 +39,12 @@ const arrow::flight::ServerCallContext *
 gaflight_server_call_context_get_raw(GAFlightServerCallContext *call_context);
 
 GAFlightServerAuthSender *
-gaflight_server_auth_sender_new_raw(
-  arrow::flight::ServerAuthSender *flight_sender);
+gaflight_server_auth_sender_new_raw(arrow::flight::ServerAuthSender *flight_sender);
 arrow::flight::ServerAuthSender *
 gaflight_server_auth_sender_get_raw(GAFlightServerAuthSender *sender);
 
 GAFlightServerAuthReader *
-gaflight_server_auth_reader_new_raw(
-  arrow::flight::ServerAuthReader *flight_reader);
+gaflight_server_auth_reader_new_raw(arrow::flight::ServerAuthReader *flight_reader);
 arrow::flight::ServerAuthReader *
 gaflight_server_auth_reader_get_raw(GAFlightServerAuthReader *reader);
 
@@ -58,7 +53,6 @@ gaflight_server_auth_handler_get_raw(GAFlightServerAuthHandler *handler);
 
 arrow::flight::FlightServerOptions *
 gaflight_server_options_get_raw(GAFlightServerOptions *options);
-
 
 struct _GAFlightServableInterface
 {
@@ -70,30 +64,34 @@ struct _GAFlightServableInterface
 arrow::flight::FlightServerBase *
 gaflight_servable_get_raw(GAFlightServable *servable);
 
-
 namespace gaflight {
   class DataStream : public arrow::flight::FlightDataStream {
   public:
-    explicit DataStream(GAFlightDataStream *gastream) :
-      arrow::flight::FlightDataStream(),
-      gastream_(gastream) {
+    explicit DataStream(GAFlightDataStream *gastream)
+      : arrow::flight::FlightDataStream(),
+        gastream_(gastream)
+    {
     }
 
-    ~DataStream() override {
-      g_object_unref(gastream_);
-    }
+    ~DataStream() override { g_object_unref(gastream_); }
 
-    std::shared_ptr<arrow::Schema> schema() override {
+    std::shared_ptr<arrow::Schema>
+    schema() override
+    {
       auto stream = gaflight_data_stream_get_raw(gastream_);
       return stream->schema();
     }
 
-    arrow::Result<arrow::flight::FlightPayload> GetSchemaPayload() override {
+    arrow::Result<arrow::flight::FlightPayload>
+    GetSchemaPayload() override
+    {
       auto stream = gaflight_data_stream_get_raw(gastream_);
       return stream->GetSchemaPayload();
     }
 
-    arrow::Result<arrow::flight::FlightPayload> Next() override {
+    arrow::Result<arrow::flight::FlightPayload>
+    Next() override
+    {
       auto stream = gaflight_data_stream_get_raw(gastream_);
       return stream->Next();
     }
@@ -101,4 +99,4 @@ namespace gaflight {
   private:
     GAFlightDataStream *gastream_;
   };
-};
+}; // namespace gaflight

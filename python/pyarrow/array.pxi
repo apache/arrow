@@ -549,32 +549,36 @@ def _normalize_slice(object arrow_obj, slice key):
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
-    start = key.start or 0
-    if start < 0:
-        start += n
+    step = key.step or 1
+
+    if key.start is None:
+        if step < 0:
+            start = n - 1
+        else:
+            start = 0
+    elif key.start < 0:
+        start = key.start + n
         if start < 0:
             start = 0
-    elif start >= n:
+    elif key.start >= n:
         start = n
+    else:
+        start = key.start
 
-    stop = key.stop if key.stop is not None else n
-    if stop < 0:
-        stop += n
-        if stop < 0:
-            stop = 0
-    elif stop >= n:
+    if step < 0 and (key.stop is None or key.stop < -n):
+        stop = -1
+    elif key.stop is None:
         stop = n
+    elif key.stop < 0:
+        stop = key.stop + n
+        if stop < 0:  # step > 0 in this case.
+            stop = 0
+    elif key.stop >= n:
+        stop = n
+    else:
+        stop = key.stop
 
-    step = key.step or 1
     if step != 1:
-        if step < 0:
-            # Negative steps require some special handling
-            if key.start is None:
-                start = n - 1
-
-            if key.stop is None:
-                stop = -1
-
         indices = np.arange(start, stop, step)
         return arrow_obj.take(indices)
     else:
@@ -1573,7 +1577,7 @@ cdef class Array(_PandasConvertible):
         # decoding the dictionary will make sure nulls are correctly handled.
         # Decoding a dictionary does imply a copy by the way,
         # so it can't be done if the user requested a zero_copy.
-        c_options.decode_dictionaries = not zero_copy_only
+        c_options.decode_dictionaries = True
         c_options.zero_copy_only = zero_copy_only
         c_options.to_numpy = True
 
@@ -1584,9 +1588,6 @@ cdef class Array(_PandasConvertible):
         # wrap_array_output uses pandas to convert to Categorical, here
         # always convert to numpy array without pandas dependency
         array = PyObject_to_object(out)
-
-        if isinstance(array, dict):
-            array = np.take(array['dictionary'], array['indices'])
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
@@ -1777,6 +1778,70 @@ cdef class Array(_PandasConvertible):
             array = GetResultValue(ImportArray(c_array, c_schema))
 
         return pyarrow_wrap_array(array)
+
+    def _export_to_c_device(self, out_ptr, out_schema_ptr=0):
+        """
+        Export to a C ArrowDeviceArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the array type
+        is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowDeviceArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
+        with nogil:
+            check_status(ExportDeviceArray(
+                deref(self.sp_array), <shared_ptr[CSyncEvent]>NULL,
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+
+    @staticmethod
+    def _import_from_c_device(in_ptr, type):
+        """
+        Import Array from a C ArrowDeviceArray struct, given its pointer
+        and the imported array type.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        type: DataType or int
+            Either a DataType object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_type_ptr
+            shared_ptr[CArray] c_array
+
+        c_type = pyarrow_unwrap_data_type(type)
+        if c_type == nullptr:
+            # Not a DataType object, perhaps a raw ArrowSchema pointer
+            c_type_ptr = _as_c_pointer(type)
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
+                                      <ArrowSchema*> c_type_ptr)
+                )
+        else:
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type)
+                )
+        return pyarrow_wrap_array(c_array)
 
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.

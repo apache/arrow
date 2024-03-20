@@ -278,13 +278,13 @@ NullPartitionResult PartitionNullsOnly(uint64_t* indices_begin, uint64_t* indice
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto nulls_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<Array>(ind);
+      const auto chunk = resolver.Resolve(ind);
       return chunk.IsNull();
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, nulls_end);
   } else {
     auto nulls_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<Array>(ind);
+      const auto chunk = resolver.Resolve(ind);
       return !chunk.IsNull();
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, nulls_begin);
@@ -299,22 +299,22 @@ PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
   return NullPartitionResult::NoNulls(indices_begin, indices_end, null_placement);
 }
 
-template <typename ArrayType, typename Partitioner>
-enable_if_t<has_null_like_values<typename ArrayType::TypeClass>::value,
-            NullPartitionResult>
+template <typename ArrayType, typename Partitioner,
+          typename TypeClass = typename ArrayType::TypeClass>
+enable_if_t<has_null_like_values<TypeClass>::value, NullPartitionResult>
 PartitionNullLikes(uint64_t* indices_begin, uint64_t* indices_end,
                    const ChunkedArrayResolver& resolver, NullPlacement null_placement) {
   Partitioner partitioner;
   if (null_placement == NullPlacement::AtStart) {
     auto null_likes_end = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<ArrayType>(ind);
-      return std::isnan(chunk.Value());
+      const auto chunk = resolver.Resolve(ind);
+      return std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtStart(indices_begin, indices_end, null_likes_end);
   } else {
     auto null_likes_begin = partitioner(indices_begin, indices_end, [&](uint64_t ind) {
-      const auto chunk = resolver.Resolve<ArrayType>(ind);
-      return !std::isnan(chunk.Value());
+      const auto chunk = resolver.Resolve(ind);
+      return !std::isnan(chunk.Value<TypeClass>());
     });
     return NullPartitionResult::NullsAtEnd(indices_begin, indices_end, null_likes_begin);
   }
@@ -595,7 +595,6 @@ struct ColumnComparator {
 
 template <typename ResolvedSortKey, typename Type>
 struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Location = typename ResolvedSortKey::LocationType;
 
   using ColumnComparator<ResolvedSortKey>::ColumnComparator;
@@ -603,8 +602,8 @@ struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
   int Compare(const Location& left, const Location& right) const override {
     const auto& sort_key = this->sort_key_;
 
-    const auto chunk_left = sort_key.template GetChunk<ArrayType>(left);
-    const auto chunk_right = sort_key.template GetChunk<ArrayType>(right);
+    const auto chunk_left = sort_key.GetChunk(left);
+    const auto chunk_right = sort_key.GetChunk(right);
     if (sort_key.null_count > 0) {
       const bool is_null_left = chunk_left.IsNull();
       const bool is_null_right = chunk_right.IsNull();
@@ -616,8 +615,9 @@ struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
         return this->null_placement_ == NullPlacement::AtStart ? 1 : -1;
       }
     }
-    return CompareTypeValues<Type>(chunk_left.Value(), chunk_right.Value(),
-                                   sort_key.order, this->null_placement_);
+    return CompareTypeValues<Type>(chunk_left.template Value<Type>(),
+                                   chunk_right.template Value<Type>(), sort_key.order,
+                                   this->null_placement_);
   }
 };
 
@@ -731,10 +731,7 @@ struct ResolvedRecordBatchSortKey {
 
   using LocationType = int64_t;
 
-  template <typename ArrayType>
-  ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
-    return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
-  }
+  ResolvedChunk GetChunk(int64_t index) const { return {&array, index}; }
 
   const std::shared_ptr<DataType> type;
   std::shared_ptr<Array> owned_array;
@@ -754,9 +751,8 @@ struct ResolvedTableSortKey {
 
   using LocationType = ::arrow::internal::ChunkLocation;
 
-  template <typename ArrayType>
-  ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
-    return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]), loc.index_in_chunk};
+  ResolvedChunk GetChunk(::arrow::internal::ChunkLocation loc) const {
+    return {chunks[loc.chunk_index], loc.index_in_chunk};
   }
 
   // Make a vector of ResolvedSortKeys for the sort keys and the given table.

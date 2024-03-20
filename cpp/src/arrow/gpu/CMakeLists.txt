@@ -59,8 +59,8 @@ add_arrow_lib(arrow_cuda
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
               ${ARROW_CUDA_LINK_LIBS}
+              arrow_shared
               ${ARROW_CUDA_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared

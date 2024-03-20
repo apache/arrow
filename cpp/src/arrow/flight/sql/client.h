@@ -350,6 +350,33 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
 
+  /// \brief Sets session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] request            The session options to set.
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
+    return impl_->SetSessionOptions(options, request);
+  }
+
+  /// \brief Gets current session options.
+  ///
+  /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] request            The (empty) GetSessionOptions request object.
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
+    return impl_->GetSessionOptions(options, request);
+  }
+
+  /// \brief Explicitly closes the session if applicable.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The (empty) CloseSession request object.
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
+                                                   const CloseSessionRequest& request) {
+    return impl_->CloseSession(options, request);
+  }
+
   /// \brief Extends the expiration of a FlightEndpoint.
   ///
   /// \param[in] options      RPC-layer hints for this call.

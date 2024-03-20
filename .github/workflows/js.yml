@@ -41,7 +41,7 @@ permissions:
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 18
+    name: AMD64 Debian 12 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60

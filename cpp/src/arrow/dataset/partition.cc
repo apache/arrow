@@ -53,7 +53,7 @@ namespace dataset {
 namespace {
 /// Apply UriUnescape, then ensure the results are valid UTF-8.
 Result<std::string> SafeUriUnescape(std::string_view encoded) {
-  auto decoded = ::arrow::internal::UriUnescape(encoded);
+  auto decoded = ::arrow::util::UriUnescape(encoded);
   if (!util::ValidateUTF8(decoded)) {
     return Status::Invalid("Partition segment was not valid UTF-8 after URL decoding: ",
                            encoded);
@@ -755,7 +755,7 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
       // field_index <-> path nesting relation
       segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
-      segments[i] = name + "=" + arrow::internal::UriEscape(values[i]->ToString());
+      segments[i] = name + "=" + arrow::util::UriEscape(values[i]->ToString());
     }
   }
 

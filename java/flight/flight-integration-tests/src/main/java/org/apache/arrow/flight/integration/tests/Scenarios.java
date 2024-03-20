@@ -44,12 +44,14 @@ final class Scenarios {
     scenarios.put("expiration_time:renew_flight_endpoint", ExpirationTimeRenewFlightEndpointScenario::new);
     scenarios.put("expiration_time:do_get", ExpirationTimeDoGetScenario::new);
     scenarios.put("expiration_time:list_actions", ExpirationTimeListActionsScenario::new);
+    scenarios.put("location:reuse_connection", LocationReuseConnectionScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
     scenarios.put("ordered", OrderedScenario::new);
     scenarios.put("poll_flight_info", PollFlightInfoScenario::new);
     scenarios.put("flight_sql", FlightSqlScenario::new);
     scenarios.put("flight_sql:extension", FlightSqlExtensionScenario::new);
     scenarios.put("app_metadata_flight_info_endpoint", AppMetadataFlightInfoEndpointScenario::new);
+    scenarios.put("session_options", SessionOptionsScenario::new);
   }
 
   private static Scenarios getInstance() {

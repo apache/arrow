@@ -36,11 +36,15 @@ struct _GGandivaFunctionRegistryClass
 };
 
 GARROW_AVAILABLE_IN_15_0
-GGandivaFunctionRegistry *ggandiva_function_registry_default(void);
-GGandivaFunctionRegistry *ggandiva_function_registry_new(void);
+GGandivaFunctionRegistry *
+ggandiva_function_registry_default(void);
+GGandivaFunctionRegistry *
+ggandiva_function_registry_new(void);
 GGandivaNativeFunction *
 ggandiva_function_registry_lookup(GGandivaFunctionRegistry *function_registry,
                                   GGandivaFunctionSignature *function_signature);
-GList *ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *function_registry);
+GList *
+ggandiva_function_registry_get_native_functions(
+  GGandivaFunctionRegistry *function_registry);
 
 G_END_DECLS

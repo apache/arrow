@@ -164,11 +164,12 @@ class Docker(Command):
 class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
-                 params=None):
+                 params=None, debug=False):
         compose_bin = default_bin(compose_bin, 'docker-compose')
         self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
                                     params)
         self.bin = compose_bin
+        self.debug = debug
         self.pull_memory = set()
 
     def clear_pull_memory(self):
@@ -296,6 +297,8 @@ class DockerCompose(Command):
                 self._execute_docker("buildx", "build", *args)
             elif using_docker:
                 # better for caching
+                if self.debug:
+                    args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
                 for img in cache_from:
@@ -307,6 +310,8 @@ class DockerCompose(Command):
                 ])
                 self._execute_docker("build", *args)
             else:
+                if self.debug:
+                    args.append("--progress=plain")
                 self._execute_compose("build", *args, service['name'])
 
         service = self.config.get(service_name)

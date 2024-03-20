@@ -610,7 +610,16 @@ class DatasetWriter::DatasetWriterImpl {
       bool will_open_file = false;
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
-
+      // GH-39965: `NextWritableChunk` may return an empty batch to signal
+      // that the current file has reached `max_rows_per_file` and should be
+      // finished.
+      if (next_chunk->num_rows() == 0) {
+        batch = std::move(remainder);
+        if (batch) {
+          RETURN_NOT_OK(dir_queue->FinishCurrentFile());
+        }
+        continue;
+      }
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {

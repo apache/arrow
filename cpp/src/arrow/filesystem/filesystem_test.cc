@@ -152,6 +152,18 @@ TEST(PathUtil, GetAbstractPathParent) {
   AssertPairEqual(pair, {"abc", "def\\ghi"});
 }
 
+TEST(PathUtil, ValidateAbstractPath) {
+  ASSERT_OK(ValidateAbstractPath(""));
+  ASSERT_OK(ValidateAbstractPath("abc"));
+  ASSERT_OK(ValidateAbstractPath("abc/def"));
+  ASSERT_OK(ValidateAbstractPath("abc/def.ghi"));
+  ASSERT_OK(ValidateAbstractPath("abc/def\\ghi"));
+
+  // Extraneous separators
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("//"));
+  ASSERT_RAISES(Invalid, ValidateAbstractPath("abc//def"));
+}
+
 TEST(PathUtil, ValidateAbstractPathParts) {
   ASSERT_OK(ValidateAbstractPathParts({}));
   ASSERT_OK(ValidateAbstractPathParts({"abc"}));

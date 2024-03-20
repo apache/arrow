@@ -62,7 +62,7 @@ struct ARROW_EXPORT LocalFileSystemOptions {
 
   bool Equals(const LocalFileSystemOptions& other) const;
 
-  static Result<LocalFileSystemOptions> FromUri(const ::arrow::internal::Uri& uri,
+  static Result<LocalFileSystemOptions> FromUri(const ::arrow::util::Uri& uri,
                                                 std::string* out_path);
 };
 
@@ -89,16 +89,21 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   LocalFileSystemOptions options() const { return options_; }
 
   /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
   using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
   /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
   FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -113,10 +118,10 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
  protected:
   LocalFileSystemOptions options_;

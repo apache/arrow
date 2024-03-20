@@ -64,7 +64,7 @@ to_duckdb <- function(.data,
   tbl <- dplyr::tbl(con, table_name)
   groups <- dplyr::groups(.data)
   if (length(groups)) {
-    tbl <- dplyr::group_by(tbl, groups)
+    tbl <- dplyr::group_by(tbl, !!!groups)
   }
 
   if (auto_disconnect) {

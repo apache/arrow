@@ -89,20 +89,22 @@ git commit -m "[Website] Update documentations for ${version}"
 
 # Update DOCUMENTATION_OPTIONS.theme_switcher_version_match and
 # DOCUMENTATION_OPTIONS.show_version_warning_banner
-pushd docs/${previous_series}
-find ./ \
-  -type f \
-  -exec \
-    sed -i.bak \
-      -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_version}';/g" \
-      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
-      {} \;
-find ./ -name '*.bak' -delete
-popd
-git add docs/${previous_series}
-git commit -m "[Website] Update warning banner for ${previous_series}"
-git clean -d -f -x
-popd
+if [ "$is_major_release" = "yes" ] ; then
+  pushd docs/${previous_series}
+  find ./ \
+    -type f \
+    -exec \
+      sed -i.bak \
+        -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_series}';/g" \
+        -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
+        {} \;
+  find ./ -name '*.bak' -delete
+  popd
+  git add docs/${previous_series}
+  git commit -m "[Website] Update warning banner for ${previous_series}"
+  git clean -d -f -x
+  popd
+fi
 
 : ${PUSH:=1}
 

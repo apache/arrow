@@ -142,7 +142,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.0</version>
+        <version>1.7.1</version>
       </extension>
     </extensions>
     <plugins>
@@ -164,7 +164,7 @@
           issues in the arrow-tools tests looking up FlatBuffer
           dependencies.
          -->
-        <version>3.2.4</version>
+        <version>3.5.2</version>
         <executions>
           <execution>
             <id>shade-main</id>

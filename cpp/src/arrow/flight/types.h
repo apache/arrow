@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/flight/type_fwd.h"
@@ -51,11 +52,11 @@ class DictionaryMemo;
 
 }  // namespace ipc
 
-namespace internal {
+namespace util {
 
 class Uri;
 
-}  // namespace internal
+}  // namespace util
 
 namespace flight {
 
@@ -184,6 +185,9 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   static const ActionType kCancelFlightInfo;
   static const ActionType kRenewFlightEndpoint;
+  static const ActionType kSetSessionOptions;
+  static const ActionType kGetSessionOptions;
+  static const ActionType kCloseSession;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -420,6 +424,14 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
 
+  /// \brief Get the fallback URI.
+  ///
+  /// arrow-flight-reuse-connection://? means that a client may attempt to
+  /// reuse an existing connection to a Flight service to fetch data instead
+  /// of creating a new connection to one of the other locations listed in a
+  /// FlightEndpoint response.
+  static const Location& ReuseConnection();
+
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
@@ -462,7 +474,7 @@ struct ARROW_FLIGHT_EXPORT Location {
  private:
   friend class FlightClient;
   friend class FlightServerBase;
-  std::shared_ptr<arrow::internal::Uri> uri_;
+  std::shared_ptr<arrow::util::Uri> uri_;
 };
 
 /// \brief A flight ticket and list of locations where the ticket can be
@@ -759,6 +771,199 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
+};
+
+/// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
+///
+/// By convention, an attempt to set a valueless (std::monostate) SessionOptionValue
+/// should attempt to unset or clear the named option value on the server.
+using SessionOptionValue = std::variant<std::monostate, std::string, bool, int64_t,
+                                        double, std::vector<std::string>>;
+
+/// \brief The result of setting a session option.
+enum class SetSessionOptionErrorValue : int8_t {
+  /// \brief The status of setting the option is unknown.
+  ///
+  /// Servers should avoid using this value (send a NOT_FOUND error if the requested
+  /// session is not known). Clients can retry the request.
+  kUnspecified,
+  /// \brief The given session option name is invalid.
+  kInvalidName,
+  /// \brief The session option value or type is invalid.
+  kInvalidValue,
+  /// \brief The session option cannot be set.
+  kError
+};
+std::string ToString(const SetSessionOptionErrorValue& error_value);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value);
+
+/// \brief The result of closing a session.
+enum class CloseSessionStatus : int8_t {
+  // \brief The session close status is unknown.
+  //
+  // Servers should avoid using this value (send a NOT_FOUND error if the requested
+  // session is not known). Clients can retry the request.
+  kUnspecified,
+  // \brief The session close request is complete.
+  //
+  // Subsequent requests with the same session produce a NOT_FOUND error.
+  kClosed,
+  // \brief The session close request is in progress.
+  //
+  // The client may retry the request.
+  kClosing,
+  // \brief The session is not closeable.
+  //
+  // The client should not retry the request.
+  kNotClosable
+};
+std::string ToString(const CloseSessionStatus& status);
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
+
+/// \brief A request to set a set of session options by name/value.
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsRequest& other) const;
+
+  friend bool operator==(const SetSessionOptionsRequest& left,
+                         const SetSessionOptionsRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SetSessionOptionsRequest& left,
+                         const SetSessionOptionsRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SetSessionOptionsRequest> Deserialize(std::string_view serialized);
+};
+
+/// \brief The result(s) of setting session option(s).
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
+  struct Error {
+    SetSessionOptionErrorValue value;
+
+    bool Equals(const Error& other) const { return value == other.value; }
+    friend bool operator==(const Error& left, const Error& right) {
+      return left.Equals(right);
+    }
+    friend bool operator!=(const Error& left, const Error& right) {
+      return !(left == right);
+    }
+  };
+
+  std::map<std::string, Error> errors;
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsResult& other) const;
+
+  friend bool operator==(const SetSessionOptionsResult& left,
+                         const SetSessionOptionsResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SetSessionOptionsResult& left,
+                         const SetSessionOptionsResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SetSessionOptionsResult> Deserialize(std::string_view serialized);
+};
+
+/// \brief A request to get current session options.
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest {
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsRequest& other) const;
+
+  friend bool operator==(const GetSessionOptionsRequest& left,
+                         const GetSessionOptionsRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const GetSessionOptionsRequest& left,
+                         const GetSessionOptionsRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<GetSessionOptionsRequest> Deserialize(std::string_view serialized);
+};
+
+/// \brief The current session options.
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsResult& other) const;
+
+  friend bool operator==(const GetSessionOptionsResult& left,
+                         const GetSessionOptionsResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const GetSessionOptionsResult& left,
+                         const GetSessionOptionsResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<GetSessionOptionsResult> Deserialize(std::string_view serialized);
+};
+
+/// \brief A request to close the open client session.
+struct ARROW_FLIGHT_EXPORT CloseSessionRequest {
+  std::string ToString() const;
+  bool Equals(const CloseSessionRequest& other) const;
+
+  friend bool operator==(const CloseSessionRequest& left,
+                         const CloseSessionRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CloseSessionRequest& left,
+                         const CloseSessionRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CloseSessionRequest> Deserialize(std::string_view serialized);
+};
+
+/// \brief The result of attempting to close the client session.
+struct ARROW_FLIGHT_EXPORT CloseSessionResult {
+  CloseSessionStatus status;
+
+  std::string ToString() const;
+  bool Equals(const CloseSessionResult& other) const;
+
+  friend bool operator==(const CloseSessionResult& left,
+                         const CloseSessionResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CloseSessionResult& left,
+                         const CloseSessionResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CloseSessionResult> Deserialize(std::string_view serialized);
 };
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.

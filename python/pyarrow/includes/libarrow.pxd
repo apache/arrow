@@ -245,6 +245,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
+        int byte_width()
 
     cdef cppclass CNullArray" arrow::NullArray"(CArray):
         CNullArray(int64_t length)
@@ -344,6 +345,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     CResult[unique_ptr[CResizableBuffer]] AllocateResizableBuffer(
         const int64_t size, CMemoryPool* pool)
+
+    cdef cppclass CSyncEvent" arrow::Device::SyncEvent":
+        pass
+
+    cdef cppclass CDevice" arrow::Device":
+        pass
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
     cdef CMemoryPool* c_system_memory_pool" arrow::system_memory_pool"()
@@ -954,8 +961,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
+        CResult[shared_ptr[CRecordBatch]] AddColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+        CResult[shared_ptr[CRecordBatch]] RemoveColumn(int i)
+        CResult[shared_ptr[CRecordBatch]] SetColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+
         const vector[shared_ptr[CArray]]& columns()
 
+        CResult[shared_ptr[CRecordBatch]] RenameColumns(const vector[c_string]&)
         CResult[shared_ptr[CRecordBatch]] SelectColumns(const vector[int]&)
 
         int num_columns()
@@ -969,6 +983,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
+
+        CResult[shared_ptr[CTensor]] ToTensor() const
 
     cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
         shared_ptr[CRecordBatch] batch
@@ -1152,7 +1168,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CScalar& other) const
         CStatus Validate() const
         CStatus ValidateFull() const
-        CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
         size_t operator()(const shared_ptr[CScalar]& scalar) const
@@ -2901,6 +2916,9 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    cdef struct ArrowDeviceArray:
+        pass
+
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
@@ -2929,6 +2947,23 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+    CStatus ExportChunkedArray(shared_ptr[CChunkedArray], ArrowArrayStream*)
+    CResult[shared_ptr[CChunkedArray]] ImportChunkedArray(ArrowArrayStream*)
+
+    CStatus ExportDeviceArray(const CArray&, shared_ptr[CSyncEvent],
+                              ArrowDeviceArray* out, ArrowSchema*)
+    CResult[shared_ptr[CArray]] ImportDeviceArray(
+        ArrowDeviceArray*, shared_ptr[CDataType])
+    CResult[shared_ptr[CArray]] ImportDeviceArray(
+        ArrowDeviceArray*, ArrowSchema*)
+
+    CStatus ExportDeviceRecordBatch(const CRecordBatch&, shared_ptr[CSyncEvent],
+                                    ArrowDeviceArray* out, ArrowSchema*)
+    CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
+        ArrowDeviceArray*, shared_ptr[CSchema])
+    CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
+        ArrowDeviceArray*, ArrowSchema*)
 
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
@@ -2981,3 +3016,6 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)
+
+cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
+    CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)

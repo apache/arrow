@@ -27,15 +27,13 @@ static inline std::shared_ptr<arrow::KeyValueMetadata>
 garrow_internal_hash_table_to_metadata(GHashTable *metadata)
 {
   auto arrow_metadata = std::make_shared<arrow::KeyValueMetadata>();
-  g_hash_table_foreach(metadata,
-                       [](gpointer key,
-                          gpointer value,
-                          gpointer user_data) {
-                         auto arrow_metadata =
-                           static_cast<std::shared_ptr<arrow::KeyValueMetadata> *>(user_data);
-                         (*arrow_metadata)->Append(static_cast<gchar *>(key),
-                                                   static_cast<gchar *>(value));
-                       },
-                       &arrow_metadata);
+  g_hash_table_foreach(
+    metadata,
+    [](gpointer key, gpointer value, gpointer user_data) {
+      auto arrow_metadata =
+        static_cast<std::shared_ptr<arrow::KeyValueMetadata> *>(user_data);
+      (*arrow_metadata)->Append(static_cast<gchar *>(key), static_cast<gchar *>(value));
+    },
+    &arrow_metadata);
   return arrow_metadata;
 }

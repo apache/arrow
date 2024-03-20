@@ -20,7 +20,9 @@ add_custom_target(arrow_flight)
 arrow_install_all_headers("arrow/flight")
 
 set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++ ${ARROW_PROTOBUF_LIBPROTOBUF})
-
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
@@ -66,8 +68,7 @@ list(APPEND
      ARROW_FLIGHT_TEST_INTERFACE_LIBS
      Boost::headers
      Boost::filesystem
-     Boost::system
-     ${ARROW_GTEST_GMOCK})
+     Boost::system)
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -260,9 +261,7 @@ if(ARROW_TESTING)
                 test_definitions.cc
                 test_util.cc
                 DEPENDENCIES
-                ${ARROW_GTEST_GTEST}
                 flight_grpc_gen
-                arrow_dependencies
                 SHARED_LINK_LIBS
                 ${ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS

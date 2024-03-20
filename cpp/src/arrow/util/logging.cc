@@ -17,6 +17,8 @@
 
 #include "arrow/util/logging.h"
 
+#include "arrow/util/config.h"
+
 #ifdef ARROW_WITH_BACKTRACE
 #include <execinfo.h>
 #endif
@@ -28,7 +30,7 @@
 #include <signal.h>
 #include <vector>
 
-#include "glog/logging.h"
+#include <glog/logging.h>
 
 // Restore our versions of DCHECK and friends, as GLog defines its own
 #undef DCHECK
@@ -114,7 +116,7 @@ static std::unique_ptr<std::string> log_dir_;
 #ifdef ARROW_USE_GLOG
 
 // Glog's severity map.
-static int GetMappedSeverity(ArrowLogLevel severity) {
+static google::LogSeverity GetMappedSeverity(ArrowLogLevel severity) {
   switch (severity) {
     case ArrowLogLevel::ARROW_DEBUG:
       return google::GLOG_INFO;
@@ -146,7 +148,7 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
   app_name_.reset(new std::string(app_name));
   log_dir_.reset(new std::string(log_dir));
 #ifdef ARROW_USE_GLOG
-  int mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
+  google::LogSeverity mapped_severity_threshold = GetMappedSeverity(severity_threshold_);
   google::SetStderrLogging(mapped_severity_threshold);
   // Enable log file if log_dir is not empty.
   if (!log_dir.empty()) {
@@ -171,7 +173,7 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
     google::SetLogFilenameExtension(app_name_without_path.c_str());
     for (int i = static_cast<int>(severity_threshold_);
          i <= static_cast<int>(ArrowLogLevel::ARROW_FATAL); ++i) {
-      int level = GetMappedSeverity(static_cast<ArrowLogLevel>(i));
+      google::LogSeverity level = GetMappedSeverity(static_cast<ArrowLogLevel>(i));
       google::SetLogDestination(level, dir_ends_with_slash.c_str());
     }
   }

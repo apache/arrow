@@ -565,6 +565,9 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 }
 
 struct ArrayExporter {
+  explicit ArrayExporter(bool device_interface = false)
+      : device_interface_(device_interface) {}
+
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
@@ -586,8 +589,12 @@ struct ArrayExporter {
 
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
-                   [](const std::shared_ptr<Buffer>& buffer) -> const void* {
-                     return buffer ? buffer->data() : nullptr;
+                   [this](const std::shared_ptr<Buffer>& buffer) -> const void* {
+                     return buffer
+                                ? (device_interface_
+                                       ? reinterpret_cast<const void*>(buffer->address())
+                                       : buffer->data())
+                                : nullptr;
                    });
 
     if (need_variadic_buffer_sizes) {
@@ -602,15 +609,16 @@ struct ArrayExporter {
 
     // Export dictionary
     if (data->dictionary != nullptr) {
-      dict_exporter_ = std::make_unique<ArrayExporter>();
+      dict_exporter_ = std::make_unique<ArrayExporter>(device_interface_);
       RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
     export_.children_.resize(data->child_data.size());
-    child_exporters_.resize(data->child_data.size());
-    for (size_t i = 0; i < data->child_data.size(); ++i) {
-      RETURN_NOT_OK(child_exporters_[i].Export(data->child_data[i]));
+    child_exporters_.reserve(data->child_data.size());
+    for (const auto& child : data->child_data) {
+      child_exporters_.emplace_back(ArrayExporter{device_interface_});
+      RETURN_NOT_OK(child_exporters_.back().Export(child));
     }
 
     // Store owning pointer to ArrayData
@@ -662,6 +670,7 @@ struct ArrayExporter {
   ExportedArrayPrivateData export_;
   std::unique_ptr<ArrayExporter> dict_exporter_;
   std::vector<ArrayExporter> child_exporters_;
+  bool device_interface_ = false;
 };
 
 }  // namespace
@@ -756,7 +765,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> 
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter;
+  ArrayExporter exporter(/*device_interface*/ true);
   RETURN_NOT_OK(exporter.Export(array.data()));
   exporter.Finish(&out->array);
 
@@ -794,7 +803,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter;
+  ArrayExporter exporter(/*device_interface*/ true);
   RETURN_NOT_OK(exporter.Export(array->data()));
   exporter.Finish(&out->array);
 
@@ -1956,6 +1965,14 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
     return maybe_schema.status();
   }
   return ImportRecordBatch(array, *maybe_schema);
+}
+
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id) {
+  if (device_type != ARROW_DEVICE_CPU) {
+    return Status::NotImplemented("Only importing data on CPU is supported");
+  }
+  return default_cpu_memory_manager();
 }
 
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,

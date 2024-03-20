@@ -246,5 +246,42 @@ count
                             encoding: encoding,
                             compression: :gzip))
     end
+
+    sub_test_case(":timestamp_parsers") do
+      test(":iso8601") do
+        data_type = Arrow::TimestampDataType.new(:second,
+                                                 GLib::TimeZone.new("UTC"))
+        timestamps = [
+          Time.iso8601("2024-03-16T23:54:12Z"),
+          Time.iso8601("2024-03-16T23:54:13Z"),
+          Time.iso8601("2024-03-16T23:54:14Z"),
+        ]
+        values = Arrow::TimestampArray.new(data_type, timestamps)
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: true, timestamp_parsers: [:iso8601]))
+value
+#{timestamps[0].iso8601}
+#{timestamps[1].iso8601}
+#{timestamps[2].iso8601}
+                     CSV
+      end
+
+      test("String") do
+        timestamps = [
+          Time.iso8601("2024-03-16T23:54:12Z"),
+          Time.iso8601("2024-03-16T23:54:13Z"),
+          Time.iso8601("2024-03-16T23:54:14Z"),
+        ]
+        values = Arrow::TimestampArray.new(:second, timestamps)
+        format = "%Y-%m-%dT%H:%M:%S"
+        assert_equal(Arrow::Table.new(value: values).schema,
+                     load_csv(<<-CSV, headers: true, timestamp_parsers: [format]).schema)
+value
+#{timestamps[0].iso8601.chomp("Z")}
+#{timestamps[1].iso8601.chomp("Z")}
+#{timestamps[2].iso8601.chomp("Z")}
+                     CSV
+      end
+    end
   end
 end

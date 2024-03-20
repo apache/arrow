@@ -1134,8 +1134,8 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         ----------
         table : Table
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for RecordBatch chunks. Individual chunks may
+            be smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact

@@ -47,15 +47,27 @@
 #cmakedefine ARROW_JEMALLOC
 #cmakedefine ARROW_JEMALLOC_VENDORED
 #cmakedefine ARROW_JSON
+#cmakedefine ARROW_MIMALLOC
 #cmakedefine ARROW_ORC
 #cmakedefine ARROW_PARQUET
 #cmakedefine ARROW_SUBSTRAIT
 
+#cmakedefine ARROW_AZURE
 #cmakedefine ARROW_ENABLE_THREADING
 #cmakedefine ARROW_GCS
+#cmakedefine ARROW_HDFS
 #cmakedefine ARROW_S3
+#cmakedefine ARROW_USE_GLOG
 #cmakedefine ARROW_USE_NATIVE_INT128
+#cmakedefine ARROW_WITH_BROTLI
+#cmakedefine ARROW_WITH_BZ2
+#cmakedefine ARROW_WITH_LZ4
 #cmakedefine ARROW_WITH_MUSL
 #cmakedefine ARROW_WITH_OPENTELEMETRY
+#cmakedefine ARROW_WITH_RE2
+#cmakedefine ARROW_WITH_SNAPPY
 #cmakedefine ARROW_WITH_UCX
+#cmakedefine ARROW_WITH_UTF8PROC
+#cmakedefine ARROW_WITH_ZLIB
+#cmakedefine ARROW_WITH_ZSTD
 #cmakedefine PARQUET_REQUIRE_ENCRYPTION

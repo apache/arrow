@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDictinaryArrayBuilder < Test::Unit::TestCase
+class TestDictionaryArrayBuilder < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup

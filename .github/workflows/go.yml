@@ -90,7 +90,7 @@ jobs:
           echo "JSON" >> "$GITHUB_OUTPUT"
 
   docker:
-    name: ${{ matrix.arch-label }} Debian 11 Go ${{ matrix.go }}
+    name: ${{ matrix.arch-label }} Debian 12 Go ${{ matrix.go }}
     needs: docker-targets
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -154,7 +154,7 @@ jobs:
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
           CONBENCH_REF: ${{ github.ref_name }}
-          CONBENCH_MACHINE_INFO_NAME: ${{ matrix.arch }}-debian-11
+          CONBENCH_MACHINE_INFO_NAME: ${{ matrix.arch }}-debian-12
         run: |
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
@@ -181,7 +181,7 @@ jobs:
           GOARCH=386 go build ./...
 
   docker_cgo:
-    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
+    name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 20
@@ -222,7 +222,7 @@ jobs:
 
 
   docker_cgo_python:
-    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO Python
+    name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO Python
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15

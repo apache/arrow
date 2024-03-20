@@ -50,42 +50,38 @@ typedef enum {
   GARROW_FILE_TYPE_DIR
 } GArrowFileType;
 
-
 /* arrow::fs::FileInfo */
 
 #define GARROW_TYPE_FILE_INFO (garrow_file_info_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFileInfo,
-                         garrow_file_info,
-                         GARROW,
-                         FILE_INFO,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowFileInfo, garrow_file_info, GARROW, FILE_INFO, GObject)
 struct _GArrowFileInfoClass
 {
   GObjectClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_17
-GArrowFileInfo *garrow_file_info_new(void);
+GArrowFileInfo *
+garrow_file_info_new(void);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_info_equal(GArrowFileInfo *file_info,
-                                GArrowFileInfo *other_file_info);
+gboolean
+garrow_file_info_equal(GArrowFileInfo *file_info, GArrowFileInfo *other_file_info);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_info_is_file(GArrowFileInfo *file_info);
+gboolean
+garrow_file_info_is_file(GArrowFileInfo *file_info);
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_info_is_dir(GArrowFileInfo *file_info);
+gboolean
+garrow_file_info_is_dir(GArrowFileInfo *file_info);
 GARROW_AVAILABLE_IN_0_17
-gchar *garrow_file_info_to_string(GArrowFileInfo *file_info);
+gchar *
+garrow_file_info_to_string(GArrowFileInfo *file_info);
 
 /* arrow::fs::FileSelector */
 
 #define GARROW_TYPE_FILE_SELECTOR (garrow_file_selector_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFileSelector,
-                         garrow_file_selector,
-                         GARROW,
-                         FILE_SELECTOR,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowFileSelector, garrow_file_selector, GARROW, FILE_SELECTOR, GObject)
 struct _GArrowFileSelectorClass
 {
   GObjectClass parent_class;
@@ -94,11 +90,8 @@ struct _GArrowFileSelectorClass
 /* arrow::fs::FileSystem */
 
 #define GARROW_TYPE_FILE_SYSTEM (garrow_file_system_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowFileSystem,
-                         garrow_file_system,
-                         GARROW,
-                         FILE_SYSTEM,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowFileSystem, garrow_file_system, GARROW, FILE_SYSTEM, GObject)
 struct _GArrowFileSystemClass
 {
   GObjectClass parent_class;
@@ -106,11 +99,11 @@ struct _GArrowFileSystemClass
 
 GARROW_AVAILABLE_IN_3_0
 GArrowFileSystem *
-garrow_file_system_create(const gchar *uri,
-                          GError **error);
+garrow_file_system_create(const gchar *uri, GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gchar *garrow_file_system_get_type_name(GArrowFileSystem *file_system);
+gchar *
+garrow_file_system_get_type_name(GArrowFileSystem *file_system);
 
 GARROW_AVAILABLE_IN_0_17
 GArrowFileInfo *
@@ -119,10 +112,11 @@ garrow_file_system_get_file_info(GArrowFileSystem *file_system,
                                  GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-GList *garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
-                                               const gchar **paths,
-                                               gsize n_paths,
-                                               GError **error);
+GList *
+garrow_file_system_get_file_infos_paths(GArrowFileSystem *file_system,
+                                        const gchar **paths,
+                                        gsize n_paths,
+                                        GError **error);
 
 GARROW_AVAILABLE_IN_0_17
 GList *
@@ -131,43 +125,50 @@ garrow_file_system_get_file_infos_selector(GArrowFileSystem *file_system,
                                            GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_create_dir(GArrowFileSystem *file_system,
+gboolean
+garrow_file_system_create_dir(GArrowFileSystem *file_system,
+                              const gchar *path,
+                              gboolean recursive,
+                              GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_file_system_delete_dir(GArrowFileSystem *file_system,
+                              const gchar *path,
+                              GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
                                        const gchar *path,
-                                       gboolean recursive,
                                        GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_delete_dir(GArrowFileSystem *file_system,
-                                       const gchar *path,
-                                       GError **error);
+gboolean
+garrow_file_system_delete_file(GArrowFileSystem *file_system,
+                               const gchar *path,
+                               GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_delete_dir_contents(GArrowFileSystem *file_system,
-                                                const gchar *path,
-                                                GError **error);
+gboolean
+garrow_file_system_delete_files(GArrowFileSystem *file_system,
+                                const gchar **paths,
+                                gsize n_paths,
+                                GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_delete_file(GArrowFileSystem *file_system,
-                                        const gchar *path,
-                                        GError **error);
+gboolean
+garrow_file_system_move(GArrowFileSystem *file_system,
+                        const gchar *src,
+                        const gchar *dest,
+                        GError **error);
 
 GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_delete_files(GArrowFileSystem *file_system,
-                                        const gchar **paths,
-                                        gsize n_paths,
-                                        GError **error);
-
-GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_move(GArrowFileSystem *file_system,
-                                 const gchar *src,
-                                 const gchar *dest,
-                                 GError **error);
-
-GARROW_AVAILABLE_IN_0_17
-gboolean garrow_file_system_copy_file(GArrowFileSystem *file_system,
-                                      const gchar *src,
-                                      const gchar *dest,
-                                      GError **error);
+gboolean
+garrow_file_system_copy_file(GArrowFileSystem *file_system,
+                             const gchar *src,
+                             const gchar *dest,
+                             GError **error);
 
 GARROW_AVAILABLE_IN_0_17
 GArrowInputStream *
@@ -242,8 +243,6 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
                                                      gdouble average_latency,
                                                      gint32 seed);
 
-
-
 #define GARROW_TYPE_MOCK_FILE_SYSTEM (garrow_mock_file_system_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMockFileSystem,
                          garrow_mock_file_system,
@@ -255,7 +254,6 @@ struct _GArrowMockFileSystemClass
   GArrowFileSystemClass parent_class;
 };
 
-
 #define GARROW_TYPE_HDFS_FILE_SYSTEM (garrow_hdfs_file_system_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowHDFSFileSystem,
                          garrow_hdfs_file_system,
@@ -266,7 +264,6 @@ struct _GArrowHDFSFileSystemClass
 {
   GArrowFileSystemClass parent_class;
 };
-
 
 /**
  * GArrowS3LogLevel:
@@ -292,13 +289,9 @@ typedef enum {
   GARROW_S3_LOG_LEVEL_TRACE,
 } GArrowS3LogLevel;
 
-
 #define GARROW_TYPE_S3_GLOBAL_OPTIONS (garrow_s3_global_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowS3GlobalOptions,
-                         garrow_s3_global_options,
-                         GARROW,
-                         S3_GLOBAL_OPTIONS,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowS3GlobalOptions, garrow_s3_global_options, GARROW, S3_GLOBAL_OPTIONS, GObject)
 struct _GArrowS3GlobalOptionsClass
 {
   GObjectClass parent_class;
@@ -308,41 +301,30 @@ GARROW_AVAILABLE_IN_7_0
 GArrowS3GlobalOptions *
 garrow_s3_global_options_new(void);
 
-
 GARROW_AVAILABLE_IN_7_0
 gboolean
 garrow_s3_is_enabled(void);
 GARROW_AVAILABLE_IN_7_0
 gboolean
-garrow_s3_initialize(GArrowS3GlobalOptions *options,
-                     GError **error);
+garrow_s3_initialize(GArrowS3GlobalOptions *options, GError **error);
 GARROW_AVAILABLE_IN_7_0
 gboolean
 garrow_s3_finalize(GError **error);
 
-
 #define GARROW_TYPE_S3_FILE_SYSTEM (garrow_s3_file_system_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowS3FileSystem,
-                         garrow_s3_file_system,
-                         GARROW,
-                         S3_FILE_SYSTEM,
-                         GArrowFileSystem)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowS3FileSystem, garrow_s3_file_system, GARROW, S3_FILE_SYSTEM, GArrowFileSystem)
 struct _GArrowS3FileSystemClass
 {
   GArrowFileSystemClass parent_class;
 };
 
-
 #define GARROW_TYPE_GCS_FILE_SYSTEM (garrow_gcs_file_system_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowGCSFileSystem,
-                         garrow_gcs_file_system,
-                         GARROW,
-                         GCS_FILE_SYSTEM,
-                         GArrowFileSystem)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowGCSFileSystem, garrow_gcs_file_system, GARROW, GCS_FILE_SYSTEM, GArrowFileSystem)
 struct _GArrowGCSFileSystemClass
 {
   GArrowFileSystemClass parent_class;
 };
-
 
 G_END_DECLS

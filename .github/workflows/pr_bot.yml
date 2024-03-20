@@ -84,7 +84,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Install Archery and Crossbow dependencies
         run: pip install -e arrow/dev/archery[bot]
       - name: Handle PR workflow event

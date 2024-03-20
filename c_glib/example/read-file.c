@@ -32,31 +32,30 @@ print_array(GArrowArray *array)
   g_print("[");
   n = garrow_array_get_length(array);
 
-#define ARRAY_CASE(type, Type, TYPE, format)                            \
-  case GARROW_TYPE_ ## TYPE:                                            \
-    {                                                                   \
-      GArrow ## Type ## Array *real_array;                              \
-      real_array = GARROW_ ## TYPE ## _ARRAY(array);                    \
-      for (i = 0; i < n; i++) {                                         \
-        if (i > 0) {                                                    \
-          g_print(", ");                                                \
-        }                                                               \
-        g_print(format,                                                 \
-                garrow_ ## type ## _array_get_value(real_array, i));    \
-      }                                                                 \
-    }                                                                   \
+#define ARRAY_CASE(type, Type, TYPE, format)                                             \
+  case GARROW_TYPE_##TYPE:                                                               \
+    {                                                                                    \
+      GArrow##Type##Array *real_array;                                                   \
+      real_array = GARROW_##TYPE##_ARRAY(array);                                         \
+      for (i = 0; i < n; i++) {                                                          \
+        if (i > 0) {                                                                     \
+          g_print(", ");                                                                 \
+        }                                                                                \
+        g_print(format, garrow_##type##_array_get_value(real_array, i));                 \
+      }                                                                                  \
+    }                                                                                    \
     break
 
   switch (value_type) {
-    ARRAY_CASE(uint8,  UInt8,  UINT8,  "%hhu");
+    ARRAY_CASE(uint8, UInt8, UINT8, "%hhu");
     ARRAY_CASE(uint16, UInt16, UINT16, "%" G_GUINT16_FORMAT);
     ARRAY_CASE(uint32, UInt32, UINT32, "%" G_GUINT32_FORMAT);
     ARRAY_CASE(uint64, UInt64, UINT64, "%" G_GUINT64_FORMAT);
-    ARRAY_CASE( int8,   Int8,   INT8,  "%hhd");
-    ARRAY_CASE( int16,  Int16,  INT16, "%" G_GINT16_FORMAT);
-    ARRAY_CASE( int32,  Int32,  INT32, "%" G_GINT32_FORMAT);
-    ARRAY_CASE( int64,  Int64,  INT64, "%" G_GINT64_FORMAT);
-    ARRAY_CASE( float,  Float,  FLOAT, "%g");
+    ARRAY_CASE(int8, Int8, INT8, "%hhd");
+    ARRAY_CASE(int16, Int16, INT16, "%" G_GINT16_FORMAT);
+    ARRAY_CASE(int32, Int32, INT32, "%" G_GINT32_FORMAT);
+    ARRAY_CASE(int64, Int64, INT64, "%" G_GINT64_FORMAT);
+    ARRAY_CASE(float, Float, FLOAT, "%g");
     ARRAY_CASE(double, Double, DOUBLE, "%g");
   default:
     break;
@@ -93,8 +92,7 @@ main(int argc, char **argv)
 
   if (argc > 1)
     input_path = argv[1];
-  input = garrow_memory_mapped_input_stream_new(input_path,
-                                                &error);
+  input = garrow_memory_mapped_input_stream_new(input_path, &error);
   if (!input) {
     g_print("failed to open file: %s\n", error->message);
     g_error_free(error);
@@ -105,8 +103,7 @@ main(int argc, char **argv)
     GArrowRecordBatchFileReader *reader;
 
     reader =
-      garrow_record_batch_file_reader_new(GARROW_SEEKABLE_INPUT_STREAM(input),
-                                          &error);
+      garrow_record_batch_file_reader_new(GARROW_SEEKABLE_INPUT_STREAM(input), &error);
     if (!reader) {
       g_print("failed to open file reader: %s\n", error->message);
       g_error_free(error);

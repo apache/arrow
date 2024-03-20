@@ -102,6 +102,7 @@ RUN apt-get update -y -q && \
         libxml2-dev \
         libzstd-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \
@@ -188,6 +189,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \

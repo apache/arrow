@@ -36,9 +36,10 @@ sources = files(
   'record-batch.cpp',
   'scalar.cpp',
   'schema.cpp',
-  'table.cpp',
   'table-builder.cpp',
+  'table.cpp',
   'tensor.cpp',
+  'timestamp-parser.cpp',
   'type.cpp',
 )
 
@@ -93,15 +94,15 @@ c_headers = files(
   'error.h',
   'expression.h',
   'field.h',
-  'gobject-type.h',
   'interval.h',
   'memory-pool.h',
   'record-batch.h',
   'scalar.h',
   'schema.h',
-  'table.h',
   'table-builder.h',
+  'table.h',
   'tensor.h',
+  'timestamp-parser.h',
   'type.h',
 )
 
@@ -160,9 +161,10 @@ cpp_headers = files(
   'record-batch.hpp',
   'scalar.hpp',
   'schema.hpp',
-  'table.hpp',
   'table-builder.hpp',
+  'table.hpp',
   'tensor.hpp',
+  'timestamp-parser.hpp',
   'type.hpp',
 )
 
@@ -279,18 +281,16 @@ if have_gi
                                       extra_args: [
                                         '--warn-all',
                                       ],
-                                      fatal_warnings: gi_fatal_warnings,
                                       header: 'arrow-glib/arrow-glib.h',
                                       identifier_prefix: 'GArrow',
                                       includes: [
                                         'GObject-2.0',
                                         'Gio-2.0',
                                       ],
-                                      install: true,
                                       namespace: 'Arrow',
-                                      nsversion: api_version,
                                       sources: sources + c_headers + enums,
-                                      symbol_prefix: 'garrow')
+                                      symbol_prefix: 'garrow',
+                                      kwargs: generate_gi_common_args)
 
   if generate_vapi
     arrow_glib_vapi = gnome.generate_vapi('arrow-glib',

@@ -29,26 +29,29 @@
 
 GArrowRecordBatchReader *
 garrow_record_batch_reader_new_raw(
-  std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader,
-  GList *sources);
+  std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader, GList *sources);
 std::shared_ptr<arrow::ipc::RecordBatchReader>
 garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
 
 GArrowTableBatchReader *
-garrow_table_batch_reader_new_raw(
-  std::shared_ptr<arrow::TableBatchReader> *arrow_reader,
-  GArrowTable *table);
+garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader,
+                                  GArrowTable *table);
 std::shared_ptr<arrow::TableBatchReader>
 garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader);
 
-GArrowRecordBatchStreamReader *garrow_record_batch_stream_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_reader);
+GArrowRecordBatchStreamReader *
+garrow_record_batch_stream_reader_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_reader);
 
 GArrowRecordBatchFileReader *
-garrow_record_batch_file_reader_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileReader> *arrow_reader);
-std::shared_ptr<arrow::ipc::RecordBatchFileReader> garrow_record_batch_file_reader_get_raw(GArrowRecordBatchFileReader *reader);
+garrow_record_batch_file_reader_new_raw(
+  std::shared_ptr<arrow::ipc::RecordBatchFileReader> *arrow_reader);
+std::shared_ptr<arrow::ipc::RecordBatchFileReader>
+garrow_record_batch_file_reader_get_raw(GArrowRecordBatchFileReader *reader);
 
 GArrowFeatherFileReader *
-garrow_feather_file_reader_new_raw(std::shared_ptr<arrow::ipc::feather::Reader> *arrow_reader);
+garrow_feather_file_reader_new_raw(
+  std::shared_ptr<arrow::ipc::feather::Reader> *arrow_reader);
 std::shared_ptr<arrow::ipc::feather::Reader>
 garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader);
 

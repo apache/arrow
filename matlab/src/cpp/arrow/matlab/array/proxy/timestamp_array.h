@@ -23,9 +23,10 @@
 
 namespace arrow::matlab::array::proxy {
 
-    using TimestampArray = NumericArray<arrow::TimestampType>;
+using TimestampArray = NumericArray<arrow::TimestampType>;
 
-    // Specialization of NumericArray::Make for arrow::TimestampType
-    template<>
-    ARROW_MATLAB_EXPORT libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-}
+// Specialization of NumericArray::Make for arrow::TimestampType
+template <>
+ARROW_MATLAB_EXPORT libmexclass::proxy::MakeResult TimestampArray::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments);
+}  // namespace arrow::matlab::array::proxy

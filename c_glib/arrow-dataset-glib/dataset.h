@@ -27,18 +27,15 @@ G_BEGIN_DECLS
 
 GARROW_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
-gadataset_dataset_begin_scan(GADatasetDataset *dataset,
-                             GError **error);
+gadataset_dataset_begin_scan(GADatasetDataset *dataset, GError **error);
 GARROW_AVAILABLE_IN_5_0
 GArrowTable *
-gadataset_dataset_to_table(GADatasetDataset *dataset,
-                           GError **error);
+gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error);
 GARROW_AVAILABLE_IN_5_0
 gchar *
 gadataset_dataset_get_type_name(GADatasetDataset *dataset);
 
-
-#define GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS        \
+#define GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS                                 \
   (gadataset_file_system_dataset_write_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDatasetWriteOptions,
                          gadataset_file_system_dataset_write_options,
@@ -54,9 +51,7 @@ GARROW_AVAILABLE_IN_6_0
 GADatasetFileSystemDatasetWriteOptions *
 gadataset_file_system_dataset_write_options_new(void);
 
-
-#define GADATASET_TYPE_FILE_SYSTEM_DATASET      \
-  (gadataset_file_system_dataset_get_type())
+#define GADATASET_TYPE_FILE_SYSTEM_DATASET (gadataset_file_system_dataset_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDataset,
                          gadataset_file_system_dataset,
                          GADATASET,
@@ -73,6 +68,5 @@ gadataset_file_system_dataset_write_scanner(
   GADatasetScanner *scanner,
   GADatasetFileSystemDatasetWriteOptions *options,
   GError **error);
-
 
 G_END_DECLS

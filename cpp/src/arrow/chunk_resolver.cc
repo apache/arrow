@@ -56,14 +56,33 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 }
 }  // namespace
 
-ChunkResolver::ChunkResolver(const ArrayVector& chunks)
+ChunkResolver::ChunkResolver(const ArrayVector& chunks) noexcept
     : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {}
 
-ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
+ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks) noexcept
     : offsets_(MakeChunksOffsets(chunks)), cached_chunk_(0) {}
 
-ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
+ChunkResolver::ChunkResolver(const RecordBatchVector& batches) noexcept
     : offsets_(MakeChunksOffsets(batches)), cached_chunk_(0) {}
+
+ChunkResolver::ChunkResolver(ChunkResolver&& other) noexcept
+    : offsets_(std::move(other.offsets_)),
+      cached_chunk_(other.cached_chunk_.load(std::memory_order_relaxed)) {}
+
+ChunkResolver& ChunkResolver::operator=(ChunkResolver&& other) noexcept {
+  offsets_ = std::move(other.offsets_);
+  cached_chunk_.store(other.cached_chunk_.load(std::memory_order_relaxed));
+  return *this;
+}
+
+ChunkResolver::ChunkResolver(const ChunkResolver& other) noexcept
+    : offsets_(other.offsets_), cached_chunk_(0) {}
+
+ChunkResolver& ChunkResolver::operator=(const ChunkResolver& other) noexcept {
+  offsets_ = other.offsets_;
+  cached_chunk_.store(0, std::memory_order_relaxed);
+  return *this;
+}
 
 }  // namespace internal
 }  // namespace arrow

@@ -65,6 +65,171 @@ AzureOptions::AzureOptions() = default;
 
 AzureOptions::~AzureOptions() = default;
 
+void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
+                                                   std::string* out_path) {
+  const auto host = uri.host();
+  std::string path;
+  if (arrow::internal::EndsWith(host, blob_storage_authority)) {
+    account_name = host.substr(0, host.size() - blob_storage_authority.size());
+    path = internal::RemoveLeadingSlash(uri.path());
+  } else if (arrow::internal::EndsWith(host, dfs_storage_authority)) {
+    account_name = host.substr(0, host.size() - dfs_storage_authority.size());
+    path = internal::ConcatAbstractPath(uri.username(), uri.path());
+  } else {
+    account_name = uri.username();
+    const auto port_text = uri.port_text();
+    if (host.find(".") == std::string::npos && port_text.empty()) {
+      // abfs://container/dir/file
+      path = internal::ConcatAbstractPath(host, uri.path());
+    } else {
+      // abfs://host.domain/container/dir/file
+      // abfs://host.domain:port/container/dir/file
+      // abfs://host:port/container/dir/file
+      std::string host_port = host;
+      if (!port_text.empty()) {
+        host_port += ":" + port_text;
+      }
+      blob_storage_authority = host_port;
+      dfs_storage_authority = host_port;
+      path = internal::RemoveLeadingSlash(uri.path());
+    }
+  }
+  if (out_path != nullptr) {
+    *out_path = path;
+  }
+}
+
+Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
+  const auto account_key = uri.password();
+  std::optional<CredentialKind> credential_kind;
+  std::optional<std::string> credential_kind_value;
+  std::string tenant_id;
+  std::string client_id;
+  std::string client_secret;
+  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
+  for (const auto& kv : options_items) {
+    if (kv.first == "blob_storage_authority") {
+      blob_storage_authority = kv.second;
+    } else if (kv.first == "dfs_storage_authority") {
+      dfs_storage_authority = kv.second;
+    } else if (kv.first == "credential_kind") {
+      if (kv.second == "default") {
+        credential_kind = CredentialKind::kDefault;
+      } else if (kv.second == "anonymous") {
+        credential_kind = CredentialKind::kAnonymous;
+      } else if (kv.second == "workload_identity") {
+        credential_kind = CredentialKind::kWorkloadIdentity;
+      } else {
+        // Other credential kinds should be inferred from the given
+        // parameters automatically.
+        return Status::Invalid("Unexpected credential_kind: '", kv.second, "'");
+      }
+      credential_kind_value = kv.second;
+    } else if (kv.first == "tenant_id") {
+      tenant_id = kv.second;
+    } else if (kv.first == "client_id") {
+      client_id = kv.second;
+    } else if (kv.first == "client_secret") {
+      client_secret = kv.second;
+    } else if (kv.first == "enable_tls") {
+      ARROW_ASSIGN_OR_RAISE(auto enable_tls, ::arrow::internal::ParseBoolean(kv.second));
+      if (enable_tls) {
+        blob_storage_scheme = "https";
+        dfs_storage_scheme = "https";
+      } else {
+        blob_storage_scheme = "http";
+        dfs_storage_scheme = "http";
+      }
+    } else {
+      return Status::Invalid(
+          "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
+    }
+  }
+
+  if (credential_kind) {
+    if (!account_key.empty()) {
+      return Status::Invalid("Password must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!tenant_id.empty()) {
+      return Status::Invalid("tenant_id must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!client_id.empty()) {
+      return Status::Invalid("client_id must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+    if (!client_secret.empty()) {
+      return Status::Invalid("client_secret must not be specified with credential_kind=",
+                             *credential_kind_value);
+    }
+
+    switch (*credential_kind) {
+      case CredentialKind::kAnonymous:
+        RETURN_NOT_OK(ConfigureAnonymousCredential());
+        break;
+      case CredentialKind::kWorkloadIdentity:
+        RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      default:
+        // Default credential
+        break;
+    }
+  } else {
+    if (!account_key.empty()) {
+      // With password
+      if (!tenant_id.empty()) {
+        return Status::Invalid("tenant_id must not be specified with password");
+      }
+      if (!client_id.empty()) {
+        return Status::Invalid("client_id must not be specified with password");
+      }
+      if (!client_secret.empty()) {
+        return Status::Invalid("client_secret must not be specified with password");
+      }
+      RETURN_NOT_OK(ConfigureAccountKeyCredential(account_key));
+    } else {
+      // Without password
+      if (tenant_id.empty() && client_id.empty() && client_secret.empty()) {
+        // No related parameters
+        if (account_name.empty()) {
+          RETURN_NOT_OK(ConfigureAnonymousCredential());
+        } else {
+          // Default credential
+        }
+      } else {
+        // One or more tenant_id, client_id or client_secret are specified
+        if (client_id.empty()) {
+          return Status::Invalid("client_id must be specified");
+        }
+        if (tenant_id.empty() && client_secret.empty()) {
+          RETURN_NOT_OK(ConfigureManagedIdentityCredential(client_id));
+        } else if (!tenant_id.empty() && !client_secret.empty()) {
+          RETURN_NOT_OK(
+              ConfigureClientSecretCredential(tenant_id, client_id, client_secret));
+        } else {
+          return Status::Invalid("Both of tenant_id and client_secret must be specified");
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+Result<AzureOptions> AzureOptions::FromUri(const Uri& uri, std::string* out_path) {
+  AzureOptions options;
+  options.ExtractFromUriSchemeAndHierPart(uri, out_path);
+  RETURN_NOT_OK(options.ExtractFromUriQuery(uri));
+  return options;
+}
+
+Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
+                                           std::string* out_path) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri, out_path);
+}
+
 bool AzureOptions::Equals(const AzureOptions& other) const {
   // TODO(GH-38598): update here when more auth methods are added.
   const bool equals = blob_storage_authority == other.blob_storage_authority &&
@@ -347,6 +512,22 @@ bool IsContainerNotFound(const Storage::StorageException& e) {
   return false;
 }
 
+const auto kHierarchicalNamespaceIsDirectoryMetadataKey = "hdi_isFolder";
+const auto kFlatNamespaceIsDirectoryMetadataKey = "is_directory";
+
+bool MetadataIndicatesIsDirectory(const Storage::Metadata& metadata) {
+  // Inspired by
+  // https://github.com/Azure/azure-sdk-for-cpp/blob/12407e8bfcb9bc1aa43b253c1d0ec93bf795ae3b/sdk/storage/azure-storage-files-datalake/src/datalake_utilities.cpp#L86-L91
+  auto hierarchical_directory_metadata =
+      metadata.find(kHierarchicalNamespaceIsDirectoryMetadataKey);
+  if (hierarchical_directory_metadata != metadata.end()) {
+    return hierarchical_directory_metadata->second == "true";
+  }
+  auto flat_directory_metadata = metadata.find(kFlatNamespaceIsDirectoryMetadataKey);
+  return flat_directory_metadata != metadata.end() &&
+         flat_directory_metadata->second == "true";
+}
+
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -512,11 +693,18 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   Status Init() {
     if (content_length_ != kNoSize) {
+      // When the user provides the file size we don't validate that its a file. This is
+      // only a read so its not a big deal if the user makes a mistake.
       DCHECK_GE(content_length_, 0);
       return Status::OK();
     }
     try {
+      // To open an ObjectInputFile the Blob must exist and it must not represent
+      // a directory. Additionally we need to know the file size.
       auto properties = blob_client_->GetProperties();
+      if (MetadataIndicatesIsDirectory(properties.Value.Metadata)) {
+        return NotAFile(location_);
+      }
       content_length_ = properties.Value.BlobSize;
       metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
@@ -698,11 +886,10 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client,
                      const io::IOContext& io_context, const AzureLocation& location,
                      const std::shared_ptr<const KeyValueMetadata>& metadata,
-                     const AzureOptions& options, int64_t size = kNoSize)
+                     const AzureOptions& options)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
-        location_(location),
-        content_length_(size) {
+        location_(location) {
     if (metadata && metadata->size() != 0) {
       metadata_ = ArrowMetadataToAzureMetadata(metadata);
     } else if (options.default_metadata && options.default_metadata->size() != 0) {
@@ -716,17 +903,31 @@ class ObjectAppendStream final : public io::OutputStream {
     io::internal::CloseFromDestructor(this);
   }
 
-  Status Init() {
-    if (content_length_ != kNoSize) {
-      DCHECK_GE(content_length_, 0);
-      pos_ = content_length_;
+  Status Init(const bool truncate,
+              std::function<Status()> ensure_not_flat_namespace_directory) {
+    if (truncate) {
+      content_length_ = 0;
+      pos_ = 0;
+      // We need to create an empty file overwriting any existing file, but
+      // fail if there is an existing directory.
+      RETURN_NOT_OK(ensure_not_flat_namespace_directory());
+      // On hierarchical namespace CreateEmptyBlockBlob will fail if there is an existing
+      // directory so we don't need to check like we do on flat namespace.
+      RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
     } else {
       try {
         auto properties = block_blob_client_->GetProperties();
+        if (MetadataIndicatesIsDirectory(properties.Value.Metadata)) {
+          return NotAFile(location_);
+        }
         content_length_ = properties.Value.BlobSize;
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+          // No file exists but on flat namespace its possible there is a directory
+          // marker or an implied directory. Ensure there is no directory before starting
+          // a new empty file.
+          RETURN_NOT_OK(ensure_not_flat_namespace_directory());
           RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
           return ExceptionToStatus(
@@ -743,6 +944,7 @@ class ObjectAppendStream final : public io::OutputStream {
         block_ids_.push_back(block.Name);
       }
     }
+    initialised_ = true;
     return Status::OK();
   }
 
@@ -789,6 +991,11 @@ class ObjectAppendStream final : public io::OutputStream {
 
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
+    if (!initialised_) {
+      // If the stream has not been successfully initialized then there is nothing to
+      // flush. This also avoids some unhandled errors when flushing in the destructor.
+      return Status::OK();
+    }
     return CommitBlockList(block_blob_client_, block_ids_, metadata_);
   }
 
@@ -840,10 +1047,11 @@ class ObjectAppendStream final : public io::OutputStream {
   std::shared_ptr<Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
+  int64_t content_length_ = kNoSize;
 
   bool closed_ = false;
+  bool initialised_ = false;
   int64_t pos_ = 0;
-  int64_t content_length_ = kNoSize;
   std::vector<std::string> block_ids_;
   Storage::Metadata metadata_;
 };
@@ -1085,7 +1293,11 @@ class LeaseGuard {
     return Status::OK();
   }
 
-  /// \brief Break the lease before deleting or renaming the resource.
+  /// \brief Break the lease before deleting or renaming the resource via the
+  /// DataLakeFileSystemClient API.
+  ///
+  /// NOTE: When using the Blobs API, this is not necessary -- you can release a
+  /// lease on a path after it's deleted with a lease on it.
   ///
   /// Calling this is recommended when the resource for which the lease was acquired is
   /// about to be deleted as there is no way of releasing the lease after that, we can
@@ -1662,20 +1874,32 @@ class AzureFileSystem::Impl {
       AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
 
+    const auto blob_container_client = GetBlobContainerClient(location.container);
     auto block_blob_client = std::make_shared<Blobs::BlockBlobClient>(
-        blob_service_client_->GetBlobContainerClient(location.container)
-            .GetBlockBlobClient(location.path));
+        blob_container_client.GetBlockBlobClient(location.path));
+
+    auto ensure_not_flat_namespace_directory = [this, location,
+                                                blob_container_client]() -> Status {
+      ARROW_ASSIGN_OR_RAISE(
+          auto hns_support,
+          HierarchicalNamespaceSupport(GetFileSystemClient(location.container)));
+      if (hns_support == HNSSupport::kDisabled) {
+        // Flat namespace so we need to GetFileInfo in-case its a directory.
+        ARROW_ASSIGN_OR_RAISE(auto status, GetFileInfo(blob_container_client, location))
+        if (status.type() == FileType::Directory) {
+          return NotAFile(location);
+        }
+      }
+      // kContainerNotFound - it doesn't exist, so no need to check if its a directory.
+      // kEnabled - hierarchical namespace so Azure APIs will fail if its a directory. We
+      // don't need to explicitly check.
+      return Status::OK();
+    };
 
     std::shared_ptr<ObjectAppendStream> stream;
-    if (truncate) {
-      RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client));
-      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                    location, metadata, options_, 0);
-    } else {
-      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                    location, metadata, options_);
-    }
-    RETURN_NOT_OK(stream->Init());
+    stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
+                                                  location, metadata, options_);
+    RETURN_NOT_OK(stream->Init(truncate, ensure_not_flat_namespace_directory));
     return stream;
   }
 
@@ -1690,7 +1914,7 @@ class AzureFileSystem::Impl {
     // on directory marker blobs.
     // https://github.com/fsspec/adlfs/blob/32132c4094350fca2680155a5c236f2e9f991ba5/adlfs/spec.py#L855-L870
     Blobs::UploadBlockBlobFromOptions blob_options;
-    blob_options.Metadata.emplace("is_directory", "true");
+    blob_options.Metadata.emplace(kFlatNamespaceIsDirectoryMetadataKey, "true");
     block_blob_client.UploadFrom(nullptr, 0, blob_options);
   }
 
@@ -1926,26 +2150,6 @@ class AzureFileSystem::Impl {
     }
   }
 
-  Status DeleteFile(const AzureLocation& location) {
-    RETURN_NOT_OK(ValidateFileLocation(location));
-    auto file_client = datalake_service_client_->GetFileSystemClient(location.container)
-                           .GetFileClient(location.path);
-    try {
-      auto response = file_client.Delete();
-      // Only the "*IfExists" functions ever set Deleted to false.
-      // All the others either succeed or throw an exception.
-      DCHECK(response.Value.Deleted);
-    } catch (const Storage::StorageException& exception) {
-      if (exception.ErrorCode == "FilesystemNotFound" ||
-          exception.ErrorCode == "PathNotFound") {
-        return PathNotFound(location);
-      }
-      return ExceptionToStatus(exception, "Failed to delete a file: ", location.path,
-                               ": ", file_client.GetUrl());
-    }
-    return Status::OK();
-  }
-
  private:
   /// \brief Create a BlobLeaseClient and acquire a lease on the container.
   ///
@@ -1994,7 +2198,7 @@ class AzureFileSystem::Impl {
   /// optional (nullptr denotes blob not found)
   Result<std::unique_ptr<Blobs::BlobLeaseClient>> AcquireBlobLease(
       const AzureLocation& location, std::chrono::seconds lease_duration,
-      bool allow_missing = false, bool retry_allowed = true) {
+      bool allow_missing, bool retry_allowed = true) {
     DCHECK(!location.container.empty() && !location.path.empty());
     auto path = std::string{internal::RemoveTrailingSlash(location.path)};
     auto blob_client = GetBlobClient(location.container, std::move(path));
@@ -2057,6 +2261,131 @@ class AzureFileSystem::Impl {
   static constexpr auto kTimeNeededForFileOrDirectoryRename = std::chrono::seconds{3};
 
  public:
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  Status DeleteFileOnFileSystem(const DataLake::DataLakeFileSystemClient& adlfs_client,
+                                const AzureLocation& location,
+                                bool require_file_to_exist) {
+    DCHECK(!location.container.empty());
+    DCHECK(!location.path.empty());
+    auto path_no_trailing_slash =
+        std::string{internal::RemoveTrailingSlash(location.path)};
+    auto file_client = adlfs_client.GetFileClient(path_no_trailing_slash);
+    try {
+      // This is necessary to avoid deletion of directories via DeleteFile.
+      auto properties = file_client.GetProperties();
+      if (properties.Value.IsDirectory) {
+        return internal::NotAFile(location.all);
+      }
+      if (internal::HasTrailingSlash(location.path)) {
+        return internal::NotADir(location.all);
+      }
+      auto response = file_client.Delete();
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
+    } catch (const Storage::StorageException& exception) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        // ErrorCode can be "FilesystemNotFound", "PathNotFound"...
+        if (require_file_to_exist) {
+          return PathNotFound(location);
+        }
+        return Status::OK();
+      }
+      return ExceptionToStatus(exception, "Failed to delete a file: ", location.path,
+                               ": ", file_client.GetUrl());
+    }
+    return Status::OK();
+  }
+
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  Status DeleteFileOnContainer(const Blobs::BlobContainerClient& container_client,
+                               const AzureLocation& location, bool require_file_to_exist,
+                               const char* operation) {
+    DCHECK(!location.container.empty());
+    DCHECK(!location.path.empty());
+    constexpr auto kFileBlobLeaseTime = std::chrono::seconds{15};
+
+    // When it's known that the blob doesn't exist as a file, check if it exists as a
+    // directory to generate the appropriate error message.
+    auto check_if_location_exists_as_dir = [&]() -> Status {
+      auto no_trailing_slash = location;
+      no_trailing_slash.path = internal::RemoveTrailingSlash(location.path);
+      no_trailing_slash.all = internal::RemoveTrailingSlash(location.all);
+      ARROW_ASSIGN_OR_RAISE(auto file_info,
+                            GetFileInfo(container_client, no_trailing_slash));
+      if (file_info.type() == FileType::NotFound) {
+        return require_file_to_exist ? PathNotFound(location) : Status::OK();
+      }
+      if (file_info.type() == FileType::Directory) {
+        return internal::NotAFile(location.all);
+      }
+      return internal::HasTrailingSlash(location.path) ? internal::NotADir(location.all)
+                                                       : internal::NotAFile(location.all);
+    };
+
+    // Paths ending with trailing slashes are never leading to a deletion,
+    // but the correct error message requires a check of the path.
+    if (internal::HasTrailingSlash(location.path)) {
+      return check_if_location_exists_as_dir();
+    }
+
+    // If the parent directory of a file is not the container itself, there is a
+    // risk that deleting the file also deletes the *implied directory* -- the
+    // directory that is implied by the existence of the file path.
+    //
+    // In this case, we must ensure that the deletion is not semantically
+    // equivalent to also deleting the directory. This is done by ensuring the
+    // directory marker blob exists before the file is deleted.
+    std::optional<LeaseGuard> file_blob_lease_guard;
+    const auto parent = location.parent();
+    if (!parent.path.empty()) {
+      // We have to check the existence of the file before checking the
+      // existence of the parent directory marker, so we acquire a lease on the
+      // file first.
+      ARROW_ASSIGN_OR_RAISE(auto file_blob_lease_client,
+                            AcquireBlobLease(location, kFileBlobLeaseTime,
+                                             /*allow_missing=*/true));
+      if (file_blob_lease_client) {
+        file_blob_lease_guard.emplace(std::move(file_blob_lease_client),
+                                      kFileBlobLeaseTime);
+        // Ensure the empty directory marker blob of the parent exists before the file is
+        // deleted.
+        //
+        // There is not need to hold a lease on the directory marker because if
+        // a concurrent client deletes the directory marker right after we
+        // create it, the file deletion itself won't be the cause of the directory
+        // deletion. Additionally, the fact that a lease is held on the blob path
+        // semantically preserves the directory -- its existence is implied
+        // until the blob representing the file is deleted -- even if another
+        // client deletes the directory marker.
+        RETURN_NOT_OK(EnsureEmptyDirExists(container_client, parent, operation));
+      } else {
+        return check_if_location_exists_as_dir();
+      }
+    }
+
+    auto blob_client = container_client.GetBlobClient(location.path);
+    Blobs::DeleteBlobOptions options;
+    if (file_blob_lease_guard) {
+      options.AccessConditions.LeaseId = file_blob_lease_guard->LeaseId();
+    }
+    try {
+      auto response = blob_client.Delete(options);
+      // Only the "*IfExists" functions ever set Deleted to false.
+      // All the others either succeed or throw an exception.
+      DCHECK(response.Value.Deleted);
+    } catch (const Storage::StorageException& exception) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
+        return check_if_location_exists_as_dir();
+      }
+      return ExceptionToStatus(exception, "Failed to delete a file: ", location.all, ": ",
+                               blob_client.GetUrl());
+    }
+    return Status::OK();
+  }
+
   /// The conditions for a successful container rename are derived from the
   /// conditions for a successful `Move("/$src.container", "/$dest.container")`.
   /// The numbers here match the list in `Move`.
@@ -2238,7 +2567,8 @@ class AzureFileSystem::Impl {
     const auto dest_path = std::string{internal::RemoveTrailingSlash(dest.path)};
 
     // Ensure that src exists and, if path has a trailing slash, that it's a directory.
-    ARROW_ASSIGN_OR_RAISE(auto src_lease_client, AcquireBlobLease(src, kLeaseDuration));
+    ARROW_ASSIGN_OR_RAISE(auto src_lease_client,
+                          AcquireBlobLease(src, kLeaseDuration, /*allow_missing=*/false));
     LeaseGuard src_lease_guard{std::move(src_lease_client), kLeaseDuration};
     // It might be necessary to check src is a directory 0-3 times in this function,
     // so we use a lazy evaluation function to avoid redundant calls to GetFileInfo().
@@ -2297,6 +2627,11 @@ class AzureFileSystem::Impl {
       }
     }
 
+    // Now that src and dest are validated, make sure they are on the same filesystem.
+    if (src.container != dest.container) {
+      return CrossContainerMoveNotImplemented(src, dest);
+    }
+
     try {
       // NOTE: The Azure SDK provides a RenameDirectory() function, but the
       // implementation is the same as RenameFile() with the only difference being
@@ -2353,7 +2688,9 @@ class AzureFileSystem::Impl {
       }
       return CrossContainerMoveNotImplemented(src, dest);
     }
-    return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    return Status::NotImplemented(
+        "FileSystem::Move() is not implemented for Azure Storage accounts "
+        "without Hierarchical Namespace support (see arrow/issues/40405).");
   }
 
   Status MovePath(const AzureLocation& src, const AzureLocation& dest) {
@@ -2546,7 +2883,29 @@ Status AzureFileSystem::DeleteRootDirContents() {
 
 Status AzureFileSystem::DeleteFile(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
-  return impl_->DeleteFile(location);
+  if (location.container.empty()) {
+    return Status::Invalid("DeleteFile requires a non-empty path.");
+  }
+  auto container_client = impl_->GetBlobContainerClient(location.container);
+  if (location.path.empty()) {
+    // Container paths (locations w/o path) are either not found or represent directories.
+    ARROW_ASSIGN_OR_RAISE(auto container_info,
+                          GetContainerPropsAsFileInfo(location, container_client));
+    return container_info.IsDirectory() ? NotAFile(location) : PathNotFound(location);
+  }
+  auto adlfs_client = impl_->GetFileSystemClient(location.container);
+  ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                        impl_->HierarchicalNamespaceSupport(adlfs_client));
+  if (hns_support == HNSSupport::kContainerNotFound) {
+    return PathNotFound(location);
+  }
+  if (hns_support == HNSSupport::kEnabled) {
+    return impl_->DeleteFileOnFileSystem(adlfs_client, location,
+                                         /*require_file_to_exist=*/true);
+  }
+  return impl_->DeleteFileOnContainer(container_client, location,
+                                      /*require_file_to_exist=*/true,
+                                      /*operation=*/"DeleteFile");
 }
 
 Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {

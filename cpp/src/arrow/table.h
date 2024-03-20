@@ -251,9 +251,9 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
-  /// \brief Set the desired maximum chunk size of record batches
+  /// \brief Set the desired maximum number of rows for record batches
   ///
-  /// The actual chunk size of each record batch may be smaller, depending
+  /// The actual number of rows in each record batch may be smaller, depending
   /// on actual chunking characteristics of each table column.
   void set_chunksize(int64_t chunksize);
 

@@ -32,7 +32,8 @@ G_BEGIN_DECLS
  * Since: 0.14.0
  */
 
-typedef struct GGandivaFunctionSignaturePrivate_ {
+typedef struct GGandivaFunctionSignaturePrivate_
+{
   gandiva::FunctionSignature function_signature;
 } GGandivaFunctionSignaturePrivate;
 
@@ -44,10 +45,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFunctionSignature,
                            ggandiva_function_signature,
                            G_TYPE_OBJECT)
 
-#define GGANDIVA_FUNCTION_SIGNATURE_GET_PRIVATE(obj)      \
-    static_cast<GGandivaFunctionSignaturePrivate *>(      \
-        ggandiva_function_signature_get_instance_private( \
-          GGANDIVA_FUNCTION_SIGNATURE(obj)))
+#define GGANDIVA_FUNCTION_SIGNATURE_GET_PRIVATE(obj)                                     \
+  static_cast<GGandivaFunctionSignaturePrivate *>(                                       \
+    ggandiva_function_signature_get_instance_private(GGANDIVA_FUNCTION_SIGNATURE(obj)))
 
 static void
 ggandiva_function_signature_set_property(GObject *object,
@@ -80,11 +80,11 @@ ggandiva_function_signature_class_init(GGandivaFunctionSignatureClass *klass)
   gobject_class->set_property = ggandiva_function_signature_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("function-signature",
-                              "FunctionSignature",
-                              "The raw gandiva::FunctionSignature *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "function-signature",
+    "FunctionSignature",
+    "The raw gandiva::FunctionSignature *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FUNCTION_SIGNATURE, spec);
 }
 
@@ -227,7 +227,8 @@ ggandiva_function_signature_get_param_types(GGandivaFunctionSignature *function_
 G_END_DECLS
 
 GGandivaFunctionSignature *
-ggandiva_function_signature_new_raw(const gandiva::FunctionSignature *gandiva_function_signature)
+ggandiva_function_signature_new_raw(
+  const gandiva::FunctionSignature *gandiva_function_signature)
 {
   auto function_signature =
     GGANDIVA_FUNCTION_SIGNATURE(g_object_new(GGANDIVA_TYPE_FUNCTION_SIGNATURE,

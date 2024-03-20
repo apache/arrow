@@ -1226,10 +1226,15 @@ def test_record_batch_reader_from_arrow_stream():
     reader = pa.RecordBatchReader.from_stream(wrapper, schema=data[0].schema)
     assert reader.read_all() == expected
 
-    # If schema doesn't match, raises NotImplementedError
-    with pytest.raises(NotImplementedError):
+    # Passing a different but castable schema works
+    good_schema = pa.schema([pa.field("a", pa.int32())])
+    reader = pa.RecordBatchReader.from_stream(wrapper, schema=good_schema)
+    assert reader.read_all() == expected.cast(good_schema)
+
+    # If schema doesn't match, raises TypeError
+    with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
         pa.RecordBatchReader.from_stream(
-            wrapper, schema=pa.schema([pa.field('a', pa.int32())])
+            wrapper, schema=pa.schema([pa.field('a', pa.list_(pa.int32()))])
         )
 
     # Proper type errors for wrong input
@@ -1238,3 +1243,60 @@ def test_record_batch_reader_from_arrow_stream():
 
     with pytest.raises(TypeError):
         pa.RecordBatchReader.from_stream(expected, schema=data[0])
+
+
+def test_record_batch_reader_cast():
+    schema_src = pa.schema([pa.field('a', pa.int64())])
+    data = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+        pa.record_batch([pa.array([4, 5, 6], type=pa.int64())], names=['a']),
+    ]
+    table_src = pa.Table.from_batches(data)
+
+    # Cast to same type should always work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_src).read_all() == table_src
+
+    # Check non-trivial cast
+    schema_dst = pa.schema([pa.field('a', pa.int32())])
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_dst).read_all() == table_src.cast(schema_dst)
+
+    # Check error for field name/length mismatch
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(ValueError, match="Target schema's field names"):
+        reader.cast(pa.schema([]))
+
+    # Check error for impossible cast in call to .cast()
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
+        reader.cast(pa.schema([pa.field('a', pa.list_(pa.int32()))]))
+
+
+def test_record_batch_reader_cast_nulls():
+    schema_src = pa.schema([pa.field('a', pa.int64())])
+    data_with_nulls = [
+        pa.record_batch([pa.array([1, 2, None], type=pa.int64())], names=['a']),
+    ]
+    data_without_nulls = [
+        pa.record_batch([pa.array([1, 2, 3], type=pa.int64())], names=['a']),
+    ]
+    table_with_nulls = pa.Table.from_batches(data_with_nulls)
+    table_without_nulls = pa.Table.from_batches(data_without_nulls)
+
+    # Cast to nullable destination should work
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
+    schema_dst = pa.schema([pa.field('a', pa.int32())])
+    assert reader.cast(schema_dst).read_all() == table_with_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should work if there are no nulls
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_without_nulls)
+    schema_dst = pa.schema([pa.field('a', pa.int32(), nullable=False)])
+    assert reader.cast(schema_dst).read_all() == table_without_nulls.cast(schema_dst)
+
+    # Cast to non-nullable destination should error if there are nulls
+    # when the batch is pulled
+    reader = pa.RecordBatchReader.from_batches(schema_src, data_with_nulls)
+    casted_reader = reader.cast(schema_dst)
+    with pytest.raises(pa.lib.ArrowInvalid, match="Can't cast array"):
+        casted_reader.read_all()

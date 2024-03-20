@@ -180,7 +180,6 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
         IntVector ageVector = (IntVector) root.getVector("age");
         VarCharVector nameVector = (VarCharVector) root.getVector("name");
     ){
-        root.setRowCount(3);
         ageVector.allocateNew(3);
         ageVector.set(0, 10);
         ageVector.set(1, 20);
@@ -189,6 +188,7 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
         nameVector.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
         nameVector.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
         nameVector.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        root.setRowCount(3);
         System.out.println("VectorSchemaRoot created: \n" + root.contentToTSVString());
     }
 

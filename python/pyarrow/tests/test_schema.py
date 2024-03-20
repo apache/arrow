@@ -681,7 +681,8 @@ def test_schema_sizeof():
         pa.field('bar', pa.string()),
     ])
 
-    assert sys.getsizeof(schema) > 30
+    # Note: pa.schema is twice as large on 64-bit systems
+    assert sys.getsizeof(schema) > (30 if sys.maxsize > 2**32 else 15)
 
     schema2 = schema.with_metadata({"key": "some metadata"})
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)

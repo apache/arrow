@@ -116,11 +116,13 @@
 #include <fstream>
 #endif
 
-namespace arrow {
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
-using internal::checked_cast;
-
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -2215,5 +2217,58 @@ int64_t GetTotalMemoryBytes() {
 #endif
 }
 
-}  // namespace internal
-}  // namespace arrow
+Result<void*> LoadDynamicLibrary(const char* path) {
+#ifdef _WIN32
+  ARROW_ASSIGN_OR_RAISE(auto platform_path, PlatformFilename::FromString(path));
+  return LoadDynamicLibrary(platform_path);
+#else
+  constexpr int kFlags =
+      // All undefined symbols in the shared object are resolved before dlopen() returns.
+      RTLD_NOW
+      // Symbols defined in  this  shared  object are not made available to
+      // resolve references in subsequently loaded shared objects.
+      | RTLD_LOCAL;
+  if (void* handle = dlopen(path, kFlags)) return handle;
+  // dlopen(3) man page: "If dlopen() fails for any reason, it returns NULL."
+  // There is no null-returning non-error condition.
+  auto* error = dlerror();
+  return Status::IOError("dlopen(", path, ") failed: ", error ? error : "unknown error");
+#endif
+}
+
+Result<void*> LoadDynamicLibrary(const PlatformFilename& path) {
+#ifdef _WIN32
+  if (void* handle = LoadLibraryW(path.ToNative().c_str())) {
+    return handle;
+  }
+  // win32 api doc: "If the function fails, the return value is NULL."
+  // There is no null-returning non-error condition.
+  return IOErrorFromWinError(GetLastError(), "LoadLibrary(", path.ToString(), ") failed");
+#else
+  return LoadDynamicLibrary(path.ToNative().c_str());
+#endif
+}
+
+Result<void*> GetSymbol(void* handle, const char* name) {
+  if (handle == nullptr) {
+    return Status::Invalid("Attempting to retrieve symbol '", name,
+                           "' from null library handle");
+  }
+#ifdef _WIN32
+  if (void* sym = reinterpret_cast<void*>(
+          GetProcAddress(reinterpret_cast<HMODULE>(handle), name))) {
+    return sym;
+  }
+  // win32 api doc: "If the function fails, the return value is NULL."
+  // There is no null-returning non-error condition.
+  return IOErrorFromWinError(GetLastError(), "GetProcAddress(", name, ") failed.");
+#else
+  if (void* sym = dlsym(handle, name)) return sym;
+  // dlsym(3) man page: "On failure, they return NULL"
+  // There is no null-returning non-error condition.
+  auto* error = dlerror();
+  return Status::IOError("dlsym(", name, ") failed: ", error ? error : "unknown error");
+#endif
+}
+
+}  // namespace arrow::internal

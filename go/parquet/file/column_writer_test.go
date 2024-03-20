@@ -430,6 +430,11 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackEncoding(version parque
 }
 
 func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(version parquet.Version) {
+	// skip boolean as dictionary encoding is not used
+	if p.Typ.Kind() == reflect.Bool {
+		return
+	}
+
 	p.GenerateData(SmallSize)
 	props := parquet.DefaultColumnProperties()
 	props.DictionaryEnabled = true
@@ -440,13 +445,14 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(versi
 		props.Encoding = parquet.Encodings.RLEDict
 	}
 
-	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version))
+	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version), parquet.WithDataPageSize(SmallSize-1))
 	p.WriteBatchValues(writer, nil, nil)
+	p.NotZero(writer.TotalBytesWritten())
 	writer.FallbackToPlain()
-	p.NotEqual(0, writer.TotalCompressedBytes())
+	p.NotZero(writer.TotalCompressedBytes())
 	writer.Close()
-	p.NotEqual(0, writer.TotalCompressedBytes())
-	p.NotEqual(0, writer.TotalBytesWritten())
+	p.NotZero(writer.TotalCompressedBytes())
+	p.NotZero(writer.TotalBytesWritten())
 }
 
 func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {

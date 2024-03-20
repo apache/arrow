@@ -236,6 +236,21 @@ message1,message2
         assert_equal(build_table(columns),
                      table.read)
       end
+
+      def test_timestamp_parsers
+        options = Arrow::CSVReadOptions.new
+        assert_equal([], options.timestamp_parsers)
+
+        iso8601_timestamp_parser = Arrow::ISO8601TimestampParser.new
+        options.timestamp_parsers = [iso8601_timestamp_parser]
+        assert_equal([iso8601_timestamp_parser],
+                     options.timestamp_parsers)
+
+        date_timestamp_parser = Arrow::StrptimeTimestampParser.new("%Y-%m-%d")
+        options.add_timestamp_parser(date_timestamp_parser)
+        assert_equal([iso8601_timestamp_parser, date_timestamp_parser],
+                     options.timestamp_parsers)
+      end
     end
   end
 end

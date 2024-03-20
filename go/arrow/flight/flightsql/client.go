@@ -584,12 +584,24 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 	return
 }
 
-func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	return c.Client.CancelFlightInfo(ctx, request, opts...)
 }
 
 func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
+}
+
+func (c *Client) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	return c.Client.SetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	return c.Client.GetSessionOptions(ctx, request, opts...)
+}
+
+func (c *Client) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	return c.Client.CloseSession(ctx, request, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {

@@ -34,6 +34,9 @@ case "$(uname -m)" in
     ;;
 esac
 
+# On newer pythons install into the system will fail, so override that
+export PIP_BREAK_SYSTEM_PACKAGES=1
+
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"

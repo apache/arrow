@@ -1098,7 +1098,7 @@ class AsofJoinNode : public ExecNode {
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       RETURN_NOT_OK(key_hashers_[i]->Init(plan()->query_context()->exec_context(),
-                                          output_schema()));
+                                          inputs[i]->output_schema()));
       ARROW_ASSIGN_OR_RAISE(
           auto input_state,
           InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
@@ -1242,7 +1242,7 @@ class AsofJoinNode : public ExecNode {
         if (by_key_type[k] == NULLPTR) {
           by_key_type[k] = by_field[k]->type().get();
         } else if (*by_key_type[k] != *by_field[k]->type()) {
-          return Status::Invalid("Expected on-key type ", *by_key_type[k], " but got ",
+          return Status::Invalid("Expected by-key type ", *by_key_type[k], " but got ",
                                  *by_field[k]->type(), " for field ", by_field[k]->name(),
                                  " in input ", j);
         }

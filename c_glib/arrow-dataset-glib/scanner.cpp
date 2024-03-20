@@ -40,7 +40,8 @@ G_BEGIN_DECLS
  * Since: 5.0.0
  */
 
-typedef struct GADatasetScannerPrivate_ {
+typedef struct GADatasetScannerPrivate_
+{
   std::shared_ptr<arrow::dataset::Scanner> scanner;
 } GADatasetScannerPrivate;
 
@@ -48,14 +49,11 @@ enum {
   PROP_SCANNER = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScanner,
-                           gadataset_scanner,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScanner, gadataset_scanner, G_TYPE_OBJECT)
 
-#define GADATASET_SCANNER_GET_PRIVATE(obj)        \
-  static_cast<GADatasetScannerPrivate *>(         \
-    gadataset_scanner_get_instance_private(       \
-      GADATASET_SCANNER(obj)))
+#define GADATASET_SCANNER_GET_PRIVATE(obj)                                               \
+  static_cast<GADatasetScannerPrivate *>(                                                \
+    gadataset_scanner_get_instance_private(GADATASET_SCANNER(obj)))
 
 static void
 gadataset_scanner_finalize(GObject *object)
@@ -75,9 +73,8 @@ gadataset_scanner_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SCANNER:
-    priv->scanner =
-      *static_cast<std::shared_ptr<arrow::dataset::Scanner> *>(
-        g_value_get_pointer(value));
+    priv->scanner = *static_cast<std::shared_ptr<arrow::dataset::Scanner> *>(
+      g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -89,22 +86,22 @@ static void
 gadataset_scanner_init(GADatasetScanner *object)
 {
   auto priv = GADATASET_SCANNER_GET_PRIVATE(object);
-  new(&priv->scanner) std::shared_ptr<arrow::dataset::Scanner>;
+  new (&priv->scanner) std::shared_ptr<arrow::dataset::Scanner>;
 }
 
 static void
 gadataset_scanner_class_init(GADatasetScannerClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize     = gadataset_scanner_finalize;
+  gobject_class->finalize = gadataset_scanner_finalize;
   gobject_class->set_property = gadataset_scanner_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("scanner",
-                              "Scanner",
-                              "The raw std::shared<arrow::dataset::Scanner> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "scanner",
+    "Scanner",
+    "The raw std::shared<arrow::dataset::Scanner> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCANNER, spec);
 }
 
@@ -119,8 +116,7 @@ gadataset_scanner_class_init(GADatasetScannerClass *klass)
  * Since: 5.0.0
  */
 GArrowTable *
-gadataset_scanner_to_table(GADatasetScanner *scanner,
-                           GError **error)
+gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error)
 {
   auto arrow_scanner = gadataset_scanner_get_raw(scanner);
   auto arrow_table_result = arrow_scanner->ToTable();
@@ -132,8 +128,8 @@ gadataset_scanner_to_table(GADatasetScanner *scanner,
   }
 }
 
-
-typedef struct GADatasetScannerBuilderPrivate_ {
+typedef struct GADatasetScannerBuilderPrivate_
+{
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder;
 } GADatasetScannerBuilderPrivate;
 
@@ -145,10 +141,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScannerBuilder,
                            gadataset_scanner_builder,
                            G_TYPE_OBJECT)
 
-#define GADATASET_SCANNER_BUILDER_GET_PRIVATE(obj)        \
-  static_cast<GADatasetScannerBuilderPrivate *>(          \
-    gadataset_scanner_builder_get_instance_private(       \
-      GADATASET_SCANNER_BUILDER(obj)))
+#define GADATASET_SCANNER_BUILDER_GET_PRIVATE(obj)                                       \
+  static_cast<GADatasetScannerBuilderPrivate *>(                                         \
+    gadataset_scanner_builder_get_instance_private(GADATASET_SCANNER_BUILDER(obj)))
 
 static void
 gadataset_scanner_builder_finalize(GObject *object)
@@ -182,23 +177,23 @@ static void
 gadataset_scanner_builder_init(GADatasetScannerBuilder *object)
 {
   auto priv = GADATASET_SCANNER_BUILDER_GET_PRIVATE(object);
-  new(&priv->scanner_builder) std::shared_ptr<arrow::dataset::ScannerBuilder>;
+  new (&priv->scanner_builder) std::shared_ptr<arrow::dataset::ScannerBuilder>;
 }
 
 static void
 gadataset_scanner_builder_class_init(GADatasetScannerBuilderClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize     = gadataset_scanner_builder_finalize;
+  gobject_class->finalize = gadataset_scanner_builder_finalize;
   gobject_class->set_property = gadataset_scanner_builder_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("scanner-builder",
-                              "Scanner builder",
-                              "The raw "
-                              "std::shared<arrow::dataset::ScannerBuilder> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "scanner-builder",
+    "Scanner builder",
+    "The raw "
+    "std::shared<arrow::dataset::ScannerBuilder> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCANNER_BUILDER, spec);
 }
 
@@ -217,9 +212,7 @@ gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error)
 {
   auto arrow_dataset = gadataset_dataset_get_raw(dataset);
   auto arrow_scanner_builder_result = arrow_dataset->NewScan();
-  if (garrow::check(error,
-                    arrow_scanner_builder_result,
-                    "[scanner-builder][new]")) {
+  if (garrow::check(error, arrow_scanner_builder_result, "[scanner-builder][new]")) {
     auto arrow_scanner_builder = *arrow_scanner_builder_result;
     return gadataset_scanner_builder_new_raw(&arrow_scanner_builder);
   } else {
@@ -236,8 +229,7 @@ gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error)
  * Since: 6.0.0
  */
 GADatasetScannerBuilder *
-gadataset_scanner_builder_new_record_batch_reader(
-  GArrowRecordBatchReader *reader)
+gadataset_scanner_builder_new_record_batch_reader(GArrowRecordBatchReader *reader)
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   auto arrow_scanner_builder =
@@ -278,8 +270,7 @@ gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
  * Since: 5.0.0
  */
 GADatasetScanner *
-gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder,
-                                 GError **error)
+gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder, GError **error)
 {
   auto arrow_builder = gadataset_scanner_builder_get_raw(builder);
   auto arrow_scanner_result = arrow_builder->Finish();
@@ -291,17 +282,13 @@ gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder,
   }
 }
 
-
 G_END_DECLS
 
 GADatasetScanner *
-gadataset_scanner_new_raw(
-  std::shared_ptr<arrow::dataset::Scanner> *arrow_scanner)
+gadataset_scanner_new_raw(std::shared_ptr<arrow::dataset::Scanner> *arrow_scanner)
 {
-  auto scanner =
-    GADATASET_SCANNER(g_object_new(GADATASET_TYPE_SCANNER,
-                                   "scanner", arrow_scanner,
-                                   NULL));
+  auto scanner = GADATASET_SCANNER(
+    g_object_new(GADATASET_TYPE_SCANNER, "scanner", arrow_scanner, NULL));
   return scanner;
 }
 
@@ -316,10 +303,10 @@ GADatasetScannerBuilder *
 gadataset_scanner_builder_new_raw(
   std::shared_ptr<arrow::dataset::ScannerBuilder> *arrow_scanner_builder)
 {
-  return GADATASET_SCANNER_BUILDER(
-    g_object_new(GADATASET_TYPE_SCANNER_BUILDER,
-                 "scanner-builder", arrow_scanner_builder,
-                 NULL));
+  return GADATASET_SCANNER_BUILDER(g_object_new(GADATASET_TYPE_SCANNER_BUILDER,
+                                                "scanner-builder",
+                                                arrow_scanner_builder,
+                                                NULL));
 }
 
 std::shared_ptr<arrow::dataset::ScannerBuilder>

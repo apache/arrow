@@ -62,26 +62,19 @@ append_acero_runtime_avx2_src(bloom_filter_avx2.cc)
 append_acero_runtime_avx2_src(swiss_join_avx2.cc)
 
 set(ARROW_ACERO_SHARED_LINK_LIBS)
+set(ARROW_ACERO_SHARED_PRIVATE_LINK_LIBS)
 set(ARROW_ACERO_STATIC_LINK_LIBS)
 set(ARROW_ACERO_STATIC_INSTALL_INTERFACE_LIBS)
 set(ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_WITH_OPENTELEMETRY)
-  list(APPEND
-       ARROW_ACERO_SHARED_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
-  list(APPEND
-       ARROW_ACERO_STATIC_LINK_LIBS
-       opentelemetry-cpp::trace
-       opentelemetry-cpp::ostream_span_exporter
-       opentelemetry-cpp::otlp_http_exporter)
+  list(APPEND ARROW_ACERO_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  list(APPEND ARROW_ACERO_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
 list(APPEND ARROW_ACERO_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 list(APPEND ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
-list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
+list(APPEND ARROW_ACERO_STATIC_LINK_LIBS arrow_static)
 list(APPEND ARROW_ACERO_SHARED_LINK_LIBS arrow_shared)
 
 add_arrow_lib(arrow_acero
@@ -95,10 +88,10 @@ add_arrow_lib(arrow_acero
               ${ARROW_ACERO_SRCS}
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/acero/pch.h>"
-              DEPENDENCIES
-              toolchain
               SHARED_LINK_LIBS
               ${ARROW_ACERO_SHARED_LINK_LIBS}
+              SHARED_PRIVATE_LINK_LIBS
+              ${ARROW_ACERO_SHARED_PRIVATE_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
               ${ARROW_ACERO_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
@@ -122,11 +115,21 @@ endforeach()
 
 # Define arrow_acero_testing object library for common test files
 if(ARROW_TESTING)
-  add_library(arrow_acero_testing OBJECT test_util_internal.cc)
+  # test_nodes.cc isn't used by all tests but link to it for simple
+  # CMakeLists.txt.
+  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
+  # Only for test_nodes.cc.
+  if(ARROW_WITH_OPENTELEMETRY)
+    target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endif()
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
+endif()
+# Only for hash_aggregate_test.cc.
+if(ARROW_USE_BOOST)
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS Boost::headers)
 endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
@@ -162,26 +165,20 @@ function(add_arrow_acero_test REL_TEST_NAME)
                  ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
-add_arrow_acero_test(plan_test
-                     SOURCES
-                     plan_test.cc
-                     test_nodes_test.cc
-                     test_nodes.cc)
-add_arrow_acero_test(source_node_test SOURCES source_node_test.cc test_nodes.cc)
-add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc test_nodes.cc)
-add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc test_nodes.cc)
+add_arrow_acero_test(plan_test SOURCES plan_test.cc test_nodes_test.cc)
+add_arrow_acero_test(source_node_test SOURCES source_node_test.cc)
+add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc)
+add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc)
 add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
                      bloom_filter_test.cc)
-add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
-                     test_nodes.cc)
+add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc)
 
 # asof_join_node and sorted_merge_node use std::thread internally
 # and doesn't use ThreadPool so it will
 # be broken if threading is turned off
 if(ARROW_ENABLE_THREADING)
-  add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
-  add_arrow_acero_test(sorted_merge_node_test SOURCES sorted_merge_node_test.cc
-                       test_nodes.cc)
+  add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc)
+  add_arrow_acero_test(sorted_merge_node_test SOURCES sorted_merge_node_test.cc)
 endif()
 
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)

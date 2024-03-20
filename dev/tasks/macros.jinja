@@ -59,7 +59,7 @@ on:
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
-      python-version: 3.8
+      python-version: 3.12
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -85,7 +85,7 @@ on:
     if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
-      python-version: 3.8
+      python-version: 3.12
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |

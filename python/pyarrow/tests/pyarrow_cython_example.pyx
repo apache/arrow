@@ -42,7 +42,9 @@ def cast_scalar(scalar, to_type):
     cdef:
         shared_ptr[CScalar] c_scalar
         shared_ptr[CDataType] c_type
-        CResult[shared_ptr[CScalar]] c_result
+        CCastOptions cast_options
+        CDatum c_datum
+        CResult[CDatum] c_cast_result
 
     c_scalar = pyarrow_unwrap_scalar(scalar)
     if c_scalar.get() == NULL:
@@ -50,6 +52,10 @@ def cast_scalar(scalar, to_type):
     c_type = pyarrow_unwrap_data_type(to_type)
     if c_type.get() == NULL:
         raise TypeError("not a type")
-    c_result = c_scalar.get().CastTo(c_type)
-    c_scalar = GetResultValue(c_result)
-    return pyarrow_wrap_scalar(c_scalar)
+
+    c_datum = CDatum(c_scalar)
+    cast_options = CCastOptions()
+    cast_options.to_type = c_type
+    c_cast_result = Cast(c_datum, cast_options)
+    c_datum = GetResultValue(c_cast_result)
+    return pyarrow_wrap_scalar(c_datum.scalar())

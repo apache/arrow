@@ -198,7 +198,12 @@ func (w *columnWriter) TotalCompressedBytes() int64 {
 }
 
 func (w *columnWriter) TotalBytesWritten() int64 {
-	return w.totalBytesWritten
+	bufferedPagesBytes := int64(0)
+	for _, p := range w.pages {
+		bufferedPagesBytes += int64(len(p.Data()))
+	}
+
+	return w.totalBytesWritten + bufferedPagesBytes
 }
 
 func (w *columnWriter) RowsWritten() int {

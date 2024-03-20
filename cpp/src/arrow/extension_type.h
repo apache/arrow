@@ -50,7 +50,7 @@ class ARROW_EXPORT ExtensionType : public DataType {
 
   DataTypeLayout layout() const override;
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "extension"; }
 

@@ -168,7 +168,7 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
 
   /// Initialize the client.
   virtual Status Init(const FlightClientOptions& options, const Location& location,
-                      const arrow::internal::Uri& uri) = 0;
+                      const arrow::util::Uri& uri) = 0;
   /// Close the client. Once this returns, the client is no longer usable.
   virtual Status Close() = 0;
 

@@ -88,7 +88,7 @@ pkgconfig.generate(libarrow_dataset_glib,
                    version: version)
 
 if have_gi
-  dataset_glib_gir = \
+  arrow_dataset_glib_gir = \
     gnome.generate_gir(libarrow_dataset_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
                        export_packages: 'arrow-dataset-glib',
@@ -96,15 +96,13 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-dataset-glib/arrow-dataset-glib.h',
                        identifier_prefix: 'GADataset',
                        includes: [
                          'Arrow-1.0',
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'ArrowDataset',
-                       nsversion: api_version,
                        sources: sources + c_headers + enums,
                        symbol_prefix: 'gadataset')
 
@@ -115,6 +113,6 @@ if have_gi
                           arrow_glib_vapi,
                           'gio-2.0',
                         ],
-                        sources: [dataset_glib_gir[0]])
+                        sources: [arrow_dataset_glib_gir[0]])
   endif
 endif

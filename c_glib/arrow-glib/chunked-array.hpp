@@ -24,11 +24,9 @@
 #include <arrow-glib/chunked-array.h>
 
 GArrowChunkedArray *
-garrow_chunked_array_new_raw(
-  std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array);
+garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array);
 GArrowChunkedArray *
-garrow_chunked_array_new_raw(
-  std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array,
-  GArrowDataType *data_type);
+garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array,
+                             GArrowDataType *data_type);
 std::shared_ptr<arrow::ChunkedArray>
 garrow_chunked_array_get_raw(GArrowChunkedArray *chunked_array);

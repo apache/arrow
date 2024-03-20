@@ -861,6 +861,14 @@ TEST_F(GcsIntegrationTest, CreateDirUri) {
   ASSERT_RAISES(Invalid, fs->CreateDir("gs://" + RandomBucketName(), true));
 }
 
+TEST_F(GcsIntegrationTest, CreateDirExtraneousSlashes) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_RAISES(Invalid,
+                fs->CreateDir(RandomBucketName() + "//somedir", /*recursive=*/true));
+  ASSERT_RAISES(Invalid, fs->CreateDir(RandomBucketName() + "/somedir//newdir",
+                                       /*recursive=*/true));
+}
+
 TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK(fs->CreateDir("pyarrow-filesystem/", /*recursive=*/true));
@@ -886,6 +894,12 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
 TEST_F(GcsIntegrationTest, DeleteDirUri) {
   auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->DeleteDir("gs://" + PreexistingBucketPath()));
+}
+
+TEST_F(GcsIntegrationTest, DeleteDirExtraneousSlashes) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_RAISES(Invalid, fs->DeleteDir(PreexistingBucketPath() + "/somedir"));
+  ASSERT_RAISES(Invalid, fs->DeleteDir(PreexistingBucketPath() + "somedir//newdir"));
 }
 
 TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {

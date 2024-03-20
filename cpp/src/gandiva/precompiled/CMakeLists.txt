@@ -77,7 +77,8 @@ if(ARROW_BUILD_TESTS)
                  ../decimal_type_util.cc
                  ../decimal_xlarge.cc)
   target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS})
+  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS}
+                                                         Boost::headers)
   target_compile_definitions(gandiva-precompiled-test PRIVATE GANDIVA_UNIT_TEST=1
                                                               ARROW_STATIC GANDIVA_STATIC)
   set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")

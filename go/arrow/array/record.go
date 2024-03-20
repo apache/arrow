@@ -50,7 +50,7 @@ type simpleRecords struct {
 }
 
 // NewRecordReader returns a simple iterator over the given slice of records.
-func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (*simpleRecords, error) {
+func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (RecordReader, error) {
 	rs := &simpleRecords{
 		refCount: 1,
 		schema:   schema,
@@ -124,7 +124,7 @@ type simpleRecord struct {
 //
 // NewRecord panics if the columns and schema are inconsistent.
 // NewRecord panics if rows is larger than the height of the columns.
-func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRecord {
+func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) arrow.Record {
 	rec := &simpleRecord{
 		refCount: 1,
 		schema:   schema,

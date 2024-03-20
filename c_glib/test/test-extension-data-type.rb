@@ -91,7 +91,7 @@ class TestExtensionDataType < Test::Unit::TestCase
                                              ["a" * 16, nil])
     storage2 = build_fixed_size_binary_array(data_type.storage_data_type,
                                              ["c" * 16])
-    chunkd_array = Arrow::ChunkedArray.new([storage1, storage2])
+    chunked_array = Arrow::ChunkedArray.new([storage1, storage2])
     extension_chunked_array = data_type.wrap_chunked_array(chunked_array)
     assert_equal([
                    data_type,

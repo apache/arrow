@@ -1,7 +1,7 @@
 cffi
 cython
 hypothesis
-pytest<8
+pytest
 pytz
 tzdata; sys_platform == 'win32'
 

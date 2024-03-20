@@ -35,7 +35,8 @@ G_BEGIN_DECLS
  * information of the column.
  */
 
-typedef struct GArrowFieldPrivate_ {
+typedef struct GArrowFieldPrivate_
+{
   std::shared_ptr<arrow::Field> field;
   GArrowDataType *data_type;
 } GArrowFieldPrivate;
@@ -45,14 +46,10 @@ enum {
   PROP_DATA_TYPE
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowField,
-                           garrow_field,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowField, garrow_field, G_TYPE_OBJECT)
 
-#define GARROW_FIELD_GET_PRIVATE(obj)         \
-  static_cast<GArrowFieldPrivate *>(          \
-     garrow_field_get_instance_private(       \
-       GARROW_FIELD(obj)))
+#define GARROW_FIELD_GET_PRIVATE(obj)                                                    \
+  static_cast<GArrowFieldPrivate *>(garrow_field_get_instance_private(GARROW_FIELD(obj)))
 
 static void
 garrow_field_dispose(GObject *object)
@@ -103,7 +100,7 @@ static void
 garrow_field_init(GArrowField *object)
 {
   auto priv = GARROW_FIELD_GET_PRIVATE(object);
-  new(&priv->field) std::shared_ptr<arrow::Field>;
+  new (&priv->field) std::shared_ptr<arrow::Field>;
 }
 
 static void
@@ -111,24 +108,24 @@ garrow_field_class_init(GArrowFieldClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_field_dispose;
-  gobject_class->finalize     = garrow_field_finalize;
+  gobject_class->dispose = garrow_field_dispose;
+  gobject_class->finalize = garrow_field_finalize;
   gobject_class->set_property = garrow_field_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("field",
-                              "Field",
-                              "The raw std::shared<arrow::Field> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "field",
+    "Field",
+    "The raw std::shared<arrow::Field> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FIELD, spec);
 
-  spec = g_param_spec_object("data-type",
-                             "Data type",
-                             "The data type",
-                             GARROW_TYPE_DATA_TYPE,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "data-type",
+    "Data type",
+    "The data type",
+    GARROW_TYPE_DATA_TYPE,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA_TYPE, spec);
 }
 
@@ -148,8 +145,7 @@ garrow_field_class_init(GArrowFieldClass *klass)
 GArrowField *
 garrow_field_import(gpointer c_abi_schema, GError **error)
 {
-  auto arrow_field_result =
-    arrow::ImportField(static_cast<ArrowSchema *>(c_abi_schema));
+  auto arrow_field_result = arrow::ImportField(static_cast<ArrowSchema *>(c_abi_schema));
   if (garrow::check(error, arrow_field_result, "[field][import]")) {
     return garrow_field_new_raw(&(*arrow_field_result), nullptr);
   } else {
@@ -165,8 +161,7 @@ garrow_field_import(gpointer c_abi_schema, GError **error)
  * Returns: A newly created #GArrowField.
  */
 GArrowField *
-garrow_field_new(const gchar *name,
-                 GArrowDataType *data_type)
+garrow_field_new(const gchar *name, GArrowDataType *data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_field = std::make_shared<arrow::Field>(name, arrow_data_type);
@@ -182,14 +177,10 @@ garrow_field_new(const gchar *name,
  * Returns: A newly created #GArrowField.
  */
 GArrowField *
-garrow_field_new_full(const gchar *name,
-                      GArrowDataType *data_type,
-                      gboolean nullable)
+garrow_field_new_full(const gchar *name, GArrowDataType *data_type, gboolean nullable)
 {
   auto arrow_field =
-    std::make_shared<arrow::Field>(name,
-                                   garrow_data_type_get_raw(data_type),
-                                   nullable);
+    std::make_shared<arrow::Field>(name, garrow_data_type_get_raw(data_type), nullable);
   return garrow_field_new_raw(&arrow_field, data_type);
 }
 
@@ -268,8 +259,7 @@ garrow_field_is_nullable(GArrowField *field)
  *   otherwise.
  */
 gboolean
-garrow_field_equal(GArrowField *field,
-                   GArrowField *other_field)
+garrow_field_equal(GArrowField *field, GArrowField *other_field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
   const auto arrow_other_field = garrow_field_get_raw(other_field);
@@ -364,14 +354,12 @@ garrow_field_get_metadata(GArrowField *field)
  * Since: 3.0.0
  */
 GArrowField *
-garrow_field_with_metadata(GArrowField *field,
-                           GHashTable *metadata)
+garrow_field_with_metadata(GArrowField *field, GHashTable *metadata)
 {
   const auto arrow_field = garrow_field_get_raw(field);
   auto arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
   auto arrow_new_field = arrow_field->WithMetadata(arrow_metadata);
-  return garrow_field_new_raw(&arrow_new_field,
-                              garrow_field_get_data_type(field));
+  return garrow_field_new_raw(&arrow_new_field, garrow_field_get_data_type(field));
 }
 
 /**
@@ -386,14 +374,12 @@ garrow_field_with_metadata(GArrowField *field,
  * Since: 3.0.0
  */
 GArrowField *
-garrow_field_with_merged_metadata(GArrowField *field,
-                                  GHashTable *metadata)
+garrow_field_with_merged_metadata(GArrowField *field, GHashTable *metadata)
 {
   const auto arrow_field = garrow_field_get_raw(field);
   auto arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
   auto arrow_new_field = arrow_field->WithMergedMetadata(arrow_metadata);
-  return garrow_field_new_raw(&arrow_new_field,
-                              garrow_field_get_data_type(field));
+  return garrow_field_new_raw(&arrow_new_field, garrow_field_get_data_type(field));
 }
 
 /**
@@ -409,8 +395,7 @@ garrow_field_remove_metadata(GArrowField *field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
   auto arrow_new_field = arrow_field->RemoveMetadata();
-  return garrow_field_new_raw(&arrow_new_field,
-                              garrow_field_get_data_type(field));
+  return garrow_field_new_raw(&arrow_new_field, garrow_field_get_data_type(field));
 }
 
 G_END_DECLS
@@ -425,10 +410,8 @@ garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
     data_type = garrow_data_type_new_raw(&arrow_data_type);
     data_type_need_unref = true;
   }
-  auto field = GARROW_FIELD(g_object_new(GARROW_TYPE_FIELD,
-                                         "field", arrow_field,
-                                         "data-type", data_type,
-                                         NULL));
+  auto field = GARROW_FIELD(
+    g_object_new(GARROW_TYPE_FIELD, "field", arrow_field, "data-type", data_type, NULL));
   if (data_type_need_unref) {
     g_object_unref(data_type);
   }

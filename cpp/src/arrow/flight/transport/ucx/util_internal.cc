@@ -50,7 +50,7 @@ ucs_status_t FlightUcxStatusDetail::Unwrap(const Status& status) {
   return dynamic_cast<const FlightUcxStatusDetail*>(status.detail().get())->status_;
 }
 
-arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
+arrow::Result<size_t> UriToSockaddr(const arrow::util::Uri& uri,
                                     struct sockaddr_storage* addr) {
   std::string host = uri.host();
   if (host.empty()) {

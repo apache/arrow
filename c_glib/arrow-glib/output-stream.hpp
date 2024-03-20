@@ -25,16 +25,23 @@
 
 #include <arrow-glib/output-stream.h>
 
-GArrowOutputStream *garrow_output_stream_new_raw(std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream);
-std::shared_ptr<arrow::io::OutputStream> garrow_output_stream_get_raw(GArrowOutputStream *output_stream);
+GArrowOutputStream *
+garrow_output_stream_new_raw(
+  std::shared_ptr<arrow::io::OutputStream> *arrow_output_stream);
+std::shared_ptr<arrow::io::OutputStream>
+garrow_output_stream_get_raw(GArrowOutputStream *output_stream);
 
-
-GArrowFileOutputStream *garrow_file_output_stream_new_raw(std::shared_ptr<arrow::io::FileOutputStream> *arrow_file_output_stream);
-GArrowBufferOutputStream *garrow_buffer_output_stream_new_raw(std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream);
+GArrowFileOutputStream *
+garrow_file_output_stream_new_raw(
+  std::shared_ptr<arrow::io::FileOutputStream> *arrow_file_output_stream);
+GArrowBufferOutputStream *
+garrow_buffer_output_stream_new_raw(
+  std::shared_ptr<arrow::io::BufferOutputStream> *arrow_buffer_output_stream);
 
 GArrowCompressedOutputStream *
-garrow_compressed_output_stream_new_raw(std::shared_ptr<arrow::io::CompressedOutputStream> *arrow_raw,
-                                        GArrowCodec *codec,
-                                        GArrowOutputStream *raw);
+garrow_compressed_output_stream_new_raw(
+  std::shared_ptr<arrow::io::CompressedOutputStream> *arrow_raw,
+  GArrowCodec *codec,
+  GArrowOutputStream *raw);
 std::shared_ptr<arrow::io::OutputStream>
 garrow_compressed_output_stream_get_raw(GArrowCompressedOutputStream *stream);

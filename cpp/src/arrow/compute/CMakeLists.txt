@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(arrow_compute)
+add_custom_target(arrow-compute-tests)
 
 arrow_install_all_headers("arrow/compute")
 
@@ -29,7 +29,7 @@ endif()
 #
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
-set(ARROW_COMPUTE_TEST_LABELS "arrow_compute")
+set(ARROW_COMPUTE_TEST_LABELS "arrow-compute-tests")
 set(ARROW_COMPUTE_TEST_ARGS PREFIX ${ARROW_COMPUTE_TEST_PREFIX} LABELS
                             ${ARROW_COMPUTE_TEST_LABELS})
 

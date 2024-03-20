@@ -336,6 +336,202 @@ TEST(AzureFileSystem, OptionsCompare) {
   EXPECT_TRUE(options.Equals(options));
 }
 
+class TestAzureOptions : public ::testing::Test {
+ public:
+  void TestFromUriBlobStorage() {
+    AzureOptions default_options;
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob",
+                              &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, default_options.blob_storage_authority);
+    ASSERT_EQ(options.dfs_storage_authority, default_options.dfs_storage_authority);
+    ASSERT_EQ(options.blob_storage_scheme, default_options.blob_storage_scheme);
+    ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
+    ASSERT_EQ(path, "container/dir/blob");
+  }
+
+  void TestFromUriDfsStorage() {
+    AzureOptions default_options;
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://file_system@account.dfs.core.windows.net/dir/file",
+                              &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, default_options.blob_storage_authority);
+    ASSERT_EQ(options.dfs_storage_authority, default_options.dfs_storage_authority);
+    ASSERT_EQ(options.blob_storage_scheme, default_options.blob_storage_scheme);
+    ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
+    ASSERT_EQ(path, "file_system/dir/file");
+  }
+
+  void TestFromUriAbfs() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://account:password@127.0.0.1:10000/container/dir/blob", &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "https");
+    ASSERT_EQ(options.dfs_storage_scheme, "https");
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(path, "container/dir/blob");
+  }
+
+  void TestFromUriAbfss() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfss://account:password@127.0.0.1:10000/container/dir/blob", &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "https");
+    ASSERT_EQ(options.dfs_storage_scheme, "https");
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(path, "container/dir/blob");
+  }
+
+  void TestFromUriEnableTls() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
+                             "enable_tls=false",
+                             &path));
+    ASSERT_EQ(options.account_name, "account");
+    ASSERT_EQ(options.blob_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.dfs_storage_authority, "127.0.0.1:10000");
+    ASSERT_EQ(options.blob_storage_scheme, "http");
+    ASSERT_EQ(options.dfs_storage_scheme, "http");
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+    ASSERT_EQ(path, "container/dir/blob");
+  }
+
+  void TestFromUriCredentialDefault() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=default",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
+  }
+
+  void TestFromUriCredentialAnonymous() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=anonymous",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kAnonymous);
+  }
+
+  void TestFromUriCredentialStorageSharedKey() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri(
+            "abfs://:password@account.blob.core.windows.net/container/dir/blob",
+            nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
+  }
+
+  void TestFromUriCredentialClientSecret() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "tenant_id=tenant-id&"
+                              "client_id=client-id&"
+                              "client_secret=client-secret",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kClientSecret);
+  }
+
+  void TestFromUriCredentialManagedIdentity() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "client_id=client-id",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kManagedIdentity);
+  }
+
+  void TestFromUriCredentialWorkloadIdentity() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=workload_identity",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kWorkloadIdentity);
+  }
+
+  void TestFromUriCredentialInvalid() {
+    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
+                               "abfs://file_system@account.dfs.core.windows.net/dir/file?"
+                               "credential_kind=invalid",
+                               nullptr));
+  }
+  void TestFromUriBlobStorageAuthority() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "blob_storage_authority=.blob.local",
+                              nullptr));
+    ASSERT_EQ(options.blob_storage_authority, ".blob.local");
+  }
+
+  void TestFromUriDfsStorageAuthority() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://file_system@account.dfs.core.windows.net/dir/file?"
+                              "dfs_storage_authority=.dfs.local",
+                              nullptr));
+    ASSERT_EQ(options.dfs_storage_authority, ".dfs.local");
+  }
+
+  void TestFromUriInvalidQueryParameter() {
+    ASSERT_RAISES(Invalid, AzureOptions::FromUri(
+                               "abfs://file_system@account.dfs.core.windows.net/dir/file?"
+                               "unknown=invalid",
+                               nullptr));
+  }
+};
+
+TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
+TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
+TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
+TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
+TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
+TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
+TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
+TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
+  TestFromUriCredentialStorageSharedKey();
+}
+TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
+  TestFromUriCredentialClientSecret();
+}
+TEST_F(TestAzureOptions, FromUriCredentialManagedIdentity) {
+  TestFromUriCredentialManagedIdentity();
+}
+TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
+  TestFromUriCredentialWorkloadIdentity();
+}
+TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
+TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
+  TestFromUriBlobStorageAuthority();
+}
+TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
+TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
+  TestFromUriInvalidQueryParameter();
+}
+
 struct PreexistingData {
  public:
   using RNG = random::pcg32_fast;
@@ -641,6 +837,18 @@ class TestAzureFileSystem : public ::testing::Test {
 #endif
   }
 
+  static bool WithErrno(const Status& status, int expected_errno) {
+    auto* detail = status.detail().get();
+    return detail &&
+           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
+  }
+
+#define ASSERT_RAISES_ERRNO(expr, expected_errno)                                     \
+  for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr));              \
+       !WithErrno(_st, (expected_errno));)                                            \
+  FAIL() << "'" ARROW_STRINGIFY(expr) "' did not fail with errno=" << #expected_errno \
+         << ": " << _st.ToString()
+
   // Tests that are called from more than one implementation of TestAzureFileSystem
 
   void TestDetectHierarchicalNamespace(bool trip_up_azurite);
@@ -826,6 +1034,41 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), subdir3, FileType::Directory);
   }
 
+  void TestDisallowReadingOrWritingDirectoryMarkers() {
+    auto data = SetUpPreexistingData();
+    auto directory_path = data.Path("directory");
+
+    ASSERT_OK(fs()->CreateDir(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path));
+
+    auto directory_path_with_slash = directory_path + "/";
+    ASSERT_RAISES(IOError, fs()->OpenInputFile(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(directory_path_with_slash));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(directory_path_with_slash));
+  }
+
+  void TestDisallowCreatingFileAndDirectoryWithTheSameName() {
+    auto data = SetUpPreexistingData();
+    auto path1 = data.Path("directory1");
+    ASSERT_OK(fs()->CreateDir(path1));
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream(path1));
+    ASSERT_RAISES(IOError, fs()->OpenAppendStream(path1));
+    AssertFileInfo(fs(), path1, FileType::Directory);
+
+    auto path2 = data.Path("directory2");
+    ASSERT_OK(fs()->OpenOutputStream(path2));
+    // CreateDir returns OK even if there is already a file or directory at this
+    // location. Whether or not this is the desired behaviour is debatable.
+    ASSERT_OK(fs()->CreateDir(path2));
+    AssertFileInfo(fs(), path2, FileType::File);
+  }
+
+  void TestOpenOutputStreamWithMissingContainer() {
+    ASSERT_RAISES(IOError, fs()->OpenOutputStream("not-a-container/file", {}));
+  }
+
   void TestDeleteDirSuccessEmpty() {
     if (HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
@@ -933,6 +1176,106 @@ class TestAzureFileSystem : public ::testing::Test {
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
     ASSERT_RAISES(IOError, fs()->DeleteDirContents(directory_path, false));
+  }
+
+  void TestDeleteFileAtRoot() {
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile("file0"), ENOENT);
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile("file1/"), ENOENT);
+    const auto container_name = PreexistingData::RandomContainerName(rng_);
+    if (WithHierarchicalNamespace()) {
+      ARROW_UNUSED(CreateFilesystem(container_name));
+    } else {
+      ARROW_UNUSED(CreateContainer(container_name));
+    }
+    arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + container_name + "'"),
+        fs()->DeleteFile(container_name));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + container_name + "/'"),
+        fs()->DeleteFile(container_name + "/"));
+  }
+
+  void TestDeleteFileAtContainerRoot() {
+    auto data = SetUpPreexistingData();
+
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.Path("nonexistent-path")), ENOENT);
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.Path("nonexistent-path/")), ENOENT);
+
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+    ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::NotFound);
+
+    if (WithHierarchicalNamespace()) {
+      auto adlfs_client =
+          datalake_service_client_->GetFileSystemClient(data.container_name);
+      CreateFile(adlfs_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    } else {
+      auto container_client = CreateContainer(data.container_name);
+      CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    }
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
+    ASSERT_RAISES_ERRNO(fs()->DeleteFile(data.ObjectPath() + "/"), ENOTDIR);
+    ASSERT_OK(fs()->DeleteFile(data.ObjectPath()));
+    arrow::fs::AssertFileInfo(fs(), data.ObjectPath(), FileType::NotFound);
+  }
+
+  void TestDeleteFileAtSubdirectory(bool create_empty_dir_marker_first) {
+    auto data = SetUpPreexistingData();
+
+    auto setup_dir_file0 = [this, create_empty_dir_marker_first, &data]() {
+      if (WithHierarchicalNamespace()) {
+        ASSERT_FALSE(create_empty_dir_marker_first);
+        auto adlfs_client =
+            datalake_service_client_->GetFileSystemClient(data.container_name);
+        CreateFile(adlfs_client, "dir/file0", PreexistingData::kLoremIpsum);
+      } else {
+        auto container_client = CreateContainer(data.container_name);
+        if (create_empty_dir_marker_first) {
+          CreateBlob(container_client, "dir/", "");
+        }
+        CreateBlob(container_client, "dir/file0", PreexistingData::kLoremIpsum);
+      }
+    };
+    setup_dir_file0();
+
+    // Trying to delete a non-existing file in an existing directory should fail
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Path does not exist '" + data.Path("dir/nonexistent-path") +
+                             "'"),
+        fs()->DeleteFile(data.Path("dir/nonexistent-path")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Path does not exist '" +
+                             data.Path("dir/nonexistent-path/") + "'"),
+        fs()->DeleteFile(data.Path("dir/nonexistent-path/")));
+
+    // Trying to delete the directory with DeleteFile should fail
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir") + "'"),
+        fs()->DeleteFile(data.Path("dir")));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Not a regular file: '" + data.Path("dir/") + "'"),
+        fs()->DeleteFile(data.Path("dir/")));
+
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
+    ASSERT_OK(fs()->DeleteFile(data.Path("dir/file0")));
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/"), FileType::Directory);
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::NotFound);
+
+    // Recreating the file on the same path gurantees leases were properly released/broken
+    setup_dir_file0();
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError,
+        ::testing::HasSubstr("Not a directory: '" + data.Path("dir/file0/") + "'"),
+        fs()->DeleteFile(data.Path("dir/file0/")));
+    arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
   }
 
  private:
@@ -1092,12 +1435,6 @@ class TestAzureFileSystem : public ::testing::Test {
     AssertFileInfo(fs(), dest, type);
   }
 
-  static bool WithErrno(const Status& status, int expected_errno) {
-    auto* detail = status.detail().get();
-    return detail &&
-           arrow::internal::ErrnoFromStatusDetail(*detail).value_or(-1) == expected_errno;
-  }
-
   std::optional<StringMatcher> MoveErrorMessageMatcher(const FileInfo& src_info,
                                                        const std::string& src,
                                                        const std::string& dest,
@@ -1234,29 +1571,31 @@ class TestAzureFileSystem : public ::testing::Test {
   void TestMovePath() {
     Status st;
     auto data = SetUpPreexistingData();
+    auto another_container = PreexistingData::RandomContainerName(rng_);
+    CreateContainer(another_container);
     // When source doesn't exist.
     ASSERT_MOVE("missing-container/src-path", data.ContainerPath("dest-path"), ENOENT);
     auto missing_path1 = data.RandomDirectoryPath(rng_);
     ASSERT_MOVE(missing_path1, "missing-container/path", ENOENT);
 
     // But when source exists...
+    // ...and containers are different, we get an error message telling cross-container
+    // moves are not implemented.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(data.ObjectPath(),
+                                               "missing-container/path"),
+        fs()->Move(data.ObjectPath(), "missing-container/path"));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented,
+        HasCrossContainerNotImplementedMessage(
+            data.ObjectPath(), ConcatAbstractPath(another_container, "path")),
+        fs()->Move(data.ObjectPath(), ConcatAbstractPath(another_container, "path")));
+    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
+
     if (!WithHierarchicalNamespace()) {
-      // ...and containers are different, we get an error message telling cross-container
-      // moves are not implemented.
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          NotImplemented,
-          HasCrossContainerNotImplementedMessage(data.ObjectPath(),
-                                                 "missing-container/path"),
-          fs()->Move(data.ObjectPath(), "missing-container/path"));
       GTEST_SKIP() << "The rest of TestMovePath is not implemented for non-HNS scenarios";
     }
-    auto adlfs_client =
-        datalake_service_client_->GetFileSystemClient(data.container_name);
-    // ...and dest.container doesn't exist.
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IOError, HasMissingParentDirMessage("missing-container/path"),
-        fs()->Move(data.ObjectPath(), "missing-container/path"));
-    AssertFileInfo(fs(), data.ObjectPath(), FileType::File);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IOError, HasMissingParentDirMessage(data.Path("missing-subdir/file")),
@@ -1271,6 +1610,8 @@ class TestAzureFileSystem : public ::testing::Test {
     // "file0" exists
 
     // src is a file and dest exists (as a file)
+    auto adlfs_client =
+        datalake_service_client_->GetFileSystemClient(data.container_name);
     CreateFile(adlfs_client, PreexistingData::kObjectName, PreexistingData::kLoremIpsum);
     CreateFile(adlfs_client, "file1", PreexistingData::kLoremIpsum);
     ASSERT_MOVE_OK(data.ObjectPath(), data.Path("file0"));
@@ -1555,6 +1896,19 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnMissingContainer) {
   this->TestCreateDirOnMissingContainer();
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DisallowReadingOrWritingDirectoryMarkers) {
+  this->TestDisallowReadingOrWritingDirectoryMarkers();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios,
+           DisallowCreatingFileAndDirectoryWithTheSameName) {
+  this->TestDisallowCreatingFileAndDirectoryWithTheSameName();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, OpenOutputStreamWithMissingContainer) {
+  this->TestOpenOutputStreamWithMissingContainer();
+}
+
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
   this->TestDeleteDirSuccessEmpty();
 }
@@ -1590,6 +1944,21 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsSuccessNonexisten
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtRoot) {
+  this->TestDeleteFileAtRoot();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtContainerRoot) {
+  this->TestDeleteFileAtContainerRoot();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteFileAtSubdirectory) {
+  this->TestDeleteFileAtSubdirectory(/*create_empty_dir_marker_first=*/false);
+  if (!this->WithHierarchicalNamespace()) {
+    this->TestDeleteFileAtSubdirectory(/*create_empty_dir_marker_first=*/true);
+  }
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, RenameContainer) {
@@ -1880,57 +2249,6 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
-TEST_F(TestAzuriteFileSystem, DeleteFileSuccess) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  const auto file_name = ConcatAbstractPath(container_name, "filename");
-  if (WithHierarchicalNamespace()) {
-    auto adlfs_client = CreateFilesystem(container_name);
-    CreateFile(adlfs_client, "filename", "data");
-  } else {
-    auto container = CreateContainer(container_name);
-    CreateBlob(container, "filename", "data");
-  }
-  arrow::fs::AssertFileInfo(fs(), file_name, FileType::File);
-  ASSERT_OK(fs()->DeleteFile(file_name));
-  arrow::fs::AssertFileInfo(fs(), file_name, FileType::NotFound);
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureNonexistent) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  const auto nonexistent_file_name = ConcatAbstractPath(container_name, "nonexistent");
-  if (WithHierarchicalNamespace()) {
-    ARROW_UNUSED(CreateFilesystem(container_name));
-  } else {
-    ARROW_UNUSED(CreateContainer(container_name));
-  }
-  ASSERT_RAISES(IOError, fs()->DeleteFile(nonexistent_file_name));
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureContainer) {
-  const auto container_name = PreexistingData::RandomContainerName(rng_);
-  if (WithHierarchicalNamespace()) {
-    ARROW_UNUSED(CreateFilesystem(container_name));
-  } else {
-    ARROW_UNUSED(CreateContainer(container_name));
-  }
-  arrow::fs::AssertFileInfo(fs(), container_name, FileType::Directory);
-  ASSERT_RAISES(IOError, fs()->DeleteFile(container_name));
-}
-
-TEST_F(TestAzuriteFileSystem, DeleteFileFailureDirectory) {
-  auto container_name = PreexistingData::RandomContainerName(rng_);
-  if (WithHierarchicalNamespace()) {
-    auto adlfs_client = CreateFilesystem(container_name);
-    CreateDirectory(adlfs_client, "directory");
-  } else {
-    auto container = CreateContainer(container_name);
-    CreateBlob(container, "directory/");
-  }
-  auto directory_path = ConcatAbstractPath(container_name, "directory");
-  arrow::fs::AssertFileInfo(fs(), directory_path, FileType::Directory);
-  ASSERT_RAISES(IOError, fs()->DeleteFile(directory_path));
-}
-
 TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
   auto data = SetUpPreexistingData();
   const auto destination_path = data.ContainerPath("copy-destionation");
@@ -2140,6 +2458,7 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
   ASSERT_OK(output->Close());
 
   // Verify the metadata has been set.
+  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
   auto blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
                            .GetBlockBlobClient(blob_path)
                            .GetProperties()
@@ -2152,12 +2471,25 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
                   full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
+  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
   blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
                       .GetBlockBlobClient(blob_path)
                       .GetProperties()
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
   EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+
+  // Metadata can be written without writing any data.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_with_defaults->OpenAppendStream(
+                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "baz"}})));
+  ASSERT_OK(output->Close());
+  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
+                      .GetBlockBlobClient(blob_path)
+                      .GetProperties()
+                      .Value.Metadata;
+  // Defaults are overwritten and not merged.
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "baz")}, blob_metadata);
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {

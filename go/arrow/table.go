@@ -39,6 +39,8 @@ type Table interface {
 
 	Retain()
 	Release()
+
+	fmt.Stringer
 }
 
 // Column is an immutable column data structure consisting of
