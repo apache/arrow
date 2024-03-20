@@ -224,3 +224,39 @@ func TestDecimal128StringRoundTrip(t *testing.T) {
 
 	assert.True(t, array.Equal(arr, arr1))
 }
+
+func TestDecimal128OneForMarshal(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.Decimal128Type{Precision: 38, Scale: 20}
+
+	b := array.NewDecimal128Builder(mem, dtype)
+	defer b.Release()
+
+	wantValues := []any{"0.99", "1234567890.123456789", nil}
+
+	for _, v := range wantValues {
+		if v == nil {
+			b.AppendNull()
+			continue
+		}
+
+		dt, err := decimal128.FromString(v.(string), dtype.Precision, dtype.Scale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.Append(dt)
+	}
+
+	arr := b.NewDecimal128Array()
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(wantValues); got != want {
+		t.Fatalf("invalid array length: got=%d, want=%d", got, want)
+	}
+
+	for i := range wantValues {
+		assert.Equalf(t, wantValues[i], arr.GetOneForMarshal(i), "unexpected value at index %d", i)
+	}
+}
