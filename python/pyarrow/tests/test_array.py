@@ -3619,18 +3619,24 @@ def test_run_end_encoded_from_array_with_type():
     assert result.equals(expected)
 
 
-def test_run_end_encoded_to_numpy_to_pandas():
+def _generate_ree_array():
     run_ends = [1, 3, 6]
     values = [1, 2, 3]
     ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
-    ree_array = pa.RunEndEncodedArray.from_arrays(run_ends, values,
-                                                  ree_type)
+    return pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                             ree_type)
 
-    arr = [1, 2, 2, 3, 3, 3]
-    expected = np.array(arr)
 
+def test_run_end_encoded_to_numpy():
+    ree_array = _generate_ree_array()
+    expected = np.array([1, 2, 2, 3, 3, 3])
     np.testing.assert_array_equal(ree_array.to_numpy(), expected)
-    assert ree_array.to_pandas().tolist() == arr
+
+
+@pytest.mark.pandas
+def test_run_end_encoded_to_pandas():
+    ree_array = _generate_ree_array()
+    assert ree_array.to_pandas().tolist() == [1, 2, 2, 3, 3, 3]
 
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
