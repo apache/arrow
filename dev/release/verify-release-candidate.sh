@@ -76,7 +76,6 @@ esac
 # which is different from the ARROW_SOURCE_DIR set in ensure_source_directory()
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ARROW_DIR="$(cd "${SOURCE_DIR}/../.." && pwd)"
-MAVEN_VERSION=3.8.7
 
 show_header() {
   echo ""
@@ -469,14 +468,20 @@ install_conda() {
   conda activate base
 }
 
-install_maven() {
-  show_info "Installing Maven version ${MAVEN_VERSION}..."
-  APACHE_MIRROR="http://www.apache.org/dyn/closer.cgi?action=download&filename="
-  curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-    ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
-  tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
-  export PATH=`pwd`/apache-maven-${MAVEN_VERSION}/bin:$PATH
-  show_info "Installed Maven version $(mvn -v)"
+maybe_setup_maven() {
+  MAVEN_VERSION=3.8.7
+  SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+  if [[ $(echo "$SYSTEM_MAVEN_VERSION $MAVEN_VERSION" | awk '{print ($1 < $2)}') -eq 1 ]]; then
+    show_info "Installing Maven version ${MAVEN_VERSION}..."
+    APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+    curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+      ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+    tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+    export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+    show_info "Installed Maven version $(mvn -v)"
+  else
+    show_info "System Maven version is equal or newer than ${MAVEN_VERSION}. Skipping installation."
+  fi
 }
 
 maybe_setup_conda() {
@@ -577,7 +582,7 @@ test_package_java() {
   show_header "Build and test Java libraries"
 
   maybe_setup_conda maven openjdk
-  install_maven
+  maybe_setup_maven
 
   pushd java
 
@@ -1215,7 +1220,7 @@ test_wheels() {
 test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python
-  install_maven
+  maybe_setup_maven
 
   local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
