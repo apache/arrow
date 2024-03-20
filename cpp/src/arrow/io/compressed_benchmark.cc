@@ -93,7 +93,7 @@ class NonZeroCopyBufferReader final : public InputStream {
   ::arrow::io::BufferReader reader_;
 };
 
-template <typename BufReader, Compression::type COMPRESSION>
+template <typename BufReader, Compression::type COMPRESSION, bool ReadIntoBuffer>
 static void CompressionInputBenchmark(::benchmark::State& state) {
   std::vector<uint8_t> data = MakeCompressibleData(/*data_size=*/state.range(0));
   int64_t per_read_bytes = state.range(1);
@@ -108,28 +108,50 @@ static void CompressionInputBenchmark(::benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     auto reader = std::make_shared<BufReader>(buf);
+    [[maybe_unused]] auto read_buffer =
+        ::arrow::AllocateBuffer(per_read_bytes).ValueOrDie();
+    state.ResumeTiming();
+    // Put `CompressedInputStream::Make` in timing.
     auto input_stream =
         ::arrow::io::CompressedInputStream::Make(codec.get(), reader).ValueOrDie();
-    auto read_buffer = ::arrow::AllocateBuffer(per_read_bytes).ValueOrDie();
-    state.ResumeTiming();
     int64_t remaining_size = data.size();
     while (remaining_size > 0) {
-      auto value = input_stream->Read(per_read_bytes, read_buffer->mutable_data());
-      ABORT_NOT_OK(value);
-      remaining_size -= value.ValueOrDie();
+      if constexpr (ReadIntoBuffer) {
+        auto value = input_stream->Read(per_read_bytes, read_buffer->mutable_data());
+        ABORT_NOT_OK(value);
+        remaining_size -= value.ValueOrDie();
+      } else {
+        auto value = input_stream->Read(per_read_bytes);
+        ABORT_NOT_OK(value);
+        remaining_size -= value.ValueOrDie()->size();
+      }
     }
   }
   state.SetBytesProcessed(length * state.iterations());
 }
 
 template <Compression::type COMPRESSION>
-static void CompressionInputZeroCopyBenchmark(::benchmark::State& state) {
-  CompressionInputBenchmark<::arrow::io::BufferReader, COMPRESSION>(state);
+static void CompressionInputZeroCopyBenchmarkIntoBuffer(::benchmark::State& state) {
+  CompressionInputBenchmark<::arrow::io::BufferReader, COMPRESSION,
+                            /*ReadIntoBuffer=*/true>(state);
 }
 
 template <Compression::type COMPRESSION>
-static void CompressionInputNonZeroCopyBenchmark(::benchmark::State& state) {
-  CompressionInputBenchmark<NonZeroCopyBufferReader, COMPRESSION>(state);
+static void CompressionInputNonZeroCopyBenchmarkIntoBuffer(::benchmark::State& state) {
+  CompressionInputBenchmark<NonZeroCopyBufferReader, COMPRESSION,
+                            /*ReadIntoBuffer=*/true>(state);
+}
+
+template <Compression::type COMPRESSION>
+static void CompressionInputZeroCopyBenchmarkDirectRead(::benchmark::State& state) {
+  CompressionInputBenchmark<::arrow::io::BufferReader, COMPRESSION,
+                            /*ReadIntoBuffer=*/false>(state);
+}
+
+template <Compression::type COMPRESSION>
+static void CompressionInputNonZeroCopyBenchmarkDirectRead(::benchmark::State& state) {
+  CompressionInputBenchmark<NonZeroCopyBufferReader, COMPRESSION,
+                            /*ReadIntoBuffer=*/false>(state);
 }
 
 static void CompressedInputArguments(::benchmark::internal::Benchmark* b) {
@@ -142,24 +164,20 @@ static void CompressedInputArguments(::benchmark::internal::Benchmark* b) {
       ->Args({1024 * 1024, 1024 * 1024});
 }
 
-#ifdef ARROW_WITH_ZLIB
-BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::GZIP)
-    ->Apply(CompressedInputArguments);
-BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::GZIP)
-    ->Apply(CompressedInputArguments);
-#endif
-
-#ifdef ARROW_WITH_ZSTD
-BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::ZSTD)
-    ->Apply(CompressedInputArguments);
-BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::ZSTD)
-    ->Apply(CompressedInputArguments);
-#endif
-
 #ifdef ARROW_WITH_LZ4
-BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmark, ::arrow::Compression::LZ4_FRAME)
+// Benchmark LZ4 because it's lightweight, which makes benchmarking focused on the
+// overhead of the compression input stream.
+BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmarkIntoBuffer,
+                   ::arrow::Compression::LZ4_FRAME)
     ->Apply(CompressedInputArguments);
-BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmark, ::arrow::Compression::LZ4_FRAME)
+BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmarkIntoBuffer,
+                   ::arrow::Compression::LZ4_FRAME)
+    ->Apply(CompressedInputArguments);
+BENCHMARK_TEMPLATE(CompressionInputZeroCopyBenchmarkDirectRead,
+                   ::arrow::Compression::LZ4_FRAME)
+    ->Apply(CompressedInputArguments);
+BENCHMARK_TEMPLATE(CompressionInputNonZeroCopyBenchmarkDirectRead,
+                   ::arrow::Compression::LZ4_FRAME)
     ->Apply(CompressedInputArguments);
 #endif
 

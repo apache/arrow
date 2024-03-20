@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -233,7 +234,7 @@ class CompressedInputStream::Impl {
       : pool_(pool),
         raw_(raw),
         is_open_(true),
-        supports_zero_copy_from_raw_(raw->supports_zero_copy()),
+        supports_zero_copy_from_raw_(raw_->supports_zero_copy()),
         compressed_pos_(0),
         decompressed_pos_(0),
         fresh_decompressor_(false),
@@ -280,9 +281,6 @@ class CompressedInputStream::Impl {
           RETURN_NOT_OK(
               compressed_for_non_zero_copy_->Resize(kChunkSize, /*shrink_to_fit=*/false));
         }
-        // set compressed_ to nullptr to avoid `compressed_for_non_zero_copy_` being
-        // referenced twice, which would making it "immutable".
-        compressed_ = nullptr;
         ARROW_ASSIGN_OR_RAISE(
             int64_t read_size,
             raw_->Read(kChunkSize,
@@ -312,7 +310,8 @@ class CompressedInputStream::Impl {
         ARROW_ASSIGN_OR_RAISE(decompressed_,
                               AllocateResizableBuffer(decompress_size, pool_));
       } else {
-        RETURN_NOT_OK(decompressed_->Resize(decompress_size, /*shrink_to_fit=*/false));
+        // Shrinking the buffer if it's already large enough
+        RETURN_NOT_OK(decompressed_->Resize(decompress_size, /*shrink_to_fit=*/true));
       }
       decompressed_pos_ = 0;
 
@@ -328,7 +327,9 @@ class CompressedInputStream::Impl {
         fresh_decompressor_ = false;
       }
       if (result.bytes_written > 0 || !result.need_more_output || input_len == 0) {
-        RETURN_NOT_OK(decompressed_->Resize(result.bytes_written));
+        // Not calling shrink_to_fit here because we're likely to reusing the buffer.
+        RETURN_NOT_OK(
+            decompressed_->Resize(result.bytes_written, /*shrink_to_fit=*/false));
         break;
       }
       DCHECK_EQ(result.bytes_written, 0);
@@ -441,7 +442,7 @@ Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
     Codec* codec, const std::shared_ptr<InputStream>& raw, MemoryPool* pool) {
   // CAUTION: codec is not owned
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
+  res->impl_.reset(new Impl(pool, raw));
   RETURN_NOT_OK(res->impl_->Init(codec));
   return res;
 }
