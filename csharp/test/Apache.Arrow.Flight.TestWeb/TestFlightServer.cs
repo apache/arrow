@@ -128,5 +128,13 @@ namespace Apache.Arrow.Flight.TestWeb
                 await responseStream.WriteAsync(flightInfo);
             }
         }
+
+        public override async Task DoExchange(FlightServerRecordBatchStreamReader requestStream, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
+        {
+            while(await requestStream.MoveNext().ConfigureAwait(false))
+            {
+                await responseStream.WriteAsync(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()).ConfigureAwait(false);
+            }
+        }
     }
 }
