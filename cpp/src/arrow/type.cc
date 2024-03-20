@@ -874,7 +874,7 @@ bool Field::IsCompatibleWith(const std::shared_ptr<Field>& other) const {
 
 std::string Field::ToString(bool show_metadata) const {
   std::stringstream ss;
-  ss << name_ << ": " << type_->ToString();
+  ss << name_ << ": " << type_->ToString(show_metadata);
   if (!nullable_) {
     ss << " not null";
   }
@@ -919,14 +919,15 @@ std::ostream& operator<<(std::ostream& os, const TypeHolder& type) {
 // ----------------------------------------------------------------------
 // TypeHolder
 
-std::string TypeHolder::ToString(const std::vector<TypeHolder>& types) {
+std::string TypeHolder::ToString(const std::vector<TypeHolder>& types,
+                                 bool show_metadata) {
   std::stringstream ss;
   ss << "(";
   for (size_t i = 0; i < types.size(); ++i) {
     if (i > 0) {
       ss << ", ";
     }
-    ss << types[i].type->ToString();
+    ss << types[i].type->ToString(show_metadata);
   }
   ss << ")";
   return ss.str();
@@ -984,27 +985,27 @@ BaseBinaryType::~BaseBinaryType() {}
 
 BaseListType::~BaseListType() {}
 
-std::string ListType::ToString() const {
+std::string ListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "list<" << value_field()->ToString() << ">";
+  s << "list<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string LargeListType::ToString() const {
+std::string LargeListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "large_list<" << value_field()->ToString() << ">";
+  s << "large_list<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string ListViewType::ToString() const {
+std::string ListViewType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "list_view<" << value_field()->ToString() << ">";
+  s << "list_view<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
-std::string LargeListViewType::ToString() const {
+std::string LargeListViewType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "large_list_view<" << value_field()->ToString() << ">";
+  s << "large_list_view<" << value_field()->ToString(show_metadata) << ">";
   return s.str();
 }
 
@@ -1047,7 +1048,7 @@ Result<std::shared_ptr<DataType>> MapType::Make(std::shared_ptr<Field> value_fie
   return std::make_shared<MapType>(std::move(value_field), keys_sorted);
 }
 
-std::string MapType::ToString() const {
+std::string MapType::ToString(bool show_metadata) const {
   std::stringstream s;
 
   const auto print_field_name = [](std::ostream& os, const Field& field,
@@ -1058,7 +1059,7 @@ std::string MapType::ToString() const {
   };
   const auto print_field = [&](std::ostream& os, const Field& field,
                                const char* std_name) {
-    os << field.type()->ToString();
+    os << field.type()->ToString(show_metadata);
     print_field_name(os, field, std_name);
   };
 
@@ -1074,23 +1075,24 @@ std::string MapType::ToString() const {
   return s.str();
 }
 
-std::string FixedSizeListType::ToString() const {
+std::string FixedSizeListType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << "fixed_size_list<" << value_field()->ToString() << ">[" << list_size_ << "]";
+  s << "fixed_size_list<" << value_field()->ToString(show_metadata) << ">[" << list_size_
+    << "]";
   return s.str();
 }
 
-std::string BinaryType::ToString() const { return "binary"; }
+std::string BinaryType::ToString(bool show_metadata) const { return "binary"; }
 
-std::string BinaryViewType::ToString() const { return "binary_view"; }
+std::string BinaryViewType::ToString(bool show_metadata) const { return "binary_view"; }
 
-std::string LargeBinaryType::ToString() const { return "large_binary"; }
+std::string LargeBinaryType::ToString(bool show_metadata) const { return "large_binary"; }
 
-std::string StringType::ToString() const { return "string"; }
+std::string StringType::ToString(bool show_metadata) const { return "string"; }
 
-std::string StringViewType::ToString() const { return "string_view"; }
+std::string StringViewType::ToString(bool show_metadata) const { return "string_view"; }
 
-std::string LargeStringType::ToString() const { return "large_string"; }
+std::string LargeStringType::ToString(bool show_metadata) const { return "large_string"; }
 
 int FixedSizeBinaryType::bit_width() const { return CHAR_BIT * byte_width(); }
 
@@ -1105,7 +1107,7 @@ Result<std::shared_ptr<DataType>> FixedSizeBinaryType::Make(int32_t byte_width) 
   return std::make_shared<FixedSizeBinaryType>(byte_width);
 }
 
-std::string FixedSizeBinaryType::ToString() const {
+std::string FixedSizeBinaryType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "fixed_size_binary[" << byte_width_ << "]";
   return ss.str();
@@ -1122,9 +1124,13 @@ Date32Type::Date32Type() : DateType(Type::DATE32) {}
 
 Date64Type::Date64Type() : DateType(Type::DATE64) {}
 
-std::string Date64Type::ToString() const { return std::string("date64[ms]"); }
+std::string Date64Type::ToString(bool show_metadata) const {
+  return std::string("date64[ms]");
+}
 
-std::string Date32Type::ToString() const { return std::string("date32[day]"); }
+std::string Date32Type::ToString(bool show_metadata) const {
+  return std::string("date32[day]");
+}
 
 // ----------------------------------------------------------------------
 // Time types
@@ -1137,7 +1143,7 @@ Time32Type::Time32Type(TimeUnit::type unit) : TimeType(Type::TIME32, unit) {
       << "Must be seconds or milliseconds";
 }
 
-std::string Time32Type::ToString() const {
+std::string Time32Type::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "time32[" << this->unit_ << "]";
   return ss.str();
@@ -1148,7 +1154,7 @@ Time64Type::Time64Type(TimeUnit::type unit) : TimeType(Type::TIME64, unit) {
       << "Must be microseconds or nanoseconds";
 }
 
-std::string Time64Type::ToString() const {
+std::string Time64Type::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "time64[" << this->unit_ << "]";
   return ss.str();
@@ -1175,7 +1181,7 @@ std::ostream& operator<<(std::ostream& os, TimeUnit::type unit) {
 // ----------------------------------------------------------------------
 // Timestamp types
 
-std::string TimestampType::ToString() const {
+std::string TimestampType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "timestamp[" << this->unit_;
   if (this->timezone_.size() > 0) {
@@ -1186,7 +1192,7 @@ std::string TimestampType::ToString() const {
 }
 
 // Duration types
-std::string DurationType::ToString() const {
+std::string DurationType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "duration[" << this->unit_ << "]";
   return ss.str();
@@ -1245,7 +1251,7 @@ uint8_t UnionType::max_type_code() const {
              : *std::max_element(type_codes_.begin(), type_codes_.end());
 }
 
-std::string UnionType::ToString() const {
+std::string UnionType::ToString(bool show_metadata) const {
   std::stringstream s;
 
   s << name() << "<";
@@ -1254,7 +1260,7 @@ std::string UnionType::ToString() const {
     if (i) {
       s << ", ";
     }
-    s << children_[i]->ToString() << "=" << static_cast<int>(type_codes_[i]);
+    s << children_[i]->ToString(show_metadata) << "=" << static_cast<int>(type_codes_[i]);
   }
   s << ">";
   return s.str();
@@ -1291,10 +1297,10 @@ RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
 
 RunEndEncodedType::~RunEndEncodedType() = default;
 
-std::string RunEndEncodedType::ToString() const {
+std::string RunEndEncodedType::ToString(bool show_metadata) const {
   std::stringstream s;
-  s << name() << "<run_ends: " << run_end_type()->ToString()
-    << ", values: " << value_type()->ToString() << ">";
+  s << name() << "<run_ends: " << run_end_type()->ToString(show_metadata)
+    << ", values: " << value_type()->ToString(show_metadata) << ">";
   return s.str();
 }
 
@@ -1350,7 +1356,7 @@ StructType::StructType(const FieldVector& fields)
 
 StructType::~StructType() {}
 
-std::string StructType::ToString() const {
+std::string StructType::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "struct<";
   for (int i = 0; i < this->num_fields(); ++i) {
@@ -1358,7 +1364,7 @@ std::string StructType::ToString() const {
       s << ", ";
     }
     std::shared_ptr<Field> field = this->field(i);
-    s << field->ToString();
+    s << field->ToString(show_metadata);
   }
   s << ">";
   return s.str();
@@ -1523,17 +1529,18 @@ DataTypeLayout DictionaryType::layout() const {
   return layout;
 }
 
-std::string DictionaryType::ToString() const {
+std::string DictionaryType::ToString(bool show_metadata) const {
   std::stringstream ss;
-  ss << this->name() << "<values=" << value_type_->ToString()
-     << ", indices=" << index_type_->ToString() << ", ordered=" << ordered_ << ">";
+  ss << this->name() << "<values=" << value_type_->ToString(show_metadata)
+     << ", indices=" << index_type_->ToString(show_metadata) << ", ordered=" << ordered_
+     << ">";
   return ss.str();
 }
 
 // ----------------------------------------------------------------------
 // Null type
 
-std::string NullType::ToString() const { return name(); }
+std::string NullType::ToString(bool show_metadata) const { return name(); }
 
 // ----------------------------------------------------------------------
 // FieldPath
@@ -3304,13 +3311,13 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 
-std::string Decimal128Type::ToString() const {
+std::string Decimal128Type::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "decimal128(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 
-std::string Decimal256Type::ToString() const {
+std::string Decimal256Type::ToString(bool show_metadata) const {
   std::stringstream s;
   s << "decimal256(" << precision_ << ", " << scale_ << ")";
   return s.str();

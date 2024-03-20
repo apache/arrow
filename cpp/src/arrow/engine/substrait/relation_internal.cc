@@ -67,7 +67,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::StartsWith;
 using internal::ToChars;
-using internal::UriFromAbsolutePath;
+using util::UriFromAbsolutePath;
 
 namespace engine {
 
@@ -463,7 +463,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
 
         // Extract and parse the read relation's source URI
-        ::arrow::internal::Uri item_uri;
+        ::arrow::util::Uri item_uri;
         switch (item.path_type_case()) {
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
             RETURN_NOT_OK(item_uri.Parse(item.uri_path()));

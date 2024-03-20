@@ -1482,33 +1482,35 @@ TEST(TestDictionaryScalar, ValidateErrors) {
 
 TEST(TestDictionaryScalar, Cast) {
   for (auto index_ty : all_dictionary_index_types()) {
-    auto ty = dictionary(index_ty, utf8());
-    auto dict = checked_pointer_cast<StringArray>(
-        ArrayFromJSON(utf8(), R"(["alpha", null, "gamma"])"));
+    for (auto value_ty : {utf8(), large_utf8(), binary(), large_binary()}) {
+      auto ty = dictionary(index_ty, value_ty);
+      auto dict = ArrayFromJSON(value_ty, R"(["alpha", null, "gamma"])");
+      ASSERT_OK(dict->ValidateFull());
 
-    for (int64_t i = 0; i < dict->length(); ++i) {
-      auto alpha =
-          dict->IsValid(i) ? MakeScalar(dict->GetString(i)) : MakeNullScalar(utf8());
-      // Cast string to dict(..., string)
-      ASSERT_OK_AND_ASSIGN(auto cast_alpha_datum, Cast(alpha, ty));
-      const auto& cast_alpha = cast_alpha_datum.scalar();
-      ASSERT_OK(cast_alpha->ValidateFull());
-      ASSERT_OK_AND_ASSIGN(
-          auto roundtripped_alpha,
-          checked_cast<const DictionaryScalar&>(*cast_alpha).GetEncodedValue());
+      for (int64_t i = 0; i < dict->length(); ++i) {
+        ASSERT_OK_AND_ASSIGN(auto alpha, dict->GetScalar(i));
 
-      ASSERT_OK_AND_ASSIGN(auto i_scalar, MakeScalar(index_ty, i));
-      auto alpha_dict = DictionaryScalar({i_scalar, dict}, ty);
-      ASSERT_OK(alpha_dict.ValidateFull());
-      ASSERT_OK_AND_ASSIGN(
-          auto encoded_alpha,
-          checked_cast<const DictionaryScalar&>(alpha_dict).GetEncodedValue());
+        // Cast string to dict(..., string)
+        ASSERT_OK_AND_ASSIGN(auto cast_alpha_datum, Cast(alpha, ty));
+        const auto& cast_alpha = cast_alpha_datum.scalar();
+        ASSERT_OK(cast_alpha->ValidateFull());
+        ASSERT_OK_AND_ASSIGN(
+            auto roundtripped_alpha,
+            checked_cast<const DictionaryScalar&>(*cast_alpha).GetEncodedValue());
 
-      AssertScalarsEqual(*alpha, *roundtripped_alpha);
-      AssertScalarsEqual(*encoded_alpha, *roundtripped_alpha);
+        ASSERT_OK_AND_ASSIGN(auto i_scalar, MakeScalar(index_ty, i));
+        auto alpha_dict = DictionaryScalar({i_scalar, dict}, ty);
+        ASSERT_OK(alpha_dict.ValidateFull());
+        ASSERT_OK_AND_ASSIGN(
+            auto encoded_alpha,
+            checked_cast<const DictionaryScalar&>(alpha_dict).GetEncodedValue());
 
-      // dictionaries differ, though encoded values are identical
-      ASSERT_FALSE(alpha_dict.Equals(*cast_alpha));
+        AssertScalarsEqual(*alpha, *roundtripped_alpha);
+        AssertScalarsEqual(*encoded_alpha, *roundtripped_alpha);
+
+        // dictionaries differ, though encoded values are identical
+        ASSERT_FALSE(alpha_dict.Equals(*cast_alpha));
+      }
     }
   }
 }

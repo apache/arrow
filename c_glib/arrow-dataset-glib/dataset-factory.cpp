@@ -44,7 +44,8 @@ G_BEGIN_DECLS
  * Since: 5.0.0
  */
 
-struct GADatasetFinishOptionsPrivate {
+struct GADatasetFinishOptionsPrivate
+{
   arrow::dataset::FinishOptions options;
   GArrowSchema *schema;
 };
@@ -60,10 +61,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFinishOptions,
                            gadataset_finish_options,
                            G_TYPE_OBJECT)
 
-#define GADATASET_FINISH_OPTIONS_GET_PRIVATE(obj)        \
-  static_cast<GADatasetFinishOptionsPrivate *>(          \
-    gadataset_finish_options_get_instance_private(       \
-      GADATASET_FINISH_OPTIONS(obj)))
+#define GADATASET_FINISH_OPTIONS_GET_PRIVATE(obj)                                        \
+  static_cast<GADatasetFinishOptionsPrivate *>(                                          \
+    gadataset_finish_options_get_instance_private(GADATASET_FINISH_OPTIONS(obj)))
 
 static void
 gadataset_finish_options_finalize(GObject *object)
@@ -161,7 +161,7 @@ static void
 gadataset_finish_options_init(GADatasetFinishOptions *object)
 {
   auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::dataset::FinishOptions;
+  new (&priv->options) arrow::dataset::FinishOptions;
 }
 
 static void
@@ -174,11 +174,11 @@ gadataset_finish_options_class_init(GADatasetFinishOptionsClass *klass)
   gobject_class->get_property = gadataset_finish_options_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("finish-options",
-                              "Finish options",
-                              "The raw arrow::dataset::FinishOptions *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "finish-options",
+    "Finish options",
+    "The raw arrow::dataset::FinishOptions *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FINISH_OPTIONS, spec);
 
   /**
@@ -240,8 +240,8 @@ gadataset_finish_options_new(void)
   return gadataset_finish_options_new_raw(nullptr);
 }
 
-
-typedef struct GADatasetDatasetFactoryPrivate_ {
+typedef struct GADatasetDatasetFactoryPrivate_
+{
   std::shared_ptr<arrow::dataset::DatasetFactory> factory;
 } GADatasetDatasetFactoryPrivate;
 
@@ -253,10 +253,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADatasetDatasetFactory,
                                     gadataset_dataset_factory,
                                     G_TYPE_OBJECT)
 
-#define GADATASET_DATASET_FACTORY_GET_PRIVATE(obj)        \
-  static_cast<GADatasetDatasetFactoryPrivate *>(          \
-    gadataset_dataset_factory_get_instance_private(       \
-      GADATASET_DATASET_FACTORY(obj)))
+#define GADATASET_DATASET_FACTORY_GET_PRIVATE(obj)                                       \
+  static_cast<GADatasetDatasetFactoryPrivate *>(                                         \
+    gadataset_dataset_factory_get_instance_private(GADATASET_DATASET_FACTORY(obj)))
 
 static void
 gadataset_dataset_factory_finalize(GObject *object)
@@ -295,23 +294,23 @@ static void
 gadataset_dataset_factory_init(GADatasetDatasetFactory *object)
 {
   auto priv = GADATASET_DATASET_FACTORY_GET_PRIVATE(object);
-  new(&priv->factory) std::shared_ptr<arrow::dataset::DatasetFactory>;
+  new (&priv->factory) std::shared_ptr<arrow::dataset::DatasetFactory>;
 }
 
 static void
 gadataset_dataset_factory_class_init(GADatasetDatasetFactoryClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize     = gadataset_dataset_factory_finalize;
+  gobject_class->finalize = gadataset_dataset_factory_finalize;
   gobject_class->set_property = gadataset_dataset_factory_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("dataset-factory",
-                              "Dataset factory",
-                              "The raw "
-                              "std::shared<arrow::dataset::DatasetFactory> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "dataset-factory",
+    "Dataset factory",
+    "The raw "
+    "std::shared<arrow::dataset::DatasetFactory> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATASET_FACTORY, spec);
 }
 
@@ -345,8 +344,8 @@ gadataset_dataset_factory_finish(GADatasetDatasetFactory *factory,
   }
 }
 
-
-typedef struct GADatasetFileSystemDatasetFactoryPrivate_ {
+typedef struct GADatasetFileSystemDatasetFactoryPrivate_
+{
   GADatasetFileFormat *format;
   GArrowFileSystem *file_system;
   GADatasetPartitioning *partitioning;
@@ -365,9 +364,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileSystemDatasetFactory,
                            gadataset_file_system_dataset_factory,
                            GADATASET_TYPE_DATASET_FACTORY)
 
-#define GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(obj)  \
-  static_cast<GADatasetFileSystemDatasetFactoryPrivate *>(      \
-    gadataset_file_system_dataset_factory_get_instance_private( \
+#define GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(obj)                           \
+  static_cast<GADatasetFileSystemDatasetFactoryPrivate *>(                               \
+    gadataset_file_system_dataset_factory_get_instance_private(                          \
       GADATASET_FILE_SYSTEM_DATASET_FACTORY(obj)))
 
 static void
@@ -395,8 +394,7 @@ gadataset_file_system_dataset_factory_dispose(GObject *object)
     priv->files = NULL;
   }
 
-  G_OBJECT_CLASS(
-    gadataset_file_system_dataset_factory_parent_class)->dispose(object);
+  G_OBJECT_CLASS(gadataset_file_system_dataset_factory_parent_class)->dispose(object);
 }
 
 static void
@@ -404,8 +402,7 @@ gadataset_file_system_dataset_factory_finalize(GObject *object)
 {
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(object);
   priv->options.~FileSystemFactoryOptions();
-  G_OBJECT_CLASS(
-    gadataset_file_system_dataset_factory_parent_class)->finalize(object);
+  G_OBJECT_CLASS(gadataset_file_system_dataset_factory_parent_class)->finalize(object);
 }
 
 static void
@@ -430,8 +427,7 @@ gadataset_file_system_dataset_factory_set_property(GObject *object,
       if (partitioning) {
         g_object_ref(partitioning);
         priv->partitioning = GADATASET_PARTITIONING(partitioning);
-        priv->options.partitioning =
-          gadataset_partitioning_get_raw(priv->partitioning);
+        priv->options.partitioning = gadataset_partitioning_get_raw(priv->partitioning);
       } else {
         priv->options.partitioning = arrow::dataset::Partitioning::Default();
       }
@@ -477,11 +473,10 @@ gadataset_file_system_dataset_factory_get_property(GObject *object,
 }
 
 static void
-gadataset_file_system_dataset_factory_init(
-  GADatasetFileSystemDatasetFactory *object)
+gadataset_file_system_dataset_factory_init(GADatasetFileSystemDatasetFactory *object)
 {
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(object);
-  new(&priv->options) arrow::dataset::FileSystemFactoryOptions;
+  new (&priv->options) arrow::dataset::FileSystemFactoryOptions;
 }
 
 static void
@@ -489,8 +484,8 @@ gadataset_file_system_dataset_factory_class_init(
   GADatasetFileSystemDatasetFactoryClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose      = gadataset_file_system_dataset_factory_dispose;
-  gobject_class->finalize     = gadataset_file_system_dataset_factory_finalize;
+  gobject_class->dispose = gadataset_file_system_dataset_factory_dispose;
+  gobject_class->finalize = gadataset_file_system_dataset_factory_finalize;
   gobject_class->set_property = gadataset_file_system_dataset_factory_set_property;
   gobject_class->get_property = gadataset_file_system_dataset_factory_get_property;
 
@@ -502,12 +497,12 @@ gadataset_file_system_dataset_factory_class_init(
    *
    * Since: 5.0.0
    */
-  spec = g_param_spec_object("format",
-                             "Format",
-                             "Format passed to GADatasetFileSystemDataset",
-                             GADATASET_TYPE_FILE_FORMAT,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "format",
+    "Format",
+    "Format passed to GADatasetFileSystemDataset",
+    GADATASET_TYPE_FILE_FORMAT,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FORMAT, spec);
 
   /**
@@ -568,9 +563,7 @@ GADatasetFileSystemDatasetFactory *
 gadataset_file_system_dataset_factory_new(GADatasetFileFormat *format)
 {
   return GADATASET_FILE_SYSTEM_DATASET_FACTORY(
-    g_object_new(GADATASET_TYPE_FILE_SYSTEM_DATASET_FACTORY,
-                 "format", format,
-                 NULL));
+    g_object_new(GADATASET_TYPE_FILE_SYSTEM_DATASET_FACTORY, "format", format, NULL));
 }
 
 /**
@@ -592,9 +585,7 @@ gadataset_file_system_dataset_factory_set_file_system(
   const gchar *context = "[file-system-dataset-factory][set-file-system]";
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(factory);
   if (priv->file_system) {
-    garrow::check(error,
-                  arrow::Status::Invalid("file system is already set"),
-                  context);
+    garrow::check(error, arrow::Status::Invalid("file system is already set"), context);
     return FALSE;
   }
   priv->file_system = file_system;
@@ -614,21 +605,16 @@ gadataset_file_system_dataset_factory_set_file_system(
  */
 gboolean
 gadataset_file_system_dataset_factory_set_file_system_uri(
-  GADatasetFileSystemDatasetFactory *factory,
-  const gchar *uri,
-  GError **error)
+  GADatasetFileSystemDatasetFactory *factory, const gchar *uri, GError **error)
 {
   const gchar *context = "[file-system-dataset-factory][set-file-system-uri]";
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(factory);
   if (priv->file_system) {
-    garrow::check(error,
-                  arrow::Status::Invalid("file system is already set"),
-                  context);
+    garrow::check(error, arrow::Status::Invalid("file system is already set"), context);
     return FALSE;
   }
   std::string internal_path;
-  auto arrow_file_system_result =
-    arrow::fs::FileSystemFromUri(uri, &internal_path);
+  auto arrow_file_system_result = arrow::fs::FileSystemFromUri(uri, &internal_path);
   if (!garrow::check(error, arrow_file_system_result, context)) {
     return FALSE;
   }
@@ -654,17 +640,14 @@ gadataset_file_system_dataset_factory_set_file_system_uri(
  * Since: 5.0.0
  */
 gboolean
-gadataset_file_system_dataset_factory_add_path(
-  GADatasetFileSystemDatasetFactory *factory,
-  const gchar *path,
-  GError **error)
+gadataset_file_system_dataset_factory_add_path(GADatasetFileSystemDatasetFactory *factory,
+                                               const gchar *path,
+                                               GError **error)
 {
   const gchar *context = "[file-system-dataset-factory][add-path]";
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(factory);
   if (!priv->file_system) {
-    garrow::check(error,
-                  arrow::Status::Invalid("file system isn't set"),
-                  context);
+    garrow::check(error, arrow::Status::Invalid("file system isn't set"), context);
     return FALSE;
   }
   auto arrow_file_system = garrow_file_system_get_raw(priv->file_system);
@@ -689,25 +672,20 @@ gadataset_file_system_dataset_factory_add_path(
  * Since: 5.0.0
  */
 GADatasetFileSystemDataset *
-gadataset_file_system_dataset_factory_finish(
-  GADatasetFileSystemDatasetFactory *factory,
-  GADatasetFinishOptions *options,
-  GError **error)
+gadataset_file_system_dataset_factory_finish(GADatasetFileSystemDatasetFactory *factory,
+                                             GADatasetFinishOptions *options,
+                                             GError **error)
 {
   const gchar *context = "[file-system-dataset-factory][finish]";
   auto priv = GADATASET_FILE_SYSTEM_DATASET_FACTORY_GET_PRIVATE(factory);
   if (!priv->file_system) {
-    garrow::check(error,
-                  arrow::Status::Invalid("file system isn't set"),
-                  context);
+    garrow::check(error, arrow::Status::Invalid("file system isn't set"), context);
     return NULL;
   }
   auto arrow_file_system = garrow_file_system_get_raw(priv->file_system);
   auto arrow_format = gadataset_file_format_get_raw(priv->format);
-  arrow::Result<std::shared_ptr<arrow::dataset::DatasetFactory>>
-    arrow_factory_result;
-  if (priv->files &&
-      !priv->files->next &&
+  arrow::Result<std::shared_ptr<arrow::dataset::DatasetFactory>> arrow_factory_result;
+  if (priv->files && !priv->files->next &&
       garrow_file_info_is_dir(GARROW_FILE_INFO(priv->files->data))) {
     auto file = GARROW_FILE_INFO(priv->files->data);
     arrow::fs::FileSelector arrow_selector;
@@ -744,24 +722,25 @@ gadataset_file_system_dataset_factory_finish(
     return NULL;
   }
   auto arrow_dataset = *arrow_dataset_result;
-  return GADATASET_FILE_SYSTEM_DATASET(
-    gadataset_dataset_new_raw(&arrow_dataset,
-                              "dataset", &arrow_dataset,
-                              "file-system", priv->file_system,
-                              "format", priv->format,
-                              "partitioning", priv->partitioning,
-                              NULL));
+  return GADATASET_FILE_SYSTEM_DATASET(gadataset_dataset_new_raw(&arrow_dataset,
+                                                                 "dataset",
+                                                                 &arrow_dataset,
+                                                                 "file-system",
+                                                                 priv->file_system,
+                                                                 "format",
+                                                                 priv->format,
+                                                                 "partitioning",
+                                                                 priv->partitioning,
+                                                                 NULL));
 }
-
 
 G_END_DECLS
 
 GADatasetFinishOptions *
 gadataset_finish_options_new_raw(arrow::dataset::FinishOptions *options)
 {
-  return GADATASET_FINISH_OPTIONS(g_object_new(GADATASET_TYPE_FINISH_OPTIONS,
-                                               "finish-options", options,
-                                               NULL));
+  return GADATASET_FINISH_OPTIONS(
+    g_object_new(GADATASET_TYPE_FINISH_OPTIONS, "finish-options", options, NULL));
 }
 
 arrow::dataset::FinishOptions *

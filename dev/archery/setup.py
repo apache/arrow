@@ -21,6 +21,10 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
+# pygit2>=1.14.0 requires python 3.9, so crossbow and all
+# both technically require python 3.9 — however we still need to
+# support 3.8 when using docker. When 3.8 is EOLed and we bump
+# to Python 3.9 this will resolve itself.
 if sys.version_info < (3, 8):
     sys.exit('Python < 3.8 is not supported')
 
@@ -29,7 +33,7 @@ jinja_req = 'jinja2>=2.11'
 
 extras = {
     'benchmark': ['pandas'],
-    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'requests',
+    'crossbow': ['github3.py', jinja_req, 'pygit2>=1.14.0', 'requests',
                  'ruamel.yaml', 'setuptools_scm<8.0.0'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
                         'setuptools_scm'],

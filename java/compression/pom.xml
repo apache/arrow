@@ -42,12 +42,12 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.25.0</version>
+      <version>1.26.0</version>
     </dependency>
     <dependency>
       <groupId>com.github.luben</groupId>
       <artifactId>zstd-jni</artifactId>
-      <version>1.4.9-1</version>
+      <version>1.5.5-11</version>
     </dependency>
   </dependencies>
 </project>

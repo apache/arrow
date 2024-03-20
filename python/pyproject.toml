@@ -24,7 +24,7 @@ requires = [
     # continue using oldest-support-numpy.
     "oldest-supported-numpy>=0.14; python_version<'3.9'",
     "numpy>=1.25; python_version>='3.9'",
-    "setuptools_scm < 8.0.0",
+    "setuptools_scm",
     "setuptools >= 40.1.0",
     "wheel"
 ]

@@ -27,10 +27,11 @@ import (
 
 // *** GRPC helpers ***
 type grpcCredentials struct {
-	username string
-	password string
-	token    string
-	params   map[string]string
+	username   string
+	password   string
+	token      string
+	params     map[string]string
+	tlsEnabled bool
 }
 
 func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -53,7 +54,7 @@ func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) 
 }
 
 func (g grpcCredentials) RequireTransportSecurity() bool {
-	return g.token != "" || g.username != ""
+	return g.tlsEnabled && (g.token != "" || g.username != "")
 }
 
 // *** Type conversions ***

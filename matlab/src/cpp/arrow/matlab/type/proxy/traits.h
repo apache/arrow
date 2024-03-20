@@ -19,96 +19,96 @@
 
 #include "arrow/type_fwd.h"
 
-#include "arrow/matlab/type/proxy/primitive_ctype.h"
-#include "arrow/matlab/type/proxy/timestamp_type.h"
-#include "arrow/matlab/type/proxy/time32_type.h"
-#include "arrow/matlab/type/proxy/time64_type.h"
 #include "arrow/matlab/type/proxy/date32_type.h"
 #include "arrow/matlab/type/proxy/date64_type.h"
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/string_type.h"
+#include "arrow/matlab/type/proxy/time32_type.h"
+#include "arrow/matlab/type/proxy/time64_type.h"
+#include "arrow/matlab/type/proxy/timestamp_type.h"
 
 namespace arrow::matlab::type::proxy {
 
-    template <typename ArrowType>
-    struct Traits;
+template <typename ArrowType>
+struct Traits;
 
-    template <>
-    struct Traits<arrow::FloatType> {
-        using TypeProxy = PrimitiveCType<float>;
-    };
+template <>
+struct Traits<arrow::FloatType> {
+  using TypeProxy = PrimitiveCType<float>;
+};
 
-    template <>
-    struct Traits<arrow::DoubleType> {
-        using TypeProxy = PrimitiveCType<double>;
-    };
+template <>
+struct Traits<arrow::DoubleType> {
+  using TypeProxy = PrimitiveCType<double>;
+};
 
-    template <>
-    struct Traits<arrow::Int8Type> {
-        using TypeProxy = PrimitiveCType<int8_t>;
-    };
+template <>
+struct Traits<arrow::Int8Type> {
+  using TypeProxy = PrimitiveCType<int8_t>;
+};
 
-    template <>
-    struct Traits<arrow::Int16Type> {
-        using TypeProxy = PrimitiveCType<int16_t>;
-    };
+template <>
+struct Traits<arrow::Int16Type> {
+  using TypeProxy = PrimitiveCType<int16_t>;
+};
 
-    template <>
-    struct Traits<arrow::Int32Type> {
-        using TypeProxy = PrimitiveCType<int32_t>;
-    };
+template <>
+struct Traits<arrow::Int32Type> {
+  using TypeProxy = PrimitiveCType<int32_t>;
+};
 
-    template <>
-    struct Traits<arrow::Int64Type> {
-        using TypeProxy = PrimitiveCType<int64_t>;
-    };
+template <>
+struct Traits<arrow::Int64Type> {
+  using TypeProxy = PrimitiveCType<int64_t>;
+};
 
-    template <>
-    struct Traits<arrow::UInt8Type> {
-        using TypeProxy = PrimitiveCType<uint8_t>;
-    };
+template <>
+struct Traits<arrow::UInt8Type> {
+  using TypeProxy = PrimitiveCType<uint8_t>;
+};
 
-    template <>
-    struct Traits<arrow::UInt16Type> {
-        using TypeProxy = PrimitiveCType<uint16_t>;
-    };
+template <>
+struct Traits<arrow::UInt16Type> {
+  using TypeProxy = PrimitiveCType<uint16_t>;
+};
 
-    template <>
-    struct Traits<arrow::UInt32Type> {
-        using TypeProxy = PrimitiveCType<uint32_t>;
-    };
+template <>
+struct Traits<arrow::UInt32Type> {
+  using TypeProxy = PrimitiveCType<uint32_t>;
+};
 
-    template <>
-    struct Traits<arrow::UInt64Type> {
-        using TypeProxy = PrimitiveCType<uint64_t>;
-    };
+template <>
+struct Traits<arrow::UInt64Type> {
+  using TypeProxy = PrimitiveCType<uint64_t>;
+};
 
-    template <>
-    struct Traits<arrow::StringType> {
-        using TypeProxy = StringType;
-    };
+template <>
+struct Traits<arrow::StringType> {
+  using TypeProxy = StringType;
+};
 
-    template <>
-    struct Traits<arrow::TimestampType> {
-        using TypeProxy = TimestampType;
-    };
+template <>
+struct Traits<arrow::TimestampType> {
+  using TypeProxy = TimestampType;
+};
 
-    template <>
-    struct Traits<arrow::Time32Type> {
-        using TypeProxy = Time32Type;
-    };
+template <>
+struct Traits<arrow::Time32Type> {
+  using TypeProxy = Time32Type;
+};
 
-    template <>
-    struct Traits<arrow::Time64Type> {
-        using TypeProxy = Time64Type;
-    };
+template <>
+struct Traits<arrow::Time64Type> {
+  using TypeProxy = Time64Type;
+};
 
-    template <>
-    struct Traits<arrow::Date32Type> {
-        using TypeProxy = Date32Type;
-    };
+template <>
+struct Traits<arrow::Date32Type> {
+  using TypeProxy = Date32Type;
+};
 
-    template <>
-    struct Traits<arrow::Date64Type> {
-        using TypeProxy = Date64Type;
-    };
-}
+template <>
+struct Traits<arrow::Date64Type> {
+  using TypeProxy = Date64Type;
+};
+}  // namespace arrow::matlab::type::proxy

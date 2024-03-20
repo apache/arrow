@@ -33,9 +33,7 @@ G_BEGIN_DECLS
  * writable.
  */
 
-G_DEFINE_INTERFACE(GArrowWritable,
-                   garrow_writable,
-                   G_TYPE_OBJECT)
+G_DEFINE_INTERFACE(GArrowWritable, garrow_writable, G_TYPE_OBJECT)
 
 static void
 garrow_writable_default_init(GArrowWritableInterface *iface)
@@ -73,8 +71,7 @@ garrow_writable_write(GArrowWritable *writable,
  * Returns: %TRUE on success, %FALSE if there was an error.
  */
 gboolean
-garrow_writable_flush(GArrowWritable *writable,
-                      GError **error)
+garrow_writable_flush(GArrowWritable *writable, GError **error)
 {
   const auto arrow_writable = garrow_writable_get_raw(writable);
 

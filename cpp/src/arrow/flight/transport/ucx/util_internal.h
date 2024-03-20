@@ -71,7 +71,7 @@ static inline bool IsIgnorableDisconnectError(ucs_status_t ucs_status) {
 ///
 /// \return The length of the sockaddr
 ARROW_FLIGHT_EXPORT
-arrow::Result<size_t> UriToSockaddr(const arrow::internal::Uri& uri,
+arrow::Result<size_t> UriToSockaddr(const arrow::util::Uri& uri,
                                     struct sockaddr_storage* addr);
 
 ARROW_FLIGHT_EXPORT

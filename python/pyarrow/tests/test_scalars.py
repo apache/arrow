@@ -57,9 +57,8 @@ from pyarrow.tests import util
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
     ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
-    # TODO GH-39855
-    # ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
-    # ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
+    ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
+    ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
     (datetime.date.today(), None, pa.Date32Scalar),
     (datetime.date.today(), pa.date64(), pa.Date64Scalar),
     (datetime.datetime.now(), None, pa.TimestampScalar),
@@ -541,9 +540,8 @@ def test_fixed_size_binary():
 @pytest.mark.parametrize(('ty', 'klass'), [
     (pa.list_(pa.string()), pa.ListScalar),
     (pa.large_list(pa.string()), pa.LargeListScalar),
-    # TODO GH-39855
-    # (pa.list_view(pa.string()), pa.ListViewScalar),
-    # (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
+    (pa.list_view(pa.string()), pa.ListViewScalar),
+    (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
     v = ['foo', None]
@@ -565,14 +563,29 @@ def test_list(ty, klass):
         s[2]
 
 
-def test_list_from_numpy():
-    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()))
-    assert s.type == pa.list_(pa.int64())
+@pytest.mark.parametrize('ty', [
+    pa.list_(pa.int64()),
+    pa.large_list(pa.int64()),
+    pa.list_view(pa.int64()),
+    pa.large_list_view(pa.int64()),
+    None
+])
+def test_list_from_numpy(ty):
+    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()), type=ty)
+    if ty is None:
+        ty = pa.list_(pa.int64())  # expected inferred type
+    assert s.type == ty
     assert s.as_py() == [1, 2, 3]
 
 
 @pytest.mark.pandas
-def test_list_from_pandas():
+@pytest.mark.parametrize('factory', [
+    pa.list_,
+    pa.large_list,
+    pa.list_view,
+    pa.large_list_view
+])
+def test_list_from_pandas(factory):
     import pandas as pd
 
     s = pa.scalar(pd.Series([1, 2, 3]))
@@ -580,11 +593,11 @@ def test_list_from_pandas():
 
     cases = [
         (np.nan, 'null'),
-        (['string', np.nan], pa.list_(pa.binary())),
-        (['string', np.nan], pa.list_(pa.utf8())),
-        ([b'string', np.nan], pa.list_(pa.binary(6))),
-        ([True, np.nan], pa.list_(pa.bool_())),
-        ([decimal.Decimal('0'), np.nan], pa.list_(pa.decimal128(12, 2))),
+        (['string', np.nan], factory(pa.binary())),
+        (['string', np.nan], factory(pa.utf8())),
+        ([b'string', np.nan], factory(pa.binary(6))),
+        ([True, np.nan], factory(pa.bool_())),
+        ([decimal.Decimal('0'), np.nan], factory(pa.decimal128(12, 2))),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up

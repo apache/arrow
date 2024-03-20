@@ -548,6 +548,18 @@ func (BaseServer) EndSavepoint(context.Context, ActionEndSavepointRequest) error
 	return status.Error(codes.Unimplemented, "EndSavepoint not implemented")
 }
 
+func (BaseServer) SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "SetSessionOptions not implemented")
+}
+
+func (BaseServer) GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "GetSessionOptions not implemented")
+}
+
+func (BaseServer) CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "CloseSession not implemented")
+}
+
 // Server is the required interface for a FlightSQL server. It is implemented by
 // BaseServer which must be embedded in any implementation. The default
 // implementation by BaseServer for each of these (except GetSqlInfo)
@@ -676,6 +688,12 @@ type Server interface {
 	PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error)
 	// PollFlightInfoPreparedStatement handles polling for query execution.
 	PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// SetSessionOptions sets option(s) for the current server session.
+	SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error)
+	// GetSessionOptions gets option(s) for the current server session.
+	GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error)
+	// CloseSession closes/invalidates the current server session.
+	CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
 
 	mustEmbedBaseServer()
 }
@@ -1262,6 +1280,69 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		return stream.Send(&pb.Result{})
+	case flight.SetSessionOptionsActionType:
+		var (
+			request flight.SetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal SetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.SetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.GetSessionOptionsActionType:
+		var (
+			request flight.GetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal GetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.GetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.CloseSessionActionType:
+		var (
+			request flight.CloseSessionRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CloseSessionRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.CloseSession(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid.")
 	}

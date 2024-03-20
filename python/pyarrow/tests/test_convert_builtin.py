@@ -252,21 +252,17 @@ def test_nested_lists(seq):
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
     assert arr.to_pylist() == data
-    # With explicit type
-    arr = pa.array(seq(data), type=pa.list_(pa.int32()))
-    assert len(arr) == 3
-    assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int32())
-    assert arr.to_pylist() == data
 
 
 @parametrize_with_sequence_types
-def test_nested_large_lists(seq):
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_nested_lists_with_explicit_type(seq, factory):
     data = [[], [1, 2], None]
-    arr = pa.array(seq(data), type=pa.large_list(pa.int16()))
+    arr = pa.array(seq(data), type=factory(pa.int16()))
     assert len(arr) == 3
     assert arr.null_count == 1
-    assert arr.type == pa.large_list(pa.int16())
+    assert arr.type == factory(pa.int16())
     assert arr.to_pylist() == data
 
 
@@ -277,15 +273,22 @@ def test_list_with_non_list(seq):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
     with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.large_list(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.list_view(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.large_list_view(pa.int64()))
 
 
 @parametrize_with_sequence_types
-def test_nested_arrays(seq):
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_nested_arrays(seq, factory):
     arr = pa.array(seq([np.array([], dtype=np.int64),
-                        np.array([1, 2], dtype=np.int64), None]))
+                        np.array([1, 2], dtype=np.int64), None]),
+                   type=factory(pa.int64()))
     assert len(arr) == 3
     assert arr.null_count == 1
-    assert arr.type == pa.list_(pa.int64())
+    assert arr.type == factory(pa.int64())
     assert arr.to_pylist() == [[], [1, 2], None]
 
 
@@ -1464,9 +1467,18 @@ def test_sequence_duration_nested_lists():
     assert arr.type == pa.list_(pa.duration('us'))
     assert arr.to_pylist() == data
 
-    arr = pa.array(data, type=pa.list_(pa.duration('ms')))
+
+@pytest.mark.parametrize("factory", [
+    pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
+def test_sequence_duration_nested_lists_with_explicit_type(factory):
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[td1, None], [td1, td2]]
+
+    arr = pa.array(data, type=factory(pa.duration('ms')))
     assert len(arr) == 2
-    assert arr.type == pa.list_(pa.duration('ms'))
+    assert arr.type == factory(pa.duration('ms'))
     assert arr.to_pylist() == data
 
 
@@ -2430,6 +2442,10 @@ def test_array_from_pylist_offset_overflow():
     ),
     ([[1, 2, 3]], [pa.scalar([1, 2, 3])], pa.list_(pa.int64())),
     ([["a", "b"]], [pa.scalar(["a", "b"])], pa.list_(pa.string())),
+    ([[1, 2, 3]], [pa.scalar([1, 2, 3], type=pa.list_view(pa.int64()))],
+     pa.list_view(pa.int64())),
+    ([["a", "b"]], [pa.scalar(["a", "b"], type=pa.list_view(pa.string()))],
+     pa.list_view(pa.string())),
     (
         [1, 2, None],
         [pa.scalar(1, type=pa.int8()), pa.scalar(2, type=pa.int8()), None],

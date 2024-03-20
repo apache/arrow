@@ -30,6 +30,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -247,6 +248,97 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
+template <typename DataType>
+inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
+  using CType = typename arrow::TypeTraits<DataType>::CType;
+  auto* out_values = reinterpret_cast<CType*>(out);
+
+  // Loop through all of the columns
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    const auto* in_values = batch.column(i)->data()->GetValues<CType>(1);
+
+    // Copy data of each column
+    memcpy(out_values, in_values, sizeof(CType) * batch.num_rows());
+    out_values += batch.num_rows();
+  }  // End loop through columns
+}
+
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
+  if (num_columns() == 0) {
+    return Status::TypeError(
+        "Conversion to Tensor for RecordBatches without columns/schema is not "
+        "supported.");
+  }
+  const auto& type = column(0)->type();
+  // Check for supported data types
+  if (!is_integer(type->id()) && !is_floating(type->id())) {
+    return Status::TypeError("DataType is not supported: ", type->ToString());
+  }
+  // Check for uniform data type
+  // Check for no validity bitmap of each field
+  for (int i = 0; i < num_columns(); ++i) {
+    if (column(i)->null_count() > 0) {
+      return Status::TypeError("Can only convert a RecordBatch with no nulls.");
+    }
+    if (column(i)->type() != type) {
+      return Status::TypeError("Can only convert a RecordBatch with uniform data type.");
+    }
+  }
+
+  // Allocate memory
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> result,
+      AllocateBuffer(type->bit_width() * num_columns() * num_rows(), pool));
+  // Copy data
+  switch (type->id()) {
+    case Type::UINT8:
+      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT16:
+    case Type::HALF_FLOAT:
+      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT32:
+      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT64:
+      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data());
+      break;
+    case Type::INT8:
+      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data());
+      break;
+    case Type::INT16:
+      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data());
+      break;
+    case Type::INT32:
+      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data());
+      break;
+    case Type::INT64:
+      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
+      break;
+    case Type::FLOAT:
+      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
+      break;
+    case Type::DOUBLE:
+      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data());
+      break;
+    default:
+      return Status::TypeError("DataType is not supported: ", type->ToString());
+  }
+
+  // Construct Tensor object
+  const auto& fixed_width_type =
+      internal::checked_cast<const FixedWidthType&>(*column(0)->type());
+  std::vector<int64_t> shape = {num_rows(), num_columns()};
+  std::vector<int64_t> strides;
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
+  ARROW_ASSIGN_OR_RAISE(auto tensor,
+                        Tensor::Make(type, std::move(result), shape, strides));
+
+  return tensor;
+}
+
 const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
@@ -301,6 +393,35 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
     }
   }
   return RecordBatch::Make(std::move(schema), num_rows(), columns());
+}
+
+std::vector<std::string> RecordBatch::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = schema()->field(i)->name();
+  }
+  return names;
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
+    const std::vector<std::string>& names) const {
+  int n = num_columns();
+
+  if (static_cast<int>(names.size()) != n) {
+    return Status::Invalid("tried to rename a record batch of ", n, " columns but only ",
+                           names.size(), " names were provided");
+  }
+
+  ArrayVector columns(n);
+  FieldVector fields(n);
+
+  for (int i = 0; i < n; ++i) {
+    columns[i] = column(i);
+    fields[i] = schema()->field(i)->WithName(names[i]);
+  }
+
+  return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
+                           std::move(columns));
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
