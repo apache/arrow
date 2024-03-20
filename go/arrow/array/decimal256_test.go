@@ -205,7 +205,17 @@ func TestDecimal256StringRoundTrip(t *testing.T) {
 		decimal256.FromI64(9),
 		decimal256.FromI64(10),
 	}
-	valid := []bool{true, true, true, false, true, true, false, true, true, true}
+	val1, err := decimal256.FromString("0.99", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	val2, err := decimal256.FromString("1234567890.123456789", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values = append(values, val1, val2)
+
+	valid := []bool{true, true, true, false, true, true, false, true, true, true, true, true}
 
 	b.AppendValues(values, valid)
 
