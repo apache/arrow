@@ -491,7 +491,7 @@ class ORCFileReader::Impl {
     if (!include_indices.empty()) {
       RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     }
-    StripeInformation stripe_info({0, 0, 0, 0});
+    StripeInformation stripe_info{0, 0, 0, 0};
     RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
     ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
     std::unique_ptr<liborc::RowReader> row_reader;

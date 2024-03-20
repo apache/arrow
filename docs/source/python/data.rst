@@ -231,7 +231,7 @@ like lists:
    print(nested_arr.type)
 
 ListView arrays
-~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 ``pyarrow.array`` can create an alternate list type called ListView:
 
@@ -251,6 +251,8 @@ This allows for ListView arrays to specify out-of-order offsets:
    sizes = [2, 2, 2]
    arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
    arr
+
+See the format specification for more details on :ref:`listview-layout`.
 
 Struct arrays
 ~~~~~~~~~~~~~

@@ -3580,6 +3580,45 @@ def test_run_end_encoded_from_buffers():
                                            1, offset, children)
 
 
+def test_run_end_encoded_from_array_with_type():
+    run_ends = [1, 3, 6]
+    values = [1, 2, 3]
+    ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    arr = [1, 2, 2, 3, 3, 3]
+    result = pa.array(arr, type=ree_type)
+    assert result.equals(expected)
+    result = pa.array(np.array(arr), type=ree_type)
+    assert result.equals(expected)
+
+    ree_type_2 = pa.run_end_encoded(pa.int16(), pa.float32())
+    result = pa.array(arr, type=ree_type_2)
+    assert not result.equals(expected)
+    expected_2 = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                   ree_type_2)
+    assert result.equals(expected_2)
+
+    run_ends = [1, 3, 5, 6]
+    values = [1, 2, 3, None]
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    arr = [1, 2, 2, 3, 3, None]
+    result = pa.array(arr, type=ree_type)
+    assert result.equals(expected)
+
+    run_ends = [1, 3, 4, 5, 6]
+    values = [1, 2, None, 3, None]
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    mask = pa.array([False, False, False, True, False, True])
+    result = pa.array(arr, type=ree_type, mask=mask)
+    assert result.equals(expected)
+
+
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListViewArray, pa.list_view),
                           (pa.LargeListViewArray, pa.large_list_view)])

@@ -845,7 +845,7 @@ Result<Expression> FoldConstants(Expression expr) {
       std::move(expr), [](Expression expr) { return expr; },
       [](Expression expr, ...) -> Result<Expression> {
         auto call = CallNotNull(expr);
-        if (call->function->is_impure()) return expr;
+        if (!call->function->is_pure()) return expr;
 
         if (std::all_of(call->arguments.begin(), call->arguments.end(),
                         [](const Expression& argument) { return argument.literal(); })) {
@@ -1085,7 +1085,7 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
       [&AlreadyCanonicalized, exec_context](Expression expr) -> Result<Expression> {
         auto call = expr.call();
         if (!call) return expr;
-        if (call->function->is_impure()) return expr;
+        if (!call->function->is_pure()) return expr;
 
         if (AlreadyCanonicalized(expr)) return expr;
 

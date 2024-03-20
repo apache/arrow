@@ -15,16 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# don't add pandas here, because it is not a mandatory test dependency
-boto3  # not a direct dependency of s3fs, but needed for our s3fs fixture
-cffi
-cython>=0.29.31
-cloudpickle
-fsspec
-hypothesis
-numpy>=1.16.6
-pytest
-pytest-faulthandler
-s3fs>=2023.10.0
-setuptools
-setuptools_scm
+module Arrow
+  class TimestampParser
+    class << self
+      def try_convert(value)
+        case value
+        when :iso8601
+          ISO8601TimestampParser.new
+        when String
+          StrptimeTimestampParser.new(value)
+        else
+          nil
+        end
+      end
+    end
+  end
+end
