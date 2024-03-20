@@ -2717,6 +2717,18 @@ cdef class DurationArray(NumericArray):
     """
 
 
+cdef class MonthIntervalArray(Array):
+    """
+    Concrete class for Arrow arrays of interval[month] data type.
+    """
+
+
+cdef class DayTimeIntervalArray(Array):
+    """
+    Concrete class for Arrow arrays of interval[day_time] data type.
+    """
+
+
 cdef class MonthDayNanoIntervalArray(Array):
     """
     Concrete class for Arrow arrays of interval[MonthDayNano] type.
@@ -5316,6 +5328,8 @@ cdef dict _array_classes = {
     _Type_TIME32: Time32Array,
     _Type_TIME64: Time64Array,
     _Type_DURATION: DurationArray,
+    _Type_INTERVAL_MONTHS: MonthIntervalArray,
+    _Type_INTERVAL_DAY_TIME: DayTimeIntervalArray,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalArray,
     _Type_HALF_FLOAT: HalfFloatArray,
     _Type_FLOAT: FloatArray,

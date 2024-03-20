@@ -904,6 +904,40 @@ cdef class DurationScalar(Scalar):
             return datetime.timedelta(microseconds=sp.value // 1000)
 
 
+cdef class MonthIntervalScalar(Scalar):
+    """
+    Concrete class for month interval scalars.
+    """
+
+    def __repr__(self):
+        return '<pyarrow.{}: {}>'.format(
+            self.__class__.__name__, frombytes(self.wrapped.get().ToString())
+        )
+
+    def __str__(self):
+        return frombytes(self.wrapped.get().ToString())
+
+    def as_py(self):
+        raise NotImplementedError()
+
+
+cdef class DayTimeIntervalScalar(Scalar):
+    """
+    Concrete class for day-time interval scalars.
+    """
+
+    def __repr__(self):
+        return '<pyarrow.{}: {}>'.format(
+            self.__class__.__name__, frombytes(self.wrapped.get().ToString())
+        )
+
+    def __str__(self):
+        return frombytes(self.wrapped.get().ToString())
+
+    def as_py(self):
+        raise NotImplementedError()
+
+
 cdef class MonthDayNanoIntervalScalar(Scalar):
     """
     Concrete class for month, day, nanosecond interval scalars.
@@ -1681,6 +1715,8 @@ cdef dict _scalar_classes = {
     _Type_RUN_END_ENCODED: RunEndEncodedScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_INTERVAL_MONTHS: MonthIntervalScalar,
+    _Type_INTERVAL_DAY_TIME: DayTimeIntervalScalar,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }
