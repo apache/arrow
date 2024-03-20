@@ -81,7 +81,6 @@ jobs:
           repository: paleolimbot/arrow-nanoarrow
           ref: integration-fixes
           path: nanoarrow
-
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
