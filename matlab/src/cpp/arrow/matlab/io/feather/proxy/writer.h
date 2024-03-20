@@ -23,19 +23,20 @@
 
 namespace arrow::matlab::io::feather::proxy {
 
-    class Writer : public libmexclass::proxy::Proxy {
-        public:
-            Writer(const std::string& filename);
-        
-            ~Writer() {}
+class Writer : public libmexclass::proxy::Proxy {
+ public:
+  Writer(const std::string& filename);
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);  
-        
-        protected:
-            void getFilename(libmexclass::proxy::method::Context& context);
-            void write(libmexclass::proxy::method::Context& context);
+  ~Writer() {}
 
-        private:
-            const std::string filename; 
-    };
-}
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+ protected:
+  void getFilename(libmexclass::proxy::method::Context& context);
+  void write(libmexclass::proxy::method::Context& context);
+
+ private:
+  const std::string filename;
+};
+}  // namespace arrow::matlab::io::feather::proxy

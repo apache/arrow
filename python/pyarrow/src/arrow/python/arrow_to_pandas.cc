@@ -622,40 +622,40 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
-  std::vector<PyObject*> unique_values;
-  int32_t memo_size = 0;
-
-  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index;
-    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
-    if (memo_index == memo_size) {
-      // New entry
-      RETURN_NOT_OK(wrap_func(value, out_values));
-      unique_values.push_back(*out_values);
-      ++memo_size;
-    } else {
-      // Duplicate entry
-      Py_INCREF(unique_values[memo_index]);
-      *out_values = unique_values[memo_index];
+  auto convert_chunks = [&](auto&& wrap_func) -> Status {
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, wrap_func, out_values));
+      out_values += arr.length();
     }
     return Status::OK();
   };
 
-  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
-    return wrap_func(value, out_values);
-  };
+  if (options.deduplicate_objects) {
+    // GH-40316: only allocate a memo table if deduplication is enabled.
+    ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
+    std::vector<PyObject*> unique_values;
+    int32_t memo_size = 0;
 
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
-    if (options.deduplicate_objects) {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapMemoized, out_values));
-    } else {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapUnmemoized, out_values));
-    }
-    out_values += arr.length();
+    auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
+      int32_t memo_index;
+      RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
+      if (memo_index == memo_size) {
+        // New entry
+        RETURN_NOT_OK(wrap_func(value, out_values));
+        unique_values.push_back(*out_values);
+        ++memo_size;
+      } else {
+        // Duplicate entry
+        Py_INCREF(unique_values[memo_index]);
+        *out_values = unique_values[memo_index];
+      }
+      return Status::OK();
+    };
+    return convert_chunks(std::move(WrapMemoized));
+  } else {
+    return convert_chunks(std::forward<WrapFunction>(wrap_func));
   }
-  return Status::OK();
 }
 
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,

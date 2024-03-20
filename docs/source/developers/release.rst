@@ -92,14 +92,51 @@ Ensure a major version milestone for a follow up release is created on GitHub. T
 automatically be used by our merge script as the new version for issues closed when
 the maintenance branch is created.
 
+Patch Releases
+==============
+
+We usually create patch releases once a major breaking issue has been identified.
+Issues that are identified as major breaking issues can be security fixes, broken packages
+for specific builds and others.
+
+Any developer can ask for a patch release to be generated sending an email to the
+`Arrow development mailing-list <https://arrow.apache.org/community/>`__ with the reason
+of why a new release is necessary.
+If there is consensus and there is a Release Manager willing to take the effort to create
+the release a patch release can be created.
+
+Committers can tag issues that should be included on the next patch release using the
+`backport-candidate` label. Is the responsability of the author or the committer to add the
+label to the issue to help the Release Manager identify the issues that should be backported.
+
+If a specific issue is identified as the reason to create a patch release the Release Manager
+should validate that, at least, this issue is correctly tagged and included in the patch release.
+
+Be sure to go through on the following checklist:
+
+#. Create milestone
+#. Create maintenance branch
+#. Include issue that was requested as requiring new patch release
+#. Add new milestone to issues with `backport-candidate` label
+#. cherry-pick issues into maintenance branch
+
 Creating a Release Candidate
 ============================
 
 These are the different steps that are required to create a Release Candidate.
 
-For the initial Release Candidate, we will create a maintenance branch from main.
+For the initial Release Candidate on a major release, we will create a maintenance
+branch from main.
+
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
+
+For the the initial Release Candidate for a minor or a patch release we will create
+a maintenance branch from the previous corresponding release. For example,
+for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
+a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
+created we will update the created maintenance branch by cherry-picking specific
+commits.
 
 We have implemented a Feature Freeze policy between Release Candidates.
 This means that, in general, we should only add bug fixes between Release Candidates.
