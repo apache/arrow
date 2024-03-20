@@ -2328,7 +2328,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
       }
-      // In case of a RunEndEncodedArray default to the storage type
+      // In case of a RunEndEncodedArray default to the values type
       else if (arrays_[column_index]->type()->id() == Type::RUN_END_ENCODED) {
         ARROW_ASSIGN_OR_RAISE(arrays_[column_index],
                               GetDecodedChunkedArray(arrays_[column_index]));
