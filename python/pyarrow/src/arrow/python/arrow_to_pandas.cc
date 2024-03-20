@@ -2569,6 +2569,10 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   }
   // In case of a RunEndEncodedArray decode the array
   else if (arr->type()->id() == Type::RUN_END_ENCODED) {
+    if (options.zero_copy_only) {
+      return Status::Invalid("Need to dencode a RunEndEncodedArray, but ",
+                             "only zero-copy conversions allowed");
+    }
     ARROW_ASSIGN_OR_RAISE(arr, GetDecodedChunkedArray(arr));
 
     // Because we built a new array when we decoded the RunEndEncodedArray
