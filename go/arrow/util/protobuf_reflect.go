@@ -438,7 +438,6 @@ func AppendValueOrNull(b array.Builder, pfr protobufFieldReflection, f arrow.Fie
 		b.(*array.BooleanBuilder).Append(pv.Bool())
 	case arrow.DICTIONARY:
 		db := b.(array.DictionaryBuilder)
-		db.AppendEmptyValue()
 		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
 		if err != nil {
 			fmt.Println(err)
