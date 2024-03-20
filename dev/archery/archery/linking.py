@@ -64,22 +64,25 @@ class DynamicLibrary:
             names.append(name)
         return names
 
+    def _just_symbols(self, symbol_info):
+        return [line.split(' ')[-1] for line in symbol_info if line]
+
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
-        result = _nm.run('--format=just-symbols', '-D',
+        result = _nm.run('-D',
                          dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
             lines = [line.split('@@', 1)[0] for line in lines]
-        return lines
+        return self._just_symbols(lines)
 
     def list_undefined_symbols_for_dependency(self, dependency,
                                               remove_symbol_versions=False):
-        result = _nm.run('--format=just-symbols', '-u',
+        result = _nm.run('-u',
                          dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
             lines = [line.split('@@', 1)[0] for line in lines]
-        return lines
+        return self._just_symbols(lines)
 
     def find_library_paths(self, libraries):
         result = _ldconfig.run('-p', stdout=subprocess.PIPE)
@@ -108,24 +111,18 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
                 f"Disallowed shared dependency found in {dylib.path}: `{dep}`"
             )
     # Check for undefined symbols
-    result = _nm.run('--version', stdout=subprocess.PIPE)
-    print(result.stdout.decode('utf-8'))
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(path, True)
-    print(len(undefined_symbols))
     expected_lib_paths = dylib.find_library_paths(allowed)
     all_paths = []
 
     for paths in expected_lib_paths.values():
         all_paths.extend(paths)
 
-    print(len(all_paths))
     for lb_path in all_paths:
         expected_symbols = dylib.list_symbols_for_dependency(lb_path, True)
         for exp_sym in expected_symbols:
             if exp_sym in undefined_symbols:
                 undefined_symbols.remove(exp_sym)
-
-    print(len(undefined_symbols))
 
     if undefined_symbols:
         undefined_symbols_str = '\n'.join(undefined_symbols)
