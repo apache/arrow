@@ -705,6 +705,14 @@ struct BinaryScalarMinMax {
 template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    if (batch.IsNull()) {
+      std::shared_ptr<Scalar> result = MakeNullScalar(out->type()->GetSharedPtr());
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr_result,
+                            MakeArrayFromScalar(*result, 1));
+      out->value = std::move(arr_result->data());
+      return Status::OK();
+    }
+
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const DataType* batch_type = batch[0].type();
     const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type);

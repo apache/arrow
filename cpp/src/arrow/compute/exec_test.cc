@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 
 #include "arrow/array/array_base.h"
@@ -1423,6 +1424,33 @@ TEST(Ordering, IsSuborderOf) {
   CheckOrdering(d, {false, false, false, true, false, false});
   CheckOrdering(imp, {false, false, false, false, false, false});
   CheckOrdering(unordered, {true, true, true, true, true, true});
+}
+
+static Status RegisterMyScalarPureFunction() {
+  const std::string name = "my_scalar_function";
+  auto func = std::make_shared<ScalarFunction>(name, Arity::Nullary(),
+                                               FunctionDoc::Empty(), nullptr);
+  auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
+                      ExecResult* out) -> Status {
+    auto scalar = MakeScalar("I am a scalar");
+    ARROW_ASSIGN_OR_RAISE(auto arr_res, MakeArrayFromScalar(*scalar, 1));
+    out->value = std::move(arr_res->data());
+    return Status::OK();
+  };
+
+  ScalarKernel kernel({}, utf8(), func_exec);
+  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
+
+  auto registry = GetFunctionRegistry();
+  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
+  return Status::OK();
+}
+
+TEST(CallFunction, ScalarPureFunction) {
+  ASSERT_OK(RegisterMyScalarPureFunction());
+
+  EXPECT_THAT(CallFunction("my_scalar_function", ExecBatch({})),
+              ResultWith(MakeScalar("I am a scalar")));
 }
 
 }  // namespace detail

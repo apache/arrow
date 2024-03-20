@@ -846,11 +846,9 @@ TEST(MakeStruct, Scalar) {
   // ARROW-16757: No input values yields empty struct array of length 1
   ScalarVector value;
   auto empty_scalar = std::make_shared<StructScalar>(value, struct_({}));
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> empty_result,
-                       MakeArrayFromScalar(*empty_scalar, 0));
   ASSERT_OK_AND_ASSIGN(Datum empty_actual,
                        CallFunction("make_struct", std::vector<Datum>({})));
-  AssertDatumsEqual(Datum(empty_result), empty_actual);
+  AssertDatumsEqual(Datum(empty_scalar), empty_actual);
 }
 
 TEST(MakeStruct, Array) {
