@@ -118,6 +118,17 @@ Status JemallocAllocator::ReallocateAligned(int64_t old_size, int64_t new_size,
   return Status::OK();
 }
 
+bool JemallocAllocator::ResizeInPlace(int64_t old_size, int64_t new_size, uint8_t* ptr) {
+  if (old_size == 0 || new_size == 0) {
+    // Cannot resize
+    return false;
+  }
+  // No need to pass any alignment since this doesn't move the base pointer
+  int64_t got_size = static_cast<int64_t>(xallocx(ptr, static_cast<size_t>(new_size),
+                                                  /*extra=*/0, /*flags=*/0));
+  return got_size == new_size;
+}
+
 void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment) {
   if (ptr == kZeroSizeArea) {
     DCHECK_EQ(size, 0);

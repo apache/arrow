@@ -261,6 +261,27 @@ class DebugAllocator {
     return Status::OK();
   }
 
+  static bool ResizeInPlace(int64_t old_size, int64_t new_size, uint8_t* ptr) {
+    CheckAllocatedArea(ptr, old_size, "in-place expanding");
+    if (old_size == 0 || new_size == 0) {
+      // Cannot expand
+      return false;
+    }
+    auto maybe_raw_new_size = RawSize(new_size);
+    if (!maybe_raw_new_size.ok()) {
+      return false;
+    }
+    int64_t raw_new_size = *maybe_raw_new_size;
+    DCHECK(raw_new_size > new_size)
+        << "bug in raw size computation: " << raw_new_size << " for size " << new_size;
+    bool success =
+        WrappedAllocator::ResizeInPlace(old_size + kOverhead, raw_new_size, ptr);
+    if (success) {
+      InitAllocatedArea(ptr, new_size);
+    }
+    return success;
+  }
+
   static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment) {
     CheckAllocatedArea(ptr, size, "deallocation");
     if (ptr != memory_pool::internal::kZeroSizeArea) {
@@ -363,6 +384,11 @@ class SystemAllocator {
     return Status::OK();
   }
 
+  static bool ResizeInPlace(int64_t old_size, int64_t new_size, uint8_t* ptr) {
+    // No standard C API for this
+    return false;
+  }
+
   static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t /*alignment*/) {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
@@ -423,6 +449,14 @@ class MimallocAllocator {
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
     }
     return Status::OK();
+  }
+
+  static bool ResizeInPlace(int64_t old_size, int64_t new_size, uint8_t* ptr) {
+    if (old_size == 0 || new_size == 0) {
+      // Cannot resize
+      return false;
+    }
+    return mi_expand(ptr, static_cast<size_t>(new_size)) != nullptr;
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t /*alignment*/) {
@@ -490,6 +524,43 @@ class BaseMemoryPoolImpl : public MemoryPool {
     if (new_size > old_size) {
       DCHECK_NE(*ptr, nullptr);
       (*ptr)[old_size] = kReallocPoison;
+      (*ptr)[new_size - 1] = kReallocPoison;
+    }
+#endif
+
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return Status::OK();
+  }
+
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                          uint8_t** ptr) override {
+    if (new_size == old_size) {
+      return Status::OK();
+    }
+    if (new_size < 0) {
+      return Status::Invalid("negative realloc size");
+    }
+    if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
+      return Status::OutOfMemory("realloc overflows size_t");
+    }
+    // First try resizing in place
+    if (!Allocator::ResizeInPlace(old_size, new_size, *ptr)) {
+      // TODO comment
+      if (std::max(old_size, new_size) >= 32 * 1024) {
+        // Deallocate then allocate (faster than copying data?)
+        Allocator::DeallocateAligned(*ptr, old_size, alignment);
+        RETURN_NOT_OK(Allocator::AllocateAligned(new_size, alignment, ptr));
+      } else {
+        RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, alignment, ptr));
+      }
+    }
+#ifndef NDEBUG
+    // Poison data
+    if (new_size > 0) {
+      DCHECK_NE(*ptr, nullptr);
+      if (new_size > old_size) {
+        (*ptr)[old_size] = kReallocPoison;
+      }
       (*ptr)[new_size - 1] = kReallocPoison;
     }
 #endif
@@ -721,6 +792,14 @@ Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
   return s;
 }
 
+Status LoggingMemoryPool::ReallocateNoCopy(int64_t old_size, int64_t new_size,
+                                           int64_t alignment, uint8_t** ptr) {
+  Status s = pool_->ReallocateNoCopy(old_size, new_size, ptr);
+  std::cout << "ReallocateNoCopy: old_size = " << old_size << ", new_size = " << new_size
+            << ", alignment = " << alignment << std::endl;
+  return s;
+}
+
 void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
   pool_->Free(buffer, size, alignment);
   std::cout << "Free: size = " << size << ", alignment = " << alignment << std::endl;
@@ -772,6 +851,13 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
     return Status::OK();
   }
 
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                          uint8_t** ptr) {
+    RETURN_NOT_OK(pool_->ReallocateNoCopy(old_size, new_size, alignment, ptr));
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return Status::OK();
+  }
+
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
     stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
@@ -805,6 +891,11 @@ Status ProxyMemoryPool::Allocate(int64_t size, int64_t alignment, uint8_t** out)
 Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                                    uint8_t** ptr) {
   return impl_->Reallocate(old_size, new_size, alignment, ptr);
+}
+
+Status ProxyMemoryPool::ReallocateNoCopy(int64_t old_size, int64_t new_size,
+                                         int64_t alignment, uint8_t** ptr) {
+  return impl_->ReallocateNoCopy(old_size, new_size, alignment, ptr);
 }
 
 void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
