@@ -85,13 +85,13 @@ class DynamicLibrary:
         return self._just_symbols(lines)
 
     def find_library_paths(self, libraries):
-        result = _ldconfig.run('-p', stdout=subprocess.PIPE)
-        lines = result.stdout.decode('utf-8').splitlines()
         paths = {}
         system = platform.system()
         for lib in libraries:
             paths[lib] = []
             if system == 'Linux':
+                result = _ldconfig.run('-p', stdout=subprocess.PIPE)
+                lines = result.stdout.decode('utf-8').splitlines()
                 for line in lines:
                     if lib in line:
                         match = re.search(r' => (.*)', line)
