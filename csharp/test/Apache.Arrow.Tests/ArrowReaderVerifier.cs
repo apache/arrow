@@ -308,6 +308,10 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
+                Debug.Print(expectedArray.NullCount);
+                Debug.Print(_expectedArray.Length);
+                Debug.Print(expectedArray.NullBitmapBuffer);
+                Debug.Print(actualArray.NullBitmapBuffer);
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
 
                 if (_strictCompare)
