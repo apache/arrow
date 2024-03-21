@@ -504,7 +504,7 @@ install_maven() {
   SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
 
   if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
-      echo "Skip Install - versions are the same"
+      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
   else
       older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
       if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
