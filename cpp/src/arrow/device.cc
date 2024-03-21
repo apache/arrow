@@ -18,6 +18,8 @@
 #include "arrow/device.h"
 
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
 #include <utility>
 
 #include "arrow/array.h"
@@ -266,6 +268,72 @@ std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {
   return default_cpu_memory_manager();
+}
+
+namespace internal {
+
+using MemoryMapper =
+    std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
+
+class DeviceMemoryManagerRegistryImpl {
+ public:
+  DeviceMemoryManagerRegistryImpl() {}
+
+  Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper) {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = registry_.find(device_type);
+    if (it != registry_.end()) {
+      return Status::KeyError("Device type is already registered");
+    }
+    registry_[device_type] = std::move(memory_mapper);
+    return Status::OK();
+  }
+
+  Result<MemoryMapper> GetMemoryManager(DeviceAllocationType device_type) {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = registry_.find(device_type);
+    if (it == registry_.end()) {
+      return Status::KeyError("Device type is not registered");
+    }
+    return it->second;
+  }
+
+ private:
+  std::mutex lock_;
+  std::unordered_map<DeviceAllocationType, MemoryMapper> registry_;
+};
+
+Result<std::shared_ptr<MemoryManager>> DefaultCPUMemoryMapper(int64_t device_id) {
+  return default_cpu_memory_manager();
+}
+
+static std::shared_ptr<DeviceMemoryManagerRegistryImpl> g_registry;
+static std::once_flag registry_initialized;
+
+static void CreateGlobalDeviceRegistry() {
+  g_registry = std::make_shared<DeviceMemoryManagerRegistryImpl>();
+
+  // Always register the CPU device
+
+  ARROW_CHECK_OK(
+      g_registry->RegisterDevice(DeviceAllocationType::kCPU, DefaultCPUMemoryMapper));
+}
+
+std::shared_ptr<DeviceMemoryManagerRegistryImpl> GetDeviceRegistry() {
+  std::call_once(registry_initialized, CreateGlobalDeviceRegistry);
+  return g_registry;
+}
+
+}  // namespace internal
+
+Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper) {
+  auto registry = internal::GetDeviceRegistry();
+  return registry->RegisterDevice(device_type, std::move(memory_mapper));
+}
+
+Result<MemoryMapper> GetMemoryManager(DeviceAllocationType device_type) {
+  auto registry = internal::GetDeviceRegistry();
+  return registry->GetMemoryManager(device_type);
 }
 
 }  // namespace arrow

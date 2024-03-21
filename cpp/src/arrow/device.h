@@ -363,4 +363,11 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
 ARROW_EXPORT
 std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 
+using MemoryMapper =
+    std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
+
+Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper);
+
+Result<MemoryMapper> GetMemoryManager(DeviceAllocationType device_type);
+
 }  // namespace arrow
