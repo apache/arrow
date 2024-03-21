@@ -119,7 +119,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
-        run: archery docker run conda-python-java-integration -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" -e CI=true
+        run: archery docker run -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" -e CI=true conda-python-java-integration
       - name: Docker Push
         if: >-
           success() &&
