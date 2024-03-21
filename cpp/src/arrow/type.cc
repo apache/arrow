@@ -402,7 +402,6 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
   return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
 }
 
-
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options);
@@ -779,7 +778,6 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
 
   return promoted ? promoted_type : nullptr;
 }
-
 }  // namespace
 
 Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
