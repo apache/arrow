@@ -736,7 +736,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 1) We force *everything* to build as position independent
   # 2) And with support for C++ exceptions
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fexceptions")
-  # size_t is 32 bit in emscripten wasm32 - ignore conversion errors
   # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
   set(CMAKE_CXX_FLAGS
       "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator")
