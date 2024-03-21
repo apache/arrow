@@ -35,8 +35,11 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
+
+using arrow::internal::checked_cast;
 
 namespace arrow {
 namespace engine {
@@ -508,12 +511,12 @@ Result<std::unique_ptr<substrait::Type>> ToProto(
   // From Substrait's perspective the "dictionary type" is just an encoding.  As a result,
   // we lose that information on conversion and just convert the value type.
   if (type.id() == Type::DICTIONARY) {
-    const auto& dict_type = internal::checked_cast<const DictionaryType&>(type);
+    const auto& dict_type = checked_cast<const DictionaryType&>(type);
     return ToProto(*dict_type.value_type(), nullable, ext_set, conversion_options);
   }
   // Ditto for REE
   if (type.id() == Type::RUN_END_ENCODED) {
-    const auto& ree_type = internal::checked_cast<const RunEndEncodedType&>(type);
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(type);
     return ToProto(*ree_type.value_type(), nullable, ext_set, conversion_options);
   }
   auto out = std::make_unique<substrait::Type>();
