@@ -607,6 +607,29 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdown) {
                             kNumRowGroups - 5);
 }
 
+TEST_P(TestParquetFileFormatScan, RangeScan) {
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  SetFilter(literal(true));
+  SetRange(0, std::numeric_limits<int64_t>::max());
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
+
+  SetFilter(literal(true));
+  SetRange(0, 0);
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+
+  SetFilter(literal(true));
+  SetRange(0, 2048);
+  CountRowsAndBatchesInScan(fragment, 6, 3);
+}
+
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
   constexpr int64_t kNumRowGroups = 16;
 

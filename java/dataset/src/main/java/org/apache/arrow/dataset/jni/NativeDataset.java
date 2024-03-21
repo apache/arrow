@@ -49,6 +49,21 @@ public class NativeDataset implements Dataset {
     return new NativeScanner(context, scannerId);
   }
 
+  /**
+   * Create a new scan with range options.
+   * @param options scan options with offset and length
+   * @return newly created native scanner
+   */
+  public synchronized NativeScanner newRangeScan(ScanOptions options) {
+    if (closed) {
+      throw new NativeInstanceReleasedException();
+    }
+    long scannerId = JniWrapper.get().createRangeScanner(datasetId, options.getColumns().orElse(null),
+        options.getFilter().orElse(null), options.getBatchSize(), options.getStartOffset(), options.getLength(),
+        context.getMemoryPool().getNativeInstanceId());
+    return new NativeScanner(context, scannerId);
+  }
+
   @Override
   public synchronized void close() {
     if (closed) {

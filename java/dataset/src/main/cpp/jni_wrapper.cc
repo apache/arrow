@@ -568,6 +568,43 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
 
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
+ * Method:    createRangeScanner
+ * Signature: (J[Ljava/lang/String;Ljava/lang/String;JJJJ)J
+ */
+JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createRangeScanner(
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jstring filter,
+    jlong batch_size, jlong start_offset, jlong length, jlong memory_pool_id) {
+  JNI_METHOD_START
+  arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+  if (pool == nullptr) {
+    JniThrow("Memory pool does not exist or has been closed");
+  }
+  std::shared_ptr<arrow::dataset::Dataset> dataset =
+      RetrieveNativeInstance<arrow::dataset::Dataset>(dataset_id);
+  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
+      JniGetOrThrow(dataset->NewScan());
+  JniAssertOkOrThrow(scanner_builder->Pool(pool));
+  if (columns != nullptr) {
+    std::vector<std::string> column_vector = ToStringVector(env, columns);
+    JniAssertOkOrThrow(scanner_builder->Project(column_vector));
+  }
+  if (filter != nullptr) {
+    // TODO: issue 32625 https://github.com/apache/arrow/issues/32625
+  }
+  JniAssertOkOrThrow(scanner_builder->StartOffset(start_offset));
+  JniAssertOkOrThrow(scanner_builder->Length(length));
+  JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
+
+  auto scanner = JniGetOrThrow(scanner_builder->Finish());
+  std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
+      JniGetOrThrow(DisposableScannerAdaptor::Create(scanner));
+  jlong id = CreateNativeRef(scanner_adaptor);
+  return id;
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    closeScanner
  * Signature: (J)V
  */
