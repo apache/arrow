@@ -64,9 +64,9 @@ if (dir.exists("../cpp")) {
     )
   )
 
-  # Note: files in tools are available at build time, but not at run time. The thirdparty
-  # cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one level up from cpp/
-  # we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
+  # The thirdparty cmake expects .env, NOTICE.txt, and LICENSE.txt to be available one
+  # level up from cpp/ we must rename .env to dotenv and then replace references to it
+  # in cpp/CMakeLists.txt, because R CMD will produce a Note otherwise.
   file.copy(from = c("../NOTICE.txt", to = "../LICENSE.txt"), "tools/", overwrite = TRUE)
   file.copy("../.env", "tools/dotenv", overwrite = TRUE)
 
