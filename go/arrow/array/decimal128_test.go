@@ -235,7 +235,7 @@ func TestDecimal128StringRoundTrip(t *testing.T) {
 	assert.True(t, array.Equal(arr, arr1))
 }
 
-func TestDecimal128OneForMarshal(t *testing.T) {
+func TestDecimal128GetOneForMarshal(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -248,12 +248,14 @@ func TestDecimal128OneForMarshal(t *testing.T) {
 		give any
 		want any
 	}{
+		{"1", "1"},
+		{"1.25", "1.25"},
 		{"0.99", "0.99"},
 		{"1234567890.123456789", "1234567890.123456789"},
 		{nil, nil},
 		{"-0.99", "-0.99"},
 		{"-1234567890.123456789", "-1234567890.123456789"},
-		{"0.0000000000000000001", "1e-19"},
+		{"0.0000000000000000001", "0.0000000000000000001"},
 	}
 	for _, v := range cases {
 		if v.give == nil {

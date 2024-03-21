@@ -85,7 +85,6 @@ func (a *Decimal128) setData(data *Data) {
 		a.values = a.values[beg:end]
 	}
 }
-
 func (a *Decimal128) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -99,7 +98,7 @@ func (a *Decimal128) GetOneForMarshal(i int) interface{} {
 	} else {
 		f.SetPrec(128).Quo(f, (&big.Float{}).SetInt(decimal128.GetScaleMultiplier(int(scale)).BigInt()))
 	}
-	return f.Text('g', int(scale))
+	return strings.TrimRight(f.Text('f', int(scale)), "0.")
 }
 
 // ["1.23", ]

@@ -227,16 +227,25 @@ func TestDecimal256StringRoundTrip(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		v := arr.ValueStr(i)
+		assert.NoError(t, b1.AppendValueFromString(v))
 	}
 
 	arr1 := b1.NewArray().(*array.Decimal256)
 	defer arr1.Release()
 
+	for i := 0; i < arr.Len(); i++ {
+		if arr.IsNull(i) && arr1.IsNull(i) {
+			continue
+		}
+		if arr.Value(i) != arr1.Value(i) {
+			t.Fatalf("unexpected value at index %d: got=%v, want=%v", i, arr1.Value(i), arr.Value(i))
+		}
+	}
 	assert.True(t, array.Equal(arr, arr1))
 }
 
-func TestDecimal256OneForMarshal(t *testing.T) {
+func TestDecimal256GetOneForMarshal(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -249,12 +258,14 @@ func TestDecimal256OneForMarshal(t *testing.T) {
 		give any
 		want any
 	}{
+		{"1", "1"},
+		{"1.25", "1.25"},
 		{"0.99", "0.99"},
 		{"1234567890.123456789", "1234567890.123456789"},
 		{nil, nil},
 		{"-0.99", "-0.99"},
 		{"-1234567890.123456789", "-1234567890.123456789"},
-		{"0.0000000000000000001", "1e-19"},
+		{"0.0000000000000000001", "0.0000000000000000001"},
 	}
 	for _, v := range cases {
 		if v.give == nil {

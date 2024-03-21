@@ -99,7 +99,7 @@ func (a *Decimal256) GetOneForMarshal(i int) interface{} {
 	} else {
 		f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(decimal256.GetScaleMultiplier(int(scale)).BigInt()))
 	}
-	return f.Text('g', int(scale))
+	return strings.TrimRight(f.Text('f', int(scale)), "0.")
 }
 
 func (a *Decimal256) MarshalJSON() ([]byte, error) {
