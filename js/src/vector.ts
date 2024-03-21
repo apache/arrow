@@ -78,9 +78,9 @@ export class Vector<T extends DataType = any> {
                 const { at, set, indexOf } = visitorsByTypeId[type.typeId];
                 const unchunkedData = data[0];
 
-                this.isValid = (index: number) => isChunkedValid(unchunkedData, index);
-                this.at = (index: number) => at(unchunkedData, index);
-                this.set = (index: number, value: T) => set(unchunkedData, index, value);
+                this.isValid = (index: number) => isChunkedValid(unchunkedData, index < 0 ? index + this.length : index);
+                this.at = (index: number) => at(unchunkedData, index < 0 ? index + this.length : index);
+                this.set = (index: number, value: T) => set(unchunkedData, index < 0 ? index + this.length : index, value);
                 this.indexOf = (index: number) => indexOf(unchunkedData, index);
                 this._offsets = [0, unchunkedData.length];
                 break;
@@ -395,6 +395,9 @@ class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
         Object.defineProperty(this, 'at', {
             value(index: number) {
+                // negative indexes count from the back
+                if (index < 0) index += this.length;
+
                 const cachedValue = cache[index];
                 if (cachedValue !== undefined) {
                     return cachedValue;
@@ -407,6 +410,9 @@ class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
         Object.defineProperty(this, 'set', {
             value(index: number, value: T['TValue'] | null) {
+                // negative indexes count from the back
+                if (index < 0) index += this.length;
+
                 set.call(this, index, value);
                 cache[index] = value;
             }

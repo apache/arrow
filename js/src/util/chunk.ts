@@ -120,6 +120,9 @@ export function isChunkedValid<T extends DataType>(data: Data<T>, index: number)
 export function wrapChunkedCall1<T extends DataType>(fn: (c: Data<T>, _1: number) => any) {
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j); }
     return function (this: any, index: number) {
+        // negative indexes count from the back
+        if (index < 0) index += this.length;
+
         const data = this.data as ReadonlyArray<Data<T>>;
         return binarySearch(data, this._offsets, index, chunkedFn);
     };
@@ -130,6 +133,9 @@ export function wrapChunkedCall2<T extends DataType>(fn: (c: Data<T>, _1: number
     let _2: any;
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j, _2); }
     return function (this: any, index: number, value: any) {
+        // negative indexes count from the back
+        if (index < 0) index += this.length;
+
         const data = this.data as ReadonlyArray<Data<T>>;
         _2 = value;
         const result = binarySearch(data, this._offsets, index, chunkedFn);

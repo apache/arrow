@@ -23,7 +23,7 @@ describe(`makeVectorFromArray`, () => {
     describe(`works with null values`, () => {
         const values = [1, 2, 3, 4, null, 5];
         const vector = vectorFromArray(values);
-        basicVectorTests(vector, values, []);
+        basicVectorTests(vector, values, [], false);
         test(`toArray returns typed array for numbers`, () => {
             expect(vector.toArray()).toEqual(Float64Array.from(values.map(n => n === null ? 0 : n)));
         });
@@ -72,8 +72,9 @@ describe(`StructVector`, () => {
     });
 
     test(`get value`, () => {
-        for (const [i, value] of values.entries()) {
-            expect(vector.at(i)!.toJSON()).toEqual(value);
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.at(i)!.toJSON()).toEqual(values.at(i));
+            expect(vector.at(-i)!.toJSON()).toEqual(values.at(-i));
         }
     });
 });
@@ -83,6 +84,7 @@ describe(`DateVector`, () => {
         new Date(2000, 0, 1),
         new Date(1991, 5, 28, 12, 11, 10)
     ];
+
     describe(`unit = MILLISECOND`, () => {
         const values = [
             new Date(1989, 5, 22, 1, 2, 3),
@@ -93,6 +95,7 @@ describe(`DateVector`, () => {
         const vector = vectorFromArray(values, new DateMillisecond);
         basicVectorTests(vector, values, extras);
     });
+
     describe(`unit = DAY`, () => {
         // Use UTC to ensure that dates are always at midnight
         const values = [
@@ -146,9 +149,9 @@ describe(`DictionaryVector`, () => {
             type: new Dictionary(dictionary_vec.type, new Int32)
         });
 
-        basicVectorTests(vector, values, ['abc', '123']);
+        basicVectorTests(vector, values, ['abc', '123'], false);
         describe(`sliced`, () => {
-            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
+            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras, false);
         });
     });
 
@@ -226,9 +229,10 @@ describe(`ListVector`, () => {
         expect(vector.type).toBeInstanceOf(List);
     });
 
-    test(`get value`, () => {
-        for (const [i, value] of values.entries()) {
-            expect(vector.at(i)!.toJSON()).toEqual(value);
+    test(`at value`, () => {
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.at(i)!.toJSON()).toEqual(values.at(i));
+            expect(vector.at(-i)!.toJSON()).toEqual(values.at(-i));
         }
     });
 });
@@ -263,18 +267,28 @@ describe(`toArray()`, () => {
 
 // Creates some basic tests for the given vector.
 // Verifies that:
-// - `get` and the native iterator return the same data as `values`
+// - `at` and the native iterator return the same data as `values`
 // - `indexOf` returns the same indices as `values`
-function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
+function basicVectorTests(vector: Vector, values: any[], extras: any[], testValid = true) {
 
     const n = values.length;
 
-    test(`gets expected values`, () => {
-        let i = -1;
-        while (++i < n) {
-            expect(vector.at(i)).toEqual(values[i]);
+    test(`at expected values`, () => {
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.at(i)).toEqual(values.at(i));
+            expect(vector.at(-i)).toEqual(values.at(-i));
         }
     });
+
+    test(`isValid expected values`, () => {
+        if (testValid) {
+            for (let i = 0; i < values.length; i++) {
+                expect(vector.isValid(i)).toBeTruthy();
+                expect(vector.isValid(-i)).toBeTruthy();
+            }
+        }
+    });
+
     test(`iterates expected values`, () => {
         expect.hasAssertions();
         let i = -1;
@@ -283,6 +297,7 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
             expect(v).toEqual(values[i]);
         }
     });
+
     test(`indexOf returns expected values`, () => {
         const testValues = values.concat(extras);
 
