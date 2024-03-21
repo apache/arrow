@@ -19,13 +19,12 @@
 .. highlight:: console
 
 .. _developers-cpp-emscripten:
-#################################################
+===============================================
 Cross compiling for WebAssembly with Emscripten
-#################################################
+===============================================
 
-***************
- Prerequisites
-***************
+Prerequisites
+-------------
 You need CMake and compilers etc. installed as per the normal build instructions. Before building with Emscripten, you also need to install Emscripten and
 activate it using the commands below (see https://emscripten.org/docs/getting_started/downloads.html for details).
 
@@ -73,9 +72,9 @@ It should make a wheel targeting the currently enabled version of
 Pyodide (i.e. the version corresponding to the currently installed
 ``pyodide-build``) in the ``dist`` subdirectory.
 
-**************
- Manual Build
-**************
+
+Manual Build
+------------
 
 If you want to manually build for Emscripten, take a look at the
 ``CMakePresets.json`` file in the ``arrow/cpp`` directory for a list of things
