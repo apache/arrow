@@ -506,8 +506,7 @@ install_maven() {
   if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
       echo "Skip Install - versions are the same"
   else
-      # the following logic only verifies released versions
-      older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sort --version-sort | head -n1)
+      older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
       if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
         show_info "Installing Maven version ${MAVEN_VERSION}..."
         APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
