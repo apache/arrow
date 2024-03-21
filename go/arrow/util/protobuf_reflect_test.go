@@ -148,7 +148,30 @@ func TestRecordFromProtobuf(t *testing.T) {
 	schema := psr.GetSchema()
 	got := RecordFromProtobuf(*psr, schema, nil)
 	jsonStr := `[
-		{"any":{"field1":"Example"},"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_0","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":""},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],"sin64":-100,"sint32":-10,"string":"Hello","uint32":10,"uint64":100}
+		{
+            "string":"Hello",
+            "int32":10,
+            "int64":100,
+            "sint32":-10,
+            "sin64":-100,
+            "uint32":10,
+            "uint64":100,
+            "fixed32":10,
+            "fixed64":1000,
+            "sfixed32":10,
+			"bool":false,
+		    "bytes":"SGVsbG8sIHdvcmxkIQ==",
+            "double":1.1,
+            "enum":"OPTION_0",
+            "message":{"field1":"Example"},
+            "oneofstring":"World",
+			"oneofmessage":{"field1":""},
+			"any":{"field1":"Example"},
+            "simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],
+            "complex_map":[{"key":"complex","value":{"field1":"Example"}}],
+            "simple_list":["Hello","World"],
+            "complex_list":[{"field1":"Example"}]
+		}
 	]`
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
