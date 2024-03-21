@@ -33,8 +33,10 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
@@ -634,6 +636,30 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
   // Check schema equality with metadata.
   EXPECT_OK_AND_ASSIGN(auto read_schema, reader->ReadSchema());
   AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
+}
+
+TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
+  // Backup the original TZDIR env and set a wrong value by purpose to trigger the check.
+  const char* tzdir_env_key = "TZDIR";
+  const char* expect_str = "IANA timezone database is unavailable but required by ORC";
+  auto tzdir_env_backup = std::getenv(tzdir_env_key);
+  ARROW_EXPECT_OK(arrow::internal::SetEnvVar(tzdir_env_key, "/a/b/c/d/e"));
+
+  EXPECT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
+  EXPECT_THAT(
+      adapters::orc::ORCFileWriter::Open(out_stream.get(), adapters::orc::WriteOptions()),
+      Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
+
+  EXPECT_OK_AND_ASSIGN(auto buffer, out_stream->Finish());
+  EXPECT_THAT(adapters::orc::ORCFileReader::Open(
+                  std::make_shared<io::BufferReader>(buffer), default_memory_pool()),
+              Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
+
+  // Restore TZDIR env.
+  ARROW_EXPECT_OK(arrow::internal::DelEnvVar(tzdir_env_key));
+  if (tzdir_env_backup) {
+    ARROW_EXPECT_OK(arrow::internal::SetEnvVar(tzdir_env_key, tzdir_env_backup));
+  }
 }
 
 // Trivial
