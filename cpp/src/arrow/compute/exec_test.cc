@@ -1426,28 +1426,19 @@ TEST(Ordering, IsSuborderOf) {
   CheckOrdering(unordered, {true, true, true, true, true, true});
 }
 
-static Status RegisterMyScalarPureFunction() {
-  const std::string name = "my_scalar_function";
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Nullary(),
-                                               FunctionDoc::Empty(), nullptr);
-  auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
-                      ExecResult* out) -> Status {
-    auto scalar = MakeScalar("I am a scalar");
-    ARROW_ASSIGN_OR_RAISE(auto arr_res, MakeArrayFromScalar(*scalar, 1));
-    out->value = std::move(arr_res->data());
+TEST(CallFunction, ScalarFunctionWithZeroLengthBatch) {
+  // Ensure a scalar function called with a zero length input batch
+  // does not get skipped if it is called with zero arguments
+  auto func = std::make_shared<ScalarFunction>("my_scalar_function", Arity::Nullary(),
+                                               FunctionDoc::Empty());
+
+  auto func_exec = [](KernelContext*, const ExecSpan&, ExecResult* out) {
+    out->value = ArrayFromJSON(utf8(), R"(["I am a scalar"])")->data();
     return Status::OK();
   };
 
-  ScalarKernel kernel({}, utf8(), func_exec);
-  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
-
-  auto registry = GetFunctionRegistry();
-  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
-  return Status::OK();
-}
-
-TEST(CallFunction, ScalarPureFunction) {
-  ASSERT_OK(RegisterMyScalarPureFunction());
+  EXPECT_THAT(func->AddKernel({}, utf8(), func_exec), Ok());
+  EXPECT_THAT(GetFunctionRegistry()->AddFunction(std::move(func)), Ok());
 
   EXPECT_THAT(CallFunction("my_scalar_function", ExecBatch({})),
               ResultWith(MakeScalar("I am a scalar")));

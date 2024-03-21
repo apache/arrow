@@ -57,14 +57,6 @@ random::pcg64_oneseq MakeSeedGenerator() {
 }
 
 Status ExecRandom(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (batch.IsNull()) {
-    std::shared_ptr<Scalar> result = MakeNullScalar(out->type()->GetSharedPtr());
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr_result,
-                          MakeArrayFromScalar(*result, 1));
-    out->array_span_mutable()->FillFromScalar(*result);
-    return Status::OK();
-  }
-
   static random::pcg64_oneseq seed_gen = MakeSeedGenerator();
   static std::mutex seed_gen_mutex;
 

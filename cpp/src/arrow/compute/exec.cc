@@ -336,7 +336,7 @@ bool CheckIfAllScalar(const ExecBatch& batch) {
       return false;
     }
   }
-  return batch.num_values() > 0 || batch.IsNull();
+  return true;
 }
 
 }  // namespace
@@ -825,12 +825,13 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
 
  protected:
   Status EmitResult(std::shared_ptr<ArrayData> out, ExecListener* listener) {
-    if (span_iterator_.have_all_scalars()) {
+    if (span_iterator_.have_all_scalars() && kernel_->is_pure) {
       // ARROW-16757 We boxed scalar inputs as ArraySpan, so now we have to
       // unbox the output as a scalar
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, MakeArray(out)->GetScalar(0));
       return listener->OnResult(std::move(scalar));
     } else {
+      // ARROW-40687 Ensure impure scalar function's result is array
       return listener->OnResult(std::move(out));
     }
   }

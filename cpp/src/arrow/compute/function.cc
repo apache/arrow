@@ -426,6 +426,7 @@ Status ScalarFunction::AddKernel(ScalarKernel kernel) {
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");
   }
+  kernel.is_pure = is_pure();
   kernels_.emplace_back(std::move(kernel));
   return Status::OK();
 }
