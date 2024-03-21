@@ -501,7 +501,13 @@ maybe_setup_conda() {
 
 install_maven() {
   MAVEN_VERSION=3.8.7
-  SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+  if command -v mvn > /dev/null; then
+    SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
+  else
+    SYSTEM_MAVEN_VERSION=0.0.0
+    show_info "Maven installation not found."
+  fi
 
   if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
     show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
