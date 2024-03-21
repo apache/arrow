@@ -98,7 +98,7 @@ func (a *Decimal128) GetOneForMarshal(i int) interface{} {
 	} else {
 		f.SetPrec(128).Quo(f, (&big.Float{}).SetInt(decimal128.GetScaleMultiplier(int(scale)).BigInt()))
 	}
-	return strings.TrimRight(f.Text('f', int(scale)), "0.")
+	return f.Text('g', int(typ.Precision))
 }
 
 // ["1.23", ]
