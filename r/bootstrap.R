@@ -52,7 +52,7 @@ if (dir.exists("../cpp")) {
     "tools/cpp",
     exclude_patterns = c(
       "^apidoc",
-      "^build$",
+      "^build/",
       "^build-support/boost-",
       "^examples",
       "^submodules",
