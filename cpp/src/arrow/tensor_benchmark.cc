@@ -27,11 +27,10 @@ namespace arrow {
 
 template <typename ValueType>
 static void BatchToTensorSimple(benchmark::State& state) {
-  RegressionArgs args(state);
   using CType = typename ValueType::c_type;
   std::shared_ptr<DataType> ty = TypeTraits<ValueType>::type_singleton();
 
-  const int64_t kNumRows = args.size / sizeof(CType);
+  const int64_t kNumRows = state.range(0) / sizeof(CType);
   arrow::random::RandomArrayGenerator gen_{42};
 
   std::vector<std::shared_ptr<Field>> fields = {};
