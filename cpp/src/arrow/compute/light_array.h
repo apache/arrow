@@ -72,7 +72,7 @@ struct ARROW_EXPORT KeyColumnMetadata {
   /// isn't a null type column.
   ///
   /// For a varying-length binary column this represents the number of bytes per offset.
-  uint32_t fixed_length;
+  int32_t fixed_length;
 };
 
 /// \brief A lightweight view into a "key" array
@@ -133,34 +133,34 @@ class ARROW_EXPORT KeyColumnArray {
   /// \brief Return a mutable version of the offsets buffer
   ///
   /// Only valid if this is a view into a varbinary type
-  uint32_t* mutable_offsets() {
+  int32_t* mutable_offsets() {
     DCHECK(!metadata_.is_fixed_length);
     DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
-    return reinterpret_cast<uint32_t*>(mutable_data(kFixedLengthBuffer));
+    return reinterpret_cast<int32_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the offsets buffer
   ///
   /// Only valid if this is a view into a varbinary type
-  const uint32_t* offsets() const {
+  const int32_t* offsets() const {
     DCHECK(!metadata_.is_fixed_length);
     DCHECK_EQ(metadata_.fixed_length, sizeof(uint32_t));
-    return reinterpret_cast<const uint32_t*>(data(kFixedLengthBuffer));
+    return reinterpret_cast<const int32_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return a mutable version of the large-offsets buffer
   ///
   /// Only valid if this is a view into a large varbinary type
-  uint64_t* mutable_large_offsets() {
+  int64_t* mutable_large_offsets() {
     DCHECK(!metadata_.is_fixed_length);
     DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
-    return reinterpret_cast<uint64_t*>(mutable_data(kFixedLengthBuffer));
+    return reinterpret_cast<int64_t*>(mutable_data(kFixedLengthBuffer));
   }
   /// \brief Return a read-only version of the large-offsets buffer
   ///
   /// Only valid if this is a view into a large varbinary type
-  const uint64_t* large_offsets() const {
+  const int64_t* large_offsets() const {
     DCHECK(!metadata_.is_fixed_length);
     DCHECK_EQ(metadata_.fixed_length, sizeof(uint64_t));
-    return reinterpret_cast<const uint64_t*>(data(kFixedLengthBuffer));
+    return reinterpret_cast<const int64_t*>(data(kFixedLengthBuffer));
   }
   /// \brief Return the type metadata
   const KeyColumnMetadata& metadata() const { return metadata_; }

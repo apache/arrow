@@ -98,7 +98,7 @@ class TestVectorHash {
                         bool use_varlen_input, int min_length, int max_length) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using OffsetType = typename TypeTraits<Type>::OffsetType;
-    using offset_t = typename std::make_unsigned<typename OffsetType::c_type>::type;
+    using offset_t = typename OffsetType::c_type;
 
     constexpr int min_num_unique = 100;
     constexpr int max_num_unique = 1000;
