@@ -48,6 +48,7 @@ rsync <- function(src_dir, dest_dir, exclude_patterns) {
 
 
 if (dir.exists("../cpp")) {
+  unlink("tools/cpp", recursive = TRUE)
   rsync("../cpp",
     "tools/cpp",
     exclude_patterns = c(
