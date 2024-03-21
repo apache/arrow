@@ -1367,10 +1367,10 @@ macro(build_snappy)
   endif()
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # ignore linker flag errors, as snappy sets
-    # -Werror -Wall, and emscripten doesn't support -soname
+    # ignore linker flag errors, as Snappy sets
+    # -Werror -Wall, and Emscripten doesn't support -soname
     list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS} -Wno-error=linkflags")
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}" "-Wno-error=linkflags")
   endif()
 
   externalproject_add(snappy_ep
@@ -1888,9 +1888,7 @@ macro(build_protobuf)
                           PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
-
   endif()
-
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
