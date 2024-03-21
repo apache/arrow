@@ -468,22 +468,6 @@ install_conda() {
   conda activate base
 }
 
-maybe_setup_maven() {
-  MAVEN_VERSION=3.8.7
-  SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
-  if [[ $(echo "$SYSTEM_MAVEN_VERSION $MAVEN_VERSION" | awk '{print ($1 < $2)}') -eq 1 ]]; then
-    show_info "Installing Maven version ${MAVEN_VERSION}..."
-    APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
-    curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-      ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
-    tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
-    export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-    show_info "Installed Maven version $(mvn -v)"
-  else
-    show_info "System Maven version is equal or newer than ${MAVEN_VERSION}. Skipping installation."
-  fi
-}
-
 maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${CONDA_ENV:-source}"
@@ -512,6 +496,36 @@ maybe_setup_conda() {
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment using \`conda deactivate\` before running the verification script."
     return 1
+  fi
+}
+
+install_maven() {
+  MAVEN_VERSION=3.8.7
+  SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+
+  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
+      echo "Skip Install - versions are the same"
+  else
+      # the following logic only verifies released versions
+      older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sort --version-sort | head -n1)
+      if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" && "$SYSTEM_MAVEN_VERSION" != "$MAVEN_VERSION" ]]; then
+          show_info "Installing Maven version ${MAVEN_VERSION}..."
+          APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+          curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+            ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+          tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+          export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+          show_info "Installed Maven version $(mvn -v)"
+      else
+          show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is equal or newer than asked Maven version ${MAVEN_VERSION}. Skipping installation."
+      fi
+  fi
+}
+
+maybe_setup_maven() {
+  show_info "Ensuring that Maven is installed..."
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_maven
   fi
 }
 
@@ -581,8 +595,8 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
-  maybe_setup_conda maven openjdk
   maybe_setup_maven
+  maybe_setup_conda maven openjdk
 
   pushd java
 
@@ -1219,8 +1233,8 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
-  maybe_setup_conda maven python
   maybe_setup_maven
+  maybe_setup_conda maven python
 
   local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
