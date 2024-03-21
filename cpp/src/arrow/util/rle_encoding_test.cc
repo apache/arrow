@@ -217,7 +217,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 #ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is
   // too big for emscripten
-  std::vector<uint8_t> buffer_vec((size_t)len);
+  std::vector<uint8_t> buffer_vec(static_cast<size_t>(len));
   uint8_t* buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
@@ -266,7 +266,7 @@ bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
 #ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is
   // too big for emscripten
-  std::vector<uint8_t> buffer_vec((size_t)len);
+  std::vector<uint8_t> buffer_vec(static_cast<size_t>(len));
   uint8_t* buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
