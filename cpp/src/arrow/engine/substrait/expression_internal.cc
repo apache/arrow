@@ -754,10 +754,8 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       const auto& user_defined = lit.user_defined();
       ARROW_ASSIGN_OR_RAISE(auto type_record,
                             ext_set.DecodeType(user_defined.type_reference()));
-      UserDefinedLiteralToArrow visitor{.scalar_ = nullptr,
-                                        .user_defined_ = &user_defined,
-                                        .ext_set_ = &ext_set,
-                                        .conversion_options_ = conversion_options};
+      UserDefinedLiteralToArrow visitor{nullptr, &user_defined, &ext_set,
+                                        conversion_options};
       ARROW_RETURN_NOT_OK((visitor)(*type_record.type));
       return Datum(std::move(visitor.scalar_));
     }
