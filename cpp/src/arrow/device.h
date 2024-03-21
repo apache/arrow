@@ -366,10 +366,19 @@ std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 using MemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
 
+/// \brief Register a function to retrieve a MemoryManager for a Device type
+///
+/// This registers the device type globally. A specific device type can only
+/// be registered once. This method is thread-safe
+/// \param[in] device_type the device type for which to register a MemoryManager
+/// \param[in] memory_mapper function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+/// \return Status
 ARROW_EXPORT
-Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper);
+Status RegisterDeviceMemoryManager(DeviceAllocationType device_type,
+                                   MemoryMapper memory_mapper);
 
 ARROW_EXPORT
-Result<MemoryMapper> GetMemoryManager(DeviceAllocationType device_type);
+Result<MemoryMapper> GetDeviceMemoryManager(DeviceAllocationType device_type);
 
 }  // namespace arrow

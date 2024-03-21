@@ -508,12 +508,14 @@ Result<std::shared_ptr<MemoryManager>> DefaultGPUMemoryMapper(int64_t device_id)
 }
 
 Status RegisterCUDADeviceInternal() {
-  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA, DefaultGPUMemoryMapper));
-  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA_HOST, DefaultGPUMemoryMapper));
-  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA_MANAGED, DefaultGPUMemoryMapper));
+  RETURN_NOT_OK(
+      RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA, DefaultGPUMemoryMapper));
+  RETURN_NOT_OK(RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA_HOST,
+                                            DefaultGPUMemoryMapper));
+  RETURN_NOT_OK(RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA_MANAGED,
+                                            DefaultGPUMemoryMapper));
   return Status::OK();
 }
-
 
 std::once_flag cuda_registered;
 
@@ -521,7 +523,6 @@ Status RegisterCUDADevice() {
   std::call_once(cuda_registered, RegisterCUDADeviceInternal);
   return Status::OK();
 }
-
 
 }  // namespace cuda
 }  // namespace arrow

@@ -1969,8 +1969,8 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 
 Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
                                                            int64_t device_id) {
-  ARROW_ASSIGN_OR_RAISE(auto mapper,
-                        GetMemoryManager(static_cast<DeviceAllocationType>(device_type)));
+  ARROW_ASSIGN_OR_RAISE(auto mapper, GetDeviceMemoryManager(
+                                         static_cast<DeviceAllocationType>(device_type)));
   return mapper(device_id);
 }
 
