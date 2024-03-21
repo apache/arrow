@@ -49,6 +49,10 @@ class TestLLVMGenerator : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(config, false));
 
+    std::unordered_set<std::string> used_functions;
+    used_functions.insert(function_name);
+    ASSERT_OK(generator->engine_->Init(used_functions));
+
     auto module = generator->module();
     ASSERT_OK(generator->engine_->LoadFunctionIRs());
     EXPECT_NE(module->getFunction(function_name), nullptr);
@@ -59,6 +63,11 @@ class TestLLVMGenerator : public ::testing::Test {
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
 
+  std::unordered_set<std::string> used_functions;
+  for (auto& iter : *registry_) {
+    used_functions.insert(iter.pc_name());
+  }
+  ASSERT_OK(generator->engine_->Init(used_functions));
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
   for (auto& iter : *registry_) {
@@ -101,6 +110,10 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   // LLVM 10 doesn't like the expr function name to be the same as the module name when
   // LLJIT is used
   std::string fn_name = "llvm_gen_test_add_expr";
+
+  std::unordered_set<std::string> used_functions{"add_int32_int32"};
+
+  ASSERT_OK(generator->engine_->Init(used_functions));
 
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
   ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, fn_name,

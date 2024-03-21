@@ -115,6 +115,9 @@ namespace gandiva {
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
 
+extern const unsigned char kPrecompiledMandatoryBitcode[];
+extern const size_t kPrecompiledMandatoryBitcodeSize;
+
 std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
@@ -132,8 +135,8 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
 
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
-  llvm::orc::JITTargetMachineBuilder jtmb(
-      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
+  static auto default_target_triple = llvm::sys::getDefaultTargetTriple();
+  llvm::orc::JITTargetMachineBuilder jtmb((llvm::Triple(default_target_triple)));
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);
@@ -156,10 +159,9 @@ std::string DumpModuleIR(const llvm::Module& module) {
   return ir;
 }
 
-void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
+void AddAbsoluteSymbol(llvm::orc::JITDylib& jit_dylib,
+                       llvm::orc::MangleAndInterner& mangle, const std::string& name,
                        void* function_ptr) {
-  llvm::orc::MangleAndInterner mangle(lljit.getExecutionSession(), lljit.getDataLayout());
-
   // https://github.com/llvm/llvm-project/commit/8b1771bd9f304be39d4dcbdcccedb6d3bcd18200#diff-77984a824d9182e5c67a481740f3bc5da78d5bd4cf6e1716a083ddb30a4a4931
   // LLVM 17 introduced ExecutorSymbolDef and move most of ORC APIs to ExecutorAddr
 #if LLVM_VERSION_MAJOR >= 17
@@ -171,21 +173,21 @@ void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
                                   llvm::JITSymbolFlags::Exported);
 #endif
 
-  auto error = lljit.getMainJITDylib().define(
-      llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
+  auto error = jit_dylib.define(llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
   llvm::cantFail(std::move(error));
 }
 
 // add current process symbol to dylib
 // LLVM >= 18 does this automatically
-void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
+void AddProcessSymbol(llvm::orc::LLJIT& lljit, llvm::orc::MangleAndInterner& mangle) {
   lljit.getMainJITDylib().addGenerator(
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
   // the `atexit` symbol cannot be found for ASAN
 #ifdef ADDRESS_SANITIZER
   if (!lljit.lookup("atexit")) {
-    AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
+    AddAbsoluteSymbol(lljit.getMainJITDylib(), mangle, "atexit",
+                      reinterpret_cast<void*>(atexit));
   }
 #endif
 }
@@ -211,7 +213,8 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
-    std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
+    std::unique_ptr<llvm::TargetMachine> target_machine,
+    llvm::ObjectCache* object_cache) {
   llvm::orc::LLJITBuilder jit_builder;
 
 #ifdef JIT_LINK_SUPPORTED
@@ -219,30 +222,21 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  if (object_cache.has_value()) {
-    jit_builder.setCompileFunctionCreator(
-        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
-            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          auto target_machine = JTMB.createTargetMachine();
-          if (!target_machine) {
-            return target_machine.takeError();
-          }
-          // after compilation, the object code will be stored into the given object
-          // cache
-          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-              std::move(*target_machine), &object_cache.value().get());
-        });
-  }
+  jit_builder.setCompileFunctionCreator(
+      [&object_cache, &target_machine](llvm::orc::JITTargetMachineBuilder JTMB)
+          -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+        // after compilation, the object code will be stored into the given object
+        // cache
+        return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+            std::move(target_machine), object_cache);
+      });
   auto maybe_jit = jit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
-
-  AddProcessSymbol(*jit);
   return jit;
 }
 
-Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  auto cached_buffer = object_cache.getObject(nullptr);
+Status Engine::SetCachedObjectCode(std::unique_ptr<llvm::MemoryBuffer> cached_buffer) {
   if (cached_buffer) {
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
     if (error) {
@@ -280,7 +274,7 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
-               std::unique_ptr<llvm::TargetMachine> target_machine, bool cached)
+               llvm::TargetIRAnalysis target_ir_analysis, bool cached)
     : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
@@ -288,8 +282,11 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       optimize_(conf->optimize()),
       cached_(cached),
       function_registry_(conf->function_registry()),
-      target_machine_(std::move(target_machine)),
+      target_ir_analysis_(std::move(target_ir_analysis)),
       conf_(conf) {
+  mangle_ = std::make_unique<llvm::orc::MangleAndInterner>(lljit_->getExecutionSession(),
+                                                           lljit_->getDataLayout());
+  AddProcessSymbol(*lljit_, *mangle_);
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
@@ -297,7 +294,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Engine::~Engine() {}
 
-Status Engine::Init() {
+Status Engine::Init(std::unordered_set<std::string> function_names) {
+  used_functions_ = std::move(function_names);
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
 
   // Add mappings for global functions that can be accessed from LLVM/IR module.
@@ -306,7 +304,13 @@ Status Engine::Init() {
 }
 
 Status Engine::LoadFunctionIRs() {
-  if (!functions_loaded_) {
+  if (!mandatory_functions_loaded_) {
+    ARROW_RETURN_NOT_OK(LoadMandatoryPreCompiledIR());
+    mandatory_functions_loaded_ = true;
+  }
+
+  bool is_ir_function_used = used_functions_.size() > used_c_functions_.size();
+  if (!functions_loaded_ && is_ir_function_used) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
     ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
@@ -315,22 +319,42 @@ Status Engine::LoadFunctionIRs() {
   return Status::OK();
 }
 
+class NoOpObjectCache : public llvm::ObjectCache {
+ public:
+  void notifyObjectCompiled(const llvm::Module* M,
+                            llvm::MemoryBufferRef ObjBuffer) override {}
+
+  std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) override {
+    return nullptr;
+  }
+};
+
+llvm::ObjectCache* DefaultObjectCache() {
+  static NoOpObjectCache no_op_object_cache;
+  return &no_op_object_cache;
+}
+
 /// factory method to construct the engine.
-Result<std::unique_ptr<Engine>> Engine::Make(
-    const std::shared_ptr<Configuration>& conf, bool cached,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+Result<std::unique_ptr<Engine>> Engine::Make(const std::shared_ptr<Configuration>& conf,
+                                             bool cached,
+                                             llvm::ObjectCache* object_cache) {
+  if (object_cache == nullptr) {
+    object_cache = DefaultObjectCache();
+  }
+
   std::call_once(llvm_init_once_flag, InitOnce);
 
   ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));
-  ARROW_ASSIGN_OR_RAISE(auto jit, BuildJIT(jtmb, object_cache));
   auto maybe_tm = jtmb.createTargetMachine();
   ARROW_ASSIGN_OR_RAISE(auto target_machine,
                         AsArrowResult(maybe_tm, "Could not create target machine: "));
+  auto target_ir_analysis = target_machine->getTargetIRAnalysis();
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        BuildJIT(jtmb, std::move(target_machine), object_cache));
 
   std::unique_ptr<Engine> engine{
-      new Engine(conf, std::move(jit), std::move(target_machine), cached)};
+      new Engine(conf, std::move(jit), std::move(target_ir_analysis), cached)};
 
-  ARROW_RETURN_NOT_OK(engine->Init());
   return engine;
 }
 
@@ -360,14 +384,11 @@ llvm::Module* Engine::module() {
   return module_.get();
 }
 
-// Handling for pre-compiled IR libraries.
-Status Engine::LoadPreCompiledIR() {
-  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
-                                       kPrecompiledBitcodeSize);
-
+Status LoadIR(const std::string& name, llvm::StringRef bitcode, llvm::Module& module,
+              llvm::LLVMContext& context) {
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
-      llvm::MemoryBuffer::getMemBuffer(bitcode, "precompiled", false);
+      llvm::MemoryBuffer::getMemBuffer(bitcode, name, false);
 
   ARROW_RETURN_IF(!buffer_or_error,
                   Status::CodeGenError("Could not load module from IR: ",
@@ -377,11 +398,25 @@ Status Engine::LoadPreCompiledIR() {
 
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
-      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+      llvm::getOwningLazyBitcodeModule(std::move(buffer), context);
   // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
   // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module, std::move(module_or_error)));
   return Status::OK();
+}
+
+// Handling for pre-compiled IR libraries.
+Status Engine::LoadPreCompiledIR() {
+  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+                                       kPrecompiledBitcodeSize);
+  return LoadIR("precompiled", bitcode, *module_, *context());
+}
+
+Status Engine::LoadMandatoryPreCompiledIR() {
+  auto const bitcode =
+      llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledMandatoryBitcode),
+                      kPrecompiledMandatoryBitcodeSize);
+  return LoadIR("mandatory_precompiled", bitcode, *module_, *context());
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
@@ -501,12 +536,11 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
-      auto target_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
 #if LLVM_VERSION_MAJOR >= 14
-      OptimizeModuleWithNewPassManager(*module_, std::move(target_analysis));
+      OptimizeModuleWithNewPassManager(*module_, std::move(target_ir_analysis_));
 #else
-      OptimizeModuleWithLegacyPassManager(*module_, std::move(target_analysis));
+      OptimizeModuleWithLegacyPassManager(*module_, std::move(target_ir_analysis_));
 #endif
     }
 
@@ -556,15 +590,25 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
                                      const std::vector<llvm::Type*>& args, void* func) {
-  auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
-  llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
-  AddAbsoluteSymbol(*lljit_, name, func);
+  // if the function is not used, don't add it to the module for better performance
+  bool is_internal_func = internal_functions_.find(name) != internal_functions_.end();
+  if (is_internal_func || used_functions_.find(name) != used_functions_.end()) {
+    if (!is_internal_func) {
+      used_c_functions_.emplace(name);
+    }
+    auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
+    llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
+    AddAbsoluteSymbol(lljit_->getMainJITDylib(), *mangle_, name, func);
+  }
 }
 
 arrow::Status Engine::AddGlobalMappings() {
-  ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
-  ExternalCFunctions c_funcs(function_registry_);
-  return c_funcs.AddMappings(this);
+  if (!cached_) {
+    ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
+    ExternalCFunctions c_funcs(function_registry_);
+    return c_funcs.AddMappings(this);
+  }
+  return Status::OK();
 }
 
 const std::string& Engine::ir() {

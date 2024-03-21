@@ -421,13 +421,14 @@ static void DoDecimalAdd2(benchmark::State& state, int32_t precision, int32_t sc
   ASSERT_OK(status);
 }
 
-static void TimedTestExprCompilation(benchmark::State& state) {
+static void TimedTestExprCompilation(benchmark::State& state, bool use_cache) {
   int64_t iteration = 0;
   for (auto _ : state) {
     // schema for input fields
     auto field0 = field("f0", int64());
     auto field1 = field("f1", int64());
-    auto literal = TreeExprBuilder::MakeLiteral(iteration);
+    int64_t literal_value = use_cache ? 1LL : iteration;
+    auto literal = TreeExprBuilder::MakeLiteral(literal_value);
     auto schema = arrow::schema({field0, field1});
 
     // output field
@@ -448,6 +449,47 @@ static void TimedTestExprCompilation(benchmark::State& state) {
 
     ++iteration;
   }
+}
+
+static void TimedTestNonBitcodeExprCompilation(benchmark::State& state, bool use_cache) {
+  int32_t iteration = 0;
+  for (auto _ : state) {
+    // schema for input fields
+    int64_t literal_value = use_cache ? 1LL : iteration;
+    auto seed = TreeExprBuilder::MakeLiteral(literal_value);
+    auto schema = arrow::schema({});
+
+    // output field
+    auto field_random = field("c1", float64());
+
+    // seed is different for each iteration so that cache won't be hit
+    auto random_func = TreeExprBuilder::MakeFunction("random", {seed}, float64());
+
+    auto expr_0 = TreeExprBuilder::MakeExpression(random_func, field_random);
+
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(schema, {expr_0}, TestConfiguration(), &projector));
+
+    ++iteration;
+  }
+}
+
+static void TimedTestLiteralExprCompilation(benchmark::State& state, bool use_cache) {
+  int64_t iteration = 0;
+  for (auto _ : state) {
+    auto in_field = field("in", arrow::int64());
+    auto schema = arrow::schema({in_field});
+    auto out_field = field("out", arrow::int64());
+
+    int64_t literal_value = use_cache ? 1LL : iteration;
+    auto literal = TreeExprBuilder::MakeExpression(
+        TreeExprBuilder::MakeLiteral(literal_value), out_field);
+
+    std::shared_ptr<Projector> projector;
+    ARROW_EXPECT_OK(Projector::Make(schema, {literal}, TestConfiguration(), &projector));
+  }
+
+  ++iteration;
 }
 
 static void DecimalAdd2Fast(benchmark::State& state) {
@@ -490,7 +532,36 @@ static void DecimalAdd3Large(benchmark::State& state) {
   DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
-BENCHMARK(TimedTestExprCompilation)->Unit(benchmark::kMicrosecond);
+static void TimedTestExprCompilationNoCache(benchmark::State& state) {
+  TimedTestExprCompilation(state, false);
+}
+
+static void TimedTestExprCompilationWithCache(benchmark::State& state) {
+  TimedTestExprCompilation(state, true);
+}
+
+static void TimedTestNonBitcodeExprCompilationNoCache(benchmark::State& state) {
+  TimedTestNonBitcodeExprCompilation(state, false);
+}
+
+static void TimedTestNonBitcodeExprCompilationWithCache(benchmark::State& state) {
+  TimedTestNonBitcodeExprCompilation(state, true);
+}
+
+static void TimedTestLiteralExprCompilationNoCache(benchmark::State& state) {
+  TimedTestLiteralExprCompilation(state, false);
+}
+
+static void TimedTestLiteralExprCompilationWithCache(benchmark::State& state) {
+  TimedTestLiteralExprCompilation(state, true);
+}
+
+BENCHMARK(TimedTestExprCompilationNoCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestExprCompilationWithCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestNonBitcodeExprCompilationNoCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestNonBitcodeExprCompilationWithCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestLiteralExprCompilationNoCache)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestLiteralExprCompilationWithCache)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAdd3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExtractYear)->Unit(benchmark::kMicrosecond);
