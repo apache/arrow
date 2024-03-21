@@ -231,9 +231,11 @@ class ARROW_EXPORT Function {
 
   /// \brief Returns the pure property for this function.
   ///
-  /// For impure functions like 'random', we should skip any simplification
-  /// for this function except it's arguments.
-  virtual bool is_impure() const { return false; }
+  /// Impure functions are those that may return different results for the same
+  /// input arguments. For example, a function that returns a random number is
+  /// not pure. An expression containing only pure functions can be simplified by
+  /// pre-evaluating any sub-expressions that have constant arguments.
+  virtual bool is_pure() const { return true; }
 
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
@@ -297,10 +299,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   using KernelType = ScalarKernel;
 
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR, bool is_impure = false)
+                 const FunctionOptions* default_options = NULLPTR, bool is_pure = true)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
                                            std::move(doc), default_options),
-        is_impure_(is_impure) {}
+        is_pure_(is_pure) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -312,12 +314,11 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
 
-  /// \brief Impure property for expression simplification only takes
-  /// effect in ScalarFunction.
-  bool is_impure() const override { return is_impure_; }
+  /// \brief Returns the pure property for this function.
+  bool is_pure() const override { return is_pure_; }
 
  private:
-  bool is_impure_;
+  const bool is_pure_;
 };
 
 /// \brief A function that executes general array operations that may yield

@@ -82,6 +82,7 @@ groups:
 
   python:
     - test-*python*
+    - example-*python*
 
   r:
     - test*-r-*
@@ -940,11 +941,11 @@ tasks:
   {% for target in ["cpp", "integration", "python"] %}
   verify-rc-source-{{ target }}-macos-conda-amd64:
     ci: github
-    template: verify-rc/github.macos.amd64.yml
+    template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-latest"
+      github_runner: "macos-12"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -957,10 +958,10 @@ tasks:
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-amd64:
     ci: github
-    template: verify-rc/github.macos.amd64.yml
+    template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
-      github_runner: "macos-latest"
+      github_runner: "macos-12"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -972,7 +973,7 @@ tasks:
                     "ruby"] %}
   verify-rc-source-{{ target }}-macos-arm64:
     ci: github
-    template: verify-rc/github.macos.arm64.yml
+    template: verify-rc/github.macos.yml
     params:
       env:
         ARROW_FLIGHT: 0
@@ -986,20 +987,22 @@ tasks:
   {% for macos_version in ["11", "12"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
-    template: verify-rc/github.macos.amd64.yml
+    template: verify-rc/github.macos.yml
     params:
       github_runner: "macos-{{ macos_version }}"
       target: "wheels"
   {% endfor %}
 
-  verify-rc-binaries-wheels-macos-11-arm64:
+  {% for macos_version in ["14"] %}
+  verify-rc-binaries-wheels-macos-{{ macos_version }}-arm64:
     ci: github
-    template: verify-rc/github.macos.arm64.yml
+    template: verify-rc/github.macos.yml
     params:
       env:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      github_runner: ["self-hosted", "macOS", "arm64"]
+      github_runner: "macos-{{ macos_version }}"
       target: "wheels"
+  {% endfor %}
 
   ######################## Windows verification ##############################
 

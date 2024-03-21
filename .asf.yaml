@@ -19,7 +19,6 @@ github:
   description: "Apache Arrow is a multi-language toolbox for accelerated data interchange and in-memory processing"
   homepage: https://arrow.apache.org/
   collaborators:
-    - amoeba
     - anjakefala
     - benibus
     - danepitkin

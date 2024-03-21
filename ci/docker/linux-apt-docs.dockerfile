@@ -46,6 +46,7 @@ RUN apt-get update -y && \
         libtiff-dev \
         libtool \
         libxml2-dev \
+        meson \
         ninja-build \
         nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
@@ -77,7 +78,9 @@ RUN apt-get purge -y npm && \
     npm install -g yarn
 
 COPY docs/requirements.txt /arrow/docs/
-RUN pip install -r arrow/docs/requirements.txt meson
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -r arrow/docs/requirements.txt
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -111,4 +114,5 @@ ENV ARROW_ACERO=ON \
     ARROW_JSON=ON \
     ARROW_S3=ON \
     ARROW_USE_GLOG=OFF \
-    CMAKE_UNITY_BUILD=ON
+    CMAKE_UNITY_BUILD=ON \
+    RETICULATE_PYTHON_ENV=${ARROW_PYTHON_VENV}

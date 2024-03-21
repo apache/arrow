@@ -21,7 +21,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
@@ -43,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -428,7 +428,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
             range(0, split.length)
                 .forEach(i -> {
-                  byte[] bytes = split[i].getBytes(UTF_8);
+                  byte[] bytes = split[i].getBytes(StandardCharsets.UTF_8);
                   Preconditions.checkState(bytes.length < 1024,
                       "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);
@@ -701,7 +701,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
 
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
@@ -778,7 +778,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     Future<?> unused = executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),

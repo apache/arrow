@@ -880,6 +880,70 @@ cdef class Dataset(_Weakrefable):
             output_type=InMemoryDataset
         )
 
+    def join_asof(self, right_dataset, on, by, tolerance, right_on=None, right_by=None):
+        """
+        Perform an asof join between this dataset and another one.
+
+        This is similar to a left-join except that we match on nearest key rather
+        than equal keys. Both datasets must be sorted by the key. This type of join
+        is most useful for time series data that are not perfectly aligned.
+
+        Optionally match on equivalent keys with "by" before searching with "on".
+
+        Result of the join will be a new Dataset, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        right_dataset : dataset
+            The dataset to join to the current one, acting as the right dataset
+            in the join operation.
+        on : str
+            The column from current dataset that should be used as the "on" key
+            of the join operation left side.
+
+            An inexact match is used on the "on" key, i.e. a row is considered a
+            match if and only if left_on - tolerance <= right_on <= left_on.
+
+            The input table must be sorted by the "on" key. Must be a single
+            field of a common type.
+
+            Currently, the "on" key must be an integer, date, or timestamp type.
+        by : str or list[str]
+            The columns from current dataset that should be used as the keys
+            of the join operation left side. The join operation is then done
+            only for the matches in these columns.
+        tolerance : int
+            The tolerance for inexact "on" key matching. A right row is considered
+            a match with the left row `right.on - left.on <= tolerance`. The
+            `tolerance` may be:
+
+            - negative, in which case a past-as-of-join occurs;
+            - or positive, in which case a future-as-of-join occurs;
+            - or zero, in which case an exact-as-of-join occurs.
+
+            The tolerance is interpreted in the same units as the "on" key.
+        right_on : str or list[str], default None
+            The columns from the right_dataset that should be used as the on key
+            on the join operation right side.
+            When ``None`` use the same key name as the left dataset.
+        right_by : str or list[str], default None
+            The columns from the right_dataset that should be used as by keys
+            on the join operation right side.
+            When ``None`` use the same key names as the left dataset.
+
+        Returns
+        -------
+        InMemoryDataset
+        """
+        if right_on is None:
+            right_on = on
+        if right_by is None:
+            right_by = by
+        return _pac()._perform_join_asof(self, on, by,
+                                         right_dataset, right_on, right_by,
+                                         tolerance, output_type=InMemoryDataset)
+
 
 cdef class InMemoryDataset(Dataset):
     """

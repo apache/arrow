@@ -65,7 +65,7 @@ AzureOptions::AzureOptions() = default;
 
 AzureOptions::~AzureOptions() = default;
 
-void AzureOptions::ExtractFromUriSchemeAndHierPart(const arrow::internal::Uri& uri,
+void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
                                                    std::string* out_path) {
   const auto host = uri.host();
   std::string path;
@@ -99,7 +99,7 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const arrow::internal::Uri& u
   }
 }
 
-Status AzureOptions::ExtractFromUriQuery(const arrow::internal::Uri& uri) {
+Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
   const auto account_key = uri.password();
   std::optional<CredentialKind> credential_kind;
   std::optional<std::string> credential_kind_value;
@@ -216,8 +216,7 @@ Status AzureOptions::ExtractFromUriQuery(const arrow::internal::Uri& uri) {
   return Status::OK();
 }
 
-Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
-                                           std::string* out_path) {
+Result<AzureOptions> AzureOptions::FromUri(const Uri& uri, std::string* out_path) {
   AzureOptions options;
   options.ExtractFromUriSchemeAndHierPart(uri, out_path);
   RETURN_NOT_OK(options.ExtractFromUriQuery(uri));
@@ -226,7 +225,7 @@ Result<AzureOptions> AzureOptions::FromUri(const arrow::internal::Uri& uri,
 
 Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
                                            std::string* out_path) {
-  arrow::internal::Uri uri;
+  Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
 }

@@ -336,11 +336,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                       pool)
+            if type and type.id == _Type_RUN_END_ENCODED:
+                arr = _ndarray_to_array(
+                    values, mask, type.value_type, c_from_pandas, safe, pool)
+                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                              memory_pool=memory_pool)
+            else:
+                result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                           pool)
     else:
+        if type and type.id == _Type_RUN_END_ENCODED:
+            arr = _sequence_to_array(
+                obj, mask, size, type.value_type, pool, from_pandas)
+            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                          memory_pool=memory_pool)
         # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        else:
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
@@ -549,32 +561,36 @@ def _normalize_slice(object arrow_obj, slice key):
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
-    start = key.start or 0
-    if start < 0:
-        start += n
+    step = key.step or 1
+
+    if key.start is None:
+        if step < 0:
+            start = n - 1
+        else:
+            start = 0
+    elif key.start < 0:
+        start = key.start + n
         if start < 0:
             start = 0
-    elif start >= n:
+    elif key.start >= n:
         start = n
+    else:
+        start = key.start
 
-    stop = key.stop if key.stop is not None else n
-    if stop < 0:
-        stop += n
-        if stop < 0:
-            stop = 0
-    elif stop >= n:
+    if step < 0 and (key.stop is None or key.stop < -n):
+        stop = -1
+    elif key.stop is None:
         stop = n
+    elif key.stop < 0:
+        stop = key.stop + n
+        if stop < 0:  # step > 0 in this case.
+            stop = 0
+    elif key.stop >= n:
+        stop = n
+    else:
+        stop = key.stop
 
-    step = key.step or 1
     if step != 1:
-        if step < 0:
-            # Negative steps require some special handling
-            if key.start is None:
-                start = n - 1
-
-            if key.stop is None:
-                stop = -1
-
         indices = np.arange(start, stop, step)
         return arrow_obj.take(indices)
     else:

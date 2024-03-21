@@ -145,6 +145,8 @@ Depends:
   libcurl4-openssl-dev,
   liblz4-dev,
   libc-ares-dev,
+@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
+@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
@@ -203,9 +205,7 @@ Depends:
   libarrow-dev (= ${binary:Version}),
   libarrow-flight1600 (= ${binary:Version}),
   libc-ares-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev,
-@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
-@USE_SYSTEM_PROTOBUF@  libprotoc-dev
+@USE_SYSTEM_GRPC@  libgrpc++-dev
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.

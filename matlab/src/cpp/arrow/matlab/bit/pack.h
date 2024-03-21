@@ -23,12 +23,15 @@
 #include "MatlabDataArray.hpp"
 
 namespace arrow::matlab::bit {
-    // Calculate the number of bytes required in the bit-packed validity buffer.
-    int64_t packedLength(int64_t num_elements);
+// Calculate the number of bytes required in the bit-packed validity buffer.
+int64_t packedLength(int64_t num_elements);
 
-    // Pack an unpacked MATLAB logical array into a bit-packed arrow::Buffer representing the validity bitmap.
-    arrow::Result<std::shared_ptr<arrow::Buffer>> packValid(const ::matlab::data::TypedArray<bool> matlab_logical_array);
+// Pack an unpacked MATLAB logical array into a bit-packed arrow::Buffer representing the
+// validity bitmap.
+arrow::Result<std::shared_ptr<arrow::Buffer>> packValid(
+    const ::matlab::data::TypedArray<bool> matlab_logical_array);
 
-    // Pack an unpacked MATLAB logical array into a bit-packed arrow::Buffer.
-    arrow::Result<std::shared_ptr<arrow::Buffer>> pack(const ::matlab::data::TypedArray<bool> matlab_logical_array);
-}
+// Pack an unpacked MATLAB logical array into a bit-packed arrow::Buffer.
+arrow::Result<std::shared_ptr<arrow::Buffer>> pack(
+    const ::matlab::data::TypedArray<bool> matlab_logical_array);
+}  // namespace arrow::matlab::bit

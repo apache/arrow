@@ -127,9 +127,8 @@ struct ARROW_EXPORT AzureOptions {
   ~AzureOptions();
 
  private:
-  void ExtractFromUriSchemeAndHierPart(const arrow::internal::Uri& uri,
-                                       std::string* out_path);
-  Status ExtractFromUriQuery(const arrow::internal::Uri& uri);
+  void ExtractFromUriSchemeAndHierPart(const Uri& uri, std::string* out_path);
+  Status ExtractFromUriQuery(const Uri& uri);
 
  public:
   /// \brief Construct a new AzureOptions from an URI.
@@ -175,8 +174,7 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
-  static Result<AzureOptions> FromUri(const arrow::internal::Uri& uri,
-                                      std::string* out_path);
+  static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
   Status ConfigureDefaultCredential();
@@ -252,15 +250,23 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   bool Equals(const FileSystem& other) const override;
 
+  /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
+  /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
 
   Status DeleteRootDirContents() override;
 
@@ -302,11 +308,11 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 };
 
 }  // namespace arrow::fs
