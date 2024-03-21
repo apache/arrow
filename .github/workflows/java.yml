@@ -85,10 +85,11 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
-        run: archery docker run \
-          -e CI=true \
-          -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" \
-          ${{ matrix.image }}
+        run: |
+          archery docker run \
+            -e CI=true \
+            -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" \
+            ${{ matrix.image }}
       - name: Docker Push
         if: >-
           success() &&
