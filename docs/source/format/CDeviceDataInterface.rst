@@ -344,6 +344,7 @@ Notes:
   synchronization is needed for an extension device, the producer
   should document the type.
 
+.. _c-device-data-interface-semantics:
 
 Semantics
 =========
