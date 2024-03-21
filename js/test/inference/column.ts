@@ -38,8 +38,8 @@ const boolColumn = new Vector([
     new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
 ]);
 
-expect(typeof boolVector.get(0) === 'boolean').toBe(true);
-expect(typeof boolColumn.get(0) === 'boolean').toBe(true);
+expect(typeof boolVector.at(0) === 'boolean').toBe(true);
+expect(typeof boolColumn.at(0) === 'boolean').toBe(true);
 
 type IndexSchema = {
     0: Int8;
@@ -61,8 +61,8 @@ const structColumn = new Vector([
     new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
 ]);
 
-const [x1, y1, z1] = structVector.get(0)!;
-const [x2, y2, z2] = structColumn.get(0)!;
+const [x1, y1, z1] = structVector.at(0)!;
+const [x2, y2, z2] = structColumn.at(0)!;
 
 console.log(x1, y1, z1);
 console.log(x2, y2, z2);

@@ -73,7 +73,7 @@ describe(`StructVector`, () => {
 
     test(`get value`, () => {
         for (const [i, value] of values.entries()) {
-            expect(vector.get(i)!.toJSON()).toEqual(value);
+            expect(vector.at(i)!.toJSON()).toEqual(value);
         }
     });
 });
@@ -228,7 +228,7 @@ describe(`ListVector`, () => {
 
     test(`get value`, () => {
         for (const [i, value] of values.entries()) {
-            expect(vector.get(i)!.toJSON()).toEqual(value);
+            expect(vector.at(i)!.toJSON()).toEqual(value);
         }
     });
 });
@@ -272,7 +272,7 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
     test(`gets expected values`, () => {
         let i = -1;
         while (++i < n) {
-            expect(vector.get(i)).toEqual(values[i]);
+            expect(vector.at(i)).toEqual(values[i]);
         }
     });
     test(`iterates expected values`, () => {

@@ -109,7 +109,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
         let i = -1, n = vector.length, actual, expected;
         try {
             while (++i < n) {
-                actual = vector.get(i);
+                actual = vector.at(i);
                 expected = values[i];
                 expect(actual).toArrowCompare(expected);
             }
@@ -125,8 +125,8 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
             try {
                 while (++i < n) {
                     indices.isValid(i)
-                        ? expect(indices.get(i)).toBe(keys[i])
-                        : expect(indices.get(i)).toBeNull();
+                        ? expect(indices.at(i)).toBe(keys[i])
+                        : expect(indices.at(i)).toBeNull();
                 }
             } catch (e) {
                 throw new Error(`${indices}[${i}]: ${e}`);
@@ -140,7 +140,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
             while (++i < n) {
                 expected = values[i];
                 vector.set(i, expected);
-                actual = vector.get(i);
+                actual = vector.at(i);
                 expect(actual).toArrowCompare(expected);
             }
         } catch (e: any) {

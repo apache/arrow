@@ -132,7 +132,7 @@ class VectorIterator<T extends DataType> implements IterableIterator<T['TValue']
     next(): IteratorResult<T['TValue'] | null> {
         if (this.index < this.vector.length) {
             return {
-                value: this.vector.get(this.index++)
+                value: this.vector.at(this.index++)
             };
         }
 

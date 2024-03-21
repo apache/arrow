@@ -34,7 +34,7 @@ import {
     sliceChunks,
 } from './util/chunk.js';
 
-import { instance as getVisitor } from './visitor/get.js';
+import { instance as atVisitor } from './visitor/at.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
@@ -189,12 +189,23 @@ export class Table<T extends TypeMap = any> {
     public isValid(index: number): boolean { return false; }
 
     /**
+     * @deprecated Use `at()` instead.
+     *
      * Get an element value by position.
      *
      * @param index The index of the element to read.
      */
     // @ts-ignore
-    public get(index: number): Struct<T>['TValue'] | null { return null; }
+    public get(index: number): Struct<T>['TValue'] | null {
+        return this.at(index);
+    }
+
+    /**
+     * Get an element value by position.
+     * @param index The index of the element to read. A negative index will count back from the last element.
+     */
+    // @ts-ignore
+    public at(index: number): Struct<T>['TValue'] | null { return null; }
 
     /**
      * Set an element value by position.
@@ -379,7 +390,7 @@ export class Table<T extends TypeMap = any> {
         (proto as any)._nullCount = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
         (proto as any)['isValid'] = wrapChunkedCall1(isChunkedValid);
-        (proto as any)['get'] = wrapChunkedCall1(getVisitor.getVisitFn(Type.Struct));
+        (proto as any)['at'] = wrapChunkedCall1(atVisitor.getVisitFn(Type.Struct));
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
         return 'Table';

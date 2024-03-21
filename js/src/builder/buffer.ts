@@ -91,8 +91,8 @@ export class BufferBuilder<T extends TypedArray | BigIntArray> {
 
 /** @ignore */
 export class DataBufferBuilder<T extends TypedArray | BigIntArray> extends BufferBuilder<T> {
-    public last() { return this.get(this.length - 1); }
-    public get(index: number): T[0] { return this.buffer[index]; }
+    public last() { return this.at(- 1); }
+    public at(index: number): T[0] { return this.buffer[index]; }
     public set(index: number, value: T[0]) {
         this.reserve(index - this.length + 1);
         this.buffer[index * this.stride] = value;
@@ -107,7 +107,7 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
     public numValid = 0;
     public get numInvalid() { return this.length - this.numValid; }
-    public get(idx: number) { return this.buffer[idx >> 3] >> idx % 8 & 1; }
+    public at(idx: number) { return this.buffer[idx >> 3] >> idx % 8 & 1; }
     public set(idx: number, val: number) {
         const { buffer } = this.reserve(idx - this.length + 1);
         const byte = idx >> 3, bit = idx % 8, cur = buffer[byte] >> bit & 1;

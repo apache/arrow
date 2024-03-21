@@ -18,7 +18,7 @@
 import { Data } from '../data.js';
 import { Type } from '../enum.js';
 import { Visitor } from '../visitor.js';
-import { instance as getVisitor } from './get.js';
+import { instance as atVisitor } from './at.js';
 import { TypeToDataType } from '../interfaces.js';
 import { getBool, BitIterator } from '../util/bit.js';
 import { createElementComparator } from '../util/vector.js';
@@ -132,10 +132,10 @@ function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TVal
                 return indexOfNull(data, fromIndex);
         }
     }
-    const get = getVisitor.getVisitFn(data);
+    const at = atVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
-        if (compare(get(data, i))) {
+        if (compare(at(data, i))) {
             return i;
         }
     }
@@ -148,10 +148,10 @@ function indexOfUnion<T extends DataType>(data: Data<T>, searchElement?: T['TVal
     // If the searchElement is null, we don't know whether it came from the Union's
     // bitmap or one of its children's. So we don't interrogate the Union's bitmap,
     // since that will report the wrong index if a child has a null before the Union.
-    const get = getVisitor.getVisitFn(data);
+    const at = atVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
-        if (compare(get(data, i))) {
+        if (compare(at(data, i))) {
             return i;
         }
     }

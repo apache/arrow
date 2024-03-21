@@ -124,7 +124,7 @@ function toEqualVector<
         }
     }
     for (let i = -1, n = v1.length; ++i < n;) {
-        const x1 = v1.get(i), x2 = v2.get(i);
+        const x1 = v1.at(i), x2 = v2.at(i);
         if (!util.createElementComparator(x2)(x1)) {
             getFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
         }

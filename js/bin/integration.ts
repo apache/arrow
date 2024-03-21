@@ -223,7 +223,7 @@ function compareVectors(actual: Vector, expected: Vector) {
 
     (() => {
         for (let i = -1, n = actual.length; ++i < n;) {
-            const x1 = actual.get(i), x2 = expected.get(i);
+            const x1 = actual.at(i), x2 = expected.at(i);
             if (!createElementComparator(x2)(x1)) {
                 throw new Error(`${i}: ${x1} !== ${x2}`);
             }

@@ -229,7 +229,7 @@ const setList = <T extends List>(data: Data<T>, index: number, value: T['TValue'
         }
     } else {
         for (let idx = -1, itr = valueOffsets[index], end = valueOffsets[index + 1]; itr < end;) {
-            set(values, itr++, value.get(++idx));
+            set(values, itr++, value.at(++idx));
         }
     }
 };
@@ -253,7 +253,7 @@ const setMap = <T extends Map_>(data: Data<T>, index: number, value: T['TValue']
     <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v[i]);
 
 /** @ignore */ const _setStructVectorValue = (o: number, v: Vector) =>
-    <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v.get(i));
+    <T extends DataType>(set: SetFunc<T>, c: Data<T>, _: Field, i: number) => c && set(c, o, v.at(i));
 
 /** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) =>
     <T extends DataType>(set: SetFunc<T>, c: Data<T>, f: Field, _: number) => c && set(c, o, v.get(f.name));
@@ -347,7 +347,7 @@ const setFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number,
         }
     } else {
         for (let idx = -1, offset = index * stride; ++idx < stride;) {
-            set(child, offset + idx, value.get(idx));
+            set(child, offset + idx, value.at(idx));
         }
     }
 };

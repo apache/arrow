@@ -317,7 +317,7 @@ describe(`Table`, () => {
                 const table = datum.table();
                 const values = datum.values();
                 for (let i = -1; ++i < values.length;) {
-                    const row = table.get(i)!;
+                    const row = table.at(i)!;
                     expect(row).not.toBeNull();
                     const expected = values[i];
                     expect(row.f32).toEqual(expected[F32]);

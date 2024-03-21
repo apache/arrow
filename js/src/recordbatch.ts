@@ -21,7 +21,7 @@ import { Vector } from './vector.js';
 import { Schema, Field } from './schema.js';
 import { DataType, Struct, Null, TypeMap } from './type.js';
 
-import { instance as getVisitor } from './visitor/get.js';
+import { instance as atVisitor } from './visitor/at.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
@@ -124,11 +124,21 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
+     * @deprecated Use `at()` instead.
+     *
      * Get a row by position.
      * @param index The index of the element to read.
      */
     public get(index: number) {
-        return getVisitor.visit(this.data, index);
+        return this.at(index);
+    }
+
+    /**
+     * Get an element value by position.
+     * @param index The index of the element to read. A negative index will count back from the last element.
+     */
+    public at(index: number) {
+        return atVisitor.visit(this.data, index);
     }
 
     /**

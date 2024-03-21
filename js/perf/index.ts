@@ -127,7 +127,7 @@ b.suite(
     ...Object.entries(vectors).map(([name, vector]) =>
         b.add(`from: ${name}`, () => {
             for (let i = -1, n = vector.length; ++i < n;) {
-                vector.get(i);
+                vector.at(i);
             }
         })),
 
@@ -155,7 +155,7 @@ for (const { name, ipc, table } of config) {
         suite_name: `Get values by index`,
         fn(vector: Arrow.Vector<any>) {
             for (let i = -1, n = vector.length; ++i < n;) {
-                vector.get(i);
+                vector.at(i);
             }
         }
     }, {
@@ -205,9 +205,9 @@ for (const { name, table, counts } of config) {
             table.toArray();
         }),
 
-        b.add(`get, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+        b.add(`at, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             for (let i = -1, n = table.numRows; ++i < n;) {
-                table.get(i);
+                table.at(i);
             }
         }),
 
@@ -233,7 +233,7 @@ for (const { name, table, counts } of config) {
                             const vector = batch.getChildAt(colidx)!;
                             // yield all indices
                             for (let index = -1, length = batch.numRows; ++index < length;) {
-                                sum += (vector.get(index) >= value) ? 1 : 0;
+                                sum += (vector.at(index) >= value) ? 1 : 0;
                             }
                         }
                         return sum;
@@ -249,7 +249,7 @@ for (const { name, table, counts } of config) {
                             const vector = batch.getChildAt(colidx)!;
                             // yield all indices
                             for (let index = -1, length = batch.numRows; ++index < length;) {
-                                sum += (vector.get(index) === value) ? 1 : 0;
+                                sum += (vector.at(index) === value) ? 1 : 0;
                             }
                         }
                         return sum;

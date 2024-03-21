@@ -42,7 +42,7 @@ function checkIndexTypes(schema: IndexSchema) {
         length: 0, offset: 0, nullCount: 0, nullBitmap: null, children: []
     });
 
-    const row = new Vector([data]).get(0)!;
+    const row = new Vector([data]).at(0)!;
 
     const check_0 = (x = row[0]) => expect(typeof x === 'number').toBe(true);
     const check_1 = (x = row[1]) => expect(typeof x === 'string').toBe(true);
@@ -64,7 +64,7 @@ function checkNamedTypes(schema: NamedSchema) {
         length: 0, offset: 0, nullCount: 0, nullBitmap: null, children: []
     });
 
-    const row = new Vector([data]).get(0)!;
+    const row = new Vector([data]).at(0)!;
 
     const check_a = (x = row.a) => expect(typeof x === 'number').toBe(true);
     const check_b = (x = row.b) => expect(typeof x === 'string').toBe(true);

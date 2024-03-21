@@ -27,7 +27,7 @@ describe(`BoolVector`, () => {
     test(`gets expected values`, () => {
         let i = -1;
         while (++i < n) {
-            expect(vector.get(i)).toEqual(values[i]);
+            expect(vector.at(i)).toEqual(values[i]);
         }
     });
     test(`iterates expected values`, () => {
@@ -54,7 +54,7 @@ describe(`BoolVector`, () => {
         const expected3 = [true, true, false, false, false, false, true, true];
         function validate(expected: boolean[]) {
             for (let i = -1; ++i < n;) {
-                expect(v.get(i)).toEqual(expected[i]);
+                expect(v.at(i)).toEqual(expected[i]);
             }
         }
         validate(expected1);

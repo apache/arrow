@@ -71,7 +71,7 @@ describe(`BN`, () => {
                 nullValues: []
             });
             builder.append(val);
-            return <Arrow.Type.Decimal><any>builder.finish().toVector().get(0);
+            return <Arrow.Type.Decimal><any>builder.finish().toVector().at(0);
         };
 
         const d2 = toDecimal(new Uint32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]));

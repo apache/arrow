@@ -32,7 +32,7 @@ import {
     wrapChunkedIndexOf,
 } from './util/chunk.js';
 
-import { instance as getVisitor } from './visitor/get.js';
+import { instance as atVisitor } from './visitor/at.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
@@ -55,7 +55,7 @@ export interface Vector<T extends DataType = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
-const visitorsByTypeId = {} as { [typeId: number]: { get: any; set: any; indexOf: any } };
+const visitorsByTypeId = {} as { [typeId: number]: { at: any; set: any; indexOf: any } };
 const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
 /**
@@ -75,11 +75,11 @@ export class Vector<T extends DataType = any> {
             case 0: this._offsets = [0]; break;
             case 1: {
                 // special case for unchunked vectors
-                const { get, set, indexOf } = visitorsByTypeId[type.typeId];
+                const { at, set, indexOf } = visitorsByTypeId[type.typeId];
                 const unchunkedData = data[0];
 
                 this.isValid = (index: number) => isChunkedValid(unchunkedData, index);
-                this.get = (index: number) => get(unchunkedData, index);
+                this.at = (index: number) => at(unchunkedData, index);
                 this.set = (index: number, value: T) => set(unchunkedData, index, value);
                 this.indexOf = (index: number) => indexOf(unchunkedData, index);
                 this._offsets = [0, unchunkedData.length];
@@ -171,11 +171,22 @@ export class Vector<T extends DataType = any> {
     public isValid(index: number): boolean { return false; }
 
     /**
+     * @deprecated Use `at()` instead.
+     *
      * Get an element value by position.
      * @param index The index of the element to read.
      */
     // @ts-ignore
-    public get(index: number): T['TValue'] | null { return null; }
+    public get(index: number): T['TValue'] | null {
+        return this.at(index) ?? null;
+    }
+
+    /**
+     * Get an element value by position.
+     * @param index The index of the element to read. A negative index will count back from the last element.
+     */
+    // @ts-ignore
+    public at(index: number): T['TValue'] | null { return null; }
 
     /**
      * Set an element value by position.
@@ -354,14 +365,14 @@ export class Vector<T extends DataType = any> {
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE);
 
         for (const typeId of typeIds) {
-            const get = getVisitor.getVisitFnByTypeId(typeId);
+            const at = atVisitor.getVisitFnByTypeId(typeId);
             const set = setVisitor.getVisitFnByTypeId(typeId);
             const indexOf = indexOfVisitor.getVisitFnByTypeId(typeId);
 
-            visitorsByTypeId[typeId] = { get, set, indexOf };
+            visitorsByTypeId[typeId] = { at, set, indexOf };
             vectorPrototypesByTypeId[typeId] = Object.create(proto, {
                 ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
-                ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
+                ['at']: { value: wrapChunkedCall1(atVisitor.getVisitFnByTypeId(typeId)) },
                 ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
                 ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
             });
@@ -376,19 +387,19 @@ class MemoizedVector<T extends DataType = any> extends Vector<T> {
     public constructor(vector: Vector<T>) {
         super(vector.data);
 
-        const get = this.get;
+        const at = this.at;
         const set = this.set;
         const slice = this.slice;
 
         const cache = new Array<T['TValue'] | null>(this.length);
 
-        Object.defineProperty(this, 'get', {
+        Object.defineProperty(this, 'at', {
             value(index: number) {
                 const cachedValue = cache[index];
                 if (cachedValue !== undefined) {
                     return cachedValue;
                 }
-                const value = get.call(this, index);
+                const value = at.call(this, index);
                 cache[index] = value;
                 return value;
             }

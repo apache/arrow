@@ -35,10 +35,9 @@ import { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } from
     while (1) {
         // @ts-ignore
         if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
-        if (metadataLength.value === -1) {
+        if (metadataLength.value === -1 &&
             // @ts-ignore
-            if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
-        }
+            (metadataLength = (await reader.readMetadataLength())).done) { break; }
         // @ts-ignore
         if ((message = (await reader.readMetadata(metadataLength.value))).done) { break; }
 
@@ -65,9 +64,9 @@ import { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } from
                     bodyByteLength: body.byteLength,
                 });
             byteOffset += metadataLength.value;
-            bufferRegions.forEach(({ offset, length: byteLength }, i) => {
+            for (const [i, { offset, length: byteLength }] of bufferRegions.entries()) {
                 console.log(`\tbuffer ${i + 1}:`, { byteOffset: byteOffset + offset, byteLength });
-            });
+            }
             byteOffset += body.byteLength;
         } else if (message.value.isDictionaryBatch()) {
             const header = message.value.header();
@@ -85,9 +84,9 @@ import { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } from
                     bodyByteLength: body.byteLength,
                 });
             byteOffset += metadataLength.value;
-            bufferRegions.forEach(({ offset, length: byteLength }, i) => {
+            for (const [i, { offset, length: byteLength }] of bufferRegions.entries()) {
                 console.log(`\tbuffer ${i + 1}:`, { byteOffset: byteOffset + offset, byteLength });
-            });
+            }
             byteOffset += body.byteLength;
         }
     }

@@ -166,7 +166,7 @@ export function validateVector<T extends DataType>(vals: (T['TValue'] | null)[],
     } catch (e: any) {
         // Uncomment these two lines to catch and debug the value retrieval that failed
         // debugger;
-        // vec.get(i);
+        // vec.at(i);
         throw new Error([
             `${(vec as any).VectorName}[${i}]: ${e?.stack || e}`,
             `nulls: [${nullVals.join(', ')}]`,

@@ -20,7 +20,7 @@ import {
     Bool, List, Dictionary
 } from 'apache-arrow';
 
-import { instance as getVisitor } from 'apache-arrow/visitor/get';
+import { instance as atVisitor } from 'apache-arrow/visitor/at';
 
 const data_Bool = new Data(new Bool(), 0, 0);
 const data_List_Bool = new Data(new List<Bool>(null as any), 0, 0);
@@ -29,48 +29,48 @@ const data_Dictionary_List_Bool = new Data(new Dictionary<List<Bool>>(null!, nul
 
 const boolVec = new Vector([data_Bool]);
 // @ts-ignore
-const boolVec_getRaw = boolVec.get(0);
+const boolVec_getRaw = boolVec.at(0);
 // @ts-ignore
-const boolVec_getVisit = getVisitor.visit(boolVec.data[0], 0);
+const boolVec_getVisit = atVisitor.visit(boolVec.data[0], 0);
 // @ts-ignore
-const boolVec_getFactory = getVisitor.getVisitFn(boolVec)(boolVec.data[0], 0);
+const boolVec_getFactory = atVisitor.getVisitFn(boolVec)(boolVec.data[0], 0);
 // @ts-ignore
-const boolVec_getFactoryData = getVisitor.getVisitFn(boolVec.data[0])(boolVec.data[0], 0);
+const boolVec_getFactoryData = atVisitor.getVisitFn(boolVec.data[0])(boolVec.data[0], 0);
 // @ts-ignore
-const boolVec_getFactoryType = getVisitor.getVisitFn(boolVec.type)(boolVec.data[0], 0);
+const boolVec_getFactoryType = atVisitor.getVisitFn(boolVec.type)(boolVec.data[0], 0);
 
 const listVec = new Vector([data_List_Bool]);
 // @ts-ignore
-const listVec_getRaw = listVec.get(0);
+const listVec_getRaw = listVec.at(0);
 // @ts-ignore
-const listVec_getVisit = getVisitor.visit(listVec.data[0], 0);
+const listVec_getVisit = atVisitor.visit(listVec.data[0], 0);
 // @ts-ignore
-const listVec_getFactory = getVisitor.getVisitFn(listVec)(listVec.data[0], 0);
+const listVec_getFactory = atVisitor.getVisitFn(listVec)(listVec.data[0], 0);
 // @ts-ignore
-const listVec_getFactoryData = getVisitor.getVisitFn(listVec.data[0])(listVec.data[0], 0);
+const listVec_getFactoryData = atVisitor.getVisitFn(listVec.data[0])(listVec.data[0], 0);
 // @ts-ignore
-const listVec_getFactoryType = getVisitor.getVisitFn(listVec.type)(listVec.data[0], 0);
+const listVec_getFactoryType = atVisitor.getVisitFn(listVec.type)(listVec.data[0], 0);
 
 const dictVec = new Vector([data_Dictionary_Bool]);
 // @ts-ignore
-const dictVec_getRaw = dictVec.get(0);
+const dictVec_getRaw = dictVec.at(0);
 // @ts-ignore
-const dictVec_getVisit = getVisitor.visit(dictVec.data[0], 0);
+const dictVec_getVisit = atVisitor.visit(dictVec.data[0], 0);
 // @ts-ignore
-const dictVec_getFactory = getVisitor.getVisitFn(dictVec)(dictVec.data[0], 0);
+const dictVec_getFactory = atVisitor.atVisitFn(dictVec)(dictVec.data[0], 0);
 // @ts-ignore
-const dictVec_getFactoryData = getVisitor.getVisitFn(dictVec.data[0])(dictVec.data[0], 0);
+const dictVec_getFactoryData = atVisitor.getVisitFn(dictVec.data[0])(dictVec.data[0], 0);
 // @ts-ignore
-const dictVec_getFactoryType = getVisitor.getVisitFn(dictVec.type)(dictVec.data[0], 0);
+const dictVec_getFactoryType = atVisitor.getVisitFn(dictVec.type)(dictVec.data[0], 0);
 
 const dictOfListVec = new Vector([data_Dictionary_List_Bool]);
 // @ts-ignore
-const dictOfListVec_getRaw = dictOfListVec.get(0);
+const dictOfListVec_getRaw = dictOfListVec.at(0);
 // @ts-ignore
-const dictOfListVec_getVisit = getVisitor.visit(dictOfListVec.data[0], 0);
+const dictOfListVec_getVisit = atVisitor.visit(dictOfListVec.data[0], 0);
 // @ts-ignore
-const dictOfListVec_getFactory = getVisitor.getVisitFn(dictOfListVec)(dictOfListVec.data[0], 0);
+const dictOfListVec_getFactory = atVisitor.getVisitFn(dictOfListVec)(dictOfListVec.data[0], 0);
 // @ts-ignore
-const dictOfListVec_getFactoryData = getVisitor.getVisitFn(dictOfListVec.data[0])(dictOfListVec.data[0], 0);
+const dictOfListVec_getFactoryData = atVisitor.getVisitFn(dictOfListVec.data[0])(dictOfListVec.data[0], 0);
 // @ts-ignore
-const dictOfListVec_getFactoryType = getVisitor.getVisitFn(dictOfListVec.type)(dictOfListVec.data[0], 0);
+const dictOfListVec_getFactoryType = atVisitor.getVisitFn(dictOfListVec.type)(dictOfListVec.data[0], 0);

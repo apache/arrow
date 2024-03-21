@@ -114,7 +114,7 @@ function createMapComparator(lhs: Map<any, any>) {
 function createVectorComparator(lhs: Vector<any>) {
     const comparators = [] as ((x: any) => boolean)[];
     for (let i = -1, n = lhs.length; ++i < n;) {
-        comparators[i] = createElementComparator(lhs.get(i));
+        comparators[i] = createElementComparator(lhs.at(i));
     }
     return createSubElementsComparator(comparators);
 }
@@ -163,7 +163,7 @@ function compareVector(comparators: ((x: any) => boolean)[], vec: Vector) {
     const n = comparators.length;
     if (vec.length !== n) { return false; }
     for (let i = -1; ++i < n;) {
-        if (!(comparators[i](vec.get(i)))) { return false; }
+        if (!(comparators[i](vec.at(i)))) { return false; }
     }
     return true;
 }

@@ -19,7 +19,7 @@ import { Data } from '../data.js';
 import { Vector } from '../vector.js';
 import { DataType, Struct } from '../type.js';
 import { valueToString } from '../util/pretty.js';
-import { instance as getVisitor } from '../visitor/get.js';
+import { instance as atVisitor } from '../visitor/at.js';
 import { instance as setVisitor } from '../visitor/set.js';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
@@ -51,7 +51,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         const vals = this[kVals];
         const json = {} as { [P in K['TValue']]: V['TValue'] };
         for (let i = -1, n = keys.length; ++i < n;) {
-            json[keys.get(i)] = getVisitor.visit(vals, i);
+            json[keys.at(i)] = atVisitor.visit(vals, i);
         }
         return json;
     }
@@ -94,8 +94,8 @@ class MapRowIterator<K extends DataType = any, V extends DataType = any>
         return {
             done: false,
             value: [
-                this.keys.get(i),
-                getVisitor.visit(this.vals, i),
+                this.keys.at(i),
+                atVisitor.visit(this.vals, i),
             ] as [K['TValue'], V['TValue'] | null]
         };
     }
@@ -126,7 +126,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         }
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            const val = getVisitor.visit(Reflect.get(row, kVals), idx);
+            const val = atVisitor.visit(Reflect.get(row, kVals), idx);
             // Cache key/val lookups
             Reflect.set(row, key, val);
             return val;

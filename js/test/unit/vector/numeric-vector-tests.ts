@@ -340,7 +340,7 @@ function gets_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T
         let i = -1, n = vector.length;
         try {
             while (++i < n) {
-                expect(vector.get(i)).toEqual(values[i]);
+                expect(vector.at(i)).toEqual(values[i]);
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });

@@ -19,7 +19,7 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Struct, TypeMap } from '../type.js';
 import { valueToString } from '../util/pretty.js';
-import { instance as getVisitor } from '../visitor/get.js';
+import { instance as atVisitor } from '../visitor/at.js';
 import { instance as setVisitor } from '../visitor/set.js';
 
 /** @ignore */ const kParent = Symbol.for('parent');
@@ -50,7 +50,7 @@ export class StructRow<T extends TypeMap = any> {
         const keys = parent.type.children;
         const json = {} as { [P in string & keyof T]: T[P]['TValue'] };
         for (let j = -1, n = keys.length; ++j < n;) {
-            json[keys[j].name as string & keyof T] = getVisitor.visit(parent.children[j], i);
+            json[keys[j].name as string & keyof T] = atVisitor.visit(parent.children[j], i);
         }
         return json;
     }
@@ -102,7 +102,7 @@ class StructRowIterator<T extends TypeMap = any>
                 done: false,
                 value: [
                     this.childFields[i].name,
-                    getVisitor.visit(this.children[i], this.rowIndex)
+                    atVisitor.visit(this.children[i], this.rowIndex)
                 ]
             } as IteratorYieldResult<[any, any]>;
         }
@@ -139,7 +139,7 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         }
         const idx = row[kParent].type.children.findIndex((f) => f.name === key);
         if (idx !== -1) {
-            const val = getVisitor.visit(row[kParent].children[idx], row[kRowIndex]);
+            const val = atVisitor.visit(row[kParent].children[idx], row[kRowIndex]);
             // Cache key/val lookups
             Reflect.set(row, key, val);
             return val;
