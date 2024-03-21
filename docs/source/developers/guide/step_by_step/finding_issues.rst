@@ -74,7 +74,7 @@ in the comments.
 Also, do not hesitate to ask questions in the comment. You can get some
 pointers about where to start and similar issues already solved.
 
-**What if an issue is already asigned?**
+**What if an issue is already assigned?**
 When in doubt, comment on the issue asking if they mind if you try to put
 together a pull request; interpret no response to mean that you’re free to
 proceed.

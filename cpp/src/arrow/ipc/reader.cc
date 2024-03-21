@@ -254,7 +254,12 @@ class ArrayLoader {
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
-    return static_cast<size_t>(variadic_counts->Get(i));
+    int64_t count = variadic_counts->Get(i);
+    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
+      return Status::IOError(
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    }
+    return static_cast<size_t>(count);
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
@@ -330,6 +335,22 @@ class ArrayLoader {
     return LoadChildren(type.fields());
   }
 
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
     DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
@@ -372,10 +393,10 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadCommon(type.id()));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
 
-    ARROW_ASSIGN_OR_RAISE(auto character_buffer_count,
+    ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
                           GetVariadicCount(variadic_count_index_++));
-    out_->buffers.resize(character_buffer_count + 2);
-    for (size_t i = 0; i < character_buffer_count; ++i) {
+    out_->buffers.resize(data_buffer_count + 2);
+    for (size_t i = 0; i < data_buffer_count; ++i) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
     }
     return Status::OK();
@@ -390,6 +411,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {

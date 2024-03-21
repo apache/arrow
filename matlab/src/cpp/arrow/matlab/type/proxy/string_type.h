@@ -22,14 +22,13 @@
 namespace arrow::matlab::type::proxy {
 
 class StringType : public arrow::matlab::type::proxy::Type {
-        
-    public:
-        StringType(std::shared_ptr<arrow::StringType> string_type);
+ public:
+  StringType(std::shared_ptr<arrow::StringType> string_type);
 
-        ~StringType() {}
+  ~StringType() {}
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 };
 
-}
-
+}  // namespace arrow::matlab::type::proxy

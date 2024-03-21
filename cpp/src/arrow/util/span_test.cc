@@ -51,7 +51,6 @@ TEST(Span, Construction) {
 
   static_assert(std::is_constructible_v<span<const int>, decltype(arr)&>);
   static_assert(std::is_constructible_v<span<const int>, decltype(const_arr)&>);
-  static_assert(std::is_constructible_v<span<const int>, span<int>>);
 
   static_assert(std::is_constructible_v<span<int>, std::vector<int>&>);
   static_assert(!std::is_constructible_v<span<int>, const std::vector<int>&>);

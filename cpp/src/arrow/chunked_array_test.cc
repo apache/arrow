@@ -228,7 +228,7 @@ TEST_F(TestChunkedArray, Validate) {
 
   random::RandomArrayGenerator gen(0);
 
-  // Valid if non-empty and ommitted type
+  // Valid if non-empty and omitted type
   ArrayVector arrays = {gen.Int64(50, 0, 100, 0.1), gen.Int64(50, 0, 100, 0.1)};
   auto chunks_with_no_type = std::make_shared<ChunkedArray>(arrays, nullptr);
   ASSERT_OK(chunks_with_no_type->ValidateFull());

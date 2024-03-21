@@ -20,11 +20,14 @@ package io.netty.buffer;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.ArrowByteBufAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.patch.ArrowByteBufAllocator;
 import org.junit.Assert;
 import org.junit.Test;
+
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.NettyArrowBuf;
 
 public class TestNettyArrowBuf {
 

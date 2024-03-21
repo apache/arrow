@@ -158,7 +158,6 @@ class IntegrationRunner(object):
                 skip_testers.add("JS")
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
-                skip_testers.add("C#")
                 skip_testers.add("JS")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
@@ -193,6 +192,8 @@ class IntegrationRunner(object):
         ``case_runner`` ran against ``test_cases``
         """
         def case_wrapper(test_case):
+            if serial:
+                return case_runner(test_case)
             with printer.cork():
                 return case_runner(test_case)
 
@@ -606,6 +607,16 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RenewFlightEndpoint are working as expected."),
             skip_testers={"JS", "C#", "Rust"},
+        ),
+        Scenario(
+            "location:reuse_connection",
+            description="Ensure arrow-flight-reuse-connection is accepted.",
+            skip_testers={"JS", "C#", "Rust"},
+        ),
+        Scenario(
+            "session_options",
+            description="Ensure Flight SQL Sessions work as expected.",
+            skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
             "poll_flight_info",

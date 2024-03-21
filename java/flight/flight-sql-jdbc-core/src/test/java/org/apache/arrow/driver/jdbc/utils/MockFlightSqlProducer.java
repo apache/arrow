@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +81,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.calcite.avatica.Meta.StatementType;
 
 import com.google.protobuf.Any;
@@ -105,8 +107,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
 
   private final Map<String, Integer> actionTypeCounter = new HashMap<>();
 
-  private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
-                                                                final FlightDescriptor descriptor) {
+  private static FlightInfo getFlightInfoExportedAndImportedKeys(final Message message,
+                                                                 final FlightDescriptor descriptor) {
     return getFlightInfo(message, Schemas.GET_IMPORTED_KEYS_SCHEMA, descriptor);
   }
 
@@ -157,7 +159,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
    * @param updatedRows the number of rows affected.
    */
   public void addUpdateQuery(final String sqlCommand, final long updatedRows) {
-    addUpdateQuery(sqlCommand, ((flightStream, putResultStreamListener) -> {
+    addUpdateQuery(sqlCommand, (flightStream, putResultStreamListener) -> {
       final DoPutUpdateResult result =
           DoPutUpdateResult.newBuilder().setRecordCount(updatedRows).build();
       try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -169,7 +171,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       } finally {
         putResultStreamListener.onCompleted();
       }
-    }));
+    });
   }
 
   /**
@@ -193,7 +195,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                       final BiConsumer<FlightStream, StreamListener<PutResult>> resultsProvider) {
     Preconditions.checkState(
         updateResultProviders.putIfAbsent(sqlCommand, resultsProvider) == null,
-        format("Attempted to overwrite pre-existing query: <%s>.", sqlCommand));
+        format("Attempted to overwrite preexisting query: <%s>.", sqlCommand));
   }
 
   /** Registers parameters expected to be provided with a prepared statement. */
@@ -270,7 +272,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getTicketStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override
@@ -293,7 +297,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getCommandPreparedStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override
@@ -373,7 +379,13 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
           for (int paramIndex = 0; paramIndex < expectedRow.size(); paramIndex++) {
             Object expected = expectedRow.get(paramIndex);
             Object actual = root.getVector(paramIndex).getObject(i);
-            if (!Objects.equals(expected, actual)) {
+            boolean matches;
+            if (expected.getClass().isArray()) {
+              matches = Arrays.equals((Object[]) expected, ((JsonStringArrayList) actual).toArray());
+            } else {
+              matches = Objects.equals(expected, actual);
+            }
+            if (!matches) {
               streamListener.onError(CallStatus.INVALID_ARGUMENT
                   .withDescription(String.format("Parameter mismatch. Expected: %s Actual: %s", expected, actual))
                   .toRuntimeException());
@@ -529,14 +541,14 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   public FlightInfo getFlightInfoExportedKeys(final CommandGetExportedKeys commandGetExportedKeys,
                                               final CallContext callContext,
                                               final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetExportedKeys, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetExportedKeys, flightDescriptor);
   }
 
   @Override
   public FlightInfo getFlightInfoImportedKeys(final CommandGetImportedKeys commandGetImportedKeys,
                                               final CallContext callContext,
                                               final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetImportedKeys, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetImportedKeys, flightDescriptor);
   }
 
   @Override
@@ -544,7 +556,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       final CommandGetCrossReference commandGetCrossReference,
       final CallContext callContext,
       final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetCrossReference, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetCrossReference, flightDescriptor);
   }
 
   @Override

@@ -165,7 +165,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   /// \brief Return the FileMetaData associated with this fragment.
-  const std::shared_ptr<parquet::FileMetaData>& metadata() const { return metadata_; }
+  std::shared_ptr<parquet::FileMetaData> metadata();
 
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
@@ -177,6 +177,10 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
       const Field& field, const parquet::Statistics& statistics);
 
+  static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
+      const Field& field, const FieldRef& field_ref,
+      const parquet::Statistics& statistics);
+
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       compute::Expression partition_expression,
@@ -184,7 +188,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
                       std::optional<std::vector<int>> row_groups);
 
   Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
-                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
+                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+                     std::shared_ptr<parquet::FileMetaData> original_metadata = {});
 
   // Overridden to opportunistically set metadata since a reader must be opened anyway.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
@@ -207,10 +212,16 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// or std::nullopt if all row groups are selected.
   std::optional<std::vector<int>> row_groups_;
 
+  // the expressions (combined for all columns for which statistics have been
+  // processed) are stored per column group
   std::vector<compute::Expression> statistics_expressions_;
+  // statistics status are kept track of by Parquet Schema column indices
+  // (i.e. not Arrow schema field index)
   std::vector<bool> statistics_expressions_complete_;
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
+  // The FileMetaData that owns the SchemaDescriptor pointed by SchemaManifest.
+  std::shared_ptr<parquet::FileMetaData> original_metadata_;
 
   friend class ParquetFileFormat;
   friend class ParquetDatasetFactory;
@@ -335,7 +346,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   /// \brief Create a ParquetDatasetFactory from a metadata source.
   ///
   /// Similar to the previous Make definition, but the metadata can be a Buffer
-  /// and the base_path is explicited instead of inferred from the metadata
+  /// and the base_path is explicit instead of inferred from the metadata
   /// path.
   ///
   /// \param[in] metadata source to open the metadata parquet file from

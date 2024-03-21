@@ -59,6 +59,9 @@ using ::arrow::internal::BytesToBits;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 
+using ListAndListViewTypes =
+    ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
+
 // Avoid undefined behaviour on signed overflow
 template <typename Signed>
 Signed SafeSignedAdd(Signed u, Signed v) {
@@ -591,145 +594,207 @@ TEST(TestDecimal, Dictionary) {
   }
 }
 
-TEST(TestList, IntegerList) {
-  auto pool = default_memory_pool();
-  std::shared_ptr<DataType> type = list(int64());
-  std::shared_ptr<Array> offsets, values, expected, actual;
+template <typename T>
+class TestVarLengthListArray : public ::testing::Test {
+ public:
+  using TypeClass = T;
+  using offset_type = typename TypeClass::offset_type;
+  using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
+  using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
+  using OffsetType = typename TypeTraits<TypeClass>::OffsetType;
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0}, &offsets);
-  ArrayFromVector<Int64Type>({}, &values);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
+  static constexpr bool is_list_view_type = is_list_view(TypeClass::type_id);
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[4, 5], [], [6]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0, 2, 2, 3}, &offsets);
-  ArrayFromVector<Int64Type>({4, 5, 6}, &values);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
+  void TestIntegerList() {
+    auto pool = default_memory_pool();
+    std::shared_ptr<DataType> type = std::make_shared<TypeClass>(int64());
+    std::shared_ptr<Array> offsets, sizes, values, expected, actual;
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[], [null], [6, null]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
-  auto is_valid = std::vector<bool>{false, true, false};
-  ArrayFromVector<Int64Type>(is_valid, {0, 6, 0}, &values);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0}, &offsets);
+    ArrayFromVector<Int64Type>({}, &values);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    AssertArraysEqual(*expected, *actual);
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [], null]"));
-  ASSERT_OK(actual->ValidateFull());
-  {
-    std::unique_ptr<ArrayBuilder> builder;
-    ASSERT_OK(MakeBuilder(pool, type, &builder));
-    auto& list_builder = checked_cast<ListBuilder&>(*builder);
-    ASSERT_OK(list_builder.AppendNull());
-    ASSERT_OK(list_builder.Append());
-    ASSERT_OK(list_builder.AppendNull());
-    ASSERT_OK(list_builder.Finish(&expected));
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[4, 5], [], [6]]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0, 2, 2, 3}, &offsets);
+    ArrayFromVector<Int64Type>({4, 5, 6}, &values);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({2, 0, 1}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    AssertArraysEqual(*expected, *actual);
+
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[], [null], [6, null]]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0, 0, 1, 3}, &offsets);
+    auto is_valid = std::vector<bool>{false, true, false};
+    ArrayFromVector<Int64Type>(is_valid, {0, 6, 0}, &values);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({0, 1, 2}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    AssertArraysEqual(*expected, *actual);
+
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [], null]"));
+    ASSERT_OK(actual->ValidateFull());
+    {
+      std::unique_ptr<ArrayBuilder> builder;
+      ASSERT_OK(MakeBuilder(pool, type, &builder));
+      auto& list_builder = checked_cast<BuilderType&>(*builder);
+      ASSERT_OK(list_builder.AppendNull());
+      ASSERT_OK(list_builder.Append(true, 0));
+      ASSERT_OK(list_builder.AppendNull());
+      ASSERT_OK(list_builder.Finish(&expected));
+    }
+    AssertArraysEqual(*expected, *actual);
   }
-  AssertArraysEqual(*expected, *actual);
-}
 
-TEST(TestList, IntegerListErrors) {
-  std::shared_ptr<DataType> type = list(int64());
-  std::shared_ptr<Array> array;
+  void TestIntegerListErrors() {
+    std::shared_ptr<DataType> type = std::make_shared<TypeClass>(int64());
+    std::shared_ptr<Array> array;
 
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]"));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0.0]]"));
-  ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[9223372036854775808]]"));
-}
-
-TEST(TestList, NullList) {
-  auto pool = default_memory_pool();
-  std::shared_ptr<DataType> type = list(null());
-  std::shared_ptr<Array> offsets, values, expected, actual;
-
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0}, &offsets);
-  values = std::make_shared<NullArray>(0);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
-
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[], [null], [null, null]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
-  values = std::make_shared<NullArray>(3);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
-
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [], null]"));
-  ASSERT_OK(actual->ValidateFull());
-  {
-    std::unique_ptr<ArrayBuilder> builder;
-    ASSERT_OK(MakeBuilder(pool, type, &builder));
-    auto& list_builder = checked_cast<ListBuilder&>(*builder);
-    ASSERT_OK(list_builder.AppendNull());
-    ASSERT_OK(list_builder.Append());
-    ASSERT_OK(list_builder.AppendNull());
-    ASSERT_OK(list_builder.Finish(&expected));
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[0]"));
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[0.0]]"));
+    ASSERT_RAISES(Invalid, ArrayFromJSON(type, "[[9223372036854775808]]"));
   }
-  AssertArraysEqual(*expected, *actual);
-}
 
-TEST(TestList, IntegerListList) {
-  auto pool = default_memory_pool();
-  std::shared_ptr<DataType> type = list(list(uint8()));
-  std::shared_ptr<Array> offsets, values, nested, expected, actual;
+  void TestNullList() {
+    auto pool = default_memory_pool();
+    std::shared_ptr<DataType> type = std::make_shared<TypeClass>(null());
+    std::shared_ptr<Array> offsets, sizes, values, expected, actual;
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[[4], [5, 6]], [[7, 8, 9]]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0, 1, 3, 6}, &offsets);
-  ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
-  ASSERT_OK_AND_ASSIGN(nested, ListArray::FromArrays(*offsets, *values, pool));
-  ArrayFromVector<Int32Type>({0, 2, 3}, &offsets);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *nested, pool));
-  ASSERT_EQ(actual->length(), 2);
-  AssertArraysEqual(*expected, *actual);
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0}, &offsets);
+    values = std::make_shared<NullArray>(0);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    AssertArraysEqual(*expected, *actual);
 
-  ASSERT_OK_AND_ASSIGN(actual,
-                       ArrayFromJSON(type, "[[], [[]], [[4], [], [5, 6]], [[7, 8, 9]]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int32Type>({0, 0, 1, 1, 3, 6}, &offsets);
-  ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
-  ASSERT_OK_AND_ASSIGN(nested, ListArray::FromArrays(*offsets, *values, pool));
-  ArrayFromVector<Int32Type>({0, 0, 1, 4, 5}, &offsets);
-  ASSERT_OK_AND_ASSIGN(expected, ListArray::FromArrays(*offsets, *nested, pool));
-  ASSERT_EQ(actual->length(), 4);
-  AssertArraysEqual(*expected, *actual);
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[], [null], [null, null]]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0, 0, 1, 3}, &offsets);
+    values = std::make_shared<NullArray>(3);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({0, 1, 2}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    AssertArraysEqual(*expected, *actual);
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [null], [[null]]]"));
-  ASSERT_OK(actual->ValidateFull());
-  {
-    std::unique_ptr<ArrayBuilder> builder;
-    ASSERT_OK(MakeBuilder(pool, type, &builder));
-    auto& list_builder = checked_cast<ListBuilder&>(*builder);
-    auto& child_builder = checked_cast<ListBuilder&>(*list_builder.value_builder());
-    ASSERT_OK(list_builder.AppendNull());
-    ASSERT_OK(list_builder.Append());
-    ASSERT_OK(child_builder.AppendNull());
-    ASSERT_OK(list_builder.Append());
-    ASSERT_OK(child_builder.Append());
-    ASSERT_OK(list_builder.Finish(&expected));
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [], null]"));
+    ASSERT_OK(actual->ValidateFull());
+    {
+      std::unique_ptr<ArrayBuilder> builder;
+      ASSERT_OK(MakeBuilder(pool, type, &builder));
+      auto& list_builder = checked_cast<BuilderType&>(*builder);
+      ASSERT_OK(list_builder.AppendNull());
+      ASSERT_OK(list_builder.Append(true, 0));
+      ASSERT_OK(list_builder.AppendNull());
+      ASSERT_OK(list_builder.Finish(&expected));
+    }
+    AssertArraysEqual(*expected, *actual);
   }
-}
 
-TEST(TestLargeList, Basics) {
-  // Similar as TestList above, only testing the basics
-  auto pool = default_memory_pool();
-  std::shared_ptr<DataType> type = large_list(int16());
-  std::shared_ptr<Array> offsets, values, expected, actual;
+  void TestIntegerListList() {
+    auto pool = default_memory_pool();
+    std::shared_ptr<DataType> type =
+        std::make_shared<TypeClass>(std::make_shared<TypeClass>(uint8()));
+    std::shared_ptr<Array> offsets, sizes, values, nested, expected, actual;
 
-  ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[], [null], [6, null]]"));
-  ASSERT_OK(actual->ValidateFull());
-  ArrayFromVector<Int64Type>({0, 0, 1, 3}, &offsets);
-  auto is_valid = std::vector<bool>{false, true, false};
-  ArrayFromVector<Int16Type>(is_valid, {0, 6, 0}, &values);
-  ASSERT_OK_AND_ASSIGN(expected, LargeListArray::FromArrays(*offsets, *values, pool));
-  AssertArraysEqual(*expected, *actual);
-}
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[[[4], [5, 6]], [[7, 8, 9]]]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0, 1, 3, 6}, &offsets);
+    ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({1, 2, 3}, &sizes);
+      ASSERT_OK_AND_ASSIGN(nested,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(nested, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    ArrayFromVector<OffsetType>({0, 2, 3}, &offsets);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({2, 1}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *nested, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *nested, pool));
+    }
+    ASSERT_EQ(actual->length(), 2);
+    AssertArraysEqual(*expected, *actual);
+
+    ASSERT_OK_AND_ASSIGN(
+        actual, ArrayFromJSON(type, "[[], [[]], [[4], [], [5, 6]], [[7, 8, 9]]]"));
+    ASSERT_OK(actual->ValidateFull());
+    ArrayFromVector<OffsetType>({0, 0, 1, 1, 3, 6}, &offsets);
+    ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({0, 1, 0, 2, 3}, &sizes);
+      ASSERT_OK_AND_ASSIGN(nested,
+                           ArrayType::FromArrays(*offsets, *sizes, *values, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(nested, ArrayType::FromArrays(*offsets, *values, pool));
+    }
+    ArrayFromVector<OffsetType>({0, 0, 1, 4, 5}, &offsets);
+    if constexpr (is_list_view_type) {
+      ArrayFromVector<OffsetType>({0, 1, 3, 1}, &sizes);
+      ASSERT_OK_AND_ASSIGN(expected,
+                           ArrayType::FromArrays(*offsets, *sizes, *nested, pool));
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected, ArrayType::FromArrays(*offsets, *nested, pool));
+    }
+    ASSERT_EQ(actual->length(), 4);
+    AssertArraysEqual(*expected, *actual);
+
+    ASSERT_OK_AND_ASSIGN(actual, ArrayFromJSON(type, "[null, [null], [[null]]]"));
+    ASSERT_OK(actual->ValidateFull());
+    {
+      std::unique_ptr<ArrayBuilder> builder;
+      ASSERT_OK(MakeBuilder(pool, type, &builder));
+      auto& list_builder = checked_cast<BuilderType&>(*builder);
+      auto& child_builder = checked_cast<BuilderType&>(*list_builder.value_builder());
+      ASSERT_OK(list_builder.AppendNull());
+      ASSERT_OK(list_builder.Append(true, 0));
+      ASSERT_OK(child_builder.AppendNull());
+      ASSERT_OK(list_builder.Append(true, 0));
+      ASSERT_OK(child_builder.Append(true, 0));
+      ASSERT_OK(list_builder.Finish(&expected));
+    }
+  }
+};
+
+TYPED_TEST_SUITE(TestVarLengthListArray, ListAndListViewTypes);
+
+TYPED_TEST(TestVarLengthListArray, IntegerList) { this->TestIntegerList(); }
+
+TYPED_TEST(TestVarLengthListArray, IntegerListErrors) { this->TestIntegerListErrors(); }
+
+TYPED_TEST(TestVarLengthListArray, NullList) { this->TestNullList(); }
+
+TYPED_TEST(TestVarLengthListArray, IntegerListList) { this->TestIntegerListList(); }
 
 TEST(TestMap, IntegerToInteger) {
   auto type = map(int16(), int16());

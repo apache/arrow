@@ -449,6 +449,7 @@ struct TypeTraits<ListType> {
   using OffsetBuilderType = Int32Builder;
   using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListType;
 };
 
 template <>
@@ -456,6 +457,31 @@ struct TypeTraits<LargeListType> {
   using ArrayType = LargeListArray;
   using BuilderType = LargeListBuilder;
   using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
+  using OffsetScalarType = Int64Scalar;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<ListViewType> {
+  using ArrayType = ListViewArray;
+  using BuilderType = ListViewBuilder;
+  using ScalarType = ListViewScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  using OffsetScalarType = Int32Scalar;
+  constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListViewType;
+};
+
+template <>
+struct TypeTraits<LargeListViewType> {
+  using ArrayType = LargeListViewArray;
+  using BuilderType = LargeListViewBuilder;
+  using ScalarType = LargeListViewScalar;
   using OffsetType = Int64Type;
   using OffsetArrayType = Int64Array;
   using OffsetBuilderType = Int64Builder;
@@ -751,12 +777,27 @@ template <typename T, typename R = void>
 using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
 
 template <typename T>
+using is_list_view_type =
+    std::disjunction<std::is_same<T, ListViewType>, std::is_same<T, LargeListViewType>>;
+
+template <typename T, typename R = void>
+using enable_if_list_view = enable_if_t<is_list_view_type<T>::value, R>;
+
+template <typename T>
 using is_list_like_type =
     std::integral_constant<bool, is_var_length_list_type<T>::value ||
                                      is_fixed_size_list_type<T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_list_like = enable_if_t<is_list_like_type<T>::value, R>;
+
+template <typename T>
+using is_var_length_list_like_type =
+    std::disjunction<is_var_length_list_type<T>, is_list_view_type<T>>;
+
+template <typename T, typename R = void>
+using enable_if_var_length_list_like =
+    enable_if_t<is_var_length_list_like_type<T>::value, R>;
 
 template <typename T>
 using is_struct_type = std::is_base_of<StructType, T>;
@@ -1303,6 +1344,39 @@ constexpr bool is_list_like(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a var-length list or list-view like type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a var-length list or list-view like type
+constexpr bool is_var_length_list_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a list-view type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list-view type one
+constexpr bool is_list_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a nested type
 ///
 /// \param[in] type_id the type-id to check
@@ -1311,6 +1385,8 @@ constexpr bool is_nested(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
     case Type::STRUCT:
@@ -1403,12 +1479,14 @@ static inline int offset_bit_width(Type::type type_id) {
     case Type::STRING:
     case Type::BINARY:
     case Type::LIST:
+    case Type::LIST_VIEW:
     case Type::MAP:
     case Type::DENSE_UNION:
       return 32;
     case Type::LARGE_STRING:
     case Type::LARGE_BINARY:
     case Type::LARGE_LIST:
+    case Type::LARGE_LIST_VIEW:
       return 64;
     default:
       break;
@@ -1608,6 +1686,24 @@ static inline bool is_var_length_list(const DataType& type) {
 ///
 /// Convenience for checking using the type's id
 static inline bool is_list_like(const DataType& type) { return is_list_like(type.id()); }
+
+/// \brief Check for a var-length list or list-view like type
+///
+/// \param[in] type the type to check
+/// \return whether type is a var-length list or list-view like type
+///
+/// Convenience for checking using the type's id
+static inline bool is_var_length_list_like(const DataType& type) {
+  return is_var_length_list_like(type.id());
+}
+
+/// \brief Check for a list-view type
+///
+/// \param[in] type the type to check
+/// \return whether type is a list-view type
+///
+/// Convenience for checking using the type's id
+static inline bool is_list_view(const DataType& type) { return is_list_view(type.id()); }
 
 /// \brief Check for a nested type
 ///

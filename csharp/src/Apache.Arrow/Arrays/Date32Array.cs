@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
@@ -22,7 +23,10 @@ namespace Apache.Arrow
     /// The <see cref="Date32Array"/> class holds an array of dates in the <c>Date32</c> format, where each date is
     /// stored as the number of days since the dawn of (UNIX) time.
     /// </summary>
-    public class Date32Array : PrimitiveArray<int>
+    public class Date32Array : PrimitiveArray<int>, IReadOnlyList<DateTime?>
+#if NET6_0_OR_GREATER
+        , IReadOnlyList<DateOnly?>
+#endif
     {
         private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 #if NET6_0_OR_GREATER
@@ -133,6 +137,30 @@ namespace Apache.Arrow
                 ? DateOnly.FromDayNumber(_epochDayNumber + value.Value)
                 : default(DateOnly?);
         }
+
+        int IReadOnlyCollection<DateOnly?>.Count => Length;
+
+        DateOnly? IReadOnlyList<DateOnly?>.this[int index] => GetDateOnly(index);
+
+        IEnumerator<DateOnly?> IEnumerable<DateOnly?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetDateOnly(index);
+            };
+        }
 #endif
+
+        int IReadOnlyCollection<DateTime?>.Count => Length;
+
+        DateTime? IReadOnlyList<DateTime?>.this[int index] => GetDateTime(index);
+
+        IEnumerator<DateTime?> IEnumerable<DateTime?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetDateTime(index);
+            };
+        }
     }
 }

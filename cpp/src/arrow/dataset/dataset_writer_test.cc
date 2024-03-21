@@ -277,6 +277,28 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-3.arrow", 30, 5}});
 }
 
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
+  // GH-38884: This test is to make sure that the writer can handle
+  //  throttle resources in `WriteRecordBatch`.
+
+  constexpr auto kFileSizeLimit = static_cast<uint64_t>(10);
+  write_options_.max_rows_per_file = kFileSizeLimit;
+  write_options_.max_rows_per_group = kFileSizeLimit;
+  write_options_.max_open_files = 2;
+  write_options_.min_rows_per_group = kFileSizeLimit - 1;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
+  for (int i = 0; i < 5; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 2), "");
+  }
+  EndWriterChecked(dataset_writer.get());
+  std::vector<ExpectedFile> expected_files;
+  for (int i = 0; i < 10; ++i) {
+    expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
+                                kFileSizeLimit * i, kFileSizeLimit);
+  }
+  AssertCreatedData(expected_files);
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
   // Left padding with up to four zeros
   write_options_.max_rows_per_group = 10;
@@ -319,6 +341,23 @@ TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   EndWriterChecked(dataset_writer.get());
   AssertCreatedData(
       {{"testdir/chunk-0.arrow", 0, 10, 4}, {"testdir/chunk-1.arrow", 10, 8, 3}});
+}
+
+TEST_F(DatasetWriterTestFixture, NotProduceZeroSizedBatch) {
+  // GH-39965: avoid creating zero-sized batch when max_rows_per_file enabled.
+  write_options_.max_rows_per_file = 10;
+  write_options_.max_rows_per_group = 10;
+  auto dataset_writer = MakeDatasetWriter();
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  dataset_writer->WriteRecordBatch(MakeBatch(20), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({
+      {"testdir/chunk-0.arrow", 0, 10, 1},
+      {"testdir/chunk-1.arrow", 10, 10, 1},
+      {"testdir/chunk-2.arrow", 20, 10, 1},
+      {"testdir/chunk-3.arrow", 30, 10, 1},
+  });
+  AssertNotFiles({"testdir/chunk-4.arrow"});
 }
 
 TEST_F(DatasetWriterTestFixture, MinRowGroup) {

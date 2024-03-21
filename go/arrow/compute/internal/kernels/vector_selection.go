@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/compute/exec"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
 )
 
 type NullSelectionBehavior int8
@@ -99,12 +99,12 @@ type builder[T any] interface {
 	UnsafeAppendBoolToBitmap(bool)
 }
 
-func getTakeIndices[T exec.IntTypes | exec.UintTypes](mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) arrow.ArrayData {
+func getTakeIndices[T arrow.IntType | arrow.UintType](mem memory.Allocator, filter *exec.ArraySpan, nullSelect NullSelectionBehavior) arrow.ArrayData {
 	var (
 		filterData      = filter.Buffers[1].Buf
 		haveFilterNulls = filter.MayHaveNulls()
 		filterIsValid   = filter.Buffers[0].Buf
-		idxType         = exec.GetDataType[T]()
+		idxType         = arrow.GetDataType[T]()
 	)
 
 	if haveFilterNulls && nullSelect == EmitNulls {
@@ -394,7 +394,7 @@ func primitiveFilterImpl(wr writeFiltered, values *exec.ArraySpan, filter *exec.
 	}
 }
 
-type filterWriter[T exec.UintTypes] struct {
+type filterWriter[T arrow.UintType] struct {
 	outPosition  int
 	outOffset    int
 	valuesOffset int
@@ -519,7 +519,7 @@ func PrimitiveFilter(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecRe
 	return nil
 }
 
-type primitiveGetter[T exec.IntTypes | bool] interface {
+type primitiveGetter[T arrow.IntType | bool] interface {
 	IsValid(int64) bool
 	GetValue(int64) T
 	NullCount() int64
@@ -542,7 +542,7 @@ func (b *boolGetter) GetValue(i int64) bool {
 func (b *boolGetter) NullCount() int64 { return b.inner.Nulls }
 func (b *boolGetter) Len() int64       { return b.inner.Len }
 
-type primitiveGetterImpl[T exec.IntTypes] struct {
+type primitiveGetterImpl[T arrow.IntType] struct {
 	inner  *exec.ArraySpan
 	values []T
 }
@@ -608,7 +608,7 @@ func (c *chunkedBoolGetter) GetValue(i int64) bool {
 func (c *chunkedBoolGetter) NullCount() int64 { return c.nulls }
 func (c *chunkedBoolGetter) Len() int64       { return c.len }
 
-type chunkedPrimitiveGetter[T exec.IntTypes] struct {
+type chunkedPrimitiveGetter[T arrow.IntType] struct {
 	inner         *arrow.Chunked
 	resolver      *exec.ChunkResolver
 	nulls         int64
@@ -619,7 +619,7 @@ type chunkedPrimitiveGetter[T exec.IntTypes] struct {
 	valuesOffset  []int64
 }
 
-func newChunkedPrimitiveGetter[T exec.IntTypes](arr *arrow.Chunked) *chunkedPrimitiveGetter[T] {
+func newChunkedPrimitiveGetter[T arrow.IntType](arr *arrow.Chunked) *chunkedPrimitiveGetter[T] {
 	nchunks := len(arr.Chunks())
 	lengths := make([]int64, nchunks)
 	valuesData := make([][]T, nchunks)
@@ -630,7 +630,7 @@ func newChunkedPrimitiveGetter[T exec.IntTypes](arr *arrow.Chunked) *chunkedPrim
 		lengths[i] = int64(c.Len())
 		valuesOffset[i] = int64(c.Data().Offset())
 		valuesIsValid[i] = c.NullBitmapBytes()
-		valuesData[i] = exec.GetValues[T](c.Data(), 1)
+		valuesData[i] = arrow.GetValues[T](c.Data(), 1)
 	}
 
 	return &chunkedPrimitiveGetter[T]{
@@ -662,7 +662,7 @@ func (c *chunkedPrimitiveGetter[T]) GetValue(i int64) T {
 func (c *chunkedPrimitiveGetter[T]) NullCount() int64 { return c.nulls }
 func (c *chunkedPrimitiveGetter[T]) Len() int64       { return c.len }
 
-func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values primitiveGetter[ValT], indices *exec.ArraySpan, out *exec.ExecResult) {
+func primitiveTakeImpl[IdxT arrow.UintType, ValT arrow.IntType](values primitiveGetter[ValT], indices *exec.ArraySpan, out *exec.ExecResult) {
 	var (
 		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
 		indicesIsValid = indices.Buffers[0].Buf
@@ -747,7 +747,7 @@ func primitiveTakeImpl[IdxT exec.UintTypes, ValT exec.IntTypes](values primitive
 	out.Nulls = out.Len - validCount
 }
 
-func booleanTakeImpl[IdxT exec.UintTypes](values primitiveGetter[bool], indices *exec.ArraySpan, out *exec.ExecResult) {
+func booleanTakeImpl[IdxT arrow.UintType](values primitiveGetter[bool], indices *exec.ArraySpan, out *exec.ExecResult) {
 	var (
 		indicesData    = exec.GetSpanValues[IdxT](indices, 1)
 		indicesIsValid = indices.Buffers[0].Buf
@@ -876,7 +876,7 @@ func booleanTakeDispatch(values, indices *exec.ArraySpan, out *exec.ExecResult) 
 	return nil
 }
 
-func takeIdxChunkedDispatch[ValT exec.IntTypes](values, indices *arrow.Chunked, out []*exec.ExecResult) error {
+func takeIdxChunkedDispatch[ValT arrow.IntType](values, indices *arrow.Chunked, out []*exec.ExecResult) error {
 	getter := newChunkedPrimitiveGetter[ValT](values)
 	var fn func(primitiveGetter[ValT], *exec.ArraySpan, *exec.ExecResult)
 
@@ -901,7 +901,7 @@ func takeIdxChunkedDispatch[ValT exec.IntTypes](values, indices *arrow.Chunked, 
 	return nil
 }
 
-func takeIdxDispatch[ValT exec.IntTypes](values, indices *exec.ArraySpan, out *exec.ExecResult) error {
+func takeIdxDispatch[ValT arrow.IntType](values, indices *exec.ArraySpan, out *exec.ExecResult) error {
 	getter := &primitiveGetterImpl[ValT]{inner: values, values: exec.GetSpanValues[ValT](values, 1)}
 
 	switch indices.Type.(arrow.FixedWidthDataType).Bytes() {
@@ -1368,7 +1368,7 @@ func binaryFilterImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, values, filter
 	return nil
 }
 
-func takeExecImpl[T exec.UintTypes](ctx *exec.KernelCtx, outputLen int64, values, indices *exec.ArraySpan, out *exec.ExecResult, visitValid func(int64) error, visitNull func() error) error {
+func takeExecImpl[T arrow.UintType](ctx *exec.KernelCtx, outputLen int64, values, indices *exec.ArraySpan, out *exec.ExecResult, visitValid func(int64) error, visitNull func() error) error {
 	var (
 		validityBuilder = validityBuilder{mem: exec.GetAllocator(ctx.Ctx)}
 		indicesValues   = exec.GetSpanValues[T](indices, 1)
@@ -1600,7 +1600,7 @@ func ListImpl[OffsetT int32 | int64](ctx *exec.KernelCtx, batch *exec.ExecSpan, 
 	out.Buffers[1].WrapBuffer(offsetBuilder.finish())
 
 	out.Children = make([]exec.ArraySpan, 1)
-	out.Children[0].Type = exec.GetDataType[OffsetT]()
+	out.Children[0].Type = arrow.GetDataType[OffsetT]()
 	out.Children[0].Len = int64(childIdxBuilder.len())
 	out.Children[0].Buffers[1].WrapBuffer(childIdxBuilder.finish())
 

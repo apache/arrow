@@ -42,7 +42,7 @@ def doc(*docstrings, **params):
     If the docstring is a template, it will be saved as a string.
     Otherwise, it will be saved as a callable and the docstring will be obtained via
     the __doc__ attribute.
-    This decorator can not be used on Cython classes due to a CPython constraint,
+    This decorator cannot be used on Cython classes due to a CPython constraint,
     which enforces the __doc__ attribute to be read-only.
     See https://github.com/python/cpython/issues/91309
 
@@ -228,3 +228,31 @@ def _break_traceback_cycle_from_frame(frame):
         # us visit the outer frame).
         refs = gc.get_referrers(frame)
     refs = frame = this_frame = None
+
+
+def download_tzdata_on_windows():
+    r"""
+    Download and extract latest IANA timezone database into the
+    location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
+    """
+    if sys.platform != 'win32':
+        raise TypeError(f"Timezone database is already provided by {sys.platform}")
+
+    import tarfile
+
+    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
+    tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
+    os.makedirs(tzdata_path, exist_ok=True)
+
+    from urllib.request import urlopen
+    with urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
+        with open(tzdata_compressed, 'wb') as f:
+            f.write(response.read())
+
+    assert os.path.exists(tzdata_compressed)
+
+    tarfile.open(tzdata_compressed).extractall(tzdata_path)
+
+    with urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones:   # noqa
+        with open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f:
+            f.write(response_zones.read())

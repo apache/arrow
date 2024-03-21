@@ -165,7 +165,7 @@ sw2 %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
-Because window functions are not supported, computing an aggregation like `mean()` on a grouped table or within a rowwise opertation like `filter()` is not supported:
+Because window functions are not supported, computing an aggregation like `mean()` on a grouped table or within a rowwise operation like `filter()` is not supported:
 
 ```{r}
 sw %>%

@@ -150,6 +150,16 @@ class LargeListArray;
 class LargeListBuilder;
 struct LargeListScalar;
 
+class ListViewType;
+class ListViewArray;
+class ListViewBuilder;
+struct ListViewScalar;
+
+class LargeListViewType;
+class LargeListViewArray;
+class LargeListViewBuilder;
+struct LargeListViewScalar;
+
 class MapType;
 class MapArray;
 class MapBuilder;
@@ -432,6 +442,12 @@ struct Type {
     /// Bytes view type with 4-byte prefix and inline small string optimization
     BINARY_VIEW = 40,
 
+    /// A list of some logical data type represented by offset and size.
+    LIST_VIEW = 41,
+
+    /// Like LIST_VIEW, but with 64-bit offsets and sizes
+    LARGE_LIST_VIEW = 42,
+
     // Leave this at the end
     MAX_ID
   };
@@ -522,6 +538,19 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a LargeListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a ListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type);
+
+/// \brief Create a ListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<Field> value_type);
+
+/// \brief Create a LargetListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(
+    std::shared_ptr<DataType> value_type);
+
+/// \brief Create a LargetListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(std::shared_ptr<Field> value_type);
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT

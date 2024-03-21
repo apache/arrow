@@ -142,7 +142,7 @@ class ARROW_EXPORT SwissTable {
   void extract_group_ids_imp(const int num_keys, const uint16_t* selection,
                              const uint32_t* hashes, const uint8_t* local_slots,
                              uint32_t* out_group_ids, int elements_offset,
-                             int element_mutltiplier) const;
+                             int element_multiplier) const;
 
   inline uint64_t next_slot_to_visit(uint64_t block_index, int slot,
                                      int match_found) const;
@@ -187,7 +187,7 @@ class ARROW_EXPORT SwissTable {
 
   // Slow processing of input keys in the most generic case.
   // Handles inserting new keys.
-  // Pre-existing keys will be handled correctly, although the intended use is for this
+  // Preexisting keys will be handled correctly, although the intended use is for this
   // call to follow a call to find() method, which would only pass on new keys that were
   // not present in the hash table.
   //

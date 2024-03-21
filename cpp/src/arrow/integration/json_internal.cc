@@ -236,7 +236,7 @@ class SchemaWriter {
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
               is_base_binary_type<T>::value || is_binary_view_like_type<T>::value ||
               is_var_length_list_type<T>::value || is_struct_type<T>::value ||
-              is_run_end_encoded_type<T>::value>
+              is_run_end_encoded_type<T>::value || is_list_view_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -419,6 +419,16 @@ class SchemaWriter {
 
   Status Visit(const LargeListType& type) {
     WriteName("largelist", type);
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    WriteName("listview", type);
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    WriteName("largelistview", type);
     return Status::OK();
   }
 
@@ -777,6 +787,15 @@ class ArrayWriter {
     return WriteChildren(array.type()->fields(), {array.values()});
   }
 
+  template <typename ArrayType>
+  enable_if_list_view<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
+    WriteValidityField(array);
+    WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
+    WriteIntegerField("SIZE", array.raw_value_sizes(), array.length());
+    return WriteChildren(array.type()->fields(), {array.values()});
+  }
+
   Status Visit(const FixedSizeListArray& array) {
     WriteValidityField(array);
     const auto& type = checked_cast<const FixedSizeListType&>(*array.type());
@@ -1132,6 +1151,16 @@ Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
       return Status::Invalid("Large list must have exactly one child");
     }
     return large_list(children[0]);
+  } else if (type_name == "listview") {
+    if (children.size() != 1) {
+      return Status::Invalid("List-view must have exactly one child");
+    }
+    return list_view(children[0]);
+  } else if (type_name == "largelistview") {
+    if (children.size() != 1) {
+      return Status::Invalid("Large list-view must have exactly one child");
+    }
+    return large_list_view(children[0]);
   } else if (type_name == "map") {
     return GetMap(json_type, children);
   } else if (type_name == "fixedsizelist") {
@@ -1649,6 +1678,26 @@ class ArrayReader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return CreateList<T>(type_);
+  }
+
+  template <typename T>
+  Status CreateListView(const std::shared_ptr<DataType>& type) {
+    using offset_type = typename T::offset_type;
+
+    RETURN_NOT_OK(InitializeData(3));
+
+    RETURN_NOT_OK(GetNullBitmap());
+    ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_offsets, length_, &data_->buffers[1]));
+    ARROW_ASSIGN_OR_RAISE(const auto json_sizes, GetMemberArray(obj_, "SIZE"));
+    RETURN_NOT_OK(GetIntArray<offset_type>(json_sizes, length_, &data_->buffers[2]));
+    RETURN_NOT_OK(GetChildren(obj_, *type));
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return CreateListView<T>(type_);
   }
 
   Status Visit(const MapType& type) {

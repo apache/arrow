@@ -20,15 +20,15 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/types"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/metadata"
-	"github.com/apache/arrow/go/v15/parquet/pqarrow"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/pqarrow"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -187,7 +187,7 @@ func TestConvertArrowFlatPrimitives(t *testing.T) {
 	arrowFields = append(arrowFields, arrow.Field{Name: "date", Type: arrow.FixedWidthTypes.Date32, Nullable: false})
 
 	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("date64", parquet.Repetitions.Required,
-		schema.NewTimestampLogicalType(true, schema.TimeUnitMillis), parquet.Types.Int64, 0, -1)))
+		schema.DateLogicalType{}, parquet.Types.Int32, 0, -1)))
 	arrowFields = append(arrowFields, arrow.Field{Name: "date64", Type: arrow.FixedWidthTypes.Date64, Nullable: false})
 
 	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("time32", parquet.Repetitions.Required,
@@ -280,12 +280,31 @@ func TestConvertArrowDecimals(t *testing.T) {
 	}
 }
 
+func TestConvertArrowFloat16(t *testing.T) {
+	parquetFields := make(schema.FieldList, 0)
+	arrowFields := make([]arrow.Field, 0)
+
+	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("float16", parquet.Repetitions.Required,
+		schema.Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, -1)))
+	arrowFields = append(arrowFields, arrow.Field{Name: "float16", Type: &arrow.Float16Type{}})
+
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	parquetSchema := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, parquetFields, -1)))
+
+	result, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true)))
+	assert.NoError(t, err)
+	assert.True(t, parquetSchema.Equals(result))
+	for i := 0; i < parquetSchema.NumColumns(); i++ {
+		assert.Truef(t, parquetSchema.Column(i).Equals(result.Column(i)), "Column %d didn't match: %s", i, parquetSchema.Column(i).Name())
+	}
+}
+
 func TestCoerceTImestampV1(t *testing.T) {
 	parquetFields := make(schema.FieldList, 0)
 	arrowFields := make([]arrow.Field, 0)
 
 	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("timestamp", parquet.Repetitions.Required,
-		schema.NewTimestampLogicalTypeForce(false, schema.TimeUnitMicros), parquet.Types.Int64, 0, -1)))
+		schema.NewTimestampLogicalTypeForce(true, schema.TimeUnitMicros), parquet.Types.Int64, 0, -1)))
 	arrowFields = append(arrowFields, arrow.Field{Name: "timestamp", Type: &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "EST"}})
 
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
@@ -304,11 +323,11 @@ func TestAutoCoerceTImestampV1(t *testing.T) {
 	arrowFields := make([]arrow.Field, 0)
 
 	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("timestamp", parquet.Repetitions.Required,
-		schema.NewTimestampLogicalTypeForce(false, schema.TimeUnitMicros), parquet.Types.Int64, 0, -1)))
+		schema.NewTimestampLogicalTypeForce(true, schema.TimeUnitMicros), parquet.Types.Int64, 0, -1)))
 	arrowFields = append(arrowFields, arrow.Field{Name: "timestamp", Type: &arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: "EST"}})
 
 	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("timestamp[ms]", parquet.Repetitions.Required,
-		schema.NewTimestampLogicalTypeForce(true, schema.TimeUnitMillis), parquet.Types.Int64, 0, -1)))
+		schema.NewTimestampLogicalTypeForce(false, schema.TimeUnitMillis), parquet.Types.Int64, 0, -1)))
 	arrowFields = append(arrowFields, arrow.Field{Name: "timestamp[ms]", Type: &arrow.TimestampType{Unit: arrow.Second}})
 
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
@@ -367,7 +386,7 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	//       }
 	//     }
 	//
-	// Instaed of the proper 3-level encoding which would be:
+	// Instead of the proper 3-level encoding which would be:
 	//
 	//     repeated group field_id=-1 schema {
 	//       optional group field_id=-1 answers (List) {
@@ -418,7 +437,6 @@ func TestUnsupportedTypes(t *testing.T) {
 		typ arrow.DataType
 	}{
 		// Non-exhaustive list of unsupported types
-		{typ: &arrow.Float16Type{}},
 		{typ: &arrow.DurationType{}},
 		{typ: &arrow.DayTimeIntervalType{}},
 		{typ: &arrow.MonthIntervalType{}},

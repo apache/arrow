@@ -61,6 +61,7 @@ InternalFileDecryptor::InternalFileDecryptor(FileDecryptionProperties* propertie
 }
 
 void InternalFileDecryptor::WipeOutDecryptionKeys() {
+  std::lock_guard<std::mutex> lock(mutex_);
   properties_->WipeOutDecryptionKeys();
   for (auto const& i : all_decryptors_) {
     if (auto aes_decryptor = i.lock()) {
@@ -139,10 +140,16 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   // Create both data and metadata decryptors to avoid redundant retrieval of key
   // from the key_retriever.
   int key_len = static_cast<int>(footer_key.size());
-  auto aes_metadata_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/true, &all_decryptors_);
-  auto aes_data_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
+  std::shared_ptr<encryption::AesDecryptor> aes_metadata_decryptor;
+  std::shared_ptr<encryption::AesDecryptor> aes_data_decryptor;
+
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    aes_metadata_decryptor = encryption::AesDecryptor::Make(
+        algorithm_, key_len, /*metadata=*/true, &all_decryptors_);
+    aes_data_decryptor = encryption::AesDecryptor::Make(
+        algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
+  }
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
       aes_metadata_decryptor, footer_key, file_aad_, aad, pool_);
@@ -168,21 +175,7 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     const std::string& column_path, const std::string& column_key_metadata,
     const std::string& aad, bool metadata) {
-  std::string column_key;
-  // first look if we already got the decryptor from before
-  if (metadata) {
-    if (column_metadata_map_.find(column_path) != column_metadata_map_.end()) {
-      auto res(column_metadata_map_.at(column_path));
-      res->UpdateAad(aad);
-      return res;
-    }
-  } else {
-    if (column_data_map_.find(column_path) != column_data_map_.end()) {
-      auto res(column_data_map_.at(column_path));
-      res->UpdateAad(aad);
-      return res;
-    }
-  }
+  std::string column_key = properties_->column_key(column_path);
 
   column_key = properties_->column_key(column_path);
   // No explicit column key given via API. Retrieve via key metadata.
@@ -200,21 +193,12 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
     throw HiddenColumnException("HiddenColumnException, path=" + column_path);
   }
 
-  // Create both data and metadata decryptors to avoid redundant retrieval of key
-  // using the key_retriever.
   int key_len = static_cast<int>(column_key.size());
-  auto aes_metadata_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/true, &all_decryptors_);
-  auto aes_data_decryptor = encryption::AesDecryptor::Make(
-      algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
-
-  column_metadata_map_[column_path] = std::make_shared<Decryptor>(
-      aes_metadata_decryptor, column_key, file_aad_, aad, pool_);
-  column_data_map_[column_path] =
-      std::make_shared<Decryptor>(aes_data_decryptor, column_key, file_aad_, aad, pool_);
-
-  if (metadata) return column_metadata_map_[column_path];
-  return column_data_map_[column_path];
+  std::lock_guard<std::mutex> lock(mutex_);
+  auto aes_decryptor =
+      encryption::AesDecryptor::Make(algorithm_, key_len, metadata, &all_decryptors_);
+  return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
+                                     pool_);
 }
 
 namespace {

@@ -14,9 +14,7 @@
 // limitations under the License.
 
 using System;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -72,8 +70,6 @@ namespace Apache.Arrow.Tests
 
         public class SqlDecimals
         {
-
-#if !NETSTANDARD1_3
             [Fact]
             public void NegativeSqlDecimal()
             {
@@ -119,7 +115,6 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(negative, sqlNegative);
                 Assert.Equal(digits, sqlNegative.ToString());
             }
-#endif
         }
 
         public class Strings

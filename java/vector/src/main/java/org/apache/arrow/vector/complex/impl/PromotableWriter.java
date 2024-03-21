@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.util.Locale;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
@@ -37,6 +39,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -299,13 +302,15 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     return writer.isEmptyStruct();
   }
 
+  @Override
   protected FieldWriter getWriter() {
     return writer;
   }
 
   private FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
-    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
+    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(Locale.ROOT),
+        vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
       // TODO allow dictionaries in complex types
@@ -378,7 +383,66 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
           /*bitWidth=*/256)).writeBigEndianBytesToDecimal256(value, arrowType);
   }
 
- 
+  @Override
+  public void writeVarBinary(byte[] value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarChar(Text value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeVarChar(String value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(Text value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(String value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
   @Override
   public void allocate() {
     getWriter().allocate();

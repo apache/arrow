@@ -35,52 +35,54 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
+        private bool HasReadDictionaries => HasReadSchema && DictionaryMemo.LoadedDictionaryCount >= _footer.DictionaryCount;
+
         public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
             : base(stream, allocator, compressionCodecFactory, leaveOpen)
         {
         }
 
-        public async ValueTask<int> RecordBatchCountAsync()
+        public async ValueTask<int> RecordBatchCountAsync(CancellationToken cancellationToken = default)
         {
             if (!HasReadSchema)
             {
-                await ReadSchemaAsync().ConfigureAwait(false);
+                await ReadSchemaAsync(cancellationToken).ConfigureAwait(false);
             }
 
             return _footer.RecordBatchCount;
         }
 
-        protected override async ValueTask ReadSchemaAsync()
+        protected override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
         {
             if (HasReadSchema)
             {
                 return;
             }
 
-            await ValidateFileAsync().ConfigureAwait(false);
+            await ValidateFileAsync(cancellationToken).ConfigureAwait(false);
 
             int footerLength = 0;
-            await ArrayPool<byte>.Shared.RentReturnAsync(4, async (buffer) =>
+            using (ArrayPool<byte>.Shared.RentReturn(4, out Memory<byte> buffer))
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
-                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
                 EnsureFullRead(buffer, bytesRead);
 
                 footerLength = ReadFooterLength(buffer);
-            }).ConfigureAwait(false);
+            }
 
-            await ArrayPool<byte>.Shared.RentReturnAsync(footerLength, async (buffer) =>
+            using (ArrayPool<byte>.Shared.RentReturn(footerLength, out Memory<byte> buffer))
             {
                 long footerStartPosition = GetFooterLengthPosition() - footerLength;
 
                 BaseStream.Position = footerStartPosition;
 
-                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
+                int bytesRead = await BaseStream.ReadFullBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
                 EnsureFullRead(buffer, bytesRead);
 
                 ReadSchema(buffer);
-            }).ConfigureAwait(false);
+            }
         }
 
         protected override void ReadSchema()
@@ -93,7 +95,7 @@ namespace Apache.Arrow.Ipc
             ValidateFile();
 
             int footerLength = 0;
-            ArrayPool<byte>.Shared.RentReturn(4, (buffer) =>
+            using (ArrayPool<byte>.Shared.RentReturn(4, out Memory<byte> buffer))
             {
                 BaseStream.Position = GetFooterLengthPosition();
 
@@ -101,9 +103,9 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buffer, bytesRead);
 
                 footerLength = ReadFooterLength(buffer);
-            });
+            }
 
-            ArrayPool<byte>.Shared.RentReturn(footerLength, (buffer) =>
+            using (ArrayPool<byte>.Shared.RentReturn(footerLength, out Memory<byte> buffer))
             {
                 long footerStartPosition = GetFooterLengthPosition() - footerLength;
 
@@ -113,7 +115,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buffer, bytesRead);
 
                 ReadSchema(buffer);
-            });
+            }
         }
 
         private long GetFooterLengthPosition()
@@ -143,6 +145,7 @@ namespace Apache.Arrow.Ipc
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -159,6 +162,7 @@ namespace Apache.Arrow.Ipc
         public RecordBatch ReadRecordBatch(int index)
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -175,6 +179,7 @@ namespace Apache.Arrow.Ipc
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -190,6 +195,7 @@ namespace Apache.Arrow.Ipc
         public override RecordBatch ReadNextRecordBatch()
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -202,17 +208,45 @@ namespace Apache.Arrow.Ipc
             return result;
         }
 
+        private async ValueTask ReadDictionariesAsync(CancellationToken cancellationToken = default)
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                await ReadMessageAsync(cancellationToken);
+            }
+        }
+
+        private void ReadDictionaries()
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                ReadMessage();
+            }
+        }
+
         /// <summary>
         /// Check if file format is valid. If it's valid don't run the validation again.
         /// </summary>
-        private async ValueTask ValidateFileAsync()
+        private async ValueTask ValidateFileAsync(CancellationToken cancellationToken = default)
         {
             if (IsFileValid)
             {
                 return;
             }
 
-            await ValidateMagicAsync().ConfigureAwait(false);
+            await ValidateMagicAsync(cancellationToken).ConfigureAwait(false);
 
             IsFileValid = true;
         }
@@ -232,20 +266,20 @@ namespace Apache.Arrow.Ipc
             IsFileValid = true;
         }
 
-        private async ValueTask ValidateMagicAsync()
+        private async ValueTask ValidateMagicAsync(CancellationToken cancellationToken = default)
         {
             long startingPosition = BaseStream.Position;
             int magicLength = ArrowFileConstants.Magic.Length;
 
             try
             {
-                await ArrayPool<byte>.Shared.RentReturnAsync(magicLength, async (buffer) =>
+                using (ArrayPool<byte>.Shared.RentReturn(magicLength, out Memory<byte> buffer))
                 {
                     // Seek to the beginning of the stream
                     BaseStream.Position = 0;
 
                     // Read beginning of stream
-                    await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
+                    await BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
 
                     VerifyMagic(buffer);
 
@@ -253,10 +287,10 @@ namespace Apache.Arrow.Ipc
                     BaseStream.Position = BaseStream.Length - magicLength;
 
                     // Read the end of the stream
-                    await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
+                    await BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
 
                     VerifyMagic(buffer);
-                }).ConfigureAwait(false);
+                }
             }
             finally
             {
@@ -271,7 +305,7 @@ namespace Apache.Arrow.Ipc
 
             try
             {
-                ArrayPool<byte>.Shared.RentReturn(magicLength, buffer =>
+                using (ArrayPool<byte>.Shared.RentReturn(magicLength, out Memory<byte> buffer))
                 {
                     // Seek to the beginning of the stream
                     BaseStream.Position = 0;
@@ -288,7 +322,7 @@ namespace Apache.Arrow.Ipc
                     BaseStream.Read(buffer);
 
                     VerifyMagic(buffer);
-                });
+                }
             }
             finally
             {

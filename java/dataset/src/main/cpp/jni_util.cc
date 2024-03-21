@@ -192,9 +192,9 @@ std::string Describe(JNIEnv* env, jthrowable t) {
 }
 
 bool IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
-  jclass jclass = env->FindClass(class_name.c_str());
-  DCHECK_NE(jclass, nullptr) << "Could not find Java class " << class_name;
-  return env->IsInstanceOf(t, jclass);
+  jclass java_class = env->FindClass(class_name.c_str());
+  DCHECK_NE(java_class, nullptr) << "Could not find Java class " << class_name;
+  return env->IsInstanceOf(t, java_class);
 }
 
 arrow::StatusCode MapJavaError(JNIEnv* env, jthrowable t) {

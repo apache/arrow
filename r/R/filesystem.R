@@ -156,7 +156,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
 #' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
 #'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
-#' - `request_timeout`: Socket read time on Windows and MacOS in seconds. If
+#' - `request_timeout`: Socket read time on Windows and macOS in seconds. If
 #'    negative, the AWS SDK default (typically 3 seconds).
 #' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
 #'    SDK default is used (typically 1 second).
@@ -486,7 +486,7 @@ default_s3_options <- list(
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
-#' Sys.setenv("ARROW_S3_LOG_LEVEL", "DEBUG")
+#' Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
 #'
 #' @export

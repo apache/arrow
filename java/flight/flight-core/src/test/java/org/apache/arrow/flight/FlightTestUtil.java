@@ -19,12 +19,12 @@ package org.apache.arrow.flight;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 
-import org.apache.arrow.util.ArrowTestDataUtil;
+import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
@@ -32,8 +32,6 @@ import org.junit.jupiter.api.function.Executable;
  * Utility methods and constants for testing flight servers.
  */
 public class FlightTestUtil {
-
-  private static final Random RANDOM = new Random();
 
   public static final String LOCALHOST = "localhost";
 
@@ -47,7 +45,11 @@ public class FlightTestUtil {
 
   static List<CertKeyPair> exampleTlsCerts() {
     final Path root = getFlightTestDataRoot();
-    return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+    final Path cert0Pem = root.resolve("cert0.pem");
+    if (!Files.exists(cert0Pem)) {
+      throw new RuntimeException(cert0Pem + " doesn't exist. Make sure submodules are initialized (see https://arrow.apache.org/docs/dev/developers/java/building.html#building)");
+    }
+    return Arrays.asList(new CertKeyPair(cert0Pem.toFile(), root.resolve("cert0.pkcs1").toFile()),
         new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 

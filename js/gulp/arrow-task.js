@@ -41,6 +41,7 @@ export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target
     const esnextUmdSourceMapsGlob = `${targetDir(`esnext`, `umd`)}/*.map`;
     return ObservableForkJoin([
         observableFromStreams(gulp.src(dtsGlob), gulp.dest(out)), // copy d.ts files
+        observableFromStreams(gulp.src(dtsGlob), gulpRename((p) => { p.extname = '.mts'; }), gulp.dest(out)), // copy d.ts files as esm
         observableFromStreams(gulp.src(cjsGlob), gulp.dest(out)), // copy es2015 cjs files
         observableFromStreams(gulp.src(cjsSourceMapsGlob), gulp.dest(out)), // copy es2015 cjs sourcemaps
         observableFromStreams(gulp.src(esmSourceMapsGlob), gulp.dest(out)), // copy es2015 esm sourcemaps

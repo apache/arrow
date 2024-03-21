@@ -34,7 +34,7 @@ One thing to note is that some of the services defined in ``docker-compose.yml``
 
 There are numerous important directories in the Arrow project which relate to CI:
 
-- ``.github/worflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
+- ``.github/workflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
 - ``dev/tasks`` - containing extended jobs triggered/submitted via ``archery crossbow submit ...``, typically nightly builds or relating to the release process
 - ``ci/`` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
 
@@ -46,7 +46,7 @@ Instead of thinking about Arrow CI in terms of files and folders, it may be conc
 Action-triggered builds
 -----------------------
 
-The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
+The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
 
 - ``archery.yml`` - if changes are made to the Archery tool or tasks which it runs, this workflow runs the necessary validation checks
 - ``comment_bot.yml`` - triggers certain actions by listening on github pull request comments for the following strings:

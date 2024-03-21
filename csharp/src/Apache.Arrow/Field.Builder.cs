@@ -30,14 +30,13 @@ namespace Apache.Arrow
 
             public Builder()
             {
-                _name = string.Empty;
                 _type = NullType.Default;
                 _nullable = true;
             }
 
             public Builder Name(string value)
             {
-                if (string.IsNullOrWhiteSpace(value))
+                if (value == null)
                 {
                     throw new ArgumentNullException(nameof(value));
                 }

@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Apache.Arrow
@@ -24,6 +25,9 @@ namespace Apache.Arrow
     /// stored as the number of seconds/ milliseconds (depending on the Time32Type) since midnight.
     /// </summary>
     public class Time32Array : PrimitiveArray<int>
+#if NET6_0_OR_GREATER
+        , IReadOnlyList<TimeOnly?>
+#endif
     {
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time32Array"/> objects.
@@ -153,6 +157,18 @@ namespace Apache.Arrow
                 TimeUnit.Second => new TimeOnly(value.Value * TimeSpan.TicksPerSecond),
                 TimeUnit.Millisecond => new TimeOnly(value.Value * TimeSpan.TicksPerMillisecond),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+            };
+        }
+
+        int IReadOnlyCollection<TimeOnly?>.Count => Length;
+
+        TimeOnly? IReadOnlyList<TimeOnly?>.this[int index] => GetTime(index);
+
+        IEnumerator<TimeOnly?> IEnumerable<TimeOnly?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetTime(index);
             };
         }
 #endif

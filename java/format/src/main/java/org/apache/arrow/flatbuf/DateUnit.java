@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class DateUnit {
   private DateUnit() { }
   public static final short DAY = 0;

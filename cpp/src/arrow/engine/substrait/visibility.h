@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// TODO(westonpace): Once we have a propert engine module this file
+// TODO(westonpace): Once we have a proper engine module this file
 // should be renamed arrow/engine/visibility.h
 // This API is EXPERIMENTAL.
 

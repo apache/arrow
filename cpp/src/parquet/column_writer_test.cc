@@ -15,16 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/config.h"
 
+#include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -308,8 +312,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_codec_options(codec_options);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -478,6 +483,8 @@ using TestValuesWriterInt64Type = TestPrimitiveWriter<Int64Type>;
 using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
+using ::testing::HasSubstr;
+
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
 }
@@ -500,23 +507,33 @@ TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
+TEST_F(TestValuesWriterInt32Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
+
 TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
+}
+
+TEST_F(TestValuesWriterInt64Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
 }
 
 TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-/*
-TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 
 TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
-*/
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
 
 TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
   this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);
@@ -557,7 +574,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
 
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);
@@ -888,6 +905,52 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
+TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
+  NodePtr item = schema::Int32("item");  // optional item
+  NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
+  NodePtr bag(GroupNode::Make("bag", Repetition::OPTIONAL, {list}));  // optional list
+  std::vector<NodePtr> fields = {bag};
+  NodePtr root = GroupNode::Make("schema", Repetition::REPEATED, fields);
+
+  SchemaDescriptor schema;
+  schema.Init(root);
+
+  auto sink = CreateOutputStream();
+  auto props = WriterProperties::Builder().build();
+
+  auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
+
+  uint8_t data;
+  std::shared_ptr<Buffer> buffer =
+      std::make_shared<Buffer>(&data, std::numeric_limits<int32_t>::max() + int64_t{1});
+  DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
+                                   Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+                                   /*uncompressed_size=*/100);
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+  DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
+                                                  Encoding::PLAIN);
+  EXPECT_THROW_THAT(
+      [&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("overflows INT32_MAX")));
+
+  buffer = std::make_shared<Buffer>(&data, 1);
+  DataPageV1 over_uncompressed_limit(
+      buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
+      Encoding::BIT_PACKED,
+      /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
+}
+
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   // In ARROW-3930 we discovered a bug when writing from Arrow when we had data
   // that looks like this:
@@ -975,7 +1038,7 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
 }
 
 void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
-                          std::vector<int16_t>& input_levels,
+                          const std::vector<int16_t>& input_levels,
                           std::vector<uint8_t>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;
@@ -1014,7 +1077,7 @@ void VerifyDecodingLevels(Encoding::type encoding, int16_t max_level,
 }
 
 void VerifyDecodingMultipleSetData(Encoding::type encoding, int16_t max_level,
-                                   std::vector<int16_t>& input_levels,
+                                   const std::vector<int16_t>& input_levels,
                                    std::vector<std::vector<uint8_t>>& bytes) {
   LevelDecoder decoder;
   int levels_count = 0;

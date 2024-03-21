@@ -82,7 +82,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
             else
                 % Check if every type in the array has the same class type.
                 % If so, call getDisplayPropertyGroups() so that all
-                % properties assoicated with that class are displayed.
+                % properties associated with that class are displayed.
                 classnames = arrayfun(@(type) string(class(type)), obj);
                 if numel(unique(classnames)) == 1
                     groups = getDisplayPropertyGroups(obj(1));

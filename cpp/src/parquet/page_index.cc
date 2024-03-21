@@ -428,7 +428,7 @@ class PageIndexReaderImpl : public PageIndexReader {
   /// Reader properties used to deserialize thrift object.
   const ReaderProperties& properties_;
 
-  /// File-level decrypter.
+  /// File-level decryptor.
   InternalFileDecryptor* file_decryptor_;
 
   /// Coalesced read ranges of page index of row groups that have been suggested by

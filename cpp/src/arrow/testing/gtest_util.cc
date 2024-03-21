@@ -50,9 +50,11 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
@@ -61,6 +63,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
+
+#include <rapidjson/document.h>
+
+namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
@@ -145,42 +151,46 @@ void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
-                        bool check_metadata) {
+                        bool check_metadata, const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.Equals(actual, check_metadata);
+                 return expected.Equals(actual, check_metadata, options);
                });
 }
 
-void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual,
+                              const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.ApproxEquals(actual);
+                 return expected.ApproxEquals(actual, options);
                });
 }
 
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual,
+                        const EqualOptions& options) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_IGNORE_EXPR(c1->Equals(c2, options.diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }
 }
 
-void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
-  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected,
+                        const EqualOptions& options) {
+  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual, options);
 }
 
-void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual,
+                             const EqualOptions& options) {
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -229,20 +239,11 @@ void AssertBufferEqual(const Buffer& buffer, const Buffer& expected) {
 }
 
 template <typename T>
-std::string ToStringWithMetadata(const T& t, bool show_metadata) {
-  return t.ToString(show_metadata);
-}
-
-std::string ToStringWithMetadata(const DataType& t, bool show_metadata) {
-  return t.ToString();
-}
-
-template <typename T>
 void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
                                  const char* types_plural) {
   ASSERT_TRUE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared equal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared equal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -252,9 +253,8 @@ void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metad
     rfp += right.metadata_fingerprint();
   }
   ASSERT_EQ(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                      << ToStringWithMetadata(left, check_metadata) << "' and '"
-                      << ToStringWithMetadata(right, check_metadata)
-                      << "' should have compared equal";
+                      << left.ToString(check_metadata) << "' and '"
+                      << right.ToString(check_metadata) << "' should have compared equal";
 }
 
 template <typename T>
@@ -270,8 +270,8 @@ template <typename T>
 void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_metadata,
                                     const char* types_plural) {
   ASSERT_FALSE(left.Equals(right, check_metadata))
-      << types_plural << " '" << ToStringWithMetadata(left, check_metadata) << "' and '"
-      << ToStringWithMetadata(right, check_metadata) << "' should have compared unequal";
+      << types_plural << " '" << left.ToString(check_metadata) << "' and '"
+      << right.ToString(check_metadata) << "' should have compared unequal";
   auto lfp = left.fingerprint();
   auto rfp = right.fingerprint();
   // Note: all types tested in this file should implement fingerprinting,
@@ -282,8 +282,8 @@ void AssertFingerprintablesNotEqual(const T& left, const T& right, bool check_me
       rfp += right.metadata_fingerprint();
     }
     ASSERT_NE(lfp, rfp) << "Fingerprints for " << types_plural << " '"
-                        << ToStringWithMetadata(left, check_metadata) << "' and '"
-                        << ToStringWithMetadata(right, check_metadata)
+                        << left.ToString(check_metadata) << "' and '"
+                        << right.ToString(check_metadata)
                         << "' should have compared unequal";
   }
 }
@@ -321,21 +321,23 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose,
+                       const EqualOptions& options) {
   ASSERT_EQ(expected.kind(), actual.kind())
       << "expected:" << expected.ToString() << " got:" << actual.ToString();
 
   switch (expected.kind()) {
     case Datum::SCALAR:
-      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose, options);
       break;
     case Datum::ARRAY: {
       auto expected_array = expected.make_array();
       auto actual_array = actual.make_array();
-      AssertArraysEqual(*expected_array, *actual_array, verbose);
+      AssertArraysEqual(*expected_array, *actual_array, verbose, options);
     } break;
     case Datum::CHUNKED_ARRAY:
-      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array(),
+                              options);
       break;
     default:
       // TODO: Implement better print
@@ -429,6 +431,43 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides,
+                                       std::string_view dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+
+  rj::Document json_shape;
+  json_shape.Parse(shape.data(), shape.length());
+  std::vector<int64_t> shape_vector;
+  for (auto& x : json_shape.GetArray()) {
+    shape_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_strides;
+  json_strides.Parse(strides.data(), strides.length());
+  std::vector<int64_t> strides_vector;
+  for (auto& x : json_strides.GetArray()) {
+    strides_vector.emplace_back(x.GetInt64());
+  }
+  rj::Document json_dim_names;
+  json_dim_names.Parse(dim_names.data(), dim_names.length());
+  std::vector<std::string> dim_names_vector;
+  for (auto& x : json_dim_names.GetArray()) {
+    dim_names_vector.emplace_back(x.GetString());
+  }
+  return *Tensor::Make(type, array->data()->buffers[1], shape_vector, strides_vector,
+                       dim_names_vector);
+}
+
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides,
+                                       const std::vector<std::string>& dim_names) {
+  std::shared_ptr<Array> array = ArrayFromJSON(type, data);
+  return *Tensor::Make(type, array->data()->buffers[1], shape, strides, dim_names);
+}
+
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
     const Table& table, const std::vector<int>& column_indices) {
   const int num_columns = table.num_columns();
@@ -479,7 +518,7 @@ Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
-                       bool combine_chunks) {
+                       bool combine_chunks, const EqualOptions& options) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
 
   if (combine_chunks) {
@@ -487,13 +526,13 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
     ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
     ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
-    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    AssertTablesEqual(*new_expected, *new_actual, false, false, options);
     return;
   }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i), *actual.column(i));
+      AssertChunkedEqual(*expected.column(i), *actual.column(i), options);
     }
   } else {
     std::stringstream ss;
@@ -533,17 +572,18 @@ void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
 }
 
 void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+                  bool compare_metadata, const EqualOptions& options) {
   return CompareBatchWith(
       left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.Equals(right); });
+      [&](const Array& left, const Array& right) { return left.Equals(right, options); });
 }
 
 void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
-                        bool compare_metadata) {
-  return CompareBatchWith(
-      left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
+                        bool compare_metadata, const EqualOptions& options) {
+  return CompareBatchWith(left, right, compare_metadata,
+                          [&](const Array& left, const Array& right) {
+                            return left.ApproxEquals(right, options);
+                          });
 }
 
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,

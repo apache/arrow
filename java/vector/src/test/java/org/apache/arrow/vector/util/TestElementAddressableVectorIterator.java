@@ -20,6 +20,8 @@ package org.apache.arrow.vector.util;
 import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
@@ -98,7 +100,7 @@ public class TestElementAddressableVectorIterator {
         if (i == 0) {
           strVector.setNull(i);
         } else {
-          strVector.set(i, String.valueOf(i).getBytes());
+          strVector.set(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
         }
       }
 
@@ -125,7 +127,7 @@ public class TestElementAddressableVectorIterator {
           assertEquals(expected.length(), pt.getLength());
 
           pt.getBuf().getBytes(pt.getOffset(), actual);
-          assertEquals(expected, new String(actual));
+          assertEquals(expected, new String(actual, StandardCharsets.UTF_8));
         }
         index += 1;
       }

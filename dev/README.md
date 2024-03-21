@@ -108,25 +108,6 @@ Status		closed
 URL		https://github.com/apache/arrow/issues/Y
 ```
 
-## Verifying Release Candidates
-
-We have provided a script to assist with verifying release candidates on Linux
-and macOS:
-
-```shell
-bash dev/release/verify-release-candidate.sh 0.7.0 0
-```
-
-Read the script and check the notes in dev/release for information about system 
-dependencies.
-
-On Windows, we have a script that verifies C++ and Python (requires Visual
-Studio 2015):
-
-```
-dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
-```
-
 # Integration testing
 
 Build the following base image used by multiple tests:

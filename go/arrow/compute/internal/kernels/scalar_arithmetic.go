@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/compute/exec"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/scalar"
 )
 
 // scalar kernel that ignores (assumed all-null inputs) and returns null
@@ -254,7 +254,7 @@ func GetBitwiseBinaryKernels(op BitwiseOp) []exec.ScalarKernel {
 	return append(kernels, NullExecKernel(2))
 }
 
-func bitwiseNot[T exec.IntTypes | exec.UintTypes](_ *exec.KernelCtx, arg T, _ *error) T {
+func bitwiseNot[T arrow.IntType | arrow.UintType](_ *exec.KernelCtx, arg T, _ *error) T {
 	return ^arg
 }
 
@@ -290,7 +290,7 @@ const (
 	ShiftRight
 )
 
-func shiftKernelSignedImpl[T exec.IntTypes, Unsigned exec.UintTypes](dir ShiftDir, checked bool) exec.ArrayKernelExec {
+func shiftKernelSignedImpl[T arrow.IntType, Unsigned arrow.UintType](dir ShiftDir, checked bool) exec.ArrayKernelExec {
 	errShift := fmt.Errorf("%w: shift amount must be >= 0 and less than precision of type", arrow.ErrInvalid)
 	maxShift := T(8*SizeOf[T]() - 1)
 
@@ -334,7 +334,7 @@ func shiftKernelSignedImpl[T exec.IntTypes, Unsigned exec.UintTypes](dir ShiftDi
 	return nil
 }
 
-func shiftKernelUnsignedImpl[T exec.UintTypes](dir ShiftDir, checked bool) exec.ArrayKernelExec {
+func shiftKernelUnsignedImpl[T arrow.UintType](dir ShiftDir, checked bool) exec.ArrayKernelExec {
 	errShift := fmt.Errorf("%w: shift amount must be >= 0 and less than precision of type", arrow.ErrInvalid)
 	maxShift := T(8 * SizeOf[T]())
 

@@ -57,7 +57,7 @@ def test_io_thread_count():
 
 
 def test_env_var_io_thread_count():
-    # Test that the number of IO threads can be overriden with the
+    # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
     code = """if 1:
         import pyarrow as pa
@@ -117,6 +117,19 @@ def test_runtime_info():
         subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
+def test_import_at_shutdown():
+    # GH-38626: importing PyArrow at interpreter shutdown would crash
+    code = """if 1:
+        import atexit
+
+        def import_arrow():
+            import pyarrow
+
+        atexit.register(import_arrow)
+        """
+    subprocess.check_call([sys.executable, "-c", code])
+
+
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Path to timezone database is not configurable "
                            "on non-Windows platforms")
@@ -141,6 +154,8 @@ def test_set_timezone_db_path_non_windows():
     pa.ListType,
     pa.LargeListType,
     pa.FixedSizeListType,
+    pa.ListViewType,
+    pa.LargeListViewType,
     pa.UnionType,
     pa.SparseUnionType,
     pa.DenseUnionType,
@@ -172,6 +187,8 @@ def test_set_timezone_db_path_non_windows():
     pa.UnionArray,
     pa.BinaryArray,
     pa.StringArray,
+    pa.BinaryViewArray,
+    pa.StringViewArray,
     pa.FixedSizeBinaryArray,
     pa.DictionaryArray,
     pa.Date32Array,
@@ -208,8 +225,12 @@ def test_set_timezone_db_path_non_windows():
     pa.StringScalar,
     pa.BinaryScalar,
     pa.FixedSizeBinaryScalar,
+    pa.BinaryViewScalar,
+    pa.StringViewScalar,
     pa.ListScalar,
     pa.LargeListScalar,
+    pa.ListViewScalar,
+    pa.LargeListViewScalar,
     pa.MapScalar,
     pa.FixedSizeListScalar,
     pa.UnionScalar,

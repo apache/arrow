@@ -577,7 +577,7 @@ class NoopAuthHandler(ServerAuthHandler):
 
 def case_insensitive_header_lookup(headers, lookup_key):
     """Lookup the value of given key in the given headers.
-       The key lookup is case insensitive.
+       The key lookup is case-insensitive.
     """
     for key in headers:
         if key.lower() == lookup_key.lower():

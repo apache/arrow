@@ -14,17 +14,16 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using System.Diagnostics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray
+    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
@@ -94,7 +93,6 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-#if !NETSTANDARD1_3
             public Builder Append(SqlDecimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -123,7 +121,6 @@ namespace Apache.Arrow
 
                 return Instance;
             }
-#endif
 
             public Builder Set(int index, decimal value)
             {
@@ -157,6 +154,30 @@ namespace Apache.Arrow
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
         }
 
+        public IList<decimal?> ToList(bool includeNulls = false)
+        {
+            var list = new List<decimal?>(Length);
+
+            for (int i = 0; i < Length; i++)
+            {
+                decimal? value = GetValue(i);
+
+                if (value.HasValue)
+                {
+                    list.Add(value.Value);
+                }
+                else
+                {
+                    if (includeNulls)
+                    {
+                        list.Add(null);
+                    }
+                }
+            }
+
+            return list;
+        }
+
         public string GetString(int index)
         {
             if (IsNull(index))
@@ -166,7 +187,6 @@ namespace Apache.Arrow
             return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
         }
 
-#if !NETSTANDARD1_3
         public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
         {
             if (IsNull(index))
@@ -187,6 +207,40 @@ namespace Apache.Arrow
             value = null;
             return false;
         }
-#endif
+
+        private SqlDecimal? GetSqlDecimal(int index)
+        {
+            SqlDecimal? value;
+            if (TryGetSqlDecimal(index, out value))
+            {
+                return value;
+            }
+
+            throw new OverflowException("decimal256 value out of range of SqlDecimal");
+        }
+
+        int IReadOnlyCollection<SqlDecimal?>.Count => Length;
+        SqlDecimal? IReadOnlyList<SqlDecimal?>.this[int index] => GetSqlDecimal(index);
+
+        IEnumerator<SqlDecimal?> IEnumerable<SqlDecimal?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetSqlDecimal(index);
+            }
+        }
+
+        int IReadOnlyCollection<string>.Count => Length;
+        string? IReadOnlyList<string>.this[int index] => GetString(index);
+
+        IEnumerator<string> IEnumerable<string>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetString(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
     }
 }

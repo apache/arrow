@@ -69,10 +69,10 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/internal"
-	"github.com/apache/arrow/go/v15/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/internal"
+	"github.com/apache/arrow/go/v16/arrow/memory/mallocator"
 )
 
 const (

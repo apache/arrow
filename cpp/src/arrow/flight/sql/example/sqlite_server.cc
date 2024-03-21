@@ -598,7 +598,7 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const GetPrimaryKeys& command) {
     std::stringstream table_query;
 
-    // The field key_name can not be recovered by the sqlite, so it is being set
+    // The field key_name cannot be recovered by the sqlite, so it is being set
     // to null following the same pattern for catalog_name and schema_name.
     table_query << "SELECT null as catalog_name, null as schema_name, table_name, "
                    "name as column_name,  pk as key_sequence, null as key_name\n"

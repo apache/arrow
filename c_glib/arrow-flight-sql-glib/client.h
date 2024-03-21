@@ -23,9 +23,7 @@
 
 G_BEGIN_DECLS
 
-
-#define GAFLIGHTSQL_TYPE_PREPARED_STATEMENT     \
-  (gaflightsql_prepared_statement_get_type())
+#define GAFLIGHTSQL_TYPE_PREPARED_STATEMENT (gaflightsql_prepared_statement_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLPreparedStatement,
                          gaflightsql_prepared_statement,
                          GAFLIGHTSQL,
@@ -38,17 +36,15 @@ struct _GAFlightSQLPreparedStatementClass
 
 GARROW_AVAILABLE_IN_14_0
 GAFlightInfo *
-gaflightsql_prepared_statement_execute(
-  GAFlightSQLPreparedStatement *statement,
-  GAFlightCallOptions *options,
-  GError **error);
+gaflightsql_prepared_statement_execute(GAFlightSQLPreparedStatement *statement,
+                                       GAFlightCallOptions *options,
+                                       GError **error);
 
 GARROW_AVAILABLE_IN_14_0
 gint64
-gaflightsql_prepared_statement_execute_update(
-  GAFlightSQLPreparedStatement *statement,
-  GAFlightCallOptions *options,
-  GError **error);
+gaflightsql_prepared_statement_execute_update(GAFlightSQLPreparedStatement *statement,
+                                              GAFlightCallOptions *options,
+                                              GError **error);
 
 GARROW_AVAILABLE_IN_14_0
 GArrowSchema *
@@ -62,10 +58,9 @@ gaflightsql_prepared_statement_get_dataset_schema(
 
 GARROW_AVAILABLE_IN_14_0
 gboolean
-gaflightsql_prepared_statement_set_record_batch(
-  GAFlightSQLPreparedStatement *statement,
-  GArrowRecordBatch *record_batch,
-  GError **error);
+gaflightsql_prepared_statement_set_record_batch(GAFlightSQLPreparedStatement *statement,
+                                                GArrowRecordBatch *record_batch,
+                                                GError **error);
 
 GARROW_AVAILABLE_IN_14_0
 gboolean
@@ -76,23 +71,17 @@ gaflightsql_prepared_statement_set_record_batch_reader(
 
 GARROW_AVAILABLE_IN_14_0
 gboolean
-gaflightsql_prepared_statement_close(
-  GAFlightSQLPreparedStatement *statement,
-  GAFlightCallOptions *options,
-  GError **error);
+gaflightsql_prepared_statement_close(GAFlightSQLPreparedStatement *statement,
+                                     GAFlightCallOptions *options,
+                                     GError **error);
 
 GARROW_AVAILABLE_IN_14_0
 gboolean
-gaflightsql_prepared_statement_is_closed(
-  GAFlightSQLPreparedStatement *statement);
-
+gaflightsql_prepared_statement_is_closed(GAFlightSQLPreparedStatement *statement);
 
 #define GAFLIGHTSQL_TYPE_CLIENT (gaflightsql_client_get_type())
-G_DECLARE_DERIVABLE_TYPE(GAFlightSQLClient,
-                         gaflightsql_client,
-                         GAFLIGHTSQL,
-                         CLIENT,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GAFlightSQLClient, gaflightsql_client, GAFLIGHTSQL, CLIENT, GObject)
 struct _GAFlightSQLClientClass
 {
   GObjectClass parent_class;
@@ -129,6 +118,5 @@ gaflightsql_client_prepare(GAFlightSQLClient *client,
                            const gchar *query,
                            GAFlightCallOptions *options,
                            GError **error);
-
 
 G_END_DECLS

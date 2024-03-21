@@ -189,6 +189,32 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
 }
 
+Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                               bool include_nulls, MemoryPool* pool,
+                               std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.ListView(*child_array, /*length=*/num_lists, null_probability,
+                       /*force_empty_nulls=*/false, /*coverage=*/0.9,
+                       kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
+Status MakeRandomLargeListViewArray(const std::shared_ptr<Array>& child_array,
+                                    int num_lists, bool include_nulls, MemoryPool* pool,
+                                    std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.LargeListView(*child_array, /*length=*/num_lists, null_probability,
+                            /*force_empty_nulls=*/false,
+                            /*force_empty_nulls=*/0.9, kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
 Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                                 bool include_nulls, MemoryPool* pool,
                                 std::shared_ptr<Array>* out) {
@@ -418,6 +444,31 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", list_view(int32()));
+  auto f1 = field("f1", list_view(list_view(int32())));
+  auto f2 = field("f2", large_list_view(int32()));
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  // Example data
+
+  MemoryPool* pool = default_memory_pool();
+  const int length = 200;
+  std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(leaf_values, length, include_nulls, pool, &list_array));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(list_array, length, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(MakeRandomLargeListViewArray(leaf_values, length, include_nulls, pool,
+                                             &large_list_array));
+  *out =
+      RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
+  return Status::OK();
+}
+
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
   // Make the schema
   auto f0 = field("f0", fixed_size_list(int32(), 1));
@@ -496,6 +547,27 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   for (int i = 0; i < 63; ++i) {
     type = std::static_pointer_cast<DataType>(list(type));
     RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool, &array));
+  }
+
+  auto f0 = field("f0", type);
+  auto schema = ::arrow::schema({f0});
+  std::vector<std::shared_ptr<Array>> arrays = {array};
+  *out = RecordBatch::Make(schema, batch_length, arrays);
+  return Status::OK();
+}
+
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out) {
+  const int batch_length = 5;
+  auto type = int32();
+
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
+  for (int i = 0; i < 63; ++i) {
+    type = std::static_pointer_cast<DataType>(list_view(type));
+    RETURN_NOT_OK(
+        MakeRandomListViewArray(array, batch_length, include_nulls, pool, &array));
   }
 
   auto f0 = field("f0", type);

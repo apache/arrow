@@ -26,6 +26,17 @@ namespace Apache.Arrow
             {
                 // TODO: Use localizable string resource
                 throw new ArgumentException(
+                    $"Buffer count <{data.Buffers.Length}> must be at exactly <{count}>",
+                    nameof(data.Buffers.Length));
+            }
+        }
+
+        public static void EnsureVariadicBufferCount(this ArrayData data, int count)
+        {
+            if (data.Buffers.Length < count)
+            {
+                // TODO: Use localizable string resource
+                throw new ArgumentException(
                     $"Buffer count <{data.Buffers.Length}> must be at least <{count}>",
                     nameof(data.Buffers.Length));
             }

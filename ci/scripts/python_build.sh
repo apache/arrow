@@ -31,6 +31,10 @@ if [ -x "$(command -v git)" ]; then
   git config --global --add safe.directory ${arrow_dir}
 fi
 
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -55,6 +59,7 @@ export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
 
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-OFF}
+export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
 export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
 export PYARROW_WITH_DATASET=${ARROW_DATASET:-ON}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT:-OFF}

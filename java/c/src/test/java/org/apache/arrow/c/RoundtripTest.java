@@ -48,6 +48,7 @@ import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -298,6 +299,14 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testFloat2Vector() {
+    try (final Float2Vector vector = new Float2Vector("v", allocator)) {
+      setVector(vector, 0.1f, 0.2f, 0.3f, null);
+      assertTrue(roundtrip(vector, Float2Vector.class));
+    }
+  }
+
+  @Test
   public void testFloat4Vector() {
     try (final Float4Vector vector = new Float4Vector("v", allocator)) {
       setVector(vector, 0.1f, 0.2f, 0.3f, null);
@@ -473,6 +482,13 @@ public class RoundtripTest {
     try (final UInt8Vector vector = new UInt8Vector("v", allocator)) {
       setVector(vector, 0L, 1L, null);
       assertTrue(roundtrip(vector, UInt8Vector.class));
+    }
+  }
+
+  @Test
+  public void testNullVector() {
+    try (final NullVector vector = new NullVector("v", 1024)) {
+      assertTrue(roundtrip(vector, NullVector.class));
     }
   }
 

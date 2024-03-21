@@ -18,7 +18,8 @@
 package org.apache.arrow.flight;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.TreeSet;
 
@@ -54,7 +55,7 @@ public class TestDictionaryUtils {
     Schema newSchema = DictionaryUtils.generateSchema(schema, null, new TreeSet<>());
 
     // assert that no new schema is created.
-    assertTrue(schema == newSchema);
+    assertSame(schema, newSchema);
   }
 
   @Test
@@ -78,7 +79,7 @@ public class TestDictionaryUtils {
       Schema newSchema = DictionaryUtils.generateSchema(schema, dictProvider, dictionaryUsed);
 
       // assert that a new schema is created.
-      assertTrue(schema != newSchema);
+      assertNotSame(schema, newSchema);
 
       // assert the column is converted as expected
       ArrowType newColType = newSchema.getFields().get(0).getType();

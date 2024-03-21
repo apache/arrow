@@ -33,6 +33,7 @@
 
 #include "arrow/io/memory.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/float16.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -147,6 +148,9 @@ inline void random_numbers(int n, uint32_t seed, double min_value, double max_va
 
 void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_value,
                           Int96* out);
+
+void random_float16_numbers(int n, uint32_t seed, ::arrow::util::Float16 min_value,
+                            ::arrow::util::Float16 max_value, uint16_t* out);
 
 void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out);
 

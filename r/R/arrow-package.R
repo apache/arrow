@@ -183,7 +183,7 @@ configure_tzdb <- function() {
   # Just to be extra safe, let's wrap this in a try();
   # we don't want a failed startup message to prevent the package from loading
   try({
-    # On MacOS only, Check if we are running in under emulation, and warn this will not work
+    # On macOS only, Check if we are running in under emulation, and warn this will not work
     if (on_rosetta()) {
       packageStartupMessage(
         paste(
@@ -212,7 +212,7 @@ configure_tzdb <- function() {
         )
       )
     }
-  })
+  }, silent = TRUE)
 }
 
 # Clean up the StopSource that was registered in .onLoad() so that if the

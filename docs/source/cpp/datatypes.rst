@@ -186,7 +186,7 @@ here is how one might sum across columns of arbitrary numeric types:
    
      // Default implementation
      arrow::Status Visit(const arrow::Array& array) {
-       return arrow::Status::NotImplemented("Can not compute sum for array of type ",
+       return arrow::Status::NotImplemented("Cannot compute sum for array of type ",
                                             array.type()->ToString());
      }
    

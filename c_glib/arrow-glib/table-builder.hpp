@@ -23,5 +23,7 @@
 
 #include <arrow-glib/table-builder.h>
 
-GArrowRecordBatchBuilder *garrow_record_batch_builder_new_raw(arrow::RecordBatchBuilder *arrow_builder);
-arrow::RecordBatchBuilder *garrow_record_batch_builder_get_raw(GArrowRecordBatchBuilder *builder);
+GArrowRecordBatchBuilder *
+garrow_record_batch_builder_new_raw(arrow::RecordBatchBuilder *arrow_builder);
+arrow::RecordBatchBuilder *
+garrow_record_batch_builder_get_raw(GArrowRecordBatchBuilder *builder);

@@ -39,6 +39,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/type_traits.h"
@@ -65,6 +66,7 @@ using arrow::Status;
 using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
+using arrow::util::Float16;
 using arrow::util::RleEncoder;
 
 namespace bit_util = arrow::bit_util;
@@ -73,7 +75,7 @@ namespace parquet {
 
 namespace {
 
-// Visitor that exracts the value buffer from a FlatArray at a given offset.
+// Visitor that extracts the value buffer from a FlatArray at a given offset.
 struct ValueBufferSlicer {
   template <typename T>
   ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(
@@ -129,6 +131,8 @@ struct ValueBufferSlicer {
   NOT_IMPLEMENTED_VISIT(Union);
   NOT_IMPLEMENTED_VISIT(List);
   NOT_IMPLEMENTED_VISIT(LargeList);
+  NOT_IMPLEMENTED_VISIT(ListView);
+  NOT_IMPLEMENTED_VISIT(LargeListView);
   NOT_IMPLEMENTED_VISIT(Struct);
   NOT_IMPLEMENTED_VISIT(FixedSizeList);
   NOT_IMPLEMENTED_VISIT(Dictionary);
@@ -267,7 +271,12 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
-    int64_t uncompressed_size = page.size();
+    int64_t uncompressed_size = page.buffer()->size();
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException(
+          "Uncompressed dictionary page size overflows INT32_MAX. Size:",
+          uncompressed_size);
+    }
     std::shared_ptr<Buffer> compressed_data;
     if (has_compressor()) {
       auto buffer = std::static_pointer_cast<ResizableBuffer>(
@@ -284,6 +293,11 @@ class SerializedPageWriter : public PageWriter {
     dict_page_header.__set_is_sorted(page.is_sorted());
 
     const uint8_t* output_data_buffer = compressed_data->data();
+    if (compressed_data->size() > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException(
+          "Compressed dictionary page size overflows INT32_MAX. Size: ",
+          uncompressed_size);
+    }
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
     if (data_encryptor_.get()) {
@@ -367,18 +381,29 @@ class SerializedPageWriter : public PageWriter {
     const int64_t uncompressed_size = page.uncompressed_size();
     std::shared_ptr<Buffer> compressed_data = page.buffer();
     const uint8_t* output_data_buffer = compressed_data->data();
-    int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
+    int64_t output_data_len = compressed_data->size();
+
+    if (output_data_len > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Compressed data page size overflows INT32_MAX. Size:",
+                             output_data_len);
+    }
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
           data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
+      output_data_len = data_encryptor_->Encrypt(compressed_data->data(),
+                                                 static_cast<int32_t>(output_data_len),
                                                  encryption_buffer_->mutable_data());
       output_data_buffer = encryption_buffer_->data();
     }
 
     format::PageHeader page_header;
+
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
+                             uncompressed_size);
+    }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
@@ -417,7 +442,8 @@ class SerializedPageWriter : public PageWriter {
     if (offset_index_builder_ != nullptr) {
       const int64_t compressed_size = output_data_len + header_size;
       if (compressed_size > std::numeric_limits<int32_t>::max()) {
-        throw ParquetException("Compressed page size overflows to INT32_MAX.");
+        throw ParquetException("Compressed page size ", compressed_size,
+                               " overflows INT32_MAX.");
       }
       if (!page.first_row_index().has_value()) {
         throw ParquetException("First row index is not set in data page.");
@@ -1309,7 +1335,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  int64_t EstimatedBufferedValueBytes() const override {
+  int64_t estimated_buffered_value_bytes() const override {
     return current_encoder_->EstimatedDataEncodedSize();
   }
 
@@ -2295,6 +2321,33 @@ struct SerializeFunctor<
   int64_t* scratch;
 };
 
+// ----------------------------------------------------------------------
+// Write Arrow to Float16
+
+// Requires a custom serializer because Float16s in Parquet are stored as a 2-byte
+// (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`.
+template <>
+struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
+    const uint16_t* values = array.raw_values();
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = ToFLBA(&values[i]);
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = array.IsValid(i) ? ToFLBA(&values[i]) : FLBA{};
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  FLBA ToFLBA(const uint16_t* value_ptr) const {
+    return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
+  }
+};
+
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
@@ -2303,6 +2356,7 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
     default:
       break;
   }

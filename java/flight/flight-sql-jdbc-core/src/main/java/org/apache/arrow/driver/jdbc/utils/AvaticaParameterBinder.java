@@ -94,7 +94,7 @@ public class AvaticaParameterBinder {
   }
 
   /**
-   * Bind a TypedValue to the given index on the FieldVctor.
+   * Bind a TypedValue to the given index on the FieldVector.
    *
    * @param vector     FieldVector to bind to.
    * @param typedValue TypedValue to bind to the vector.
@@ -102,23 +102,39 @@ public class AvaticaParameterBinder {
    */
   private void bind(FieldVector vector, TypedValue typedValue, int index) {
     try {
-      if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
-        throw new RuntimeException(
+      if (typedValue.value == null) {
+        if (vector.getField().isNullable()) {
+          vector.setNull(index);
+        } else {
+          throw new UnsupportedOperationException("Can't set null on non-nullable parameter");
+        }
+      } else if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
+        throw new UnsupportedOperationException(
                 String.format("Binding to vector type %s is not yet supported", vector.getClass()));
       }
     } catch (ClassCastException e) {
-      throw new RuntimeException(
+      throw new UnsupportedOperationException(
               String.format("Binding value of type %s is not yet supported for expected Arrow type %s",
                       typedValue.type, vector.getField().getType()));
     }
   }
 
-  private static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
+  /**
+   * ArrowTypeVisitor that binds Avatica TypedValues to the given FieldVector at the specified index.
+   */
+  public static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
     private final FieldVector vector;
     private final TypedValue typedValue;
     private final int index;
 
-    private BinderVisitor(FieldVector vector, TypedValue value, int index) {
+    /**
+     * Instantiate a new BinderVisitor.
+     *
+     * @param vector FieldVector to bind values to.
+     * @param value TypedValue to bind.
+     * @param index Vector index (0-based) to bind the value to.
+     */
+    public BinderVisitor(FieldVector vector, TypedValue value, int index) {
       this.vector = vector;
       this.typedValue = value;
       this.index = index;
