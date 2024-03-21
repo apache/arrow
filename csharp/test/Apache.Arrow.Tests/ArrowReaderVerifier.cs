@@ -435,9 +435,21 @@ namespace Apache.Arrow.Tests
                 else if (nullCount != 0)
                 {
                     int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
-                    Assert.True(
-                        expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount).SequenceEqual(actualValidityBuffer.Span.Slice(0, validityBitmapByteCount)),
-                        "Validity buffers do not match.");
+                    ReadOnlySpan<byte> expectedSpan = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    ReadOnlySpan<byte> actualSpan = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    bool bitmaps_equal = expectedSpan.SequenceEqual(actualSpan);
+                    if (!bitmaps_equal)
+                    {
+                        for (int i = 0; i < arrayLength; i++)
+                        {
+                            Assert.True(
+                                BitUtility.GetBit(expectedSpan, i) == BitUtility.GetBit(actualSpan, i),
+                                string.Format("bit at index {0}/{1} is not equal", i, arrayLength));
+                        }
+
+                    }
+
+                    Assert.True(bitmaps_equal, "Validity buffers do not match.");
                 }
             }
         }
