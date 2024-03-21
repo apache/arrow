@@ -705,11 +705,11 @@ struct BinaryScalarMinMax {
 template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    if (batch.IsNull()) {
-      std::shared_ptr<Scalar> result = MakeNullScalar(out->type()->GetSharedPtr());
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr_result,
-                            MakeArrayFromScalar(*result, 1));
-      out->value = std::move(arr_result->data());
+    if (batch.num_values() == 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<Array> arr,
+          MakeArrayOfNull(out->type()->GetSharedPtr(), 1, ctx->memory_pool()));
+      out->value = std::move(arr->data());
       return Status::OK();
     }
 

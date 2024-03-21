@@ -571,12 +571,11 @@ Result<TypeHolder> MakeStructResolve(KernelContext* ctx,
 }
 
 Status MakeStructExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (batch.IsNull()) {
-    ScalarVector value;
-    std::shared_ptr<Scalar> result = std::make_shared<StructScalar>(value, struct_({}));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr_result,
-                          MakeArrayFromScalar(*result, 1));
-    out->value = std::move(arr_result->data());
+  if (batch.num_values() == 0) {
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Array> arr,
+        MakeArrayOfNull(out->type()->GetSharedPtr(), 1, ctx->memory_pool()));
+    out->value = std::move(arr->data());
     return Status::OK();
   }
 

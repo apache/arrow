@@ -257,10 +257,6 @@ struct ARROW_EXPORT ExecBatch {
     return result;
   }
 
-  /// \brief A check for the empty ExecBatch with no output length
-  /// and function's arguments.
-  bool IsNull() const { return length == 0 && num_values() == 0; }
-
   std::string ToString() const;
 };
 
@@ -423,8 +419,6 @@ struct ARROW_EXPORT ExecSpan {
     }
     return result;
   }
-
-  bool IsNull() const { return length == 0 && num_values() == 0; }
 
   int64_t length = 0;
   std::vector<ExecValue> values;
