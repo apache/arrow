@@ -366,8 +366,10 @@ std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 using MemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
 
+ARROW_EXPORT
 Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper);
 
+ARROW_EXPORT
 Result<MemoryMapper> GetMemoryManager(DeviceAllocationType device_type);
 
 }  // namespace arrow

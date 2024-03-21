@@ -264,5 +264,8 @@ ARROW_EXPORT
 Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
                                                            int64_t device_id);
 
+ARROW_EXPORT
+Status RegisterCUDADevice();
+
 }  // namespace cuda
 }  // namespace arrow

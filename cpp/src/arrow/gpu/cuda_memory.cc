@@ -27,6 +27,7 @@
 #include <cuda.h>
 
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -500,6 +501,27 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
       return Status::NotImplemented("memory manager not implemented for device");
   }
 }
+
+Result<std::shared_ptr<MemoryManager>> DefaultGPUMemoryMapper(int64_t device_id) {
+  ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
+  return device->default_memory_manager();
+}
+
+Status RegisterCUDADeviceInternal() {
+  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA, DefaultGPUMemoryMapper));
+  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA_HOST, DefaultGPUMemoryMapper));
+  RETURN_NOT_OK(RegisterDevice(DeviceAllocationType::kCUDA_MANAGED, DefaultGPUMemoryMapper));
+  return Status::OK();
+}
+
+
+std::once_flag cuda_registered;
+
+Status RegisterCUDADevice() {
+  std::call_once(cuda_registered, RegisterCUDADeviceInternal);
+  return Status::OK();
+}
+
 
 }  // namespace cuda
 }  // namespace arrow
