@@ -240,20 +240,29 @@ func TestDecimal256OneForMarshal(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.Decimal256Type{Precision: 50, Scale: 25}
+	dtype := &arrow.Decimal256Type{Precision: 38, Scale: 20}
 
 	b := array.NewDecimal256Builder(mem, dtype)
 	defer b.Release()
 
-	wantValues := []any{"0.99", "1234567890.123456789", nil}
-
-	for _, v := range wantValues {
-		if v == nil {
+	cases := []struct {
+		give any
+		want any
+	}{
+		{"0.99", "0.99"},
+		{"1234567890.123456789", "1234567890.123456789"},
+		{nil, nil},
+		{"-0.99", "-0.99"},
+		{"-1234567890.123456789", "-1234567890.123456789"},
+		{"0.0000000000000000001", "1e-19"},
+	}
+	for _, v := range cases {
+		if v.give == nil {
 			b.AppendNull()
 			continue
 		}
 
-		dt, err := decimal256.FromString(v.(string), dtype.Precision, dtype.Scale)
+		dt, err := decimal256.FromString(v.give.(string), dtype.Precision, dtype.Scale)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -263,11 +272,11 @@ func TestDecimal256OneForMarshal(t *testing.T) {
 	arr := b.NewDecimal256Array()
 	defer arr.Release()
 
-	if got, want := arr.Len(), len(wantValues); got != want {
+	if got, want := arr.Len(), len(cases); got != want {
 		t.Fatalf("invalid array length: got=%d, want=%d", got, want)
 	}
 
-	for i := range wantValues {
-		assert.Equalf(t, wantValues[i], arr.GetOneForMarshal(i), "unexpected value at index %d", i)
+	for i := range cases {
+		assert.Equalf(t, cases[i].want, arr.GetOneForMarshal(i), "unexpected value at index %d", i)
 	}
 }
