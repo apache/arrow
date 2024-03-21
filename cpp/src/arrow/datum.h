@@ -170,22 +170,27 @@ struct ARROW_EXPORT Datum {
 
   /// \brief The kind of data stored in Datum
   Datum::Kind kind() const {
-    switch (this->value.index()) {
-      case 0:
-        return Datum::NONE;
-      case 1:
-        return Datum::SCALAR;
-      case 2:
-        return Datum::ARRAY;
-      case 3:
-        return Datum::CHUNKED_ARRAY;
-      case 4:
-        return Datum::RECORD_BATCH;
-      case 5:
-        return Datum::TABLE;
-      default:
-        return Datum::NONE;
-    }
+    return std::visit(
+        [](const auto& value) -> Datum::Kind {
+          using T = std::decay_t<decltype(value)>;
+
+          if constexpr (std::is_same_v<T, Empty>) {
+            return Datum::NONE;
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<Scalar>>) {
+            return Datum::SCALAR;
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayData>>) {
+            return Datum::ARRAY;
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<ChunkedArray>>) {
+            return Datum::CHUNKED_ARRAY;
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<RecordBatch>>) {
+            return Datum::RECORD_BATCH;
+          } else if constexpr (std::is_same_v<T, std::shared_ptr<Table>>) {
+            return Datum::TABLE;
+          } else {
+            static_assert(!std::is_same_v<T, T>, "unhandled type");
+          }
+        },
+        this->value);
   }
 
   /// \brief Retrieve the stored array as ArrayData
