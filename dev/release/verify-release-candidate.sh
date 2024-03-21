@@ -508,16 +508,16 @@ install_maven() {
   else
       # the following logic only verifies released versions
       older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sort --version-sort | head -n1)
-      if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" && "$SYSTEM_MAVEN_VERSION" != "$MAVEN_VERSION" ]]; then
-          show_info "Installing Maven version ${MAVEN_VERSION}..."
-          APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
-          curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
-            ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
-          tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
-          export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-          show_info "Installed Maven version $(mvn -v)"
+      if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
+        show_info "Installing Maven version ${MAVEN_VERSION}..."
+        APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+        curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+          ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+        tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+        export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+        show_info "Installed Maven version $(mvn -v | head -n 1 | awk '{print $3}')"
       else
-          show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is equal or newer than asked Maven version ${MAVEN_VERSION}. Skipping installation."
+        show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is equal or newer than asked Maven version ${MAVEN_VERSION}. Skipping installation."
       fi
   fi
 }
@@ -1233,6 +1233,7 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
+
   maybe_setup_maven
   maybe_setup_conda maven python
 
