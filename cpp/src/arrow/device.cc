@@ -306,21 +306,18 @@ Result<std::shared_ptr<MemoryManager>> DefaultCPUMemoryMapper(int64_t device_id)
   return default_cpu_memory_manager();
 }
 
-static std::shared_ptr<DeviceMemoryManagerRegistryImpl> g_registry;
-static std::once_flag registry_initialized;
-
-static void CreateGlobalDeviceRegistry() {
-  g_registry = std::make_shared<DeviceMemoryManagerRegistryImpl>();
+static std::unique_ptr<DeviceMemoryManagerRegistryImpl> CreateDeviceRegistry() {
+  auto registry = std::make_unique<DeviceMemoryManagerRegistryImpl>();
 
   // Always register the CPU device
+  DCHECK_OK(registry->RegisterDevice(DeviceAllocationType::kCPU, DefaultCPUMemoryMapper));
 
-  ARROW_CHECK_OK(
-      g_registry->RegisterDevice(DeviceAllocationType::kCPU, DefaultCPUMemoryMapper));
+  return registry;
 }
 
-std::shared_ptr<DeviceMemoryManagerRegistryImpl> GetDeviceRegistry() {
-  std::call_once(registry_initialized, CreateGlobalDeviceRegistry);
-  return g_registry;
+DeviceMemoryManagerRegistryImpl* GetDeviceRegistry() {
+  static auto g_registry = CreateDeviceRegistry();
+  return g_registry.get();
 }
 
 }  // namespace internal
