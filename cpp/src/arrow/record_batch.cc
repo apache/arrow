@@ -36,7 +36,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
-#include "arrow/visit_scalar_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
