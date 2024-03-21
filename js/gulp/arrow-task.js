@@ -17,9 +17,9 @@
 
 import { mainExport, targetDir, observableFromStreams } from './util.js';
 
-import gulp from 'node:gulp';
+import gulp from 'gulp';
 import path from 'node:path';
-import { mkdirp } from 'node:mkdirp';
+import { mkdirp } from 'mkdirp';
 import * as fs from 'node:fs/promises';
 import gulpRename from 'gulp-rename';
 import gulpReplace from 'gulp-replace';
