@@ -555,18 +555,28 @@ def test_recordbatch_dunder_init():
         pa.RecordBatch()
 
 
-def test_recordbatch_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
+class BatchWrapper:
+    def __init__(self, batch):
+        self.batch = batch
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.batch.__arrow_c_array__(requested_schema)
 
+
+class BatchDeviceWrapper:
+    def __init__(self, batch):
+        self.batch = batch
+
+    def __arrow_c_device_array__(self, requested_schema=None):
+        return self.batch.__arrow_c_device_array__(requested_schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_recordbatch_c_array_interface(wrapper_class, ):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.record_batch(wrapper)
@@ -583,18 +593,12 @@ def test_recordbatch_c_array_interface():
     assert result == expected
 
 
-def test_table_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
-
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
-
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_table_c_array_interface(wrapper_class):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.table(wrapper)

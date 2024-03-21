@@ -3453,7 +3453,7 @@ cdef class RecordBatch(_Tabular):
         requested_schema : PyCapsule | None
             A PyCapsule containing a C ArrowSchema representation of a requested
             schema. PyArrow will attempt to cast the batch to this schema.
-            If None, the schema will be returned as-is, with a schema matching the
+            If None, the batch will be returned as-is, with a schema matching the
             one returned by :meth:`__arrow_c_schema__()`.
 
         Returns
@@ -3471,9 +3471,7 @@ cdef class RecordBatch(_Tabular):
 
             if target_schema != self.schema:
                 try:
-                    # We don't expose .cast() on RecordBatch, only on Table.
-                    casted_batch = Table.from_batches([self]).cast(
-                        target_schema, safe=True).to_batches()[0]
+                    casted_batch = self.cast(target_schema, safe=True)
                     inner_batch = pyarrow_unwrap_batch(casted_batch)
                 except ArrowInvalid as e:
                     raise ValueError(
@@ -3514,8 +3512,8 @@ cdef class RecordBatch(_Tabular):
     @staticmethod
     def _import_from_c_capsule(schema_capsule, array_capsule):
         """
-        Import RecordBatch from a pair of PyCapsules containing a C ArrowArray
-        and ArrowSchema, respectively.
+        Import RecordBatch from a pair of PyCapsules containing a C ArrowSchema
+        and ArrowArray, respectively.
 
         Parameters
         ----------
@@ -3602,6 +3600,88 @@ cdef class RecordBatch(_Tabular):
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
                     <ArrowDeviceArray*> c_ptr, c_schema))
         return pyarrow_wrap_batch(c_batch)
+
+    def __arrow_c_device_array__(self, requested_schema=None):
+        """
+        Get a pair of PyCapsules containing a C ArrowDeviceArray representation
+        of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the batch to this data type.
+            If None, the batch will be returned as-is, with a type matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowDeviceArray,
+            respectively.
+        """
+        cdef:
+            ArrowDeviceArray* c_array
+            ArrowSchema* c_schema
+            shared_ptr[CRecordBatch] inner_batch
+
+        if requested_schema is not None:
+            target_schema = Schema._import_from_c_capsule(requested_schema)
+
+            if target_schema != self.schema:
+                # TODO should protect from trying to cast non-CPU data
+                try:
+                    casted_batch = self.cast(target_schema, safe=True)
+                    inner_batch = pyarrow_unwrap_batch(casted_batch)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.schema} to requested schema {target_schema}: {e}"
+                    )
+            else:
+                inner_batch = self.sp_batch
+        else:
+            inner_batch = self.sp_batch
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_device_array(&c_array)
+
+        with nogil:
+            check_status(ExportDeviceRecordBatch(
+                deref(inner_batch), <shared_ptr[CSyncEvent]>NULL, c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    @staticmethod
+    def _import_from_c_device_capsule(schema_capsule, array_capsule):
+        """
+        Import RecordBatch from a pair of PyCapsules containing a
+        C ArrowSchema and ArrowDeviceArray, respectively.
+
+        Parameters
+        ----------
+        schema_capsule : PyCapsule
+            A PyCapsule containing a C ArrowSchema representation of the schema.
+        array_capsule : PyCapsule
+            A PyCapsule containing a C ArrowDeviceArray representation of the array.
+
+        Returns
+        -------
+        pyarrow.RecordBatch
+        """
+        cdef:
+            ArrowSchema* c_schema
+            ArrowDeviceArray* c_array
+            shared_ptr[CRecordBatch] batch
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowDeviceArray*> PyCapsule_GetPointer(
+            array_capsule, 'arrow_device_array'
+        )
+
+        with nogil:
+            batch = GetResultValue(ImportDeviceRecordBatch(c_array, c_schema))
+
+        return pyarrow_wrap_batch(batch)
 
 
 def _reconstruct_record_batch(columns, schema):
@@ -5456,7 +5536,8 @@ def record_batch(data, names=None, schema=None, metadata=None):
     data : dict, list, pandas.DataFrame, Arrow-compatible table
         A mapping of strings to Arrays or Python lists, a list of Arrays,
         a pandas DataFame, or any tabular object implementing the
-        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` method).
+        Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
+        ``__arrow_c_device_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5602,6 +5683,18 @@ def record_batch(data, names=None, schema=None, metadata=None):
             # need to cast it if the producer wasn't able to cast to exact schema.
             batch = batch.cast(schema)
         return batch
+    elif hasattr(data, "__arrow_c_device_array__"):
+        if schema is not None:
+            requested_schema = schema.__arrow_c_schema__()
+        else:
+            requested_schema = None
+        schema_capsule, array_capsule = data.__arrow_c_device_array__(requested_schema)
+        batch = RecordBatch._import_from_c_device_capsule(schema_capsule, array_capsule)
+        if schema is not None and batch.schema != schema:
+            # __arrow_c_device_array__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            batch = batch.cast(schema)
+        return batch
 
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
@@ -5619,8 +5712,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     data : dict, list, pandas.DataFrame, Arrow-compatible table
         A mapping of strings to Arrays or Python lists, a list of arrays or
         chunked arrays, a pandas DataFame, or any tabular object implementing
-        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__`` or
-        ``__arrow_c_stream__`` method).
+        the Arrow PyCapsule Protocol (has an ``__arrow_c_array__``,
+        ``__arrow_c_device_array__`` or ``__arrow_c_stream__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -5760,7 +5853,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             # need to cast it if the producer wasn't able to cast to exact schema.
             table = table.cast(schema)
         return table
-    elif hasattr(data, "__arrow_c_array__"):
+    elif hasattr(data, "__arrow_c_array__") or hasattr(data, "__arrow_c_device_array__"):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
