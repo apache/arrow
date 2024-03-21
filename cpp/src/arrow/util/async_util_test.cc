@@ -680,6 +680,7 @@ class PriorityQueue : public ThrottledAsyncTaskScheduler::Queue {
       queue_.pop();
     }
   }
+  std::size_t Size() const { return queue_.size(); }
 
  private:
   std::priority_queue<TaskWithPriority*, std::vector<TaskWithPriority*>,
