@@ -969,20 +969,28 @@ def test_arrow_one_way_types():
         [
             pa.field("binary_view", pa.binary_view()),
             pa.field("string_view", pa.string_view()),
+            pa.field("dictionary", pa.dictionary(pa.int32(), pa.string())),
+            pa.field("ree", pa.run_end_encoded(pa.int32(), pa.string())),
         ]
     )
     alt_schema = pa.schema(
-        [pa.field("binary_view", pa.binary()), pa.field("string_view", pa.string())]
+        [
+            pa.field("binary_view", pa.binary()),
+            pa.field("string_view", pa.string()),
+            pa.field("dictionary", pa.string()),
+            pa.field("ree", pa.string())
+        ]
     )
 
-    def check_one_way(expr):
+    def check_one_way(field):
+        expr = pc.is_null(pc.field(field.name))
         buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
         returned = pa.substrait.deserialize_expressions(buf)
         assert alt_schema == returned.schema
 
-    check_one_way(pc.is_null(pc.field("binary_view")))
-    check_one_way(pc.is_null(pc.field("string_view")))
-
+    for field in schema:
+        check_one_way(field)
+        
 
 def test_invalid_expression_ser_des():
     schema = pa.schema([
