@@ -2458,38 +2458,50 @@ TEST_F(TestAzuriteFileSystem, WriteMetadata) {
   ASSERT_OK(output->Close());
 
   // Verify the metadata has been set.
-  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
-  auto blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
-                           .GetBlockBlobClient(blob_path)
-                           .GetProperties()
-                           .Value.Metadata;
-  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
+  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(full_path));
+  ASSERT_OK_AND_ASSIGN(auto metadata, input->ReadMetadata());
+  ASSERT_OK_AND_ASSIGN(auto foo_value, metadata->Get("foo"));
+  ASSERT_EQ("bar", foo_value);
 
   // Check that explicit metadata overrides the defaults.
-  ASSERT_OK_AND_ASSIGN(
-      output, fs_with_defaults->OpenOutputStream(
-                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_with_defaults->OpenOutputStream(
+                           full_path, arrow::key_value_metadata({{"bar", "foo"}})));
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
-  // TODO(GH-40025): Use `AzureFileSystem` to fetch metadata for this assertion.
-  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
-                      .GetBlockBlobClient(blob_path)
-                      .GetProperties()
-                      .Value.Metadata;
+  ASSERT_OK_AND_ASSIGN(input, fs()->OpenInputStream(full_path));
+  ASSERT_OK_AND_ASSIGN(metadata, input->ReadMetadata());
   // Defaults are overwritten and not merged.
-  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+  ASSERT_NOT_OK(metadata->Get("foo"));
+  ASSERT_OK_AND_ASSIGN(auto bar_value, metadata->Get("bar"));
+  ASSERT_EQ("foo", bar_value);
 
   // Metadata can be written without writing any data.
-  ASSERT_OK_AND_ASSIGN(
-      output, fs_with_defaults->OpenAppendStream(
-                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "baz"}})));
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_with_defaults->OpenAppendStream(
+                           full_path, arrow::key_value_metadata({{"bar", "baz"}})));
   ASSERT_OK(output->Close());
-  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
-                      .GetBlockBlobClient(blob_path)
-                      .GetProperties()
-                      .Value.Metadata;
+  ASSERT_OK_AND_ASSIGN(input, fs()->OpenInputStream(full_path));
+  ASSERT_OK_AND_ASSIGN(metadata, input->ReadMetadata());
   // Defaults are overwritten and not merged.
-  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "baz")}, blob_metadata);
+  ASSERT_NOT_OK(metadata->Get("foo"));
+  ASSERT_OK_AND_ASSIGN(bar_value, metadata->Get("bar"));
+  ASSERT_EQ("baz", bar_value);
+}
+
+TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto output,
+                       fs()->OpenOutputStream(
+                           data.ObjectPath(),
+                           arrow::key_value_metadata({{"Content-Type", "text/plain"}})));
+  ASSERT_OK(output->Write(PreexistingData::kLoremIpsum));
+  ASSERT_OK(output->Close());
+
+  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(data.ObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto metadata, input->ReadMetadata());
+  ASSERT_OK_AND_ASSIGN(auto content_type, metadata->Get("Content-Type"));
+  ASSERT_EQ("text/plain", content_type);
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
