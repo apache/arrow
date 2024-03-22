@@ -57,16 +57,9 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   }
 }
 
-BENCHMARK_TEMPLATE(BatchToTensorSimple, UInt8Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, UInt16Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, UInt32Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, UInt64Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int8Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int16Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int32Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int64Type)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, HalfFloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, FloatType)->Apply(SetArgs);
-BENCHMARK_TEMPLATE(BatchToTensorSimple, DoubleType)->Apply(SetArgs);
 
 }  // namespace arrow
