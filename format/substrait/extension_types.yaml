@@ -48,8 +48,8 @@
 #
 # These types are not logically distinct from the type they are encoding.
 # Specifically:
-#  *  There is no value in the decoded type that cannot be represented
-#     in the encoded type and vice versa.
+#  *  There is no column of the decoded type that cannot be represented
+#     as a column the encoded type and vice versa.
 #  *  Functions have the same meaning when applied to the encoded type
 # 
 # These types will never have a Substrait equivalent.  In the Substrait point
@@ -62,7 +62,7 @@
 # dictionary
 # ree
 
-# Arrow-cpp's Substrait serde does not yet handle parameterized UDFs.  This means
+# Arrow-cpp's Substrait serde does not yet handle parameterized UDTs.  This means
 # the following types are not yet supported but may be supported in the future.
 # We define them below in case other implementations support them in the meantime.
 
@@ -129,9 +129,9 @@ types:
   - name: time_millis
     structure: {}
   - name: time_nanos
+    structure: {}
   # Large string literals are encoded using a
   # google.protobuf.StringValue message.
-    structure: {}
   - name: large_string
     structure: {}
   # Large binary literals are encoded using a
@@ -156,7 +156,7 @@ types:
     parameters:
       - name: value_type
         type: dataType
-  - name: fixed size list
+  - name: fixed_size_list
     structure: {}
     parameters:
       - name: value_type
