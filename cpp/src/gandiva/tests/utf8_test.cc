@@ -230,10 +230,10 @@ TEST_F(TestUtf8, TestIlike) {
   auto res = field("res", boolean());
 
   // build expressions.
-  // like(literal(s), a)
+  // ilike(literal(s), a)
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  auto literal_s = TreeExprBuilder::MakeStringLiteral("%spark%");
+  auto literal_s = TreeExprBuilder::MakeStringLiteral("%sparK%");
   auto is_like = TreeExprBuilder::MakeFunction("ilike", {node_a, literal_s}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(is_like, res);
 
