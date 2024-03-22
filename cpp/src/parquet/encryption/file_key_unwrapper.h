@@ -73,7 +73,9 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  private:
   FileKeyUnwrapper(std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
-                   double cache_lifetime_seconds, const std::string& file_path,
+                   double cache_lifetime_seconds,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store,
+                   const std::string& file_path,
                    const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
 
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
