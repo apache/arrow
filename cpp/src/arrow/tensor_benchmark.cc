@@ -36,7 +36,8 @@ static void BatchToTensorSimple(benchmark::State& state) {
   std::vector<std::shared_ptr<Field>> fields = {};
   std::vector<std::shared_ptr<Array>> columns = {};
 
-  for (int i = 0; i < 100; ++i) {
+  const int NumCols = state.range(1);
+  for (int i = 0; i < NumCols; ++i) {
     fields.push_back(field("f" + std::to_string(i), ty));
     columns.push_back(gen_.ArrayOf(ty, kNumRows));
   }
@@ -46,14 +47,15 @@ static void BatchToTensorSimple(benchmark::State& state) {
   for (auto _ : state) {
     ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
   }
-  state.SetItemsProcessed(state.iterations() * kNumRows * batch->num_columns());
-  state.SetBytesProcessed(state.iterations() * ty->byte_width() * kNumRows *
-                          batch->num_columns());
+  state.SetItemsProcessed(state.iterations() * kNumRows * NumCols);
+  state.SetBytesProcessed(state.iterations() * ty->byte_width() * kNumRows * NumCols);
 }
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : {kL1Size, kL2Size}) {
-    bench->Arg(size);
+    for (int number_of_columns : {3, 30, 300}) {
+      bench->Args({size, number_of_columns});
+    }
   }
 }
 
