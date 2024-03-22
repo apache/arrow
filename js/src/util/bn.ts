@@ -36,7 +36,7 @@ function BigNum(this: any, x: any, ...xs: any) {
 
 BigNum.prototype[isArrowBigNumSymbol] = true;
 BigNum.prototype.toJSON = function <T extends BN<BigNumArray>>(this: T) { return `"${bigNumToString(this)}"`; };
-BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T, denominator?: bigint) { return bigNumToNumber(this, denominator); };
+BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T, scale?: number) { return bigNumToNumber(this, scale); };
 BigNum.prototype.toString = function <T extends BN<BigNumArray>>(this: T) { return bigNumToString(this); };
 BigNum.prototype[Symbol.toPrimitive] = function <T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default' = 'default') {
     switch (hint) {
@@ -73,7 +73,7 @@ const TWO_TO_THE_64 = BigInt(4294967296) * BigInt(4294967296); // 2^32 * 2^32 = 
 const TWO_TO_THE_64_MINUS_1 = TWO_TO_THE_64 - BigInt(1); // (2^32 * 2^32) - 1 = 0xFFFFFFFFFFFFFFFFn
 
 /** @ignore */
-export const bigNumToNumber: { <T extends BN<BigNumArray>>(bn: T, denominator?: bigint): number } = (<T extends BN<BigNumArray>>(bn: T, denominator?: bigint) => {
+export const bigNumToNumber: { <T extends BN<BigNumArray>>(bn: T, scale?: number): number } = (<T extends BN<BigNumArray>>(bn: T, scale?: number) => {
     const { buffer, byteOffset, byteLength, 'signed': signed } = bn;
     const words = new BigUint64Array(buffer, byteOffset, byteLength / 8);
     const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
@@ -90,7 +90,8 @@ export const bigNumToNumber: { <T extends BN<BigNumArray>>(bn: T, denominator?: 
         number *= BigInt(-1);
         number -= BigInt(1)
     }
-    if (denominator) {
+    if (scale) {
+        const denominator = BigInt(Math.pow(10, scale))
         const quotient = number / denominator;
         const remainder = number % denominator;
         const n = Number(quotient) + (Number(remainder) / Number(denominator));
@@ -228,7 +229,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
      * arithmetic operators, like `+`. Easy (and unsafe) way to convert BN to
      * number via `+bn_inst`
      */
-    valueOf(denominator?: bigint): number;
+    valueOf(scale?: number): number;
     /**
      * Return the JSON representation of the bytes. Must be wrapped in double-quotes,
      * so it's compatible with JSON.stringify().
