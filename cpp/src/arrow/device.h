@@ -369,7 +369,12 @@ using MemoryMapper =
 /// \brief Register a function to retrieve a MemoryManager for a Device type
 ///
 /// This registers the device type globally. A specific device type can only
-/// be registered once. This method is thread-safe
+/// be registered once. This method is thread-safe.
+///
+/// Currently, this registry is only used for importing data through the C Device
+/// Data Interface (for the default Device to MemoryManager mapper in
+/// arrow::ImportDeviceArray/ImportDeviceRecordBatch).
+///
 /// \param[in] device_type the device type for which to register a MemoryManager
 /// \param[in] memory_mapper function that takes a device id and returns the appropriate
 /// MemoryManager for the registered device type and given device id
@@ -378,6 +383,13 @@ ARROW_EXPORT
 Status RegisterDeviceMemoryManager(DeviceAllocationType device_type,
                                    MemoryMapper memory_mapper);
 
+/// \brief Get the registered function to retrieve a MemoryManager for the
+/// given Device type
+///
+/// \param[in] device_type the device type
+/// \return function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+ARROW_EXPORT
 ARROW_EXPORT
 Result<MemoryMapper> GetDeviceMemoryManager(DeviceAllocationType device_type);
 

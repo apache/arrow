@@ -264,6 +264,13 @@ ARROW_EXPORT
 Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
                                                            int64_t device_id);
 
+/// \brief Register the CUDA devices (CUDA, CUDA_HOST, CUDA_MANAGED).
+///
+/// Currently, this registry is only used for importing data through the C Device
+/// Data Interface (for the default Device to MemoryManager mapper in
+/// arrow::ImportDeviceArray/ImportDeviceRecordBatch).
+/// Before importing CUDA data with the default mapper, this function should
+/// be called to ensure the CUDA device types are recognised.
 ARROW_EXPORT
 Status RegisterCUDADevice();
 
