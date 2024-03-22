@@ -151,7 +151,7 @@ the ``type`` should be ``ClosePreparedStatement``).
     Note that a handle returned from a DoPut call with
     CommandPreparedStatementQuery can itself be passed to a subsequent DoPut
     call with CommandPreparedStatementQuery to bind a new set of parameters.
-    The subsequent call itself may return an updated handled which again should
+    The subsequent call itself may return an updated handle which again should
     be used for subsequent requests.
 
     The server is responsible for detecting the case where the client does not
