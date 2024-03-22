@@ -88,10 +88,10 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
             number |= (word ^ TWO_TO_THE_64_MINUS_1) * (BigInt(1) << BigInt(64 * i++));
         }
         number *= BigInt(-1);
-        number -= BigInt(1)
+        number -= BigInt(1);
     }
     if (scale) {
-        const denominator = BigInt(Math.pow(10, scale))
+        const denominator = BigInt(Math.pow(10, scale));
         const quotient = number / denominator;
         const remainder = number % denominator;
         const n = Number(quotient) + (Number(remainder) / Number(denominator));
