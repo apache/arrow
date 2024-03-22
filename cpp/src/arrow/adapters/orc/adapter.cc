@@ -18,7 +18,6 @@
 #include "arrow/adapters/orc/adapter.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <list>
 #include <memory>
@@ -75,6 +74,12 @@ namespace liborc = orc;
   }                                            \
   catch (const liborc::NotImplementedYet& e) { \
     return Status::NotImplemented(e.what());   \
+  }                                            \
+  catch (const std::exception& e) {            \
+    return Status::Invalid(e.what());          \
+  }                                            \
+  catch (...) {                                \
+    return Status::UnknownError("ORC error");  \
   }
 
 #define ORC_CATCH_NOT_OK(_s)  \
@@ -178,7 +183,8 @@ liborc::RowReaderOptions default_row_reader_options() {
   return options;
 }
 
-// Remove this check once https://issues.apache.org/jira/browse/ORC-1661 is fixed.
+// Proactively check the availability of timezone database.
+// Remove it once https://issues.apache.org/jira/browse/ORC-1661 has been fixed.
 Status check_timezone_database_availability() {
   auto tz_dir = std::getenv("TZDIR");
   bool is_tzdb_avaiable = tz_dir != nullptr
