@@ -39,11 +39,10 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private static final int NUM_SUPPORTED_TYPES = 46;
+  private static final int NUM_SUPPORTED_TYPES = 47;
 
   private BaseReader[] readers = new BaseReader[NUM_SUPPORTED_TYPES];
   public UnionVector data;
-  
   public UnionReader(UnionVector data) {
     this.data = data;
   }
