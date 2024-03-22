@@ -244,7 +244,7 @@ TEST_F(TestUtf8, TestIlike) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"park", "sparkle", "bright spark and fire", "spark"},
+  auto array_a = MakeArrowArrayUtf8({"park", "sParKle", "bright spark and fire", "spark"},
                                     {true, true, true, true});
 
   // expected output
