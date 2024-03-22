@@ -73,7 +73,7 @@ const TWO_TO_THE_64 = BigInt(4294967296) * BigInt(4294967296); // 2^32 * 2^32 = 
 const TWO_TO_THE_64_MINUS_1 = TWO_TO_THE_64 - BigInt(1); // (2^32 * 2^32) - 1 = 0xFFFFFFFFFFFFFFFFn
 
 /** @ignore */
-export const bigNumToNumber: { <T extends BN<BigNumArray>>(bn: T, scale?: number): number } = (<T extends BN<BigNumArray>>(bn: T, scale?: number) => {
+export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number) {
     const { buffer, byteOffset, byteLength, 'signed': signed } = bn;
     const words = new BigUint64Array(buffer, byteOffset, byteLength / 8);
     const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
@@ -98,7 +98,7 @@ export const bigNumToNumber: { <T extends BN<BigNumArray>>(bn: T, scale?: number
         return n;
     }
     return Number(number);
-});
+}
 
 /** @ignore */
 export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => {
