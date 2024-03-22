@@ -990,7 +990,7 @@ def test_arrow_one_way_types():
 
     for field in schema:
         check_one_way(field)
-        
+
 
 def test_invalid_expression_ser_des():
     schema = pa.schema([
