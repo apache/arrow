@@ -314,6 +314,8 @@ TEST(Substrait, SupportedExtensionTypes) {
            large_utf8(),
            large_binary(),
            date64(),
+           time32(TimeUnit::SECOND),
+           time32(TimeUnit::MILLI),
            time64(TimeUnit::NANO),
        }) {
     auto anchor = ext_set.num_types();
@@ -474,8 +476,6 @@ TEST(Substrait, NoEquivalentSubstraitType) {
            dense_union({field("i8", int8()), field("f32", float32())}),
            fixed_size_list(float16(), 3),
            duration(TimeUnit::MICRO),
-           time32(TimeUnit::MILLI),
-           time32(TimeUnit::SECOND),
            large_list(utf8()),
        }) {
     ARROW_SCOPED_TRACE(type->ToString());
@@ -619,6 +619,17 @@ TEST(Substrait, ArrowSpecificLiterals) {
   CheckArrowSpecificLiteral(UInt32Scalar(7));
   CheckArrowSpecificLiteral(UInt64Scalar(7));
   CheckArrowSpecificLiteral(Date64Scalar(86400000));
+  CheckArrowSpecificLiteral(Time64Scalar(7, TimeUnit::NANO));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  // We serialize as a signed integer, which doesn't make sense for Time scalars but
+  // Arrow supports it so we might as well round-trip it.
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time64Scalar(-7, TimeUnit::NANO));
+  // Negative date scalars DO make sense and we should make sure they work
+  CheckArrowSpecificLiteral(Date64Scalar(-86400000));
   CheckArrowSpecificLiteral(HalfFloatScalar(0));
   CheckArrowSpecificLiteral(LargeStringScalar("hello"));
   CheckArrowSpecificLiteral(LargeBinaryScalar("hello"));

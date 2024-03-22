@@ -435,15 +435,35 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const IntegerType& type) {
     google::protobuf::UInt64Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid("Failed to unpack user defined integer literal to uint64");
+      return Status::Invalid(
+          "Failed to unpack user defined integer literal to UInt64Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const Time32Type& type) {
+    google::protobuf::Int32Value value;
+    if (!user_defined_->value().UnpackTo(&value)) {
+      return Status::Invalid(
+          "Failed to unpack user defined time32 literal to Int32Value");
+    }
+    ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
+    return Status::OK();
+  }
+  Status Visit(const Time64Type& type) {
+    google::protobuf::Int64Value value;
+    if (!user_defined_->value().UnpackTo(&value)) {
+      return Status::Invalid(
+          "Failed to unpack user defined time64 literal to Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
   }
   Status Visit(const Date64Type& type) {
-    google::protobuf::UInt64Value value;
+    google::protobuf::Int64Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid("Failed to unpack user defined date64 literal to uint64");
+      return Status::Invalid(
+          "Failed to unpack user defined date64 literal to Int64Value");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), value.value()));
     return Status::OK();
@@ -451,7 +471,8 @@ struct UserDefinedLiteralToArrow {
   Status Visit(const HalfFloatType& type) {
     google::protobuf::UInt32Value value;
     if (!user_defined_->value().UnpackTo(&value)) {
-      return Status::Invalid("Failed to unpack user defined half_float literal to bytes");
+      return Status::Invalid(
+          "Failed to unpack user defined half_float literal to UInt32Value");
     }
     uint16_t half_float_value = value.value();
     ARROW_ASSIGN_OR_RAISE(scalar_, MakeScalar(type.GetSharedPtr(), half_float_value));
@@ -461,7 +482,7 @@ struct UserDefinedLiteralToArrow {
     google::protobuf::StringValue value;
     if (!user_defined_->value().UnpackTo(&value)) {
       return Status::Invalid(
-          "Failed to unpack user defined large_string literal to string");
+          "Failed to unpack user defined large_string literal to StringValue");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_,
                           MakeScalar(type.GetSharedPtr(), std::string(value.value())));
@@ -471,7 +492,7 @@ struct UserDefinedLiteralToArrow {
     google::protobuf::BytesValue value;
     if (!user_defined_->value().UnpackTo(&value)) {
       return Status::Invalid(
-          "Failed to unpack user defined large_binary literal to bytes");
+          "Failed to unpack user defined large_binary literal to BytesValue");
     }
     ARROW_ASSIGN_OR_RAISE(scalar_,
                           MakeScalar(type.GetSharedPtr(), std::string(value.value())));
@@ -531,12 +552,12 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       ARROW_UNSUPPRESS_DEPRECATION_WARNING
     case substrait::Expression::Literal::kPrecisionTimestamp: {
       // https://github.com/substrait-io/substrait/issues/611
-      // TODO(weston) don't break, return precision timestamp
+      // TODO(GH-40741) don't break, return precision timestamp
       break;
     }
     case substrait::Expression::Literal::kPrecisionTimestampTz: {
       // https://github.com/substrait-io/substrait/issues/611
-      // TODO(weston) don't break, return precision timestamp
+      // TODO(GH-40741) don't break, return precision timestamp
       break;
     }
     case substrait::Expression::Literal::kDate:
@@ -868,7 +889,7 @@ struct ScalarToProtoImpl {
 
   Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
   Status Visit(const Date64Scalar& s) {
-    google::protobuf::UInt64Value value;
+    google::protobuf::Int64Value value;
     value.set_value(s.value);
     return EncodeUserDefined(*s.type, value);
   }
@@ -888,7 +909,7 @@ struct ScalarToProtoImpl {
         micros = s.value;
         break;
       case TimeUnit::NANO:
-        // TODO(weston): can support nanos when
+        // TODO(GH-40741): can support nanos when
         // https://github.com/substrait-io/substrait/issues/611 is resolved
         return NotImplemented(s);
       default:
@@ -912,12 +933,19 @@ struct ScalarToProtoImpl {
   }
 
   // Need to support parameterized UDTs
-  Status Visit(const Time32Scalar& s) { return NotImplemented(s); }
+  Status Visit(const Time32Scalar& s) {
+    google::protobuf::Int32Value value;
+    value.set_value(s.value);
+    return EncodeUserDefined(*s.type, value);
+  }
   Status Visit(const Time64Scalar& s) {
-    if (checked_cast<const Time64Type&>(*s.type).unit() != TimeUnit::MICRO) {
-      return NotImplemented(s);
+    if (checked_cast<const Time64Type&>(*s.type).unit() == TimeUnit::MICRO) {
+      return Primitive(&Lit::set_time, s);
+    } else {
+      google::protobuf::Int64Value value;
+      value.set_value(s.value);
+      return EncodeUserDefined(*s.type, value);
     }
-    return Primitive(&Lit::set_time, s);
   }
 
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }

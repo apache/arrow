@@ -345,13 +345,7 @@ struct DataTypeToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const Time32Type& t) {
-    // TODO(weston)
-    // Unsupported for the same reason we don't support parameterized types
-    // which is that the extension registry only supports encoding one type
-    // per type id
-    return NotImplemented(t);
-  }
+  Status Visit(const Time32Type& t) { return EncodeUserDefined(t); }
   Status Visit(const Time64Type& t) {
     if (t.unit() == TimeUnit::MICRO) {
       return SetWith(&substrait::Type::set_allocated_time);
@@ -369,7 +363,7 @@ struct DataTypeToProtoImpl {
     dec->set_scale(t.scale());
     return Status::OK();
   }
-  // TODO(weston) support parameterized UDT
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const Decimal256Type& t) { return NotImplemented(t); }
 
   Status Visit(const ListType& t) {
@@ -389,7 +383,7 @@ struct DataTypeToProtoImpl {
     return Status::OK();
   }
 
-  // TODO(weston) support parameterized UDT
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const LargeListViewType& t) { return NotImplemented(t); }
 
   Status Visit(const StructType& t) {
@@ -455,13 +449,13 @@ struct DataTypeToProtoImpl {
     return NotImplemented(t);
   }
 
-  // TODO(weston) support parameterized UDT
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const FixedSizeListType& t) { return NotImplemented(t); }
-  // TODO(weston) support parameterized UDT
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const DurationType& t) { return NotImplemented(t); }
   Status Visit(const LargeStringType& t) { return EncodeUserDefined(t); }
   Status Visit(const LargeBinaryType& t) { return EncodeUserDefined(t); }
-  // TODO(weston) support parameterized UDT
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const LargeListType& t) { return NotImplemented(t); }
   Status Visit(const MonthDayNanoIntervalType& t) { return EncodeUserDefined(t); }
 

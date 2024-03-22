@@ -945,28 +945,43 @@ def test_serializing_expressions(expr):
 
 
 def test_arrow_specific_types():
-    schema = pa.schema(
-        [
-            pa.field("time_nanos", pa.time64("ns")),
-            pa.field("date_millis", pa.date64()),
-            pa.field("large_string", pa.large_string()),
-            pa.field("large_binary", pa.large_binary()),
-        ]
-    )
+    fields = {
+        "time_seconds": (pa.time32("s"), 0),
+        "time_millis": (pa.time32("ms"), 0),
+        "time_nanos": (pa.time64("ns"), 0),
+        "date_millis": (pa.date64(), 0),
+        "large_string": (pa.large_string(), "test_string"),
+        "large_binary": (pa.large_binary(), b"test_string"),
+    }
+    schema = pa.schema([pa.field(name, typ) for name, (typ, _) in fields.items()])
 
     def check_round_trip(expr):
         buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
         returned = pa.substrait.deserialize_expressions(buf)
         assert schema == returned.schema
 
-    check_round_trip(pc.field("large_string") == "test_string")
-    check_round_trip(pc.field("large_binary") == "test_string")
-    # Arrow-cpp supports round tripping these types but pyarrow doesn't support
-    # constructing literals of these types
-    #
-    # So best we can do is verify field references work
-    check_round_trip(pc.field("time_nanos"))
-    check_round_trip(pc.field("date_millis"))
+    for name, (typ, val) in fields.items():
+        check_round_trip(pc.field(name) == pa.scalar(val, type=typ))
+
+
+def test_arrow_one_way_types():
+    schema = pa.schema(
+        [
+            pa.field("binary_view", pa.binary_view()),
+            pa.field("string_view", pa.string_view()),
+        ]
+    )
+    alt_schema = pa.schema(
+        [pa.field("binary_view", pa.binary()), pa.field("string_view", pa.string())]
+    )
+
+    def check_one_way(expr):
+        buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
+        returned = pa.substrait.deserialize_expressions(buf)
+        assert alt_schema == returned.schema
+
+    check_one_way(pc.is_null(pc.field("binary_view")))
+    check_one_way(pc.is_null(pc.field("string_view")))
 
 
 def test_invalid_expression_ser_des():
