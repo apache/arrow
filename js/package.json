@@ -106,7 +106,7 @@
     "rollup": "4.3.0",
     "rxjs": "7.8.1",
     "ts-jest": "29.1.1",
-    "ts-node": "10.9.1",
+    "ts-node": "10.9.2",
     "typedoc": "0.24.8",
     "typescript": "5.1.6",
     "vinyl-buffer": "1.0.1",
