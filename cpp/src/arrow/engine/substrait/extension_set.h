@@ -412,13 +412,6 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// \return An anchor that can be used to refer to the type within a plan
   Result<uint32_t> EncodeType(const DataType& type);
 
-  /// \brief Lookup the anchor for a given type alias
-  ///
-  /// Similar to \see EncodeType but this is used for cases where the data type is either
-  /// parameterized or custom in some way (e.g. we use this for Time64::Nanos).  We need
-  /// to use the Id directly since we can't have registered the type with the registry.
-  Result<uint32_t> EncodeTypeId(Id type_id);
-
   /// \brief Return a function id given an anchor
   ///
   /// This is used when converting a Substrait plan to an Arrow execution plan.

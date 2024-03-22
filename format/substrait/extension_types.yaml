@@ -35,23 +35,21 @@
 # - interval<months: i32, days: i32, nanos: i64>
 # - arrow::ExtensionTypes
 #
-# Note that not all of these are currently implemented. In particular, these
-# extension types are currently not parameterizable in Substrait, which means
-# among other things that we can't declare dictionary type here at all since
-# we'd have to declare a different dictionary type for all encoded types
-# (but that is an infinite space). Similarly, we would have to declare a
-# timestamp variation for all possible timezone strings.
+# These types fall into several categories of behavior:
 
 # Certain Arrow data types are, from Substrait's point of view, encodings.
 # These include dictionary, the view types (e.g. binary view, list view),
 # and REE.
 #
 # These types are not logically distinct from the type they are encoding.
-# Specifically:
-#  *  There is no column of the decoded type that cannot be represented
-#     as a column the encoded type and vice versa.
+# Specifically, the types meet the following criteria:
+#  *  There is no value in the decoded type that cannot be represented
+#     as a value in the encoded type and vice versa.
 #  *  Functions have the same meaning when applied to the encoded type
-# 
+#
+# Note: if two types have a different range (e.g. string and large_string) then
+# they do not satisfy the above criteria and are not encodings. 
+#
 # These types will never have a Substrait equivalent.  In the Substrait point
 # of view these are execution details.
 
@@ -70,7 +68,6 @@
 # large_list
 # fixed_size_list
 # duration
-# time32 - not technically a parameterized type, but unsupported for similar reasons
 
 # Other types are not encodings, but are not first-class in Substrait.  These
 # types are often similar to existing Substrait types but define a different range
@@ -99,15 +96,15 @@ types:
       months: i32
       days: i32
       nanos: i64
-  # All signed integer literals are encoded as user defined literals with
+  # All unsigned integer literals are encoded as user defined literals with
   # a google.protobuf.UInt64Value message.
-  - name: i8
+  - name: u8
     structure: {}
-  - name: i16
+  - name: u16
     structure: {}
-  - name: i32
+  - name: u32
     structure: {}
-  - name: i64
+  - name: u64
     structure: {}
   # fp16 literals are encoded as user defined literals with
   # a google.protobuf.UInt32Value message where the lower 16 bits are
@@ -119,11 +116,12 @@ types:
   # different range of values, it is an extension type.
   #
   # date64 literals are encoded as user defined literals with
-  # a google.protobuf.UInt64Value message.
+  # a google.protobuf.Int64Value message.
   - name: date_millis
     structure: {}
-  # We cannot generate `time` today for reasons similar to parameterized
-  # UDTs.
+  # time literals are encoded as user defined literals with
+  # a google.protobuf.Int32Value message (for time_seconds/time_millis)
+  # or a google.protobuf.Int64Value message (for time_nanos).
   - name: time_seconds
     structure: {}
   - name: time_millis
