@@ -316,8 +316,8 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
 
 Result<uint32_t> ExtensionSet::EncodeTypeId(Id type_id) {
   RETURN_NOT_OK(this->AddUri(type_id));
-  auto it_success = types_map_.emplace(type_id, static_cast<uint32_t>(types_map_.size()));
-  return it_success.first->second;
+  auto [it, success] = types_map_.emplace(type_id, static_cast<uint32_t>(types_map_.size()));
+  return it->second;
 }
 
 Result<Id> ExtensionSet::DecodeFunction(uint32_t anchor) const {
