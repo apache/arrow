@@ -84,7 +84,12 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: archery docker run ${{ matrix.image }}
+          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+        run: |
+          archery docker run \
+            -e CI=true \
+            -e "GRADLE_ENTERPRISE_ACCESS_KEY=$GRADLE_ENTERPRISE_ACCESS_KEY" \
+            ${{ matrix.image }}
       - name: Docker Push
         if: >-
           success() &&
@@ -119,9 +124,13 @@ jobs:
           submodules: recursive
       - name: Build
         shell: bash
+        env:
+          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
+        env:
+          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
 
   windows:
@@ -146,7 +155,11 @@ jobs:
           submodules: recursive
       - name: Build
         shell: bash
+        env:
+          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
+        env:
+          GRADLE_ENTERPRISE_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
