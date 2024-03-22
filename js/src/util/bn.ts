@@ -69,7 +69,7 @@ Object.assign(UnsignedBigNum.prototype, BigNum.prototype, { 'constructor': Unsig
 Object.assign(DecimalBigNum.prototype, BigNum.prototype, { 'constructor': DecimalBigNum, 'signed': true, 'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
 
 //FOR ES2020 COMPATIBILITY
-const TWO_TO_THE_64 = BigInt(4294967296) * BigInt(4294967296); // 2^32 * 2^32 = 0x10000000000000000n
+const TWO_TO_THE_64 = BigInt(2) ** BigInt(64); // 2^64 = 0x10000000000000000n
 const TWO_TO_THE_64_MINUS_1 = TWO_TO_THE_64 - BigInt(1); // (2^32 * 2^32) - 1 = 0xFFFFFFFFFFFFFFFFn
 
 /** @ignore */
