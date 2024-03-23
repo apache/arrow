@@ -25,8 +25,6 @@ import pytest
 import hypothesis as h
 import hypothesis.strategies as st
 
-from pyarrow.lib import is_nested_type
-
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
@@ -215,13 +213,13 @@ def test_is_nested_or_struct():
     assert types.is_struct(struct_ex)
     assert not types.is_struct(pa.list_(pa.int32()))
 
-    assert is_nested_type(struct_ex)
-    assert is_nested_type(pa.list_(pa.int32()))
-    assert is_nested_type(pa.list_(pa.int32(), 3))
-    assert is_nested_type(pa.large_list(pa.int32()))
-    assert is_nested_type(pa.list_view(pa.int32()))
-    assert is_nested_type(pa.large_list_view(pa.int32()))
-    assert not is_nested_type(pa.int32())
+    assert types.is_nested(struct_ex)
+    assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.list_(pa.int32(), 3))
+    assert types.is_nested(pa.large_list(pa.int32()))
+    assert types.is_nested(pa.list_view(pa.int32()))
+    assert types.is_nested(pa.large_list_view(pa.int32()))
+    assert not types.is_nested(pa.int32())
 
 
 def test_is_union():

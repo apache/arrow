@@ -5522,14 +5522,4 @@ cdef object alloc_c_stream(ArrowArrayStream** c_stream):
     c_stream[0].release = NULL
     return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)
 
-def is_nested_type(data_type):
-    """
-    Check if the data type is a nested type.
 
-    Parameters
-    ----------
-    data_type : DataType
-        The data type to check
-    """
-    cdef Type type_id = data_type.id
-    return is_nested(type_id)

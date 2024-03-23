@@ -20,7 +20,8 @@
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
-                         is_float_value)
+                         is_float_value,
+                         is_nested_type)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
@@ -167,6 +168,11 @@ def is_struct(t):
 @doc(is_null, datatype="union")
 def is_union(t):
     return t.id in _UNION_TYPES
+
+
+@doc(is_null, datatype="nested type")
+def is_nested(t):
+    return is_nested_type(t)
 
 
 @doc(is_null, datatype="run-end encoded")
