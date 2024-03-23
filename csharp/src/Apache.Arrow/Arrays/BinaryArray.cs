@@ -19,6 +19,8 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
 using System.Collections;
+using System.ComponentModel.Design;
+using System.Threading.Tasks.Sources;
 
 namespace Apache.Arrow
 {
@@ -253,23 +255,85 @@ namespace Apache.Arrow
 
             public TBuilder Swap(int i, int j)
             {
-                byte ti = ValueBuffer.Span[i];
-                byte tj = ValueBuffer.Span[j];
-                ValueBuffer.Span[i] = tj;
-                ValueBuffer.Span[j] = ti;
+                // Retrieve byte arrays for elements i and j
+                var iBytes = GetValueBytes(i);
+                var jBytes = GetValueBytes(j);
+
+                Set(i, jBytes);
+                Set(j, iBytes);
+
+                ValidityBuffer.Swap(i, j);
                 return Instance;
             }
 
+
             public TBuilder Set(int index, byte value)
             {
+                var checkStart = ValueOffsets.Span[index];
+                var checkEnd = ValueOffsets.Span[index + 1];
+
                 ValueBuffer.Span[index] = value;
                 ValidityBuffer.Set(index);
                 return Instance;
             }
 
+            public TBuilder Set(int index, ReadOnlySpan<byte> bytes)
+            {
+                int startOffset = ValueOffsets.Span[index];
+
+                int newLength = bytes.Length;
+
+                bool isNull = bytes.IsEmpty;
+
+                if (isNull)
+                {
+                    ValidityBuffer.Set(index, false);
+                }
+                else
+                {
+                    ValidityBuffer.Set(index, true);
+                }
+
+                bytes.CopyTo(ValueBuffer.Span.Slice(startOffset, newLength));
+
+                int oldLength = ValueOffsets.Span[index + 1] - startOffset;
+                if (newLength != oldLength)
+                {
+                    int lengthDiff = newLength - oldLength;
+                    AdjustOffsets(index, lengthDiff);
+                }
+
+                return Instance;
+            }
+
+            private void AdjustOffsets(int index, int lengthDiff)
+            {
+                for (int i = index + 1; i < ValueOffsets.Length; i++)
+                {
+                    ValueOffsets.Span[i] += lengthDiff;
+                }
+            }
+
             public TBuilder SetNull(int index)
             {
-                ValueBuffer.Span[index] = default;
+                if (!BitUtility.GetBit(ValidityBuffer.Span, index))
+                {
+                    return Instance;
+                }
+
+                int startOffset = ValueOffsets.Span[index];
+                int endOffset = ValueOffsets.Span[index + 1];
+                int length = endOffset - startOffset;
+                int newEnd = startOffset + 1;
+                ValueBuffer.Span.Slice(startOffset, length).Clear();
+                ValueBuffer.Span[startOffset] = default;
+                ValueBuffer.Span.Slice(endOffset, Length - endOffset)
+                    .CopyTo(ValueBuffer.Span.Slice(newEnd, Length - newEnd));
+                if (Length - newEnd > 0)
+                {
+                    ValueBuffer.Span.Slice(newEnd, Length - newEnd).Clear();
+                }
+
                 ValidityBuffer.Set(index, false);
                 return Instance;
             }
@@ -288,6 +352,17 @@ namespace Apache.Arrow
                 Offset = 0;
                 ValueOffsets.Append(Offset);
                 return Instance;
+            }
+
+            private byte[] GetValueBytes(int index)
+            {
+                int startOffset = ValueOffsets.Span[index];
+                int endOffset = ValueOffsets.Span[index + 1];
+                int length = endOffset - startOffset;
+
+                byte[] bytes = new byte[length];
+                ValueBuffer.Span.Slice(startOffset, length).CopyTo(bytes);
+                return bytes;
             }
         }
 
@@ -336,6 +411,7 @@ namespace Apache.Arrow
             ReadOnlySpan<int> offsets = ValueOffsets;
             return offsets[index + 1] - offsets[index];
         }
+
 
         /// <summary>
         /// Get the collection of bytes, as a read-only span, at a given index in the array.
