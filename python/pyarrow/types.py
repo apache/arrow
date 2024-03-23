@@ -21,7 +21,35 @@
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
                          is_float_value,
-                         is_nested_type)
+                         is_integer_type,
+                         is_signed_integer_type,
+                         is_unsigned_integer_type,
+                         is_floating_type,
+                         is_numeric_type,
+                         is_decimal_type,
+                         is_run_end_type_py,
+                         is_primitive_type,
+                         is_base_binary_like_type,
+                         is_binary_like_type,
+                         is_large_binary_like_type,
+                         is_binary_type,
+                         is_string_type,
+                         is_temporal_type,
+                         is_time_type,
+                         is_date_type,
+                         is_interval_type,
+                         is_dictionary_type,
+                         is_fixed_size_binary_type,
+                         is_fixed_width_type,
+                         is_var_length_list_type,
+                         is_list_type,
+                         is_list_like_type,
+                         is_var_length_list_like_type,
+                         is_list_view_type,
+                         is_nested_type,
+                         is_union_type,
+                         is_bit_width_type,
+                         is_offset_bit_width_type)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
@@ -62,17 +90,17 @@ def is_boolean(t):
 
 @doc(is_null, datatype="any integer")
 def is_integer(t):
-    return t.id in _INTEGER_TYPES
+    return is_integer_type(t)
 
 
 @doc(is_null, datatype="signed integer")
 def is_signed_integer(t):
-    return t.id in _SIGNED_INTEGER_TYPES
+    return is_signed_integer_type(t)
 
 
 @doc(is_null, datatype="unsigned integer")
 def is_unsigned_integer(t):
-    return t.id in _UNSIGNED_INTEGER_TYPES
+    return is_unsigned_integer_type(t)
 
 
 @doc(is_null, datatype="int8")
@@ -117,7 +145,7 @@ def is_uint64(t):
 
 @doc(is_null, datatype="floating point numeric")
 def is_floating(t):
-    return t.id in _FLOATING_TYPES
+    return is_floating_type(t)
 
 
 @doc(is_null, datatype="float16 (half-precision)")
@@ -167,7 +195,7 @@ def is_struct(t):
 
 @doc(is_null, datatype="union")
 def is_union(t):
-    return t.id in _UNION_TYPES
+    return is_union_type(t)
 
 
 @doc(is_null, datatype="nested type")
@@ -197,7 +225,7 @@ def is_duration(t):
 
 @doc(is_null, datatype="time")
 def is_time(t):
-    return t.id in _TIME_TYPES
+    return is_time_type(t)
 
 
 @doc(is_null, datatype="time32")
@@ -249,7 +277,7 @@ def is_large_string(t):
 
 @doc(is_null, datatype="fixed size binary")
 def is_fixed_size_binary(t):
-    return t.id == lib.Type_FIXED_SIZE_BINARY
+    return is_fixed_size_binary_type(t)
 
 
 @doc(is_null, datatype="variable-length binary view")
@@ -264,7 +292,7 @@ def is_string_view(t):
 
 @doc(is_null, datatype="date")
 def is_date(t):
-    return t.id in _DATE_TYPES
+    return is_date_type(t)
 
 
 @doc(is_null, datatype="date32 (days)")
@@ -284,7 +312,7 @@ def is_map(t):
 
 @doc(is_null, datatype="decimal")
 def is_decimal(t):
-    return t.id in _DECIMAL_TYPES
+    return is_decimal_type(t)
 
 
 @doc(is_null, datatype="decimal128")
@@ -299,14 +327,14 @@ def is_decimal256(t):
 
 @doc(is_null, datatype="dictionary-encoded")
 def is_dictionary(t):
-    return t.id == lib.Type_DICTIONARY
+    return is_dictionary_type(t)
 
 
 @doc(is_null, datatype="interval")
 def is_interval(t):
-    return t.id == lib.Type_INTERVAL_MONTH_DAY_NANO
+    return is_interval_type(t)
 
 
 @doc(is_null, datatype="primitive type")
 def is_primitive(t):
-    return lib._is_primitive(t.id)
+    return is_primitive_type(t)
