@@ -28,10 +28,12 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
  * A dictionary (integer to Value mapping) that is used to facilitate
  * dictionary encoding compression.
  */
-public class Dictionary {
+public class Dictionary implements BaseDictionary {
 
   private final DictionaryEncoding encoding;
   private final FieldVector dictionary;
+
+  private boolean reset;
 
   public Dictionary(FieldVector dictionary, DictionaryEncoding encoding) {
     this.dictionary = dictionary;
@@ -71,5 +73,15 @@ public class Dictionary {
   @Override
   public int hashCode() {
     return Objects.hash(encoding, dictionary);
+  }
+
+  @Override
+  public int mark() {
+    return reset == true ? 0 : dictionary.getValueCount();
+  }
+
+  @Override
+  public void reset() {
+    reset = true;
   }
 }

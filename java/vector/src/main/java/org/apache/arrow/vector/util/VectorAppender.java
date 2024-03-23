@@ -108,8 +108,8 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
-    int targetDataSize = targetVector.getOffsetBuffer().getInt(
-            (long) targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+    int targetDataSize = targetVector.getValueCount() > 0 ? targetVector.getOffsetBuffer().getInt(
+        (long) targetVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH) : 0;
     int deltaDataSize = deltaVector.getOffsetBuffer().getInt(
             (long) deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
     int newValueCapacity = targetDataSize + deltaDataSize;

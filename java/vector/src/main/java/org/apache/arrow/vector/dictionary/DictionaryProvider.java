@@ -30,24 +30,29 @@ import org.apache.arrow.util.VisibleForTesting;
 public interface DictionaryProvider {
 
   /** Return the dictionary for the given ID. */
-  Dictionary lookup(long id);
+  BaseDictionary lookup(long id);
 
   /** Get all dictionary IDs. */
   Set<Long> getDictionaryIds();
+
+  /**
+   * Reset all dictionaries associated with this provider.
+   */
+  void resetDictionaries();
 
   /**
    * Implementation of {@link DictionaryProvider} that is backed by a hash-map.
    */
   class MapDictionaryProvider implements AutoCloseable, DictionaryProvider {
 
-    private final Map<Long, Dictionary> map;
+    private final Map<Long, BaseDictionary> map;
 
     /**
      * Constructs a new instance from the given dictionaries.
      */
-    public MapDictionaryProvider(Dictionary... dictionaries) {
+    public MapDictionaryProvider(BaseDictionary... dictionaries) {
       this.map = new HashMap<>();
-      for (Dictionary dictionary : dictionaries) {
+      for (BaseDictionary dictionary : dictionaries) {
         put(dictionary);
       }
     }
@@ -62,14 +67,14 @@ public interface DictionaryProvider {
     @VisibleForTesting
     public void copyStructureFrom(DictionaryProvider other, BufferAllocator allocator) {
       for (Long id : other.getDictionaryIds()) {
-        Dictionary otherDict = other.lookup(id);
-        Dictionary newDict = new Dictionary(otherDict.getVector().getField().createVector(allocator),
+        BaseDictionary otherDict = other.lookup(id);
+        BaseDictionary newDict = new Dictionary(otherDict.getVector().getField().createVector(allocator),
                 otherDict.getEncoding());
         put(newDict);
       }
     }
 
-    public void put(Dictionary dictionary) {
+    public void put(BaseDictionary dictionary) {
       map.put(dictionary.getEncoding().getId(), dictionary);
     }
 
@@ -79,15 +84,20 @@ public interface DictionaryProvider {
     }
 
     @Override
-    public Dictionary lookup(long id) {
+    public BaseDictionary lookup(long id) {
       return map.get(id);
     }
 
     @Override
     public void close() {
-      for (Dictionary dictionary : map.values()) {
+      for (BaseDictionary dictionary : map.values()) {
         dictionary.getVector().close();
       }
+    }
+
+    @Override
+    public void resetDictionaries() {
+      map.values().forEach( dictionary -> dictionary.reset() );
     }
   }
 }

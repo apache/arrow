@@ -58,7 +58,7 @@ import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types;
@@ -87,7 +87,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   private final JsonParser parser;
   private final BufferAllocator allocator;
   private Schema schema;
-  private Map<Long, Dictionary> dictionaries;
+  private Map<Long, BaseDictionary> dictionaries;
   private Boolean started = false;
 
   /**
@@ -108,7 +108,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   }
 
   @Override
-  public Dictionary lookup(long id) {
+  public BaseDictionary lookup(long id) {
     if (!started) {
       throw new IllegalStateException("Unable to lookup until after read() has started");
     }
@@ -155,7 +155,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
       // Lookup what dictionary for the batch about to be read
       long id = readNextField("id", Long.class);
-      Dictionary dict = dictionaries.get(id);
+      BaseDictionary dict = dictionaries.get(id);
       if (dict == null) {
         throw new IllegalArgumentException("Dictionary with id: " + id + " missing encoding from schema Field");
       }
@@ -257,6 +257,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
     }
     return numBatches;
+  }
+
+  @Override
+  public void resetDictionaries() {
+    dictionaries.values().forEach( dictionary -> dictionary.reset() );
   }
 
   private abstract class BufferReader {
@@ -805,7 +810,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   public void close() throws IOException {
     parser.close();
     if (dictionaries != null) {
-      for (Dictionary dictionary : dictionaries.values()) {
+      for (BaseDictionary dictionary : dictionaries.values()) {
         dictionary.getVector().close();
       }
     }

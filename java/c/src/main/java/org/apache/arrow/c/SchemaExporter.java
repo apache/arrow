@@ -28,7 +28,7 @@ import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -95,7 +95,7 @@ final class SchemaExporter {
       }
 
       if (dictionaryEncoding != null) {
-        Dictionary dictionary = dictionaryProvider.lookup(dictionaryEncoding.getId());
+        BaseDictionary dictionary = dictionaryProvider.lookup(dictionaryEncoding.getId());
         checkNotNull(dictionary, "Dictionary lookup failed on export of field with dictionary");
 
         data.dictionary = ArrowSchema.allocateNew(allocator);

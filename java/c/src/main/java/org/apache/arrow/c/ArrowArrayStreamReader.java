@@ -26,7 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -52,12 +52,12 @@ final class ArrowArrayStreamReader extends ArrowReader {
   }
 
   @Override
-  public Map<Long, Dictionary> getDictionaryVectors() {
+  public Map<Long, BaseDictionary> getDictionaryVectors() {
     return provider.getDictionaryIds().stream().collect(Collectors.toMap(Function.identity(), provider::lookup));
   }
 
   @Override
-  public Dictionary lookup(long id) {
+  public BaseDictionary lookup(long id) {
     return provider.lookup(id);
   }
 

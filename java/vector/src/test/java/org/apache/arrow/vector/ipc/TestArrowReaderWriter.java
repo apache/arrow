@@ -68,6 +68,7 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -376,8 +377,8 @@ public class TestArrowReaderWriter {
               .rangeEquals(new Range(0, 0, encodedVector.getValueCount())));
 
           // Read the dictionary
-          final Map<Long, Dictionary> readDictionaryMap = reader.getDictionaryVectors();
-          final Dictionary readDictionary =
+          final Map<Long, BaseDictionary> readDictionaryMap = reader.getDictionaryVectors();
+          final BaseDictionary readDictionary =
               readDictionaryMap.get(readEncoded.getField().getDictionary().getId());
           assertNotNull(readDictionary);
 
