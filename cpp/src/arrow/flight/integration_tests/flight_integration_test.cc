@@ -89,6 +89,10 @@ TEST(FlightIntegration, FlightSqlExtension) {
   ASSERT_OK(RunScenario("flight_sql:extension"));
 }
 
+TEST(FlightIntegration, FlightSqlIngestion) {
+  ASSERT_OK(RunScenario("flight_sql:ingestion"));
+}
+
 }  // namespace integration_tests
 }  // namespace flight
 }  // namespace arrow

@@ -101,6 +101,24 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       const FlightCallOptions& options, const SubstraitPlan& plan,
       const Transaction& transaction = no_transaction());
 
+  /// \brief Execute a bulk ingestion to the server.
+  /// \param[in] options                   RPC-layer hints for this call.
+  /// \param[in] reader                    The records to ingest.
+  /// \param[in] table_definition_options  The behavior for handling the table definition.
+  /// \param[in] table                     The destination table to load into.
+  /// \param[in] schema                    The DB schema of the destination table.
+  /// \param[in] catalog                   The catalog of the destination table.
+  /// \param[in] temporary                 Use a temporary table.
+  /// \param[in] transaction               Ingest as part of this transaction.
+  /// \param[in] ingest_options            Additional, backend-specific options.
+  /// \return The number of rows ingested to the server.
+  arrow::Result<int64_t> ExecuteIngest(
+      const FlightCallOptions& options, const std::shared_ptr<RecordBatchReader>& reader,
+      const TableDefinitionOptions& table_definition_options, const std::string& table,
+      const std::optional<std::string>& schema, const std::optional<std::string>& catalog,
+      const bool temporary, const Transaction& transaction = no_transaction(),
+      const std::unordered_map<std::string, std::string>& ingest_options = {});
+
   /// \brief Request a list of catalogs.
   /// \param[in] options      RPC-layer hints for this call.
   /// \return The FlightInfo describing where to access the dataset.

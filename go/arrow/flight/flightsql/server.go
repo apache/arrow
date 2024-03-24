@@ -196,6 +196,17 @@ type ActionEndSavepointRequest interface {
 	GetAction() EndSavepointRequestType
 }
 
+// StatementIngest represents a bulk ingestion request
+type StatementIngest interface {
+	GetTableDefinitionOptions() *TableDefinitionOptions
+	GetTable() string
+	GetSchema() string
+	GetCatalog() string
+	GetTemporary() bool
+	GetTransactionId() []byte
+	GetOptions() map[string]string
+}
+
 type getXdbcTypeInfo struct {
 	*pb.CommandGetXdbcTypeInfo
 }
@@ -507,6 +518,10 @@ func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatemen
 	return 0, status.Error(codes.Unimplemented, "DoPutPreparedStatementUpdate not implemented")
 }
 
+func (BaseServer) DoPutCommandStatementIngest(context.Context, StatementIngest, flight.MessageReader) (int64, error) {
+	return 0, status.Error(codes.Unimplemented, "DoPutCommandStatementIngest not implemented")
+}
+
 func (BaseServer) BeginTransaction(context.Context, ActionBeginTransactionRequest) ([]byte, error) {
 	return nil, status.Error(codes.Unimplemented, "BeginTransaction not implemented")
 }
@@ -694,6 +709,9 @@ type Server interface {
 	GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error)
 	// CloseSession closes/invalidates the current server session.
 	CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
+	// DoPutCommandStatementIngest executes a bulk ingestion and returns
+	// the number of affected rows
+	DoPutCommandStatementIngest(context.Context, StatementIngest, flight.MessageReader) (int64, error)
 
 	mustEmbedBaseServer()
 }
@@ -985,6 +1003,26 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
 		return stream.Send(out)
+	case *pb.CommandStatementIngest:
+		// Even if there was an error, the server may have ingested some records.
+		// For this reason we send PutResult{recordCount} no matter what, potentially followed by an error
+		// if there was one.
+		recordCount, rpcErr := f.srv.DoPutCommandStatementIngest(stream.Context(), cmd, rdr)
+
+		result := pb.DoPutUpdateResult{RecordCount: recordCount}
+		out := &flight.PutResult{}
+		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
+		}
+
+		// If we fail to send the recordCount, just return an error outright
+		if err := stream.Send(out); err != nil {
+			return err
+		}
+
+		// We successfully sent the recordCount.
+		// Send the error if one occurred in the RPC, otherwise this is nil.
+		return rpcErr
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid")
 	}

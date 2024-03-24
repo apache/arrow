@@ -86,6 +86,24 @@ struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementUpdate {
   std::string prepared_statement_handle;
 };
 
+/// \brief A bulk ingestion request
+struct ARROW_FLIGHT_SQL_EXPORT StatementIngest {
+  /// \brief The behavior for handling the table definition.
+  TableDefinitionOptions table_definition_options;
+  /// \brief The destination table to load into.
+  std::string table;
+  /// \brief The DB schema of the destination table.
+  std::optional<std::string> schema;
+  /// :\brief The catalog of the destination table.
+  std::optional<std::string> catalog;
+  /// \brief Use a temporary table.
+  bool temporary;
+  /// \brief Ingest as part of this transaction.
+  std::optional<std::string> transaction_id;
+  /// \brief Additional, backend-specific options.
+  std::unordered_map<std::string, std::string> options;
+};
+
 /// \brief A request to fetch server metadata.
 struct ARROW_FLIGHT_SQL_EXPORT GetSqlInfo {
   /// \brief A list of metadata IDs to fetch.
@@ -567,6 +585,15 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return             The changed record count.
   virtual arrow::Result<int64_t> DoPutPreparedStatementUpdate(
       const ServerCallContext& context, const PreparedStatementUpdate& command,
+      FlightMessageReader* reader);
+
+  /// \brief Execute a bulk ingestion.
+  /// \param[in] context  The call context.
+  /// \param[in] command  The StatementIngest object containing the ingestion request.
+  /// \param[in] reader   a sequence of uploaded record batches.
+  /// \return             The changed record count.
+  virtual arrow::Result<int64_t> DoPutCommandStatementIngest(
+      const ServerCallContext& context, const StatementIngest& command,
       FlightMessageReader* reader);
 
   /// \brief Begin a new transaction.

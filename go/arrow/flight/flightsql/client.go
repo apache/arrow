@@ -243,6 +243,88 @@ func (c *Client) ExecuteSubstraitUpdate(ctx context.Context, plan SubstraitPlan,
 	return updateResult.GetRecordCount(), nil
 }
 
+var ErrTooManyPutResults = fmt.Errorf("%w: server sent multiple PutResults, expected one ", arrow.ErrInvalid)
+
+// ExecuteIngest is for executing a bulk ingestion and only returns the number of affected rows.
+// The provided RecordReader will be retained for the duration of the call, but it is the caller's
+// responsibility to release the original reference.
+func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqOptions *ExecuteIngestOpts, opts ...grpc.CallOption) (int64, error) {
+	var (
+		err          error
+		desc         *flight.FlightDescriptor
+		stream       pb.FlightService_DoPutClient
+		wr           *flight.Writer
+		res          *pb.PutResult
+		updateResult pb.DoPutUpdateResult
+	)
+
+	// Servers cannot infer defaults for these parameters, so we validate the request to ensure they are set.
+	if reqOptions.TableDefinitionOptions == nil {
+		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, TableDefinitionOptions is required")
+	}
+	if reqOptions.Table == "" {
+		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, Table is required")
+	}
+
+	rdr.Retain()
+	defer rdr.Release()
+
+	cmd := (*pb.CommandStatementIngest)(reqOptions)
+	if desc, err = descForCommand(cmd); err != nil {
+		return 0, err
+	}
+
+	if stream, err = c.Client.DoPut(ctx, opts...); err != nil {
+		return 0, err
+	}
+
+	wr = flight.NewRecordWriter(stream, ipc.WithAllocator(c.Alloc), ipc.WithSchema(rdr.Schema()))
+	defer wr.Close()
+
+	wr.SetFlightDescriptor(desc)
+
+	for rdr.Next() {
+		rec := rdr.Record()
+		err = wr.Write(rec)
+		if errors.Is(err, flight.ErrDataStreamClosed) {
+			// The stream was closed by the server, so we stop writing.
+			// The specific error will be retrieved in the server response.
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	if err = rdr.Err(); err != nil {
+		return 0, err
+	}
+
+	if err = stream.CloseSend(); err != nil {
+		return 0, err
+	}
+
+	if res, err = stream.Recv(); err != nil {
+		return 0, err
+	}
+
+	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
+		return 0, err
+	}
+
+	// Drain the stream. If ingestion was successful, no more messages should arrive.
+	// If there was a failure, the next message contains the error and the DoPutUpdateResult
+	// we recieved indicates a partial ingestion if the RecordCount is non-zero.
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return updateResult.GetRecordCount(), nil
+		} else if err != nil {
+			return updateResult.GetRecordCount(), err
+		}
+	}
+}
+
 // GetCatalogs requests the list of catalogs from the server and
 // returns a flightInfo object where the response can be retrieved
 func (c *Client) GetCatalogs(ctx context.Context, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
