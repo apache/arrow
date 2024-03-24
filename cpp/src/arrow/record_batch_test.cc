@@ -637,6 +637,19 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedType) {
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: DataType is not supported: " + a1->type()->ToString(),
       batch->ToTensor());
+
+  // Unsupported boolean data type
+  auto f2 = field("f2", boolean());
+
+  std::vector<std::shared_ptr<Field>> fields2 = {f0, f2};
+  auto schema2 = ::arrow::schema(fields2);
+  auto a2 = ArrayFromJSON(boolean(),
+                          "[true, false, true, true, false, true, false, true, true]");
+  auto batch2 = RecordBatch::Make(schema2, length, {a0, a2});
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError, "Type error: DataType is not supported: " + a2->type()->ToString(),
+      batch2->ToTensor());
 }
 
 TEST_F(TestRecordBatch, ToTensorUnsupportedMissing) {
