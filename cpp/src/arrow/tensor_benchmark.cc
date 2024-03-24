@@ -37,24 +37,23 @@ static void BatchToTensorSimple(benchmark::State& state) {
   std::vector<std::shared_ptr<Field>> fields = {};
   std::vector<std::shared_ptr<Array>> columns = {};
 
-  const int NumCols = state.range(1);
-  for (int i = 0; i < NumCols; ++i) {
+  for (int64_t i = 0; i < num_cols; ++i) {
     fields.push_back(field("f" + std::to_string(i), ty));
-    columns.push_back(gen_.ArrayOf(ty, kNumRows));
+    columns.push_back(gen_.ArrayOf(ty, num_rows));
   }
   auto schema = std::make_shared<Schema>(std::move(fields));
-  auto batch = RecordBatch::Make(schema, kNumRows, columns);
+  auto batch = RecordBatch::Make(schema, num_rows, columns);
 
   for (auto _ : state) {
     ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
   }
-  state.SetItemsProcessed(state.iterations() * kNumRows * NumCols);
-  state.SetBytesProcessed(state.iterations() * ty->byte_width() * kNumRows * NumCols);
+  state.SetItemsProcessed(state.iterations() * num_rows * num_cols);
+  state.SetBytesProcessed(state.iterations() * ty->byte_width() * num_rows * num_cols);
 }
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : {kL1Size, kL2Size}) {
-    for (int number_of_columns : {3, 30, 300}) {
+    for (int64_t number_of_columns : {3, 30, 300}) {
       bench->Args({size, number_of_columns});
     }
   }
