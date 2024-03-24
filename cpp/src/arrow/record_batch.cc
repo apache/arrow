@@ -250,6 +250,10 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
+template <typename Num>
+using CTypeOrFloat16 = std::conditional_t<Num::type_id == Type::HALF_FLOAT,
+    uint16_t, typename Num::c_type>;
+
 template <typename Out>
 struct ConvertColumnsToTensorVisitor {
   Out*& out_values;
@@ -258,7 +262,7 @@ struct ConvertColumnsToTensorVisitor {
   template <typename T>
   Status Visit(const T&) {
     if constexpr (is_numeric(T::type_id)) {
-      using In = typename T::c_type;
+      using In = CTypeOrFloat16<T>;
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
       if constexpr (std::is_same_v<In, Out>) {
@@ -277,7 +281,7 @@ struct ConvertColumnsToTensorVisitor {
 
 template <typename DataType>
 inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
-  using CType = typename arrow::TypeTraits<DataType>::CType;
+  using CType = CTypeOrFloat16<DataType>;
   auto* out_values = reinterpret_cast<CType*>(out);
 
   for (const auto& column : batch.columns()) {
@@ -336,7 +340,6 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
       ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
       break;
     case Type::UINT16:
-    case Type::HALF_FLOAT:
       ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
       break;
     case Type::UINT32:
@@ -356,6 +359,9 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
       break;
     case Type::INT64:
       ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
+      break;
+    case Type::HALF_FLOAT:
+      ConvertColumnsToTensor<HalfFloatType>(*this, result->mutable_data());
       break;
     case Type::FLOAT:
       ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
