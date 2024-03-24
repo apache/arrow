@@ -315,7 +315,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
     options.promote_numeric_width = true;
 
     for (int i = 1; i < num_columns(); ++i) {
-      if (!is_integer(column(i)->type()->id()) && !is_floating(column(i)->type()->id())) {
+      if (!is_numeric(column(i)->type()->id())) {
         return Status::TypeError("DataType is not supported: ",
                                  column(i)->type()->ToString());
       }
