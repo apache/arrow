@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import { fs as memfs } from 'memfs';
-import { PassThrough, Readable } from 'stream';
+import { PassThrough, Readable } from 'node:stream';
 
 import {
     RecordBatchFileWriter,
