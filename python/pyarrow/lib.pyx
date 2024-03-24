@@ -163,7 +163,6 @@ include "pandas-shim.pxi"
 include "memory.pxi"
 
 # TypeTraits
-
 include "type_traits.pxi"
 
 # DataType, Field, Schema
