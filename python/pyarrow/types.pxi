@@ -5521,5 +5521,3 @@ cdef object alloc_c_stream(ArrowArrayStream** c_stream):
     # Ensure the capsule destructor doesn't call a random release pointer
     c_stream[0].release = NULL
     return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)
-
-

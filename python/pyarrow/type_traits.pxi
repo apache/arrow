@@ -57,6 +57,7 @@ def is_integer_type(data_type):
     """
     return is_integer(data_type.id)
 
+
 def is_signed_integer_type(data_type):
     """
     Check if the data type is a signed integer type.
@@ -68,10 +69,11 @@ def is_signed_integer_type(data_type):
     """
     return is_signed_integer(data_type.id)
 
+
 def is_unsigned_integer_type(data_type):
     """
     Check if the data type is an unsigned integer type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -79,10 +81,11 @@ def is_unsigned_integer_type(data_type):
     """
     return is_unsigned_integer(data_type.id)
 
+
 def is_floating_type(data_type):
     """
     Check if the data type is a floating type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -90,10 +93,11 @@ def is_floating_type(data_type):
     """
     return is_floating(data_type.id)
 
+
 def is_numeric_type(data_type):
     """
     Check if the data type is a numeric type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -101,10 +105,11 @@ def is_numeric_type(data_type):
     """
     return is_numeric(data_type.id)
 
+
 def is_decimal_type(data_type):
     """
     Check if the data type is a decimal type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -112,10 +117,11 @@ def is_decimal_type(data_type):
     """
     return is_decimal(data_type.id)
 
+
 def is_run_end_type_py(data_type):
     """
     Check if the data type is a run end type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -123,10 +129,11 @@ def is_run_end_type_py(data_type):
     """
     return is_run_end_type(data_type.id)
 
+
 def is_primitive_type(data_type):
     """
     Check if the data type is a primitive type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -134,10 +141,11 @@ def is_primitive_type(data_type):
     """
     return is_primitive(data_type.id)
 
+
 def is_base_binary_like_type(data_type):
     """
     Check if the data type is a base_binary_like type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -145,10 +153,11 @@ def is_base_binary_like_type(data_type):
     """
     return is_base_binary_like(data_type.id)
 
+
 def is_binary_like_type(data_type):
     """
     Check if the data type is a _binary_like type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -156,10 +165,11 @@ def is_binary_like_type(data_type):
     """
     return is_binary_like(data_type.id)
 
+
 def is_large_binary_like_type(data_type):
     """
     Check if the data type is a large_binary_like type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -167,10 +177,11 @@ def is_large_binary_like_type(data_type):
     """
     return is_large_binary_like(data_type.id)
 
+
 def is_binary_type(data_type):
     """
     Check if the data type is a binary type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -178,10 +189,11 @@ def is_binary_type(data_type):
     """
     return is_binary(data_type.id)
 
+
 def is_string_type(data_type):
     """
     Check if the data type is a string type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -189,10 +201,11 @@ def is_string_type(data_type):
     """
     return is_string(data_type.id)
 
+
 def is_temporal_type(data_type):
     """
     Check if the data type is a temporal type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -200,10 +213,11 @@ def is_temporal_type(data_type):
     """
     return is_temporal(data_type.id)
 
+
 def is_time_type(data_type):
     """
     Check if the data type is a time type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -211,10 +225,11 @@ def is_time_type(data_type):
     """
     return is_time(data_type.id)
 
+
 def is_date_type(data_type):
     """
     Check if the data type is a date type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -222,10 +237,11 @@ def is_date_type(data_type):
     """
     return is_date(data_type.id)
 
+
 def is_interval_type(data_type):
     """
     Check if the data type is a interval type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -233,10 +249,11 @@ def is_interval_type(data_type):
     """
     return is_interval(data_type.id)
 
+
 def is_dictionary_type(data_type):
     """
     Check if the data type is a dictionary type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -244,10 +261,11 @@ def is_dictionary_type(data_type):
     """
     return is_dictionary(data_type.id)
 
+
 def is_fixed_size_binary_type(data_type):
     """
     Check if the data type is a fixed_size_binary type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -255,10 +273,11 @@ def is_fixed_size_binary_type(data_type):
     """
     return is_fixed_size_binary(data_type.id)
 
+
 def is_fixed_width_type(data_type):
     """
     Check if the data type is a fixed_width type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -266,10 +285,11 @@ def is_fixed_width_type(data_type):
     """
     return is_fixed_width(data_type.id)
 
+
 def is_var_length_list_type(data_type):
     """
     Check if the data type is a var_length_list type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -277,10 +297,11 @@ def is_var_length_list_type(data_type):
     """
     return is_var_length_list(data_type.id)
 
+
 def is_list_type(data_type):
     """
     Check if the data type is a list type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -288,10 +309,11 @@ def is_list_type(data_type):
     """
     return is_list(data_type.id)
 
+
 def is_list_like_type(data_type):
     """
     Check if the data type is a list_like type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -299,10 +321,11 @@ def is_list_like_type(data_type):
     """
     return is_list_like(data_type.id)
 
+
 def is_var_length_list_like_type(data_type):
     """
     Check if the data type is a var_length_list_like type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -310,10 +333,11 @@ def is_var_length_list_like_type(data_type):
     """
     return is_var_length_list_like(data_type.id)
 
+
 def is_list_view_type(data_type):
     """
     Check if the data type is a list_view type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -321,10 +345,11 @@ def is_list_view_type(data_type):
     """
     return is_list_view(data_type.id)
 
+
 def is_nested_type(data_type):
     """
     Check if the data type is a nested type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -332,10 +357,11 @@ def is_nested_type(data_type):
     """
     return is_nested(data_type.id)
 
+
 def is_union_type(data_type):
     """
     Check if the data type is a union type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -343,10 +369,11 @@ def is_union_type(data_type):
     """
     return is_union(data_type.id)
 
+
 def is_bit_width_type(data_type):
     """
     Check if the data type is a bit_width type.
-    
+
     Parameters
     ----------
     data_type : DataType
@@ -354,10 +381,11 @@ def is_bit_width_type(data_type):
     """
     return bit_width(data_type.id)
 
+
 def is_offset_bit_width_type(data_type):
     """
     Check if the data type is a offset_bit_width type.
-    
+
     Parameters
     ----------
     data_type : DataType
