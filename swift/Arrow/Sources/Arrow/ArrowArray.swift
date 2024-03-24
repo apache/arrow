@@ -17,14 +17,24 @@
 
 import Foundation
 
-public class ArrowArrayHolder {
+public protocol ArrowArrayHolder {
+    var type: ArrowType {get}
+    var length: UInt {get}
+    var nullCount: UInt {get}
+    var array: Any {get}
+    var getBufferData: () -> [Data] {get}
+    var getBufferDataSizes: () -> [Int] {get}
+    var getArrowColumn: (ArrowField, [ArrowArrayHolder]) throws -> ArrowColumn {get}
+}
+
+public class ArrowArrayHolderImpl: ArrowArrayHolder {
     public let type: ArrowType
     public let length: UInt
     public let nullCount: UInt
     public let array: Any
     public let getBufferData: () -> [Data]
     public let getBufferDataSizes: () -> [Int]
-    private let getArrowColumn: (ArrowField, [ArrowArrayHolder]) throws -> ArrowColumn
+    public let getArrowColumn: (ArrowField, [ArrowArrayHolder]) throws -> ArrowColumn
     public init<T>(_ arrowArray: ArrowArray<T>) {
         self.array = arrowArray
         self.length = arrowArray.length
@@ -58,16 +68,6 @@ public class ArrowArrayHolder {
             }
 
             return ArrowColumn(field, chunked: ChunkedArrayHolder(try ChunkedArray<T>(arrays)))
-        }
-    }
-
-    public static func makeArrowColumn(_ field: ArrowField,
-                                       holders: [ArrowArrayHolder]
-    ) -> Result<ArrowColumn, ArrowError> {
-        do {
-            return .success(try holders[0].getArrowColumn(field, holders))
-        } catch {
-            return .failure(.runtimeError("\(error)"))
         }
     }
 }

@@ -90,6 +90,17 @@ public class ArrowTypeTime32: ArrowType {
         self.unit = unit
         super.init(ArrowType.ArrowTime32)
     }
+
+    public override var cDataFormatId: String {
+        get throws {
+            switch self.unit {
+            case .milliseconds:
+                return "ttm"
+            case .seconds:
+                return "tts"
+            }
+        }
+    }
 }
 
 public class ArrowTypeTime64: ArrowType {
@@ -97,6 +108,17 @@ public class ArrowTypeTime64: ArrowType {
     public init(_ unit: ArrowTime64Unit) {
         self.unit = unit
         super.init(ArrowType.ArrowTime64)
+    }
+
+    public override var cDataFormatId: String {
+        get throws {
+            switch self.unit {
+            case .microseconds:
+                return "ttu"
+            case .nanoseconds:
+                return "ttn"
+            }
+        }
     }
 }
 
@@ -208,6 +230,100 @@ public class ArrowType {
         default:
             fatalError("Stride requested for unknown type: \(self)")
         }
+    }
+
+    public var cDataFormatId: String {
+        get throws {
+            switch self.id {
+            case ArrowTypeId.int8:
+                return "c"
+            case ArrowTypeId.int16:
+                return "s"
+            case ArrowTypeId.int32:
+                return "i"
+            case ArrowTypeId.int64:
+                return "l"
+            case ArrowTypeId.uint8:
+                return "C"
+            case ArrowTypeId.uint16:
+                return "S"
+            case ArrowTypeId.uint32:
+                return "I"
+            case ArrowTypeId.uint64:
+                return "L"
+            case ArrowTypeId.float:
+                return "f"
+            case ArrowTypeId.double:
+                return "g"
+            case ArrowTypeId.boolean:
+                return "b"
+            case ArrowTypeId.date32:
+                return "tdD"
+            case ArrowTypeId.date64:
+                return "tdm"
+            case ArrowTypeId.time32:
+                if let time32 = self as? ArrowTypeTime32 {
+                    return try time32.cDataFormatId
+                }
+                return "tts"
+            case ArrowTypeId.time64:
+                if let time64 = self as? ArrowTypeTime64 {
+                    return try time64.cDataFormatId
+                }
+                return "ttu"
+            case ArrowTypeId.binary:
+                return "z"
+            case ArrowTypeId.string:
+                return "u"
+            default:
+                throw ArrowError.notImplemented
+            }
+        }
+    }
+
+    public static func fromCDataFormatId( // swiftlint:disable:this cyclomatic_complexity
+        _ from: String) throws -> ArrowType {
+        if from == "c" {
+            return ArrowType(ArrowType.ArrowInt8)
+        } else if from == "s" {
+            return ArrowType(ArrowType.ArrowInt16)
+        } else if from == "i" {
+            return ArrowType(ArrowType.ArrowInt32)
+        } else if  from == "l" {
+            return ArrowType(ArrowType.ArrowInt64)
+        } else if  from == "C" {
+            return ArrowType(ArrowType.ArrowUInt8)
+        } else if  from == "S" {
+            return ArrowType(ArrowType.ArrowUInt16)
+        } else if  from == "I" {
+            return ArrowType(ArrowType.ArrowUInt32)
+        } else if  from == "L" {
+            return ArrowType(ArrowType.ArrowUInt64)
+        } else if  from == "f" {
+            return ArrowType(ArrowType.ArrowFloat)
+        } else if  from == "g" {
+            return ArrowType(ArrowType.ArrowDouble)
+        } else if  from == "b" {
+            return ArrowType(ArrowType.ArrowBool)
+        } else if  from == "tdD" {
+            return ArrowType(ArrowType.ArrowDate32)
+        } else if  from == "tdm" {
+            return ArrowType(ArrowType.ArrowDate64)
+        } else if  from == "tts" {
+            return ArrowTypeTime32(.seconds)
+        } else if  from == "ttm" {
+            return ArrowTypeTime32(.milliseconds)
+        } else if  from == "ttu" {
+            return ArrowTypeTime64(.microseconds)
+        } else if  from == "ttn" {
+            return ArrowTypeTime64(.nanoseconds)
+        } else if  from == "z" {
+            return ArrowType(ArrowType.ArrowBinary)
+        } else if  from == "u" {
+            return ArrowType(ArrowType.ArrowString)
+        }
+
+        throw ArrowError.notImplemented
     }
 }
 

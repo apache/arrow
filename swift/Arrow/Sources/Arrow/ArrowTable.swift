@@ -64,7 +64,7 @@ public class ArrowTable {
 
         let builder = ArrowTable.Builder()
         for index in 0..<schema.fields.count {
-            switch ArrowArrayHolder.makeArrowColumn(schema.fields[index], holders: holders[index]) {
+            switch makeArrowColumn(schema.fields[index], holders: holders[index]) {
             case .success(let column):
                 builder.addColumn(column)
             case .failure(let error):
@@ -73,6 +73,17 @@ public class ArrowTable {
         }
 
         return .success(builder.finish())
+    }
+
+    private static func makeArrowColumn(
+        _ field: ArrowField,
+        holders: [ArrowArrayHolder]
+    ) -> Result<ArrowColumn, ArrowError> {
+        do {
+            return .success(try holders[0].getArrowColumn(field, holders))
+        } catch {
+            return .failure(.runtimeError("\(error)"))
+        }
     }
 
     public class Builder {
