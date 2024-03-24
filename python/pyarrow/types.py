@@ -55,20 +55,12 @@ import pyarrow.lib as lib
 from pyarrow.util import doc
 
 
-_SIGNED_INTEGER_TYPES = {lib.Type_INT8, lib.Type_INT16, lib.Type_INT32,
-                         lib.Type_INT64}
-_UNSIGNED_INTEGER_TYPES = {lib.Type_UINT8, lib.Type_UINT16, lib.Type_UINT32,
-                           lib.Type_UINT64}
-_INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
-_FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
-_DECIMAL_TYPES = {lib.Type_DECIMAL128, lib.Type_DECIMAL256}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
 _INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
 _TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
                     lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
                    _INTERVAL_TYPES)
-_UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
 
 
 @doc(datatype="null")
