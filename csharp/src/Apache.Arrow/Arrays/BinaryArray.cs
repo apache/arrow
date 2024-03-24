@@ -269,8 +269,22 @@ namespace Apache.Arrow
 
             public TBuilder Set(int index, byte value)
             {
-                var checkStart = ValueOffsets.Span[index];
-                var checkEnd = ValueOffsets.Span[index + 1];
+                int currentStart = ValueOffsets.Span[index];
+                int currentEnd = ValueOffsets.Span[index + 1];
+                int newEnd = currentStart + 1;
+
+                int currentLength = currentEnd - currentStart;
+                int newSize = 1;
+                int diffSize = currentLength - newSize;
+                if (currentLength != 1)
+                {
+                    ValueBuffer.Span.Slice(currentStart, currentLength).Clear();
+                    ValueBuffer.Span[currentStart] = value;
+                    ValueBuffer.Span.Slice(currentEnd, Length - currentEnd)
+                        .CopyTo(ValueBuffer.Span.Slice(newEnd, Length - newEnd));
+                    ValueBuffer.Span.Slice(Length - diffSize, diffSize).Clear();
+                    AdjustOffsets(index, currentLength - 1);
+                }
 
                 ValueBuffer.Span[index] = value;
                 ValidityBuffer.Set(index);
@@ -280,9 +294,7 @@ namespace Apache.Arrow
             public TBuilder Set(int index, ReadOnlySpan<byte> bytes)
             {
                 int startOffset = ValueOffsets.Span[index];
-
                 int newLength = bytes.Length;
-
                 bool isNull = bytes.IsEmpty;
 
                 if (isNull)
