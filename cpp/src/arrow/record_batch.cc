@@ -251,8 +251,8 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
 }
 
 template <typename Num>
-using CTypeOrFloat16 = std::conditional_t<Num::type_id == Type::HALF_FLOAT,
-    uint16_t, typename Num::c_type>;
+using CTypeOrFloat16 =
+    std::conditional_t<Num::type_id == Type::HALF_FLOAT, uint16_t, typename Num::c_type>;
 
 template <typename Out>
 struct ConvertColumnsToTensorVisitor {
