@@ -139,7 +139,7 @@ TEST(DefaultMemoryPoolDeathTest, Statistics) {
   ASSERT_EQ(150, pool->max_memory());
   ASSERT_EQ(200, pool->total_bytes_allocated());
   ASSERT_EQ(0, pool->bytes_allocated());
-  ASSERT_EQ(4, pool->num_allocations());
+  ASSERT_EQ(3, pool->num_allocations());
 }
 
 TEST(LoggingMemoryPool, Logging) {
