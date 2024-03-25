@@ -53,8 +53,9 @@ static void BatchToTensorSimple(benchmark::State& state) {
 
 void SetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : {kL1Size, kL2Size}) {
-    for (int64_t number_of_columns : {3, 30, 300}) {
-      bench->Args({size, number_of_columns});
+    for (int64_t num_columns : {3, 30, 300}) {
+      bench->Args({size, num_columns});
+      bench->ArgNames({"size", "num_columns"});
     }
   }
 }
