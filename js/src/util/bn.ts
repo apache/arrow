@@ -18,6 +18,7 @@
 import { ArrayBufferViewInput, toArrayBufferView } from './buffer.js';
 import { TypedArray, TypedArrayConstructor } from '../interfaces.js';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces.js';
+import { bigIntToNumber } from './bigint.js';
 
 /** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');
@@ -79,25 +80,24 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
     const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
     let number = BigInt(0);
     let i = 0;
-    if (!negative) {
-        for (const word of words) {
-            number |= word * (BigInt(1) << BigInt(64 * i++));
-        }
-    } else {
+    if (negative) {
         for (const word of words) {
             number |= (word ^ TWO_TO_THE_64_MINUS_1) * (BigInt(1) << BigInt(64 * i++));
         }
         number *= BigInt(-1);
         number -= BigInt(1);
+    } else {
+        for (const word of words) {
+            number |= word * (BigInt(1) << BigInt(64 * i++));
+        }
     }
     if (typeof scale === 'number') {
         const denominator = BigInt(Math.pow(10, scale));
         const quotient = number / denominator;
         const remainder = number % denominator;
-        const n = Number(quotient) + (Number(remainder) / Number(denominator));
-        return n;
+        return bigIntToNumber(quotient) + (bigIntToNumber(remainder) / bigIntToNumber(denominator));
     }
-    return Number(number);
+    return bigIntToNumber(number);
 }
 
 /** @ignore */
