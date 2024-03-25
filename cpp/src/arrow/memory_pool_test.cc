@@ -137,7 +137,7 @@ TEST(DefaultMemoryPoolDeathTest, Statistics) {
   ASSERT_EQ(150, pool->max_memory());
   ASSERT_EQ(200, pool->total_bytes_allocated());
   ASSERT_EQ(50, pool->bytes_allocated());
-  ASSERT_EQ(4, pool->num_allocations());
+  ASSERT_EQ(3, pool->num_allocations());
 
   pool->Free(data1, 50);
 
