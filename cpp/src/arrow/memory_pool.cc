@@ -537,6 +537,9 @@ class BaseMemoryPoolImpl : public MemoryPool {
     if (new_size == old_size) {
       return Status::OK();
     }
+    if (old_size == 0 || new_size == 0) {
+      return Reallocate(old_size, new_size, alignment, ptr);
+    }
     if (new_size < 0) {
       return Status::Invalid("negative realloc size");
     }
@@ -545,9 +548,9 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
     // First try resizing in place
     if (!Allocator::ResizeInPlace(old_size, new_size, *ptr)) {
-      // TODO comment
-      if (std::max(old_size, new_size) >= 32 * 1024) {
-        // Deallocate then allocate (faster than copying data?)
+      // For non-small allocations, we prefer deallocate-then-allocate
+      // over reallocation, because it saves the cost of copying data.
+      if (std::max(old_size, new_size) >= 256) {
         Allocator::DeallocateAligned(*ptr, old_size, alignment);
         RETURN_NOT_OK(Allocator::AllocateAligned(new_size, alignment, ptr));
       } else {

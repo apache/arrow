@@ -115,30 +115,39 @@ static void AllocateTouchDeallocate(
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
+// 256 kiB: typical max size for a scratch space (L2-sized)
+static constexpr int64_t kMaxReallocationSize = 256 << 10;
+// 4 kiB: typical increment when resizing a scratch space
+static constexpr int64_t kReallocationIncrement = 4096;
+
 template <typename Alloc, bool Copy>
 static void BenchmarkReallocateGrowing(benchmark::State& state) {
-  // 256 kiB: typical max size for a scratch space (L2-sized)
-  const int64_t max_size = 256 << 10;
-  // 4 kiB: typical increment when resizing a scratch space
-  const int64_t increment = 4096;
   MemoryPool* pool = *Alloc::GetAllocator();
+  pool->ReleaseUnused();
   int64_t nb_reallocs = 0;
-
+  int64_t nb_inplace_reallocs = 0;
   for (auto _ : state) {
+    const auto alloc_before = pool->bytes_allocated();
     uint8_t* data;
     int64_t size = 0;
     ARROW_CHECK_OK(pool->Allocate(size, &data));
-    for (; size < max_size; size += increment) {
+    while (size < kMaxReallocationSize) {
+      const auto old_data = data;
+      int64_t new_size = size + kReallocationIncrement;
       if constexpr (Copy) {
-        ARROW_CHECK_OK(pool->Reallocate(size - increment, size, &data));
+        ARROW_CHECK_OK(pool->Reallocate(size, new_size, &data));
       } else {
-        ARROW_CHECK_OK(pool->ReallocateNoCopy(size - increment, size, &data));
+        ARROW_CHECK_OK(pool->ReallocateNoCopy(size, new_size, &data));
       }
       ++nb_reallocs;
+      nb_inplace_reallocs += (data == old_data);
+      size = new_size;
     }
-    pool->Free(data, size - increment);
+    pool->Free(data, size);
+    ARROW_CHECK_EQ(pool->bytes_allocated(), alloc_before);
   }
   state.SetItemsProcessed(nb_reallocs);
+  state.counters["percent_in_place"] = 100.0 * nb_inplace_reallocs / nb_reallocs;
 }
 
 template <typename Alloc>
@@ -153,26 +162,33 @@ static void ReallocateGrowingNoCopy(benchmark::State& state) {
 
 template <typename Alloc, bool Copy>
 static void BenchmarkReallocateShrinking(benchmark::State& state) {
-  const int64_t max_size = 256 << 10;  // 256 kiB
-  const int64_t increment = 4096;
   MemoryPool* pool = *Alloc::GetAllocator();
-  int64_t nb_reallocs = 0;
+  pool->ReleaseUnused();
 
+  int64_t nb_reallocs = 0;
+  int64_t nb_inplace_reallocs = 0;
   for (auto _ : state) {
+    const auto alloc_before = pool->bytes_allocated();
     uint8_t* data;
-    int64_t size = max_size;
+    int64_t size = kMaxReallocationSize;
     ARROW_CHECK_OK(pool->Allocate(size, &data));
-    for (; size >= 0; size -= increment) {
+    while (size >= kReallocationIncrement) {
+      const auto old_data = data;
+      int64_t new_size = size - kReallocationIncrement;
       if constexpr (Copy) {
-        ARROW_CHECK_OK(pool->Reallocate(size + increment, size, &data));
+        ARROW_CHECK_OK(pool->Reallocate(size, new_size, &data));
       } else {
-        ARROW_CHECK_OK(pool->ReallocateNoCopy(size + increment, size, &data));
+        ARROW_CHECK_OK(pool->ReallocateNoCopy(size, new_size, &data));
       }
       ++nb_reallocs;
+      nb_inplace_reallocs += (data == old_data);
+      size = new_size;
     }
-    pool->Free(data, size + increment);
+    pool->Free(data, size);
+    ARROW_CHECK_EQ(pool->bytes_allocated(), alloc_before);
   }
   state.SetItemsProcessed(nb_reallocs);
+  state.counters["percent_in_place"] = 100.0 * nb_inplace_reallocs / nb_reallocs;
 }
 
 template <typename Alloc>
