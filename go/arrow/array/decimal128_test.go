@@ -204,7 +204,17 @@ func TestDecimal128StringRoundTrip(t *testing.T) {
 		decimal128.FromI64(9),
 		decimal128.FromI64(10),
 	}
-	valid := []bool{true, true, true, false, true, true, false, true, true, true}
+	val1, err := decimal128.FromString("0.99", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	val2, err := decimal128.FromString("1234567890.12345", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values = append(values, val1, val2)
+
+	valid := []bool{true, true, true, false, true, true, false, true, true, true, true, true}
 
 	b.AppendValues(values, valid)
 
@@ -223,4 +233,51 @@ func TestDecimal128StringRoundTrip(t *testing.T) {
 	defer arr1.Release()
 
 	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestDecimal128GetOneForMarshal(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.Decimal128Type{Precision: 38, Scale: 20}
+
+	b := array.NewDecimal128Builder(mem, dtype)
+	defer b.Release()
+
+	cases := []struct {
+		give any
+		want any
+	}{
+		{"1", "1"},
+		{"1.25", "1.25"},
+		{"0.99", "0.99"},
+		{"1234567890.123456789", "1234567890.123456789"},
+		{nil, nil},
+		{"-0.99", "-0.99"},
+		{"-1234567890.123456789", "-1234567890.123456789"},
+		{"0.0000000000000000001", "1e-19"},
+	}
+	for _, v := range cases {
+		if v.give == nil {
+			b.AppendNull()
+			continue
+		}
+
+		dt, err := decimal128.FromString(v.give.(string), dtype.Precision, dtype.Scale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.Append(dt)
+	}
+
+	arr := b.NewDecimal128Array()
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(cases); got != want {
+		t.Fatalf("invalid array length: got=%d, want=%d", got, want)
+	}
+
+	for i := range cases {
+		assert.Equalf(t, cases[i].want, arr.GetOneForMarshal(i), "unexpected value at index %d", i)
+	}
 }
