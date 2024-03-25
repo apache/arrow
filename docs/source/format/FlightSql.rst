@@ -141,6 +141,21 @@ the ``type`` should be ``ClosePreparedStatement``).
     Execute a previously created prepared statement and get the results.
 
     When used with DoPut: binds parameter values to the prepared statement.
+    The server may optionally provide an updated handle in the response.
+    Updating the handle allows the client to supply all state required to
+    execute the query in an ActionPreparedStatementExecute message.
+    For example, stateless servers can encode the bound parameter values into
+    the new handle, and the client will send that new handle with parameters
+    back to the server.
+
+    Note that a handle returned from a DoPut call with
+    CommandPreparedStatementQuery can itself be passed to a subsequent DoPut
+    call with CommandPreparedStatementQuery to bind a new set of parameters.
+    The subsequent call itself may return an updated handle which again should
+    be used for subsequent requests.
+
+    The server is responsible for detecting the case where the client does not
+    use the updated handle and should return an error.
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
