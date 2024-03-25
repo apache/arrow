@@ -638,37 +638,33 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
   AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
 }
 
-TEST(TestAdapterReadWrite, catchTimezoneError) {
-  // Write a simple ORC file with timestamp type.
-  auto table_schema = schema({field("a", timestamp(TimeUnit::NANO))});
-  const auto table = GenerateRandomTable(table_schema, /*size=1*/ 1, /*min_num_chunks=*/1,
-                                         /*max_num_chunks=*/1, /*null_probability=*/0);
-  EXPECT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(4096));
-  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(out_stream.get()));
-  ARROW_EXPECT_OK(writer->Write(*table));
-  ARROW_EXPECT_OK(writer->Close());
-  EXPECT_OK_AND_ASSIGN(auto buffer, out_stream->Finish());
+TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
+  auto orc_version = adapters::orc::OrcVersion::Get();
+  if (orc_version.has_value() && orc_version->major >= 2) {
+    GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
+  }
 
-  // Backup the original TZDIR env and set a wrong value by purpose.
+  // Backup the original TZDIR env and set a wrong value by purpose to trigger the check.
   const char* tzdir_env_key = "TZDIR";
+  const char* expect_str = "IANA time zone database is unavailable but required by ORC";
   auto tzdir_env_backup = std::getenv(tzdir_env_key);
-  ARROW_EXPECT_OK(arrow::internal::SetEnvVar(tzdir_env_key, "/invalid_path"));
+  ARROW_EXPECT_OK(arrow::internal::SetEnvVar(tzdir_env_key, "/a/b/c/d/e"));
 
-  EXPECT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(
-                                        std::make_shared<io::BufferReader>(buffer),
-                                        default_memory_pool()));
+  EXPECT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
+  EXPECT_THAT(
+      adapters::orc::ORCFileWriter::Open(out_stream.get(), adapters::orc::WriteOptions()),
+      Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
 
-  // Verify that we have caught the orc::TimezoneError exception.
-  EXPECT_THAT(reader->Read(),
-              Raises(StatusCode::UnknownError, testing::HasSubstr("/invalid_path")));
+  EXPECT_OK_AND_ASSIGN(auto buffer, out_stream->Finish());
+  EXPECT_THAT(adapters::orc::ORCFileReader::Open(
+                  std::make_shared<io::BufferReader>(buffer), default_memory_pool()),
+              Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
 
-  // Restore TZDIR env to verify timestamp values can be read successfully.
+  // Restore TZDIR env.
   ARROW_EXPECT_OK(arrow::internal::DelEnvVar(tzdir_env_key));
   if (tzdir_env_backup) {
     ARROW_EXPECT_OK(arrow::internal::SetEnvVar(tzdir_env_key, tzdir_env_backup));
   }
-  EXPECT_OK_AND_ASSIGN(auto read_table, reader->Read());
-  EXPECT_TRUE(read_table->Equals(*table));
 }
 
 // Trivial

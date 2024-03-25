@@ -40,6 +40,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "orc/Exceptions.hh"
+#include "orc/orc-config.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -183,7 +184,39 @@ liborc::RowReaderOptions default_row_reader_options() {
   return options;
 }
 
+// Proactively check timezone database availability for ORC versions older than 2.0.0
+Status check_timezone_database_availability() {
+  if (OrcVersion::Get().value_or(OrcVersion{0, 0, 0}).major >= 2) {
+    return Status::OK();
+  }
+  auto tz_dir = std::getenv("TZDIR");
+  bool is_tzdb_avaiable = tz_dir != nullptr
+                              ? std::filesystem::exists(tz_dir)
+                              : std::filesystem::exists("/usr/share/zoneinfo");
+  if (!is_tzdb_avaiable) {
+    return Status::Invalid(
+        "IANA time zone database is unavailable but required by ORC."
+        " Please install it to /usr/share/zoneinfo or set TZDIR env to the installed"
+        " directory");
+  }
+  return Status::OK();
+}
+
 }  // namespace
+
+std::optional<OrcVersion> OrcVersion::Get() {
+  std::vector<int> versions;
+  std::stringstream ss{ORC_VERSION};
+  while (ss.good()) {
+    std::string str;
+    std::getline(ss, str, '.');
+    versions.emplace_back(std::stoi(str));
+  }
+  if (versions.size() != 3) {
+    return std::nullopt;
+  }
+  return OrcVersion{versions[0], versions[1], versions[2]};
+}
 
 class ORCFileReader::Impl {
  public:
@@ -541,6 +574,7 @@ ORCFileReader::~ORCFileReader() {}
 
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
     const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
+  RETURN_NOT_OK(check_timezone_database_availability());
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
   return std::move(result);
@@ -807,6 +841,7 @@ ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
     io::OutputStream* output_stream, const WriteOptions& writer_options) {
+  RETURN_NOT_OK(check_timezone_database_availability());
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);

@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "arrow/adapters/orc/options.h"
@@ -45,6 +46,16 @@ struct StripeInformation {
   int64_t num_rows;
   /// \brief Index of the first row of the stripe
   int64_t first_row_id;
+};
+
+/// \brief Version provided by the official ORC C++ library.
+struct ARROW_EXPORT OrcVersion {
+  int major;
+  int minor;
+  int patch;
+
+  /// \brief Return the current version of ORC C++ library.
+  static std::optional<OrcVersion> Get();
 };
 
 /// \class ORCFileReader
