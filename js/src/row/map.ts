@@ -107,7 +107,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
     deleteProperty() { return false; }
     preventExtensions() { return true; }
     ownKeys(row: MapRow<K, V>) {
-        return row[kKeys].toArray().map(String);
+        return Array.from(row[kKeys].toArray(), String);
     }
     has(row: MapRow<K, V>, key: string | symbol) {
         return row[kKeys].includes(key);
