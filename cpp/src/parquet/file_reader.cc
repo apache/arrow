@@ -375,13 +375,39 @@ class SerializedFile : public ParquetFileReader::Contents {
     file_metadata_ = std::move(metadata);
   }
 
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::IOContext& ctx,
-                 const ::arrow::io::CacheOptions& options) {
+  auto GetRowGroupPageIndexReader(int row_group_index, bool required) {
+    auto ret = GetPageIndexReader()->RowGroup(row_group_index);
+
+    if (required) {
+      if (!ret) {
+        throw ParquetException("Page index is required but not found for row group " +
+                               std::to_string(row_group_index));
+      }
+    }
+    return ret;
+  }
+
+  static auto GetColumnOffsetIndex(std::shared_ptr<RowGroupPageIndexReader> rg_page_idx,
+                                   int column_index, bool required) {
+    auto ret = rg_page_idx->GetOffsetIndex(column_index);
+
+    if (required) {
+      if (!ret) {
+        throw ParquetException("Offset index is required but not found for column " +
+                               std::to_string(column_index));
+      }
+    }
+    return ret;
+  }
+
+  void PreBuffer(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      const ::arrow::io::IOContext& ctx, const ::arrow::io::CacheOptions& options,
+      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>>& row_ranges_per_rg) {
     cached_source_ =
         std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
     std::vector<::arrow::io::ReadRange> ranges;
+    std::vector<std::vector<::arrow::io::ReadRange>> holes_foreach_range;
     prebuffered_column_chunks_.clear();
     int num_cols = file_metadata_->num_columns();
     // a bitmap for buffered columns.
@@ -395,12 +421,45 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
     for (int row : row_groups) {
       prebuffered_column_chunks_[row] = buffer_columns;
+      const int64_t num_rows = file_metadata_->RowGroup(row)->num_rows();
+      const auto rg_page_idx = GetRowGroupPageIndexReader(row, true);
+
       for (int col : column_indices) {
         ranges.push_back(
             ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
+
+        std::vector<::arrow::io::ReadRange> holes;
+        const auto offset_idx = GetColumnOffsetIndex(rg_page_idx, col, true);
+        const auto& page_locations = offset_idx->page_locations();
+        for (size_t i = 0; i < page_locations.size(); i++) {
+          IntervalRange page_row_interval = {-1, -1};
+          if (i != page_locations.size() - 1) {
+            page_row_interval = IntervalRange{page_locations[i].first_row_index,
+                                              page_locations[i + 1].first_row_index - 1};
+          } else {
+            page_row_interval =
+                IntervalRange{page_locations[i].first_row_index, num_rows - 1};
+          }
+          auto page_offset_range = ::arrow::io::ReadRange{
+              page_locations[i].offset, page_locations[i].compressed_page_size};
+          if (!row_ranges_per_rg->at(row)->IsOverlapping(page_row_interval.start,
+                                                         page_row_interval.end)) {
+            if (holes.empty()) {
+              holes.push_back({page_offset_range.offset, page_offset_range.length});
+            } else {
+              if (holes.back().offset + holes.back().length == page_offset_range.offset) {
+                holes.back().length += page_offset_range.length;
+              } else {
+                holes.push_back({page_offset_range.offset, page_offset_range.length});
+              }
+            }
+          }
+        }
+        holes_foreach_range.emplace_back(std::move(holes));
       }
     }
-    PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
+    PARQUET_THROW_NOT_OK(
+        cached_source_->Cache(std::move(ranges), std::move(holes_foreach_range)));
   }
 
   ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
@@ -887,14 +946,14 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   return contents_->GetRowGroup(i);
 }
 
-void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
-                                  const std::vector<int>& column_indices,
-                                  const ::arrow::io::IOContext& ctx,
-                                  const ::arrow::io::CacheOptions& options) {
+void ParquetFileReader::PreBuffer(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    const ::arrow::io::IOContext& ctx, const ::arrow::io::CacheOptions& options,
+    const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>>& row_ranges_per_rg) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
-  file->PreBuffer(row_groups, column_indices, ctx, options);
+  file->PreBuffer(row_groups, column_indices, ctx, options, row_ranges_per_rg);
 }
 
 ::arrow::Future<> ParquetFileReader::WhenBuffered(

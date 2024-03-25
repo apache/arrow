@@ -29,7 +29,7 @@
 #include "parquet/properties.h"
 
 namespace parquet {
-
+class RowRanges;
 class ColumnReader;
 class FileMetaData;
 class PageIndexReader;
@@ -196,10 +196,10 @@ class PARQUET_EXPORT ParquetFileReader {
   /// only one row group at a time may be useful.
   ///
   /// This method may throw.
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::IOContext& ctx,
-                 const ::arrow::io::CacheOptions& options);
+  void PreBuffer(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      const ::arrow::io::IOContext& ctx, const ::arrow::io::CacheOptions& options,
+      const std::shared_ptr<std::vector<std::unique_ptr<RowRanges>>>& row_ranges_per_rg);
 
   /// Wait for the specified row groups and column indices to be pre-buffered.
   ///

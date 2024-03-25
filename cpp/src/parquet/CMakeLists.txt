@@ -162,6 +162,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    row_range.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -380,6 +381,11 @@ add_parquet_test(internals-test
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
+add_parquet_test(rowrange-read-test
+                 SOURCES
+                 row_range_test.cc
+                 range_reader_test.cc
+)
 
 add_parquet_test(reader-test
                  SOURCES

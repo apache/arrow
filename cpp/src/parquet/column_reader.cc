@@ -1363,7 +1363,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t records_read = 0;
 
     if (has_values_to_process()) {
-      records_read += ReadRecordData(num_records);
+      records_read += ReadRecordDataWithSkipCheck(num_records);
     }
 
     int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -1417,11 +1417,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read);
+        records_read += ReadRecordDataWithSkipCheck(num_records - records_read);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size);
+        records_read += ReadRecordDataWithSkipCheck(batch_size);
       }
     }
 
@@ -1616,10 +1616,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Top level required field. Number of records equals to number of levels,
     // and there is not read-ahead for levels.
-    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
-      return this->Skip(num_records);
-    }
     int64_t skipped_records = 0;
+    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
+      skipped_records = this->Skip(num_records);
+      current_rg_processed_records_ += skipped_records;
+      return skipped_records;
+    }
     if (this->max_rep_level_ == 0) {
       // Non-repeated optional field.
       // First consume whatever is in the buffer.
@@ -1635,6 +1637,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     } else {
       skipped_records += this->SkipRecordsRepeated(num_records);
     }
+
+    current_rg_processed_records_ += skipped_records;
     return skipped_records;
   }
 
@@ -1963,7 +1967,25 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       this->ConsumeBufferedValues(values_to_read);
     }
 
+    current_rg_processed_records_ += records_read;
     return records_read;
+  }
+
+  int64_t ReadRecordDataWithSkipCheck(const int64_t num_records) {
+    if (!skipper_) {
+      return ReadRecordData(num_records);
+    }
+
+    while (true) {
+      const auto advise = skipper_->AdviseNext(current_rg_processed_records_);
+      if (advise == 0) {
+        return 0;
+      }
+      if (advise > 0) {
+        return ReadRecordData(std::min(num_records, advise));
+      }
+      SkipRecords(-advise);
+    }
   }
 
   void DebugPrintState() override {
@@ -2290,6 +2312,72 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
   }
   // Unreachable code, but suppress compiler warning
   return nullptr;
+}
+
+RecordSkipper::RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges) {
+  // copy row_ranges
+  IntervalRanges skip_pages;
+  for (auto& page : pages.GetRanges()) {
+    if (!orig_row_ranges.IsOverlapping(page.start, page.end)) {
+      skip_pages.Add(page);
+    }
+  }
+
+  AdjustRanges(skip_pages, orig_row_ranges, row_ranges_);
+  range_iter_ = row_ranges_->NewIterator();
+  current_range_variant = range_iter_->NextRange();
+
+  total_rows_to_process_ = pages.num_rows() - skip_pages.num_rows();
+}
+
+int64_t RecordSkipper::AdviseNext(const int64_t current_rg_processed) {
+  if (current_range_variant.index() == 2) {
+    return 0;
+  }
+
+  auto& current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.end < current_rg_processed) {
+    current_range_variant = range_iter_->NextRange();
+    if (current_range_variant.index() == 2) {
+      // negative, skip the ramaining rows
+      return current_rg_processed - total_rows_to_process_;
+    }
+  }
+
+  current_range = std::get<IntervalRange>(current_range_variant);
+
+  if (current_range.start > current_rg_processed) {
+    // negative, skip
+    return current_rg_processed - current_range.start;
+  }
+
+  const auto ret = current_range.end - current_rg_processed + 1;
+  return ret;
+}
+
+void RecordSkipper::AdjustRanges(IntervalRanges& skip_pages,
+                                 const RowRanges& orig_row_ranges,
+                                 std::unique_ptr<RowRanges>& ret) {
+  std::unique_ptr<IntervalRanges> temp = std::make_unique<IntervalRanges>();
+
+  size_t skipped_rows = 0;
+  const auto orig_range_iter = orig_row_ranges.NewIterator();
+  auto orig_range_variant = orig_range_iter->NextRange();
+  auto skip_iter = skip_pages.GetRanges().begin();
+  while (orig_range_variant.index() != 2) {
+    const auto& origin_range = std::get<IntervalRange>(orig_range_variant);
+    while (skip_iter != skip_pages.GetRanges().end() &&
+           IntervalRangeUtils::IsBefore(*skip_iter, origin_range)) {
+      skipped_rows += IntervalRangeUtils::Count(*skip_iter);
+      ++skip_iter;
+    }
+
+    temp->Add(IntervalRange(origin_range.start - skipped_rows,
+                            origin_range.end - skipped_rows));
+    orig_range_variant = orig_range_iter->NextRange();
+  }
+  ret = std::move(temp);
 }
 
 }  // namespace internal
