@@ -1005,14 +1005,14 @@ class InitOnceEndpointProvider : public Aws::S3::S3EndpointProviderBase {
 // A class that instantiates a single EndpointProvider per distinct endpoint
 // configuration and initializes it in a thread-safe way. See earlier comments
 // for rationale.
-class EndpointProviderBuilder {
+class EndpointProviderCache {
  public:
   std::shared_ptr<Aws::S3::S3EndpointProviderBase> Lookup(
       const Aws::S3::S3ClientConfiguration& config) {
     auto key = EndpointConfigKey(config);
     CacheValue* value;
     {
-      std::unique_lock lock(cache_mutex_);
+      std::unique_lock lock(mutex_);
       value = &cache_[std::move(key)];
     }
     std::call_once(value->once, [&]() {
@@ -1025,24 +1025,24 @@ class EndpointProviderBuilder {
   }
 
   void Reset() {
-    std::unique_lock lock(cache_mutex_);
+    std::unique_lock lock(mutex_);
     cache_.clear();
   }
 
-  static EndpointProviderBuilder* Instance() {
-    static EndpointProviderBuilder instance;
+  static EndpointProviderCache* Instance() {
+    static EndpointProviderCache instance;
     return &instance;
   }
 
- protected:
-  EndpointProviderBuilder() = default;
+ private:
+  EndpointProviderCache() = default;
 
   struct CacheValue {
     std::once_flag once;
     std::shared_ptr<Aws::S3::S3EndpointProviderBase> endpoint_provider;
   };
 
-  std::mutex cache_mutex_;
+  std::mutex mutex_;
   std::unordered_map<EndpointConfigKey, CacheValue> cache_;
 };
 
@@ -1127,7 +1127,7 @@ class ClientBuilder {
 
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
     client_config_.useVirtualAddressing = use_virtual_addressing;
-    auto endpoint_provider = EndpointProviderBuilder::Instance()->Lookup(client_config_);
+    auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
     auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
                                              client_config_);
 #else
@@ -3096,7 +3096,7 @@ struct AwsInstance {
       }
       GetClientFinalizer()->Finalize();
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-      EndpointProviderBuilder::Instance()->Reset();
+      EndpointProviderCache::Instance()->Reset();
 #endif
       Aws::ShutdownAPI(aws_options_);
     }
