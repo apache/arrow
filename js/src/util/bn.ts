@@ -90,7 +90,7 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
         number *= BigInt(-1);
         number -= BigInt(1);
     }
-    if (scale) {
+    if (typeof scale === 'number') {
         const denominator = BigInt(Math.pow(10, scale));
         const quotient = number / denominator;
         const remainder = number % denominator;
