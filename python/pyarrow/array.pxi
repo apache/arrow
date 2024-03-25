@@ -562,8 +562,13 @@ def _normalize_slice(object arrow_obj, slice key):
         Py_ssize_t n = len(arrow_obj)
 
     start, stop, step = key.indices(n)
-    indices = np.arange(start, stop, step)
-    return arrow_obj.take(indices)
+
+    if step != 1:
+        indices = np.arange(start, stop, step)
+        return arrow_obj.take(indices)
+    else:
+        length = max(stop - start, 0)
+        return arrow_obj.slice(start, length)
 
 
 cdef Py_ssize_t _normalize_index(Py_ssize_t index,
