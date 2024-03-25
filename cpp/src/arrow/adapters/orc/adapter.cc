@@ -76,7 +76,7 @@ namespace liborc = orc;
     return Status::NotImplemented(e.what());   \
   }                                            \
   catch (const std::exception& e) {            \
-    return Status::Invalid(e.what());          \
+    return Status::UnknownError(e.what());     \
   }                                            \
   catch (...) {                                \
     return Status::UnknownError("ORC error");  \
@@ -181,22 +181,6 @@ liborc::RowReaderOptions default_row_reader_options() {
   // We follow the same practice here explicitly to make sure readers are aware of this.
   options.setTimezoneName("GMT");
   return options;
-}
-
-// Proactively check the availability of timezone database.
-// Remove it once https://issues.apache.org/jira/browse/ORC-1661 has been fixed.
-Status check_timezone_database_availability() {
-  auto tz_dir = std::getenv("TZDIR");
-  bool is_tzdb_avaiable = tz_dir != nullptr
-                              ? std::filesystem::exists(tz_dir)
-                              : std::filesystem::exists("/usr/share/zoneinfo");
-  if (!is_tzdb_avaiable) {
-    return Status::Invalid(
-        "IANA timezone database is unavailable but required by ORC."
-        " Please install it to /usr/share/zoneinfo or set TZDIR env to the installed"
-        " directory");
-  }
-  return Status::OK();
 }
 
 }  // namespace
@@ -557,7 +541,6 @@ ORCFileReader::~ORCFileReader() {}
 
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
     const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
-  RETURN_NOT_OK(check_timezone_database_availability());
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
   return std::move(result);
@@ -796,7 +779,7 @@ class ORCFileWriter::Impl {
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
-      writer_->add(*batch);
+      ORC_CATCH_NOT_OK(writer_->add(*batch));
       batch->clear();
       num_rows -= batch_size;
     }
@@ -824,7 +807,6 @@ ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
     io::OutputStream* output_stream, const WriteOptions& writer_options) {
-  RETURN_NOT_OK(check_timezone_database_availability());
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);
