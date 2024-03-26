@@ -37,8 +37,6 @@ public class TestVarCharViewVector {
   private static final byte[] STR2 = "0123456789123".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR3 = "01234567891234567".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR4 = "01234567".getBytes(StandardCharsets.UTF_8);
-  private static final byte[] STR5 = "012345678912345678".getBytes(StandardCharsets.UTF_8);
-  private static final byte[] STR6 = "01234567891234567890".getBytes(StandardCharsets.UTF_8);
 
   private BufferAllocator allocator;
 

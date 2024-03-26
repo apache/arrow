@@ -44,7 +44,6 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -151,10 +150,7 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Utf8View type) {
-    // TODO: update this to match to Utf8View
-    ViewVarCharVector varChar = (ViewVarCharVector) vector;
-    return jdbcType == null ? new VarCharBinder<>(varChar, Types.VARCHAR) :
-            new VarCharBinder<>(varChar, jdbcType);
+    throw new UnsupportedOperationException("Column binder implemented for type " + type + " is not supported");
   }
 
   @Override
@@ -169,6 +165,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
     VarBinaryVector varBinary = (VarBinaryVector) vector;
     return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.VARBINARY) :
         new VarBinaryBinder<>(varBinary, jdbcType);
+  }
+
+  @Override
+  public ColumnBinder visit(ArrowType.BinaryView type) {
+    throw new UnsupportedOperationException("Column binder implemented for type " + type + " is not supported");
   }
 
   @Override
