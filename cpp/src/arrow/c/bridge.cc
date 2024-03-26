@@ -2350,7 +2350,8 @@ class ArrayStreamBatchReader : public RecordBatchReader,
   using ArrayType = typename ArrayTraits::CType;
 
  public:
-  explicit ArrayStreamBatchReader(StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
+  explicit ArrayStreamBatchReader(StreamType* stream,
+                                  const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
       : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
 
   Status Init() {
@@ -2392,7 +2393,8 @@ class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTrait
   using ArrayType = typename ArrayTraits::CType;
 
  public:
-  explicit ArrayStreamArrayReader(StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
+  explicit ArrayStreamArrayReader(StreamType* stream,
+                                  const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
       : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
 
   Status Init() {

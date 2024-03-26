@@ -92,11 +92,12 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
   ArrowArrayMarkReleased(src);
 }
 
-inline void ArrowDeviceArrayMove(struct ArrowDeviceArray* src, struct ArrowDeviceArray* dest) {
+inline void ArrowDeviceArrayMove(struct ArrowDeviceArray* src,
+                                 struct ArrowDeviceArray* dest) {
   assert(dest != src);
   assert(!ArrowDeviceArrayIsReleased(src));
   memcpy(dest, src, sizeof(struct ArrowDeviceArray));
-  ArrowDeviceArrayMarkReleased(src);  
+  ArrowDeviceArrayMarkReleased(src);
 }
 
 /// Release the C array, if necessary, by calling its release callback
@@ -146,8 +147,8 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
   ArrowArrayStreamMarkReleased(src);
 }
 
-inline void ArrowDeviceArrayStreamMove(struct ArrowDeviceArrayStream* src, 
-                                      struct ArrowDeviceArrayStream* dest) {
+inline void ArrowDeviceArrayStreamMove(struct ArrowDeviceArrayStream* src,
+                                       struct ArrowDeviceArrayStream* dest) {
   assert(dest != src);
   assert(!ArrowDeviceArrayStreamIsReleased(src));
   memcpy(dest, src, sizeof(struct ArrowDeviceArrayStream));
