@@ -5933,11 +5933,10 @@ TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
   std::unique_ptr<FileWriter> arrow_writer;
   ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
                              &arrow_writer));
-  EXPECT_THROW_THAT(
-      [&]() { ARROW_IGNORE_EXPR(arrow_writer->WriteTable(*table)); }, ParquetException,
-      ::testing::Property(
-          &ParquetException::what,
-          ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
+  auto s = arrow_writer->WriteTable(*table);
+  EXPECT_TRUE(s.IsIOError());
+  EXPECT_THAT(s.message(),
+              ::testing::HasSubstr("BloomFilterBuilder does not support boolean type"));
 }
 
 }  // namespace arrow
