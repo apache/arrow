@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
+#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -260,6 +261,16 @@ class ARROW_EXPORT RecordBatch {
   /// \return Status
   virtual Status ValidateFull() const;
 
+  /// \brief Return a top-level sync event object for this record batch
+  ///
+  /// If all of the data for this record batch is in host memory, then this
+  /// should return null (the default impl). If the data for this batch is
+  /// on a device, then if synchronization is needed before accessing the
+  /// data the returned sync event will allow for it.
+  ///
+  /// \return null or a Device::SyncEvent
+  virtual std::shared_ptr<Device::SyncEvent> GetSyncEvent();
+
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
 
@@ -305,6 +316,11 @@ class ARROW_EXPORT RecordBatchReader {
 
   /// \brief finalize reader
   virtual Status Close() { return Status::OK(); }
+
+  /// \brief Get the device type for record batches this reader produces
+  ///
+  /// default implementation is to return ARROW_DEVICE_CPU
+  virtual DeviceAllocationType device_type() const { return DeviceAllocationType::kCPU; }
 
   class RecordBatchReaderIterator {
    public:

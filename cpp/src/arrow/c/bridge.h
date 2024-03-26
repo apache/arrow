@@ -321,6 +321,37 @@ ARROW_EXPORT
 Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                           struct ArrowArrayStream* out);
 
+/// \brief Export C++ RecordBatchReader using the C device stream interface
+///
+/// The resulting ArrowDeviceArrayStream struct keeps the record batch reader
+/// alive until its release callback is called by the consumer. The device
+/// type is determined by calling device_type() on the RecordBatchReader.
+///
+/// \note it is assumed that the output pointer has already be zeroed out before
+/// calling this function.
+///
+/// \param[in] reader RecordBatchReader object to export
+/// \param[out] out C struct to export the stream to
+ARROW_EXPORT
+Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
+                                     struct ArrowDeviceArrayStream* out);
+
+/// \brief Export C++ ChunkedArray using the c device data interface format.
+///
+/// The resulting ArrowDeviceArrayStream keeps the chunked array data and buffers
+/// alive until its release callback is called by the consumer.
+///
+/// \note it is assumed that the output pointer has already been zeroed before
+/// calling this function.
+///
+/// \param[in] chunked_array ChunkedArray object to export
+/// \param[in] device_type the device type the data is located on
+/// \param[out] out C struct to export the stream to
+ARROW_EXPORT
+Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
+                                DeviceAllocationType device_type,
+                                struct ArrowDeviceArrayStream* out);
+
 /// \brief Import C++ RecordBatchReader from the C stream interface.
 ///
 /// The ArrowArrayStream struct has its contents moved to a private object
@@ -342,6 +373,16 @@ Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
 /// \return Imported ChunkedArray object
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream* stream);
+
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
+    struct ArrowDeviceArrayStream* stream,
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+
+ARROW_EXPORT
+Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
+    struct ArrowDeviceArrayStream* stream,
+    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
 /// @}
 
