@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "arrow/adapters/orc/options.h"
