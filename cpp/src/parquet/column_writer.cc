@@ -2482,7 +2482,7 @@ void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) 
   std::array<uint64_t, kBinaryHashBatchSize> hashes;
   int hashes_idx = 0;
   auto flush_hashes = [&]() {
-    DCHECK(hashes_idx != 0);
+    DCHECK_NE(0, hashes_idx);
     bloom_filter->Hashes(byte_arrays.data(), static_cast<int>(hashes_idx), hashes.data());
     bloom_filter->InsertHashes(hashes.data(), static_cast<int>(hashes_idx));
     hashes_idx = 0;
