@@ -5907,5 +5907,26 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
   }
 }
 
+TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
+  auto schema = ::arrow::schema(
+      {::arrow::field("boolean_col", ::arrow::boolean())};
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_bloom_filter_options(options, "boolean_col")
+                               ->max_row_group_length(4)
+                               ->build();
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+        [true],
+        [null],
+        [false]
+  ])"});
+  EXPECT_THROW_THAT([&]() {
+    WriteFile(writer_properties, table); }, ParquetException,
+                  ::testing::Property(
+                      &ParquetException::what,
+                      ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
+}
+
 }  // namespace arrow
 }  // namespace parquet
