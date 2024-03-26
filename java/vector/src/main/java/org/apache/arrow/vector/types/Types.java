@@ -65,6 +65,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -115,6 +116,7 @@ import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
+import org.apache.arrow.vector.complex.impl.ViewVarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.ViewVarCharWriterImpl;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -564,6 +566,20 @@ public class Types {
         return new VarBinaryWriterImpl((VarBinaryVector) vector);
       }
     },
+    VIEWVARBINARY(Binary.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+              Field field,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new ViewVarBinaryVector(field, allocator);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new ViewVarBinaryWriterImpl((ViewVarBinaryVector) vector);
+      }
+    },
     DECIMAL(null) {
       @Override
       public FieldVector getNewVector(
@@ -955,6 +971,11 @@ public class Types {
       @Override
       public MinorType visit(Binary type) {
         return MinorType.VARBINARY;
+      }
+
+      @Override
+      public MinorType visit(ArrowType.BinaryView type) {
+        return MinorType.VIEWVARBINARY;
       }
 
       @Override

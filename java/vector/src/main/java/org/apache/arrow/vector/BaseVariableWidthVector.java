@@ -1023,6 +1023,7 @@ public abstract class BaseVariableWidthVector extends AbstractVariableWidthVecto
    * @param index   position of the element to set
    * @param length  length of the element
    */
+  @Override
   public void setValueLengthSafe(int index, int length) {
     assert index >= 0;
     handleSafe(index, length);
