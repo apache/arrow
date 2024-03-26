@@ -622,40 +622,40 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
-  std::vector<PyObject*> unique_values;
-  int32_t memo_size = 0;
-
-  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index;
-    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
-    if (memo_index == memo_size) {
-      // New entry
-      RETURN_NOT_OK(wrap_func(value, out_values));
-      unique_values.push_back(*out_values);
-      ++memo_size;
-    } else {
-      // Duplicate entry
-      Py_INCREF(unique_values[memo_index]);
-      *out_values = unique_values[memo_index];
+  auto convert_chunks = [&](auto&& wrap_func) -> Status {
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, wrap_func, out_values));
+      out_values += arr.length();
     }
     return Status::OK();
   };
 
-  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
-    return wrap_func(value, out_values);
-  };
+  if (options.deduplicate_objects) {
+    // GH-40316: only allocate a memo table if deduplication is enabled.
+    ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
+    std::vector<PyObject*> unique_values;
+    int32_t memo_size = 0;
 
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
-    if (options.deduplicate_objects) {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapMemoized, out_values));
-    } else {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapUnmemoized, out_values));
-    }
-    out_values += arr.length();
+    auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
+      int32_t memo_index;
+      RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
+      if (memo_index == memo_size) {
+        // New entry
+        RETURN_NOT_OK(wrap_func(value, out_values));
+        unique_values.push_back(*out_values);
+        ++memo_size;
+      } else {
+        // Duplicate entry
+        Py_INCREF(unique_values[memo_index]);
+        *out_values = unique_values[memo_index];
+      }
+      return Status::OK();
+    };
+    return convert_chunks(std::move(WrapMemoized));
+  } else {
+    return convert_chunks(std::forward<WrapFunction>(wrap_func));
   }
-  return Status::OK();
 }
 
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
@@ -2291,6 +2291,14 @@ std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArra
   return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
 };
 
+// Helper function to decode RunEndEncodedArray
+Result<std::shared_ptr<ChunkedArray>> GetDecodedChunkedArray(
+    std::shared_ptr<ChunkedArray> arr) {
+  ARROW_ASSIGN_OR_RAISE(Datum decoded, compute::RunEndDecode(arr));
+  DCHECK(decoded.is_chunked_array());
+  return decoded.chunked_array();
+};
+
 class ConsolidatedBlockCreator : public PandasBlockCreator {
  public:
   using PandasBlockCreator::PandasBlockCreator;
@@ -2319,6 +2327,11 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       // In case of an extension array default to the storage type
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
+      }
+      // In case of a RunEndEncodedArray default to the values type
+      else if (arrays_[column_index]->type()->id() == Type::RUN_END_ENCODED) {
+        ARROW_ASSIGN_OR_RAISE(arrays_[column_index],
+                              GetDecodedChunkedArray(arrays_[column_index]));
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
@@ -2553,6 +2566,18 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
     arr = GetStorageChunkedArray(arr);
+  }
+  // In case of a RunEndEncodedArray decode the array
+  else if (arr->type()->id() == Type::RUN_END_ENCODED) {
+    if (options.zero_copy_only) {
+      return Status::Invalid("Need to dencode a RunEndEncodedArray, but ",
+                             "only zero-copy conversions allowed");
+    }
+    ARROW_ASSIGN_OR_RAISE(arr, GetDecodedChunkedArray(arr));
+
+    // Because we built a new array when we decoded the RunEndEncodedArray
+    // the final resulting numpy array should own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   PandasWriter::type output_type;

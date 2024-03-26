@@ -24,9 +24,10 @@ namespace arrow::matlab::proxy {
 using namespace libmexclass::proxy;
 
 class Factory : public libmexclass::proxy::Factory {
-    public:
-        Factory() { }
-        virtual libmexclass::proxy::MakeResult make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments);
+ public:
+  Factory() {}
+  virtual libmexclass::proxy::MakeResult make_proxy(
+      const ClassName& class_name, const FunctionArguments& constructor_arguments);
 };
 
-}
+}  // namespace arrow::matlab::proxy

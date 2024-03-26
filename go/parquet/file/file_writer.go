@@ -32,6 +32,7 @@ import (
 type Writer struct {
 	sink           utils.WriteCloserTell
 	open           bool
+	footerFlushed  bool
 	props          *parquet.WriterProperties
 	rowGroups      int
 	nrows          int
@@ -125,6 +126,7 @@ func (fw *Writer) appendRowGroup(buffered bool) *rowGroupWriter {
 		fw.rowGroupWriter.Close()
 	}
 	fw.rowGroups++
+	fw.footerFlushed = false
 	rgMeta := fw.metadata.AppendRowGroup()
 	fw.rowGroupWriter = newRowGroupWriter(fw.sink, rgMeta, int16(fw.rowGroups)-1, fw.props, buffered, fw.fileEncryptor)
 	return fw.rowGroupWriter
@@ -172,12 +174,9 @@ func (fw *Writer) Close() (err error) {
 		// if any functions here panic, we set open to be false so
 		// that this doesn't get called again
 		fw.open = false
-		if fw.rowGroupWriter != nil {
-			fw.nrows += fw.rowGroupWriter.nrows
-			fw.rowGroupWriter.Close()
-		}
-		fw.rowGroupWriter = nil
+
 		defer func() {
+			fw.closeEncryptor()
 			ierr := fw.sink.Close()
 			if err != nil {
 				if ierr != nil {
@@ -189,30 +188,48 @@ func (fw *Writer) Close() (err error) {
 			err = ierr
 		}()
 
-		fileEncryptProps := fw.props.FileEncryptionProperties()
-		if fileEncryptProps == nil { // non encrypted file
-			fileMetadata, err := fw.metadata.Finish()
-			if err != nil {
-				return err
-			}
-
-			_, err = writeFileMetadata(fileMetadata, fw.sink)
-			return err
-		}
-
-		return fw.closeEncryptedFile(fileEncryptProps)
+		err = fw.FlushWithFooter()
+		fw.metadata.Clear()
 	}
 	return nil
 }
 
-func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) error {
-	// encrypted file with encrypted footer
-	if props.EncryptedFooter() {
-		fileMetadata, err := fw.metadata.Finish()
+// FlushWithFooter closes any open row group writer and writes the file footer, leaving
+// the writer open for additional row groups.  Additional footers written by later
+// calls to FlushWithFooter or Close will be cumulative, so that only the last footer
+// written need ever be read by a reader.
+func (fw *Writer) FlushWithFooter() error {
+	if !fw.footerFlushed {
+		if fw.rowGroupWriter != nil {
+			fw.nrows += fw.rowGroupWriter.nrows
+			fw.rowGroupWriter.Close()
+		}
+		fw.rowGroupWriter = nil
+
+		fileMetadata, err := fw.metadata.Snapshot()
 		if err != nil {
 			return err
 		}
 
+		fileEncryptProps := fw.props.FileEncryptionProperties()
+		if fileEncryptProps == nil { // non encrypted file
+			if _, err = writeFileMetadata(fileMetadata, fw.sink); err != nil {
+				return err
+			}
+		} else {
+			if err := fw.flushEncryptedFile(fileMetadata, fileEncryptProps); err != nil {
+				return err
+			}
+		}
+
+		fw.footerFlushed = true
+	}
+	return nil
+}
+
+func (fw *Writer) flushEncryptedFile(fileMetadata *metadata.FileMetaData, props *parquet.FileEncryptionProperties) error {
+	// encrypted file with encrypted footer
+	if props.EncryptedFooter() {
 		footerLen := int64(0)
 
 		cryptoMetadata := fw.metadata.GetFileCryptoMetaData()
@@ -236,19 +253,18 @@ func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) er
 			return err
 		}
 	} else {
-		fileMetadata, err := fw.metadata.Finish()
-		if err != nil {
-			return err
-		}
 		footerSigningEncryptor := fw.fileEncryptor.GetFooterSigningEncryptor()
-		if _, err = writeEncryptedFileMetadata(fileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
+		if _, err := writeEncryptedFileMetadata(fileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (fw *Writer) closeEncryptor() {
 	if fw.fileEncryptor != nil {
 		fw.fileEncryptor.WipeOutEncryptionKeys()
 	}
-	return nil
 }
 
 func writeFileMetadata(fileMetadata *metadata.FileMetaData, w io.Writer) (n int64, err error) {

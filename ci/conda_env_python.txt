@@ -23,7 +23,7 @@ cloudpickle
 fsspec
 hypothesis
 numpy>=1.16.6
-pytest<8
+pytest
 pytest-faulthandler
 s3fs>=2023.10.0
 setuptools
