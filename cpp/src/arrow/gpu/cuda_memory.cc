@@ -502,25 +502,24 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
   }
 }
 
+namespace {
+
 Result<std::shared_ptr<MemoryManager>> DefaultGPUMemoryMapper(int64_t device_id) {
   ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
   return device->default_memory_manager();
 }
 
-Status RegisterCUDADeviceInternal() {
-  RETURN_NOT_OK(
+bool RegisterCUDADeviceInternal() {
+  DCHECK_OK(
       RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA, DefaultGPUMemoryMapper));
   // TODO add the CUDA_HOST and CUDA_MANAGED allocation types when they are supported in
   // the CudaDevice
-  return Status::OK();
+  return true;
 }
 
-std::once_flag cuda_registered;
+static auto cuda_registered = RegisterCUDADeviceInternal();
 
-Status RegisterCUDADevice() {
-  std::call_once(cuda_registered, RegisterCUDADeviceInternal);
-  return Status::OK();
-}
+}  // namespace
 
 }  // namespace cuda
 }  // namespace arrow
