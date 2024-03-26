@@ -816,7 +816,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   CheckTensor<DoubleType>(tensor2, 27, shape2, f_strides_2);
 }
 
-TEST_F(TestRecordBatch, ToTensorUnSupportedMixedFloat16) {
+TEST_F(TestRecordBatch, ToTensorUnsupportedMixedFloat16) {
   const int length = 9;
 
   auto f0 = field("f0", float16());

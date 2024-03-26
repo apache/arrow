@@ -320,7 +320,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
                                  column(i)->type()->ToString());
       }
 
-      // Casting of float16 is not supported, through an error in this case
+      // Casting of float16 is not supported, throw an error in this case
       if (column(i)->type()->id() != result_field->type()->id() &&
           (column(i)->type()->id() == Type::HALF_FLOAT ||
            result_field->type()->id() == Type::HALF_FLOAT)) {
