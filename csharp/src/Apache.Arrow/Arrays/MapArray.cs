@@ -135,6 +135,19 @@ namespace Apache.Arrow
         {
         }
 
+        public override void Accept(IArrowArrayVisitor visitor)
+        {
+            switch (visitor)
+            {
+                case IArrowArrayVisitor<MapArray> typedVisitor:
+                    typedVisitor.Visit(this);
+                    break;
+                default:
+                    base.Accept(visitor);
+                    break;
+            }
+        }
+
         public IEnumerable<Tuple<K, V>> GetTuples<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
             where TKeyArray : Array where TValueArray : Array
         {
