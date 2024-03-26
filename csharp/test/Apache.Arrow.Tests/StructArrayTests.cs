@@ -18,7 +18,6 @@ using Apache.Arrow.Types;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Emit;
 using Xunit;
 
 namespace Apache.Arrow.Tests
