@@ -95,15 +95,18 @@ class NonZeroCopyBufferReader final : public InputStream {
 
 template <typename BufReader, Compression::type COMPRESSION, bool ReadIntoBuffer>
 static void CompressionInputBenchmark(::benchmark::State& state) {
-  std::vector<uint8_t> data = MakeCompressibleData(/*data_size=*/state.range(0));
+  std::vector<uint8_t> data =
+      MakeCompressibleData(/*data_size=*/static_cast<int>(state.range(0)));
   int64_t per_read_bytes = state.range(1);
   auto codec = ::arrow::util::Codec::Create(COMPRESSION).ValueOrDie();
-  int64_t max_compress_len = codec->MaxCompressedLen(data.size(), data.data());
+  int64_t max_compress_len =
+      codec->MaxCompressedLen(static_cast<int64_t>(data.size()), data.data());
   std::shared_ptr<::arrow::ResizableBuffer> buf =
       ::arrow::AllocateResizableBuffer(max_compress_len).ValueOrDie();
-  int64_t length =
-      codec->Compress(data.size(), data.data(), max_compress_len, buf->mutable_data())
-          .ValueOrDie();
+  int64_t length = codec
+                       ->Compress(static_cast<int64_t>(data.size()), data.data(),
+                                  max_compress_len, buf->mutable_data())
+                       .ValueOrDie();
   ABORT_NOT_OK(buf->Resize(length));
   for (auto _ : state) {
     state.PauseTiming();
@@ -114,7 +117,7 @@ static void CompressionInputBenchmark(::benchmark::State& state) {
     // Put `CompressedInputStream::Make` in timing.
     auto input_stream =
         ::arrow::io::CompressedInputStream::Make(codec.get(), reader).ValueOrDie();
-    int64_t remaining_size = data.size();
+    auto remaining_size = static_cast<int64_t>(data.size());
     while (remaining_size > 0) {
       if constexpr (ReadIntoBuffer) {
         auto value = input_stream->Read(per_read_bytes, read_buffer->mutable_data());
