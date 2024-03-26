@@ -233,7 +233,7 @@ schema transformations.
 Device Support
 --------------
 
-Th PyCapsule interface has cross hardware support through using the
+The PyCapsule interface has cross hardware support through using the
 :ref:`C device interface <c-device-data-interface>`. This means it is possible
 to exchange data on non-CPU devices (e.g. CUDA GPUs) and to inspect on what
 device the exchanged data lives.
@@ -243,16 +243,16 @@ methods: the standard CPU-only versions (:meth:`__arrow_c_array__` and
 :meth:`__arrow_c_stream__`) and the equivalent device-aware versions
 (:meth:`__arrow_c_device_array__```, and :meth:`__arrow_c_device_stream__`).
 
-For CPU-only libraries, it is allowed to either implement only the standard
+For CPU-only producers, it is allowed to either implement only the standard
 protocol methods, or either implement both the standard and device-aware
 methods. The absence of the device version methods implies CPU-only data. For
 CPU-only consumers, it is encouraged to be able to consume both versions of the
 protocol.
 
-For a device-aware library, and for data structures that can only reside in
-non-CPU memory, it is recommeded to _only_ implement the device version of the
+For a device-aware producer whose data structures can only reside in
+non-CPU memory, it is recommended to _only_ implement the device version of the
 protocol (e.g. only add ``__arrow_c_device_array__``, and not add ``__arrow_c_array__``).
-Libraries that have data structures that can live both on CPU or non-CPU devices
+Producers that have data structures that can live both on CPU or non-CPU devices
 can implement both versions of the protocol (in that case, the standard methods
 should raise an error when trying to export non-CPU data).
 
