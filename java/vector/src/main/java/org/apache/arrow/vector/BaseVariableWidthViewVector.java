@@ -1079,6 +1079,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * @param index   position of the element to set
    * @param length  length of the element
    */
+  @Override
   public void setValueLengthSafe(int index, int length) {
     assert index >= 0;
     handleSafe(index, length);
@@ -1619,6 +1620,26 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       ArrowBuf dataBuf = dataBuffers.get(bufIndex);
       return ByteFunctionHelpers.hash(hasher, dataBuf, dataOffset, dataOffset + length);
     }
+  }
+
+  protected byte[] getData(int index, int dataLength) {
+    byte[] result = new byte[dataLength];
+    if (dataLength > INLINE_SIZE) {
+      // data is in the inline buffer
+      // get buffer index
+      final int bufferIndex =
+              valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset =
+              valueBuffer.getInt(
+                      ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+    } else {
+      // data is in the value buffer
+      valueBuffer.getBytes(
+              (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
+    }
+    return result;
   }
 
   @Override

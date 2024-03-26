@@ -175,6 +175,12 @@ public class TypeLayout {
       }
 
       @Override
+      public TypeLayout visit(ArrowType.BinaryView type) {
+        // TODO: update this logic to match Utf8View
+        return newVariableWidthTypeLayout();
+      }
+
+      @Override
       public TypeLayout visit(Utf8 type) {
         return newVariableWidthTypeLayout();
       }
@@ -355,12 +361,19 @@ public class TypeLayout {
       }
 
       @Override
+      public Integer visit(ArrowType.BinaryView type) {
+        // TODO: fix this to match views
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
       public Integer visit(Utf8 type) {
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 
       @Override
       public Integer visit(Utf8View type) {
+        // TODO: fix this to match views
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 

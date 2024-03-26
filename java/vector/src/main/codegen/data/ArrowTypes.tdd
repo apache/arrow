@@ -81,6 +81,11 @@
       complex: false
     },
     {
+      name: "BinaryView",
+      fields: [],
+      complex: false
+    },
+    {
       name: "LargeBinary",
       fields: [],
       complex: false
