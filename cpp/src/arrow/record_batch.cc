@@ -623,9 +623,7 @@ Status RecordBatch::ValidateFull() const {
   return ValidateBatch(*this, /*full_validation=*/true);
 }
 
-std::shared_ptr<Device::SyncEvent> RecordBatch::GetSyncEvent() {
-  return nullptr;
-}
+std::shared_ptr<Device::SyncEvent> RecordBatch::GetSyncEvent() { return nullptr; }
 
 // ----------------------------------------------------------------------
 // Base record batch reader
