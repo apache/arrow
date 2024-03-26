@@ -2522,6 +2522,88 @@ class TestConvertListTypes:
             else:
                 npt.assert_array_equal(left, right)
 
+    @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
+    def test_list_view_to_pandas_with_in_order_offsets(self, klass):
+        arr = klass.from_arrays(
+            offsets=pa.array([0, 2, 4]),
+            sizes=pa.array([2, 2, 2]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, 2], [3, 4], [5, 6]])
+
+        tm.assert_series_equal(actual, expected)
+
+    @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
+    def test_list_view_to_pandas_with_out_of_order_offsets(self, klass):
+        arr = klass.from_arrays(
+            offsets=pa.array([2, 4, 0]),
+            sizes=pa.array([2, 2, 2]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[3, 4], [5, 6], [1, 2]])
+
+        tm.assert_series_equal(actual, expected)
+
+    @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
+    def test_list_view_to_pandas_with_overlapping_offsets(self, klass):
+        arr = klass.from_arrays(
+            offsets=pa.array([0, 1, 2]),
+            sizes=pa.array([4, 4, 4]),
+            values=pa.array([1, 2, 3, 4, 5, 6]),
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6]])
+
+        tm.assert_series_equal(actual, expected)
+
+    @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
+    def test_list_view_to_pandas_with_null_values(self, klass):
+        arr = klass.from_arrays(
+            offsets=pa.array([0, 2, 2]),
+            sizes=pa.array([2, 0, 0]),
+            values=pa.array([1, None]),
+            mask=pa.array([False, False, True])
+        )
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[1, None], [], None])
+
+        tm.assert_series_equal(actual, expected)
+
+    @pytest.mark.parametrize("klass", [pa.ListViewArray, pa.LargeListViewArray])
+    def test_list_view_to_pandas_multiple_chunks(self, klass):
+        gc.collect()
+        bytes_start = pa.total_allocated_bytes()
+        arr1 = klass.from_arrays(
+            offsets=pa.array([2, 1, 0]),
+            sizes=pa.array([2, 2, 2]),
+            values=pa.array([1, 2, 3, 4])
+        )
+        arr2 = klass.from_arrays(
+            offsets=pa.array([0, 1, 1]),
+            sizes=pa.array([3, 3, 0]),
+            values=pa.array([5, 6, 7, None]),
+            mask=pa.array([False, False, True])
+        )
+        arr = pa.chunked_array([arr1, arr2])
+
+        actual = arr.to_pandas()
+        expected = pd.Series([[3, 4], [2, 3], [1, 2], [5, 6, 7], [6, 7, None], None])
+
+        tm.assert_series_equal(actual, expected)
+
+        del actual
+        del arr
+        del arr1
+        del arr2
+        bytes_end = pa.total_allocated_bytes()
+        assert bytes_end == bytes_start
+
 
 class TestConvertStructTypes:
     """
