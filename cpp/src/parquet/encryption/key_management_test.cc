@@ -69,7 +69,7 @@ class TestEncryptionKeyManagement : public ::testing::Test {
     wrap_locally_ = wrap_locally;
     std::shared_ptr<KmsClientFactory> kms_client_factory =
         std::make_shared<TestOnlyInMemoryKmsClientFactory>(wrap_locally, key_list_);
-    crypto_factory_.RegisterKmsClientFactory(kms_client_factory);
+    crypto_factory_.RegisterKmsClientFactory(std::move(kms_client_factory));
   }
 
   std::string GetFileName(bool double_wrapping, bool wrap_locally,

@@ -30,33 +30,37 @@ FileKeyUnwrapper::FileKeyUnwrapper(
     const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
     : FileKeyUnwrapper(std::move(key_toolkit), /*key_toolkit=*/nullptr,
-                       kms_connection_config, cache_lifetime_seconds, file_path,
-                       file_system) {}
+                       kms_connection_config, cache_lifetime_seconds,
+                       /*key_material_store=*/nullptr, file_path, file_system) {}
 
 FileKeyUnwrapper::FileKeyUnwrapper(
     KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
     double cache_lifetime_seconds, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
     : FileKeyUnwrapper(/*key_toolkit_owner=*/nullptr, key_toolkit, kms_connection_config,
-                       cache_lifetime_seconds, file_path, file_system) {}
+                       cache_lifetime_seconds, /*key_material_store=*/nullptr, file_path,
+                       file_system) {}
 
 FileKeyUnwrapper::FileKeyUnwrapper(
     KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
     double cache_lifetime_seconds,
     std::shared_ptr<FileKeyMaterialStore> key_material_store)
     : FileKeyUnwrapper(/*key_toolkit_owner=*/nullptr, key_toolkit, kms_connection_config,
-                       cache_lifetime_seconds, /*file_path=*/"",
+                       cache_lifetime_seconds, std::move(key_material_store),
+                       /*file_path=*/"",
                        /*file_system=*/nullptr) {}
 
 FileKeyUnwrapper::FileKeyUnwrapper(
     std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
     const KmsConnectionConfig& kms_connection_config, double cache_lifetime_seconds,
+    std::shared_ptr<FileKeyMaterialStore> key_material_store,
     const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system)
     : key_toolkit_owner_(std::move(key_toolkit_owner)),
       key_toolkit_(key_toolkit ? key_toolkit : key_toolkit_owner_.get()),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_seconds_(cache_lifetime_seconds),
+      key_material_store_(std::move(key_material_store)),
       file_path_(file_path),
       file_system_(file_system) {
   kek_per_kek_id_ = key_toolkit_->kek_read_cache_per_token().GetOrCreateInternalCache(
@@ -120,7 +124,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
     data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
-  return KeyWithMasterId(data_key, master_key_id);
+  return KeyWithMasterId(std::move(data_key), std::move(master_key_id));
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
