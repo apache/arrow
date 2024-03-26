@@ -510,10 +510,8 @@ Result<std::shared_ptr<MemoryManager>> DefaultGPUMemoryMapper(int64_t device_id)
 Status RegisterCUDADeviceInternal() {
   RETURN_NOT_OK(
       RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA, DefaultGPUMemoryMapper));
-  RETURN_NOT_OK(RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA_HOST,
-                                            DefaultGPUMemoryMapper));
-  RETURN_NOT_OK(RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA_MANAGED,
-                                            DefaultGPUMemoryMapper));
+  // TODO add the CUDA_HOST and CUDA_MANAGED allocation types when they are supported in
+  // the CudaDevice
   return Status::OK();
 }
 
