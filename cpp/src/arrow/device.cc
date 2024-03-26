@@ -270,7 +270,7 @@ std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {
   return default_cpu_memory_manager();
 }
 
-namespace internal {
+namespace {
 
 class DeviceMemoryManagerRegistryImpl {
  public:
@@ -319,16 +319,16 @@ DeviceMemoryManagerRegistryImpl* GetDeviceRegistry() {
   return g_registry.get();
 }
 
-}  // namespace internal
+}  // namespace
 
 Status RegisterDeviceMemoryManager(DeviceAllocationType device_type,
                                    MemoryMapper memory_mapper) {
-  auto registry = internal::GetDeviceRegistry();
+  auto registry = GetDeviceRegistry();
   return registry->RegisterDevice(device_type, std::move(memory_mapper));
 }
 
 Result<MemoryMapper> GetDeviceMemoryManager(DeviceAllocationType device_type) {
-  auto registry = internal::GetDeviceRegistry();
+  auto registry = GetDeviceRegistry();
   return registry->GetMemoryManager(device_type);
 }
 

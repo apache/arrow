@@ -390,7 +390,6 @@ Status RegisterDeviceMemoryManager(DeviceAllocationType device_type,
 /// \return function that takes a device id and returns the appropriate
 /// MemoryManager for the registered device type and given device id
 ARROW_EXPORT
-ARROW_EXPORT
 Result<MemoryMapper> GetDeviceMemoryManager(DeviceAllocationType device_type);
 
 }  // namespace arrow
