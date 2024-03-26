@@ -127,7 +127,7 @@ ArrowSchema Export
 
 Schemas, fields, and data types can implement the method ``__arrow_c_schema__``.
 
-.. py:method:: __arrow_c_schema__(self) -> object
+.. py:method:: __arrow_c_schema__(self)
 
     Export the object as an ArrowSchema.
 
@@ -141,7 +141,7 @@ ArrowArray Export
 Arrays and record batches (contiguous tables) can implement the method
 ``__arrow_c_array__``.
 
-.. py:method:: __arrow_c_array__(self, requested_schema: object | None = None) -> Tuple[object, object]
+.. py:method:: __arrow_c_array__(self, requested_schema=None)
 
     Export the object as a pair of ArrowSchema and ArrowArray structures.
 
@@ -158,7 +158,7 @@ Libraries supporting the Device interface can implement a ``__arrow_c_device_arr
 method on those objects, which works the same as ``__arrow_c_array__`` except
 for returning a ArrowDeviceArray structure instead of a ArrowArray structure:
 
-.. py:method:: __arrow_c_device_array__(self, requested_schema: object | None = None) -> Tuple[object, object]
+.. py:method:: __arrow_c_device_array__(self, requested_schema=None)
 
     Export the object as a pair of ArrowSchema and ArrowDeviceArray structures.
 
@@ -176,7 +176,7 @@ ArrowStream Export
 
 Tables / DataFrames and streams can implement the method ``__arrow_c_stream__``.
 
-.. py:method:: __arrow_c_stream__(self, requested_schema: object | None = None) -> object
+.. py:method:: __arrow_c_stream__(self, requested_schema=None)
 
     Export the object as an ArrowArrayStream.
 
@@ -193,7 +193,7 @@ method on those objects, which works the same as ``__arrow_c_stream__`` except
 for returning a ArrowDeviceArrayStream structure instead of a ArrowArrayStream
 structure:
 
-.. py:method:: __arrow_c_device_stream__(self, requested_schema: object | None = None) -> object
+.. py:method:: __arrow_c_device_stream__(self, requested_schema=None)
 
     Export the object as an ArrowDeviceArrayStream.
 
@@ -250,7 +250,7 @@ CPU-only consumers, it is encouraged to be able to consume both versions of the
 protocol.
 
 For a device-aware producer whose data structures can only reside in
-non-CPU memory, it is recommended to _only_ implement the device version of the
+non-CPU memory, it is recommended to only implement the device version of the
 protocol (e.g. only add ``__arrow_c_device_array__``, and not add ``__arrow_c_array__``).
 Producers that have data structures that can live both on CPU or non-CPU devices
 can implement both versions of the protocol (in that case, the standard methods
