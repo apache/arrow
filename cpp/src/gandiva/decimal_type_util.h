@@ -45,6 +45,9 @@ class GANDIVA_EXPORT DecimalTypeUtil {
   /// The maximum precision representable by a 8-byte decimal
   static constexpr int32_t kMaxDecimal64Precision = 18;
 
+  /// The minimum precision representable by a 16-byte decimal
+  static constexpr int32_t kMinPrecision = 1;
+
   /// The maximum precision representable by a 16-byte decimal
   static constexpr int32_t kMaxPrecision = 38;
 
@@ -57,10 +60,19 @@ class GANDIVA_EXPORT DecimalTypeUtil {
   // * There is no strong reason for 6, but both SQLServer and Impala use 6 too.
   static constexpr int32_t kMinAdjustedScale = 6;
 
+  // The same function with kMinAdjustedScale, just for compatibility with
+  // compute module's decimal promotion rules.
+  static constexpr int32_t kMinComputeAdjustedScale = 4;
+
   // For specified operation and input scale/precision, determine the output
   // scale/precision.
+  //
+  // The 'use_compute_rules' is for compatibility with compute module's
+  // decimal promotion rules:
+  // https://arrow.apache.org/docs/cpp/compute.html#arithmetic-functions
   static Status GetResultType(Op op, const Decimal128TypeVector& in_types,
-                              Decimal128TypePtr* out_type);
+                              Decimal128TypePtr* out_type,
+                              bool use_compute_rules = false);
 
   static Decimal128TypePtr MakeType(int32_t precision, int32_t scale) {
     return std::dynamic_pointer_cast<arrow::Decimal128Type>(

@@ -64,6 +64,20 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 
 	writer := file.NewParquetWriter(sink, t.Schema.Root(), file.WithWriterProps(props))
 	t.GenerateData(int64(t.rowsPerRG))
+
+	t.serializeGeneratedData(writer)
+	writer.FlushWithFooter()
+
+	t.validateSerializedData(writer, sink, expected)
+
+	t.serializeGeneratedData(writer)
+	writer.Close()
+
+	t.numRowGroups *= 2
+	t.validateSerializedData(writer, sink, expected)
+}
+
+func (t *SerializeTestSuite) serializeGeneratedData(writer *file.Writer) {
 	for rg := 0; rg < t.numRowGroups/2; rg++ {
 		rgw := writer.AppendRowGroup()
 		for col := 0; col < t.numCols; col++ {
@@ -94,8 +108,9 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 		}
 		rgw.Close()
 	}
-	writer.Close()
+}
 
+func (t *SerializeTestSuite) validateSerializedData(writer *file.Writer, sink *encoding.BufferWriter, expected compress.Compression) {
 	nrows := t.numRowGroups * t.rowsPerRG
 	t.EqualValues(nrows, writer.NumRows())
 

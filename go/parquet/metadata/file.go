@@ -104,6 +104,15 @@ func (f *FileMetaDataBuilder) AppendKeyValueMetadata(key string, value string) e
 // version etc. This will clear out this filemetadatabuilder so it can
 // be re-used
 func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
+	out, err := f.Snapshot()
+	f.Clear()
+	return out, err
+}
+
+// Snapshot returns finalized metadata of the number of rows, row groups, version etc.
+// The snapshot must be used (e.g., serialized) before any additional (meta)data is
+// written, as it refers to builder datastructures that will continue to mutate.
+func (f *FileMetaDataBuilder) Snapshot() (*FileMetaData, error) {
 	totalRows := int64(0)
 	for _, rg := range f.rowGroups {
 		totalRows += rg.NumRows
@@ -161,9 +170,13 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	}
 	out.initColumnOrders()
 
+	return out, nil
+}
+
+// Clears out this filemetadatabuilder so it can be re-used
+func (f *FileMetaDataBuilder) Clear() {
 	f.metadata = format.NewFileMetaData()
 	f.rowGroups = nil
-	return out, nil
 }
 
 // KeyValueMetadata is an alias for a slice of thrift keyvalue pairs.
