@@ -689,7 +689,6 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         print("\n=== The assigned milestone is not the default ===")
         print(f"Assigned milestone: {current_fix_versions}")
         print(f"Current milestone: {default_fix_version}")
-        print("Please ensure to assign the correct milestone.")
         if issue.issue["milestone"].get("state") == 'closed':
             print("The assigned milestone state is closed. Contact the ")
             print("Release Manager if it has to be added to a closed Release")
