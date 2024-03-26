@@ -297,6 +297,63 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
+        public async Task TestSingleExchange()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("single_exchange");
+            var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor);
+            var expectedBatch = CreateTestBatch(0, 100);
+
+            await duplexStreamingCall.RequestStream.WriteAsync(expectedBatch).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+
+            var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
+
+            Assert.Single(results);
+            ArrowReaderVerifier.CompareBatches(expectedBatch, results.FirstOrDefault());
+        }
+
+        [Fact]
+        public async Task TestMultipleExchange()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("multiple_exchange");
+            var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor);
+            var expectedBatch1 = CreateTestBatch(0, 100);
+            var expectedBatch2 = CreateTestBatch(100, 100);
+
+            await duplexStreamingCall.RequestStream.WriteAsync(expectedBatch1).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.WriteAsync(expectedBatch2).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+
+            var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
+
+            ArrowReaderVerifier.CompareBatches(expectedBatch1, results[0]);
+            ArrowReaderVerifier.CompareBatches(expectedBatch2, results[1]);
+        }
+
+        [Fact]
+        public async Task TestExchangeWithMetadata()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("metadata_exchange");
+            var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor);
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedMetadata = ByteString.CopyFromUtf8("test metadata");
+
+            await duplexStreamingCall.RequestStream.WriteAsync(expectedBatch, expectedMetadata).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+
+            List<ByteString> actualMetadata = new List<ByteString>();
+            List<RecordBatch> actualBatch = new List<RecordBatch>();
+            while (await duplexStreamingCall.ResponseStream.MoveNext(default))
+            {
+                actualBatch.Add(duplexStreamingCall.ResponseStream.Current);
+                actualMetadata.AddRange(duplexStreamingCall.ResponseStream.ApplicationMetadata);
+            }
+
+            ArrowReaderVerifier.CompareBatches(expectedBatch, actualBatch.FirstOrDefault());
+            Assert.Equal(expectedMetadata, actualMetadata.FirstOrDefault());
+        }
+
+        [Fact]
         public async Task TestHandshakeWithSpecificMessage()
         {
             var duplexStreamingCall = _flightClient.Handshake();

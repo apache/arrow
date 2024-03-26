@@ -20,8 +20,8 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.3.9
-# - JDK >=7
+# - Maven >= 3.8.7
+# - JDK >=8
 # - gcc >= 4.8
 # - Node.js >= 18
 # - Go >= 1.19
@@ -499,6 +499,44 @@ maybe_setup_conda() {
   fi
 }
 
+install_maven() {
+  MAVEN_VERSION=3.8.7
+  if command -v mvn > /dev/null; then
+    SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
+  else
+    SYSTEM_MAVEN_VERSION=0.0.0
+    show_info "Maven installation not found."
+  fi
+
+  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
+    show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
+  else
+    # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
+    # as older than their corresponding release version "X.Y.Z". This works because 
+    # `sort -V` orders the pipe character lower than any version number character.
+    older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
+    if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
+      show_info "Installing Maven version ${MAVEN_VERSION}..."
+      APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+      curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+        ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+      show_info "Installed Maven version $(mvn -v | head -n 1 | awk '{print $3}')"
+    else
+      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
+    fi
+  fi
+}
+
+maybe_setup_maven() {
+  show_info "Ensuring that Maven is installed..."
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_maven
+  fi
+}
+
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
   local env="venv-${VENV_ENV:-source}"
@@ -565,6 +603,7 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
+  maybe_setup_maven
   maybe_setup_conda maven openjdk
 
   pushd java
@@ -1202,6 +1241,8 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
+
+  maybe_setup_maven
   maybe_setup_conda maven python
 
   local download_dir=${ARROW_TMPDIR}/jars

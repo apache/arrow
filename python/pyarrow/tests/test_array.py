@@ -3619,6 +3619,28 @@ def test_run_end_encoded_from_array_with_type():
     assert result.equals(expected)
 
 
+def test_run_end_encoded_to_numpy():
+    arr = [1, 2, 2, 3, 3, 3]
+    ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
+    expected = np.array(arr)
+
+    np.testing.assert_array_equal(ree_array.to_numpy(zero_copy_only=False), expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        ree_array.to_numpy()
+
+
+@pytest.mark.pandas
+def test_run_end_encoded_to_pandas():
+    arr = [1, 2, 2, 3, 3, 3]
+    ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
+
+    assert ree_array.to_pandas().tolist() == arr
+
+    with pytest.raises(pa.ArrowInvalid):
+        ree_array.to_pandas(zero_copy_only=True)
+
+
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListViewArray, pa.list_view),
                           (pa.LargeListViewArray, pa.large_list_view)])

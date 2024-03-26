@@ -205,7 +205,17 @@ func TestDecimal256StringRoundTrip(t *testing.T) {
 		decimal256.FromI64(9),
 		decimal256.FromI64(10),
 	}
-	valid := []bool{true, true, true, false, true, true, false, true, true, true}
+	val1, err := decimal256.FromString("0.99", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	val2, err := decimal256.FromString("1234567890.123456789", dt.Precision, dt.Scale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values = append(values, val1, val2)
+
+	valid := []bool{true, true, true, false, true, true, false, true, true, true, true, true}
 
 	b.AppendValues(values, valid)
 
@@ -217,11 +227,67 @@ func TestDecimal256StringRoundTrip(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		v := arr.ValueStr(i)
+		assert.NoError(t, b1.AppendValueFromString(v))
 	}
 
 	arr1 := b1.NewArray().(*array.Decimal256)
 	defer arr1.Release()
 
+	for i := 0; i < arr.Len(); i++ {
+		if arr.IsNull(i) && arr1.IsNull(i) {
+			continue
+		}
+		if arr.Value(i) != arr1.Value(i) {
+			t.Fatalf("unexpected value at index %d: got=%v, want=%v", i, arr1.Value(i), arr.Value(i))
+		}
+	}
 	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestDecimal256GetOneForMarshal(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.Decimal256Type{Precision: 38, Scale: 20}
+
+	b := array.NewDecimal256Builder(mem, dtype)
+	defer b.Release()
+
+	cases := []struct {
+		give any
+		want any
+	}{
+		{"1", "1"},
+		{"1.25", "1.25"},
+		{"0.99", "0.99"},
+		{"1234567890.123456789", "1234567890.123456789"},
+		{nil, nil},
+		{"-0.99", "-0.99"},
+		{"-1234567890.123456789", "-1234567890.123456789"},
+		{"0.0000000000000000001", "1e-19"},
+	}
+	for _, v := range cases {
+		if v.give == nil {
+			b.AppendNull()
+			continue
+		}
+
+		dt, err := decimal256.FromString(v.give.(string), dtype.Precision, dtype.Scale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.Append(dt)
+	}
+
+	arr := b.NewDecimal256Array()
+	defer arr.Release()
+
+	if got, want := arr.Len(), len(cases); got != want {
+		t.Fatalf("invalid array length: got=%d, want=%d", got, want)
+	}
+
+	for i := range cases {
+		assert.Equalf(t, cases[i].want, arr.GetOneForMarshal(i), "unexpected value at index %d", i)
+	}
 }

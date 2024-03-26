@@ -2291,6 +2291,14 @@ std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArra
   return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
 };
 
+// Helper function to decode RunEndEncodedArray
+Result<std::shared_ptr<ChunkedArray>> GetDecodedChunkedArray(
+    std::shared_ptr<ChunkedArray> arr) {
+  ARROW_ASSIGN_OR_RAISE(Datum decoded, compute::RunEndDecode(arr));
+  DCHECK(decoded.is_chunked_array());
+  return decoded.chunked_array();
+};
+
 class ConsolidatedBlockCreator : public PandasBlockCreator {
  public:
   using PandasBlockCreator::PandasBlockCreator;
@@ -2319,6 +2327,11 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       // In case of an extension array default to the storage type
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
+      }
+      // In case of a RunEndEncodedArray default to the values type
+      else if (arrays_[column_index]->type()->id() == Type::RUN_END_ENCODED) {
+        ARROW_ASSIGN_OR_RAISE(arrays_[column_index],
+                              GetDecodedChunkedArray(arrays_[column_index]));
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
@@ -2553,6 +2566,18 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
     arr = GetStorageChunkedArray(arr);
+  }
+  // In case of a RunEndEncodedArray decode the array
+  else if (arr->type()->id() == Type::RUN_END_ENCODED) {
+    if (options.zero_copy_only) {
+      return Status::Invalid("Need to dencode a RunEndEncodedArray, but ",
+                             "only zero-copy conversions allowed");
+    }
+    ARROW_ASSIGN_OR_RAISE(arr, GetDecodedChunkedArray(arr));
+
+    // Because we built a new array when we decoded the RunEndEncodedArray
+    // the final resulting numpy array should own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   PandasWriter::type output_type;

@@ -108,21 +108,21 @@ function wrapSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => vo
 }
 
 /** @ignore */
-export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.trunc(epochMs / 86400000); };
+export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.floor(epochMs / 86400000); };
 /** @ignore */
 export const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc(epochMs % 4294967296);
-    data[index + 1] = Math.trunc(epochMs / 4294967296);
+    data[index] = Math.floor(epochMs % 4294967296);
+    data[index + 1] = Math.floor(epochMs / 4294967296);
 };
 /** @ignore */
 export const setEpochMsToMicrosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc((epochMs * 1000) % 4294967296);
-    data[index + 1] = Math.trunc((epochMs * 1000) / 4294967296);
+    data[index] = Math.floor((epochMs * 1000) % 4294967296);
+    data[index + 1] = Math.floor((epochMs * 1000) / 4294967296);
 };
 /** @ignore */
 export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc((epochMs * 1000000) % 4294967296);
-    data[index + 1] = Math.trunc((epochMs * 1000000) / 4294967296);
+    data[index] = Math.floor((epochMs * 1000000) % 4294967296);
+    data[index + 1] = Math.floor((epochMs * 1000000) / 4294967296);
 };
 
 /** @ignore */
