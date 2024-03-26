@@ -278,7 +278,7 @@ class DeviceMemoryManagerRegistryImpl {
 
   Status RegisterDevice(DeviceAllocationType device_type, MemoryMapper memory_mapper) {
     std::lock_guard<std::mutex> lock(lock_);
-    auto [_, inserted] = registry.try_emplace(device_type, std::move(memory_mapper));
+    auto [_, inserted] = registry_.try_emplace(device_type, std::move(memory_mapper));
     if (!inserted) {
       return Status::KeyError("Device type ", static_cast<int>(device_type),
                               " is already registered");

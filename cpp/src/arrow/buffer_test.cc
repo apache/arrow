@@ -1023,4 +1023,17 @@ TEST(TestBufferConcatenation, EmptyBuffer) {
   AssertMyBufferEqual(*result, contents);
 }
 
+TEST(TestDeviceRegistry, Basics) {
+  // Test the error cases for the device registry
+
+  // CPU is already registered
+  ASSERT_RAISES(KeyError, RegisterDeviceMemoryManager(
+                              DeviceAllocationType::kCPU, [](int64_t device_id) {
+                                return default_cpu_memory_manager();
+                              }));
+
+  // VPI is not registered
+  ASSERT_RAISES(KeyError, GetDeviceMemoryManager(DeviceAllocationType::kVPI));
+}
+
 }  // namespace arrow
