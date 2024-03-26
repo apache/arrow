@@ -42,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/span.h"
@@ -51,6 +52,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
@@ -686,11 +688,13 @@ class RepeatedArrayFactory {
   enable_if_base_binary<T, Status> Visit(const T&) {
     const std::shared_ptr<Buffer>& value = scalar<T>().value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
-    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     auto size = static_cast<typename T::offset_type>(value->size());
+
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(
-        length_, std::move(offsets_buffer), std::move(values_buffer));
+    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
+
+    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
+                                                               values_buffer);
     return Status::OK();
   }
 
@@ -877,6 +881,18 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
+    OffsetType total_size;
+    if (MultiplyWithOverflow(value_length, static_cast<OffsetType>(length_),
+                             &total_size)) {
+      return Status::Invalid("offset overflow in repeated array construction");
+    }
+
+    if (length_ > std::numeric_limits<OffsetType>::max()) {
+      return Status::Invalid(
+          "length exceeds the maximum value of offset_type: ", std::to_string(length_),
+          " is greater than ", std::to_string(std::numeric_limits<OffsetType>::max()));
+    }
+
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
     OffsetType offset = 0;
@@ -929,6 +945,10 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
+  if (length < 0) {
+    return Status::Invalid("length cannot be negative: ", std::to_string(length));
+  }
+
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
