@@ -685,7 +685,7 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
 
     current_fix_versions = issue.current_fix_versions
     if (current_fix_versions and
-        current_fix_versions != default_fix_version):
+            current_fix_versions != default_fix_version):
         print("\n=== The assigned milestone is not the default ===")
         print(f"Assigned milestone: {current_fix_versions}")
         print(f"Current milestone: {default_fix_version}")
