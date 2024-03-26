@@ -50,6 +50,9 @@ class PARQUET_EXPORT BloomFilterBuilder {
   ///
   /// This method must be called before `GetOrCreateBloomFilter`
   /// in a row group.
+  ///
+  /// \throws ParquetException It will throw an exception if the BloomFilter already
+  /// called `WriteTo`.
   virtual void AppendRowGroup() = 0;
 
   /// \brief Get the BloomFilter from column ordinal.
@@ -57,14 +60,12 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \param column_ordinal Column ordinal in schema, which is only for leaf columns.
   ///
   /// \return BloomFilter for the column and its memory ownership belongs to the
-  /// BloomFilterBuilder. It will throw an exception if the BloomFilter is already
-  /// Finished or column_ordinal is out of bound.
+  /// BloomFilterBuilder. It will return nullptr if bloom filter is not enabled for the
+  /// column.
   ///
-  /// It will return nullptr if bloom filter is not enabled for the column.
-  ///
-  /// It will throw exception when BloomFilter BloomFilterBuilder is called with
-  /// out-of-order `column_ordinal`, without calling `AppendRowGroup` before
-  /// `GetOrCreateBloomFilter`.
+  /// \throws ParquetException It will throw an exception if the BloomFilter already
+  /// called `WriteTo`, column_ordinal is out of bound, or without calling
+  /// `AppendRowGroup` before `GetOrCreateBloomFilter`.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// \brief Write the bloom filter to sink.
@@ -73,6 +74,9 @@ class PARQUET_EXPORT BloomFilterBuilder {
   ///
   /// \param[out] sink The output stream to write the bloom filter.
   /// \param[out] location The location of all bloom filter relative to the start of sink.
+  ///
+  /// \throws ParquetException It will throw an exception if the BloomFilter already
+  /// called `WriteTo`.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
 

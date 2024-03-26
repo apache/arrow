@@ -168,11 +168,24 @@ class PARQUET_EXPORT BloomFilter {
   virtual ~BloomFilter() = default;
 
   // Variant of const reference argument to facilitate template
+
+  /// Compute hash for ByteArray value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
   uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
+  /// Compute hash for fixed byte array value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
   uint64_t Hash(const FLBA& value, uint32_t type_len) const {
     return Hash(&value, type_len);
   }
+  /// Compute hash for Int96 value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
   uint64_t Hash(const Int96& value) const { return Hash(&value); }
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
   uint64_t Hash(const std::string_view& value) const {
     ByteArray ba(value);
     return Hash(&ba);

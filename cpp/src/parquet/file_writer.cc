@@ -300,7 +300,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
         buffered_row_group_, meta_encryptor, data_encryptor,
         properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
-    return ColumnWriter::Make(col_meta, std::move(pager), properties_);
+    return ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter);
   }
 
   // If buffered_row_group_ is false, only column_writers_[0] is used as current writer.

@@ -157,6 +157,8 @@ inline const T* AddIfNotNull(const T* base, int64_t offset) {
   return nullptr;
 }
 
+constexpr int64_t kHashBatchSize = 256;
+
 }  // namespace
 
 LevelEncoder::LevelEncoder() {}
@@ -1644,7 +1646,6 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
-  constexpr static inline int64_t kHashBatchSize = 256;
   void UpdateBloomFilter(const T* values, int64_t num_values);
   void UpdateBloomFilterSpaced(const T* values, int64_t num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset);
@@ -2475,13 +2476,14 @@ void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values
 
 template <typename ArrayType>
 void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) {
-  PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
-      *array.data(),
-      [&](const std::string_view& view) {
-        bloom_filter->InsertHash(bloom_filter->Hash(view));
-        return Status::OK();
-      },
-      []() { return Status::OK(); }));
+  std::array<uint64_t, kHashBatchSize> hashes;
+  for (int64_t i = 0; i < array.length(); i += kHashBatchSize) {
+    int64_t current_hash_batch_size = std::min(kHashBatchSize, array.length() - i);
+    bloom_filter->Hashes(array.raw_values() + i, current_hash_batch_size, hashes.data());
+    // current_hash_batch_size is less or equal than kHashBatchSize, so it's safe to cast
+    // to int.
+    bloom_filter->InsertHashes(hashes.data(), static_cast<int>(current_hash_batch_size));
+  }
 }
 
 template <>
