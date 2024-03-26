@@ -63,7 +63,7 @@ struct PARQUET_EXPORT KmsConnectionConfig {
   KmsConnectionConfig();
 
   const std::string& key_access_token() const {
-    if (refreshable_key_access_token == NULL ||
+    if (refreshable_key_access_token == NULLPTR ||
         refreshable_key_access_token->value().empty()) {
       throw ParquetException("key access token is not set!");
     }

@@ -488,68 +488,6 @@ def test_chunked_array_unify_dictionaries():
     assert arr.to_pylist() == ["foo", "bar", None, "foo", "quux", None, "foo"]
 
 
-def test_recordbatch_basics():
-    data = [
-        pa.array(range(5), type='int16'),
-        pa.array([-10, -5, 0, None, 10], type='int32')
-    ]
-
-    batch = pa.record_batch(data, ['c0', 'c1'])
-    assert not batch.schema.metadata
-
-    assert len(batch) == 5
-    assert batch.num_rows == 5
-    assert batch.num_columns == len(data)
-    # (only the second array has a null bitmap)
-    assert batch.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
-    batch.nbytes == (5 * 2) + (5 * 4 + 1)
-    assert sys.getsizeof(batch) >= object.__sizeof__(
-        batch) + batch.get_total_buffer_size()
-
-    pydict = batch.to_pydict()
-    assert pydict == OrderedDict([
-        ('c0', [0, 1, 2, 3, 4]),
-        ('c1', [-10, -5, 0, None, 10])
-    ])
-    assert isinstance(pydict, dict)
-    assert batch == pa.record_batch(pydict, schema=batch.schema)
-
-    with pytest.raises(IndexError):
-        # bounds checking
-        batch[2]
-
-    # Schema passed explicitly
-    schema = pa.schema([pa.field('c0', pa.int16(),
-                                 metadata={'key': 'value'}),
-                        pa.field('c1', pa.int32())],
-                       metadata={b'foo': b'bar'})
-    batch = pa.record_batch(data, schema=schema)
-    assert batch.schema == schema
-    # schema as first positional argument
-    batch = pa.record_batch(data, schema)
-    assert batch.schema == schema
-    assert str(batch) == """pyarrow.RecordBatch
-c0: int16
-c1: int32
-----
-c0: [0,1,2,3,4]
-c1: [-10,-5,0,null,10]"""
-
-    assert batch.to_string(show_metadata=True) == """\
-pyarrow.RecordBatch
-c0: int16
-  -- field metadata --
-  key: 'value'
-c1: int32
--- schema metadata --
-foo: 'bar'"""
-
-    wr = weakref.ref(batch)
-    assert wr() is not None
-    del batch
-    assert wr() is None
-
-
 def test_recordbatch_dunder_init():
     with pytest.raises(TypeError, match='RecordBatch'):
         pa.RecordBatch()
@@ -1246,46 +1184,76 @@ def test_table_to_batches():
         table.to_batches(max_chunksize=0)
 
 
-def test_table_basics():
-    data = [
-        pa.array(range(5), type='int64'),
-        pa.array([-10, -5, 0, 5, 10], type='int64')
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
     ]
-    table = pa.table(data, names=('a', 'b'))
+)
+def test_table_basics(cls):
+    data = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    table = cls.from_arrays(data, names=('a', 'b'))
     table.validate()
+
+    assert not table.schema.metadata
     assert len(table) == 5
     assert table.num_rows == 5
-    assert table.num_columns == 2
+    assert table.num_columns == len(data)
     assert table.shape == (5, 2)
-    assert table.get_total_buffer_size() == 2 * (5 * 8)
-    assert table.nbytes == 2 * (5 * 8)
+    # (only the second array has a null bitmap)
+    assert table.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
+    assert table.nbytes == (5 * 2) + (5 * 4 + 1)
     assert sys.getsizeof(table) >= object.__sizeof__(
         table) + table.get_total_buffer_size()
 
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
-        ('b', [-10, -5, 0, 5, 10])
+        ('b', [-10, -5, 0, None, 10])
     ])
     assert isinstance(pydict, dict)
-    assert table == pa.table(pydict, schema=table.schema)
+    assert table == cls.from_pydict(pydict, schema=table.schema)
+
+    with pytest.raises(IndexError):
+        # bounds checking
+        table[2]
 
     columns = []
     for col in table.itercolumns():
+
+        if cls is pa.Table:
+            assert type(col) is pa.ChunkedArray
+
+            for chunk in col.iterchunks():
+                assert chunk is not None
+
+            with pytest.raises(IndexError):
+                col.chunk(-1)
+
+            with pytest.raises(IndexError):
+                col.chunk(col.num_chunks)
+
+        else:
+            assert issubclass(type(col), pa.Array)
+
         columns.append(col)
-        for chunk in col.iterchunks():
-            assert chunk is not None
-
-        with pytest.raises(IndexError):
-            col.chunk(-1)
-
-        with pytest.raises(IndexError):
-            col.chunk(col.num_chunks)
 
     assert table.columns == columns
-    assert table == pa.table(columns, names=table.column_names)
-    assert table != pa.table(columns[1:], names=table.column_names[1:])
+    assert table == cls.from_arrays(columns, names=table.column_names)
+    assert table != cls.from_arrays(columns[1:], names=table.column_names[1:])
     assert table != columns
+
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+    table = cls.from_arrays(data, schema=schema)
+    assert table.schema == schema
 
     wr = weakref.ref(table)
     assert wr() is not None
@@ -2352,6 +2320,67 @@ c1: int32
 ----
 c0: [[1,2,3,4,1,...,4,1,2,3,4]]
 c1: [[10,20,30,40,10,...,40,10,20,30,40]]"""
+
+
+def test_record_batch_repr_to_string():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4], type='int16'),
+                             pa.array([10, 20, 30, 40], type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(show_metadata=True) == """\
+pyarrow.RecordBatch
+c0: int16
+  -- field metadata --
+  key: 'value'
+c1: int32
+-- schema metadata --
+foo: 'bar'"""
+
+    assert batch.to_string(preview_cols=5) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+c1: [10,20,30,40]"""
+
+    assert batch.to_string(preview_cols=1) == """\
+pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4]
+..."""
+
+
+def test_record_batch_repr_to_string_ellipsis():
+    # Schema passed explicitly
+    schema = pa.schema([pa.field('c0', pa.int16(),
+                                 metadata={'key': 'value'}),
+                        pa.field('c1', pa.int32())],
+                       metadata={b'foo': b'bar'})
+
+    batch = pa.record_batch([pa.array([1, 2, 3, 4]*10, type='int16'),
+                             pa.array([10, 20, 30, 40]*10, type='int32')],
+                            schema=schema)
+    assert str(batch) == """pyarrow.RecordBatch
+c0: int16
+c1: int32
+----
+c0: [1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]
+c1: [10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30,40]"""
 
 
 def test_table_function_unicode_schema():

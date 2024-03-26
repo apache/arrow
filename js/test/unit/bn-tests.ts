@@ -83,4 +83,19 @@ describe(`BN`, () => {
         const d4 = toDecimal(new Uint32Array([0x9D91E773, 0x4BB90CED, 0xAB2354CC, 0x54278E9B]));
         expect(d4.toString()).toBe('111860543658909349380118287427608635251');
     });
+
+    test(`valueOf for decimal numbers`, () => {
+        const n1 = new BN(new Uint32Array([0x00000001, 0x00000000, 0x00000000, 0x00000000]), false);
+        expect(n1.valueOf()).toBe(1);
+        const n2 = new BN(new Uint32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]), true);
+        expect(n2.valueOf()).toBe(-2);
+        const n3 = new BN(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]), true);
+        expect(n3.valueOf()).toBe(-1);
+        const n4 = new BN(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]), true);
+        expect(n4.valueOf(1)).toBe(-0.1);
+        const n5 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
+        expect(n5.valueOf()).toBe(1.7014118346046923e+38);
+        // const n6 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
+        // expect(n6.valueOf(1)).toBe(1.7014118346046923e+37);
+    });
 });

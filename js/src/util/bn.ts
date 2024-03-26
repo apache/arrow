@@ -36,7 +36,7 @@ function BigNum(this: any, x: any, ...xs: any) {
 
 BigNum.prototype[isArrowBigNumSymbol] = true;
 BigNum.prototype.toJSON = function <T extends BN<BigNumArray>>(this: T) { return `"${bigNumToString(this)}"`; };
-BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T) { return bigNumToNumber(this); };
+BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T, scale?: number) { return bigNumToNumber(this, scale); };
 BigNum.prototype.toString = function <T extends BN<BigNumArray>>(this: T) { return bigNumToString(this); };
 BigNum.prototype[Symbol.toPrimitive] = function <T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default' = 'default') {
     switch (hint) {
@@ -68,24 +68,36 @@ Object.assign(SignedBigNum.prototype, BigNum.prototype, { 'constructor': SignedB
 Object.assign(UnsignedBigNum.prototype, BigNum.prototype, { 'constructor': UnsignedBigNum, 'signed': false, 'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
 Object.assign(DecimalBigNum.prototype, BigNum.prototype, { 'constructor': DecimalBigNum, 'signed': true, 'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
 
+//FOR ES2020 COMPATIBILITY
+const TWO_TO_THE_64 = BigInt(4294967296) * BigInt(4294967296); // 2^64 = 0x10000000000000000n
+const TWO_TO_THE_64_MINUS_1 = TWO_TO_THE_64 - BigInt(1); // (2^32 * 2^32) - 1 = 0xFFFFFFFFFFFFFFFFn
+
 /** @ignore */
-function bigNumToNumber<T extends BN<BigNumArray>>(bn: T) {
-    const { buffer, byteOffset, length, 'signed': signed } = bn;
-    const words = new BigUint64Array(buffer, byteOffset, length);
+export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number) {
+    const { buffer, byteOffset, byteLength, 'signed': signed } = bn;
+    const words = new BigUint64Array(buffer, byteOffset, byteLength / 8);
     const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
-    let number = negative ? BigInt(1) : BigInt(0);
-    let i = BigInt(0);
+    let number = BigInt(0);
+    let i = 0;
     if (!negative) {
         for (const word of words) {
-            number += word * (BigInt(1) << (BigInt(32) * i++));
+            number |= word * (BigInt(1) << BigInt(64 * i++));
         }
     } else {
         for (const word of words) {
-            number += ~word * (BigInt(1) << (BigInt(32) * i++));
+            number |= (word ^ TWO_TO_THE_64_MINUS_1) * (BigInt(1) << BigInt(64 * i++));
         }
         number *= BigInt(-1);
+        number -= BigInt(1);
     }
-    return number;
+    if (typeof scale === 'number') {
+        const denominator = BigInt(Math.pow(10, scale));
+        const quotient = number / denominator;
+        const remainder = number % denominator;
+        const n = Number(quotient) + (Number(remainder) / Number(denominator));
+        return n;
+    }
+    return Number(number);
 }
 
 /** @ignore */
@@ -217,7 +229,7 @@ export interface BN<T extends BigNumArray> extends TypedArrayLike<T> {
      * arithmetic operators, like `+`. Easy (and unsafe) way to convert BN to
      * number via `+bn_inst`
      */
-    valueOf(): number;
+    valueOf(scale?: number): number;
     /**
      * Return the JSON representation of the bytes. Must be wrapped in double-quotes,
      * so it's compatible with JSON.stringify().
