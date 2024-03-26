@@ -155,12 +155,13 @@ namespace Apache.Arrow
             // Get key values
             int start = offsets[index];
             int end = offsets[index + 1];
-            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
+            int length = end - start;
+            StructArray array = KeyValues.Slice(start, length) as StructArray;
 
             TKeyArray keyArray = array.Fields[0] as TKeyArray;
             TValueArray valueArray = array.Fields[1] as TValueArray;
 
-            for (int i = start; i < end; i++)
+            for (int i = 0; i < length; i++)
             {
                 yield return new Tuple<K, V>(getKey(keyArray, i), getValue(valueArray, i));
             }
@@ -173,12 +174,13 @@ namespace Apache.Arrow
             // Get key values
             int start = offsets[index];
             int end = offsets[index + 1];
-            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
+            int length = end - start;
+            StructArray array = KeyValues.Slice(start, length) as StructArray;
 
             TKeyArray keyArray = array.Fields[0] as TKeyArray;
             TValueArray valueArray = array.Fields[1] as TValueArray;
 
-            for (int i = start; i < end; i++)
+            for (int i = 0; i < length; i++)
             {
                 yield return new KeyValuePair<K,V>(getKey(keyArray, i), getValue(valueArray, i));
             }
