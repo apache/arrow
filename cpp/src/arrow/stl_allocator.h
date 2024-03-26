@@ -116,16 +116,12 @@ class STLMemoryPool : public MemoryPool {
 
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t /*alignment*/,
                     uint8_t** ptr) override {
-    uint8_t* old_ptr = *ptr;
-    try {
-      *ptr = alloc_.allocate(new_size);
-    } catch (std::bad_alloc& e) {
-      return Status::OutOfMemory(e.what());
-    }
-    memcpy(*ptr, old_ptr, std::min(old_size, new_size));
-    alloc_.deallocate(old_ptr, old_size);
-    stats_.UpdateAllocatedBytes(new_size - old_size);
-    return Status::OK();
+    return DoReallocate(old_size, new_size, ptr);
+  }
+
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t /*alignment*/,
+                          uint8_t** ptr) override {
+    return DoReallocate(old_size, new_size, ptr);
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t /*alignment*/) override {
@@ -146,6 +142,19 @@ class STLMemoryPool : public MemoryPool {
   std::string backend_name() const override { return "stl"; }
 
  private:
+  Status DoReallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+    uint8_t* old_ptr = *ptr;
+    try {
+      *ptr = alloc_.allocate(new_size);
+    } catch (std::bad_alloc& e) {
+      return Status::OutOfMemory(e.what());
+    }
+    memcpy(*ptr, old_ptr, std::min(old_size, new_size));
+    alloc_.deallocate(old_ptr, old_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return Status::OK();
+  }
+
   Allocator alloc_;
   arrow::internal::MemoryPoolStats stats_;
 };

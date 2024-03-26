@@ -461,6 +461,11 @@ class MyMemoryPool : public MemoryPool {
     return Status::OK();
   }
 
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                          uint8_t** ptr) override {
+    return Reallocate(old_size, new_size, alignment, ptr);
+  }
+
   int64_t bytes_allocated() const override { return -1; }
 
   int64_t total_bytes_allocated() const override { return -1; }

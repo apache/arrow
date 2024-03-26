@@ -89,6 +89,32 @@ class TestMemoryPoolBase : public ::testing::Test {
     ASSERT_EQ(0, pool->bytes_allocated());
   }
 
+  void TestReallocateNoCopy() {
+    auto pool = memory_pool();
+
+    uint8_t* data;
+    ASSERT_OK(pool->Allocate(10, &data));
+    ASSERT_EQ(10, pool->bytes_allocated());
+    data[0] = 35;
+    data[9] = 12;
+
+    // Small expansion, likely to be in place
+    ASSERT_OK(pool->ReallocateNoCopy(10, 11, &data));
+    ASSERT_EQ(11, pool->bytes_allocated());
+    // Larger expansion, unlikely to be in place
+    ASSERT_OK(pool->ReallocateNoCopy(11, 200, &data));
+    ASSERT_EQ(200, pool->bytes_allocated());
+    // Small shrink, likely to be in place
+    ASSERT_OK(pool->ReallocateNoCopy(200, 196, &data));
+    ASSERT_EQ(196, pool->bytes_allocated());
+    // Larger shrink, unlikely to be in place
+    ASSERT_OK(pool->ReallocateNoCopy(196, 13, &data));
+    ASSERT_EQ(13, pool->bytes_allocated());
+    // Free
+    pool->Free(data, 13);
+    ASSERT_EQ(0, pool->bytes_allocated());
+  }
+
   void TestAlignment() {
     auto pool = memory_pool();
     {

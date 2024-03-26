@@ -63,32 +63,33 @@ class TestMemoryPool : public ::arrow::TestMemoryPoolBase {
   MemoryPool* memory_pool() override { return Factory::memory_pool(); }
 };
 
-TYPED_TEST_SUITE_P(TestMemoryPool);
+using MemoryPoolFactories =
+    ::testing::Types<DefaultMemoryPoolFactory, SystemMemoryPoolFactory
+#ifdef ARROW_JEMALLOC
+                     ,
+                     JemallocMemoryPoolFactory
+#endif
+#ifdef ARROW_MIMALLOC
+                     ,
+                     MimallocMemoryPoolFactory
+#endif
+                     >;
 
-TYPED_TEST_P(TestMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
+TYPED_TEST_SUITE(TestMemoryPool, MemoryPoolFactories);
 
-TYPED_TEST_P(TestMemoryPool, OOM) {
+TYPED_TEST(TestMemoryPool, MemoryTracking) { this->TestMemoryTracking(); }
+
+TYPED_TEST(TestMemoryPool, OOM) {
 #ifndef ADDRESS_SANITIZER
   this->TestOOM();
 #endif
 }
 
-TYPED_TEST_P(TestMemoryPool, Reallocate) { this->TestReallocate(); }
+TYPED_TEST(TestMemoryPool, Reallocate) { this->TestReallocate(); }
 
-TYPED_TEST_P(TestMemoryPool, Alignment) { this->TestAlignment(); }
+TYPED_TEST(TestMemoryPool, ReallocateNoCopy) { this->TestReallocateNoCopy(); }
 
-REGISTER_TYPED_TEST_SUITE_P(TestMemoryPool, MemoryTracking, OOM, Reallocate, Alignment);
-
-INSTANTIATE_TYPED_TEST_SUITE_P(Default, TestMemoryPool, DefaultMemoryPoolFactory);
-INSTANTIATE_TYPED_TEST_SUITE_P(System, TestMemoryPool, SystemMemoryPoolFactory);
-
-#ifdef ARROW_JEMALLOC
-INSTANTIATE_TYPED_TEST_SUITE_P(Jemalloc, TestMemoryPool, JemallocMemoryPoolFactory);
-#endif
-
-#ifdef ARROW_MIMALLOC
-INSTANTIATE_TYPED_TEST_SUITE_P(Mimalloc, TestMemoryPool, MimallocMemoryPoolFactory);
-#endif
+TYPED_TEST(TestMemoryPool, Alignment) { this->TestAlignment(); }
 
 TEST(DefaultMemoryPool, Identity) {
   // The default memory pool is pointer-identical to one of the backend-specific pools.

@@ -108,6 +108,12 @@ class ARROW_EXPORT MemoryPool {
     return Reallocate(old_size, new_size, kDefaultBufferAlignment, ptr);
   }
 
+  virtual Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                                  uint8_t** ptr) = 0;
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+    return ReallocateNoCopy(old_size, new_size, kDefaultBufferAlignment, ptr);
+  }
+
   /// Free an allocated region.
   ///
   /// @param buffer Pointer to the start of the allocated memory region
@@ -162,6 +168,8 @@ class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                          uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
 
   int64_t bytes_allocated() const override;
@@ -194,6 +202,8 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override;
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) override;
+  Status ReallocateNoCopy(int64_t old_size, int64_t new_size, int64_t alignment,
+                          uint8_t** ptr) override;
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override;
 
   int64_t bytes_allocated() const override;

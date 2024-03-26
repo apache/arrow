@@ -42,6 +42,7 @@ class JemallocAllocator {
   static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out);
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
                                   uint8_t** ptr);
+  static bool ResizeInPlace(int64_t old_size, int64_t new_size, uint8_t* ptr);
   static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment);
   static void ReleaseUnused();
 };
