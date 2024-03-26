@@ -1021,6 +1021,25 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
+def test_recordbatch_to_tensor_uniform_float_16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(np.array(arr1, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr3, dtype=np.float16), type=pa.float16()),
+        ], ["a", "b", "c"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2, arr3], np.float16).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.float16(), 27)
+
+
 def test_recordbatch_to_tensor_mixed_type():
     # uint16 + int16 = int32
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -1057,6 +1076,25 @@ def test_recordbatch_to_tensor_mixed_type():
     assert result.type == pa.float64()
     assert result.shape == expected.shape
     assert result.strides == expected.strides
+
+
+def test_recordbatch_to_tensor_unsupported_mixed_type_with_float16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(arr3, type=pa.float32()),
+        ], ["a", "b", "c"]
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Casting from or to halffloat is not supported."
+    ):
+        batch.to_tensor()
 
 
 def test_recordbatch_to_tensor_nan():

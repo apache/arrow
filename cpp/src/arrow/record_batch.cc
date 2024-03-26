@@ -250,10 +250,6 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
-template <typename Num>
-using CTypeOrFloat16 =
-    std::conditional_t<Num::type_id == Type::HALF_FLOAT, uint16_t, typename Num::c_type>;
-
 template <typename Out>
 struct ConvertColumnsToTensorVisitor {
   Out*& out_values;
@@ -262,7 +258,7 @@ struct ConvertColumnsToTensorVisitor {
   template <typename T>
   Status Visit(const T&) {
     if constexpr (is_numeric(T::type_id)) {
-      using In = CTypeOrFloat16<T>;
+      using In = typename T::c_type;
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
       if constexpr (std::is_same_v<In, Out>) {
@@ -281,7 +277,7 @@ struct ConvertColumnsToTensorVisitor {
 
 template <typename DataType>
 inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
-  using CType = CTypeOrFloat16<DataType>;
+  using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
 
   for (const auto& column : batch.columns()) {
@@ -323,6 +319,14 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
         return Status::TypeError("DataType is not supported: ",
                                  column(i)->type()->ToString());
       }
+
+      // Casting of float16 is not supported, through an error in this case
+      if (column(i)->type()->id() != result_field->type()->id() &&
+          (column(i)->type()->id() == Type::HALF_FLOAT ||
+           result_field->type()->id() == Type::HALF_FLOAT)) {
+        return Status::NotImplemented("Casting from or to halffloat is not supported.");
+      }
+
       ARROW_ASSIGN_OR_RAISE(
           result_field, result_field->MergeWith(
                             schema_->field(i)->WithName(result_field->name()), options));
@@ -340,6 +344,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
       ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
       break;
     case Type::UINT16:
+    case Type::HALF_FLOAT:
       ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
       break;
     case Type::UINT32:
@@ -359,9 +364,6 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
       break;
     case Type::INT64:
       ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
-      break;
-    case Type::HALF_FLOAT:
-      ConvertColumnsToTensor<HalfFloatType>(*this, result->mutable_data());
       break;
     case Type::FLOAT:
       ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());

@@ -816,6 +816,32 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   CheckTensor<DoubleType>(tensor2, 27, shape2, f_strides_2);
 }
 
+TEST_F(TestRecordBatch, ToTensorUnSupportedMixedFloat16) {
+  const int length = 9;
+
+  auto f0 = field("f0", float16());
+  auto f1 = field("f1", float64());
+
+  auto a0 = ArrayFromJSON(float16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(float64(), "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+  auto schema = ::arrow::schema(fields);
+  auto batch = RecordBatch::Make(schema, length, {a0, a1});
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      NotImplemented, "NotImplemented: Casting from or to halffloat is not supported.",
+      batch->ToTensor());
+
+  std::vector<std::shared_ptr<Field>> fields1 = {f1, f0};
+  auto schema1 = ::arrow::schema(fields1);
+  auto batch1 = RecordBatch::Make(schema1, length, {a1, a0});
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      NotImplemented, "NotImplemented: Casting from or to halffloat is not supported.",
+      batch1->ToTensor());
+}
+
 template <typename DataType>
 class TestBatchToTensor : public ::testing::Test {};
 
