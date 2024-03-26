@@ -101,7 +101,7 @@ export function bigNumToNumber<T extends BN<BigNumArray>>(bn: T, scale?: number)
 }
 
 /** @ignore */
-export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => {
+export function bigNumToString<T extends BN<BigNumArray>>(a: T): string {
     // use BigInt native implementation
     if (a.byteLength === 8) {
         const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
@@ -133,17 +133,17 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
 
     const negated = unsignedBigNumToString(<any>array);
     return `-${negated}`;
-});
+}
 
 /** @ignore */
-export const bigNumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint } = (<T extends BN<BigNumArray>>(a: T) => {
+export function bigNumToBigInt<T extends BN<BigNumArray>>(a: T): bigint {
     if (a.byteLength === 8) {
         const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
         return bigIntArray[0];
     } else {
         return <any>bigNumToString(a);
     }
-});
+}
 
 /** @ignore */
 function unsignedBigNumToString<T extends BN<BigNumArray>>(a: T) {
