@@ -17,8 +17,8 @@
 
 add_arrow_test(test
                SOURCES
-               fixed_shape_tensor_test.cc
+               tensor_extension_array_test.cc
                PREFIX
-               "arrow-fixed-shape-tensor")
+               "arrow-canonical-extensions")
 
 arrow_install_all_headers("arrow/extension")
