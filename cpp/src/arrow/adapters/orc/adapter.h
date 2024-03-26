@@ -48,16 +48,6 @@ struct StripeInformation {
   int64_t first_row_id;
 };
 
-/// \brief Version provided by the official ORC C++ library.
-struct ARROW_EXPORT OrcVersion {
-  int major;
-  int minor;
-  int patch;
-
-  /// \brief Return the current version of ORC C++ library.
-  static std::optional<OrcVersion> Get();
-};
-
 /// \class ORCFileReader
 /// \brief Read an Arrow Table or RecordBatch from an ORC file.
 class ARROW_EXPORT ORCFileReader {
