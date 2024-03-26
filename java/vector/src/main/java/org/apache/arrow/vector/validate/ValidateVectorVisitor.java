@@ -101,8 +101,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(BaseVariableWidthViewVector left, Void value) {
-    // TODO: update this logic accordingly
-    return null;
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

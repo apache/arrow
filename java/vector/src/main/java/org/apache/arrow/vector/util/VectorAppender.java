@@ -208,8 +208,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(BaseVariableWidthViewVector left, Void value) {
-    // TODO: update this logic accordingly
-    return null;
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

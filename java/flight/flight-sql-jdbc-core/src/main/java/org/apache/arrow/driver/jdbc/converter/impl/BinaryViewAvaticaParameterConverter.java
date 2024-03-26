@@ -23,17 +23,16 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Utf8View Arrow types.
- */
-public class Utf8ViewAvaticaParameterConverter extends BaseAvaticaParameterConverter {
+/** AvaticaParameterConverter for BinaryView Arrow types. */
+public class BinaryViewAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public Utf8ViewAvaticaParameterConverter(ArrowType.Utf8View type) {
+  public BinaryViewAvaticaParameterConverter(ArrowType.BinaryView type) {
+
   }
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    throw new UnsupportedOperationException("Utf8View not supported");
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override

@@ -243,6 +243,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.BinaryView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.LargeBinary type) {
     try (ArrowBuf offsets = importOffsets(type, LargeVarBinaryVector.OFFSET_WIDTH)) {
       final long start = offsets.getLong(0);

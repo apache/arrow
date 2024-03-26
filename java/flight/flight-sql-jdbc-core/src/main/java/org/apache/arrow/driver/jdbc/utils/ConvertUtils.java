@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.converter.impl.BinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.BinaryViewAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.BoolAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DateAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DecimalAvaticaParameterConverter;
@@ -222,6 +223,11 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.Binary type) {
       return new BinaryAvaticaParameterConverter(type).createParameter(field);
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.BinaryView type) {
+      return new BinaryViewAvaticaParameterConverter(type).createParameter(field);
     }
 
     @Override
