@@ -436,7 +436,7 @@ class KeyHasher {
             ColumnArrayFromArrayDataAndMetadata(array_data, metadata_[k], i, length);
       }
       // write directly to the cache
-      Hashing64::HashMultiColumn(column_arrays_, &ctx_, hashes_.data() + i);
+      DCHECK_OK(Hashing64::HashMultiColumn(column_arrays_, &ctx_, hashes_.data() + i));
     }
     DEBUG_SYNC(node_, "key hasher ", index_, " got hashes ",
                compute::internal::GenericToString(hashes_), DEBUG_MANIP(std::endl));

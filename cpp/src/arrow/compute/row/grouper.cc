@@ -680,8 +680,8 @@ struct GrouperFastImpl : public Grouper {
       encoder_.PrepareEncodeSelected(start_row, batch_size_next, cols_);
 
       // Compute hash
-      Hashing32::HashMultiColumn(encoder_.batch_all_cols(), &encode_ctx_,
-                                 minibatch_hashes_.data());
+      RETURN_NOT_OK(Hashing32::HashMultiColumn(encoder_.batch_all_cols(), &encode_ctx_,
+                                 minibatch_hashes_.data()));
 
       // Map
       auto match_bitvector =

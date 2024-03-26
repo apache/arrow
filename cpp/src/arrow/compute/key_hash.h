@@ -45,7 +45,7 @@ class ARROW_EXPORT Hashing32 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
+  static Status HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint32_t* out_hash);
 
   static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
@@ -158,7 +158,7 @@ class ARROW_EXPORT Hashing64 {
   friend void TestBloomSmall(BloomFilterBuildStrategy, int64_t, int, bool, bool);
 
  public:
-  static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
+  static Status HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint64_t* hashes);
 
   static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
@@ -218,25 +218,6 @@ class ARROW_EXPORT Hashing64 {
   static void HashInt(bool combine_hashes, uint32_t num_keys, uint64_t key_length,
                       const uint8_t* keys, uint64_t* hashes);
 };
-
-template <typename T = uint32_t>
-static int64_t EstimateBatchStackSize(int32_t batch_size) {
-  if (sizeof(T) == sizeof(uint32_t)) {
-    const int64_t alloc_for_hash_temp_buf =
-        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint32_t));
-    const int64_t alloc_for_null_hash_temp_buf = alloc_for_hash_temp_buf;
-    const int64_t alloc_for_null_indices_buf =
-        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint16_t));
-    return alloc_for_hash_temp_buf + alloc_for_null_hash_temp_buf +
-           alloc_for_null_indices_buf;
-  } else {
-    const int64_t alloc_for_null_hash_temp_buf =
-        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint64_t));
-    const int64_t alloc_for_null_indices_buf =
-        util::TempVectorStack::EstimateAllocSize(batch_size * sizeof(uint16_t));
-    return alloc_for_null_hash_temp_buf + alloc_for_null_indices_buf;
-  }
-}
 
 }  // namespace compute
 }  // namespace arrow

@@ -378,20 +378,28 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
   }
 }
 
-void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
+Status Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                                 LightContext* ctx, uint32_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
-  const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
-  const int64_t estimate_alloc_size = EstimateBatchStackSize<uint32_t>(alloc_batch_size);
+  const auto alloc_batch_size = std::min(num_rows, max_batch_size);
 
-  util::TempVectorStack temp_stack;
+  // pre calculate alloc size in TempVectorStack for hash_temp_buf, null_hash_temp_buf
+  // and null_indices_buf
+  const auto alloc_hash_temp_buf =
+      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint32_t));
+  const auto alloc_for_null_indices_buf =
+      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint16_t));
+  const auto alloc_size = alloc_hash_temp_buf * 2 + alloc_for_null_indices_buf;
+
+  std::shared_ptr<util::TempVectorStack> temp_stack(nullptr);
   if (!ctx->stack) {
-    ARROW_CHECK_OK(temp_stack.Init(default_memory_pool(), estimate_alloc_size));
-    ctx->stack = &temp_stack;
+    temp_stack = std::make_shared<util::TempVectorStack>();
+    RETURN_NOT_OK(temp_stack->Init(default_memory_pool(), alloc_size));
+    ctx->stack = temp_stack.get();
   } else {
-    ctx->stack->CheckAllocSizeValid(estimate_alloc_size);
+    RETURN_NOT_OK(ctx->stack->CheckAllocOverflow(alloc_size));
   }
 
   auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
@@ -471,6 +479,11 @@ void Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
     first_row += batch_size_next;
   }
+
+  if (temp_stack) {
+    ctx->stack = nullptr;
+  }
+  return Status::OK();
 }
 
 Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
@@ -483,9 +496,7 @@ Status Hashing32::HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
   LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
-
-  HashMultiColumn(column_arrays, &ctx, hashes);
-  return Status::OK();
+  return HashMultiColumn(column_arrays, &ctx, hashes);
 }
 
 inline uint64_t Hashing64::Avalanche(uint64_t acc) {
@@ -833,20 +844,27 @@ void Hashing64::HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t key_l
   }
 }
 
-void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                LightContext* ctx, uint64_t* hashes) {
+Status Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
+                                  LightContext* ctx, uint64_t* hashes) {
   uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
 
   constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
-  const uint32_t alloc_batch_size = std::min(num_rows, max_batch_size);
-  const uint64_t estimate_alloc_size = EstimateBatchStackSize<uint64_t>(alloc_batch_size);
+  const auto alloc_batch_size = std::min(num_rows, max_batch_size);
 
-  util::TempVectorStack temp_stack;
+  // pre calculate alloc size in TempVectorStack for null_indices_buf, null_hash_temp_buf
+  const auto alloc_for_null_hash_temp_buf =
+      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint64_t));
+  const auto alloc_for_null_indices_buf =
+      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint16_t));
+  const auto alloc_size = alloc_for_null_hash_temp_buf + alloc_for_null_indices_buf;
+
+  std::shared_ptr<util::TempVectorStack> temp_stack(nullptr);
   if (!ctx->stack) {
-    ARROW_CHECK_OK(temp_stack.Init(default_memory_pool(), estimate_alloc_size));
-    ctx->stack = &temp_stack;
+    temp_stack = std::make_shared<util::TempVectorStack>();
+    RETURN_NOT_OK(temp_stack->Init(default_memory_pool(), alloc_size));
+    ctx->stack = temp_stack.get();
   } else {
-    ctx->stack->CheckAllocSizeValid(estimate_alloc_size);
+    RETURN_NOT_OK(ctx->stack->CheckAllocOverflow(alloc_size));
   }
 
   auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
@@ -920,6 +938,11 @@ void Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
     first_row += batch_size_next;
   }
+
+  if (temp_stack) {
+    ctx->stack = nullptr;
+  }
+  return Status::OK();
 }
 
 Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
@@ -932,9 +955,7 @@ Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
   LightContext ctx;
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
-
-  HashMultiColumn(column_arrays, &ctx, hashes);
-  return Status::OK();
+  return HashMultiColumn(column_arrays, &ctx, hashes);
 }
 
 }  // namespace compute

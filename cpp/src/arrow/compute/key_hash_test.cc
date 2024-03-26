@@ -313,7 +313,7 @@ TEST(VectorHash, FixedLengthTailByteSafety) {
 
 TEST(HashBatch, AllocTempStackAsNeeded) {
   auto arr = arrow::ArrayFromJSON(arrow::int32(), "[9,2,6]");
-  const int32_t batch_size = static_cast<int32_t>(arr->length());
+  const auto batch_size = static_cast<int32_t>(arr->length());
   arrow::compute::ExecBatch exec_batch({arr}, batch_size);
   auto ctx = arrow::compute::default_exec_context();
   std::vector<arrow::compute::KeyColumnArray> temp_column_arrays;
@@ -324,11 +324,17 @@ TEST(HashBatch, AllocTempStackAsNeeded) {
       exec_batch, h1.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
       nullptr, 0, batch_size));
 
-  // alloc stack as HashBatch needed.
   util::TempVectorStack stack;
-  ASSERT_OK(
-      stack.Init(default_memory_pool(), EstimateBatchStackSize<int32_t>(batch_size)));
   std::vector<uint32_t> h2(batch_size);
+
+  // alloc stack overflow in HashBatch
+  ASSERT_OK(stack.Init(default_memory_pool(), batch_size));
+  ASSERT_NOT_OK(arrow::compute::Hashing32::HashBatch(
+      exec_batch, h2.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
+      &stack, 0, batch_size));
+
+  // alloc stack normally in HashBatch
+  ASSERT_OK(stack.Init(default_memory_pool(), 1024));
   ASSERT_OK(arrow::compute::Hashing32::HashBatch(
       exec_batch, h2.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
       &stack, 0, batch_size));
