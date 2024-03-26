@@ -86,7 +86,7 @@ class ARROW_EXPORT RecordBatch {
   /// strides (type size in bytes, type size in bytes * number of rows).
   /// Generated Tensor will have column-major layout.
   Result<std::shared_ptr<Tensor>> ToTensor(
-      MemoryPool* pool = default_memory_pool()) const;
+      bool null_to_nan = false, MemoryPool* pool = default_memory_pool()) const;
 
   /// \brief Construct record batch from struct array
   ///
