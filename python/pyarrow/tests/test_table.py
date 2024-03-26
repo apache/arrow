@@ -915,7 +915,7 @@ def check_tensors(tensor, expected_tensor, type, size):
     np.int8, np.int16, np.int32, np.int64,
     np.float32, np.float64,
 ])
-def test_recordbatch_to_tensor(typ):
+def test_recordbatch_to_tensor_uniform_type(typ):
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
@@ -957,6 +957,82 @@ def test_recordbatch_to_tensor(typ):
     expected = pa.Tensor.from_numpy(x)
 
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+
+
+def test_recordbatch_to_tensor_uniform_float_16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(np.array(arr1, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(np.array(arr3, dtype=np.float16), type=pa.float16()),
+        ], ["a", "b", "c"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2, arr3], np.float16).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.float16(), 27)
+
+
+def test_recordbatch_to_tensor_mixed_type():
+    # uint16 + int16 = int32
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 200, 300, np.nan, 500, 600, 700, 800, 900]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(arr2, type=pa.int16()),
+        ], ["a", "b"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2], np.int32).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    check_tensors(result, expected, pa.int32(), 18)
+
+    # uint16 + int16 + float32 = float64
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(arr2, type=pa.int16()),
+            pa.array(arr3, type=pa.float32()),
+        ], ["a", "b", "c"]
+    )
+    result = batch.to_tensor()
+
+    x = np.array([arr1, arr2, arr3], np.float64).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 27
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+
+def test_recordbatch_to_tensor_unsupported_mixed_type_with_float16():
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 200, 300, 400, 500, 600, 700, 800, 900]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.uint16()),
+            pa.array(np.array(arr2, dtype=np.float16), type=pa.float16()),
+            pa.array(arr3, type=pa.float32()),
+        ], ["a", "b", "c"]
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="Casting from or to halffloat is not supported."
+    ):
+        batch.to_tensor()
 
 
 def test_recordbatch_to_tensor_nan():
@@ -1015,27 +1091,14 @@ def test_recordbatch_to_tensor_empty():
 
 
 def test_recordbatch_to_tensor_unsupported():
-    # Mixed data type
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    # Unsupported data type
+    arr2 = ["a", "b", "c", "a", "b", "c", "a", "b", "c"]
     batch = pa.RecordBatch.from_arrays(
         [
             pa.array(arr1, type=pa.int32()),
-            pa.array(arr2, type=pa.float32()),
+            pa.array(arr2, type=pa.utf8()),
         ], ["a", "b"]
-    )
-    with pytest.raises(
-        pa.ArrowTypeError,
-        match="Can only convert a RecordBatch with uniform data type."
-    ):
-        batch.to_tensor()
-
-    # Unsupported data type
-    arr3 = ["a", "b", "c", "a", "b", "c", "a", "b", "c"]
-    batch = pa.RecordBatch.from_arrays(
-        [
-            pa.array(arr3, type=pa.utf8()),
-        ], ["c"]
     )
     with pytest.raises(
         pa.ArrowTypeError,

@@ -3392,6 +3392,9 @@ cdef class RecordBatch(_Tabular):
     def to_tensor(self):
         """
         Convert to a :class:`~pyarrow.Tensor`.
+
+        RecordBatches that can be converted have fields of type signed or unsigned
+        integer or float, including all bit-widths, with no validity bitmask.
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
