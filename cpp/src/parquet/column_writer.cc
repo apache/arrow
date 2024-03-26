@@ -2476,13 +2476,30 @@ void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values
 
 template <typename ArrayType>
 void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) {
-  std::array<uint64_t, kHashBatchSize> hashes;
-  for (int64_t i = 0; i < array.length(); i += kHashBatchSize) {
-    int64_t current_hash_batch_size = std::min(kHashBatchSize, array.length() - i);
-    bloom_filter->Hashes(array.raw_values() + i, current_hash_batch_size, hashes.data());
-    // current_hash_batch_size is less or equal than kHashBatchSize, so it's safe to cast
-    // to int.
-    bloom_filter->InsertHashes(hashes.data(), static_cast<int>(current_hash_batch_size));
+  // Using a smaller size because an extra `byte_arrays` are used.
+  constexpr int64_t kBinaryHashBatchSize = 64;
+  std::array<ByteArray, kBinaryHashBatchSize> byte_arrays;
+  std::array<uint64_t, kBinaryHashBatchSize> hashes;
+  int hashes_idx = 0;
+  auto flush_hashes = [&]() {
+    DCHECK(hashes_idx != 0);
+    bloom_filter->Hashes(byte_arrays.data(), static_cast<int>(hashes_idx), hashes.data());
+    bloom_filter->InsertHashes(hashes.data(), static_cast<int>(hashes_idx));
+    hashes_idx = 0;
+  };
+  PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
+      *array.data(),
+      [&](const std::string_view& view) {
+        if (hashes_idx == kHashBatchSize) {
+          flush_hashes();
+        }
+        byte_arrays[hashes_idx] = view;
+        ++hashes_idx;
+        return Status::OK();
+      },
+      []() { return Status::OK(); }));
+  if (hashes_idx != 0) {
+    flush_hashes();
   }
 }
 

@@ -5908,8 +5908,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
 }
 
 TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
-  auto schema = ::arrow::schema(
-      {::arrow::field("boolean_col", ::arrow::boolean())};
+  auto schema = ::arrow::schema({::arrow::field("boolean_col", ::arrow::boolean())});
   BloomFilterOptions options;
   options.ndv = 100;
   auto writer_properties = WriterProperties::Builder()
@@ -5921,11 +5920,24 @@ TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
         [null],
         [false]
   ])"});
-  EXPECT_THROW_THAT([&]() {
-    WriteFile(writer_properties, table); }, ParquetException,
-                  ::testing::Property(
-                      &ParquetException::what,
-                      ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  auto arrow_writer_properties = default_arrow_writer_properties();
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  // Write table to buffer.
+  auto sink = CreateOutputStream();
+  auto pool = ::arrow::default_memory_pool();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  EXPECT_THROW_THAT(
+      [&]() { ARROW_IGNORE_EXPR(arrow_writer->WriteTable(*table)); }, ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
 }
 
 }  // namespace arrow
