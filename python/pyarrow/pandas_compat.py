@@ -218,12 +218,17 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     index_column_metadata = []
     if preserve_index is not False:
         non_str_index_names = []
-        for level, arrow_type, descriptor in zip(index_levels, index_types,
-                                                 index_descriptors):
+        index_types_idx = 0
+        for level, descriptor in zip(index_levels, index_descriptors):
             if isinstance(descriptor, dict):
                 # The index is represented in a non-serialized fashion,
                 # e.g. RangeIndex
                 continue
+
+            # index_types contains only the types of descriptors that aren't
+            # dictionaries, so len(index_types) <= len(index_descriptors)
+            arrow_type = index_types[index_types_idx]
+            index_types_idx += 1
 
             if level.name is not None and not isinstance(level.name, str):
                 non_str_index_names.append(level.name)
